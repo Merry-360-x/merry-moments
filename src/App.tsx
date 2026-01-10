@@ -86,7 +86,7 @@ const App = () => (
               <Route
                 path="/admin/integrations"
                 element={
-                  <RequireRole allowed={["admin"]}>
+                  <RequireRole allowed={["admin", "staff"]}>
                     <AdminIntegrations />
                   </RequireRole>
                 }
