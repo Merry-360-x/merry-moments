@@ -7,12 +7,51 @@ const readEnv = (value: unknown) => (typeof value === "string" ? value.trim() : 
 const SUPABASE_URL = readEnv(import.meta.env.VITE_SUPABASE_URL);
 const SUPABASE_ANON_KEY = readEnv(import.meta.env.VITE_SUPABASE_ANON_KEY);
 
+const isLocalSupabaseUrl = (url: string) =>
+  /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?\b/i.test(url) || url.includes(".local");
+
+const validateSupabaseConfig = () => {
+  const errors: string[] = [];
+  if (!SUPABASE_URL) errors.push("Missing VITE_SUPABASE_URL");
+  if (!SUPABASE_ANON_KEY) errors.push("Missing VITE_SUPABASE_ANON_KEY");
+
+  if (SUPABASE_URL && isLocalSupabaseUrl(SUPABASE_URL)) {
+    errors.push(`VITE_SUPABASE_URL points to a local address: ${SUPABASE_URL}`);
+  }
+
+  if (errors.length === 0) return;
+
+  const message =
+    "Supabase is not configured for a live environment.\n" +
+    errors.map((e) => `- ${e}`).join("\n") +
+    "\n\nFix by setting VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your hosted Supabase project.";
+
+  if (import.meta.env.PROD) {
+    throw new Error(message);
+  }
+
+  // Dev: keep running, but make it very obvious.
+  console.warn(message);
+};
+
+validateSupabaseConfig();
+
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     storage: (() => {
+      // OAuth (PKCE) requires storage that survives full-page redirects.
+      // Prefer localStorage; fall back to in-memory storage if unavailable.
+      try {
+        if (typeof window !== "undefined" && window.localStorage) {
+          return window.localStorage;
+        }
+      } catch {
+        // ignore
+      }
+
       const store = new Map<string, string>();
       return {
         getItem: (key: string) => store.get(key) ?? null,
@@ -26,5 +65,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
     })(),
     persistSession: true,
     autoRefreshToken: true,
+    detectSessionInUrl: true,
+    flowType: "pkce",
   }
 });

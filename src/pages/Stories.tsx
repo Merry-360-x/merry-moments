@@ -26,9 +26,11 @@ const Stories = () => {
 
       {/* Stories Content */}
       <section className="container mx-auto px-4 lg:px-8 py-20">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading stories...</p>
+        <div className="bg-card rounded-xl p-10 shadow-card text-center">
+          <h2 className="text-xl font-semibold text-foreground mb-2">Stories are coming soon</h2>
+          <p className="text-muted-foreground max-w-xl mx-auto">
+            This section will show real traveler stories once the stories feature is connected to the database.
+          </p>
         </div>
       </section>
 

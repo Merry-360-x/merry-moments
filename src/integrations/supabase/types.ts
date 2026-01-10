@@ -100,6 +100,7 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          date_of_birth: string | null
           full_name: string | null
           id: string
           phone: string | null
@@ -109,6 +110,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          date_of_birth?: string | null
           full_name?: string | null
           id?: string
           phone?: string | null
@@ -118,9 +120,220 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
+          date_of_birth?: string | null
           full_name?: string | null
           id?: string
           phone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      tours: {
+        Row: {
+          category: string
+          created_at: string
+          currency: string
+          description: string | null
+          difficulty: string
+          duration_days: number
+          id: string
+          images: string[] | null
+          is_published: boolean | null
+          location: string | null
+          price_per_person: number
+          rating: number | null
+          review_count: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          difficulty?: string
+          duration_days?: number
+          id?: string
+          images?: string[] | null
+          is_published?: boolean | null
+          location?: string | null
+          price_per_person?: number
+          rating?: number | null
+          review_count?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          difficulty?: string
+          duration_days?: number
+          id?: string
+          images?: string[] | null
+          is_published?: boolean | null
+          location?: string | null
+          price_per_person?: number
+          rating?: number | null
+          review_count?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      transport_routes: {
+        Row: {
+          base_price: number
+          created_at: string
+          currency: string
+          distance_km: number | null
+          duration_minutes: number | null
+          from_location: string
+          id: string
+          is_published: boolean | null
+          to_location: string
+          updated_at: string
+        }
+        Insert: {
+          base_price?: number
+          created_at?: string
+          currency?: string
+          distance_km?: number | null
+          duration_minutes?: number | null
+          from_location: string
+          id?: string
+          is_published?: boolean | null
+          to_location: string
+          updated_at?: string
+        }
+        Update: {
+          base_price?: number
+          created_at?: string
+          currency?: string
+          distance_km?: number | null
+          duration_minutes?: number | null
+          from_location?: string
+          id?: string
+          is_published?: boolean | null
+          to_location?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      transport_services: {
+        Row: {
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          is_published: boolean | null
+          price_hint: string | null
+          slug: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_published?: boolean | null
+          price_hint?: string | null
+          slug: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_published?: boolean | null
+          price_hint?: string | null
+          slug?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      transport_vehicles: {
+        Row: {
+          created_at: string
+          currency: string
+          driver_included: boolean | null
+          id: string
+          image_url: string | null
+          is_published: boolean | null
+          price_per_day: number
+          provider_name: string | null
+          seats: number
+          title: string
+          updated_at: string
+          vehicle_type: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          driver_included?: boolean | null
+          id?: string
+          image_url?: string | null
+          is_published?: boolean | null
+          price_per_day?: number
+          provider_name?: string | null
+          seats?: number
+          title: string
+          updated_at?: string
+          vehicle_type?: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          driver_included?: boolean | null
+          id?: string
+          image_url?: string | null
+          is_published?: boolean | null
+          price_per_day?: number
+          provider_name?: string | null
+          seats?: number
+          title?: string
+          updated_at?: string
+          vehicle_type?: string
+        }
+        Relationships: []
+      }
+      trip_cart_items: {
+        Row: {
+          created_at: string
+          end_date: string | null
+          id: string
+          item_type: Database["public"]["Enums"]["trip_item_type"]
+          quantity: number
+          reference_id: string
+          start_date: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          item_type: Database["public"]["Enums"]["trip_item_type"]
+          quantity?: number
+          reference_id: string
+          start_date?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          item_type?: Database["public"]["Enums"]["trip_item_type"]
+          quantity?: number
+          reference_id?: string
+          start_date?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -297,6 +510,7 @@ export type Database = {
     }
     Enums: {
       app_role: "guest" | "host" | "staff" | "admin"
+      trip_item_type: "tour" | "transport_service" | "transport_vehicle" | "transport_route"
     }
     CompositeTypes: {
       [_ in never]: never

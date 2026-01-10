@@ -241,14 +241,17 @@ const HostDashboard = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this property?")) return;
+    if (!confirm("Remove this property from the website? This will unpublish it (no data will be deleted).")) return;
 
-    const { error } = await supabase.from("properties").delete().eq("id", id);
+    const { error } = await supabase
+      .from("properties")
+      .update({ is_published: false })
+      .eq("id", id);
 
     if (error) {
       toast({ variant: "destructive", title: "Error", description: error.message });
     } else {
-      toast({ title: "Success", description: "Property deleted." });
+      toast({ title: "Success", description: "Property removed from public view." });
       fetchData();
     }
   };
@@ -647,6 +650,7 @@ const HostDashboard = () => {
                           <button
                             onClick={() => handleDelete(property.id)}
                             className="p-2 hover:bg-destructive/10 rounded-lg transition-colors"
+                            title="Remove from website"
                           >
                             <Trash2 className="w-4 h-4 text-destructive" />
                           </button>

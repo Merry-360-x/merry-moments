@@ -1,16 +1,18 @@
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import Logo from "@/components/Logo";
-import { Eye, EyeOff } from "lucide-react";
+import { Chrome, Eye, EyeOff } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 const Auth = () => {
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,6 +24,21 @@ const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  const redirectTo = (() => {
+    const raw = searchParams.get("redirect");
+    if (!raw) return null;
+    if (!raw.startsWith("/")) return null;
+    // Prevent open-redirect style values like "//evil.com"
+    if (raw.startsWith("//")) return null;
+    return raw;
+  })();
+
+  useEffect(() => {
+    const mode = searchParams.get("mode");
+    if (mode === "signup") setIsLogin(false);
+    if (mode === "login") setIsLogin(true);
+  }, [searchParams]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -31,7 +48,7 @@ const Auth = () => {
         const { error } = await signIn(email, password);
         if (error) throw error;
         toast({ title: t("auth.toast.welcomeBack"), description: t("auth.toast.loggedIn") });
-        navigate("/");
+        navigate(redirectTo ?? "/");
       } else {
         if (!fullName.trim()) {
           throw new Error(t("auth.errors.fullNameRequired"));
@@ -39,15 +56,39 @@ const Auth = () => {
         const { error } = await signUp(email, password, fullName);
         if (error) throw error;
         toast({ title: t("auth.toast.accountCreated"), description: t("auth.toast.signedUp") });
-        navigate("/");
+        navigate(redirectTo ?? "/");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : undefined;
       toast({
         variant: "destructive",
         title: t("common.error"),
-        description: error.message || t("common.somethingWentWrong"),
+        description: message || t("common.somethingWentWrong"),
       });
     } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    try {
+      const callbackUrl = new URL(redirectTo ?? "/", window.location.origin).toString();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: callbackUrl,
+        },
+      });
+      if (error) throw error;
+      // On success, Supabase will redirect the browser.
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : undefined;
+      toast({
+        variant: "destructive",
+        title: t("common.error"),
+        description: message || t("common.somethingWentWrong"),
+      });
       setIsLoading(false);
     }
   };
@@ -70,6 +111,26 @@ const Auth = () => {
         </div>
 
         <div className="bg-card rounded-xl shadow-card p-6">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={handleGoogleSignIn}
+            disabled={isLoading}
+          >
+            <Chrome className="w-4 h-4 mr-2" />
+            {t("auth.actions.continueWithGoogle")}
+          </Button>
+
+          <div className="relative my-5">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">or</span>
+            </div>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
               <div>
@@ -133,7 +194,11 @@ const Auth = () => {
 
           <div className="mt-6 text-center">
             <button
-              onClick={() => setIsLogin(!isLogin)}
+              onClick={() => {
+                const next = !isLogin;
+                setIsLogin(next);
+                navigate(next ? "/signup" : "/login", { replace: true });
+              }}
               className="text-sm text-primary hover:underline"
             >
               {isLogin

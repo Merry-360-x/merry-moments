@@ -40,10 +40,36 @@
   "common": {
     "search": "Shakisha",
     "loading": "Birimo gupakira...",
+    "error": "Ikosa",
+    "cancel": "Hagarika",
+    "somethingWentWrong": "Hari ikibazo cyabaye.",
     "loadingProperties": "Turimo gupakira amacumbi...",
     "couldNotLoadProperties": "Ntitwabashije kubona amacumbi ubu.",
     "noPublishedProperties": "Nta macumbi yatangajwe ubu.",
     "perNight": "/ ijoro"
+  },
+  "bookings": {
+    "title": "Amabukiro yanjye",
+    "subtitle": "Kurikirana kandi ucunge amabukiro yawe",
+    "emptyTitle": "Nta bukiro ufite",
+    "emptySubtitle": "Numara kubuka icumbi, rizagaragara hano.",
+    "browse": "Reba amacumbi",
+    "unknownProperty": "Icumbi kitazwi",
+    "confirmCancel": "Ushaka guhagarika iri bukiro?",
+    "toast": {
+      "cancelled": "Bukiro ryahagaritswe."
+    },
+    "labels": {
+      "checkIn": "Itariki yo kwinjira",
+      "checkOut": "Itariki yo gusohoka",
+      "guests": "Abashyitsi",
+      "total": "Igiteranyo"
+    },
+    "status": {
+      "pending": "Ritegereje",
+      "confirmed": "Ryemejwe",
+      "cancelled": "Ryahagaritswe"
+    }
   },
   "auth": {
     "title": {
@@ -65,6 +91,7 @@
       "password": "Andika ijambo ry’ibanga"
     },
     "actions": {
+      "continueWithGoogle": "Komeza ukoresheje Google",
       "createAccount": "Fungura konti",
       "switchToSignup": "Nta konti ufite? Iyandikishe",
       "switchToLogin": "Usanzwe ufite konti? Injira"

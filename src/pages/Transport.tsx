@@ -1,14 +1,34 @@
-import { ArrowLeftRight, Users, Car, Search, MapPin, Frown } from "lucide-react";
+import { Car, Search, MapPin, Frown, ArrowLeftRight } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import type { Tables } from "@/integrations/supabase/types";
+
+type TransportServiceRow = Pick<Tables<"transport_services">, "id" | "title" | "description" | "slug">;
+type TransportVehicleRow = Pick<
+  Tables<"transport_vehicles">,
+  "id" | "title" | "provider_name" | "vehicle_type" | "seats" | "price_per_day" | "currency" | "driver_included" | "image_url"
+>;
+type TransportRouteRow = Pick<Tables<"transport_routes">, "id" | "from_location" | "to_location" | "base_price" | "currency">;
 
 const Transport = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [query, setQuery] = useState("");
   const [vehicle, setVehicle] = useState("All Vehicles");
+
+  useEffect(() => {
+    setQuery(searchParams.get("q") ?? "");
+    setVehicle(searchParams.get("vehicle") ?? "All Vehicles");
+  }, [searchParams]);
 
   const runSearch = () => {
     const params = new URLSearchParams();
@@ -16,6 +36,92 @@ const Transport = () => {
     if (vehicle && vehicle !== "All Vehicles") params.set("vehicle", vehicle);
     const qs = params.toString();
     navigate(qs ? `/transport?${qs}` : "/transport");
+  };
+
+  const { data: services = [] } = useQuery({
+    queryKey: ["transport_services"],
+    queryFn: async (): Promise<TransportServiceRow[]> => {
+      const { data, error } = await supabase
+        .from("transport_services")
+        .select("id, title, description, slug")
+        .eq("is_published", true)
+        .order("created_at", { ascending: true });
+      if (error) return [];
+      return (data as TransportServiceRow[] | null) ?? [];
+    },
+  });
+
+  const { data: vehicles = [], isLoading: vehiclesLoading } = useQuery({
+    queryKey: ["transport_vehicles", searchParams.get("vehicle") ?? "All Vehicles"],
+    queryFn: async (): Promise<TransportVehicleRow[]> => {
+      let q = supabase
+        .from("transport_vehicles")
+        .select(
+          "id, title, provider_name, vehicle_type, seats, price_per_day, currency, driver_included, image_url"
+        )
+        .eq("is_published", true)
+        .order("created_at", { ascending: false });
+
+      const vt = searchParams.get("vehicle");
+      if (vt && vt !== "All Vehicles") q = q.eq("vehicle_type", vt);
+
+      const { data, error } = await q;
+      if (error) return [];
+      return (data as TransportVehicleRow[] | null) ?? [];
+    },
+  });
+
+  const { data: routes = [] } = useQuery({
+    queryKey: ["transport_routes", searchParams.get("q") ?? ""],
+    queryFn: async (): Promise<TransportRouteRow[]> => {
+      let q = supabase
+        .from("transport_routes")
+        .select("id, from_location, to_location, base_price, currency")
+        .eq("is_published", true)
+        .order("created_at", { ascending: false });
+
+      const trimmed = (searchParams.get("q") ?? "").trim();
+      if (trimmed) {
+        q = q.or(`from_location.ilike.%${trimmed}%,to_location.ilike.%${trimmed}%`);
+      }
+
+      const { data, error } = await q;
+      if (error) return [];
+      return (data as TransportRouteRow[] | null) ?? [];
+    },
+  });
+
+  const requireSignIn = () => {
+    if (user) return true;
+    toast({
+      variant: "destructive",
+      title: "Sign in required",
+      description: "Please sign in to add items to your Trip Cart.",
+    });
+    const qs = searchParams.toString();
+    navigate(`/login?redirect=/transport${qs ? `?${qs}` : ""}`);
+    return false;
+  };
+
+  const addToCart = async (payload: {
+    item_type: Tables<"trip_cart_items">["item_type"];
+    reference_id: string;
+  }) => {
+    if (!requireSignIn()) return;
+
+    const { error } = await supabase.from("trip_cart_items").insert({
+      user_id: user!.id,
+      item_type: payload.item_type,
+      reference_id: payload.reference_id,
+      quantity: 1,
+    });
+
+    if (error) {
+      toast({ variant: "destructive", title: "Could not add to Trip Cart", description: error.message });
+      return;
+    }
+
+    toast({ title: "Added to Trip Cart" });
   };
 
   return (
@@ -61,25 +167,126 @@ const Transport = () => {
       </div>
 
       {/* Service Cards */}
-      <div className="container mx-auto px-4 lg:px-8 mb-16">
-        <div className="bg-card rounded-xl p-10 shadow-card text-center">
-          <div className="w-16 h-16 rounded-full bg-primary/10 mx-auto mb-6 flex items-center justify-center">
-            <Car className="w-7 h-7 text-primary" />
-          </div>
-          <h2 className="text-xl font-semibold text-foreground mb-2">Transportation is coming soon</h2>
-          <p className="text-muted-foreground max-w-xl mx-auto">
-            Transportation options will appear here once your live database and routes are connected.
-          </p>
+      <div className="container mx-auto px-4 lg:px-8 mb-10">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {services.length === 0 ? (
+            <div className="md:col-span-3 bg-card rounded-xl p-10 shadow-card text-center">
+              <div className="w-16 h-16 rounded-full bg-primary/10 mx-auto mb-6 flex items-center justify-center">
+                <Car className="w-7 h-7 text-primary" />
+              </div>
+              <h2 className="text-xl font-semibold text-foreground mb-2">No transport services yet</h2>
+              <p className="text-muted-foreground max-w-xl mx-auto">
+                Add services in your database and they’ll show up here.
+              </p>
+            </div>
+          ) : (
+            services.map((s) => (
+              <div key={s.id} className="bg-card rounded-xl shadow-card p-6">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <Car className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-foreground">{s.title}</div>
+                    <div className="text-sm text-muted-foreground">{s.description}</div>
+                  </div>
+                </div>
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => addToCart({ item_type: "transport_service", reference_id: s.id })}
+                >
+                  Add to Trip Cart
+                </Button>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
       {/* Popular Routes */}
       <div className="container mx-auto px-4 lg:px-8 py-12">
         <h2 className="text-2xl font-bold text-foreground text-center mb-12">Popular Routes</h2>
-        <div className="text-center py-12">
-          <Frown className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-          <p className="text-muted-foreground">No routes found matching your search</p>
-        </div>
+
+        {routes.length === 0 ? (
+          <div className="text-center py-12">
+            <Frown className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">No routes found matching your search</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {routes.map((r) => (
+              <div key={r.id} className="bg-card rounded-xl shadow-card p-6">
+                <div className="flex items-center gap-2 text-foreground font-semibold mb-2">
+                  <ArrowLeftRight className="w-4 h-4 text-primary" />
+                  {r.from_location} → {r.to_location}
+                </div>
+                <div className="text-muted-foreground mb-4">
+                  {r.currency} {Number(r.base_price).toLocaleString()}
+                </div>
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => addToCart({ item_type: "transport_route", reference_id: r.id })}
+                >
+                  Add to Trip Cart
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* All Vehicles */}
+      <div className="container mx-auto px-4 lg:px-8 pb-16">
+        <h2 className="text-2xl font-bold text-foreground text-center mb-12">All Vehicles</h2>
+
+        {vehiclesLoading ? (
+          <div className="py-12 text-center">
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading vehicles...</p>
+          </div>
+        ) : vehicles.length === 0 ? (
+          <div className="text-center py-12">
+            <Frown className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">No vehicles found</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {vehicles.map((v) => (
+              <div key={v.id} className="bg-card rounded-xl shadow-card overflow-hidden">
+                <div className="aspect-[4/3] bg-muted overflow-hidden">
+                  {v.image_url ? (
+                    <img src={v.image_url} alt={v.title} className="w-full h-full object-cover" loading="lazy" />
+                  ) : null}
+                </div>
+                <div className="p-6">
+                  <div className="text-xs text-muted-foreground mb-1">
+                    {v.driver_included ? "Driver Included" : "Self Drive"}
+                  </div>
+                  <div className="font-semibold text-foreground">{v.provider_name ?? v.title}</div>
+                  <div className="text-sm text-muted-foreground mb-3">
+                    {v.vehicle_type} • {v.seats} seats
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-foreground">
+                      <span className="font-bold">
+                        {v.currency} {Number(v.price_per_day).toLocaleString()}
+                      </span>
+                      <span className="text-muted-foreground"> / day</span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={() => addToCart({ item_type: "transport_vehicle", reference_id: v.id })}
+                    >
+                      Add to Trip Cart
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <Footer />

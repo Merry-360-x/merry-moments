@@ -3,27 +3,34 @@
 -- IMPORTANT: previously the "Users can insert own roles" policy allowed privilege escalation.
 -- This migration removes that policy and replaces it with safe admin/staff policies.
 
--- user_roles
-ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
+DO $$
+BEGIN
+  IF to_regclass('public.user_roles') IS NOT NULL
+     AND EXISTS (
+       SELECT 1
+       FROM pg_proc p
+       JOIN pg_namespace n ON n.oid = p.pronamespace
+       WHERE n.nspname = 'public' AND p.proname = 'has_role'
+     ) THEN
+    EXECUTE 'ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY';
 
--- Remove dangerous / overly-broad policies
-DROP POLICY IF EXISTS "Users can insert own roles" ON public.user_roles;
-DROP POLICY IF EXISTS "Staff and admins can insert roles" ON public.user_roles;
+    -- Remove dangerous / overly-broad policies
+    EXECUTE 'DROP POLICY IF EXISTS "Users can insert own roles" ON public.user_roles';
+    EXECUTE 'DROP POLICY IF EXISTS "Staff and admins can insert roles" ON public.user_roles';
 
--- Admin-only role management
-CREATE POLICY IF NOT EXISTS "Admins can view all roles"
-  ON public.user_roles FOR SELECT
-  USING (public.has_role(auth.uid(), 'admin'));
+    -- Admin-only role management
+    EXECUTE 'DROP POLICY IF EXISTS "Admins can view all roles" ON public.user_roles';
+    EXECUTE 'CREATE POLICY "Admins can view all roles" ON public.user_roles FOR SELECT USING (public.has_role(auth.uid(), ''admin''))';
 
-CREATE POLICY IF NOT EXISTS "Admins can insert roles"
-  ON public.user_roles FOR INSERT
-  WITH CHECK (public.has_role(auth.uid(), 'admin'));
+    EXECUTE 'DROP POLICY IF EXISTS "Admins can insert roles" ON public.user_roles';
+    EXECUTE 'CREATE POLICY "Admins can insert roles" ON public.user_roles FOR INSERT WITH CHECK (public.has_role(auth.uid(), ''admin''))';
 
-CREATE POLICY IF NOT EXISTS "Admins can delete roles"
-  ON public.user_roles FOR DELETE
-  USING (public.has_role(auth.uid(), 'admin'));
+    EXECUTE 'DROP POLICY IF EXISTS "Admins can delete roles" ON public.user_roles';
+    EXECUTE 'CREATE POLICY "Admins can delete roles" ON public.user_roles FOR DELETE USING (public.has_role(auth.uid(), ''admin''))';
 
--- Staff can grant host role (needed for staff approvals)
-CREATE POLICY IF NOT EXISTS "Staff can grant host role"
-  ON public.user_roles FOR INSERT
-  WITH CHECK (public.has_role(auth.uid(), 'staff') AND role = 'host');
+    -- Staff can grant host role (needed for staff approvals)
+    EXECUTE 'DROP POLICY IF EXISTS "Staff can grant host role" ON public.user_roles';
+    EXECUTE 'CREATE POLICY "Staff can grant host role" ON public.user_roles FOR INSERT WITH CHECK (public.has_role(auth.uid(), ''staff'') AND role = ''host'')';
+  END IF;
+END$$;
+

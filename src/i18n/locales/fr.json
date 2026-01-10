@@ -41,11 +41,35 @@
     "search": "Rechercher",
     "loading": "Chargement...",
     "error": "Erreur",
+    "cancel": "Annuler",
     "somethingWentWrong": "Une erreur s’est produite.",
     "loadingProperties": "Chargement des hébergements...",
     "couldNotLoadProperties": "Impossible de charger les hébergements pour le moment.",
     "noPublishedProperties": "Aucun hébergement publié pour le moment.",
     "perNight": "/ nuit"
+  },
+  "bookings": {
+    "title": "Mes réservations",
+    "subtitle": "Gérez et suivez vos réservations",
+    "emptyTitle": "Aucune réservation",
+    "emptySubtitle": "Lorsque vous réserverez un séjour, il apparaîtra ici.",
+    "browse": "Parcourir les hébergements",
+    "unknownProperty": "Hébergement inconnu",
+    "confirmCancel": "Annuler cette réservation ?",
+    "toast": {
+      "cancelled": "Réservation annulée."
+    },
+    "labels": {
+      "checkIn": "Arrivée",
+      "checkOut": "Départ",
+      "guests": "Voyageurs",
+      "total": "Total"
+    },
+    "status": {
+      "pending": "En attente",
+      "confirmed": "Confirmée",
+      "cancelled": "Annulée"
+    }
   },
   "auth": {
     "title": {
@@ -67,6 +91,7 @@
       "password": "Entrez votre mot de passe"
     },
     "actions": {
+      "continueWithGoogle": "Continuer avec Google",
       "createAccount": "Créer un compte",
       "switchToSignup": "Pas de compte ? Inscrivez-vous",
       "switchToLogin": "Déjà un compte ? Connectez-vous"

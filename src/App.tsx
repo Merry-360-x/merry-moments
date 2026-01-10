@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { PreferencesProvider } from "@/contexts/PreferencesProvider";
 import Index from "./pages/Index";
@@ -25,6 +25,7 @@ import AdminRoles from "./pages/AdminRoles";
 import PropertyDetails from "./pages/PropertyDetails";
 import TripCart from "./pages/TripCart";
 import InfoPage from "./pages/InfoPage";
+import Dashboard from "./pages/Dashboard";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,8 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/login" element={<Navigate to="/auth?mode=login" replace />} />
+              <Route path="/signup" element={<Navigate to="/auth?mode=signup" replace />} />
               <Route path="/accommodations" element={<Accommodations />} />
               <Route path="/tours" element={<Tours />} />
               <Route path="/transport" element={<Transport />} />
@@ -52,14 +55,7 @@ const App = () => (
                   </RequireAuth>
                 }
               />
-              <Route
-                path="/become-host"
-                element={
-                  <RequireAuth>
-                    <HostApplication />
-                  </RequireAuth>
-                }
-              />
+              <Route path="/become-host" element={<HostApplication />} />
               <Route
                 path="/admin"
                 element={
@@ -87,6 +83,17 @@ const App = () => (
               <Route path="/my-bookings" element={<MyBookings />} />
               <Route path="/favorites" element={<Favorites />} />
               <Route path="/trip-cart" element={<TripCart />} />
+              <Route
+                path="/dashboard"
+                element={
+                  <RequireAuth>
+                    <Dashboard />
+                  </RequireAuth>
+                }
+              />
+              <Route path="/dashboard/watchlist" element={<Navigate to="/favorites" replace />} />
+              <Route path="/dashboard/trip-cart" element={<Navigate to="/trip-cart" replace />} />
+              <Route path="/profile" element={<Navigate to="/dashboard" replace />} />
               <Route path="/properties/:id" element={<PropertyDetails />} />
               <Route path="/about" element={<InfoPage kind="about" />} />
               <Route path="/contact" element={<InfoPage kind="contact" />} />

@@ -41,11 +41,35 @@
     "search": "Search",
     "loading": "Loading...",
     "error": "Error",
+    "cancel": "Cancel",
     "somethingWentWrong": "Something went wrong.",
     "loadingProperties": "Loading properties...",
     "couldNotLoadProperties": "Couldn’t load properties right now.",
     "noPublishedProperties": "No published properties yet.",
     "perNight": "/ night"
+  },
+  "bookings": {
+    "title": "My Bookings",
+    "subtitle": "Manage and track your reservations",
+    "emptyTitle": "No bookings yet",
+    "emptySubtitle": "When you book a stay, it will appear here.",
+    "browse": "Browse accommodations",
+    "unknownProperty": "Unknown property",
+    "confirmCancel": "Cancel this booking?",
+    "toast": {
+      "cancelled": "Booking cancelled."
+    },
+    "labels": {
+      "checkIn": "Check-in",
+      "checkOut": "Check-out",
+      "guests": "Guests",
+      "total": "Total"
+    },
+    "status": {
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "cancelled": "Cancelled"
+    }
   },
   "auth": {
     "title": {
@@ -67,6 +91,7 @@
       "password": "Enter your password"
     },
     "actions": {
+      "continueWithGoogle": "Continue with Google",
       "createAccount": "Create account",
       "switchToSignup": "Don’t have an account? Sign up",
       "switchToLogin": "Already have an account? Sign in"

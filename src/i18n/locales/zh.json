@@ -41,11 +41,35 @@
     "search": "搜索",
     "loading": "加载中...",
     "error": "错误",
+    "cancel": "取消",
     "somethingWentWrong": "出现了一些问题。",
     "loadingProperties": "正在加载住宿...",
     "couldNotLoadProperties": "暂时无法加载住宿。",
     "noPublishedProperties": "暂时没有已发布的住宿。",
     "perNight": "/ 晚"
+  },
+  "bookings": {
+    "title": "我的预订",
+    "subtitle": "管理并查看你的预订",
+    "emptyTitle": "暂无预订",
+    "emptySubtitle": "当你预订住宿后，将会在这里显示。",
+    "browse": "浏览住宿",
+    "unknownProperty": "未知房源",
+    "confirmCancel": "要取消这次预订吗？",
+    "toast": {
+      "cancelled": "预订已取消。"
+    },
+    "labels": {
+      "checkIn": "入住",
+      "checkOut": "退房",
+      "guests": "人数",
+      "total": "总计"
+    },
+    "status": {
+      "pending": "待处理",
+      "confirmed": "已确认",
+      "cancelled": "已取消"
+    }
   },
   "auth": {
     "title": {
@@ -67,6 +91,7 @@
       "password": "请输入密码"
     },
     "actions": {
+      "continueWithGoogle": "使用 Google 继续",
       "createAccount": "创建账户",
       "switchToSignup": "没有账户？注册",
       "switchToLogin": "已有账户？登录"

@@ -41,11 +41,35 @@
     "search": "Tafuta",
     "loading": "Inapakia...",
     "error": "Hitilafu",
+    "cancel": "Ghairi",
     "somethingWentWrong": "Kuna tatizo limetokea.",
     "loadingProperties": "Inapakia malazi...",
     "couldNotLoadProperties": "Imeshindikana kupakia malazi kwa sasa.",
     "noPublishedProperties": "Bado hakuna malazi yaliyochapishwa.",
     "perNight": "/ usiku"
+  },
+  "bookings": {
+    "title": "Uhifadhi wangu",
+    "subtitle": "Dhibiti na fuatilia uhifadhi wako",
+    "emptyTitle": "Bado huna uhifadhi",
+    "emptySubtitle": "Ukihifadhi malazi, yataonekana hapa.",
+    "browse": "Vinjari malazi",
+    "unknownProperty": "Malazi yasiyojulikana",
+    "confirmCancel": "Ghairi uhifadhi huu?",
+    "toast": {
+      "cancelled": "Uhifadhi umeghairiwa."
+    },
+    "labels": {
+      "checkIn": "Kuingia",
+      "checkOut": "Kutoka",
+      "guests": "Wageni",
+      "total": "Jumla"
+    },
+    "status": {
+      "pending": "Inasubiri",
+      "confirmed": "Imethibitishwa",
+      "cancelled": "Imeghairiwa"
+    }
   },
   "auth": {
     "title": {
@@ -67,6 +91,7 @@
       "password": "Weka nenosiri lako"
     },
     "actions": {
+      "continueWithGoogle": "Endelea kwa Google",
       "createAccount": "Tengeneza akaunti",
       "switchToSignup": "Huna akaunti? Jisajili",
       "switchToLogin": "Una akaunti tayari? Ingia"
