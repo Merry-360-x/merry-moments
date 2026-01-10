@@ -1,0 +1,105 @@
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
+import PropertyCard from "@/components/PropertyCard";
+import { supabase } from "@/integrations/supabase/client";
+import { Heart } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+interface FavoriteProperty {
+  id: string;
+  properties: {
+    id: string;
+    title: string;
+    location: string;
+    price_per_night: number;
+    property_type: string;
+    rating: number;
+    review_count: number;
+    images: string[];
+  };
+}
+
+const Favorites = () => {
+  const { user, isLoading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  const [favorites, setFavorites] = useState<FavoriteProperty[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate("/auth");
+    }
+  }, [user, authLoading, navigate]);
+
+  useEffect(() => {
+    if (user) {
+      fetchFavorites();
+    }
+  }, [user]);
+
+  const fetchFavorites = async () => {
+    const { data } = await supabase
+      .from("favorites")
+      .select("id, properties(id, title, location, price_per_night, property_type, rating, review_count, images)")
+      .eq("user_id", user!.id);
+
+    if (data) setFavorites(data as FavoriteProperty[]);
+    setIsLoading(false);
+  };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Navbar />
+
+      <div className="container mx-auto px-4 lg:px-8 py-12">
+        <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">My Favorites</h1>
+        <p className="text-muted-foreground mb-8">Properties you've saved for later</p>
+
+        {isLoading ? (
+          <div className="py-20 text-center">
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+          </div>
+        ) : favorites.length === 0 ? (
+          <div className="py-20 text-center">
+            <Heart className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-foreground mb-2">No favorites yet</h2>
+            <p className="text-muted-foreground mb-6">
+              Save properties you love by clicking the heart icon
+            </p>
+            <Button onClick={() => navigate("/accommodations")}>Browse Properties</Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {favorites.map((fav) => (
+              <PropertyCard
+                key={fav.id}
+                image={fav.properties.images?.[0] || "/placeholder.svg"}
+                title={fav.properties.title}
+                location={fav.properties.location}
+                rating={Number(fav.properties.rating) || 0}
+                reviews={fav.properties.review_count || 0}
+                price={Number(fav.properties.price_per_night)}
+                type={fav.properties.property_type}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <Footer />
+    </div>
+  );
+};
+
+export default Favorites;
