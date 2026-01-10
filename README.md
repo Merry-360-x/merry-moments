@@ -36,6 +36,46 @@ npm i
 npm run dev
 ```
 
+## Environment setup (required)
+
+This app reads Supabase + Cloudinary settings from Vite env vars.
+
+- Copy `.env.example` to `.env.local`
+- Fill in your real values (do not commit `.env.local`)
+
+## Supabase CLI (recommended)
+
+This repo includes the Supabase CLI as a dev dependency, so you can run it with:
+
+```sh
+npm run supabase -- --version
+```
+
+Common commands:
+
+```sh
+npm run supabase:start
+npm run supabase:status
+npm run supabase:stop
+```
+
+If you prefer a global install on macOS:
+
+```sh
+brew install supabase/tap/supabase
+```
+
+## Cloudinary CLI (optional)
+
+Cloudinary’s official CLI is Python-based and uses the `cld` command:
+
+```sh
+pip3 install cloudinary-cli
+cld config
+```
+
+You’ll configure it using the `CLOUDINARY_URL` environment variable from your Cloudinary dashboard.
+
 **Edit a file directly in GitHub**
 
 - Navigate to the desired file(s).

@@ -1,0 +1,173 @@
+{
+  "nav": {
+    "home": "Nyumbani",
+    "accommodations": "Malazi",
+    "tours": "Ziara",
+    "transport": "Usafiri",
+    "services": "Huduma",
+    "stories": "Hadithi"
+  },
+  "actions": {
+    "tripCart": "Kikapu cha safari",
+    "signIn": "Ingia",
+    "signOut": "Toka",
+    "myBookings": "Uhifadhi wangu",
+    "favorites": "Vipendwa",
+    "adminDashboard": "Dashibodi ya Admin",
+    "staffDashboard": "Dashibodi ya Wafanyakazi",
+    "hostDashboard": "Dashibodi ya Mwenyeji",
+    "becomeHost": "Kuwa Mwenyeji",
+    "manageRoles": "Dhibiti Majukumu",
+    "refresh": "Onyesha upya",
+    "copyUserId": "Nakili user id",
+    "copied": "Imenakiliwa",
+    "copiedUserId": "User id imenakiliwa.",
+    "couldNotCopy": "Haikuweza kunakili",
+    "clipboardBlocked": "Kivinjari kimezuia clipboard."
+  },
+  "labels": {
+    "currency": "Sarafu",
+    "language": "Lugha",
+    "theme": "Mandhari"
+  },
+  "languages": {
+    "en": "Kiingereza",
+    "rw": "Kinyarwanda",
+    "fr": "Kifaransa",
+    "sw": "Kiswahili",
+    "zh": "Kichina (Mandarin)"
+  },
+  "common": {
+    "search": "Tafuta",
+    "loading": "Inapakia...",
+    "error": "Hitilafu",
+    "somethingWentWrong": "Kuna tatizo limetokea.",
+    "loadingProperties": "Inapakia malazi...",
+    "couldNotLoadProperties": "Imeshindikana kupakia malazi kwa sasa.",
+    "noPublishedProperties": "Bado hakuna malazi yaliyochapishwa.",
+    "perNight": "/ usiku"
+  },
+  "auth": {
+    "title": {
+      "login": "Karibu tena",
+      "signup": "Tengeneza akaunti"
+    },
+    "subtitle": {
+      "login": "Ingia ili uendelee",
+      "signup": "Tengeneza akaunti ili uanze"
+    },
+    "fields": {
+      "fullName": "Jina kamili",
+      "email": "Barua pepe",
+      "password": "Nenosiri"
+    },
+    "placeholders": {
+      "fullName": "Weka jina lako kamili",
+      "email": "Weka barua pepe yako",
+      "password": "Weka nenosiri lako"
+    },
+    "actions": {
+      "createAccount": "Tengeneza akaunti",
+      "switchToSignup": "Huna akaunti? Jisajili",
+      "switchToLogin": "Una akaunti tayari? Ingia"
+    },
+    "errors": {
+      "fullNameRequired": "Jina kamili linahitajika."
+    },
+    "toast": {
+      "welcomeBack": "Karibu tena",
+      "loggedIn": "Umeingia.",
+      "accountCreated": "Akaunti imetengenezwa",
+      "signedUp": "Umejisajili."
+    }
+  },
+  "index": {
+    "heroTitle": "Tafuta Malazi",
+    "latestTitle": "Malazi Mapya",
+    "latestSubtitle": "Chunguza malazi kwa makundi/aina...",
+    "browseMore": "Vinjari Malazi Zaidi"
+  },
+  "accommodations": {
+    "title": "Pata Malazi Yanayokufaa",
+    "subtitle": "Vinjari malazi yaliyochaguliwa kote Rwanda",
+    "filters": "Vichujio",
+    "priceRange": "Kiwango cha bei (kwa usiku)",
+    "propertyType": "Aina ya malazi",
+    "minimumRating": "Kiwango cha chini",
+    "amenities": "Huduma",
+    "noMatches": "Hakuna malazi yanayolingana na vichujio vyako."
+  },
+  "heroSearch": {
+    "where": "Wapi",
+    "wherePlaceholder": "Tafuta maeneo",
+    "suggestedDestinations": "Maeneo yaliyopendekezwa",
+    "noDestinations": "Hakuna maeneo yaliyopatikana.",
+    "destinationHint": "Wilaya, Rwanda",
+    "when": "Lini",
+    "addDates": "Ongeza tarehe",
+    "dates": "Tarehe",
+    "tabs": {
+      "dates": "Tarehe",
+      "months": "Miezi",
+      "flexible": "Inayobadilika"
+    },
+    "quick": {
+      "exactDates": "Tarehe halisi",
+      "flexDays": "±siku {{count}}",
+      "flexDays_plural": "±siku {{count}}"
+    },
+    "monthsTitle": "Chagua mwezi",
+    "flexibleTitle": "Muda gani?",
+    "flexibleDays": "siku {{count}}",
+    "flexibleDays_plural": "siku {{count}}",
+    "clearDates": "Futa tarehe",
+    "next": "Endelea",
+    "who": "Nani",
+    "oneGuest": "Mgeni 1",
+    "guests": "Wageni {{count}}",
+    "adults": "Watu wazima",
+    "ages13Plus": "Miaka 13 au zaidi",
+    "children": "Watoto",
+    "ages2to12": "Miaka 2–12",
+    "infants": "Watoto wachanga",
+    "under2": "Chini ya miaka 2",
+    "pets": "Wanyama",
+    "bringingServiceAnimal": "Unaleta mnyama wa huduma?",
+    "clear": "Futa"
+  },
+  "hostingCta": {
+    "title": "Jaribu Ukarimu Nasi",
+    "subtitle": "Pata kipato cha ziada kwa kukodisha nyumba yako...",
+    "button": "Kuwa Mwenyeji"
+  },
+  "footer": {
+    "tagline": "Gundua ukarimu wa Afrika pamoja na suluhisho za kisasa za safari.",
+    "explore": "Gundua",
+    "company": "Kampuni",
+    "support": "Msaada",
+    "about": "Kuhusu Sisi",
+    "contact": "Wasiliana",
+    "help": "Kituo cha Msaada",
+    "safety": "Usalama",
+    "terms": "Masharti",
+    "privacy": "Faragha",
+    "cookies": "Vidakuzi",
+    "copyright": "© {{year}} Merry360X. Haki zote zimehifadhiwa."
+  },
+  "tripCart": {
+    "subtitle": "Kagua na udhibiti vipengele vya safari ulivyohifadhi.",
+    "empty": "Kikapu chako cha safari kwa sasa kiko tupu.",
+    "browse": "Vinjari malazi"
+  },
+  "info": {
+    "backHome": "Rudi nyumbani",
+    "getHelp": "Pata msaada",
+    "aboutBody": "Jifunze zaidi kuhusu Merry360X na dhamira yetu. Ukurasa huu utasasishwa hivi karibuni.",
+    "contactBody": "Unahitaji kuwasiliana nasi? Maelezo yataongezwa hivi karibuni.",
+    "helpBody": "Pata majibu na rasilimali za msaada hapa. Itasasishwa hivi karibuni.",
+    "safetyBody": "Miongozo na vidokezo vya usalama vitapatikana hivi karibuni.",
+    "privacyBody": "Taarifa za faragha zitachapishwa hivi karibuni.",
+    "cookiesBody": "Taarifa na mapendeleo ya vidakuzi vitapatikana hivi karibuni.",
+    "termsBody": "Masharti na vigezo vitachapishwa hivi karibuni."
+  }
+}

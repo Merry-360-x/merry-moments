@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Calendar, MapPin, Users, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 
 interface Booking {
   id: string;
@@ -25,6 +26,7 @@ interface Booking {
 }
 
 const MyBookings = () => {
+  const { t } = useTranslation();
   const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -55,7 +57,7 @@ const MyBookings = () => {
   };
 
   const cancelBooking = async (id: string) => {
-    if (!confirm("Are you sure you want to cancel this booking?")) return;
+    if (!confirm(t("bookings.confirmCancel"))) return;
 
     const { error } = await supabase
       .from("bookings")
@@ -64,9 +66,9 @@ const MyBookings = () => {
       .eq("guest_id", user!.id);
 
     if (error) {
-      toast({ variant: "destructive", title: "Error", description: error.message });
+      toast({ variant: "destructive", title: t("common.error"), description: error.message });
     } else {
-      toast({ title: "Booking cancelled" });
+      toast({ title: t("bookings.toast.cancelled") });
       fetchBookings();
     }
   };
@@ -84,8 +86,8 @@ const MyBookings = () => {
       <Navbar />
 
       <div className="container mx-auto px-4 lg:px-8 py-12">
-        <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">My Bookings</h1>
-        <p className="text-muted-foreground mb-8">View and manage your reservations</p>
+        <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">{t("bookings.title")}</h1>
+        <p className="text-muted-foreground mb-8">{t("bookings.subtitle")}</p>
 
         {isLoading ? (
           <div className="py-20 text-center">
@@ -94,11 +96,11 @@ const MyBookings = () => {
         ) : bookings.length === 0 ? (
           <div className="py-20 text-center">
             <Calendar className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-foreground mb-2">No bookings yet</h2>
+            <h2 className="text-xl font-semibold text-foreground mb-2">{t("bookings.emptyTitle")}</h2>
             <p className="text-muted-foreground mb-6">
-              Start exploring and book your first property!
+              {t("bookings.emptySubtitle")}
             </p>
-            <Button onClick={() => navigate("/accommodations")}>Browse Properties</Button>
+            <Button onClick={() => navigate("/accommodations")}>{t("bookings.browse")}</Button>
           </div>
         ) : (
           <div className="grid gap-6">
@@ -111,7 +113,7 @@ const MyBookings = () => {
                   <div className="flex items-start justify-between mb-2">
                     <div>
                       <h3 className="text-lg font-semibold text-foreground">
-                        {booking.properties?.title || "Unknown Property"}
+                        {booking.properties?.title || t("bookings.unknownProperty")}
                       </h3>
                       <p className="text-sm text-muted-foreground flex items-center gap-1">
                         <MapPin className="w-4 h-4" />
@@ -127,32 +129,32 @@ const MyBookings = () => {
                           : "bg-yellow-100 text-yellow-700"
                       }`}
                     >
-                      {booking.status}
+                      {t(`bookings.status.${booking.status}`, { defaultValue: booking.status })}
                     </span>
                   </div>
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
                     <div>
-                      <p className="text-xs text-muted-foreground">Check-in</p>
+                      <p className="text-xs text-muted-foreground">{t("bookings.labels.checkIn")}</p>
                       <p className="font-medium text-foreground">
                         {new Date(booking.check_in).toLocaleDateString()}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">Check-out</p>
+                      <p className="text-xs text-muted-foreground">{t("bookings.labels.checkOut")}</p>
                       <p className="font-medium text-foreground">
                         {new Date(booking.check_out).toLocaleDateString()}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">Guests</p>
+                      <p className="text-xs text-muted-foreground">{t("bookings.labels.guests")}</p>
                       <p className="font-medium text-foreground flex items-center gap-1">
                         <Users className="w-4 h-4" />
                         {booking.guests_count}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">Total</p>
+                      <p className="text-xs text-muted-foreground">{t("bookings.labels.total")}</p>
                       <p className="font-semibold text-primary">
                         {Number(booking.total_price).toLocaleString()} {booking.currency}
                       </p>
@@ -169,7 +171,7 @@ const MyBookings = () => {
                       className="gap-1"
                     >
                       <XCircle className="w-4 h-4" />
-                      Cancel
+                      {t("common.cancel")}
                     </Button>
                   </div>
                 )}

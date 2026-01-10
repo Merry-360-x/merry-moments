@@ -1,0 +1,171 @@
+{
+  "nav": {
+    "home": "Ahabanza",
+    "accommodations": "Amacumbi",
+    "tours": "Ingendo",
+    "transport": "Ubwikorezi",
+    "services": "Serivisi",
+    "stories": "Inkuru"
+  },
+  "actions": {
+    "tripCart": "Agatebo k’urugendo",
+    "signIn": "Injira",
+    "signOut": "Sohoka",
+    "myBookings": "Amabukiro yanjye",
+    "favorites": "Ibyo nakunze",
+    "adminDashboard": "Ibiro bya Admin",
+    "staffDashboard": "Ibiro bya Staff",
+    "hostDashboard": "Ibiro by’Umucumbitsi",
+    "becomeHost": "Ba umucumbitsi",
+    "manageRoles": "Gena inshingano",
+    "refresh": "Ongera usubize",
+    "copyUserId": "Koporora user id",
+    "copied": "Byakoporowe",
+    "copiedUserId": "User id yakoporowe.",
+    "couldNotCopy": "Ntibyashobotse gukoporora",
+    "clipboardBlocked": "Browser yanze clipboard."
+  },
+  "labels": {
+    "currency": "Ifaranga",
+    "language": "Ururimi",
+    "theme": "Insanganyamatsiko"
+  },
+  "languages": {
+    "en": "Icyongereza",
+    "rw": "Kinyarwanda",
+    "fr": "Igifaransa",
+    "sw": "Igiswahili",
+    "zh": "Igishinwa"
+  },
+  "common": {
+    "search": "Shakisha",
+    "loading": "Birimo gupakira...",
+    "loadingProperties": "Turimo gupakira amacumbi...",
+    "couldNotLoadProperties": "Ntitwabashije kubona amacumbi ubu.",
+    "noPublishedProperties": "Nta macumbi yatangajwe ubu.",
+    "perNight": "/ ijoro"
+  },
+  "auth": {
+    "title": {
+      "login": "Murakaza neza",
+      "signup": "Fungura konti"
+    },
+    "subtitle": {
+      "login": "Injira ukomeze",
+      "signup": "Fungura konti utangire"
+    },
+    "fields": {
+      "fullName": "Amazina yose",
+      "email": "Imeri",
+      "password": "Ijambo ry’ibanga"
+    },
+    "placeholders": {
+      "fullName": "Andika amazina yawe",
+      "email": "Andika imeri yawe",
+      "password": "Andika ijambo ry’ibanga"
+    },
+    "actions": {
+      "createAccount": "Fungura konti",
+      "switchToSignup": "Nta konti ufite? Iyandikishe",
+      "switchToLogin": "Usanzwe ufite konti? Injira"
+    },
+    "errors": {
+      "fullNameRequired": "Amazina yose arakenewe."
+    },
+    "toast": {
+      "welcomeBack": "Murakaza neza",
+      "loggedIn": "Winjiye.",
+      "accountCreated": "Konti yakozwe",
+      "signedUp": "Wiyandikishije."
+    }
+  },
+  "index": {
+    "heroTitle": "Shaka icumbi",
+    "latestTitle": "Amacumbi aheruka",
+    "latestSubtitle": "Reba amacumbi ukurikije amoko...",
+    "browseMore": "Reba amacumbi menshi"
+  },
+  "accommodations": {
+    "title": "Shaka icumbi rikubereye",
+    "subtitle": "Reba amacumbi yatoranyijwe hirya no hino mu Rwanda",
+    "filters": "Muyunguruzi",
+    "priceRange": "Igiciro (ku ijoro)",
+    "propertyType": "Ubwoko bw’icumbi",
+    "minimumRating": "Amanota make",
+    "amenities": "Ibikoresho/Serivisi",
+    "noMatches": "Nta macumbi ahuye n’ayo wahisemo."
+  },
+  "heroSearch": {
+    "where": "He",
+    "wherePlaceholder": "Shakisha aho ujya",
+    "suggestedDestinations": "Aho wakwerekeza",
+    "noDestinations": "Nta hantu habonetse.",
+    "destinationHint": "Akarere, u Rwanda",
+    "when": "Ryari",
+    "addDates": "Ongeramo amatariki",
+    "dates": "Amatariki",
+    "tabs": {
+      "dates": "Amatariki",
+      "months": "Amezi",
+      "flexible": "Byoroshye"
+    },
+    "quick": {
+      "exactDates": "Amatariki nyayo",
+      "flexDays": "±umunsi {{count}}",
+      "flexDays_plural": "±iminsi {{count}}"
+    },
+    "monthsTitle": "Hitamo ukwezi",
+    "flexibleTitle": "Igihe kingana iki?",
+    "flexibleDays": "umunsi {{count}}",
+    "flexibleDays_plural": "iminsi {{count}}",
+    "clearDates": "Siba amatariki",
+    "next": "Komeza",
+    "who": "Ninde",
+    "oneGuest": "Umushyitsi 1",
+    "guests": "Abashyitsi {{count}}",
+    "adults": "Abakuru",
+    "ages13Plus": "Imyaka 13+",
+    "children": "Abana",
+    "ages2to12": "Imyaka 2–12",
+    "infants": "Impinja",
+    "under2": "Munsi y’imyaka 2",
+    "pets": "Amatungo",
+    "bringingServiceAnimal": "Ufite itungo rimufasha?",
+    "clear": "Siba"
+  },
+  "hostingCta": {
+    "title": "Tangira kwakira abashyitsi",
+    "subtitle": "Wunguke amafaranga utanga icumbi cyawe...",
+    "button": "Ba umucumbitsi"
+  },
+  "footer": {
+    "tagline": "Menya urugwiro rw’Ubunyafurika n’ingendo zigezweho.",
+    "explore": "Sura",
+    "company": "Ikigo",
+    "support": "Ubufasha",
+    "about": "Ibyerekeye twe",
+    "contact": "Twandikire",
+    "help": "Ikigo cy’ubufasha",
+    "safety": "Umutekano",
+    "terms": "Amategeko",
+    "privacy": "Ibanga",
+    "cookies": "Cookies",
+    "copyright": "© {{year}} Merry360X. Uburenganzira bwose burabitswe."
+  },
+  "tripCart": {
+    "subtitle": "Reba kandi ucunge ibyo wabitse ku rugendo.",
+    "empty": "Agatebo k’urugendo karimo ubusa ubu.",
+    "browse": "Reba amacumbi"
+  },
+  "info": {
+    "backHome": "Subira ahabanza",
+    "getHelp": "Shaka ubufasha",
+    "aboutBody": "Menya byinshi kuri Merry360X n’intego yacu. Uru rupapuro ruzavugururwa vuba.",
+    "contactBody": "Ukeneye kutwandikira? Ibisobanuro byo kutugeraho bizashyirwaho vuba.",
+    "helpBody": "Shaka ibisubizo n’ubufasha hano. Uru rupapuro ruzavugururwa vuba.",
+    "safetyBody": "Inama n’amabwiriza by’umutekano bizashyirwaho vuba.",
+    "privacyBody": "Amakuru ajyanye n’ibanga azashyirwaho vuba.",
+    "cookiesBody": "Amakuru ajyanye na cookies azashyirwaho vuba.",
+    "termsBody": "Amategeko n’amabwiriza bizashyirwaho vuba."
+  }
+}

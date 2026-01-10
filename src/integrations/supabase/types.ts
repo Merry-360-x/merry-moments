@@ -210,6 +210,78 @@ export type Database = {
         }
         Relationships: []
       }
+      host_applications: {
+        Row: {
+          about: string | null
+          business_name: string | null
+          created_at: string
+          full_name: string | null
+          hosting_location: string | null
+          id: string
+          phone: string | null
+          review_notes: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          about?: string | null
+          business_name?: string | null
+          created_at?: string
+          full_name?: string | null
+          hosting_location?: string | null
+          id?: string
+          phone?: string | null
+          review_notes?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          about?: string | null
+          business_name?: string | null
+          created_at?: string
+          full_name?: string | null
+          hosting_location?: string | null
+          id?: string
+          phone?: string | null
+          review_notes?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_preferences: {
+        Row: {
+          currency: string
+          created_at: string
+          locale: string
+          theme: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          currency?: string
+          created_at?: string
+          locale?: string
+          theme?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          currency?: string
+          created_at?: string
+          locale?: string
+          theme?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -224,7 +296,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "guest" | "host" | "admin"
+      app_role: "guest" | "host" | "staff" | "admin"
     }
     CompositeTypes: {
       [_ in never]: never

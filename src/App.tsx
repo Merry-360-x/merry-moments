@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { PreferencesProvider } from "@/contexts/PreferencesProvider";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Accommodations from "./pages/Accommodations";
@@ -15,32 +16,91 @@ import HostDashboard from "./pages/HostDashboard";
 import MyBookings from "./pages/MyBookings";
 import Favorites from "./pages/Favorites";
 import NotFound from "./pages/NotFound";
+import RequireAuth from "@/components/RequireAuth";
+import RequireRole from "@/components/RequireRole";
+import HostApplication from "./pages/HostApplication";
+import AdminDashboard from "./pages/AdminDashboard";
+import StaffDashboard from "./pages/StaffDashboard";
+import AdminRoles from "./pages/AdminRoles";
+import PropertyDetails from "./pages/PropertyDetails";
+import TripCart from "./pages/TripCart";
+import InfoPage from "./pages/InfoPage";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/accommodations" element={<Accommodations />} />
-            <Route path="/tours" element={<Tours />} />
-            <Route path="/transport" element={<Transport />} />
-            <Route path="/services" element={<Services />} />
-            <Route path="/stories" element={<Stories />} />
-            <Route path="/host-dashboard" element={<HostDashboard />} />
-            <Route path="/my-bookings" element={<MyBookings />} />
-            <Route path="/favorites" element={<Favorites />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+      <PreferencesProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/accommodations" element={<Accommodations />} />
+              <Route path="/tours" element={<Tours />} />
+              <Route path="/transport" element={<Transport />} />
+              <Route path="/services" element={<Services />} />
+              <Route path="/stories" element={<Stories />} />
+              <Route
+                path="/host-dashboard"
+                element={
+                  <RequireAuth>
+                    <HostDashboard />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/become-host"
+                element={
+                  <RequireAuth>
+                    <HostApplication />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/admin"
+                element={
+                  <RequireRole allowed={["admin"]}>
+                    <AdminDashboard />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/admin/roles"
+                element={
+                  <RequireRole allowed={["admin"]}>
+                    <AdminRoles />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/staff"
+                element={
+                  <RequireRole allowed={["staff", "admin"]}>
+                    <StaffDashboard />
+                  </RequireRole>
+                }
+              />
+              <Route path="/my-bookings" element={<MyBookings />} />
+              <Route path="/favorites" element={<Favorites />} />
+              <Route path="/trip-cart" element={<TripCart />} />
+              <Route path="/properties/:id" element={<PropertyDetails />} />
+              <Route path="/about" element={<InfoPage kind="about" />} />
+              <Route path="/contact" element={<InfoPage kind="contact" />} />
+              <Route path="/help" element={<InfoPage kind="help" />} />
+              <Route path="/safety" element={<InfoPage kind="safety" />} />
+              <Route path="/privacy" element={<InfoPage kind="privacy" />} />
+              <Route path="/cookies" element={<InfoPage kind="cookies" />} />
+              <Route path="/terms" element={<InfoPage kind="terms" />} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </PreferencesProvider>
     </AuthProvider>
   </QueryClientProvider>
 );

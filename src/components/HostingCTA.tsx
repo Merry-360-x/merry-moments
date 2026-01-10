@@ -1,7 +1,11 @@
 import { Button } from "@/components/ui/button";
 import hostingVilla from "@/assets/hosting-villa.jpg";
+import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 
 const HostingCTA = () => {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
   return (
     <section className="container mx-auto px-4 lg:px-8 py-16">
       <div
@@ -14,13 +18,13 @@ const HostingCTA = () => {
         {/* Content */}
         <div className="relative z-10 p-8 lg:p-12 max-w-lg">
           <h2 className="text-3xl lg:text-4xl font-bold text-primary-foreground mb-3 italic">
-            Try Hosting With Us
+            {t("hostingCta.title")}
           </h2>
           <p className="text-primary-foreground/90 mb-6">
-            Earn extra just by renting your property...
+            {t("hostingCta.subtitle")}
           </p>
-          <Button variant="hero" size="lg">
-            Try Hosting With Us
+          <Button variant="hero" size="lg" onClick={() => navigate("/become-host")}>
+            {t("hostingCta.button")}
           </Button>
         </div>
       </div>

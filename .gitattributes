@@ -1,0 +1,6 @@
+# Prevent accidental leakage of secrets in diffs / PRs
+.env -diff
+.env.* -diff
+
+# Supabase CLI temp artifacts can include connection strings
+supabase/.temp/** -diff

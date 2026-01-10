@@ -1,0 +1,173 @@
+{
+  "nav": {
+    "home": "首页",
+    "accommodations": "住宿",
+    "tours": "游览",
+    "transport": "交通",
+    "services": "服务",
+    "stories": "故事"
+  },
+  "actions": {
+    "tripCart": "行程购物车",
+    "signIn": "登录",
+    "signOut": "退出登录",
+    "myBookings": "我的预订",
+    "favorites": "收藏",
+    "adminDashboard": "管理员面板",
+    "staffDashboard": "员工面板",
+    "hostDashboard": "房东面板",
+    "becomeHost": "成为房东",
+    "manageRoles": "角色管理",
+    "refresh": "刷新",
+    "copyUserId": "复制用户ID",
+    "copied": "已复制",
+    "copiedUserId": "用户ID已复制到剪贴板。",
+    "couldNotCopy": "无法复制",
+    "clipboardBlocked": "浏览器阻止了剪贴板访问。"
+  },
+  "labels": {
+    "currency": "货币",
+    "language": "语言",
+    "theme": "主题"
+  },
+  "languages": {
+    "en": "英语",
+    "rw": "卢旺达语",
+    "fr": "法语",
+    "sw": "斯瓦希里语",
+    "zh": "中文"
+  },
+  "common": {
+    "search": "搜索",
+    "loading": "加载中...",
+    "error": "错误",
+    "somethingWentWrong": "出现了一些问题。",
+    "loadingProperties": "正在加载住宿...",
+    "couldNotLoadProperties": "暂时无法加载住宿。",
+    "noPublishedProperties": "暂时没有已发布的住宿。",
+    "perNight": "/ 晚"
+  },
+  "auth": {
+    "title": {
+      "login": "欢迎回来",
+      "signup": "创建账户"
+    },
+    "subtitle": {
+      "login": "登录以继续",
+      "signup": "创建账户开始使用"
+    },
+    "fields": {
+      "fullName": "姓名",
+      "email": "邮箱",
+      "password": "密码"
+    },
+    "placeholders": {
+      "fullName": "请输入姓名",
+      "email": "请输入邮箱",
+      "password": "请输入密码"
+    },
+    "actions": {
+      "createAccount": "创建账户",
+      "switchToSignup": "没有账户？注册",
+      "switchToLogin": "已有账户？登录"
+    },
+    "errors": {
+      "fullNameRequired": "请输入姓名。"
+    },
+    "toast": {
+      "welcomeBack": "欢迎回来",
+      "loggedIn": "已登录。",
+      "accountCreated": "账户已创建",
+      "signedUp": "已注册。"
+    }
+  },
+  "index": {
+    "heroTitle": "寻找住宿",
+    "latestTitle": "最新房源",
+    "latestSubtitle": "按类别/类型探索房源...",
+    "browseMore": "浏览更多房源"
+  },
+  "accommodations": {
+    "title": "找到理想的住宿",
+    "subtitle": "浏览卢旺达各地精选房源",
+    "filters": "筛选",
+    "priceRange": "价格范围（每晚）",
+    "propertyType": "房源类型",
+    "minimumRating": "最低评分",
+    "amenities": "设施",
+    "noMatches": "没有符合筛选条件的房源。"
+  },
+  "heroSearch": {
+    "where": "目的地",
+    "wherePlaceholder": "搜索目的地",
+    "suggestedDestinations": "推荐目的地",
+    "noDestinations": "未找到目的地。",
+    "destinationHint": "地区，卢旺达",
+    "when": "日期",
+    "addDates": "添加日期",
+    "dates": "日期",
+    "tabs": {
+      "dates": "日期",
+      "months": "月份",
+      "flexible": "灵活"
+    },
+    "quick": {
+      "exactDates": "精确日期",
+      "flexDays": "±{{count}}天",
+      "flexDays_plural": "±{{count}}天"
+    },
+    "monthsTitle": "选择月份",
+    "flexibleTitle": "住多久？",
+    "flexibleDays": "{{count}}天",
+    "flexibleDays_plural": "{{count}}天",
+    "clearDates": "清除日期",
+    "next": "下一步",
+    "who": "人数",
+    "oneGuest": "1 位客人",
+    "guests": "{{count}} 位客人",
+    "adults": "成人",
+    "ages13Plus": "13 岁及以上",
+    "children": "儿童",
+    "ages2to12": "2–12 岁",
+    "infants": "婴幼儿",
+    "under2": "2 岁以下",
+    "pets": "宠物",
+    "bringingServiceAnimal": "携带服务类动物？",
+    "clear": "清除"
+  },
+  "hostingCta": {
+    "title": "加入我们成为房东",
+    "subtitle": "出租您的房源，轻松获得额外收入...",
+    "button": "成为房东"
+  },
+  "footer": {
+    "tagline": "以现代旅行方案体验非洲的热情好客。",
+    "explore": "探索",
+    "company": "公司",
+    "support": "支持",
+    "about": "关于我们",
+    "contact": "联系我们",
+    "help": "帮助中心",
+    "safety": "安全",
+    "terms": "条款",
+    "privacy": "隐私",
+    "cookies": "Cookie",
+    "copyright": "© {{year}} Merry360X. 保留所有权利。"
+  },
+  "tripCart": {
+    "subtitle": "查看并管理你保存的行程项目。",
+    "empty": "你的行程购物车目前是空的。",
+    "browse": "浏览住宿"
+  },
+  "info": {
+    "backHome": "返回首页",
+    "getHelp": "获取帮助",
+    "aboutBody": "了解 Merry360X 以及我们的使命。本页面将很快更新。",
+    "contactBody": "需要联系我们？联系方式将很快添加到这里。",
+    "helpBody": "在这里查找答案和支持资源。本页面将很快更新。",
+    "safetyBody": "安全指南和建议将很快在此提供。",
+    "privacyBody": "隐私相关信息将很快在此发布。",
+    "cookiesBody": "Cookie 信息与偏好设置将很快在此提供。",
+    "termsBody": "条款与条件将很快在此发布。"
+  }
+}

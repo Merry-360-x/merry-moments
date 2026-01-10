@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -6,11 +6,14 @@ type AuthContextType = {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
+  roles: string[];
   isHost: boolean;
+  isStaff: boolean;
+  isAdmin: boolean;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
-  becomeHost: () => Promise<{ error: Error | null }>;
+  refreshRoles: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -19,18 +22,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isHost, setIsHost] = useState(false);
+  const [roles, setRoles] = useState<string[]>([]);
 
-  const checkHostRole = async (userId: string) => {
-    const { data } = await supabase
+  const fetchRoles = async (userId: string) => {
+    const { data, error } = await supabase
       .from("user_roles")
       .select("role")
-      .eq("user_id", userId)
-      .eq("role", "host")
-      .maybeSingle();
-    
-    setIsHost(!!data);
+      .eq("user_id", userId);
+
+    if (error) {
+      setRoles([]);
+      return;
+    }
+
+    setRoles((data ?? []).map((r) => String(r.role)));
   };
+
+  const refreshRoles = async () => {
+    if (!user) return;
+    await fetchRoles(user.id);
+  };
+
+  const isHost = useMemo(() => roles.includes("host"), [roles]);
+  const isStaff = useMemo(() => roles.includes("staff"), [roles]);
+  const isAdmin = useMemo(() => roles.includes("admin"), [roles]);
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -41,9 +56,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         if (session?.user) {
           // Use setTimeout to avoid potential race conditions
-          setTimeout(() => checkHostRole(session.user.id), 0);
+          setTimeout(() => fetchRoles(session.user.id), 0);
         } else {
-          setIsHost(false);
+          setRoles([]);
         }
         
         setIsLoading(false);
@@ -56,7 +71,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        checkHostRole(session.user.id);
+        fetchRoles(session.user.id);
       }
       
       setIsLoading(false);
@@ -89,21 +104,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
-    setIsHost(false);
-  };
-
-  const becomeHost = async () => {
-    if (!user) return { error: new Error("Not authenticated") };
-
-    const { error } = await supabase
-      .from("user_roles")
-      .insert({ user_id: user.id, role: "host" });
-
-    if (!error) {
-      setIsHost(true);
-    }
-
-    return { error };
+    setRoles([]);
   };
 
   return (
@@ -112,11 +113,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         user,
         session,
         isLoading,
+        roles,
         isHost,
+        isStaff,
+        isAdmin,
         signUp,
         signIn,
         signOut,
-        becomeHost,
+        refreshRoles,
       }}
     >
       {children}

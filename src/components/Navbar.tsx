@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Heart, ShoppingCart, ChevronDown, Moon, LogOut, User, Menu, X } from "lucide-react";
+import { Heart, ShoppingCart, ChevronDown, Moon, Sun, LogOut, User, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import Logo from "./Logo";
@@ -11,21 +11,25 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { usePreferences } from "@/hooks/usePreferences";
 
 const navLinks = [
-  { name: "Home", path: "/" },
-  { name: "Accommodations", path: "/accommodations" },
-  { name: "Tours", path: "/tours" },
-  { name: "Transport", path: "/transport" },
-  { name: "Services", path: "/services" },
-  { name: "Stories", path: "/stories" },
+  { key: "nav.home", path: "/" },
+  { key: "nav.accommodations", path: "/accommodations" },
+  { key: "nav.tours", path: "/tours" },
+  { key: "nav.transport", path: "/transport" },
+  { key: "nav.services", path: "/services" },
+  { key: "nav.stories", path: "/stories" },
 ];
 
 const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, signOut, isHost } = useAuth();
+  const { user, signOut, isHost, isAdmin, isStaff } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { t } = useTranslation();
+  const { language, setLanguage, currency, setCurrency, resolvedTheme, setTheme } = usePreferences();
 
   const handleSignOut = async () => {
     await signOut();
@@ -72,37 +76,96 @@ const Navbar = () => {
                       : "text-foreground hover:text-primary"
                   }`}
                 >
-                  {link.name}
+                  {t(link.key)}
                 </Link>
               );
             })}
-            <Link to="/host-dashboard">
-              <Button variant="primary" size="sm" className="ml-2">
-                Host Dashboard
-              </Button>
-            </Link>
+
+            {!isHost ? (
+              <Link to="/become-host" className="ml-2">
+                <Button variant="primary" size="sm">
+                  {t("actions.becomeHost")}
+                </Button>
+              </Link>
+            ) : (
+              <Link to="/host-dashboard" className="ml-2">
+                <Button variant="primary" size="sm">
+                  {t("actions.hostDashboard")}
+                </Button>
+              </Link>
+            )}
+
+            {user && isAdmin ? (
+              <Link to="/admin">
+                <Button variant="outline" size="sm" className="ml-2">
+                  {t("actions.adminDashboard")}
+                </Button>
+              </Link>
+            ) : null}
+            {user && isStaff && !isAdmin ? (
+              <Link to="/staff">
+                <Button variant="outline" size="sm" className="ml-2">
+                  {t("actions.staffDashboard")}
+                </Button>
+              </Link>
+            ) : null}
           </div>
 
           {/* Right Actions - Desktop */}
           <div className="hidden lg:flex items-center gap-2">
-            <button className="p-2 rounded-full hover:bg-muted transition-colors">
-              <Moon className="w-5 h-5 text-muted-foreground" />
+            <button
+              className="p-2 rounded-full hover:bg-muted transition-colors"
+              onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+              aria-label={t("labels.theme")}
+              type="button"
+            >
+              {resolvedTheme === "dark" ? (
+                <Sun className="w-5 h-5 text-muted-foreground" />
+              ) : (
+                <Moon className="w-5 h-5 text-muted-foreground" />
+              )}
             </button>
 
-            <div className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-border text-sm">
-              <span>RWF</span>
-              <ChevronDown className="w-4 h-4" />
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-border text-sm"
+                  aria-label={t("labels.currency")}
+                >
+                  <span>{currency}</span>
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem onClick={() => setCurrency("RWF")}>RWF</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCurrency("USD")}>USD</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCurrency("EUR")}>EUR</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-            <div className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-border text-sm">
-              <span>EN</span>
-              <ChevronDown className="w-4 h-4" />
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-border text-sm">
+                  <span>{language.toUpperCase()}</span>
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => setLanguage("rw")}>{t("languages.rw")}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setLanguage("fr")}>{t("languages.fr")}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setLanguage("sw")}>{t("languages.sw")}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setLanguage("zh")}>{t("languages.zh")}</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setLanguage("en")}>{t("languages.en")}</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-            <Button variant="outline" size="sm" className="gap-2">
-              <ShoppingCart className="w-4 h-4" />
-              Trip Cart
-            </Button>
+            <Link to="/trip-cart">
+              <Button variant="outline" size="sm" className="gap-2">
+                <ShoppingCart className="w-4 h-4" />
+                {t("actions.tripCart")}
+              </Button>
+            </Link>
 
             <Link to="/favorites">
               <button className="p-2 rounded-full hover:bg-muted transition-colors">
@@ -124,27 +187,47 @@ const Navbar = () => {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate("/my-bookings")}>
                     <User className="w-4 h-4 mr-2" />
-                    My Bookings
+                    {t("actions.myBookings")}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/favorites")}>
                     <Heart className="w-4 h-4 mr-2" />
-                    Favorites
+                    {t("actions.favorites")}
                   </DropdownMenuItem>
+                  {isAdmin && (
+                    <DropdownMenuItem onClick={() => navigate("/admin")}>
+                      {t("actions.adminDashboard")}
+                    </DropdownMenuItem>
+                  )}
+                  {isAdmin && (
+                    <DropdownMenuItem onClick={() => navigate("/admin/roles")}> 
+                      {t("actions.manageRoles")}
+                    </DropdownMenuItem>
+                  )}
+                  {isStaff && !isAdmin && (
+                    <DropdownMenuItem onClick={() => navigate("/staff")}>
+                      {t("actions.staffDashboard")}
+                    </DropdownMenuItem>
+                  )}
                   {isHost && (
                     <DropdownMenuItem onClick={() => navigate("/host-dashboard")}>
-                      Host Dashboard
+                      {t("actions.hostDashboard")}
+                    </DropdownMenuItem>
+                  )}
+                  {!isHost && (
+                    <DropdownMenuItem onClick={() => navigate("/become-host")}>
+                      {t("actions.becomeHost")}
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut}>
                     <LogOut className="w-4 h-4 mr-2" />
-                    Sign Out
+                    {t("actions.signOut")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
               <Link to="/auth">
-                <Button size="sm">Sign In</Button>
+                <Button size="sm">{t("actions.signIn")}</Button>
               </Link>
             )}
           </div>
@@ -167,19 +250,63 @@ const Navbar = () => {
                         : "text-foreground hover:bg-muted"
                     }`}
                   >
-                    {link.name}
+                    {t(link.key)}
                   </Link>
                 );
               })}
-              <Link to="/host-dashboard" onClick={() => setMobileMenuOpen(false)}>
-                <Button variant="primary" size="sm" className="w-full mt-2">
-                  Host Dashboard
-                </Button>
-              </Link>
+
+              {!isHost ? (
+                <Link to="/become-host" onClick={() => setMobileMenuOpen(false)}>
+                  <Button variant="primary" size="sm" className="w-full mt-2">
+                    {t("actions.becomeHost")}
+                  </Button>
+                </Link>
+              ) : (
+                <Link to="/host-dashboard" onClick={() => setMobileMenuOpen(false)}>
+                  <Button variant="primary" size="sm" className="w-full mt-2">
+                    {t("actions.hostDashboard")}
+                  </Button>
+                </Link>
+              )}
+
+              {user && isAdmin ? (
+                <Link to="/admin" onClick={() => setMobileMenuOpen(false)}>
+                  <Button variant="outline" size="sm" className="w-full mt-2">
+                    {t("actions.adminDashboard")}
+                  </Button>
+                </Link>
+              ) : null}
+              {user && isAdmin ? (
+                <Link to="/admin/roles" onClick={() => setMobileMenuOpen(false)}>
+                  <Button variant="outline" size="sm" className="w-full mt-2">
+                    {t("actions.manageRoles")}
+                  </Button>
+                </Link>
+              ) : null}
+              {user && isStaff && !isAdmin ? (
+                <Link to="/staff" onClick={() => setMobileMenuOpen(false)}>
+                  <Button variant="outline" size="sm" className="w-full mt-2">
+                    {t("actions.staffDashboard")}
+                  </Button>
+                </Link>
+              ) : null}
+              {user && isHost ? (
+                <Link to="/host-dashboard" onClick={() => setMobileMenuOpen(false)}>
+                  <Button variant="primary" size="sm" className="w-full mt-2">
+                    {t("actions.hostDashboard")}
+                  </Button>
+                </Link>
+              ) : user ? (
+                <Link to="/become-host" onClick={() => setMobileMenuOpen(false)}>
+                  <Button variant="primary" size="sm" className="w-full mt-2">
+                    {t("actions.becomeHost")}
+                  </Button>
+                </Link>
+              ) : null}
               {!user && (
                 <Link to="/auth" onClick={() => setMobileMenuOpen(false)}>
                   <Button size="sm" className="w-full mt-2">
-                    Sign In
+                    {t("actions.signIn")}
                   </Button>
                 </Link>
               )}
@@ -193,7 +320,7 @@ const Navbar = () => {
                     setMobileMenuOpen(false);
                   }}
                 >
-                  Sign Out
+                  {t("actions.signOut")}
                 </Button>
               )}
             </div>

@@ -1,0 +1,173 @@
+{
+  "nav": {
+    "home": "Home",
+    "accommodations": "Accommodations",
+    "tours": "Tours",
+    "transport": "Transport",
+    "services": "Services",
+    "stories": "Stories"
+  },
+  "actions": {
+    "tripCart": "Trip Cart",
+    "signIn": "Sign In",
+    "signOut": "Sign Out",
+    "myBookings": "My Bookings",
+    "favorites": "Favorites",
+    "adminDashboard": "Admin Dashboard",
+    "staffDashboard": "Staff Dashboard",
+    "hostDashboard": "Host Dashboard",
+    "becomeHost": "Become a Host",
+    "manageRoles": "Manage Roles",
+    "refresh": "Refresh",
+    "copyUserId": "Copy user id",
+    "copied": "Copied",
+    "copiedUserId": "User id copied to clipboard.",
+    "couldNotCopy": "Couldn’t copy",
+    "clipboardBlocked": "Clipboard access was blocked by the browser."
+  },
+  "labels": {
+    "currency": "Currency",
+    "language": "Language",
+    "theme": "Theme"
+  },
+  "languages": {
+    "en": "English",
+    "rw": "Kinyarwanda",
+    "fr": "Français",
+    "sw": "Kiswahili",
+    "zh": "中文"
+  },
+  "common": {
+    "search": "Search",
+    "loading": "Loading...",
+    "error": "Error",
+    "somethingWentWrong": "Something went wrong.",
+    "loadingProperties": "Loading properties...",
+    "couldNotLoadProperties": "Couldn’t load properties right now.",
+    "noPublishedProperties": "No published properties yet.",
+    "perNight": "/ night"
+  },
+  "auth": {
+    "title": {
+      "login": "Welcome back",
+      "signup": "Create your account"
+    },
+    "subtitle": {
+      "login": "Sign in to continue",
+      "signup": "Create an account to get started"
+    },
+    "fields": {
+      "fullName": "Full name",
+      "email": "Email",
+      "password": "Password"
+    },
+    "placeholders": {
+      "fullName": "Enter your full name",
+      "email": "Enter your email",
+      "password": "Enter your password"
+    },
+    "actions": {
+      "createAccount": "Create account",
+      "switchToSignup": "Don’t have an account? Sign up",
+      "switchToLogin": "Already have an account? Sign in"
+    },
+    "errors": {
+      "fullNameRequired": "Full name is required."
+    },
+    "toast": {
+      "welcomeBack": "Welcome back",
+      "loggedIn": "You’re signed in.",
+      "accountCreated": "Account created",
+      "signedUp": "You’re signed up."
+    }
+  },
+  "index": {
+    "heroTitle": "Find A Property",
+    "latestTitle": "Latest on the Property Listing",
+    "latestSubtitle": "Explore properties by their categories/types...",
+    "browseMore": "Browse For More Properties"
+  },
+  "accommodations": {
+    "title": "Find Your Perfect Stay",
+    "subtitle": "Browse handpicked properties across Rwanda",
+    "filters": "Filters",
+    "priceRange": "Price range (per night)",
+    "propertyType": "Property type",
+    "minimumRating": "Minimum rating",
+    "amenities": "Amenities",
+    "noMatches": "No properties match your filters."
+  },
+  "heroSearch": {
+    "where": "Where",
+    "wherePlaceholder": "Search destinations",
+    "suggestedDestinations": "Suggested destinations",
+    "noDestinations": "No destinations found.",
+    "destinationHint": "District, Rwanda",
+    "when": "When",
+    "addDates": "Add dates",
+    "dates": "Dates",
+    "tabs": {
+      "dates": "Dates",
+      "months": "Months",
+      "flexible": "Flexible"
+    },
+    "quick": {
+      "exactDates": "Exact dates",
+      "flexDays": "±{{count}} day",
+      "flexDays_plural": "±{{count}} days"
+    },
+    "monthsTitle": "Choose a month",
+    "flexibleTitle": "How long?",
+    "flexibleDays": "{{count}} day",
+    "flexibleDays_plural": "{{count}} days",
+    "clearDates": "Clear dates",
+    "next": "Next",
+    "who": "Who",
+    "oneGuest": "1 guest",
+    "guests": "{{count}} guests",
+    "adults": "Adults",
+    "ages13Plus": "Ages 13 or above",
+    "children": "Children",
+    "ages2to12": "Ages 2–12",
+    "infants": "Infants",
+    "under2": "Under 2",
+    "pets": "Pets",
+    "bringingServiceAnimal": "Bringing a service animal?",
+    "clear": "Clear"
+  },
+  "hostingCta": {
+    "title": "Try Hosting With Us",
+    "subtitle": "Earn extra just by renting your property...",
+    "button": "Try Hosting With Us"
+  },
+  "footer": {
+    "tagline": "Discover the warmth of African hospitality with modern travel solutions.",
+    "explore": "Explore",
+    "company": "Company",
+    "support": "Support",
+    "about": "About Us",
+    "contact": "Contact",
+    "help": "Help Center",
+    "safety": "Safety",
+    "terms": "Terms",
+    "privacy": "Privacy",
+    "cookies": "Cookies",
+    "copyright": "© {{year}} Merry360X. All rights reserved."
+  },
+  "tripCart": {
+    "subtitle": "Review and manage your saved travel items.",
+    "empty": "Your trip cart is empty right now.",
+    "browse": "Browse accommodations"
+  },
+  "info": {
+    "backHome": "Back home",
+    "getHelp": "Get help",
+    "aboutBody": "Learn more about Merry360X and our mission. This page will be updated soon.",
+    "contactBody": "Need to reach us? Contact details will be added here soon.",
+    "helpBody": "Find answers and support resources here. This page will be updated soon.",
+    "safetyBody": "Safety guidelines and tips will be available here soon.",
+    "privacyBody": "Our privacy information will be published here soon.",
+    "cookiesBody": "Cookie information and preferences will be available here soon.",
+    "termsBody": "Terms and conditions will be published here soon."
+  }
+}

@@ -3,11 +3,24 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const categories = ["All", "Nature", "Adventure", "Cultural", "Wildlife", "Historical"];
 
 const Tours = () => {
   const [activeCategory, setActiveCategory] = useState("All");
+  const [query, setQuery] = useState("");
+  const [duration, setDuration] = useState("Any Duration");
+  const navigate = useNavigate();
+
+  const runSearch = () => {
+    const params = new URLSearchParams();
+    if (query.trim()) params.set("q", query.trim());
+    if (duration && duration !== "Any Duration") params.set("duration", duration);
+    if (activeCategory && activeCategory !== "All") params.set("category", activeCategory);
+    const qs = params.toString();
+    navigate(qs ? `/tours?${qs}` : "/tours");
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -27,17 +40,23 @@ const Tours = () => {
             <input
               type="text"
               placeholder="Search tours by name or location..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
               className="w-full bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none text-sm"
             />
           </div>
           <div className="flex items-center gap-4">
-            <select className="bg-transparent text-sm text-muted-foreground focus:outline-none">
+            <select
+              className="bg-transparent text-sm text-muted-foreground focus:outline-none"
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+            >
               <option>Any Duration</option>
               <option>Half Day</option>
               <option>Full Day</option>
               <option>Multi-Day</option>
             </select>
-            <Button variant="search" className="gap-2">
+            <Button variant="search" className="gap-2" type="button" onClick={runSearch}>
               <Search className="w-4 h-4" />
               Search
             </Button>
@@ -51,7 +70,15 @@ const Tours = () => {
           {categories.map((category) => (
             <button
               key={category}
-              onClick={() => setActiveCategory(category)}
+              onClick={() => {
+                setActiveCategory(category);
+                const params = new URLSearchParams();
+                if (query.trim()) params.set("q", query.trim());
+                if (duration && duration !== "Any Duration") params.set("duration", duration);
+                if (category && category !== "All") params.set("category", category);
+                const qs = params.toString();
+                navigate(qs ? `/tours?${qs}` : "/tours");
+              }}
               className={`px-5 py-2 rounded-full text-sm font-medium transition-colors ${
                 activeCategory === category
                   ? "bg-primary text-primary-foreground"

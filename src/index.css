@@ -1,8 +1,8 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
 
 @layer base {
   :root {
@@ -53,23 +53,24 @@
   }
 
   .dark {
-    --background: 220 15% 8%;
-    --foreground: 0 0% 98%;
+    /* Dark blue theme (not pure black) */
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
 
-    --card: 220 15% 10%;
-    --card-foreground: 0 0% 98%;
+    --card: 222 45% 13%;
+    --card-foreground: 210 40% 98%;
 
-    --popover: 220 15% 10%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 222 45% 13%;
+    --popover-foreground: 210 40% 98%;
 
     --primary: 354 76% 60%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 15% 15%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 222 35% 18%;
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 220 15% 15%;
-    --muted-foreground: 220 9% 60%;
+    --muted: 222 35% 18%;
+    --muted-foreground: 215 20% 70%;
 
     --accent: 354 76% 60%;
     --accent-foreground: 0 0% 100%;
@@ -77,17 +78,17 @@
     --destructive: 0 62% 30%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 220 15% 18%;
-    --input: 220 15% 18%;
+    --border: 222 30% 22%;
+    --input: 222 30% 22%;
     --ring: 354 76% 60%;
 
-    --sidebar-background: 220 15% 8%;
-    --sidebar-foreground: 0 0% 98%;
+    --sidebar-background: 222 47% 10%;
+    --sidebar-foreground: 210 40% 98%;
     --sidebar-primary: 354 76% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 15% 15%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 220 15% 18%;
+    --sidebar-accent: 222 35% 18%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 222 30% 22%;
     --sidebar-ring: 354 76% 60%;
   }
 }

@@ -7,8 +7,10 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import Logo from "@/components/Logo";
 import { Eye, EyeOff } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 const Auth = () => {
+  const { t } = useTranslation();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -28,22 +30,22 @@ const Auth = () => {
       if (isLogin) {
         const { error } = await signIn(email, password);
         if (error) throw error;
-        toast({ title: "Welcome back!", description: "You've been logged in successfully." });
+        toast({ title: t("auth.toast.welcomeBack"), description: t("auth.toast.loggedIn") });
         navigate("/");
       } else {
         if (!fullName.trim()) {
-          throw new Error("Please enter your full name");
+          throw new Error(t("auth.errors.fullNameRequired"));
         }
         const { error } = await signUp(email, password, fullName);
         if (error) throw error;
-        toast({ title: "Account created!", description: "You've been signed up successfully." });
+        toast({ title: t("auth.toast.accountCreated"), description: t("auth.toast.signedUp") });
         navigate("/");
       }
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Error",
-        description: error.message || "Something went wrong",
+        title: t("common.error"),
+        description: error.message || t("common.somethingWentWrong"),
       });
     } finally {
       setIsLoading(false);
@@ -58,12 +60,12 @@ const Auth = () => {
             <Logo />
           </Link>
           <h1 className="mt-6 text-2xl font-bold text-foreground">
-            {isLogin ? "Welcome back" : "Create an account"}
+            {isLogin ? t("auth.title.login") : t("auth.title.signup")}
           </h1>
           <p className="mt-2 text-muted-foreground">
             {isLogin
-              ? "Sign in to your account to continue"
-              : "Sign up to start booking properties"}
+              ? t("auth.subtitle.login")
+              : t("auth.subtitle.signup")}
           </p>
         </div>
 
@@ -71,13 +73,13 @@ const Auth = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
               <div>
-                <Label htmlFor="fullName">Full Name</Label>
+                <Label htmlFor="fullName">{t("auth.fields.fullName")}</Label>
                 <Input
                   id="fullName"
                   type="text"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  placeholder="John Doe"
+                  placeholder={t("auth.placeholders.fullName")}
                   className="mt-1"
                   required={!isLogin}
                 />
@@ -85,27 +87,27 @@ const Auth = () => {
             )}
 
             <div>
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t("auth.fields.email")}</Label>
               <Input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
+                placeholder={t("auth.placeholders.email")}
                 className="mt-1"
                 required
               />
             </div>
 
             <div>
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t("auth.fields.password")}</Label>
               <div className="relative mt-1">
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder={t("auth.placeholders.password")}
                   className="pr-10"
                   required
                   minLength={6}
@@ -121,7 +123,11 @@ const Auth = () => {
             </div>
 
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Loading..." : isLogin ? "Sign In" : "Create Account"}
+              {isLoading
+                ? t("common.loading")
+                : isLogin
+                ? t("actions.signIn")
+                : t("auth.actions.createAccount")}
             </Button>
           </form>
 
@@ -131,8 +137,8 @@ const Auth = () => {
               className="text-sm text-primary hover:underline"
             >
               {isLogin
-                ? "Don't have an account? Sign up"
-                : "Already have an account? Sign in"}
+                ? t("auth.actions.switchToSignup")
+                : t("auth.actions.switchToLogin")}
             </button>
           </div>
         </div>

@@ -2,32 +2,22 @@ import { ArrowLeftRight, Users, Car, Search, MapPin, Frown } from "lucide-react"
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-
-const services = [
-  {
-    icon: ArrowLeftRight,
-    title: "Taxi Service",
-    description: "Quick rides around the city",
-    action: "Add to Trip Cart",
-    variant: "primary" as const,
-  },
-  {
-    icon: Users,
-    title: "Shuttle Service",
-    description: "Shared rides to popular destinations",
-    action: "Add to Trip Cart",
-    variant: "primary" as const,
-  },
-  {
-    icon: Car,
-    title: "Car Rental",
-    description: "Rent a vehicle for your journey",
-    action: "Browse Cars",
-    variant: "outline" as const,
-  },
-];
+import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 
 const Transport = () => {
+  const navigate = useNavigate();
+  const [query, setQuery] = useState("");
+  const [vehicle, setVehicle] = useState("All Vehicles");
+
+  const runSearch = () => {
+    const params = new URLSearchParams();
+    if (query.trim()) params.set("q", query.trim());
+    if (vehicle && vehicle !== "All Vehicles") params.set("vehicle", vehicle);
+    const qs = params.toString();
+    navigate(qs ? `/transport?${qs}` : "/transport");
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -46,17 +36,23 @@ const Transport = () => {
             <input
               type="text"
               placeholder="Search routes or destinations..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
               className="w-full bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none text-sm"
             />
           </div>
           <div className="flex items-center gap-4">
-            <select className="bg-transparent text-sm text-muted-foreground focus:outline-none">
+            <select
+              className="bg-transparent text-sm text-muted-foreground focus:outline-none"
+              value={vehicle}
+              onChange={(e) => setVehicle(e.target.value)}
+            >
               <option>All Vehicles</option>
               <option>Sedan</option>
               <option>SUV</option>
               <option>Van</option>
             </select>
-            <Button variant="search" className="gap-2">
+            <Button variant="search" className="gap-2" type="button" onClick={runSearch}>
               <Search className="w-4 h-4" />
               Search
             </Button>
@@ -66,30 +62,14 @@ const Transport = () => {
 
       {/* Service Cards */}
       <div className="container mx-auto px-4 lg:px-8 mb-16">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {services.map((service) => (
-            <div
-              key={service.title}
-              className="bg-card rounded-xl p-8 shadow-card text-center hover:shadow-lg transition-shadow"
-            >
-              <div
-                className={`w-16 h-16 rounded-full mx-auto mb-6 flex items-center justify-center ${
-                  service.variant === "primary" ? "bg-primary/10" : "bg-muted"
-                }`}
-              >
-                <service.icon
-                  className={`w-7 h-7 ${
-                    service.variant === "primary" ? "text-primary" : "text-foreground"
-                  }`}
-                />
-              </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">{service.title}</h3>
-              <p className="text-sm text-muted-foreground mb-6">{service.description}</p>
-              <Button variant={service.variant} className="w-full">
-                {service.action}
-              </Button>
-            </div>
-          ))}
+        <div className="bg-card rounded-xl p-10 shadow-card text-center">
+          <div className="w-16 h-16 rounded-full bg-primary/10 mx-auto mb-6 flex items-center justify-center">
+            <Car className="w-7 h-7 text-primary" />
+          </div>
+          <h2 className="text-xl font-semibold text-foreground mb-2">Transportation is coming soon</h2>
+          <p className="text-muted-foreground max-w-xl mx-auto">
+            Transportation options will appear here once your live database and routes are connected.
+          </p>
         </div>
       </div>
 

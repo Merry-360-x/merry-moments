@@ -5,25 +5,64 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import PropertyCard from "@/components/PropertyCard";
-import { useState } from "react";
-
-import property1 from "@/assets/property-1.jpg";
-import property2 from "@/assets/property-2.jpg";
-import property3 from "@/assets/property-3.jpg";
-import property4 from "@/assets/property-4.jpg";
-
-const properties = [
-  { id: 1, image: property1, title: "Lakeside Luxury Suite", location: "Kigali, Rwanda", rating: 4.9, reviews: 128, price: 150000, type: "Hotel" },
-  { id: 2, image: property2, title: "Forest Retreat Lodge", location: "Nyungwe, Rwanda", rating: 4.8, reviews: 94, price: 120000, type: "Lodge" },
-  { id: 3, image: property3, title: "Modern Pool Villa", location: "Rubavu, Rwanda", rating: 4.7, reviews: 156, price: 200000, type: "Villa" },
-  { id: 4, image: property4, title: "Traditional Guesthouse", location: "Musanze, Rwanda", rating: 4.9, reviews: 72, price: 85000, type: "Guesthouse" },
-];
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 
 const propertyTypes = ["Hotel", "Motel", "Resort", "Lodge", "Apartment", "Villa", "Guesthouse"];
 const amenities = ["WiFi", "Pool", "Parking", "Restaurant", "Gym", "Spa"];
 
+const fetchProperties = async (maxPrice: number, search: string) => {
+  let query = supabase
+    .from("properties")
+    .select(
+      "id, title, location, price_per_night, currency, property_type, rating, review_count, images, created_at"
+    )
+    .eq("is_published", true)
+    .order("created_at", { ascending: false });
+
+  const trimmed = search.trim();
+  if (trimmed) {
+    query = query.or(`title.ilike.%${trimmed}%,location.ilike.%${trimmed}%`);
+  }
+
+  const { data, error } = await query.lte("price_per_night", maxPrice);
+  if (error) throw error;
+  return data ?? [];
+};
+
 const Accommodations = () => {
+  const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
   const [priceRange, setPriceRange] = useState([0, 500000]);
+  const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    setQuery(searchParams.get("q") ?? "");
+  }, [searchParams]);
+
+  const runSearch = () => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      navigate("/accommodations");
+      return;
+    }
+    const params = new URLSearchParams({ q: trimmed });
+    navigate(`/accommodations?${params.toString()}`);
+  };
+
+  const {
+    data: properties,
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey: ["properties", "accommodations", priceRange[1], searchParams.get("q") ?? ""],
+    queryFn: () => fetchProperties(priceRange[1], searchParams.get("q") ?? ""),
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -34,14 +73,16 @@ const Accommodations = () => {
         <div className="container mx-auto px-4 lg:px-8">
           <div className="bg-card rounded-xl shadow-card p-4 flex flex-col md:flex-row items-stretch md:items-center gap-4 max-w-3xl mx-auto">
             <div className="flex-1">
-              <label className="block text-xs text-muted-foreground mb-1">Accommodations</label>
+              <label className="block text-xs text-muted-foreground mb-1">{t("nav.accommodations")}</label>
               <input
                 type="text"
-                placeholder="Search"
+                placeholder={t("common.search")}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
                 className="w-full bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none text-sm"
               />
             </div>
-            <Button variant="search" size="icon-lg">
+            <Button variant="search" size="icon-lg" type="button" onClick={runSearch}>
               <Search className="w-5 h-5" />
             </Button>
           </div>
@@ -51,19 +92,19 @@ const Accommodations = () => {
       {/* Main Content */}
       <div className="container mx-auto px-4 lg:px-8 py-12">
         <div className="mb-8">
-          <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">Find Your Perfect Stay</h1>
-          <p className="text-muted-foreground">Browse handpicked properties across Rwanda</p>
+          <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">{t("accommodations.title")}</h1>
+          <p className="text-muted-foreground">{t("accommodations.subtitle")}</p>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Filters Sidebar */}
           <aside className="w-full lg:w-64 shrink-0">
             <div className="bg-card rounded-xl p-6 shadow-card">
-              <h3 className="font-semibold text-foreground mb-4">Filters</h3>
+              <h3 className="font-semibold text-foreground mb-4">{t("accommodations.filters")}</h3>
 
               {/* Price Range */}
               <div className="mb-6">
-                <label className="block text-sm font-medium text-foreground mb-3">Price range (per night)</label>
+                <label className="block text-sm font-medium text-foreground mb-3">{t("accommodations.priceRange")}</label>
                 <Slider
                   value={priceRange}
                   onValueChange={setPriceRange}
@@ -79,7 +120,7 @@ const Accommodations = () => {
 
               {/* Property Type */}
               <div className="mb-6">
-                <label className="block text-sm font-medium text-foreground mb-3">Property type</label>
+                <label className="block text-sm font-medium text-foreground mb-3">{t("accommodations.propertyType")}</label>
                 <div className="space-y-2">
                   {propertyTypes.map((type) => (
                     <div key={type} className="flex items-center gap-2">
@@ -94,7 +135,7 @@ const Accommodations = () => {
 
               {/* Minimum Rating */}
               <div className="mb-6">
-                <label className="block text-sm font-medium text-foreground mb-3">Minimum rating</label>
+                <label className="block text-sm font-medium text-foreground mb-3">{t("accommodations.minimumRating")}</label>
                 <div className="flex gap-1">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <button key={star} className="p-1">
@@ -106,7 +147,7 @@ const Accommodations = () => {
 
               {/* Amenities */}
               <div>
-                <label className="block text-sm font-medium text-foreground mb-3">Amenities</label>
+                <label className="block text-sm font-medium text-foreground mb-3">{t("accommodations.amenities")}</label>
                 <div className="space-y-2">
                   {amenities.map((amenity) => (
                     <div key={amenity} className="flex items-center gap-2">
@@ -124,9 +165,35 @@ const Accommodations = () => {
           {/* Properties Grid */}
           <div className="flex-1">
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-              {properties.map((property) => (
-                <PropertyCard key={property.id} {...property} />
-              ))}
+              {isLoading ? (
+                <div className="col-span-full py-16 text-center">
+                  <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                  <p className="text-muted-foreground">{t("common.loadingProperties")}</p>
+                </div>
+              ) : isError ? (
+                <div className="col-span-full py-16 text-center">
+                  <p className="text-muted-foreground">{t("common.couldNotLoadProperties")}</p>
+                </div>
+              ) : properties.length === 0 ? (
+                <div className="col-span-full py-16 text-center">
+                  <p className="text-muted-foreground">{t("accommodations.noMatches")}</p>
+                </div>
+              ) : (
+                properties.map((property) => (
+                  <PropertyCard
+                    key={property.id}
+                    id={property.id}
+                    image={property.images?.[0] ?? null}
+                    title={property.title}
+                    location={property.location}
+                    rating={Number(property.rating) || 0}
+                    reviews={property.review_count || 0}
+                    price={Number(property.price_per_night)}
+                    currency={property.currency}
+                    type={property.property_type}
+                  />
+                ))
+              )}
             </div>
           </div>
         </div>

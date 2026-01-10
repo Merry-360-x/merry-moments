@@ -1,7 +1,10 @@
 import { Star, Heart } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { Link, useNavigate } from "react-router-dom";
 
-interface PropertyCardProps {
-  image: string;
+export interface PropertyCardProps {
+  id?: string;
+  image?: string | null;
   title: string;
   location: string;
   rating: number;
@@ -12,6 +15,7 @@ interface PropertyCardProps {
 }
 
 const PropertyCard = ({
+  id,
   image,
   title,
   location,
@@ -21,16 +25,33 @@ const PropertyCard = ({
   currency = "RWF",
   type,
 }: PropertyCardProps) => {
-  return (
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+
+  const content = (
     <div className="group rounded-xl overflow-hidden bg-card shadow-card hover:shadow-lg transition-all duration-300 animate-fade-in">
       {/* Image */}
       <div className="relative aspect-[4/3] overflow-hidden">
-        <img
-          src={image}
-          alt={title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-        />
-        <button className="absolute top-3 right-3 p-2 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background transition-colors">
+        {image ? (
+          <img
+            src={image}
+            alt={title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-muted via-muted/70 to-muted/40" />
+        )}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            navigate("/favorites");
+          }}
+          className="absolute top-3 right-3 p-2 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background transition-colors"
+          aria-label={t("actions.favorites")}
+        >
           <Heart className="w-4 h-4 text-foreground" />
         </button>
         <span className="absolute bottom-3 left-3 px-3 py-1 rounded-full bg-background/90 backdrop-blur-sm text-xs font-medium">
@@ -53,10 +74,18 @@ const PropertyCard = ({
           <span className="text-lg font-bold text-foreground">
             {currency} {price.toLocaleString()}
           </span>
-          <span className="text-sm text-muted-foreground">/ night</span>
+          <span className="text-sm text-muted-foreground">{t("common.perNight")}</span>
         </div>
       </div>
     </div>
+  );
+
+  if (!id) return content;
+
+  return (
+    <Link to={`/properties/${id}`} className="block" aria-label={title}>
+      {content}
+    </Link>
   );
 };
 

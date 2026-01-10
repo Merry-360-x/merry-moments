@@ -2,28 +2,21 @@ import { Home, Compass, Car } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
-import property1 from "@/assets/property-1.jpg";
-import property2 from "@/assets/property-2.jpg";
-import property3 from "@/assets/property-3.jpg";
-
 const services = [
   {
     icon: Home,
     title: "Accommodation Booking",
     description: "From luxury hotels to cozy guesthouses, find your perfect stay across Rwanda.",
-    image: property1,
   },
   {
     icon: Compass,
     title: "Tours & Experiences",
     description: "Discover Rwanda's natural wonders and rich cultural heritage with expert guides.",
-    image: property2,
   },
   {
     icon: Car,
     title: "Transportation Services",
     description: "Safe and comfortable travel across Rwanda with our trusted transport partners.",
-    image: property3,
   },
 ];
 
@@ -56,11 +49,7 @@ const Services = () => {
           {services.map((service) => (
             <div key={service.title} className="group">
               <div className="relative aspect-[4/3] rounded-xl overflow-hidden mb-4">
-                <img
-                  src={service.image}
-                  alt={service.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                />
+                <div className="w-full h-full bg-gradient-to-br from-primary/10 via-muted to-muted/50 group-hover:scale-105 transition-transform duration-500" />
                 <div className="absolute bottom-4 left-4">
                   <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center">
                     <service.icon className="w-6 h-6 text-primary-foreground" />

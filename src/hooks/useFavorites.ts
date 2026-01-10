@@ -1,17 +1,19 @@
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTranslation } from "react-i18next";
 
 export const useFavorites = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   const toggleFavorite = async (propertyId: string, isFavorited: boolean) => {
     if (!user) {
       toast({
         variant: "destructive",
-        title: "Please sign in",
-        description: "You need to be logged in to save favorites.",
+        title: t("favorites.toast.signInTitle"),
+        description: t("favorites.toast.signInDescription"),
       });
       return false;
     }
@@ -24,11 +26,11 @@ export const useFavorites = () => {
         .eq("property_id", propertyId);
 
       if (error) {
-        toast({ variant: "destructive", title: "Error", description: error.message });
+        toast({ variant: "destructive", title: t("common.error"), description: error.message });
         return false;
       }
 
-      toast({ title: "Removed from favorites" });
+      toast({ title: t("favorites.toast.removed") });
       return true;
     } else {
       const { error } = await supabase
@@ -36,11 +38,11 @@ export const useFavorites = () => {
         .insert({ user_id: user.id, property_id: propertyId });
 
       if (error) {
-        toast({ variant: "destructive", title: "Error", description: error.message });
+        toast({ variant: "destructive", title: t("common.error"), description: error.message });
         return false;
       }
 
-      toast({ title: "Added to favorites" });
+      toast({ title: t("favorites.toast.added") });
       return true;
     }
   };

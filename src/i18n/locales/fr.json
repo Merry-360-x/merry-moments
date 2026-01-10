@@ -1,0 +1,173 @@
+{
+  "nav": {
+    "home": "Accueil",
+    "accommodations": "Hébergements",
+    "tours": "Circuits",
+    "transport": "Transport",
+    "services": "Services",
+    "stories": "Histoires"
+  },
+  "actions": {
+    "tripCart": "Panier de voyage",
+    "signIn": "Se connecter",
+    "signOut": "Se déconnecter",
+    "myBookings": "Mes réservations",
+    "favorites": "Favoris",
+    "adminDashboard": "Tableau admin",
+    "staffDashboard": "Tableau staff",
+    "hostDashboard": "Tableau hôte",
+    "becomeHost": "Devenir hôte",
+    "manageRoles": "Gérer les rôles",
+    "refresh": "Actualiser",
+    "copyUserId": "Copier l’identifiant",
+    "copied": "Copié",
+    "copiedUserId": "Identifiant copié dans le presse-papiers.",
+    "couldNotCopy": "Impossible de copier",
+    "clipboardBlocked": "L’accès au presse-papiers a été bloqué par le navigateur."
+  },
+  "labels": {
+    "currency": "Devise",
+    "language": "Langue",
+    "theme": "Thème"
+  },
+  "languages": {
+    "en": "Anglais",
+    "rw": "Kinyarwanda",
+    "fr": "Français",
+    "sw": "Kiswahili",
+    "zh": "Chinois (Mandarin)"
+  },
+  "common": {
+    "search": "Rechercher",
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "somethingWentWrong": "Une erreur s’est produite.",
+    "loadingProperties": "Chargement des hébergements...",
+    "couldNotLoadProperties": "Impossible de charger les hébergements pour le moment.",
+    "noPublishedProperties": "Aucun hébergement publié pour le moment.",
+    "perNight": "/ nuit"
+  },
+  "auth": {
+    "title": {
+      "login": "Bon retour",
+      "signup": "Créer un compte"
+    },
+    "subtitle": {
+      "login": "Connectez-vous pour continuer",
+      "signup": "Créez un compte pour commencer"
+    },
+    "fields": {
+      "fullName": "Nom complet",
+      "email": "E-mail",
+      "password": "Mot de passe"
+    },
+    "placeholders": {
+      "fullName": "Entrez votre nom complet",
+      "email": "Entrez votre e-mail",
+      "password": "Entrez votre mot de passe"
+    },
+    "actions": {
+      "createAccount": "Créer un compte",
+      "switchToSignup": "Pas de compte ? Inscrivez-vous",
+      "switchToLogin": "Déjà un compte ? Connectez-vous"
+    },
+    "errors": {
+      "fullNameRequired": "Le nom complet est requis."
+    },
+    "toast": {
+      "welcomeBack": "Bon retour",
+      "loggedIn": "Vous êtes connecté.",
+      "accountCreated": "Compte créé",
+      "signedUp": "Vous êtes inscrit."
+    }
+  },
+  "index": {
+    "heroTitle": "Trouver un hébergement",
+    "latestTitle": "Dernières annonces",
+    "latestSubtitle": "Explorez les hébergements par catégories/types...",
+    "browseMore": "Voir plus d’hébergements"
+  },
+  "accommodations": {
+    "title": "Trouvez votre séjour idéal",
+    "subtitle": "Parcourez des hébergements sélectionnés à travers le Rwanda",
+    "filters": "Filtres",
+    "priceRange": "Fourchette de prix (par nuit)",
+    "propertyType": "Type d’hébergement",
+    "minimumRating": "Note minimale",
+    "amenities": "Équipements",
+    "noMatches": "Aucun hébergement ne correspond à vos filtres."
+  },
+  "heroSearch": {
+    "where": "Où",
+    "wherePlaceholder": "Rechercher une destination",
+    "suggestedDestinations": "Destinations suggérées",
+    "noDestinations": "Aucune destination trouvée.",
+    "destinationHint": "District, Rwanda",
+    "when": "Quand",
+    "addDates": "Ajouter des dates",
+    "dates": "Dates",
+    "tabs": {
+      "dates": "Dates",
+      "months": "Mois",
+      "flexible": "Flexible"
+    },
+    "quick": {
+      "exactDates": "Dates exactes",
+      "flexDays": "±{{count}} jour",
+      "flexDays_plural": "±{{count}} jours"
+    },
+    "monthsTitle": "Choisir un mois",
+    "flexibleTitle": "Combien de temps ?",
+    "flexibleDays": "{{count}} jour",
+    "flexibleDays_plural": "{{count}} jours",
+    "clearDates": "Effacer les dates",
+    "next": "Suivant",
+    "who": "Qui",
+    "oneGuest": "1 voyageur",
+    "guests": "{{count}} voyageurs",
+    "adults": "Adultes",
+    "ages13Plus": "13 ans ou plus",
+    "children": "Enfants",
+    "ages2to12": "2–12 ans",
+    "infants": "Bébés",
+    "under2": "Moins de 2 ans",
+    "pets": "Animaux",
+    "bringingServiceAnimal": "Vous avez un animal d’assistance ?",
+    "clear": "Effacer"
+  },
+  "hostingCta": {
+    "title": "Devenez hôte avec nous",
+    "subtitle": "Gagnez un revenu supplémentaire en louant votre logement...",
+    "button": "Devenir hôte"
+  },
+  "footer": {
+    "tagline": "Découvrez la chaleur de l’hospitalité africaine avec des solutions de voyage modernes.",
+    "explore": "Explorer",
+    "company": "Entreprise",
+    "support": "Assistance",
+    "about": "À propos",
+    "contact": "Contact",
+    "help": "Centre d’aide",
+    "safety": "Sécurité",
+    "terms": "Conditions",
+    "privacy": "Confidentialité",
+    "cookies": "Cookies",
+    "copyright": "© {{year}} Merry360X. Tous droits réservés."
+  },
+  "tripCart": {
+    "subtitle": "Consultez et gérez vos éléments de voyage enregistrés.",
+    "empty": "Votre panier de voyage est vide pour le moment.",
+    "browse": "Parcourir les hébergements"
+  },
+  "info": {
+    "backHome": "Retour à l’accueil",
+    "getHelp": "Obtenir de l’aide",
+    "aboutBody": "En savoir plus sur Merry360X et notre mission. Cette page sera mise à jour bientôt.",
+    "contactBody": "Besoin de nous contacter ? Les informations seront ajoutées bientôt.",
+    "helpBody": "Trouvez des réponses et des ressources d’assistance ici. Mise à jour bientôt.",
+    "safetyBody": "Les conseils et règles de sécurité seront disponibles bientôt.",
+    "privacyBody": "Notre politique de confidentialité sera publiée bientôt.",
+    "cookiesBody": "Les informations sur les cookies seront disponibles bientôt.",
+    "termsBody": "Les conditions d’utilisation seront publiées bientôt."
+  }
+}

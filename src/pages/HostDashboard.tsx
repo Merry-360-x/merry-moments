@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { isCloudinaryConfigured, uploadImageToCloudinary } from "@/lib/cloudinary";
 import {
   Home,
   Calendar,
@@ -40,6 +41,7 @@ interface Property {
   bedrooms: number;
   bathrooms: number;
   is_published: boolean;
+  images?: string[] | null;
   created_at: string;
 }
 
@@ -55,7 +57,7 @@ interface Booking {
 }
 
 const HostDashboard = () => {
-  const { user, isHost, becomeHost, isLoading: authLoading } = useAuth();
+  const { user, isHost, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -64,6 +66,10 @@ const HostDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
+  const [imageUploadProgress, setImageUploadProgress] = useState<
+    { done: number; total: number } | null
+  >(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -75,6 +81,7 @@ const HostDashboard = () => {
     max_guests: 2,
     bedrooms: 1,
     bathrooms: 1,
+    images: [] as string[],
   });
 
   useEffect(() => {
@@ -114,12 +121,7 @@ const HostDashboard = () => {
   };
 
   const handleBecomeHost = async () => {
-    const { error } = await becomeHost();
-    if (error) {
-      toast({ variant: "destructive", title: "Error", description: error.message });
-    } else {
-      toast({ title: "Congratulations!", description: "You are now a host." });
-    }
+    navigate("/become-host");
   };
 
   const handleSubmitProperty = async (e: React.FormEvent) => {
@@ -165,6 +167,7 @@ const HostDashboard = () => {
       max_guests: 2,
       bedrooms: 1,
       bathrooms: 1,
+      images: [],
     });
     setEditingProperty(null);
   };
@@ -179,9 +182,62 @@ const HostDashboard = () => {
       max_guests: property.max_guests,
       bedrooms: property.bedrooms || 1,
       bathrooms: property.bathrooms || 1,
+      images: property.images ?? [],
     });
     setEditingProperty(property);
     setIsDialogOpen(true);
+  };
+
+  const handleImageFilesSelected = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    if (!isCloudinaryConfigured()) {
+      toast({
+        variant: "destructive",
+        title: "Cloudinary not configured",
+        description:
+          "Set VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET in your .env.local (or .env).",
+      });
+      return;
+    }
+
+    const fileArray = Array.from(files);
+    setIsUploadingImages(true);
+    setImageUploadProgress({ done: 0, total: fileArray.length });
+
+    try {
+      const uploadedUrls: string[] = [];
+
+      for (let i = 0; i < fileArray.length; i++) {
+        const file = fileArray[i];
+        const result = await uploadImageToCloudinary(file, { folder: "merry360/properties" });
+        if (result.secureUrl) uploadedUrls.push(result.secureUrl);
+        setImageUploadProgress({ done: i + 1, total: fileArray.length });
+      }
+
+      if (uploadedUrls.length > 0) {
+        setFormData((prev) => ({
+          ...prev,
+          images: [...(prev.images ?? []), ...uploadedUrls],
+        }));
+      }
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Image upload failed",
+        description: err instanceof Error ? err.message : "Couldn’t upload images right now.",
+      });
+    } finally {
+      setIsUploadingImages(false);
+      setImageUploadProgress(null);
+    }
+  };
+
+  const removeImageAtIndex = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      images: (prev.images ?? []).filter((_, i) => i !== index),
+    }));
   };
 
   const handleDelete = async (id: string) => {
@@ -243,7 +299,7 @@ const HostDashboard = () => {
                 Start earning by listing your property on Merry360X. Join our community of hosts and welcome guests from around the world.
               </p>
               <Button onClick={handleBecomeHost} size="lg">
-                Start Hosting
+                Apply to become a host
               </Button>
             </div>
           ) : (
@@ -323,6 +379,55 @@ const HostDashboard = () => {
                     placeholder="Describe your property..."
                     rows={3}
                   />
+                </div>
+
+                <div>
+                  <Label>Images</Label>
+                  <div className="mt-2 space-y-3">
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      disabled={isUploadingImages}
+                      onChange={(e) => handleImageFilesSelected(e.target.files)}
+                    />
+
+                    {isUploadingImages && imageUploadProgress ? (
+                      <p className="text-sm text-muted-foreground">
+                        Uploading {imageUploadProgress.done}/{imageUploadProgress.total}...
+                      </p>
+                    ) : null}
+
+                    {(formData.images?.length ?? 0) > 0 ? (
+                      <div className="grid grid-cols-3 gap-2">
+                        {formData.images.map((url, idx) => (
+                          <div
+                            key={`${url}-${idx}`}
+                            className="relative rounded-md overflow-hidden border border-border"
+                          >
+                            <img
+                              src={url}
+                              alt={`Property image ${idx + 1}`}
+                              className="h-20 w-full object-cover"
+                              loading="lazy"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeImageAtIndex(idx)}
+                              className="absolute top-1 right-1 rounded bg-background/80 px-2 py-1 text-xs text-foreground hover:bg-background"
+                              title="Remove"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        Upload at least one image to show on listings.
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>

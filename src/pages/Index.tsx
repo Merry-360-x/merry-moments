@@ -4,57 +4,37 @@ import HeroSearch from "@/components/HeroSearch";
 import PropertyCard from "@/components/PropertyCard";
 import HostingCTA from "@/components/HostingCTA";
 import Footer from "@/components/Footer";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 
 import heroImage from "@/assets/hero-resort.jpg";
-import property1 from "@/assets/property-1.jpg";
-import property2 from "@/assets/property-2.jpg";
-import property3 from "@/assets/property-3.jpg";
-import property4 from "@/assets/property-4.jpg";
 
-const properties = [
-  {
-    id: 1,
-    image: property1,
-    title: "Lakeside Luxury Suite",
-    location: "Kigali, Rwanda",
-    rating: 4.9,
-    reviews: 128,
-    price: 150000,
-    type: "Hotel",
-  },
-  {
-    id: 2,
-    image: property2,
-    title: "Forest Retreat Lodge",
-    location: "Nyungwe, Rwanda",
-    rating: 4.8,
-    reviews: 94,
-    price: 120000,
-    type: "Lodge",
-  },
-  {
-    id: 3,
-    image: property3,
-    title: "Modern Pool Villa",
-    location: "Rubavu, Rwanda",
-    rating: 4.7,
-    reviews: 156,
-    price: 200000,
-    type: "Villa",
-  },
-  {
-    id: 4,
-    image: property4,
-    title: "Traditional Guesthouse",
-    location: "Musanze, Rwanda",
-    rating: 4.9,
-    reviews: 72,
-    price: 85000,
-    type: "Guesthouse",
-  },
-];
+const fetchLatestProperties = async () => {
+  const { data, error } = await supabase
+    .from("properties")
+    .select(
+      "id, title, location, price_per_night, currency, property_type, rating, review_count, images, created_at"
+    )
+    .eq("is_published", true)
+    .order("created_at", { ascending: false })
+    .limit(4);
+
+  if (error) throw error;
+  return data ?? [];
+};
 
 const Index = () => {
+  const { t } = useTranslation();
+  const {
+    data: properties,
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey: ["properties", "latest"],
+    queryFn: fetchLatestProperties,
+  });
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -70,7 +50,7 @@ const Index = () => {
         {/* Content */}
         <div className="relative z-10 container mx-auto px-4 py-20 text-center">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-primary-foreground mb-8 italic animate-fade-in">
-            Find A Property
+            {t("index.heroTitle")}
           </h1>
 
           {/* Search Bar */}
@@ -83,37 +63,62 @@ const Index = () => {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">
-              Latest on the Property Listing
+              {t("index.latestTitle")}
             </h2>
             <p className="text-muted-foreground">
-              Explore properties by their categories/types...
+              {t("index.latestSubtitle")}
             </p>
           </div>
           <Link
             to="/accommodations"
             className="hidden md:block text-primary font-medium hover:underline"
           >
-            Browse For More Properties
+            {t("index.browseMore")}
           </Link>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {properties.map((property, index) => (
-            <div
-              key={property.id}
-              style={{ animationDelay: `${index * 100}ms` }}
-              className="opacity-0 animate-fade-in"
-            >
-              <PropertyCard {...property} />
+          {isLoading ? (
+            <div className="col-span-full py-12 text-center">
+              <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-muted-foreground">{t("common.loadingProperties")}</p>
             </div>
-          ))}
+          ) : isError ? (
+            <div className="col-span-full py-12 text-center">
+              <p className="text-muted-foreground">{t("common.couldNotLoadProperties")}</p>
+            </div>
+          ) : properties.length === 0 ? (
+            <div className="col-span-full py-12 text-center">
+              <p className="text-muted-foreground">{t("common.noPublishedProperties")}</p>
+            </div>
+          ) : (
+            properties.map((property, index) => (
+              <div
+                key={property.id}
+                style={{ animationDelay: `${index * 100}ms` }}
+                className="opacity-0 animate-fade-in"
+              >
+                <PropertyCard
+                  id={property.id}
+                  image={property.images?.[0] ?? null}
+                  title={property.title}
+                  location={property.location}
+                  rating={Number(property.rating) || 0}
+                  reviews={property.review_count || 0}
+                  price={Number(property.price_per_night)}
+                  currency={property.currency}
+                  type={property.property_type}
+                />
+              </div>
+            ))
+          )}
         </div>
 
         <Link
           to="/accommodations"
           className="md:hidden block text-center text-primary font-medium hover:underline mt-8"
         >
-          Browse For More Properties
+          {t("index.browseMore")}
         </Link>
       </section>
 
