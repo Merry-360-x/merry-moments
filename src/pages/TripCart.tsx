@@ -11,6 +11,14 @@ import type { Tables } from "@/integrations/supabase/types";
 
 type CartItemRow = Pick<Tables<"trip_cart_items">, "id" | "item_type" | "reference_id" | "quantity" | "created_at">;
 
+type TourDetailRow = Pick<Tables<"tours">, "id" | "title" | "price_per_person" | "currency" | "images" | "duration_days">;
+type TransportServiceDetailRow = Pick<Tables<"transport_services">, "id" | "title" | "description">;
+type TransportVehicleDetailRow = Pick<
+  Tables<"transport_vehicles">,
+  "id" | "title" | "vehicle_type" | "seats" | "price_per_day" | "currency" | "image_url"
+>;
+type TransportRouteDetailRow = Pick<Tables<"transport_routes">, "id" | "from_location" | "to_location" | "base_price" | "currency">;
+
 type CartDetails =
   | { type: "tour"; title: string; price: number; currency: string; image?: string | null; meta?: string }
   | { type: "transport_vehicle"; title: string; price: number; currency: string; image?: string | null; meta?: string }
@@ -77,7 +85,7 @@ export default function TripCart() {
       ]);
 
       const tours = new Map(
-        ((toursRes.data as any[]) ?? []).map((r) => [
+        ((toursRes.data as TourDetailRow[] | null) ?? []).map((r) => [
           String(r.id),
           {
             title: String(r.title),
@@ -90,7 +98,7 @@ export default function TripCart() {
       );
 
       const services = new Map(
-        ((servicesRes.data as any[]) ?? []).map((r) => [
+        ((servicesRes.data as TransportServiceDetailRow[] | null) ?? []).map((r) => [
           String(r.id),
           {
             title: String(r.title),
@@ -100,7 +108,7 @@ export default function TripCart() {
       );
 
       const vehicles = new Map(
-        ((vehiclesRes.data as any[]) ?? []).map((r) => [
+        ((vehiclesRes.data as TransportVehicleDetailRow[] | null) ?? []).map((r) => [
           String(r.id),
           {
             title: String(r.title),
@@ -113,7 +121,7 @@ export default function TripCart() {
       );
 
       const routes = new Map(
-        ((routesRes.data as any[]) ?? []).map((r) => [
+        ((routesRes.data as TransportRouteDetailRow[] | null) ?? []).map((r) => [
           String(r.id),
           {
             title: `${String(r.from_location)} → ${String(r.to_location)}`,

@@ -120,6 +120,9 @@ export default function AdminDashboard() {
             <Button variant="outline" asChild>
               <Link to="/admin/roles">Manage Roles</Link>
             </Button>
+            <Button variant="outline" asChild>
+              <Link to="/admin/integrations">Integrations</Link>
+            </Button>
             <Button variant="outline" onClick={() => refetch()}>
               Refresh
             </Button>

@@ -12,6 +12,8 @@ export interface PropertyCardProps {
   price: number;
   currency?: string;
   type: string;
+  isFavorited?: boolean;
+  onToggleFavorite?: () => void;
 }
 
 const PropertyCard = ({
@@ -24,6 +26,8 @@ const PropertyCard = ({
   price,
   currency = "RWF",
   type,
+  isFavorited,
+  onToggleFavorite,
 }: PropertyCardProps) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -47,12 +51,18 @@ const PropertyCard = ({
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
+            if (onToggleFavorite) {
+              onToggleFavorite();
+              return;
+            }
             navigate("/favorites");
           }}
           className="absolute top-3 right-3 p-2 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background transition-colors"
           aria-label={t("actions.favorites")}
         >
-          <Heart className="w-4 h-4 text-foreground" />
+          <Heart
+            className={`w-4 h-4 ${isFavorited ? "fill-primary text-primary" : "text-foreground"}`}
+          />
         </button>
         <span className="absolute bottom-3 left-3 px-3 py-1 rounded-full bg-background/90 backdrop-blur-sm text-xs font-medium">
           {type}

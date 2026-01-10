@@ -1,10 +1,17 @@
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useFavorites } from "@/hooks/useFavorites";
+import { Heart } from "lucide-react";
 
 type PropertyRow = {
   id: string;
@@ -18,13 +25,16 @@ type PropertyRow = {
   images: string[] | null;
   description: string | null;
   is_published: boolean | null;
+  host_id: string;
+  max_guests: number;
+  amenities: string[] | null;
 };
 
 const fetchProperty = async (id: string) => {
   const { data, error } = await supabase
     .from("properties")
     .select(
-      "id, title, location, price_per_night, currency, property_type, rating, review_count, images, description, is_published"
+      "id, title, location, price_per_night, currency, property_type, rating, review_count, images, description, is_published, host_id, max_guests, amenities"
     )
     .eq("id", id)
     .maybeSingle();
@@ -33,16 +43,107 @@ const fetchProperty = async (id: string) => {
   return data as PropertyRow | null;
 };
 
+const isoToday = () => new Date().toISOString().slice(0, 10);
+
 export default function PropertyDetails() {
   const { t } = useTranslation();
   const params = useParams();
   const propertyId = params.id;
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const { toggleFavorite, checkFavorite } = useFavorites();
+
+  const [checkIn, setCheckIn] = useState(isoToday());
+  const [checkOut, setCheckOut] = useState(isoToday());
+  const [guests, setGuests] = useState(1);
+  const [booking, setBooking] = useState(false);
+  const [isFavorited, setIsFavorited] = useState(false);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["property", propertyId],
     queryFn: () => fetchProperty(propertyId as string),
     enabled: Boolean(propertyId),
   });
+
+  useEffect(() => {
+    if (!propertyId) return;
+    let alive = true;
+    (async () => {
+      const fav = await checkFavorite(String(propertyId));
+      if (alive) setIsFavorited(fav);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [checkFavorite, propertyId, user?.id]);
+
+  const nights = useMemo(() => {
+    const start = new Date(checkIn);
+    const end = new Date(checkOut);
+    const ms = end.getTime() - start.getTime();
+    const n = Math.ceil(ms / (1000 * 60 * 60 * 24));
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }, [checkIn, checkOut]);
+
+  const estimatedTotal = useMemo(() => {
+    if (!data) return 0;
+    return nights * Number(data.price_per_night ?? 0);
+  }, [data, nights]);
+
+  const submitBooking = async () => {
+    if (!data || !propertyId) return;
+    if (!user) {
+      navigate(`/login?redirect=/properties/${encodeURIComponent(String(propertyId))}`);
+      return;
+    }
+
+    if (nights <= 0) {
+      toast({ variant: "destructive", title: "Invalid dates", description: "Check-out must be after check-in." });
+      return;
+    }
+    if (guests < 1) {
+      toast({ variant: "destructive", title: "Invalid guests", description: "Guests must be at least 1." });
+      return;
+    }
+    if (data.max_guests && guests > data.max_guests) {
+      toast({
+        variant: "destructive",
+        title: "Too many guests",
+        description: `Max guests for this property is ${data.max_guests}.`,
+      });
+      return;
+    }
+
+    setBooking(true);
+    try {
+      const payload = {
+        guest_id: user.id,
+        property_id: data.id,
+        host_id: data.host_id,
+        check_in: checkIn,
+        check_out: checkOut,
+        guests_count: guests,
+        total_price: estimatedTotal,
+        currency: data.currency ?? "RWF",
+        status: "pending",
+      } as const;
+
+      const { error } = await supabase.from("bookings").insert(payload);
+      if (error) throw error;
+
+      toast({ title: "Booking requested", description: "Your booking is pending confirmation." });
+      navigate("/my-bookings");
+    } catch (e) {
+      toast({
+        variant: "destructive",
+        title: "Could not book",
+        description: e instanceof Error ? e.message : "Please try again.",
+      });
+    } finally {
+      setBooking(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -53,9 +154,19 @@ export default function PropertyDetails() {
           <Link to="/accommodations" className="text-primary font-medium hover:underline">
             {t("nav.accommodations")}
           </Link>
-          <Link to="/favorites" className="text-muted-foreground hover:text-primary">
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 text-muted-foreground hover:text-primary"
+            onClick={async () => {
+              if (!data) return;
+              const changed = await toggleFavorite(data.id, isFavorited);
+              if (changed) setIsFavorited(!isFavorited);
+            }}
+            aria-label={t("actions.favorites")}
+          >
+            <Heart className={`w-4 h-4 ${isFavorited ? "fill-primary text-primary" : ""}`} />
             {t("actions.favorites")}
-          </Link>
+          </button>
         </div>
 
         {isLoading ? (
@@ -125,6 +236,62 @@ export default function PropertyDetails() {
                   {t("common.noPublishedProperties")}
                 </p>
               )}
+
+              {/* Booking */}
+              <div className="mt-8 bg-card rounded-xl shadow-card p-5">
+                <h2 className="text-lg font-semibold text-foreground mb-4">Book this stay</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="checkIn">Check in</Label>
+                    <Input
+                      id="checkIn"
+                      type="date"
+                      value={checkIn}
+                      min={isoToday()}
+                      onChange={(e) => setCheckIn(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="checkOut">Check out</Label>
+                    <Input
+                      id="checkOut"
+                      type="date"
+                      value={checkOut}
+                      min={checkIn || isoToday()}
+                      onChange={(e) => setCheckOut(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="guests">Guests (max {data.max_guests})</Label>
+                    <Input
+                      id="guests"
+                      type="number"
+                      min={1}
+                      max={data.max_guests}
+                      value={guests}
+                      onChange={(e) => setGuests(Number(e.target.value))}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-4 flex items-center justify-between gap-4">
+                  <div className="text-sm text-muted-foreground">
+                    {nights > 0 ? (
+                      <>
+                        {nights} night{nights === 1 ? "" : "s"} • Estimated total:{" "}
+                        <span className="font-semibold text-foreground">
+                          {data.currency ?? "RWF"} {Number(estimatedTotal).toLocaleString()}
+                        </span>
+                      </>
+                    ) : (
+                      <>Select valid dates to see total.</>
+                    )}
+                  </div>
+                  <Button onClick={submitBooking} disabled={booking || nights <= 0}>
+                    {booking ? "Booking..." : "Request to book"}
+                  </Button>
+                </div>
+              </div>
 
               <div className="mt-8 flex flex-col sm:flex-row gap-3">
                 <Link to="/accommodations" className="w-full sm:w-auto">

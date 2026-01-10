@@ -15,7 +15,8 @@ export default function RequireAuth({ children }: { children: ReactElement }) {
   }
 
   if (!user) {
-    return <Navigate to="/auth" replace state={{ from: location.pathname }} />;
+    const next = `${location.pathname}${location.search}`;
+    return <Navigate to={`/auth?mode=login&redirect=${encodeURIComponent(next)}`} replace />;
   }
 
   return children;

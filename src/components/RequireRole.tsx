@@ -1,5 +1,5 @@
 import { ReactElement } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function RequireRole({
@@ -10,6 +10,7 @@ export default function RequireRole({
   children: ReactElement;
 }) {
   const { user, isLoading, roles } = useAuth();
+  const location = useLocation();
 
   if (isLoading) {
     return (
@@ -20,7 +21,8 @@ export default function RequireRole({
   }
 
   if (!user) {
-    return <Navigate to="/auth" replace />;
+    const next = `${location.pathname}${location.search}`;
+    return <Navigate to={`/auth?mode=login&redirect=${encodeURIComponent(next)}`} replace />;
   }
 
   const hasAllowedRole = allowed.some((r) => roles.includes(r));

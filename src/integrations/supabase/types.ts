@@ -638,7 +638,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["guest", "host", "admin"],
+      app_role: ["guest", "host", "staff", "admin"],
     },
   },
 } as const

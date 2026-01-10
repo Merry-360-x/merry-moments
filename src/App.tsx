@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { PreferencesProvider } from "@/contexts/PreferencesProvider";
 import Index from "./pages/Index";
@@ -26,8 +26,19 @@ import PropertyDetails from "./pages/PropertyDetails";
 import TripCart from "./pages/TripCart";
 import InfoPage from "./pages/InfoPage";
 import Dashboard from "./pages/Dashboard";
+import AdminIntegrations from "./pages/AdminIntegrations";
 
 const queryClient = new QueryClient();
+
+function AuthModeRedirect({ mode }: { mode: "login" | "signup" }) {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const redirect = params.get("redirect");
+  const next = new URLSearchParams();
+  next.set("mode", mode);
+  if (redirect) next.set("redirect", redirect);
+  return <Navigate to={`/auth?${next.toString()}`} replace />;
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -40,8 +51,8 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
-              <Route path="/login" element={<Navigate to="/auth?mode=login" replace />} />
-              <Route path="/signup" element={<Navigate to="/auth?mode=signup" replace />} />
+              <Route path="/login" element={<AuthModeRedirect mode="login" />} />
+              <Route path="/signup" element={<AuthModeRedirect mode="signup" />} />
               <Route path="/accommodations" element={<Accommodations />} />
               <Route path="/tours" element={<Tours />} />
               <Route path="/transport" element={<Transport />} />
@@ -69,6 +80,14 @@ const App = () => (
                 element={
                   <RequireRole allowed={["admin"]}>
                     <AdminRoles />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/admin/integrations"
+                element={
+                  <RequireRole allowed={["admin"]}>
+                    <AdminIntegrations />
                   </RequireRole>
                 }
               />

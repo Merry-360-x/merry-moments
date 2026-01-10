@@ -6,16 +6,24 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import PropertyCard from "@/components/PropertyCard";
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useSearchParams } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { useFavorites } from "@/hooks/useFavorites";
 
 const propertyTypes = ["Hotel", "Motel", "Resort", "Lodge", "Apartment", "Villa", "Guesthouse"];
 const amenities = ["WiFi", "Pool", "Parking", "Restaurant", "Gym", "Spa"];
 
-const fetchProperties = async (maxPrice: number, search: string) => {
+const fetchProperties = async (args: {
+  maxPrice: number;
+  search: string;
+  propertyTypes: string[];
+  amenities: string[];
+  minRating: number;
+}) => {
   let query = supabase
     .from("properties")
     .select(
@@ -24,12 +32,24 @@ const fetchProperties = async (maxPrice: number, search: string) => {
     .eq("is_published", true)
     .order("created_at", { ascending: false });
 
-  const trimmed = search.trim();
+  const trimmed = args.search.trim();
   if (trimmed) {
     query = query.or(`title.ilike.%${trimmed}%,location.ilike.%${trimmed}%`);
   }
 
-  const { data, error } = await query.lte("price_per_night", maxPrice);
+  if (args.propertyTypes.length) {
+    query = query.in("property_type", args.propertyTypes);
+  }
+
+  if (args.minRating > 0) {
+    query = query.gte("rating", args.minRating);
+  }
+
+  if (args.amenities.length) {
+    query = query.contains("amenities", args.amenities);
+  }
+
+  const { data, error } = await query.lte("price_per_night", args.maxPrice);
   if (error) throw error;
   return data ?? [];
 };
@@ -38,8 +58,14 @@ const Accommodations = () => {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const [priceRange, setPriceRange] = useState([0, 500000]);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
+  const [minRating, setMinRating] = useState(0);
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const { toggleFavorite } = useFavorites();
 
   useEffect(() => {
     setQuery(searchParams.get("q") ?? "");
@@ -60,9 +86,39 @@ const Accommodations = () => {
     isLoading,
     isError,
   } = useQuery({
-    queryKey: ["properties", "accommodations", priceRange[1], searchParams.get("q") ?? ""],
-    queryFn: () => fetchProperties(priceRange[1], searchParams.get("q") ?? ""),
+    queryKey: [
+      "properties",
+      "accommodations",
+      priceRange[1],
+      searchParams.get("q") ?? "",
+      selectedTypes.join("|"),
+      selectedAmenities.join("|"),
+      minRating,
+    ],
+    queryFn: () =>
+      fetchProperties({
+        maxPrice: priceRange[1],
+        search: searchParams.get("q") ?? "",
+        propertyTypes: selectedTypes,
+        amenities: selectedAmenities,
+        minRating,
+      }),
   });
+
+  const { data: favoriteIds = [] } = useQuery({
+    queryKey: ["favorites", "ids", user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("favorites")
+        .select("property_id")
+        .eq("user_id", user!.id);
+      if (error) return [];
+      return (data ?? []).map((r) => String((r as { property_id: string }).property_id));
+    },
+  });
+
+  const favoritesSet = new Set(favoriteIds);
 
   return (
     <div className="min-h-screen bg-background">
@@ -124,7 +180,18 @@ const Accommodations = () => {
                 <div className="space-y-2">
                   {propertyTypes.map((type) => (
                     <div key={type} className="flex items-center gap-2">
-                      <Checkbox id={type} />
+                      <Checkbox
+                        id={type}
+                        checked={selectedTypes.includes(type)}
+                        onCheckedChange={(checked) => {
+                          setSelectedTypes((prev) => {
+                            const next = new Set(prev);
+                            if (checked) next.add(type);
+                            else next.delete(type);
+                            return Array.from(next);
+                          });
+                        }}
+                      />
                       <label htmlFor={type} className="text-sm text-muted-foreground cursor-pointer">
                         {type}
                       </label>
@@ -138,8 +205,18 @@ const Accommodations = () => {
                 <label className="block text-sm font-medium text-foreground mb-3">{t("accommodations.minimumRating")}</label>
                 <div className="flex gap-1">
                   {[1, 2, 3, 4, 5].map((star) => (
-                    <button key={star} className="p-1">
-                      <Star className="w-5 h-5 text-muted-foreground hover:text-primary transition-colors" />
+                    <button
+                      key={star}
+                      className="p-1"
+                      type="button"
+                      onClick={() => setMinRating((prev) => (prev === star ? 0 : star))}
+                      aria-label={`Minimum rating ${star}`}
+                    >
+                      <Star
+                        className={`w-5 h-5 transition-colors ${
+                          minRating >= star ? "fill-primary text-primary" : "text-muted-foreground hover:text-primary"
+                        }`}
+                      />
                     </button>
                   ))}
                 </div>
@@ -151,7 +228,18 @@ const Accommodations = () => {
                 <div className="space-y-2">
                   {amenities.map((amenity) => (
                     <div key={amenity} className="flex items-center gap-2">
-                      <Checkbox id={amenity} />
+                      <Checkbox
+                        id={amenity}
+                        checked={selectedAmenities.includes(amenity)}
+                        onCheckedChange={(checked) => {
+                          setSelectedAmenities((prev) => {
+                            const next = new Set(prev);
+                            if (checked) next.add(amenity);
+                            else next.delete(amenity);
+                            return Array.from(next);
+                          });
+                        }}
+                      />
                       <label htmlFor={amenity} className="text-sm text-muted-foreground cursor-pointer">
                         {amenity}
                       </label>
@@ -191,6 +279,14 @@ const Accommodations = () => {
                     price={Number(property.price_per_night)}
                     currency={property.currency}
                     type={property.property_type}
+                    isFavorited={favoritesSet.has(property.id)}
+                    onToggleFavorite={async () => {
+                      const isFav = favoritesSet.has(property.id);
+                      const changed = await toggleFavorite(String(property.id), isFav);
+                      if (changed) {
+                        await qc.invalidateQueries({ queryKey: ["favorites", "ids", user?.id] });
+                      }
+                    }}
                   />
                 ))
               )}

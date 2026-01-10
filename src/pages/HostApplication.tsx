@@ -62,6 +62,40 @@ export default function HostApplication() {
     return false;
   }, [currentStep.key, form]);
 
+  useEffect(() => {
+    if (!user) return;
+
+    const load = async () => {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from("host_applications")
+        .select(
+          "id, user_id, status, full_name, phone, business_name, hosting_location, about, review_notes, created_at"
+        )
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!error && data) {
+        setExisting(data as HostApplicationRow);
+      } else {
+        setExisting(null);
+      }
+
+      setIsLoading(false);
+    };
+
+    load();
+  }, [user]);
+
+  useEffect(() => {
+    if (isHost) {
+      // If already a host, no need to apply.
+      navigate("/host-dashboard", { replace: true });
+    }
+  }, [isHost, navigate]);
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -99,40 +133,6 @@ export default function HostApplication() {
       </div>
     );
   }
-
-  useEffect(() => {
-    if (!user) return;
-
-    const load = async () => {
-      setIsLoading(true);
-      const { data, error } = await supabase
-        .from("host_applications")
-        .select(
-          "id, user_id, status, full_name, phone, business_name, hosting_location, about, review_notes, created_at"
-        )
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (!error && data) {
-        setExisting(data as HostApplicationRow);
-      } else {
-        setExisting(null);
-      }
-
-      setIsLoading(false);
-    };
-
-    load();
-  }, [user]);
-
-  useEffect(() => {
-    if (isHost) {
-      // If already a host, no need to apply.
-      navigate("/host-dashboard", { replace: true });
-    }
-  }, [isHost, navigate]);
 
   const startNew = () => {
     setExisting(null);

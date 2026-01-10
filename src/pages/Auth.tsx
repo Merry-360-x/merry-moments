@@ -197,7 +197,10 @@ const Auth = () => {
               onClick={() => {
                 const next = !isLogin;
                 setIsLogin(next);
-                navigate(next ? "/signup" : "/login", { replace: true });
+                const params = new URLSearchParams();
+                params.set("mode", next ? "signup" : "login");
+                if (redirectTo) params.set("redirect", redirectTo);
+                navigate(`/auth?${params.toString()}`, { replace: true });
               }}
               className="text-sm text-primary hover:underline"
             >

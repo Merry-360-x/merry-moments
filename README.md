@@ -40,7 +40,7 @@ npm run dev
 
 This app reads Supabase + Cloudinary settings from Vite env vars.
 
-- Copy `.env.example` to `.env.local`
+- Copy `env.example` to `.env.local`
 - Fill in your real values (do not commit `.env.local`)
 
 For Vercel deployments, you must set these in the Vercel project environment variables (so the deployed app uses the live Supabase instance):
@@ -81,9 +81,7 @@ brew install supabase/tap/supabase
 
 This repo includes SQL migrations under `supabase/migrations/`. These do **not** automatically apply to your hosted Supabase project unless you run them.
 
-Your Supabase project ref (from the URL) is:
-
-- `gzmxelgcdpaeklmabszo`
+Your Supabase project ref is the subdomain in your Supabase URL, e.g. `https://<project-ref>.supabase.co`.
 
 ### Option A: Supabase Dashboard (SQL Editor)
 
@@ -103,7 +101,7 @@ This uses the hosted database only. Do **not** run `supabase start`.
 supabase login
 
 # Link this repo to your hosted project
-supabase link --project-ref gzmxelgcdpaeklmabszo
+supabase link --project-ref <your-project-ref>
 
 # Push all migrations in supabase/migrations to the hosted DB
 supabase db push
@@ -130,6 +128,30 @@ cld ping
 Note: the website does NOT use `CLOUDINARY_URL` (that would expose secrets). The website only uses the public `VITE_CLOUDINARY_*` vars for unsigned uploads.
 
 You’ll configure it using the `CLOUDINARY_URL` environment variable from your Cloudinary dashboard.
+
+## CLI connectivity checks (recommended)
+
+These commands confirm your **hosted** integrations are reachable from your machine.
+
+### Supabase (HTTP)
+
+```sh
+# Requires VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY in your shell
+curl -sS "$VITE_SUPABASE_URL/auth/v1/health" \
+  -H "apikey: $VITE_SUPABASE_ANON_KEY" | cat
+
+# Test reading public properties (will succeed only if RLS allows it)
+curl -sS "$VITE_SUPABASE_URL/rest/v1/properties?select=id,title&limit=3" \
+  -H "apikey: $VITE_SUPABASE_ANON_KEY" \
+  -H "Authorization: Bearer $VITE_SUPABASE_ANON_KEY" | cat
+```
+
+### Cloudinary (HTTP)
+
+```sh
+# Fetch a known image URL and ensure it returns 200
+curl -I "https://res.cloudinary.com/<cloud_name>/image/upload/<public_id>.jpg"
+```
 
 **Edit a file directly in GitHub**
 
