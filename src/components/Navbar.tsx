@@ -35,7 +35,6 @@ const navLinks = [
   { key: "nav.accommodations", path: "/accommodations" },
   { key: "nav.tours", path: "/tours" },
   { key: "nav.transport", path: "/transport" },
-  { key: "nav.services", path: "/services" },
   { key: "nav.stories", path: "/stories" },
 ];
 
@@ -62,8 +61,8 @@ const Navbar = () => {
       <div className="container mx-auto px-4 lg:px-8">
         <nav className="flex items-center justify-between h-16 lg:h-20">
           {/* Logo */}
-          <Link to="/" className="flex items-center">
-            <Logo />
+          <Link to="/" className="flex items-center shrink-0 -ml-1 pr-2">
+            <Logo className="scale-90 origin-left" />
           </Link>
 
           {/* Mobile menu button */}
@@ -299,7 +298,6 @@ const Navbar = () => {
                   { to: "/accommodations", label: t("nav.accommodations"), icon: Building2 },
                   { to: "/tours", label: t("nav.tours"), icon: Map },
                   { to: "/transport", label: t("nav.transport"), icon: Car },
-                  { to: "/services", label: t("nav.services"), icon: ConciergeBell },
                   { to: "/stories", label: t("nav.stories"), icon: BookOpen },
                 ].map((item) => {
                   const Icon = item.icon;

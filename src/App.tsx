@@ -10,7 +10,6 @@ import Auth from "./pages/Auth";
 import Accommodations from "./pages/Accommodations";
 import Tours from "./pages/Tours";
 import Transport from "./pages/Transport";
-import Services from "./pages/Services";
 import Stories from "./pages/Stories";
 import HostDashboard from "./pages/HostDashboard";
 import MyBookings from "./pages/MyBookings";
@@ -62,7 +61,7 @@ const App = () => (
               <Route path="/accommodations" element={<Accommodations />} />
               <Route path="/tours" element={<Tours />} />
               <Route path="/transport" element={<Transport />} />
-              <Route path="/services" element={<Services />} />
+              <Route path="/services" element={<Navigate to="/" replace />} />
               <Route path="/stories" element={<Stories />} />
               <Route
                 path="/host-dashboard"
