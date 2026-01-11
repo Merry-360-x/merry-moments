@@ -28,8 +28,9 @@ const getSystemResolvedTheme = (): "light" | "dark" => {
 export const PreferencesProvider = ({ children }: { children: ReactNode }) => {
   const { user, isLoading: authLoading } = useAuth();
 
-  const [theme, setThemeState] = useState<ThemePreference>("system");
-  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">(getSystemResolvedTheme());
+  // Default to light mode (user can still switch to dark/system).
+  const [theme, setThemeState] = useState<ThemePreference>("light");
+  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
   const [language, setLanguageState] = useState<AppLanguage>(detectNavigatorLanguage());
   const [currency, setCurrencyState] = useState<AppCurrency>("RWF");
   const [isReady, setIsReady] = useState(false);
@@ -56,8 +57,8 @@ export const PreferencesProvider = ({ children }: { children: ReactNode }) => {
     const run = async () => {
       if (!user) {
         const defaultLanguage = detectNavigatorLanguage();
-        setThemeState("system");
-        applyTheme("system");
+        setThemeState("light");
+        applyTheme("light");
         setLanguageState(defaultLanguage);
         setCurrencyState("RWF");
         await i18n.changeLanguage(defaultLanguage);
@@ -73,8 +74,8 @@ export const PreferencesProvider = ({ children }: { children: ReactNode }) => {
 
       if (error) {
         const fallbackLanguage = detectNavigatorLanguage();
-        setThemeState("system");
-        applyTheme("system");
+        setThemeState("light");
+        applyTheme("light");
         setLanguageState(fallbackLanguage);
         setCurrencyState("RWF");
         await i18n.changeLanguage(fallbackLanguage);
@@ -82,7 +83,7 @@ export const PreferencesProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
-      const nextTheme = (data?.theme as ThemePreference | undefined) ?? "system";
+      const nextTheme = (data?.theme as ThemePreference | undefined) ?? "light";
       const nextLanguage = (data?.locale as AppLanguage | undefined) ?? detectNavigatorLanguage();
       const nextCurrency = (data?.currency as AppCurrency | undefined) ?? "RWF";
 

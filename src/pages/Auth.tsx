@@ -7,8 +7,35 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import Logo from "@/components/Logo";
-import { Chrome, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { useTranslation } from "react-i18next";
+
+const GoogleIcon = (props: { className?: string }) => (
+  <svg
+    viewBox="0 0 48 48"
+    className={props.className}
+    aria-hidden="true"
+    focusable="false"
+  >
+    <path
+      fill="#EA4335"
+      d="M24 9.5c3.54 0 6.01 1.53 7.39 2.81l5.39-5.39C33.5 3.73 29.2 1.5 24 1.5 14.67 1.5 6.76 6.86 3.19 14.68l6.45 5.01C11.23 13.72 17.05 9.5 24 9.5z"
+    />
+    <path
+      fill="#4285F4"
+      d="M46.5 24.5c0-1.64-.15-3.21-.43-4.73H24v9.04h12.64c-.55 2.96-2.2 5.47-4.66 7.15l7.2 5.58C43.47 37.6 46.5 31.56 46.5 24.5z"
+    />
+    <path
+      fill="#FBBC05"
+      d="M9.64 28.31A14.5 14.5 0 0 1 9 24c0-1.5.26-2.95.64-4.31l-6.45-5.01A23.9 23.9 0 0 0 1.5 24c0 3.86.92 7.5 2.69 10.93l6.45-5.01z"
+    />
+    <path
+      fill="#34A853"
+      d="M24 46.5c6.2 0 11.41-2.05 15.21-5.56l-7.2-5.58c-2 1.34-4.56 2.14-8.01 2.14-6.95 0-12.77-4.22-14.36-10.19l-6.45 5.01C6.76 41.14 14.67 46.5 24 46.5z"
+    />
+    <path fill="none" d="M0 0h48v48H0z" />
+  </svg>
+);
 
 const Auth = () => {
   const { t } = useTranslation();
@@ -118,7 +145,7 @@ const Auth = () => {
             onClick={handleGoogleSignIn}
             disabled={isLoading}
           >
-            <Chrome className="w-4 h-4 mr-2" />
+            <GoogleIcon className="w-4 h-4 mr-2" />
             {t("auth.actions.continueWithGoogle")}
           </Button>
 
