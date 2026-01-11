@@ -124,7 +124,10 @@ CREATE POLICY "Hosts can view own properties"
 
 CREATE POLICY "Hosts can insert own properties"
   ON public.properties FOR INSERT
-  WITH CHECK (auth.uid() = host_id AND public.has_role(auth.uid(), 'host'));
+  WITH CHECK (
+    auth.uid() = host_id
+    AND EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = 'host')
+  );
 
 CREATE POLICY "Hosts can update own properties"
   ON public.properties FOR UPDATE

@@ -61,14 +61,14 @@ BEGIN
 			 WHERE n.nspname = 'public' AND p.proname = 'has_role'
 		 ) THEN
 		EXECUTE 'DROP POLICY IF EXISTS "Staff and admins can view all host applications" ON public.host_applications';
-		EXECUTE 'CREATE POLICY "Staff and admins can view all host applications" ON public.host_applications FOR SELECT USING (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''staff''))';
+		EXECUTE 'CREATE POLICY "Staff and admins can view all host applications" ON public.host_applications FOR SELECT USING (EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = ''admin'') OR EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = ''staff''))';
 
 		EXECUTE 'DROP POLICY IF EXISTS "Staff and admins can update host applications" ON public.host_applications';
-		EXECUTE 'CREATE POLICY "Staff and admins can update host applications" ON public.host_applications FOR UPDATE USING (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''staff''))';
+		EXECUTE 'CREATE POLICY "Staff and admins can update host applications" ON public.host_applications FOR UPDATE USING (EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = ''admin'') OR EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = ''staff''))';
 
 		-- Allow staff/admin to grant roles
 		EXECUTE 'DROP POLICY IF EXISTS "Staff and admins can insert roles" ON public.user_roles';
-		EXECUTE 'CREATE POLICY "Staff and admins can insert roles" ON public.user_roles FOR INSERT WITH CHECK (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''staff''))';
+		EXECUTE 'CREATE POLICY "Staff and admins can insert roles" ON public.user_roles FOR INSERT WITH CHECK (EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = ''admin'') OR EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = ''staff''))';
 	END IF;
 END$$;
 

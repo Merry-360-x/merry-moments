@@ -9,6 +9,22 @@ BEGIN
   END IF;
 END$$;
 
+-- Ensure user_roles table exists (used by the app for role-based access).
+CREATE TABLE IF NOT EXISTS public.user_roles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  role TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  UNIQUE (user_id, role)
+);
+
+ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view own roles" ON public.user_roles;
+CREATE POLICY "Users can view own roles"
+  ON public.user_roles FOR SELECT
+  USING (auth.uid() = user_id);
+
 -- Trip item type enum
 DO $$
 BEGIN
@@ -41,6 +57,28 @@ CREATE TABLE IF NOT EXISTS public.tours (
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
+-- If the table already exists (from an earlier schema), ensure required columns exist.
+DO $$
+BEGIN
+  IF to_regclass('public.tours') IS NOT NULL THEN
+    ALTER TABLE public.tours
+      ADD COLUMN IF NOT EXISTS title TEXT,
+      ADD COLUMN IF NOT EXISTS description TEXT,
+      ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'Nature',
+      ADD COLUMN IF NOT EXISTS difficulty TEXT NOT NULL DEFAULT 'Moderate',
+      ADD COLUMN IF NOT EXISTS duration_days INTEGER NOT NULL DEFAULT 1,
+      ADD COLUMN IF NOT EXISTS price_per_person DECIMAL(12, 2) NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS currency TEXT NOT NULL DEFAULT 'RWF',
+      ADD COLUMN IF NOT EXISTS location TEXT,
+      ADD COLUMN IF NOT EXISTS images TEXT[] DEFAULT '{}',
+      ADD COLUMN IF NOT EXISTS rating DECIMAL(3, 2) DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS review_count INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS is_published BOOLEAN DEFAULT false,
+      ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now();
+  END IF;
+END$$;
+
 ALTER TABLE public.tours ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Anyone can view published tours" ON public.tours;
@@ -48,15 +86,29 @@ CREATE POLICY "Anyone can view published tours"
   ON public.tours FOR SELECT
   USING (
     is_published = true
-    OR public.has_role(auth.uid(), 'admin')
-    OR public.has_role(auth.uid(), 'staff')
+    OR EXISTS (
+      SELECT 1
+      FROM public.user_roles ur
+      WHERE ur.user_id = auth.uid() AND ur.role::text = 'admin'
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM public.user_roles ur
+      WHERE ur.user_id = auth.uid() AND ur.role::text = 'staff'
+    )
   );
 
 DROP POLICY IF EXISTS "Staff and admins can manage tours" ON public.tours;
 CREATE POLICY "Staff and admins can manage tours"
   ON public.tours FOR ALL
-  USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'staff'))
-  WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'staff'));
+  USING (
+    EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = 'admin')
+    OR EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = 'staff')
+  )
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = 'admin')
+    OR EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = 'staff')
+  );
 
 -- Transport services (Taxi, Shuttle, etc)
 CREATE TABLE IF NOT EXISTS public.transport_services (
@@ -71,6 +123,21 @@ CREATE TABLE IF NOT EXISTS public.transport_services (
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
+DO $$
+BEGIN
+  IF to_regclass('public.transport_services') IS NOT NULL THEN
+    ALTER TABLE public.transport_services
+      ADD COLUMN IF NOT EXISTS slug TEXT,
+      ADD COLUMN IF NOT EXISTS title TEXT,
+      ADD COLUMN IF NOT EXISTS description TEXT,
+      ADD COLUMN IF NOT EXISTS icon TEXT,
+      ADD COLUMN IF NOT EXISTS price_hint TEXT,
+      ADD COLUMN IF NOT EXISTS is_published BOOLEAN DEFAULT true,
+      ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now();
+  END IF;
+END$$;
+
 ALTER TABLE public.transport_services ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Anyone can view published transport services" ON public.transport_services;
@@ -78,15 +145,21 @@ CREATE POLICY "Anyone can view published transport services"
   ON public.transport_services FOR SELECT
   USING (
     is_published = true
-    OR public.has_role(auth.uid(), 'admin')
-    OR public.has_role(auth.uid(), 'staff')
+    OR EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = 'admin')
+    OR EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = 'staff')
   );
 
 DROP POLICY IF EXISTS "Staff and admins can manage transport services" ON public.transport_services;
 CREATE POLICY "Staff and admins can manage transport services"
   ON public.transport_services FOR ALL
-  USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'staff'))
-  WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'staff'));
+  USING (
+    EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = 'admin')
+    OR EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = 'staff')
+  )
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = 'admin')
+    OR EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = 'staff')
+  );
 
 -- Seed common services (idempotent)
 INSERT INTO public.transport_services (slug, title, description, icon, price_hint)
@@ -112,6 +185,24 @@ CREATE TABLE IF NOT EXISTS public.transport_vehicles (
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
+DO $$
+BEGIN
+  IF to_regclass('public.transport_vehicles') IS NOT NULL THEN
+    ALTER TABLE public.transport_vehicles
+      ADD COLUMN IF NOT EXISTS provider_name TEXT,
+      ADD COLUMN IF NOT EXISTS title TEXT,
+      ADD COLUMN IF NOT EXISTS vehicle_type TEXT NOT NULL DEFAULT 'Sedan',
+      ADD COLUMN IF NOT EXISTS seats INTEGER NOT NULL DEFAULT 4,
+      ADD COLUMN IF NOT EXISTS price_per_day DECIMAL(12, 2) NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS currency TEXT NOT NULL DEFAULT 'RWF',
+      ADD COLUMN IF NOT EXISTS driver_included BOOLEAN DEFAULT true,
+      ADD COLUMN IF NOT EXISTS image_url TEXT,
+      ADD COLUMN IF NOT EXISTS is_published BOOLEAN DEFAULT false,
+      ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now();
+  END IF;
+END$$;
+
 ALTER TABLE public.transport_vehicles ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Anyone can view published transport vehicles" ON public.transport_vehicles;
@@ -119,15 +210,21 @@ CREATE POLICY "Anyone can view published transport vehicles"
   ON public.transport_vehicles FOR SELECT
   USING (
     is_published = true
-    OR public.has_role(auth.uid(), 'admin')
-    OR public.has_role(auth.uid(), 'staff')
+    OR EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = 'admin')
+    OR EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = 'staff')
   );
 
 DROP POLICY IF EXISTS "Staff and admins can manage transport vehicles" ON public.transport_vehicles;
 CREATE POLICY "Staff and admins can manage transport vehicles"
   ON public.transport_vehicles FOR ALL
-  USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'staff'))
-  WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'staff'));
+  USING (
+    EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = 'admin')
+    OR EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = 'staff')
+  )
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = 'admin')
+    OR EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = 'staff')
+  );
 
 -- Transport routes
 CREATE TABLE IF NOT EXISTS public.transport_routes (
@@ -143,6 +240,22 @@ CREATE TABLE IF NOT EXISTS public.transport_routes (
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
+DO $$
+BEGIN
+  IF to_regclass('public.transport_routes') IS NOT NULL THEN
+    ALTER TABLE public.transport_routes
+      ADD COLUMN IF NOT EXISTS from_location TEXT,
+      ADD COLUMN IF NOT EXISTS to_location TEXT,
+      ADD COLUMN IF NOT EXISTS distance_km DECIMAL(10, 2),
+      ADD COLUMN IF NOT EXISTS duration_minutes INTEGER,
+      ADD COLUMN IF NOT EXISTS base_price DECIMAL(12, 2) NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS currency TEXT NOT NULL DEFAULT 'RWF',
+      ADD COLUMN IF NOT EXISTS is_published BOOLEAN DEFAULT false,
+      ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now();
+  END IF;
+END$$;
+
 ALTER TABLE public.transport_routes ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Anyone can view published transport routes" ON public.transport_routes;
@@ -150,15 +263,21 @@ CREATE POLICY "Anyone can view published transport routes"
   ON public.transport_routes FOR SELECT
   USING (
     is_published = true
-    OR public.has_role(auth.uid(), 'admin')
-    OR public.has_role(auth.uid(), 'staff')
+    OR EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = 'admin')
+    OR EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = 'staff')
   );
 
 DROP POLICY IF EXISTS "Staff and admins can manage transport routes" ON public.transport_routes;
 CREATE POLICY "Staff and admins can manage transport routes"
   ON public.transport_routes FOR ALL
-  USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'staff'))
-  WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'staff'));
+  USING (
+    EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = 'admin')
+    OR EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = 'staff')
+  )
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = 'admin')
+    OR EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = 'staff')
+  );
 
 -- Trip cart items (polymorphic reference to a tour/service/vehicle/route)
 CREATE TABLE IF NOT EXISTS public.trip_cart_items (

@@ -27,7 +27,7 @@ BEGIN
     EXECUTE 'CREATE POLICY "Hosts can view own tours" ON public.tours FOR SELECT USING (auth.uid() = created_by)';
 
     EXECUTE 'DROP POLICY IF EXISTS "Hosts can insert own tours" ON public.tours';
-    EXECUTE 'CREATE POLICY "Hosts can insert own tours" ON public.tours FOR INSERT WITH CHECK (auth.uid() = created_by AND public.has_role(auth.uid(), ''host''))';
+    EXECUTE 'CREATE POLICY "Hosts can insert own tours" ON public.tours FOR INSERT WITH CHECK (auth.uid() = created_by AND EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = ''host''))';
 
     EXECUTE 'DROP POLICY IF EXISTS "Hosts can update own tours" ON public.tours';
     EXECUTE 'CREATE POLICY "Hosts can update own tours" ON public.tours FOR UPDATE USING (auth.uid() = created_by) WITH CHECK (auth.uid() = created_by)';
@@ -45,7 +45,7 @@ BEGIN
     EXECUTE 'CREATE POLICY "Hosts can view own transport vehicles" ON public.transport_vehicles FOR SELECT USING (auth.uid() = created_by)';
 
     EXECUTE 'DROP POLICY IF EXISTS "Hosts can insert own transport vehicles" ON public.transport_vehicles';
-    EXECUTE 'CREATE POLICY "Hosts can insert own transport vehicles" ON public.transport_vehicles FOR INSERT WITH CHECK (auth.uid() = created_by AND public.has_role(auth.uid(), ''host''))';
+    EXECUTE 'CREATE POLICY "Hosts can insert own transport vehicles" ON public.transport_vehicles FOR INSERT WITH CHECK (auth.uid() = created_by AND EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = ''host''))';
 
     EXECUTE 'DROP POLICY IF EXISTS "Hosts can update own transport vehicles" ON public.transport_vehicles';
     EXECUTE 'CREATE POLICY "Hosts can update own transport vehicles" ON public.transport_vehicles FOR UPDATE USING (auth.uid() = created_by) WITH CHECK (auth.uid() = created_by)';
@@ -63,7 +63,7 @@ BEGIN
     EXECUTE 'CREATE POLICY "Hosts can view own transport routes" ON public.transport_routes FOR SELECT USING (auth.uid() = created_by)';
 
     EXECUTE 'DROP POLICY IF EXISTS "Hosts can insert own transport routes" ON public.transport_routes';
-    EXECUTE 'CREATE POLICY "Hosts can insert own transport routes" ON public.transport_routes FOR INSERT WITH CHECK (auth.uid() = created_by AND public.has_role(auth.uid(), ''host''))';
+    EXECUTE 'CREATE POLICY "Hosts can insert own transport routes" ON public.transport_routes FOR INSERT WITH CHECK (auth.uid() = created_by AND EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = ''host''))';
 
     EXECUTE 'DROP POLICY IF EXISTS "Hosts can update own transport routes" ON public.transport_routes';
     EXECUTE 'CREATE POLICY "Hosts can update own transport routes" ON public.transport_routes FOR UPDATE USING (auth.uid() = created_by) WITH CHECK (auth.uid() = created_by)';

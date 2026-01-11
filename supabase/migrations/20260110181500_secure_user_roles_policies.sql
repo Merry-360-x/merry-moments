@@ -20,17 +20,17 @@ BEGIN
 
     -- Admin-only role management
     EXECUTE 'DROP POLICY IF EXISTS "Admins can view all roles" ON public.user_roles';
-    EXECUTE 'CREATE POLICY "Admins can view all roles" ON public.user_roles FOR SELECT USING (public.has_role(auth.uid(), ''admin''))';
+    EXECUTE 'CREATE POLICY "Admins can view all roles" ON public.user_roles FOR SELECT USING (EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = ''admin''))';
 
     EXECUTE 'DROP POLICY IF EXISTS "Admins can insert roles" ON public.user_roles';
-    EXECUTE 'CREATE POLICY "Admins can insert roles" ON public.user_roles FOR INSERT WITH CHECK (public.has_role(auth.uid(), ''admin''))';
+    EXECUTE 'CREATE POLICY "Admins can insert roles" ON public.user_roles FOR INSERT WITH CHECK (EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = ''admin''))';
 
     EXECUTE 'DROP POLICY IF EXISTS "Admins can delete roles" ON public.user_roles';
-    EXECUTE 'CREATE POLICY "Admins can delete roles" ON public.user_roles FOR DELETE USING (public.has_role(auth.uid(), ''admin''))';
+    EXECUTE 'CREATE POLICY "Admins can delete roles" ON public.user_roles FOR DELETE USING (EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = ''admin''))';
 
     -- Staff can grant host role (needed for staff approvals)
     EXECUTE 'DROP POLICY IF EXISTS "Staff can grant host role" ON public.user_roles';
-    EXECUTE 'CREATE POLICY "Staff can grant host role" ON public.user_roles FOR INSERT WITH CHECK (public.has_role(auth.uid(), ''staff'') AND role = ''host'')';
+    EXECUTE 'CREATE POLICY "Staff can grant host role" ON public.user_roles FOR INSERT WITH CHECK (EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = ''staff'') AND role::text = ''host'')';
   END IF;
 END$$;
 
