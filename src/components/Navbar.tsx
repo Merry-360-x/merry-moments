@@ -12,9 +12,10 @@ import {
   Building2,
   Map,
   Car,
-  ConciergeBell,
   BookOpen,
   CalendarDays,
+  LayoutDashboard,
+  Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -101,6 +102,32 @@ const Navbar = () => {
 
           {/* Right Actions - Desktop */}
           <div className="hidden lg:flex items-center gap-2">
+            {/* Dashboards (compact) */}
+            {user && isHost ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => navigate("/host-dashboard")}
+                type="button"
+              >
+                <LayoutDashboard className="w-4 h-4" />
+                {t("actions.hostDashboard")}
+              </Button>
+            ) : null}
+            {user && isAdmin ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => navigate("/admin")}
+                type="button"
+              >
+                <Shield className="w-4 h-4" />
+                {t("actions.adminDashboard")}
+              </Button>
+            ) : null}
+
             <button
               className="p-2 rounded-full hover:bg-muted transition-colors"
               onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
