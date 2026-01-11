@@ -55,7 +55,7 @@ const Transport = () => {
       const { data, error } = await supabase
         .from("transport_services")
         .select("id, title, description, slug")
-        .eq("is_published", true)
+        .or("is_published.eq.true,is_published.is.null")
         .order("created_at", { ascending: true });
       if (error) return [];
       return (data as TransportServiceRow[] | null) ?? [];
@@ -70,7 +70,7 @@ const Transport = () => {
         .select(
           "id, title, provider_name, vehicle_type, seats, price_per_day, currency, driver_included, image_url, rating, review_count"
         )
-        .eq("is_published", true)
+        .or("is_published.eq.true,is_published.is.null")
         .order("created_at", { ascending: false });
 
       const vt = searchParams.get("vehicle");
@@ -88,7 +88,7 @@ const Transport = () => {
       let q = supabase
         .from("transport_routes")
         .select("id, from_location, to_location, base_price, currency")
-        .eq("is_published", true)
+        .or("is_published.eq.true,is_published.is.null")
         .order("created_at", { ascending: false });
 
       const trimmed = (searchParams.get("q") ?? "").trim();

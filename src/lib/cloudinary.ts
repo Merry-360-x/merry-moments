@@ -3,25 +3,8 @@ const readEnv = (value: unknown) => (typeof value === "string" ? value.trim() : 
 const CLOUDINARY_CLOUD_NAME = readEnv(import.meta.env.VITE_CLOUDINARY_CLOUD_NAME);
 const CLOUDINARY_UPLOAD_PRESET = readEnv(import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET);
 
-const validateCloudinaryConfig = () => {
-  const missing: string[] = [];
-  if (!CLOUDINARY_CLOUD_NAME) missing.push("Missing VITE_CLOUDINARY_CLOUD_NAME");
-  if (!CLOUDINARY_UPLOAD_PRESET) missing.push("Missing VITE_CLOUDINARY_UPLOAD_PRESET");
-  if (missing.length === 0) return;
-
-  const message =
-    "Cloudinary is not configured. Image uploads will not work.\n" +
-    missing.map((m) => `- ${m}`).join("\n") +
-    "\n\nSet these in Vercel Environment Variables (Production + Preview) and redeploy.";
-
-  if (import.meta.env.PROD) {
-    throw new Error(message);
-  }
-
-  console.warn(message);
-};
-
-validateCloudinaryConfig();
+// NOTE: Do not hard-fail the app if Cloudinary env vars are missing.
+// We support a Supabase Storage fallback uploader, and only use Cloudinary when configured.
 
 export const isCloudinaryConfigured = () =>
   Boolean(CLOUDINARY_CLOUD_NAME) && Boolean(CLOUDINARY_UPLOAD_PRESET);

@@ -2,7 +2,6 @@ import { Search, Star } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import PropertyCard from "@/components/PropertyCard";
 import { useEffect, useState } from "react";
@@ -16,9 +15,10 @@ import { useFavorites } from "@/hooks/useFavorites";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Filter } from "lucide-react";
+import { AMENITIES } from "@/lib/amenities";
 
 const propertyTypes = ["Hotel", "Motel", "Resort", "Lodge", "Apartment", "Villa", "Guesthouse"];
-const amenities = ["WiFi", "Pool", "Parking", "Restaurant", "Gym", "Spa"];
+const amenities = AMENITIES;
 
 const fetchProperties = async (args: {
   maxPrice: number;
@@ -94,7 +94,7 @@ const fetchProperties = async (args: {
 const Accommodations = () => {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
-  const [priceRange, setPriceRange] = useState([0, 500000]);
+  const [maxPrice, setMaxPrice] = useState(500000);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [minRating, setMinRating] = useState(0);
@@ -134,7 +134,7 @@ const Accommodations = () => {
     queryKey: [
       "properties",
       "accommodations",
-      priceRange[1],
+      maxPrice,
       searchParams.get("q") ?? "",
       selectedTypes.join("|"),
       selectedAmenities.join("|"),
@@ -144,7 +144,7 @@ const Accommodations = () => {
     ],
     queryFn: () =>
       fetchProperties({
-        maxPrice: priceRange[1],
+        maxPrice,
         search: searchParams.get("q") ?? "",
         propertyTypes: selectedTypes,
         amenities: selectedAmenities,
@@ -209,7 +209,7 @@ const Accommodations = () => {
 
   const favoritesSet = new Set(favoriteIds);
   const activeFiltersCount =
-    (priceRange[1] < 500000 ? 1 : 0) +
+    (maxPrice < 500000 ? 1 : 0) +
     (selectedTypes.length > 0 ? 1 : 0) +
     (selectedAmenities.length > 0 ? 1 : 0) +
     (minRating > 0 ? 1 : 0);
@@ -369,35 +369,43 @@ const Accommodations = () => {
                 <AccordionItem value="price">
                   <AccordionTrigger>{t("accommodations.priceRange")}</AccordionTrigger>
                   <AccordionContent>
-                    <Slider value={priceRange} onValueChange={setPriceRange} max={500000} step={10000} className="mb-2" />
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">0 RWF</span>
-                      <span className="text-primary font-medium">{priceRange[1].toLocaleString()} RWF</span>
+                    <Slider
+                      value={[maxPrice]}
+                      onValueChange={(v) => setMaxPrice(v[0] ?? 500000)}
+                      max={500000}
+                      step={10000}
+                      className="mb-2"
+                    />
+                    <div className="flex items-center justify-between text-sm gap-3">
+                      <span className="text-muted-foreground">Max</span>
+                      <span className="text-primary font-medium">{maxPrice.toLocaleString()} RWF</span>
                     </div>
                   </AccordionContent>
                 </AccordionItem>
                 <AccordionItem value="type">
                   <AccordionTrigger>{t("accommodations.propertyType")}</AccordionTrigger>
                   <AccordionContent>
-                    <div className="space-y-2">
+                    <div className="flex flex-wrap gap-2">
                       {propertyTypes.map((type) => (
-                        <div key={type} className="flex items-center gap-2">
-                          <Checkbox
-                            id={`m-${type}`}
-                            checked={selectedTypes.includes(type)}
-                            onCheckedChange={(checked) => {
-                              setSelectedTypes((prev) => {
-                                const next = new Set(prev);
-                                if (checked) next.add(type);
-                                else next.delete(type);
-                                return Array.from(next);
-                              });
-                            }}
-                          />
-                          <label htmlFor={`m-${type}`} className="text-sm text-muted-foreground cursor-pointer">
-                            {type}
-                          </label>
-                        </div>
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() =>
+                            setSelectedTypes((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(type)) next.delete(type);
+                              else next.add(type);
+                              return Array.from(next);
+                            })
+                          }
+                          className={`px-3 py-2 rounded-full text-sm border transition-colors ${
+                            selectedTypes.includes(type)
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-background text-foreground border-border hover:border-primary"
+                          }`}
+                        >
+                          {type}
+                        </button>
                       ))}
                     </div>
                   </AccordionContent>
@@ -427,26 +435,33 @@ const Accommodations = () => {
                 <AccordionItem value="amenities">
                   <AccordionTrigger>{t("accommodations.amenities")}</AccordionTrigger>
                   <AccordionContent>
-                    <div className="space-y-2">
-                      {amenities.map((amenity) => (
-                        <div key={amenity} className="flex items-center gap-2">
-                          <Checkbox
-                            id={`m-${amenity}`}
-                            checked={selectedAmenities.includes(amenity)}
-                            onCheckedChange={(checked) => {
+                    <div className="grid grid-cols-2 gap-2">
+                      {amenities.map((a) => {
+                        const Icon = a.icon;
+                        const active = selectedAmenities.includes(a.value);
+                        return (
+                          <button
+                            key={a.value}
+                            type="button"
+                            onClick={() =>
                               setSelectedAmenities((prev) => {
                                 const next = new Set(prev);
-                                if (checked) next.add(amenity);
-                                else next.delete(amenity);
+                                if (next.has(a.value)) next.delete(a.value);
+                                else next.add(a.value);
                                 return Array.from(next);
-                              });
-                            }}
-                          />
-                          <label htmlFor={`m-${amenity}`} className="text-sm text-muted-foreground cursor-pointer">
-                            {amenity}
-                          </label>
-                        </div>
-                      ))}
+                              })
+                            }
+                            className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-left transition-colors ${
+                              active
+                                ? "bg-primary/10 border-primary text-primary"
+                                : "bg-background border-border text-foreground hover:border-primary"
+                            }`}
+                          >
+                            <Icon className="w-4 h-4" />
+                            <span className="text-sm">{a.label}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </AccordionContent>
                 </AccordionItem>
@@ -457,7 +472,7 @@ const Accommodations = () => {
                 type="button"
                 variant="outline"
                 onClick={() => {
-                  setPriceRange([0, 500000]);
+                  setMaxPrice(500000);
                   setSelectedTypes([]);
                   setSelectedAmenities([]);
                   setMinRating(0);
@@ -497,10 +512,16 @@ const Accommodations = () => {
                 <AccordionItem value="price">
                   <AccordionTrigger>{t("accommodations.priceRange")}</AccordionTrigger>
                   <AccordionContent>
-                    <Slider value={priceRange} onValueChange={setPriceRange} max={500000} step={10000} className="mb-2" />
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">0 RWF</span>
-                      <span className="text-primary font-medium">{priceRange[1].toLocaleString()} RWF</span>
+                    <Slider
+                      value={[maxPrice]}
+                      onValueChange={(v) => setMaxPrice(v[0] ?? 500000)}
+                      max={500000}
+                      step={10000}
+                      className="mb-2"
+                    />
+                    <div className="flex items-center justify-between text-sm gap-3">
+                      <span className="text-muted-foreground">Max</span>
+                      <span className="text-primary font-medium">{maxPrice.toLocaleString()} RWF</span>
                     </div>
                   </AccordionContent>
                 </AccordionItem>
@@ -508,25 +529,27 @@ const Accommodations = () => {
                 <AccordionItem value="type">
                   <AccordionTrigger>{t("accommodations.propertyType")}</AccordionTrigger>
                   <AccordionContent>
-                    <div className="space-y-2">
+                    <div className="flex flex-wrap gap-2">
                       {propertyTypes.map((type) => (
-                        <div key={type} className="flex items-center gap-2">
-                          <Checkbox
-                            id={type}
-                            checked={selectedTypes.includes(type)}
-                            onCheckedChange={(checked) => {
-                              setSelectedTypes((prev) => {
-                                const next = new Set(prev);
-                                if (checked) next.add(type);
-                                else next.delete(type);
-                                return Array.from(next);
-                              });
-                            }}
-                          />
-                          <label htmlFor={type} className="text-sm text-muted-foreground cursor-pointer">
-                            {type}
-                          </label>
-                        </div>
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() =>
+                            setSelectedTypes((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(type)) next.delete(type);
+                              else next.add(type);
+                              return Array.from(next);
+                            })
+                          }
+                          className={`px-3 py-2 rounded-full text-sm border transition-colors ${
+                            selectedTypes.includes(type)
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-background text-foreground border-border hover:border-primary"
+                          }`}
+                        >
+                          {type}
+                        </button>
                       ))}
                     </div>
                   </AccordionContent>
@@ -558,26 +581,33 @@ const Accommodations = () => {
                 <AccordionItem value="amenities">
                   <AccordionTrigger>{t("accommodations.amenities")}</AccordionTrigger>
                   <AccordionContent>
-                    <div className="space-y-2">
-                      {amenities.map((amenity) => (
-                        <div key={amenity} className="flex items-center gap-2">
-                          <Checkbox
-                            id={amenity}
-                            checked={selectedAmenities.includes(amenity)}
-                            onCheckedChange={(checked) => {
+                    <div className="grid grid-cols-1 gap-2">
+                      {amenities.map((a) => {
+                        const Icon = a.icon;
+                        const active = selectedAmenities.includes(a.value);
+                        return (
+                          <button
+                            key={a.value}
+                            type="button"
+                            onClick={() =>
                               setSelectedAmenities((prev) => {
                                 const next = new Set(prev);
-                                if (checked) next.add(amenity);
-                                else next.delete(amenity);
+                                if (next.has(a.value)) next.delete(a.value);
+                                else next.add(a.value);
                                 return Array.from(next);
-                              });
-                            }}
-                          />
-                          <label htmlFor={amenity} className="text-sm text-muted-foreground cursor-pointer">
-                            {amenity}
-                          </label>
-                        </div>
-                      ))}
+                              })
+                            }
+                            className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-left transition-colors ${
+                              active
+                                ? "bg-primary/10 border-primary text-primary"
+                                : "bg-background border-border text-foreground hover:border-primary"
+                            }`}
+                          >
+                            <Icon className="w-4 h-4" />
+                            <span className="text-sm">{a.label}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </AccordionContent>
                 </AccordionItem>

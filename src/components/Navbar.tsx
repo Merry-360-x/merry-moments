@@ -1,5 +1,21 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Heart, ChevronDown, Moon, Sun, LogOut, User, Menu, X } from "lucide-react";
+import {
+  Heart,
+  ChevronDown,
+  Moon,
+  Sun,
+  LogOut,
+  User,
+  Menu,
+  X,
+  Home,
+  Building2,
+  Map,
+  Car,
+  ConciergeBell,
+  BookOpen,
+  CalendarDays,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import Logo from "./Logo";
@@ -236,96 +252,172 @@ const Navbar = () => {
           </div>
         </nav>
 
-        {/* Mobile Menu */}
+        {/* Mobile Menu (clean + minimal) */}
         {mobileMenuOpen && (
-          <div className="lg:hidden py-4 border-t border-border">
-            <div className="flex flex-col gap-2">
-              {navLinks.map((link) => {
-                const isActive = location.pathname === link.path;
-                return (
-                  <Link
-                    key={link.path}
-                    to={link.path}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      isActive
-                        ? "bg-primary/10 text-primary"
-                        : "text-foreground hover:bg-muted"
-                    }`}
-                  >
-                    {t(link.key)}
-                  </Link>
-                );
-              })}
-
-              {!isHost ? (
-                <Link to="/become-host" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="primary" size="sm" className="w-full mt-2">
-                    {t("actions.becomeHost")}
-                  </Button>
-                </Link>
-              ) : (
-                <Link to="/host-dashboard" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="primary" size="sm" className="w-full mt-2">
-                    {t("actions.hostDashboard")}
-                  </Button>
-                </Link>
-              )}
-
-              {user && isAdmin ? (
-                <Link to="/admin" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="outline" size="sm" className="w-full mt-2">
-                    {t("actions.adminDashboard")}
-                  </Button>
-                </Link>
-              ) : null}
-              {user && isAdmin ? (
-                <Link to="/admin/roles" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="outline" size="sm" className="w-full mt-2">
-                    {t("actions.manageRoles")}
-                  </Button>
-                </Link>
-              ) : null}
-              {user && (isStaff || isAdmin) ? (
-                <Link to="/staff" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="outline" size="sm" className="w-full mt-2">
-                    {t("actions.staffDashboard")}
-                  </Button>
-                </Link>
-              ) : null}
-              {user && isHost ? (
-                <Link to="/host-dashboard" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="primary" size="sm" className="w-full mt-2">
-                    {t("actions.hostDashboard")}
-                  </Button>
-                </Link>
-              ) : user ? (
-                <Link to="/become-host" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="primary" size="sm" className="w-full mt-2">
-                    {t("actions.becomeHost")}
-                  </Button>
-                </Link>
-              ) : null}
-              {!user && (
-                <Link to="/auth" onClick={() => setMobileMenuOpen(false)}>
-                  <Button size="sm" className="w-full mt-2">
-                    {t("actions.signIn")}
-                  </Button>
-                </Link>
-              )}
-              {user && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full mt-2"
-                  onClick={() => {
-                    handleSignOut();
-                    setMobileMenuOpen(false);
-                  }}
+          <div className="lg:hidden border-t border-border">
+            <div className="py-4 space-y-4">
+              {/* Quick actions */}
+              <div className="flex items-center justify-between gap-2 px-1">
+                <button
+                  className="h-10 w-10 rounded-full border border-border bg-background flex items-center justify-center"
+                  onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+                  aria-label={t("labels.theme")}
+                  type="button"
                 >
-                  {t("actions.signOut")}
-                </Button>
-              )}
+                  {resolvedTheme === "dark" ? (
+                    <Sun className="w-5 h-5 text-muted-foreground" />
+                  ) : (
+                    <Moon className="w-5 h-5 text-muted-foreground" />
+                  )}
+                </button>
+                <div className="flex items-center gap-2">
+                  <Link to="/favorites" onClick={() => setMobileMenuOpen(false)}>
+                    <button
+                      type="button"
+                      className="h-10 w-10 rounded-full border border-border bg-background flex items-center justify-center"
+                      aria-label={t("actions.favorites")}
+                    >
+                      <Heart className="w-5 h-5 text-muted-foreground" />
+                    </button>
+                  </Link>
+                  <Link to="/trip-cart" onClick={() => setMobileMenuOpen(false)}>
+                    <Button variant="outline" size="sm">
+                      {t("actions.tripCart")}
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+
+              {/* Main navigation */}
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { to: "/", label: t("nav.home"), icon: Home },
+                  { to: "/accommodations", label: t("nav.accommodations"), icon: Building2 },
+                  { to: "/tours", label: t("nav.tours"), icon: Map },
+                  { to: "/transport", label: t("nav.transport"), icon: Car },
+                  { to: "/services", label: t("nav.services"), icon: ConciergeBell },
+                  { to: "/stories", label: t("nav.stories"), icon: BookOpen },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname === item.to;
+                  return (
+                    <Link
+                      key={item.to}
+                      to={item.to}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`flex items-center gap-2 rounded-xl border px-3 py-3 text-sm font-medium transition-colors ${
+                        isActive
+                          ? "bg-primary/10 text-primary border-primary"
+                          : "bg-background text-foreground border-border hover:border-primary"
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      <span className="truncate">{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+
+              {/* Account */}
+              <div className="rounded-xl border border-border bg-card p-3">
+                {user ? (
+                  <div className="space-y-2">
+                    <div className="text-xs text-muted-foreground px-1">{user.email}</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="justify-start gap-2"
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          navigate("/dashboard");
+                        }}
+                      >
+                        <User className="w-4 h-4" /> Profile
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="justify-start gap-2"
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          navigate("/my-bookings");
+                        }}
+                      >
+                        <CalendarDays className="w-4 h-4" /> Bookings
+                      </Button>
+                      {!isHost ? (
+                        <Button
+                          size="sm"
+                          className="justify-start gap-2"
+                          onClick={() => {
+                            setMobileMenuOpen(false);
+                            navigate("/become-host");
+                          }}
+                        >
+                          <Building2 className="w-4 h-4" /> {t("actions.becomeHost")}
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          className="justify-start gap-2"
+                          onClick={() => {
+                            setMobileMenuOpen(false);
+                            navigate("/host-dashboard");
+                          }}
+                        >
+                          <Building2 className="w-4 h-4" /> {t("actions.hostDashboard")}
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="justify-start gap-2 border-destructive text-destructive hover:bg-destructive/10"
+                        onClick={() => {
+                          handleSignOut();
+                          setMobileMenuOpen(false);
+                        }}
+                      >
+                        <LogOut className="w-4 h-4" /> {t("actions.signOut")}
+                      </Button>
+                    </div>
+
+                    {isAdmin ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start gap-2"
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          navigate("/admin");
+                        }}
+                      >
+                        Admin dashboard
+                      </Button>
+                    ) : null}
+                    {(isStaff || isAdmin) ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start gap-2"
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          navigate("/staff");
+                        }}
+                      >
+                        Staff dashboard
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm text-muted-foreground">Sign in to book and post stories.</div>
+                    <Link to="/auth" onClick={() => setMobileMenuOpen(false)}>
+                      <Button size="sm">{t("actions.signIn")}</Button>
+                    </Link>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

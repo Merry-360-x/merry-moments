@@ -20,10 +20,12 @@ export type Database = {
           check_out: string
           created_at: string
           currency: string
+          discount_amount: number
           guest_id: string
           guests_count: number
           host_id: string | null
           id: string
+          loyalty_points_used: number
           property_id: string
           status: string
           total_price: number
@@ -34,10 +36,12 @@ export type Database = {
           check_out: string
           created_at?: string
           currency?: string
+          discount_amount?: number
           guest_id: string
           guests_count?: number
           host_id?: string | null
           id?: string
+          loyalty_points_used?: number
           property_id: string
           status?: string
           total_price: number
@@ -48,10 +52,12 @@ export type Database = {
           check_out?: string
           created_at?: string
           currency?: string
+          discount_amount?: number
           guest_id?: string
           guests_count?: number
           host_id?: string | null
           id?: string
+          loyalty_points_used?: number
           property_id?: string
           status?: string
           total_price?: number
@@ -104,6 +110,8 @@ export type Database = {
           date_of_birth: string | null
           full_name: string | null
           id: string
+          loyalty_awarded: boolean
+          loyalty_points: number
           phone: string | null
           updated_at: string
           user_id: string
@@ -115,6 +123,8 @@ export type Database = {
           date_of_birth?: string | null
           full_name?: string | null
           id?: string
+          loyalty_awarded?: boolean
+          loyalty_points?: number
           phone?: string | null
           updated_at?: string
           user_id: string
@@ -126,6 +136,8 @@ export type Database = {
           date_of_birth?: string | null
           full_name?: string | null
           id?: string
+          loyalty_awarded?: boolean
+          loyalty_points?: number
           phone?: string | null
           updated_at?: string
           user_id?: string

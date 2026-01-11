@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { uploadFileToCloudinary } from "@/lib/cloudinary";
+import { uploadFile } from "@/lib/uploads";
 import { X, UploadCloud } from "lucide-react";
 
 type UploadItem = {
@@ -69,19 +69,19 @@ export function CloudinaryUploadDialog(props: {
         setItems((prev) => prev.map((p) => (p.id === it.id ? { ...p, status: "uploading", percent: 1 } : p)));
 
         try {
-          const res = await uploadFileToCloudinary(it.file, {
+          const res = await uploadFile(it.file, {
             folder: props.folder,
-            onProgress: (p) => {
-              setItems((prev) => prev.map((x) => (x.id === it.id ? { ...x, percent: p.percent } : x)));
+            onProgress: (percent) => {
+              setItems((prev) => prev.map((x) => (x.id === it.id ? { ...x, percent } : x)));
             },
           });
 
           setItems((prev) =>
             prev.map((p) =>
-              p.id === it.id ? { ...p, status: "done", percent: 100, url: res.secureUrl } : p
+              p.id === it.id ? { ...p, status: "done", percent: 100, url: res.url } : p
             )
           );
-          props.onChange([...props.value, res.secureUrl]);
+          props.onChange([...props.value, res.url]);
         } catch (e) {
           const msg = e instanceof Error ? e.message : "Upload failed";
           setItems((prev) => prev.map((p) => (p.id === it.id ? { ...p, status: "error", error: msg } : p)));

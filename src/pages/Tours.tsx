@@ -50,7 +50,7 @@ const fetchTours = async ({
     .select(
       "id, title, description, category, difficulty, duration_days, price_per_person, currency, images, rating, review_count, location"
     )
-    .eq("is_published", true)
+    .or("is_published.eq.true,is_published.is.null")
     .order("created_at", { ascending: false });
 
   const trimmed = q.trim();

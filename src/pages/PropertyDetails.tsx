@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useFavorites } from "@/hooks/useFavorites";
 import { Heart } from "lucide-react";
+import { amenityByValue } from "@/lib/amenities";
 
 type PropertyRow = {
   id: string;
@@ -63,6 +64,21 @@ export default function PropertyDetails() {
   const [guests, setGuests] = useState(1);
   const [booking, setBooking] = useState(false);
   const [isFavorited, setIsFavorited] = useState(false);
+  const [usePoints, setUsePoints] = useState(false);
+
+  const { data: myPoints = 0 } = useQuery({
+    queryKey: ["loyalty_points", user?.id],
+    enabled: Boolean(user?.id),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("loyalty_points")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      if (error) return 0;
+      return Number((data as { loyalty_points?: number | null } | null)?.loyalty_points ?? 0);
+    },
+  });
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["property", propertyId],
@@ -174,6 +190,13 @@ export default function PropertyDetails() {
     return nights * Number(data.price_per_night ?? 0);
   }, [data, nights]);
 
+  const pointsToUse = useMemo(() => (usePoints && myPoints >= 5 ? 5 : 0), [usePoints, myPoints]);
+  const discountAmount = useMemo(() => {
+    if (!estimatedTotal || !pointsToUse) return 0;
+    return Math.round((estimatedTotal * (pointsToUse / 100)) * 100) / 100;
+  }, [estimatedTotal, pointsToUse]);
+  const finalTotal = useMemo(() => Math.max(0, estimatedTotal - discountAmount), [estimatedTotal, discountAmount]);
+
   const submitBooking = async () => {
     if (!data || !propertyId) return;
     if (!user) {
@@ -200,6 +223,15 @@ export default function PropertyDetails() {
 
     setBooking(true);
     try {
+      let redeemed = 0;
+      if (pointsToUse > 0) {
+        const { data: redeemedPoints, error: redeemErr } = await supabase.rpc("redeem_loyalty_points", {
+          p_points: pointsToUse,
+        });
+        if (redeemErr) throw redeemErr;
+        redeemed = Number(redeemedPoints ?? 0);
+      }
+
       const payload = {
         guest_id: user.id,
         property_id: data.id,
@@ -207,9 +239,11 @@ export default function PropertyDetails() {
         check_in: checkIn,
         check_out: checkOut,
         guests_count: guests,
-        total_price: estimatedTotal,
+        total_price: finalTotal,
         currency: data.currency ?? "RWF",
         status: "pending",
+        loyalty_points_used: redeemed,
+        discount_amount: redeemed > 0 ? discountAmount : 0,
       } as const;
 
       const { error } = await supabase.from("bookings").insert(payload);
@@ -341,8 +375,17 @@ export default function PropertyDetails() {
                     <div className="text-sm font-semibold text-foreground mb-2">Amenities</div>
                     <div className="flex flex-wrap gap-2">
                       {data.amenities.slice(0, 12).map((a) => (
-                        <span key={a} className="text-xs px-3 py-1 rounded-full border border-border text-muted-foreground">
-                          {a}
+                        <span
+                          key={a}
+                          className="text-xs px-3 py-1 rounded-full border border-border text-muted-foreground inline-flex items-center gap-2"
+                        >
+                          {(() => {
+                            const m = amenityByValue.get(a);
+                            if (!m) return null;
+                            const Icon = m.icon;
+                            return <Icon className="w-3.5 h-3.5" />;
+                          })()}
+                          {amenityByValue.get(a)?.label ?? a}
                         </span>
                       ))}
                     </div>
@@ -508,9 +551,9 @@ export default function PropertyDetails() {
                   <div className="text-sm text-muted-foreground">
                     {nights > 0 ? (
                       <>
-                        {nights} night{nights === 1 ? "" : "s"} • Estimated total:{" "}
+                        {nights} night{nights === 1 ? "" : "s"} • Total:{" "}
                         <span className="font-semibold text-foreground">
-                          {data.currency ?? "RWF"} {Number(estimatedTotal).toLocaleString()}
+                          {data.currency ?? "RWF"} {Number(finalTotal).toLocaleString()}
                         </span>
                       </>
                     ) : (
@@ -521,6 +564,39 @@ export default function PropertyDetails() {
                     {booking ? "Booking..." : "Request to book"}
                   </Button>
                 </div>
+
+                {user ? (
+                  <div className="mt-4 border-t border-border pt-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-sm text-muted-foreground">
+                        Loyalty points: <span className="font-semibold text-foreground">{myPoints}</span>
+                      </div>
+                      {myPoints >= 5 ? (
+                        <button
+                          type="button"
+                          className={`text-xs px-3 py-2 rounded-full border transition-colors ${
+                            usePoints
+                              ? "bg-primary/10 border-primary text-primary"
+                              : "bg-background border-border text-muted-foreground hover:text-foreground hover:border-primary"
+                          }`}
+                          onClick={() => setUsePoints((v) => !v)}
+                        >
+                          {usePoints ? "Using 5 points (5% off)" : "Use 5 points (5% off)"}
+                        </button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Earn points by completing your profile.</span>
+                      )}
+                    </div>
+                    {pointsToUse > 0 ? (
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        Discount applied:{" "}
+                        <span className="font-semibold text-foreground">
+                          {data.currency ?? "RWF"} {Number(discountAmount).toLocaleString()}
+                        </span>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
 
               <div className="mt-8 flex flex-col sm:flex-row gap-3">

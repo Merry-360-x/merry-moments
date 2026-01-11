@@ -21,8 +21,11 @@ type ProfileRow = {
   full_name: string | null;
   phone: string | null;
   avatar_url: string | null;
+  bio?: string | null;
   date_of_birth?: string | null;
   created_at?: string;
+  loyalty_points?: number;
+  loyalty_awarded?: boolean;
 };
 
 type BookingRow = {
@@ -148,22 +151,31 @@ export default function Dashboard() {
     setBio(profile?.bio ?? "");
   }, [profile]);
 
-  const completeProfileMissing = useMemo(() => (phone.trim().length < 7) || !dob.trim(), [phone, dob]);
+  const completeProfileMissing = useMemo(
+    () => phone.trim().length < 7 || !dob.trim() || !fullName.trim(),
+    [phone, dob, fullName]
+  );
 
-  const membership = useMemo(() => {
-    const points = Math.max(0, Number(trips.past) * 100);
-    const tier = points >= 1000 ? "SILVER" : "BRONZE";
-    return { points, tier, nextTierAt: 1000 };
-  }, [trips.past]);
+  const loyaltyPoints = Number(profile?.loyalty_points ?? 0);
 
   const memberSince = useMemo(() => {
     const raw = profile?.created_at;
     if (!raw) return null;
-    try {
-      return new Date(raw).toLocaleString(undefined, { month: "short", year: "numeric" });
-    } catch {
-      return null;
-    }
+    const d = new Date(raw);
+    if (!Number.isFinite(d.getTime())) return null;
+    const diffMs = Date.now() - d.getTime();
+    const days = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+    const years = Math.floor(days / 365);
+    const months = Math.floor((days % 365) / 30);
+    const remainingDays = days % 30;
+    const parts = [
+      years ? `${years} year${years === 1 ? "" : "s"}` : null,
+      months ? `${months} month${months === 1 ? "" : "s"}` : null,
+      !years && !months ? `${remainingDays} day${remainingDays === 1 ? "" : "s"}` : null,
+    ].filter(Boolean);
+    const pretty = parts.join(" ");
+    const cal = d.toLocaleString(undefined, { month: "short", year: "numeric" });
+    return `${cal} · ${pretty} ago`;
   }, [profile?.created_at]);
 
   const upcomingBookings = useMemo(() => {
@@ -269,19 +281,24 @@ export default function Dashboard() {
             <div className="mt-6 rounded-xl border border-border bg-muted/30 p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-sm text-muted-foreground">Membership</div>
+                  <div className="text-sm text-muted-foreground">Loyalty points</div>
                   <div className="text-lg font-bold text-foreground">
-                    {membership.points} <span className="text-sm font-medium text-muted-foreground">points</span>
+                    {loyaltyPoints} <span className="text-sm font-medium text-muted-foreground">points</span>
                   </div>
                 </div>
                 <span className="px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary">
-                  {membership.tier}
+                  Rewards
                 </span>
               </div>
-              <div className="mt-3 flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Next tier</span>
-                <span className="font-semibold text-foreground">{membership.nextTierAt} pts</span>
-              </div>
+              {completeProfileMissing ? (
+                <div className="mt-3 text-sm text-muted-foreground">
+                  Complete your profile to earn <span className="font-semibold text-foreground">5</span> loyalty points.
+                </div>
+              ) : (
+                <div className="mt-3 text-sm text-muted-foreground">
+                  You can use points for discounts when booking.
+                </div>
+              )}
             </div>
 
             <div className="mt-6 space-y-3 text-sm">
@@ -358,7 +375,7 @@ export default function Dashboard() {
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-sm text-muted-foreground">Loyalty Points</div>
-                        <div className="text-3xl font-bold text-foreground mt-1">{membership.points}</div>
+                        <div className="text-3xl font-bold text-foreground mt-1">{loyaltyPoints}</div>
                       </div>
                       <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
                         <Star className="w-5 h-5 text-primary" />
@@ -550,10 +567,13 @@ export default function Dashboard() {
                       <div className="md:col-span-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-2">
                         {completeProfileMissing ? (
                           <div className="text-sm text-muted-foreground">
-                            Please add your phone number and date of birth to complete your profile.
+                            Complete your profile to earn <span className="font-semibold text-foreground">5</span> loyalty points.
                           </div>
                         ) : (
-                          <div className="text-sm text-muted-foreground">Profile looks good.</div>
+                          <div className="text-sm text-muted-foreground">
+                            Profile looks good. You have <span className="font-semibold text-foreground">{loyaltyPoints}</span>{" "}
+                            loyalty points.
+                          </div>
                         )}
                         <Button onClick={saveProfile} disabled={saving}>
                           {saving ? "Saving..." : "Save changes"}

@@ -987,38 +987,7 @@ const HostDashboard = () => {
                     </select>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Latitude (optional)</Label>
-                    <Input
-                      type="number"
-                      value={formData.lat ?? ""}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          lat: e.target.value === "" ? null : Number(e.target.value),
-                        })
-                      }
-                      step="0.000001"
-                      placeholder="-1.9441"
-                    />
-                  </div>
-                  <div>
-                    <Label>Longitude (optional)</Label>
-                    <Input
-                      type="number"
-                      value={formData.lng ?? ""}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          lng: e.target.value === "" ? null : Number(e.target.value),
-                        })
-                      }
-                      step="0.000001"
-                      placeholder="30.0619"
-                    />
-                  </div>
-                </div>
+                {/* Lat/Lng are stored in DB (for Nearby search) but hidden from the host UI as requested */}
                 <Button type="submit" className="w-full">
                   {editingProperty ? "Update Property" : "Create Property"}
                 </Button>
