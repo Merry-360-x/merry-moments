@@ -3,7 +3,6 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { uploadFile } from "@/lib/uploads";
-import { isCloudinaryConfigured } from "@/lib/cloudinary";
 import { Plus, Trash2, UploadCloud, X } from "lucide-react";
 
 type UploadItem = {
@@ -158,7 +157,11 @@ export function CloudinaryUploadDialog(props: {
           <div className="text-center">
             <div className="text-lg font-semibold text-foreground">{props.title}</div>
             <div className="text-sm text-muted-foreground">
-              {totalCount === 0 ? "No items selected" : `${totalCount} item${totalCount === 1 ? "" : "s"} selected`}
+              {totalCount === 0
+                ? "No items selected"
+                : busy
+                ? `${uploadedCount} of ${totalCount} items uploaded`
+                : `${totalCount} item${totalCount === 1 ? "" : "s"} selected`}
             </div>
           </div>
           <button
@@ -282,12 +285,7 @@ export function CloudinaryUploadDialog(props: {
             </div>
           ) : null}
 
-          {/* Status */}
-          {totalCount > 0 ? (
-            <div className="text-sm text-muted-foreground">
-              {busy ? `${uploadedCount} of ${totalCount} items uploaded` : isCloudinaryConfigured() ? "Uploads go to Cloudinary" : "Uploads go to Supabase Storage"}
-            </div>
-          ) : null}
+          {/* Status (kept intentionally minimal as requested) */}
         </div>
 
         {/* Bottom bar */}

@@ -31,7 +31,7 @@ const Stories = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("stories")
-        .select("id, title, body, image_url, user_id, created_at")
+        .select("id, title, body, media_url, media_type, image_url, user_id, created_at")
         .order("created_at", { ascending: false })
         .limit(30);
       if (error) throw error;
@@ -39,6 +39,8 @@ const Stories = () => {
         id: string;
         title: string;
         body: string;
+        media_url: string | null;
+        media_type: string | null;
         image_url: string | null;
         user_id: string;
         created_at: string;
