@@ -31,7 +31,6 @@ export default function AdminIntegrations() {
   const [uploading, setUploading] = useState(false);
   const [lastUploadUrl, setLastUploadUrl] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
-  const [seeding, setSeeding] = useState(false);
 
   const supabaseUrl = String(import.meta.env.VITE_SUPABASE_URL ?? "");
   const supabaseAnon = String(import.meta.env.VITE_SUPABASE_ANON_KEY ?? "");
@@ -145,117 +144,6 @@ export default function AdminIntegrations() {
     }
   };
 
-  const seedDemoContent = async () => {
-    setSeeding(true);
-    try {
-      // Keep this idempotent-ish: only insert if table is empty (as visible to this user).
-      const [{ count: toursCount }, { count: vehiclesCount }, { count: routesCount }] = await Promise.all([
-        supabase.from("tours").select("id", { count: "exact", head: true }),
-        supabase.from("transport_vehicles").select("id", { count: "exact", head: true }),
-        supabase.from("transport_routes").select("id", { count: "exact", head: true }),
-      ]);
-
-      const placeholder = "/placeholder.svg";
-
-      if (!toursCount) {
-        const { error } = await supabase.from("tours").insert([
-          {
-            title: "Volcanoes National Park Day Trip",
-            description: "A guided day trip with scenic stops and local culture.",
-            category: "Nature",
-            difficulty: "Moderate",
-            duration_days: 1,
-            price_per_person: 75000,
-            currency: "RWF",
-            location: "Musanze",
-            images: [placeholder],
-            is_published: true,
-            rating: 4.7,
-            review_count: 28,
-          },
-          {
-            title: "Kigali City Highlights",
-            description: "Explore Kigali’s best viewpoints, markets, and museums.",
-            category: "Cultural",
-            difficulty: "Easy",
-            duration_days: 1,
-            price_per_person: 35000,
-            currency: "RWF",
-            location: "Kigali",
-            images: [placeholder],
-            is_published: true,
-            rating: 4.6,
-            review_count: 41,
-          },
-        ]);
-        if (error) throw error;
-      }
-
-      if (!vehiclesCount) {
-        const { error } = await supabase.from("transport_vehicles").insert([
-          {
-            provider_name: "Merry Transport",
-            title: "Comfort SUV",
-            vehicle_type: "SUV",
-            seats: 5,
-            price_per_day: 65000,
-            currency: "RWF",
-            driver_included: true,
-            image_url: placeholder,
-            is_published: true,
-          },
-          {
-            provider_name: "Merry Transport",
-            title: "City Sedan",
-            vehicle_type: "Sedan",
-            seats: 4,
-            price_per_day: 45000,
-            currency: "RWF",
-            driver_included: false,
-            image_url: placeholder,
-            is_published: true,
-          },
-        ]);
-        if (error) throw error;
-      }
-
-      if (!routesCount) {
-        const { error } = await supabase.from("transport_routes").insert([
-          {
-            from_location: "Kigali",
-            to_location: "Musanze",
-            distance_km: 110,
-            duration_minutes: 150,
-            base_price: 40000,
-            currency: "RWF",
-            is_published: true,
-          },
-          {
-            from_location: "Kigali",
-            to_location: "Rubavu",
-            distance_km: 155,
-            duration_minutes: 210,
-            base_price: 55000,
-            currency: "RWF",
-            is_published: true,
-          },
-        ]);
-        if (error) throw error;
-      }
-
-      toast({ title: "Seeded demo content", description: "Tours and transport demo items were created and published." });
-      await runChecks();
-    } catch (e) {
-      toast({
-        variant: "destructive",
-        title: "Seeding failed",
-        description: e instanceof Error ? e.message : "Check roles/RLS and migrations.",
-      });
-    } finally {
-      setSeeding(false);
-    }
-  };
-
   const handleCloudinaryTestUpload = async (file: File | null) => {
     if (!file) return;
     setUploading(true);
@@ -360,9 +248,6 @@ export default function AdminIntegrations() {
                 variant="outline"
               >
                 {publishing ? "Publishing…" : "Publish all tours/transport"}
-              </Button>
-              <Button onClick={seedDemoContent} disabled={seeding || !(isAdmin || isStaff)}>
-                {seeding ? "Seeding…" : "Seed demo tours/transport"}
               </Button>
             </div>
 

@@ -66,6 +66,7 @@ const App = () => (
                   </RequireAuth>
                 }
               />
+              <Route path="/host" element={<Navigate to="/host-dashboard" replace />} />
               <Route path="/become-host" element={<HostApplication />} />
               <Route
                 path="/admin"
@@ -112,7 +113,14 @@ const App = () => (
               />
               <Route path="/dashboard/watchlist" element={<Navigate to="/favorites" replace />} />
               <Route path="/dashboard/trip-cart" element={<Navigate to="/trip-cart" replace />} />
-              <Route path="/profile" element={<Navigate to="/dashboard" replace />} />
+              <Route
+                path="/profile"
+                element={
+                  <RequireAuth>
+                    <Dashboard />
+                  </RequireAuth>
+                }
+              />
               <Route path="/properties/:id" element={<PropertyDetails />} />
               <Route path="/about" element={<InfoPage kind="about" />} />
               <Route path="/contact" element={<InfoPage kind="contact" />} />

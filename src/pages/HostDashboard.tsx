@@ -4,12 +4,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { isCloudinaryConfigured, uploadImageToCloudinary } from "@/lib/cloudinary";
+import { Switch } from "@/components/ui/switch";
 import {
   Home,
   Calendar,
@@ -21,6 +23,11 @@ import {
   EyeOff,
   Users,
   TrendingUp,
+  LayoutDashboard,
+  Building2,
+  PlusCircle,
+  MapPin,
+  Car,
 } from "lucide-react";
 import {
   Dialog,
@@ -66,10 +73,48 @@ const HostDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
+  const [nav, setNav] = useState<"dashboard" | "properties" | "add-property" | "create-tour" | "create-transport">(
+    "dashboard"
+  );
   const [isUploadingImages, setIsUploadingImages] = useState(false);
   const [imageUploadProgress, setImageUploadProgress] = useState<
     { done: number; total: number } | null
   >(null);
+  const [isTourDialogOpen, setIsTourDialogOpen] = useState(false);
+  const [isTransportDialogOpen, setIsTransportDialogOpen] = useState(false);
+  const [transportMode, setTransportMode] = useState<"vehicle" | "route">("vehicle");
+
+  const [tourForm, setTourForm] = useState({
+    title: "",
+    description: "",
+    category: "Nature",
+    difficulty: "Moderate",
+    duration_days: 1,
+    price_per_person: 0,
+    currency: "RWF",
+    location: "",
+    images: [] as string[],
+  });
+
+  const [vehicleForm, setVehicleForm] = useState({
+    provider_name: "",
+    title: "",
+    vehicle_type: "Sedan",
+    seats: 4,
+    price_per_day: 0,
+    currency: "RWF",
+    driver_included: true,
+    image_url: "",
+  });
+
+  const [routeForm, setRouteForm] = useState({
+    from_location: "",
+    to_location: "",
+    distance_km: 0,
+    duration_minutes: 0,
+    base_price: 0,
+    currency: "RWF",
+  });
 
   // Form state
   const [formData, setFormData] = useState({
@@ -240,6 +285,125 @@ const HostDashboard = () => {
     }));
   };
 
+  const uploadMany = async (files: FileList | null, folder: string) => {
+    if (!files || files.length === 0) return [];
+    if (!isCloudinaryConfigured()) {
+      throw new Error("Cloudinary is not configured. Set VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET.");
+    }
+    const fileArray = Array.from(files);
+    setIsUploadingImages(true);
+    setImageUploadProgress({ done: 0, total: fileArray.length });
+    const uploaded: string[] = [];
+    try {
+      for (let i = 0; i < fileArray.length; i++) {
+        const result = await uploadImageToCloudinary(fileArray[i], { folder });
+        if (result.secureUrl) uploaded.push(result.secureUrl);
+        setImageUploadProgress({ done: i + 1, total: fileArray.length });
+      }
+      return uploaded;
+    } finally {
+      setIsUploadingImages(false);
+      setImageUploadProgress(null);
+    }
+  };
+
+  const createTour = async () => {
+    if (!user) return;
+    if (!tourForm.title.trim()) {
+      toast({ variant: "destructive", title: "Tour title required" });
+      return;
+    }
+    if (tourForm.images.length === 0) {
+      toast({ variant: "destructive", title: "Tour image required", description: "Upload at least one tour image." });
+      return;
+    }
+    const payload = {
+      created_by: user.id,
+      title: tourForm.title.trim(),
+      description: tourForm.description.trim() || null,
+      category: tourForm.category,
+      difficulty: tourForm.difficulty,
+      duration_days: Number(tourForm.duration_days || 1),
+      price_per_person: Number(tourForm.price_per_person || 0),
+      currency: tourForm.currency,
+      location: tourForm.location.trim() || null,
+      images: tourForm.images,
+      is_published: true,
+    } as const;
+    const { error } = await supabase.from("tours").insert(payload);
+    if (error) {
+      toast({ variant: "destructive", title: "Could not create tour", description: error.message });
+      return;
+    }
+    toast({ title: "Tour created", description: "Your tour is now visible on the Tours page." });
+    setIsTourDialogOpen(false);
+    setTourForm({
+      title: "",
+      description: "",
+      category: "Nature",
+      difficulty: "Moderate",
+      duration_days: 1,
+      price_per_person: 0,
+      currency: "RWF",
+      location: "",
+      images: [],
+    });
+  };
+
+  const createVehicle = async () => {
+    if (!user) return;
+    if (!vehicleForm.title.trim()) {
+      toast({ variant: "destructive", title: "Vehicle title required" });
+      return;
+    }
+    if (!vehicleForm.image_url) {
+      toast({ variant: "destructive", title: "Vehicle image required" });
+      return;
+    }
+    const payload = {
+      created_by: user.id,
+      provider_name: vehicleForm.provider_name.trim() || null,
+      title: vehicleForm.title.trim(),
+      vehicle_type: vehicleForm.vehicle_type,
+      seats: Number(vehicleForm.seats || 0),
+      price_per_day: Number(vehicleForm.price_per_day || 0),
+      currency: vehicleForm.currency,
+      driver_included: Boolean(vehicleForm.driver_included),
+      image_url: vehicleForm.image_url,
+      is_published: true,
+    } as const;
+    const { error } = await supabase.from("transport_vehicles").insert(payload);
+    if (error) {
+      toast({ variant: "destructive", title: "Could not create vehicle", description: error.message });
+      return;
+    }
+    toast({ title: "Transport vehicle created", description: "Your vehicle is now visible on the Transport page." });
+  };
+
+  const createRoute = async () => {
+    if (!user) return;
+    if (!routeForm.from_location.trim() || !routeForm.to_location.trim()) {
+      toast({ variant: "destructive", title: "Route locations required" });
+      return;
+    }
+    const payload = {
+      created_by: user.id,
+      from_location: routeForm.from_location.trim(),
+      to_location: routeForm.to_location.trim(),
+      distance_km: Number(routeForm.distance_km || 0),
+      duration_minutes: Number(routeForm.duration_minutes || 0),
+      base_price: Number(routeForm.base_price || 0),
+      currency: routeForm.currency,
+      is_published: true,
+    } as const;
+    const { error } = await supabase.from("transport_routes").insert(payload);
+    if (error) {
+      toast({ variant: "destructive", title: "Could not create route", description: error.message });
+      return;
+    }
+    toast({ title: "Transport route created", description: "Your route is now visible on the Transport page." });
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm("Remove this property from the website? This will unpublish it (no data will be deleted).")) return;
 
@@ -326,30 +490,442 @@ const HostDashboard = () => {
       <Navbar />
 
       <div className="container mx-auto px-4 lg:px-8 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
-              Host Dashboard
-            </h1>
-            <p className="text-muted-foreground">
-              Manage your properties and bookings
-            </p>
-          </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <aside className="lg:col-span-3">
+            <Card className="p-5 sticky top-24">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Home className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <div className="font-semibold text-foreground">Host Portal</div>
+                  <div className="text-xs text-muted-foreground">Manage your listings</div>
+                </div>
+              </div>
 
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={resetForm}>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Property
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingProperty ? "Edit Property" : "Add New Property"}
-                </DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmitProperty} className="space-y-4">
+              <div className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => setNav("dashboard")}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm ${
+                    nav === "dashboard" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-foreground"
+                  }`}
+                >
+                  <LayoutDashboard className="w-4 h-4" />
+                  Dashboard
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNav("properties")}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm ${
+                    nav === "properties" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-foreground"
+                  }`}
+                >
+                  <Building2 className="w-4 h-4" />
+                  My Properties
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNav("add-property");
+                    resetForm();
+                    setIsDialogOpen(true);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm ${
+                    nav === "add-property" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-foreground"
+                  }`}
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  Add Property
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNav("create-tour");
+                    setIsTourDialogOpen(true);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm ${
+                    nav === "create-tour" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-foreground"
+                  }`}
+                >
+                  <MapPin className="w-4 h-4" />
+                  Create Tour
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNav("create-transport");
+                    setIsTransportDialogOpen(true);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm ${
+                    nav === "create-transport" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-foreground"
+                  }`}
+                >
+                  <Car className="w-4 h-4" />
+                  Create Transport
+                </button>
+              </div>
+            </Card>
+          </aside>
+
+          <div className="lg:col-span-9">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Host Dashboard</h1>
+                <p className="text-muted-foreground">Manage your properties and bookings</p>
+              </div>
+
+              {/* Tour dialog */}
+              <Dialog open={isTourDialogOpen} onOpenChange={setIsTourDialogOpen}>
+                <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Create Tour</DialogTitle>
+                  </DialogHeader>
+
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Title</Label>
+                      <Input value={tourForm.title} onChange={(e) => setTourForm((p) => ({ ...p, title: e.target.value }))} />
+                    </div>
+                    <div>
+                      <Label>Location</Label>
+                      <Input value={tourForm.location} onChange={(e) => setTourForm((p) => ({ ...p, location: e.target.value }))} placeholder="Kigali, Musanze..." />
+                    </div>
+                    <div>
+                      <Label>Description</Label>
+                      <Textarea value={tourForm.description} onChange={(e) => setTourForm((p) => ({ ...p, description: e.target.value }))} rows={3} />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Category</Label>
+                        <select
+                          value={tourForm.category}
+                          onChange={(e) => setTourForm((p) => ({ ...p, category: e.target.value }))}
+                          className="w-full mt-1 h-10 px-3 rounded-md border border-input bg-background"
+                        >
+                          <option>Nature</option>
+                          <option>Adventure</option>
+                          <option>Cultural</option>
+                          <option>Wildlife</option>
+                          <option>Historical</option>
+                        </select>
+                      </div>
+                      <div>
+                        <Label>Difficulty</Label>
+                        <select
+                          value={tourForm.difficulty}
+                          onChange={(e) => setTourForm((p) => ({ ...p, difficulty: e.target.value }))}
+                          className="w-full mt-1 h-10 px-3 rounded-md border border-input bg-background"
+                        >
+                          <option>Easy</option>
+                          <option>Moderate</option>
+                          <option>Hard</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <Label>Duration (days)</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={tourForm.duration_days}
+                          onChange={(e) => setTourForm((p) => ({ ...p, duration_days: Number(e.target.value) }))}
+                        />
+                      </div>
+                      <div>
+                        <Label>Price / person</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={tourForm.price_per_person}
+                          onChange={(e) => setTourForm((p) => ({ ...p, price_per_person: Number(e.target.value) }))}
+                        />
+                      </div>
+                      <div>
+                        <Label>Currency</Label>
+                        <select
+                          value={tourForm.currency}
+                          onChange={(e) => setTourForm((p) => ({ ...p, currency: e.target.value }))}
+                          className="w-full mt-1 h-10 px-3 rounded-md border border-input bg-background"
+                        >
+                          <option>RWF</option>
+                          <option>USD</option>
+                          <option>EUR</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label>Images</Label>
+                      <div className="mt-2 space-y-3">
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          disabled={isUploadingImages}
+                          onChange={async (e) => {
+                            try {
+                              const uploaded = await uploadMany(e.target.files, "merry360/tours");
+                              if (uploaded.length) setTourForm((p) => ({ ...p, images: [...p.images, ...uploaded] }));
+                            } catch (err) {
+                              toast({
+                                variant: "destructive",
+                                title: "Image upload failed",
+                                description: err instanceof Error ? err.message : "Please try again.",
+                              });
+                            } finally {
+                              e.currentTarget.value = "";
+                            }
+                          }}
+                        />
+
+                        {(tourForm.images?.length ?? 0) > 0 ? (
+                          <div className="grid grid-cols-3 gap-2">
+                            {tourForm.images.map((url, idx) => (
+                              <div key={`${url}-${idx}`} className="relative rounded-md overflow-hidden border border-border">
+                                <img src={url} alt={`Tour image ${idx + 1}`} className="h-20 w-full object-cover" loading="lazy" />
+                                <button
+                                  type="button"
+                                  onClick={() => setTourForm((p) => ({ ...p, images: p.images.filter((_, i) => i !== idx) }))}
+                                  className="absolute top-1 right-1 rounded bg-background/80 px-2 py-1 text-xs text-foreground hover:bg-background"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">Upload at least one tour image.</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-3 pt-2">
+                      <Button variant="outline" onClick={() => setIsTourDialogOpen(false)}>Cancel</Button>
+                      <Button onClick={createTour}>Create Tour</Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              {/* Transport dialog */}
+              <Dialog open={isTransportDialogOpen} onOpenChange={setIsTransportDialogOpen}>
+                <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Create Transport</DialogTitle>
+                  </DialogHeader>
+
+                  <div className="flex items-center gap-2 mb-4">
+                    <Button
+                      type="button"
+                      variant={transportMode === "vehicle" ? "default" : "outline"}
+                      onClick={() => setTransportMode("vehicle")}
+                    >
+                      Vehicle
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={transportMode === "route" ? "default" : "outline"}
+                      onClick={() => setTransportMode("route")}
+                    >
+                      Route
+                    </Button>
+                  </div>
+
+                  {transportMode === "vehicle" ? (
+                    <div className="space-y-4">
+                      <div>
+                        <Label>Provider name</Label>
+                        <Input value={vehicleForm.provider_name} onChange={(e) => setVehicleForm((p) => ({ ...p, provider_name: e.target.value }))} />
+                      </div>
+                      <div>
+                        <Label>Title</Label>
+                        <Input value={vehicleForm.title} onChange={(e) => setVehicleForm((p) => ({ ...p, title: e.target.value }))} />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>Vehicle type</Label>
+                          <select
+                            value={vehicleForm.vehicle_type}
+                            onChange={(e) => setVehicleForm((p) => ({ ...p, vehicle_type: e.target.value }))}
+                            className="w-full mt-1 h-10 px-3 rounded-md border border-input bg-background"
+                          >
+                            <option>Sedan</option>
+                            <option>SUV</option>
+                            <option>Van</option>
+                          </select>
+                        </div>
+                        <div>
+                          <Label>Seats</Label>
+                          <Input type="number" min={1} value={vehicleForm.seats} onChange={(e) => setVehicleForm((p) => ({ ...p, seats: Number(e.target.value) }))} />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>Price per day</Label>
+                          <Input type="number" min={0} value={vehicleForm.price_per_day} onChange={(e) => setVehicleForm((p) => ({ ...p, price_per_day: Number(e.target.value) }))} />
+                        </div>
+                        <div>
+                          <Label>Currency</Label>
+                          <select
+                            value={vehicleForm.currency}
+                            onChange={(e) => setVehicleForm((p) => ({ ...p, currency: e.target.value }))}
+                            className="w-full mt-1 h-10 px-3 rounded-md border border-input bg-background"
+                          >
+                            <option>RWF</option>
+                            <option>USD</option>
+                            <option>EUR</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                        <div>
+                          <div className="font-medium text-foreground">Driver included</div>
+                          <div className="text-sm text-muted-foreground">Toggle whether a driver is included.</div>
+                        </div>
+                        <Switch checked={vehicleForm.driver_included} onCheckedChange={(v) => setVehicleForm((p) => ({ ...p, driver_included: v }))} />
+                      </div>
+
+                      <div>
+                        <Label>Vehicle image</Label>
+                        <div className="mt-2 space-y-3">
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            disabled={isUploadingImages}
+                            onChange={async (e) => {
+                              try {
+                                const uploaded = await uploadMany(e.target.files, "merry360/transport/vehicles");
+                                const first = uploaded[0];
+                                if (first) setVehicleForm((p) => ({ ...p, image_url: first }));
+                              } catch (err) {
+                                toast({
+                                  variant: "destructive",
+                                  title: "Image upload failed",
+                                  description: err instanceof Error ? err.message : "Please try again.",
+                                });
+                              } finally {
+                                e.currentTarget.value = "";
+                              }
+                            }}
+                          />
+                          {vehicleForm.image_url ? (
+                            <div className="rounded-lg border border-border overflow-hidden">
+                              <img src={vehicleForm.image_url} alt="Vehicle" className="w-full h-48 object-cover" loading="lazy" />
+                            </div>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">Upload a vehicle image.</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-3 pt-2">
+                        <Button variant="outline" onClick={() => setIsTransportDialogOpen(false)}>Cancel</Button>
+                        <Button
+                          onClick={async () => {
+                            await createVehicle();
+                            setIsTransportDialogOpen(false);
+                            setVehicleForm({
+                              provider_name: "",
+                              title: "",
+                              vehicle_type: "Sedan",
+                              seats: 4,
+                              price_per_day: 0,
+                              currency: "RWF",
+                              driver_included: true,
+                              image_url: "",
+                            });
+                          }}
+                        >
+                          Create Vehicle
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>From</Label>
+                          <Input value={routeForm.from_location} onChange={(e) => setRouteForm((p) => ({ ...p, from_location: e.target.value }))} />
+                        </div>
+                        <div>
+                          <Label>To</Label>
+                          <Input value={routeForm.to_location} onChange={(e) => setRouteForm((p) => ({ ...p, to_location: e.target.value }))} />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>Distance (km)</Label>
+                          <Input type="number" min={0} value={routeForm.distance_km} onChange={(e) => setRouteForm((p) => ({ ...p, distance_km: Number(e.target.value) }))} />
+                        </div>
+                        <div>
+                          <Label>Duration (minutes)</Label>
+                          <Input type="number" min={0} value={routeForm.duration_minutes} onChange={(e) => setRouteForm((p) => ({ ...p, duration_minutes: Number(e.target.value) }))} />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>Base price</Label>
+                          <Input type="number" min={0} value={routeForm.base_price} onChange={(e) => setRouteForm((p) => ({ ...p, base_price: Number(e.target.value) }))} />
+                        </div>
+                        <div>
+                          <Label>Currency</Label>
+                          <select
+                            value={routeForm.currency}
+                            onChange={(e) => setRouteForm((p) => ({ ...p, currency: e.target.value }))}
+                            className="w-full mt-1 h-10 px-3 rounded-md border border-input bg-background"
+                          >
+                            <option>RWF</option>
+                            <option>USD</option>
+                            <option>EUR</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-3 pt-2">
+                        <Button variant="outline" onClick={() => setIsTransportDialogOpen(false)}>Cancel</Button>
+                        <Button
+                          onClick={async () => {
+                            await createRoute();
+                            setIsTransportDialogOpen(false);
+                            setRouteForm({
+                              from_location: "",
+                              to_location: "",
+                              distance_km: 0,
+                              duration_minutes: 0,
+                              base_price: 0,
+                              currency: "RWF",
+                            });
+                          }}
+                        >
+                          Create Route
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button onClick={resetForm}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Property
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>{editingProperty ? "Edit Property" : "Add New Property"}</DialogTitle>
+                  </DialogHeader>
+                  <form onSubmit={handleSubmitProperty} className="space-y-4">
                 <div>
                   <Label>Title</Label>
                   <Input
@@ -514,14 +1090,14 @@ const HostDashboard = () => {
                 <Button type="submit" className="w-full">
                   {editingProperty ? "Update Property" : "Create Property"}
                 </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-card rounded-xl p-6 shadow-card">
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <Card className="p-6 shadow-card">
             <div className="flex items-center gap-4">
               <div className="p-3 rounded-full bg-primary/10">
                 <Home className="w-6 h-6 text-primary" />
@@ -531,8 +1107,8 @@ const HostDashboard = () => {
                 <p className="text-2xl font-bold text-foreground">{properties.length}</p>
               </div>
             </div>
-          </div>
-          <div className="bg-card rounded-xl p-6 shadow-card">
+          </Card>
+          <Card className="p-6 shadow-card">
             <div className="flex items-center gap-4">
               <div className="p-3 rounded-full bg-green-100">
                 <Eye className="w-6 h-6 text-green-600" />
@@ -542,8 +1118,8 @@ const HostDashboard = () => {
                 <p className="text-2xl font-bold text-foreground">{publishedProperties}</p>
               </div>
             </div>
-          </div>
-          <div className="bg-card rounded-xl p-6 shadow-card">
+          </Card>
+          <Card className="p-6 shadow-card">
             <div className="flex items-center gap-4">
               <div className="p-3 rounded-full bg-yellow-100">
                 <Calendar className="w-6 h-6 text-yellow-600" />
@@ -553,8 +1129,8 @@ const HostDashboard = () => {
                 <p className="text-2xl font-bold text-foreground">{pendingBookings}</p>
               </div>
             </div>
-          </div>
-          <div className="bg-card rounded-xl p-6 shadow-card">
+          </Card>
+          <Card className="p-6 shadow-card">
             <div className="flex items-center gap-4">
               <div className="p-3 rounded-full bg-primary/10">
                 <TrendingUp className="w-6 h-6 text-primary" />
@@ -566,8 +1142,8 @@ const HostDashboard = () => {
                 </p>
               </div>
             </div>
-          </div>
-        </div>
+          </Card>
+            </div>
 
         {/* Properties Table */}
         <div className="bg-card rounded-xl shadow-card mb-8">
@@ -752,6 +1328,8 @@ const HostDashboard = () => {
               </table>
             </div>
           )}
+        </div>
+          </div>
         </div>
       </div>
 

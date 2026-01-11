@@ -132,6 +132,7 @@ export type Database = {
       tours: {
         Row: {
           category: string
+          created_by: string | null
           created_at: string
           currency: string
           description: string | null
@@ -149,6 +150,7 @@ export type Database = {
         }
         Insert: {
           category?: string
+          created_by?: string | null
           created_at?: string
           currency?: string
           description?: string | null
@@ -166,6 +168,7 @@ export type Database = {
         }
         Update: {
           category?: string
+          created_by?: string | null
           created_at?: string
           currency?: string
           description?: string | null
@@ -186,6 +189,7 @@ export type Database = {
       transport_routes: {
         Row: {
           base_price: number
+          created_by: string | null
           created_at: string
           currency: string
           distance_km: number | null
@@ -198,6 +202,7 @@ export type Database = {
         }
         Insert: {
           base_price?: number
+          created_by?: string | null
           created_at?: string
           currency?: string
           distance_km?: number | null
@@ -210,6 +215,7 @@ export type Database = {
         }
         Update: {
           base_price?: number
+          created_by?: string | null
           created_at?: string
           currency?: string
           distance_km?: number | null
@@ -260,6 +266,7 @@ export type Database = {
       }
       transport_vehicles: {
         Row: {
+          created_by: string | null
           created_at: string
           currency: string
           driver_included: boolean | null
@@ -274,6 +281,7 @@ export type Database = {
           vehicle_type: string
         }
         Insert: {
+          created_by?: string | null
           created_at?: string
           currency?: string
           driver_included?: boolean | null
@@ -288,6 +296,7 @@ export type Database = {
           vehicle_type?: string
         }
         Update: {
+          created_by?: string | null
           created_at?: string
           currency?: string
           driver_included?: boolean | null
