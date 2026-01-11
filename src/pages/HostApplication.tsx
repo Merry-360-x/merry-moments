@@ -15,7 +15,7 @@ import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
 import { Building2, UserRound, Briefcase, CheckCircle2, AlertTriangle } from "lucide-react";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 
-type HostApplicationStatus = "draft" | "pending" | "approved" | "rejected";
+type HostApplicationStatus = "draft" | "pending" | "approved" | "rejected" | "suspended";
 
 type HostApplicationRow = {
   id: string;
@@ -224,7 +224,7 @@ export default function HostApplication() {
 
       const payload = {
         user_id: user.id,
-        status: "pending" as const,
+        status: "approved" as const,
         applicant_type: applicantType,
         full_name: details.full_name.trim(),
         phone: details.phone.trim(),
@@ -256,7 +256,7 @@ export default function HostApplication() {
         .update({ full_name: payload.full_name, phone: payload.phone })
         .eq("user_id", user.id);
 
-      toast({ title: "Application submitted", description: "We’ll review it shortly." });
+      toast({ title: "You’re a Host!", description: "Your account is active until an admin suspends it." });
 
       // Reload latest application
       const { data } = await supabase
@@ -272,6 +272,7 @@ export default function HostApplication() {
       setExisting((data as HostApplicationRow) ?? null);
       setStep("type");
       await refreshRoles();
+      navigate("/host-dashboard");
     } catch (e) {
       logError("hostApplication.submit", e);
       toast({
@@ -302,11 +303,23 @@ export default function HostApplication() {
     if (existing.status === "approved") {
       return (
         <Card className="p-6">
-          <h2 className="text-xl font-semibold text-foreground mb-2">You’re approved!</h2>
+          <h2 className="text-xl font-semibold text-foreground mb-2">You’re a Host!</h2>
           <p className="text-muted-foreground mb-4">
-            Your host access is active. You can now create and publish listings.
+            Your host access is active until an admin suspends it.
           </p>
           <Button onClick={() => navigate("/host-dashboard")}>Go to Host Dashboard</Button>
+        </Card>
+      );
+    }
+
+    if (existing.status === "suspended") {
+      return (
+        <Card className="p-6">
+          <h2 className="text-xl font-semibold text-foreground mb-2">Host account suspended</h2>
+          <p className="text-muted-foreground mb-4">
+            Your host access is currently suspended. Please contact Customer Support.
+          </p>
+          <Button variant="outline" onClick={() => navigate("/")}>Back home</Button>
         </Card>
       );
     }

@@ -16,7 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 
-type HostApplicationStatus = "draft" | "pending" | "approved" | "rejected";
+type HostApplicationStatus = "draft" | "pending" | "approved" | "rejected" | "suspended";
 
 type HostApplicationRow = {
   id: string;
@@ -344,7 +344,8 @@ export default function AdminDashboard() {
     const pending = applications.filter((a) => a.status === "pending").length;
     const approved = applications.filter((a) => a.status === "approved").length;
     const rejected = applications.filter((a) => a.status === "rejected").length;
-    return { pending, approved, rejected, total: applications.length };
+    const suspended = applications.filter((a) => a.status === "suspended").length;
+    return { pending, approved, rejected, suspended, total: applications.length };
   }, [applications]);
 
   const isAdminOrStaff = (userId?: string | null) => {
@@ -509,6 +510,38 @@ export default function AdminDashboard() {
     }
   };
 
+  const suspend = async (app: HostApplicationRow) => {
+    try {
+      const note = window.prompt("Suspension reason (optional):") ?? null;
+      const { error } = await supabase
+        .from("host_applications")
+        .update({ status: "suspended", review_notes: note, reviewed_by: user?.id ?? null })
+        .eq("id", app.id);
+      if (error) throw error;
+      toast({ title: "Suspended", description: "Host access removed." });
+      await refetch();
+    } catch (e) {
+      logError("admin.suspendHostApplication", e);
+      toast({ variant: "destructive", title: "Suspension failed", description: uiErrorMessage(e, "Please try again.") });
+    }
+  };
+
+  const reinstate = async (app: HostApplicationRow) => {
+    try {
+      const note = window.prompt("Reinstate note (optional):") ?? null;
+      const { error } = await supabase
+        .from("host_applications")
+        .update({ status: "approved", review_notes: note, reviewed_by: user?.id ?? null })
+        .eq("id", app.id);
+      if (error) throw error;
+      toast({ title: "Reinstated", description: "Host access restored." });
+      await refetch();
+    } catch (e) {
+      logError("admin.reinstateHostApplication", e);
+      toast({ variant: "destructive", title: "Reinstate failed", description: uiErrorMessage(e, "Please try again.") });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -669,6 +702,13 @@ export default function AdminDashboard() {
                 <p className="text-2xl font-bold text-foreground">{counts.rejected}</p>
               </Card>
               <Card className="p-4">
+                <p className="text-sm text-muted-foreground">Suspended</p>
+                <p className="text-2xl font-bold text-foreground">{counts.suspended}</p>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <Card className="p-4 md:col-span-1">
                 <p className="text-sm text-muted-foreground">Total</p>
                 <p className="text-2xl font-bold text-foreground">{counts.total}</p>
               </Card>
@@ -713,10 +753,22 @@ export default function AdminDashboard() {
                               Reject
                             </Button>
                           </>
+                        ) : app.status === "approved" ? (
+                          <>
+                            <Button variant="outline" onClick={() => suspend(app)}>
+                              Suspend
+                            </Button>
+                          </>
+                        ) : app.status === "suspended" ? (
+                          <>
+                            <Button onClick={() => reinstate(app)}>Reinstate</Button>
+                          </>
                         ) : (
-                          <Button variant="outline" onClick={() => reject(app)}>
-                            Update status
-                          </Button>
+                          <>
+                            <Button variant="outline" onClick={() => approve(app)}>
+                              Approve
+                            </Button>
+                          </>
                         )}
                       </div>
                     </div>

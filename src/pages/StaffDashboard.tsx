@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 
-type HostApplicationStatus = "draft" | "pending" | "approved" | "rejected";
+type HostApplicationStatus = "draft" | "pending" | "approved" | "rejected" | "suspended";
 
 type HostApplicationRow = {
   id: string;
@@ -115,13 +115,12 @@ type Metrics = {
   revenue_by_currency: Array<{ currency: string; amount: number }>;
 };
 
-const fetchPending = async () => {
+const fetchApplications = async () => {
   const { data, error } = await supabase
     .from("host_applications")
     .select(
       "id, user_id, status, full_name, phone, business_name, hosting_location, review_notes, created_at"
     )
-    .eq("status", "pending")
     .order("created_at", { ascending: false });
 
   if (error) throw error;
@@ -142,8 +141,8 @@ export default function StaffDashboard() {
     isError,
     refetch,
   } = useQuery({
-    queryKey: ["host_applications", "staff", "pending"],
-    queryFn: fetchPending,
+    queryKey: ["host_applications", "staff", "all"],
+    queryFn: fetchApplications,
   });
 
   const { data: metrics, refetch: refetchMetrics } = useQuery({
@@ -384,6 +383,38 @@ export default function StaffDashboard() {
     }
   };
 
+  const suspend = async (app: HostApplicationRow) => {
+    try {
+      const note = window.prompt("Suspension reason (optional):") ?? null;
+      const { error } = await supabase
+        .from("host_applications")
+        .update({ status: "suspended", review_notes: note, reviewed_by: user?.id ?? null })
+        .eq("id", app.id);
+      if (error) throw error;
+      toast({ title: "Suspended", description: "Host access removed." });
+      await refetch();
+    } catch (e) {
+      logError("staff.suspendHostApplication", e);
+      toast({ variant: "destructive", title: "Suspension failed", description: uiErrorMessage(e, "Please try again.") });
+    }
+  };
+
+  const reinstate = async (app: HostApplicationRow) => {
+    try {
+      const note = window.prompt("Reinstate note (optional):") ?? null;
+      const { error } = await supabase
+        .from("host_applications")
+        .update({ status: "approved", review_notes: note, reviewed_by: user?.id ?? null })
+        .eq("id", app.id);
+      if (error) throw error;
+      toast({ title: "Reinstated", description: "Host access restored." });
+      await refetch();
+    } catch (e) {
+      logError("staff.reinstateHostApplication", e);
+      toast({ variant: "destructive", title: "Reinstate failed", description: uiErrorMessage(e, "Please try again.") });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -482,7 +513,7 @@ export default function StaffDashboard() {
 
           <TabsContent value="applications" className="mt-6">
             <Card className="p-6">
-              <h2 className="text-lg font-semibold text-foreground mb-4">Pending host applications</h2>
+              <h2 className="text-lg font-semibold text-foreground mb-4">Host applications</h2>
               {isLoading ? (
                 <div className="py-10 text-center">
                   <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
@@ -490,7 +521,7 @@ export default function StaffDashboard() {
               ) : isError ? (
                 <p className="text-muted-foreground">Couldn’t load applications.</p>
               ) : applications.length === 0 ? (
-                <p className="text-muted-foreground">No pending applications.</p>
+                <p className="text-muted-foreground">No applications yet.</p>
               ) : (
                 <div className="space-y-3">
                   {applications.map((app) => (
@@ -505,14 +536,34 @@ export default function StaffDashboard() {
                         <p className="text-sm text-muted-foreground break-all">
                           {app.phone || ""} · user: {app.user_id}
                         </p>
+                        <p className="text-xs text-muted-foreground">Status: {app.status}</p>
+                        {app.review_notes ? (
+                          <p className="text-xs text-muted-foreground mt-1">Note: {app.review_notes}</p>
+                        ) : null}
                       </div>
                       <div className="flex items-center gap-2">
-                        <Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => approve(app)}>
-                          Approve
-                        </Button>
-                        <Button variant="outline" onClick={() => reject(app)}>
-                          Reject
-                        </Button>
+                        {app.status === "pending" ? (
+                          <>
+                            <Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => approve(app)}>
+                              Approve
+                            </Button>
+                            <Button variant="outline" onClick={() => reject(app)}>
+                              Reject
+                            </Button>
+                          </>
+                        ) : app.status === "approved" ? (
+                          <Button variant="outline" onClick={() => suspend(app)}>
+                            Suspend
+                          </Button>
+                        ) : app.status === "suspended" ? (
+                          <Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => reinstate(app)}>
+                            Reinstate
+                          </Button>
+                        ) : (
+                          <Button variant="outline" onClick={() => approve(app)}>
+                            Approve
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
