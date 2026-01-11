@@ -1,4 +1,4 @@
-import { Calendar as CalendarIcon, MapPin, Minus, Plus, Search, Users, X, Home, Map, ConciergeBell } from "lucide-react";
+import { Calendar as CalendarIcon, MapPin, Minus, Plus, Search, Users, X, Building2, Map, Car } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -58,7 +58,7 @@ const HeroSearch = () => {
 
   // Mobile Airbnb-style search modal
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [mobileTab, setMobileTab] = useState<"homes" | "experiences" | "services">("homes");
+  const [mobileTab, setMobileTab] = useState<"accommodations" | "tours" | "transport">("accommodations");
   const [mobileDateOpen, setMobileDateOpen] = useState(false);
   const [mobileGuestsOpen, setMobileGuestsOpen] = useState(false);
 
@@ -96,6 +96,29 @@ const HeroSearch = () => {
     if (pets) params.set("pets", String(pets));
 
     const qs = params.toString();
+    navigate(qs ? `/accommodations?${qs}` : "/accommodations");
+  };
+
+  const goMobileSearch = () => {
+    const params = new URLSearchParams();
+    if (where.trim()) params.set("q", where.trim());
+    if (dateRange?.from) params.set("start", dateRange.from.toISOString().slice(0, 10));
+    if (dateRange?.to) params.set("end", dateRange.to.toISOString().slice(0, 10));
+    if (dateFlexDays > 0) params.set("flex", String(dateFlexDays));
+    params.set("adults", String(adults));
+    if (children) params.set("children", String(children));
+    if (infants) params.set("infants", String(infants));
+    if (pets) params.set("pets", String(pets));
+
+    const qs = params.toString();
+    if (mobileTab === "tours") {
+      navigate(qs ? `/tours?${qs}` : "/tours");
+      return;
+    }
+    if (mobileTab === "transport") {
+      navigate(qs ? `/transport?${qs}` : "/transport");
+      return;
+    }
     navigate(qs ? `/accommodations?${qs}` : "/accommodations");
   };
 
@@ -158,14 +181,14 @@ const HeroSearch = () => {
 
                 <Tabs value={mobileTab} onValueChange={(v) => setMobileTab(v as typeof mobileTab)}>
                   <TabsList className="w-full justify-center">
-                    <TabsTrigger value="homes" className="gap-2">
-                      <Home className="w-4 h-4" /> Homes
+                    <TabsTrigger value="accommodations" className="gap-2">
+                      <Building2 className="w-4 h-4" /> {t("nav.accommodations")}
                     </TabsTrigger>
-                    <TabsTrigger value="experiences" className="gap-2">
-                      <Map className="w-4 h-4" /> Experiences
+                    <TabsTrigger value="tours" className="gap-2">
+                      <Map className="w-4 h-4" /> {t("nav.tours")}
                     </TabsTrigger>
-                    <TabsTrigger value="services" className="gap-2">
-                      <ConciergeBell className="w-4 h-4" /> Services
+                    <TabsTrigger value="transport" className="gap-2">
+                      <Car className="w-4 h-4" /> {t("nav.transport")}
                     </TabsTrigger>
                   </TabsList>
                 </Tabs>
@@ -256,7 +279,7 @@ const HeroSearch = () => {
                   className="rounded-full px-6"
                   onClick={() => {
                     setMobileOpen(false);
-                    goSearch();
+                    goMobileSearch();
                   }}
                 >
                   <Search className="w-4 h-4 mr-2" />
