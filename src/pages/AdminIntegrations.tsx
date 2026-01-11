@@ -220,7 +220,7 @@ export default function AdminIntegrations() {
           <Card className="p-6">
             <h2 className="text-lg font-semibold text-foreground mb-2">Make content visible</h2>
             <p className="text-sm text-muted-foreground mb-4">
-              Guest-facing pages show only <span className="font-medium">published</span> items. Use these actions to publish existing items or seed demo content.
+              Guest-facing pages show only <span className="font-medium">published</span> items. Use these actions to publish existing items.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3">
