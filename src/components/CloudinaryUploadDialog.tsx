@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -30,11 +30,13 @@ export function CloudinaryUploadDialog(props: {
   trigger?: React.ReactNode;
   value: string[];
   onChange: (urls: string[]) => void;
+  autoStart?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<UploadItem[]>([]);
   const [busy, setBusy] = useState(false);
+  const autoStart = props.autoStart ?? true;
 
   const canAddMore = useMemo(() => {
     const max = props.maxFiles ?? (props.multiple ? 20 : 1);
@@ -95,6 +97,16 @@ export function CloudinaryUploadDialog(props: {
     }
   };
 
+  // Auto-start uploads AFTER items are enqueued (prevents "queued 0%" due to stale state).
+  useEffect(() => {
+    if (!autoStart) return;
+    if (!open) return;
+    if (busy) return;
+    if (!items.some((i) => i.status === "queued")) return;
+    void startUploads();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart, open, busy, items.length]);
+
   const removeExisting = (url: string) => {
     props.onChange(props.value.filter((u) => u !== url));
   };
@@ -154,9 +166,22 @@ export function CloudinaryUploadDialog(props: {
             onChange={(e) => {
               enqueue(e.target.files);
               e.currentTarget.value = "";
-              setTimeout(() => startUploads(), 0);
             }}
           />
+
+          {/* Actions */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-xs text-muted-foreground">
+              {items.some((i) => i.status === "queued") ? "Preview then upload when ready." : ""}
+            </div>
+            <Button
+              type="button"
+              onClick={startUploads}
+              disabled={busy || !items.some((i) => i.status === "queued")}
+            >
+              {busy ? "Uploading..." : "Upload"}
+            </Button>
+          </div>
 
           {/* Existing URLs */}
           {props.value.length ? (
@@ -218,6 +243,15 @@ export function CloudinaryUploadDialog(props: {
                         <X className="w-4 h-4 text-muted-foreground" />
                       </button>
                     </div>
+                    {it.previewUrl ? (
+                      <div className="mt-3 rounded-lg overflow-hidden border border-border bg-muted">
+                        {it.file.type.startsWith("video/") ? (
+                          <video src={it.previewUrl} className="h-40 w-full object-cover" muted playsInline controls />
+                        ) : (
+                          <img src={it.previewUrl} alt={it.file.name} className="h-40 w-full object-cover" />
+                        )}
+                      </div>
+                    ) : null}
                     <div className="mt-2">
                       <Progress value={it.percent} className="h-2" />
                       <div className="text-xs text-muted-foreground mt-1">{it.percent}%</div>
