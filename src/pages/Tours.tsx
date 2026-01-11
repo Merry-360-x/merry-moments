@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Tables } from "@/integrations/supabase/types";
+import ListingImageCarousel from "@/components/ListingImageCarousel";
 
 const categories = ["All", "Nature", "Adventure", "Cultural", "Wildlife", "Historical"];
 
@@ -226,43 +227,46 @@ const Tours = () => {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {tours.map((tour) => (
-              <div key={tour.id} className="bg-card rounded-xl shadow-card overflow-hidden">
-                <div className="aspect-[4/3] bg-muted overflow-hidden">
-                  {tour.images?.[0] ? (
-                    <img
-                      src={tour.images[0]}
-                      alt={tour.title}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                  ) : null}
+              <div
+                key={tour.id}
+                className="group rounded-xl overflow-hidden bg-card shadow-card hover:shadow-lg transition-all duration-300 animate-fade-in"
+              >
+                <div className="relative aspect-[4/3] overflow-hidden">
+                  {tour.images?.length ? (
+                    <ListingImageCarousel images={tour.images} alt={tour.title} className="w-full h-full" />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-muted via-muted/70 to-muted/40" />
+                  )}
+                  <span className="absolute bottom-3 left-3 px-3 py-1 rounded-full bg-background/90 backdrop-blur-sm text-xs font-medium">
+                    {tour.category}
+                  </span>
                 </div>
-                <div className="p-5">
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <h3 className="font-semibold text-foreground leading-snug">{tour.title}</h3>
-                    <div className="flex items-center gap-1 shrink-0 text-sm">
+
+                <div className="p-4">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <h3 className="font-semibold text-foreground line-clamp-1">{tour.title}</h3>
+                    <div className="flex items-center gap-1 shrink-0">
                       <Star className="w-4 h-4 fill-primary text-primary" />
-                      <span className="font-medium">{Number(tour.rating ?? 0).toFixed(1)}</span>
-                      <span className="text-muted-foreground">({tour.review_count ?? 0})</span>
+                      <span className="text-sm font-medium">{Number(tour.rating ?? 0).toFixed(1)}</span>
+                      <span className="text-sm text-muted-foreground">({tour.review_count ?? 0})</span>
                     </div>
                   </div>
 
-                  <div className="text-sm text-muted-foreground mb-3">
-                    {tour.category} • {tour.difficulty} • {tour.duration_days} day{tour.duration_days === 1 ? "" : "s"}
-                  </div>
-
-                  {tour.description ? (
-                    <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{tour.description}</p>
-                  ) : null}
+                  <p className="text-sm text-muted-foreground mb-2">{tour.location}</p>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    {tour.difficulty} · {tour.duration_days} day{tour.duration_days === 1 ? "" : "s"}
+                  </p>
 
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-foreground">
                       <span className="font-bold">
                         {tour.currency} {Number(tour.price_per_person).toLocaleString()}
                       </span>
-                      <span className="text-muted-foreground">/person</span>
+                      <span className="text-sm text-muted-foreground"> / person</span>
                     </div>
-                    <Button onClick={() => addToCart(tour)}>Book Now</Button>
+                    <Button variant="outline" onClick={() => addToCart(tour)}>
+                      Add to Trip Cart
+                    </Button>
                   </div>
                 </div>
               </div>

@@ -88,6 +88,7 @@ const Favorites = () => {
                 key={fav.id}
                 id={fav.properties.id}
                 image={fav.properties.images?.[0] ?? null}
+                images={fav.properties.images ?? null}
                 title={fav.properties.title}
                 location={fav.properties.location}
                 rating={Number(fav.properties.rating) || 0}

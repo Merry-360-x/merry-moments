@@ -1,4 +1,4 @@
-import { Car, Search, MapPin, Frown, ArrowLeftRight } from "lucide-react";
+import { Car, Search, MapPin, Frown, ArrowLeftRight, Star } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -9,11 +9,22 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Tables } from "@/integrations/supabase/types";
+import ListingImageCarousel from "@/components/ListingImageCarousel";
 
 type TransportServiceRow = Pick<Tables<"transport_services">, "id" | "title" | "description" | "slug">;
 type TransportVehicleRow = Pick<
   Tables<"transport_vehicles">,
-  "id" | "title" | "provider_name" | "vehicle_type" | "seats" | "price_per_day" | "currency" | "driver_included" | "image_url"
+  "id"
+  | "title"
+  | "provider_name"
+  | "vehicle_type"
+  | "seats"
+  | "price_per_day"
+  | "currency"
+  | "driver_included"
+  | "image_url"
+  | "rating"
+  | "review_count"
 >;
 type TransportRouteRow = Pick<Tables<"transport_routes">, "id" | "from_location" | "to_location" | "base_price" | "currency">;
 
@@ -57,7 +68,7 @@ const Transport = () => {
       let q = supabase
         .from("transport_vehicles")
         .select(
-          "id, title, provider_name, vehicle_type, seats, price_per_day, currency, driver_included, image_url"
+          "id, title, provider_name, vehicle_type, seats, price_per_day, currency, driver_included, image_url, rating, review_count"
         )
         .eq("is_published", true)
         .order("created_at", { ascending: false });
@@ -254,26 +265,40 @@ const Transport = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {vehicles.map((v) => (
-              <div key={v.id} className="bg-card rounded-xl shadow-card overflow-hidden">
-                <div className="aspect-[4/3] bg-muted overflow-hidden">
+              <div
+                key={v.id}
+                className="group rounded-xl overflow-hidden bg-card shadow-card hover:shadow-lg transition-all duration-300 animate-fade-in"
+              >
+                <div className="relative aspect-[4/3] overflow-hidden">
                   {v.image_url ? (
-                    <img src={v.image_url} alt={v.title} className="w-full h-full object-cover" loading="lazy" />
-                  ) : null}
+                    <ListingImageCarousel images={[v.image_url]} alt={v.title} className="w-full h-full" />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-muted via-muted/70 to-muted/40" />
+                  )}
+                  <span className="absolute bottom-3 left-3 px-3 py-1 rounded-full bg-background/90 backdrop-blur-sm text-xs font-medium">
+                    {v.vehicle_type}
+                  </span>
                 </div>
-                <div className="p-6">
-                  <div className="text-xs text-muted-foreground mb-1">
-                    {v.driver_included ? "Driver Included" : "Self Drive"}
+
+                <div className="p-4">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <h3 className="font-semibold text-foreground line-clamp-1">{v.provider_name ?? v.title}</h3>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Star className="w-4 h-4 fill-primary text-primary" />
+                      <span className="text-sm font-medium">{Number(v.rating ?? 0).toFixed(1)}</span>
+                      <span className="text-sm text-muted-foreground">({v.review_count ?? 0})</span>
+                    </div>
                   </div>
-                  <div className="font-semibold text-foreground">{v.provider_name ?? v.title}</div>
-                  <div className="text-sm text-muted-foreground mb-3">
-                    {v.vehicle_type} • {v.seats} seats
-                  </div>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    {v.driver_included ? "Driver included" : "Self drive"} · {v.seats} seats
+                  </p>
+
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-foreground">
                       <span className="font-bold">
                         {v.currency} {Number(v.price_per_day).toLocaleString()}
                       </span>
-                      <span className="text-muted-foreground"> / day</span>
+                      <span className="text-sm text-muted-foreground"> / day</span>
                     </div>
                     <Button
                       variant="outline"

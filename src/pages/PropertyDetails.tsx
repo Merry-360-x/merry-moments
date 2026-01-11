@@ -271,8 +271,8 @@ export default function PropertyDetails() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="bg-card rounded-xl shadow-card overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div className="lg:col-span-7 bg-card rounded-xl shadow-card overflow-hidden">
               {data.images?.[0] ? (
                 <img
                   src={data.images[0]}
@@ -298,7 +298,7 @@ export default function PropertyDetails() {
               ) : null}
             </div>
 
-            <div>
+            <div className="lg:col-span-5">
               <div className="flex items-start justify-between gap-6">
                 <div>
                   <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">{data.title}</h1>
@@ -320,14 +320,35 @@ export default function PropertyDetails() {
                 </p>
               )}
 
-              {/* Rooms */}
-              {(data.bedrooms || data.bathrooms || data.beds) ? (
-                <div className="mt-6 text-sm text-muted-foreground">
-                  {[data.bedrooms ? `${data.bedrooms} bedrooms` : null, data.beds ? `${data.beds} beds` : null, data.bathrooms ? `${data.bathrooms} bathrooms` : null]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </div>
-              ) : null}
+              {/* Details */}
+              <div className="mt-6 bg-card rounded-xl shadow-card p-5">
+                <div className="text-sm font-semibold text-foreground mb-2">About this place</div>
+                {(data.bedrooms || data.bathrooms || data.beds || data.max_guests) ? (
+                  <div className="text-sm text-muted-foreground">
+                    {[
+                      data.max_guests ? `Up to ${data.max_guests} guests` : null,
+                      data.bedrooms ? `${data.bedrooms} bedrooms` : null,
+                      data.beds ? `${data.beds} beds` : null,
+                      data.bathrooms ? `${data.bathrooms} bathrooms` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </div>
+                ) : null}
+
+                {data.amenities && data.amenities.length > 0 ? (
+                  <div className="mt-4">
+                    <div className="text-sm font-semibold text-foreground mb-2">Amenities</div>
+                    <div className="flex flex-wrap gap-2">
+                      {data.amenities.slice(0, 12).map((a) => (
+                        <span key={a} className="text-xs px-3 py-1 rounded-full border border-border text-muted-foreground">
+                          {a}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
 
               {/* Host */}
               <div className="mt-8 bg-card rounded-xl shadow-card p-5">
@@ -344,9 +365,12 @@ export default function PropertyDetails() {
                       <div className="w-12 h-12 rounded-full bg-muted" />
                     )}
                     <div>
-                      <h2 className="text-base font-semibold text-foreground">
+                      <Link
+                        to={`/accommodations?host=${encodeURIComponent(String(data.host_id))}`}
+                        className="text-base font-semibold text-foreground hover:underline"
+                      >
                         Hosted by {hostProfile?.full_name ?? "Host"}
-                      </h2>
+                      </Link>
                       <div className="mt-1 text-sm text-muted-foreground">
                         <span>
                           {hostStats?.reviewCount ? `${hostStats.reviewCount} reviews` : "No reviews yet"}
@@ -444,7 +468,7 @@ export default function PropertyDetails() {
               </div>
 
               {/* Booking */}
-              <div className="mt-8 bg-card rounded-xl shadow-card p-5">
+              <div className="mt-8 bg-card rounded-xl shadow-card p-5 lg:sticky lg:top-24">
                 <h2 className="text-lg font-semibold text-foreground mb-4">Book this stay</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>

@@ -109,6 +109,7 @@ const Index = () => {
                   <PropertyCard
                     id={property.id}
                     image={property.images?.[0] ?? null}
+                    images={property.images ?? null}
                     title={property.title}
                     location={property.location}
                     rating={Number(property.rating) || 0}
@@ -153,7 +154,8 @@ const Index = () => {
               >
                 <PropertyCard
                   id={property.id}
-                  image={property.images?.[0] ?? null}
+                    image={property.images?.[0] ?? null}
+                    images={property.images ?? null}
                   title={property.title}
                   location={property.location}
                   rating={Number(property.rating) || 0}

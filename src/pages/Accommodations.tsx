@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites } from "@/hooks/useFavorites";
@@ -154,6 +154,46 @@ const Accommodations = () => {
       }),
   });
 
+  const { data: hostPreview } = useQuery({
+    queryKey: ["host-preview", hostId],
+    enabled: Boolean(hostId),
+    queryFn: async () => {
+      const hid = String(hostId ?? "");
+      const { data: prof, error } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, avatar_url, bio")
+        .eq("user_id", hid)
+        .maybeSingle();
+      if (error) throw error;
+
+      const { data: hostProps, error: propsErr } = await supabase
+        .from("properties")
+        .select("id, created_at, is_published")
+        .eq("host_id", hid);
+      if (propsErr) throw propsErr;
+      const propIds = (hostProps ?? []).map((p) => String((p as { id: string }).id));
+      const hostingSince = (hostProps ?? [])
+        .map((p) => new Date(String((p as { created_at: string }).created_at)).getTime())
+        .filter((n) => Number.isFinite(n))
+        .sort((a, b) => a - b)[0];
+
+      const { data: reviews } = propIds.length
+        ? await supabase.from("property_reviews").select("rating, property_id").in("property_id", propIds)
+        : { data: [] as Array<{ rating: number; property_id: string }>, error: null };
+      const ratings = (reviews ?? []).map((r) => Number(r.rating)).filter((n) => Number.isFinite(n) && n > 0);
+      const reviewCount = ratings.length;
+      const avg = reviewCount > 0 ? ratings.reduce((a, b) => a + b, 0) / reviewCount : null;
+
+      return {
+        profile: prof as { user_id: string; full_name: string | null; avatar_url: string | null; bio: string | null } | null,
+        listings: propIds.length,
+        hostingSince: hostingSince ? new Date(hostingSince).toISOString() : null,
+        reviewCount,
+        rating: avg ? Math.round(avg * 100) / 100 : null,
+      };
+    },
+  });
+
   const { data: favoriteIds = [] } = useQuery({
     queryKey: ["favorites", "ids", user?.id],
     enabled: !!user?.id,
@@ -247,6 +287,56 @@ const Accommodations = () => {
           <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">{t("accommodations.title")}</h1>
           <p className="text-muted-foreground">{t("accommodations.subtitle")}</p>
         </div>
+
+        {hostId && hostPreview ? (
+          <div className="mb-8 bg-card rounded-xl shadow-card p-6">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="flex items-start gap-3">
+                {hostPreview.profile?.avatar_url ? (
+                  <img
+                    src={hostPreview.profile.avatar_url}
+                    alt={hostPreview.profile.full_name ?? "Host"}
+                    className="w-12 h-12 rounded-full object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-muted" />
+                )}
+                <div>
+                  <div className="text-lg font-semibold text-foreground">
+                    Hosted by {hostPreview.profile?.full_name ?? "Host"}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {hostPreview.listings} listings
+                    {hostPreview.reviewCount ? ` · ${hostPreview.reviewCount} reviews` : " · No reviews yet"}
+                    {hostPreview.rating ? ` · ${hostPreview.rating} overall` : ""}
+                    {hostPreview.hostingSince ? ` · Hosting since ${new Date(hostPreview.hostingSince).toLocaleDateString()}` : ""}
+                  </div>
+                  {hostPreview.profile?.bio ? (
+                    <div className="mt-2 text-sm text-foreground/90 leading-relaxed line-clamp-2">
+                      {hostPreview.profile.bio}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Link to={`/hosts/${encodeURIComponent(String(hostId))}/reviews`}>
+                  <Button variant="outline">All reviews</Button>
+                </Link>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const params = new URLSearchParams(searchParams);
+                    params.delete("host");
+                    navigate(params.toString() ? `/accommodations?${params.toString()}` : "/accommodations");
+                  }}
+                >
+                  View all listings
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {/* Mobile filters button */}
         <div className="lg:hidden mb-6">
@@ -519,6 +609,7 @@ const Accommodations = () => {
                       <PropertyCard
                         id={property.id}
                         image={property.images?.[0] ?? null}
+                        images={property.images ?? null}
                         title={property.title}
                         location={property.location}
                         rating={Number(property.rating) || 0}
@@ -565,6 +656,7 @@ const Accommodations = () => {
                     key={property.id}
                     id={property.id}
                     image={property.images?.[0] ?? null}
+                    images={property.images ?? null}
                     title={property.title}
                     location={property.location}
                     rating={Number(property.rating) || 0}

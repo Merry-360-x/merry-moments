@@ -28,6 +28,8 @@ import InfoPage from "./pages/InfoPage";
 import Dashboard from "./pages/Dashboard";
 import AdminIntegrations from "./pages/AdminIntegrations";
 import HostReviews from "./pages/HostReviews";
+import ScrollToTop from "@/components/ScrollToTop";
+import GlobalLoadingIndicator from "@/components/GlobalLoadingIndicator";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +51,8 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <ScrollToTop />
+            <GlobalLoadingIndicator />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />

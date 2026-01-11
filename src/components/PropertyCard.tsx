@@ -1,10 +1,12 @@
 import { Star, Heart } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
+import ListingImageCarousel from "@/components/ListingImageCarousel";
 
 export interface PropertyCardProps {
   id?: string;
   image?: string | null;
+  images?: string[] | null;
   title: string;
   location: string;
   rating: number;
@@ -29,6 +31,7 @@ const PropertyCard = ({
   price,
   currency = "RWF",
   type,
+  images,
   bedrooms,
   beds,
   bathrooms,
@@ -38,16 +41,17 @@ const PropertyCard = ({
   const { t } = useTranslation();
   const navigate = useNavigate();
 
+  const gallery = images?.length ? images : image ? [image] : [];
+
   const content = (
     <div className="group rounded-xl overflow-hidden bg-card shadow-card hover:shadow-lg transition-all duration-300 animate-fade-in">
       {/* Image */}
       <div className="relative aspect-[4/3] overflow-hidden">
-        {image ? (
-          <img
-            src={image}
+        {gallery.length ? (
+          <ListingImageCarousel
+            images={gallery}
             alt={title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-            loading="lazy"
+            className="w-full h-full"
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-muted via-muted/70 to-muted/40" />
