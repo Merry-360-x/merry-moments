@@ -10,6 +10,9 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { uploadImageToCloudinary, isCloudinaryConfigured } from "@/lib/cloudinary";
+import { Building2, UserRound, Briefcase, Upload, CheckCircle2, AlertTriangle } from "lucide-react";
 
 type HostApplicationStatus = "draft" | "pending" | "approved" | "rejected";
 
@@ -22,15 +25,29 @@ type HostApplicationRow = {
   business_name: string | null;
   hosting_location: string | null;
   about: string | null;
+  applicant_type?: string | null;
+  listing_title?: string | null;
+  listing_location?: string | null;
+  listing_property_type?: string | null;
+  listing_price_per_night?: number | null;
+  listing_currency?: string | null;
+  listing_max_guests?: number | null;
+  listing_bedrooms?: number | null;
+  listing_bathrooms?: number | null;
+  listing_amenities?: string[] | null;
+  listing_images?: string[] | null;
+  business_tin?: string | null;
+  business_certificate_url?: string | null;
+  national_id_number?: string | null;
+  national_id_photo_url?: string | null;
   review_notes: string | null;
   created_at: string;
 };
 
-const steps = [
-  { key: "contact", title: "Your details" },
-  { key: "hosting", title: "Hosting info" },
-  { key: "review", title: "Review & submit" },
-] as const;
+type ApplicantType = "individual" | "business";
+
+const propertyTypes = ["Hotel", "Apartment", "Villa", "Guesthouse", "Resort", "Lodge"];
+const amenitiesList = ["WiFi", "Pool", "Parking", "Kitchen", "Breakfast", "AC", "Gym", "Spa"];
 
 export default function HostApplication() {
   const { user, refreshRoles, isHost, isLoading: authLoading } = useAuth();
@@ -40,27 +57,60 @@ export default function HostApplication() {
   const [isLoading, setIsLoading] = useState(true);
   const [existing, setExisting] = useState<HostApplicationRow | null>(null);
 
-  const [stepIndex, setStepIndex] = useState(0);
-  const [form, setForm] = useState({
-    full_name: "",
-    phone: "",
-    business_name: "",
-    hosting_location: "",
-    about: "",
+  const [step, setStep] = useState<"type" | "property" | "details">("type");
+  const [applicantType, setApplicantType] = useState<ApplicantType>("individual");
+
+  const [property, setProperty] = useState({
+    title: "",
+    location: "",
+    property_type: "Hotel",
+    price_per_night: 50000,
+    currency: "RWF",
+    max_guests: 2,
+    bedrooms: 1,
+    bathrooms: 1,
+    amenities: [] as string[],
+    images: [] as string[],
   });
 
-  const currentStep = steps[stepIndex];
-  const canGoBack = stepIndex > 0;
+  const [details, setDetails] = useState({
+    full_name: "",
+    phone: "",
+    about: "",
+    business_name: "",
+    business_tin: "",
+    business_certificate_url: "",
+    national_id_number: "",
+    national_id_photo_url: "",
+  });
 
-  const nextDisabled = useMemo(() => {
-    if (currentStep.key === "contact") {
-      return form.full_name.trim().length < 2 || form.phone.trim().length < 7;
+  const [uploading, setUploading] = useState<{ kind: "listing" | "certificate" | "id" | null; progress?: string }>({
+    kind: null,
+  });
+
+  const propertyValid = useMemo(() => {
+    return (
+      property.title.trim().length >= 3 &&
+      property.location.trim().length >= 2 &&
+      property.price_per_night > 0 &&
+      property.max_guests >= 1 &&
+      property.images.length >= 1
+    );
+  }, [property]);
+
+  const detailsValid = useMemo(() => {
+    if (details.full_name.trim().length < 2) return false;
+    if (details.phone.trim().length < 7) return false;
+    if (details.about.trim().length < 10) return false;
+    if (applicantType === "business") {
+      if (details.business_name.trim().length < 2) return false;
+      if (details.business_tin.trim().length < 3) return false;
+      if (details.business_certificate_url.trim().length < 5) return false;
+      if (details.national_id_number.trim().length < 3) return false;
+      if (details.national_id_photo_url.trim().length < 5) return false;
     }
-    if (currentStep.key === "hosting") {
-      return form.hosting_location.trim().length < 2 || form.about.trim().length < 10;
-    }
-    return false;
-  }, [currentStep.key, form]);
+    return true;
+  }, [details, applicantType]);
 
   useEffect(() => {
     if (!user) return;
@@ -70,7 +120,7 @@ export default function HostApplication() {
       const { data, error } = await supabase
         .from("host_applications")
         .select(
-          "id, user_id, status, full_name, phone, business_name, hosting_location, about, review_notes, created_at"
+          "id, user_id, status, full_name, phone, business_name, hosting_location, about, applicant_type, listing_title, listing_location, listing_property_type, listing_price_per_night, listing_currency, listing_max_guests, listing_bedrooms, listing_bathrooms, listing_amenities, listing_images, business_tin, business_certificate_url, national_id_number, national_id_photo_url, review_notes, created_at"
         )
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
@@ -136,28 +186,78 @@ export default function HostApplication() {
 
   const startNew = () => {
     setExisting(null);
-    setStepIndex(0);
-    setForm({
+    setStep("type");
+    setApplicantType("individual");
+    setProperty({
+      title: "",
+      location: "",
+      property_type: "Hotel",
+      price_per_night: 50000,
+      currency: "RWF",
+      max_guests: 2,
+      bedrooms: 1,
+      bathrooms: 1,
+      amenities: [],
+      images: [],
+    });
+    setDetails({
       full_name: "",
       phone: "",
-      business_name: "",
-      hosting_location: "",
       about: "",
+      business_name: "",
+      business_tin: "",
+      business_certificate_url: "",
+      national_id_number: "",
+      national_id_photo_url: "",
     });
+  };
+
+  const uploadFiles = async (files: FileList | null, folder: string) => {
+    if (!files || files.length === 0) return [];
+    if (!isCloudinaryConfigured()) throw new Error("Cloudinary is not configured for uploads.");
+    const arr = Array.from(files);
+    const urls: string[] = [];
+    for (let i = 0; i < arr.length; i++) {
+      const res = await uploadImageToCloudinary(arr[i], { folder });
+      if (res.secureUrl) urls.push(res.secureUrl);
+    }
+    return urls;
   };
 
   const submit = async () => {
     if (!user) return;
 
     try {
+      if (!propertyValid) {
+        throw new Error("Please provide complete property info and upload at least one image.");
+      }
+      if (!detailsValid) {
+        throw new Error("Please complete your personal details before submitting.");
+      }
+
       const payload = {
         user_id: user.id,
         status: "pending" as const,
-        full_name: form.full_name.trim(),
-        phone: form.phone.trim(),
-        business_name: form.business_name.trim() || null,
-        hosting_location: form.hosting_location.trim(),
-        about: form.about.trim(),
+        applicant_type: applicantType,
+        full_name: details.full_name.trim(),
+        phone: details.phone.trim(),
+        business_name: applicantType === "business" ? details.business_name.trim() || null : null,
+        hosting_location: property.location.trim(),
+        about: details.about.trim(),
+        listing_title: property.title.trim(),
+        listing_location: property.location.trim(),
+        listing_property_type: property.property_type,
+        listing_price_per_night: Number(property.price_per_night),
+        listing_currency: property.currency,
+        listing_max_guests: Number(property.max_guests),
+        listing_bedrooms: Number(property.bedrooms),
+        listing_bathrooms: Number(property.bathrooms),
+        listing_amenities: property.amenities,
+        listing_images: property.images,
+        business_tin: applicantType === "business" ? details.business_tin.trim() || null : null,
+        business_certificate_url: applicantType === "business" ? details.business_certificate_url.trim() || null : null,
+        national_id_number: applicantType === "business" ? details.national_id_number.trim() || null : null,
+        national_id_photo_url: applicantType === "business" ? details.national_id_photo_url.trim() || null : null,
       };
 
       const { error } = await supabase.from("host_applications").insert(payload);
@@ -175,7 +275,7 @@ export default function HostApplication() {
       const { data } = await supabase
         .from("host_applications")
         .select(
-          "id, user_id, status, full_name, phone, business_name, hosting_location, about, review_notes, created_at"
+          "id, user_id, status, full_name, phone, business_name, hosting_location, about, applicant_type, listing_title, listing_location, listing_property_type, listing_price_per_night, listing_currency, listing_max_guests, listing_bedrooms, listing_bathrooms, listing_amenities, listing_images, business_tin, business_certificate_url, national_id_number, national_id_photo_url, review_notes, created_at"
         )
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
@@ -183,7 +283,7 @@ export default function HostApplication() {
         .maybeSingle();
 
       setExisting((data as HostApplicationRow) ?? null);
-      setStepIndex(0);
+      setStep("type");
       await refreshRoles();
     } catch (e) {
       toast({
@@ -202,7 +302,7 @@ export default function HostApplication() {
         <Card className="p-6">
           <h2 className="text-xl font-semibold text-foreground mb-2">Application pending</h2>
           <p className="text-muted-foreground mb-4">
-            Your application is submitted and waiting for review.
+            Your application is submitted and waiting for review. Your property will not be live until approved.
           </p>
           <div className="flex gap-3">
             <Button variant="outline" onClick={() => navigate("/")}>Back home</Button>
@@ -246,7 +346,7 @@ export default function HostApplication() {
         <div className="max-w-2xl mx-auto">
           <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">Become a Host</h1>
           <p className="text-muted-foreground mb-8">
-            Apply in a few small steps. We’ll review your info and enable hosting.
+            Apply in a few steps. First add your property info + photos, then complete your details.
           </p>
 
           {isLoading ? (
@@ -257,95 +357,336 @@ export default function HostApplication() {
             renderStatus()
           ) : (
             <Card className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <p className="text-sm text-muted-foreground">Step {stepIndex + 1} of {steps.length}</p>
-                  <h2 className="text-lg font-semibold text-foreground">{steps[stepIndex].title}</h2>
+              <div className="rounded-xl border border-border bg-muted/30 p-4 mb-6 flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-primary mt-0.5" />
+                <div className="text-sm">
+                  <div className="font-semibold text-foreground">Your listing is not live yet</div>
+                  <div className="text-muted-foreground">
+                    Until you submit this application and it’s approved, your property will not appear publicly.
+                  </div>
                 </div>
               </div>
 
-              {currentStep.key === "contact" ? (
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    Step {step === "type" ? 1 : step === "property" ? 2 : 3} of 3
+                  </p>
+                  <h2 className="text-lg font-semibold text-foreground">
+                    {step === "type"
+                      ? "Choose account type"
+                      : step === "property"
+                      ? "Property details"
+                      : applicantType === "business"
+                      ? "Business & ID verification"
+                      : "Personal information"}
+                  </h2>
+                </div>
+              </div>
+
+              {step === "type" ? (
+                <div className="space-y-6">
+                  <div className="text-sm text-muted-foreground text-center">Are you applying as an individual or a business?</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setApplicantType("individual")}
+                      className={`rounded-xl border p-5 text-left transition-colors ${
+                        applicantType === "individual" ? "border-primary ring-1 ring-primary" : "border-border hover:border-primary/50"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                          <UserRound className="w-5 h-5 text-primary" />
+                        </div>
+                        {applicantType === "individual" ? <CheckCircle2 className="w-5 h-5 text-primary" /> : null}
+                      </div>
+                      <div className="mt-4 font-semibold text-foreground">Individual</div>
+                      <div className="text-sm text-muted-foreground">I’m hosting as an individual owner</div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setApplicantType("business")}
+                      className={`rounded-xl border p-5 text-left transition-colors ${
+                        applicantType === "business" ? "border-primary ring-1 ring-primary" : "border-border hover:border-primary/50"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                          <Briefcase className="w-5 h-5 text-primary" />
+                        </div>
+                        {applicantType === "business" ? <CheckCircle2 className="w-5 h-5 text-primary" /> : null}
+                      </div>
+                      <div className="mt-4 font-semibold text-foreground">Business</div>
+                      <div className="text-sm text-muted-foreground">I’m hosting as a registered business</div>
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              {step === "property" ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Property title</Label>
+                      <Input value={property.title} onChange={(e) => setProperty((p) => ({ ...p, title: e.target.value }))} placeholder="Cozy apartment in Kigali" />
+                    </div>
+                    <div>
+                      <Label>Location</Label>
+                      <Input value={property.location} onChange={(e) => setProperty((p) => ({ ...p, location: e.target.value }))} placeholder="Kigali, Rwanda" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label>Property type</Label>
+                      <select
+                        value={property.property_type}
+                        onChange={(e) => setProperty((p) => ({ ...p, property_type: e.target.value }))}
+                        className="w-full mt-1 h-10 px-3 rounded-md border border-input bg-background"
+                      >
+                        {propertyTypes.map((t) => (
+                          <option key={t}>{t}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <Label>Price per night</Label>
+                      <Input type="number" min={0} value={property.price_per_night} onChange={(e) => setProperty((p) => ({ ...p, price_per_night: Number(e.target.value) }))} />
+                    </div>
+                    <div>
+                      <Label>Currency</Label>
+                      <select
+                        value={property.currency}
+                        onChange={(e) => setProperty((p) => ({ ...p, currency: e.target.value }))}
+                        className="w-full mt-1 h-10 px-3 rounded-md border border-input bg-background"
+                      >
+                        <option>RWF</option>
+                        <option>USD</option>
+                        <option>EUR</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <Label>Max guests</Label>
+                      <Input type="number" min={1} value={property.max_guests} onChange={(e) => setProperty((p) => ({ ...p, max_guests: Number(e.target.value) }))} />
+                    </div>
+                    <div>
+                      <Label>Bedrooms</Label>
+                      <Input type="number" min={0} value={property.bedrooms} onChange={(e) => setProperty((p) => ({ ...p, bedrooms: Number(e.target.value) }))} />
+                    </div>
+                    <div>
+                      <Label>Bathrooms</Label>
+                      <Input type="number" min={0} value={property.bathrooms} onChange={(e) => setProperty((p) => ({ ...p, bathrooms: Number(e.target.value) }))} />
+                    </div>
+                    <div className="flex items-end">
+                      <div className="text-xs text-muted-foreground flex items-center gap-2">
+                        <Building2 className="w-4 h-4" />
+                        Not live until approved
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label>Amenities</Label>
+                    <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {amenitiesList.map((a) => {
+                        const checked = property.amenities.includes(a);
+                        return (
+                          <button
+                            key={a}
+                            type="button"
+                            onClick={() =>
+                              setProperty((p) => ({
+                                ...p,
+                                amenities: checked ? p.amenities.filter((x) => x !== a) : [...p.amenities, a],
+                              }))
+                            }
+                            className={`px-3 py-2 rounded-lg border text-sm text-left ${
+                              checked ? "border-primary bg-primary/10 text-primary" : "border-border hover:border-primary/50"
+                            }`}
+                          >
+                            {a}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label>Property photos (required)</Label>
+                    <div className="mt-2 space-y-3">
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        disabled={uploading.kind !== null}
+                        onChange={async (e) => {
+                          try {
+                            setUploading({ kind: "listing", progress: "Uploading..." });
+                            const uploaded = await uploadFiles(e.target.files, "merry360/host-applications/listings");
+                            setProperty((p) => ({ ...p, images: [...p.images, ...uploaded] }));
+                          } catch (err) {
+                            toast({ variant: "destructive", title: "Upload failed", description: err instanceof Error ? err.message : "Please try again." });
+                          } finally {
+                            setUploading({ kind: null });
+                            e.currentTarget.value = "";
+                          }
+                        }}
+                      />
+                      {uploading.kind === "listing" ? (
+                        <div className="text-sm text-muted-foreground flex items-center gap-2">
+                          <Upload className="w-4 h-4" /> Uploading…
+                        </div>
+                      ) : null}
+                      {property.images.length ? (
+                        <div className="grid grid-cols-3 gap-2">
+                          {property.images.map((url, idx) => (
+                            <div key={`${url}-${idx}`} className="relative rounded-lg overflow-hidden border border-border">
+                              <img src={url} alt={`Property ${idx + 1}`} className="h-24 w-full object-cover" loading="lazy" />
+                              <button
+                                type="button"
+                                onClick={() => setProperty((p) => ({ ...p, images: p.images.filter((_, i) => i !== idx) }))}
+                                className="absolute top-1 right-1 rounded bg-background/80 px-2 py-1 text-xs"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">Upload at least one photo to continue.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {step === "details" ? (
                 <div className="space-y-4">
                   <div>
                     <Label>Full name</Label>
-                    <Input
-                      value={form.full_name}
-                      onChange={(e) => setForm((p) => ({ ...p, full_name: e.target.value }))}
-                      placeholder="Your name"
-                    />
+                    <Input value={details.full_name} onChange={(e) => setDetails((p) => ({ ...p, full_name: e.target.value }))} placeholder="Your name" />
                   </div>
                   <div>
-                    <Label>Phone</Label>
-                    <Input
-                      value={form.phone}
-                      onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-                      placeholder="+250..."
-                    />
-                  </div>
-                </div>
-              ) : null}
-
-              {currentStep.key === "hosting" ? (
-                <div className="space-y-4">
-                  <div>
-                    <Label>Business name (optional)</Label>
-                    <Input
-                      value={form.business_name}
-                      onChange={(e) => setForm((p) => ({ ...p, business_name: e.target.value }))}
-                      placeholder="Company / brand"
-                    />
-                  </div>
-                  <div>
-                    <Label>Hosting location</Label>
-                    <Input
-                      value={form.hosting_location}
-                      onChange={(e) => setForm((p) => ({ ...p, hosting_location: e.target.value }))}
-                      placeholder="Kigali, Musanze, Rubavu..."
-                    />
+                    <Label>Phone number</Label>
+                    <Input value={details.phone} onChange={(e) => setDetails((p) => ({ ...p, phone: e.target.value }))} placeholder="+250..." />
                   </div>
                   <div>
                     <Label>About you / your place</Label>
-                    <Textarea
-                      value={form.about}
-                      onChange={(e) => setForm((p) => ({ ...p, about: e.target.value }))}
-                      placeholder="Tell us what you plan to host and what guests can expect..."
-                      rows={5}
-                    />
+                    <Textarea value={details.about} onChange={(e) => setDetails((p) => ({ ...p, about: e.target.value }))} rows={4} placeholder="Tell guests what to expect…" />
                   </div>
-                </div>
-              ) : null}
 
-              {currentStep.key === "review" ? (
-                <div className="space-y-4">
-                  <div className="rounded-lg border border-border p-4">
-                    <p className="text-sm text-muted-foreground">Name</p>
-                    <p className="font-medium text-foreground">{form.full_name || "-"}</p>
-                    <p className="text-sm text-muted-foreground mt-3">Phone</p>
-                    <p className="font-medium text-foreground">{form.phone || "-"}</p>
-                    <p className="text-sm text-muted-foreground mt-3">Business</p>
-                    <p className="font-medium text-foreground">{form.business_name || "-"}</p>
-                    <p className="text-sm text-muted-foreground mt-3">Location</p>
-                    <p className="font-medium text-foreground">{form.hosting_location || "-"}</p>
-                    <p className="text-sm text-muted-foreground mt-3">About</p>
-                    <p className="text-foreground whitespace-pre-wrap">{form.about || "-"}</p>
-                  </div>
+                  {applicantType === "business" ? (
+                    <div className="mt-2">
+                      <Tabs defaultValue="business" className="w-full">
+                        <TabsList className="w-full justify-start">
+                          <TabsTrigger value="business">Business</TabsTrigger>
+                          <TabsTrigger value="id">ID Verification</TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="business" className="mt-4 space-y-4">
+                          <div>
+                            <Label>Business name</Label>
+                            <Input value={details.business_name} onChange={(e) => setDetails((p) => ({ ...p, business_name: e.target.value }))} placeholder="Registered business name" />
+                          </div>
+                          <div>
+                            <Label>Tax Identification Number (TIN)</Label>
+                            <Input value={details.business_tin} onChange={(e) => setDetails((p) => ({ ...p, business_tin: e.target.value }))} placeholder="Enter your TIN" />
+                          </div>
+                          <div>
+                            <Label>Business registration certificate (PDF or image)</Label>
+                            <Input
+                              type="file"
+                              accept="image/*,application/pdf"
+                              disabled={uploading.kind !== null}
+                              onChange={async (e) => {
+                                try {
+                                  setUploading({ kind: "certificate", progress: "Uploading..." });
+                                  const uploaded = await uploadFiles(e.target.files, "merry360/host-applications/business");
+                                  const first = uploaded[0];
+                                  if (first) setDetails((p) => ({ ...p, business_certificate_url: first }));
+                                } catch (err) {
+                                  toast({ variant: "destructive", title: "Upload failed", description: err instanceof Error ? err.message : "Please try again." });
+                                } finally {
+                                  setUploading({ kind: null });
+                                  e.currentTarget.value = "";
+                                }
+                              }}
+                            />
+                            {details.business_certificate_url ? (
+                              <div className="text-xs text-muted-foreground mt-2 break-all">{details.business_certificate_url}</div>
+                            ) : (
+                              <div className="text-xs text-muted-foreground mt-2">Upload required for businesses.</div>
+                            )}
+                          </div>
+                        </TabsContent>
+
+                        <TabsContent value="id" className="mt-4 space-y-4">
+                          <div>
+                            <Label>National ID number</Label>
+                            <Input value={details.national_id_number} onChange={(e) => setDetails((p) => ({ ...p, national_id_number: e.target.value }))} placeholder="Enter your National ID number" />
+                          </div>
+                          <div>
+                            <Label>National ID photo (image)</Label>
+                            <Input
+                              type="file"
+                              accept="image/*"
+                              disabled={uploading.kind !== null}
+                              onChange={async (e) => {
+                                try {
+                                  setUploading({ kind: "id", progress: "Uploading..." });
+                                  const uploaded = await uploadFiles(e.target.files, "merry360/host-applications/id");
+                                  const first = uploaded[0];
+                                  if (first) setDetails((p) => ({ ...p, national_id_photo_url: first }));
+                                } catch (err) {
+                                  toast({ variant: "destructive", title: "Upload failed", description: err instanceof Error ? err.message : "Please try again." });
+                                } finally {
+                                  setUploading({ kind: null });
+                                  e.currentTarget.value = "";
+                                }
+                              }}
+                            />
+                            {details.national_id_photo_url ? (
+                              <div className="rounded-lg border border-border overflow-hidden mt-3">
+                                <img src={details.national_id_photo_url} alt="National ID" className="w-full h-44 object-cover" loading="lazy" />
+                              </div>
+                            ) : (
+                              <div className="text-xs text-muted-foreground mt-2">Upload required for businesses.</div>
+                            )}
+                          </div>
+                        </TabsContent>
+                      </Tabs>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
 
               <div className="flex items-center justify-between mt-8">
                 <Button
                   variant="outline"
-                  onClick={() => (canGoBack ? setStepIndex((s) => s - 1) : navigate("/"))}
+                  onClick={() => {
+                    if (step === "type") return navigate("/");
+                    if (step === "property") return setStep("type");
+                    return setStep("property");
+                  }}
                 >
-                  {canGoBack ? "Back" : "Cancel"}
+                  {step === "type" ? "Cancel" : "Back"}
                 </Button>
 
-                {currentStep.key !== "review" ? (
-                  <Button onClick={() => setStepIndex((s) => s + 1)} disabled={nextDisabled}>
+                {step === "type" ? (
+                  <Button onClick={() => setStep("property")}>Continue</Button>
+                ) : step === "property" ? (
+                  <Button disabled={!propertyValid} onClick={() => setStep("details")}>
                     Continue
                   </Button>
                 ) : (
-                  <Button onClick={submit}>Submit application</Button>
+                  <Button disabled={!detailsValid} onClick={submit}>
+                    Submit application
+                  </Button>
                 )}
               </div>
             </Card>

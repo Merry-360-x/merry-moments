@@ -435,11 +435,26 @@ export type Database = {
       host_applications: {
         Row: {
           about: string | null
+          applicant_type: string
           business_name: string | null
+          business_certificate_url: string | null
+          business_tin: string | null
           created_at: string
           full_name: string | null
           hosting_location: string | null
           id: string
+          listing_amenities: string[] | null
+          listing_bathrooms: number | null
+          listing_bedrooms: number | null
+          listing_currency: string | null
+          listing_images: string[] | null
+          listing_location: string | null
+          listing_max_guests: number | null
+          listing_price_per_night: number | null
+          listing_property_type: string | null
+          listing_title: string | null
+          national_id_number: string | null
+          national_id_photo_url: string | null
           phone: string | null
           review_notes: string | null
           reviewed_by: string | null
@@ -449,11 +464,26 @@ export type Database = {
         }
         Insert: {
           about?: string | null
+          applicant_type?: string
           business_name?: string | null
+          business_certificate_url?: string | null
+          business_tin?: string | null
           created_at?: string
           full_name?: string | null
           hosting_location?: string | null
           id?: string
+          listing_amenities?: string[] | null
+          listing_bathrooms?: number | null
+          listing_bedrooms?: number | null
+          listing_currency?: string | null
+          listing_images?: string[] | null
+          listing_location?: string | null
+          listing_max_guests?: number | null
+          listing_price_per_night?: number | null
+          listing_property_type?: string | null
+          listing_title?: string | null
+          national_id_number?: string | null
+          national_id_photo_url?: string | null
           phone?: string | null
           review_notes?: string | null
           reviewed_by?: string | null
@@ -463,11 +493,26 @@ export type Database = {
         }
         Update: {
           about?: string | null
+          applicant_type?: string
           business_name?: string | null
+          business_certificate_url?: string | null
+          business_tin?: string | null
           created_at?: string
           full_name?: string | null
           hosting_location?: string | null
           id?: string
+          listing_amenities?: string[] | null
+          listing_bathrooms?: number | null
+          listing_bedrooms?: number | null
+          listing_currency?: string | null
+          listing_images?: string[] | null
+          listing_location?: string | null
+          listing_max_guests?: number | null
+          listing_price_per_night?: number | null
+          listing_property_type?: string | null
+          listing_title?: string | null
+          national_id_number?: string | null
+          national_id_photo_url?: string | null
           phone?: string | null
           review_notes?: string | null
           reviewed_by?: string | null
