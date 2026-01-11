@@ -97,6 +97,19 @@ const Navbar = () => {
                   </Link>
                 );
               })}
+
+              {user && isHost ? (
+                <Link
+                  to="/host-dashboard"
+                  className={`px-3 xl:px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    location.pathname.startsWith("/host-dashboard") || location.pathname === "/host"
+                      ? "bg-primary/10 text-primary border border-primary"
+                      : "text-foreground hover:text-primary"
+                  }`}
+                >
+                  {t("actions.hostDashboard")}
+                </Link>
+              ) : null}
             </div>
           </div>
 
@@ -297,6 +310,9 @@ const Navbar = () => {
                   { to: "/tours", label: t("nav.tours"), icon: Map },
                   { to: "/transport", label: t("nav.transport"), icon: Car },
                   { to: "/stories", label: t("nav.stories"), icon: BookOpen },
+                  ...(user && isHost
+                    ? [{ to: "/host-dashboard", label: t("actions.hostDashboard"), icon: LayoutDashboard }]
+                    : []),
                 ].map((item) => {
                   const Icon = item.icon;
                   const isActive = location.pathname === item.to;
