@@ -23,6 +23,8 @@ const Stories = () => {
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const mediaType = useMemo(() => (mediaUrl ? (/\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i.test(mediaUrl) || /\/video\/upload\//i.test(mediaUrl) ? "video" : "image") : null), [mediaUrl]);
   const [saving, setSaving] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [activeStoryId, setActiveStoryId] = useState<string | null>(null);
 
   const canPost = Boolean(user?.id) && !authLoading;
 
@@ -93,6 +95,8 @@ const Stories = () => {
         body: body.trim(),
         media_url: mediaUrl,
         media_type: mediaType,
+        // Backward compatibility: keep image_url populated for image stories
+        image_url: mediaType === "image" ? mediaUrl : null,
       });
       if (error) throw error;
       toast({ title: "Story posted" });
@@ -124,6 +128,35 @@ const Stories = () => {
     [canPost]
   );
 
+  const activeStory = useMemo(() => stories.find((s) => s.id === activeStoryId) ?? null, [stories, activeStoryId]);
+
+  const markViewed = (id: string) => {
+    try {
+      const raw = localStorage.getItem("viewed_story_ids");
+      const set = new Set<string>(raw ? JSON.parse(raw) : []);
+      set.add(id);
+      localStorage.setItem("viewed_story_ids", JSON.stringify(Array.from(set)));
+    } catch {
+      // ignore
+    }
+  };
+
+  const isViewed = (id: string) => {
+    try {
+      const raw = localStorage.getItem("viewed_story_ids");
+      const set = new Set<string>(raw ? JSON.parse(raw) : []);
+      return set.has(id);
+    } catch {
+      return false;
+    }
+  };
+
+  const openViewer = (id: string) => {
+    setActiveStoryId(id);
+    setViewerOpen(true);
+    markViewed(id);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -134,8 +167,8 @@ const Stories = () => {
           <h1 className="text-2xl lg:text-3xl font-bold text-primary-foreground mb-6">Travel Stories</h1>
           <p className="text-primary-foreground/90 mb-6">{heroSubtitle}</p>
 
-          {/* Add Story Button */}
-          <div className="flex items-center gap-4">
+          {/* Stories row (Instagram-style) */}
+          <div className="flex items-center gap-4 overflow-x-auto pb-2">
             <button
               className="flex flex-col items-center gap-2 group disabled:opacity-60"
               onClick={() => setOpen(true)}
@@ -147,6 +180,46 @@ const Stories = () => {
               </div>
               <span className="text-sm text-primary-foreground">{canPost ? "Your Story" : "Sign in to post"}</span>
             </button>
+
+            {stories.slice(0, 12).map((s) => {
+              const author = authorProfiles[s.user_id];
+              const media = s.media_url || s.image_url;
+              const viewed = isViewed(s.id);
+              const ring = viewed ? "bg-muted/40" : "bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-400";
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => openViewer(s.id)}
+                  className="flex flex-col items-center gap-2"
+                >
+                  <div className={`p-[2px] rounded-full ${ring}`}>
+                    <div className="w-16 h-16 rounded-full bg-background flex items-center justify-center overflow-hidden">
+                      {media ? (
+                        /\/video\/upload\//i.test(media) || (s.media_type === "video") ? (
+                          <video
+                            src={media}
+                            className="w-full h-full object-cover"
+                            muted
+                            playsInline
+                            preload="metadata"
+                          />
+                        ) : (
+                          <img src={media} alt={s.title} className="w-full h-full object-cover" loading="lazy" />
+                        )
+                      ) : author?.avatar_url ? (
+                        <img src={author.avatar_url} alt={author.full_name ?? "Traveler"} className="w-full h-full object-cover" loading="lazy" />
+                      ) : (
+                        <div className="w-full h-full bg-muted" />
+                      )}
+                    </div>
+                  </div>
+                  <span className="text-xs text-primary-foreground max-w-[72px] truncate">
+                    {author?.full_name ?? "Traveler"}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -169,19 +242,20 @@ const Stories = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {stories.map((s) => {
               const author = authorProfiles[s.user_id];
+              const media = s.media_url || s.image_url;
               return (
                 <div key={s.id} className="bg-card rounded-xl shadow-card overflow-hidden">
-                  {((s as any).media_url ?? s.image_url) ? (
-                    (/\/video\/upload\//i.test(String((s as any).media_url ?? s.image_url)) ? (
+                  {media ? (
+                    (/\/video\/upload\//i.test(String(media)) || s.media_type === "video" ? (
                       <video
-                        src={String((s as any).media_url ?? s.image_url)}
+                        src={String(media)}
                         className="w-full h-56 object-cover"
                         controls
                         preload="metadata"
                       />
                     ) : (
                       <img
-                        src={String((s as any).media_url ?? s.image_url)}
+                        src={String(media)}
                         alt={s.title}
                         className="w-full h-56 object-cover"
                         loading="lazy"
@@ -217,6 +291,38 @@ const Stories = () => {
           </div>
         )}
       </section>
+
+      {/* Story viewer */}
+      <Dialog open={viewerOpen} onOpenChange={setViewerOpen}>
+        <DialogContent className="p-0 w-[100vw] max-w-[600px] overflow-hidden">
+          <div className="bg-black text-white relative">
+            <button
+              type="button"
+              className="absolute top-3 right-3 h-10 w-10 rounded-full bg-black/50 flex items-center justify-center"
+              onClick={() => setViewerOpen(false)}
+              aria-label="Close"
+            >
+              <span className="text-xl leading-none">×</span>
+            </button>
+            {activeStory ? (
+              (() => {
+                const media = activeStory.media_url || activeStory.image_url;
+                if (!media) {
+                  return <div className="h-[70vh] flex items-center justify-center text-white/70">No media</div>;
+                }
+                const isVid = /\/video\/upload\//i.test(media) || activeStory.media_type === "video";
+                return isVid ? (
+                  <video src={media} className="w-full h-[70vh] object-contain bg-black" controls playsInline />
+                ) : (
+                  <img src={media} className="w-full h-[70vh] object-contain bg-black" alt={activeStory.title} />
+                );
+              })()
+            ) : (
+              <div className="h-[70vh] flex items-center justify-center text-white/70">Loading…</div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
         <DialogContent className="sm:max-w-lg">
