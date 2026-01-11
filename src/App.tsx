@@ -61,9 +61,9 @@ const App = () => (
               <Route
                 path="/host-dashboard"
                 element={
-                  <RequireAuth>
+                  <RequireRole allowed={["host"]}>
                     <HostDashboard />
-                  </RequireAuth>
+                  </RequireRole>
                 }
               />
               <Route path="/host" element={<Navigate to="/host-dashboard" replace />} />

@@ -102,7 +102,7 @@ const Navbar = () => {
                 </Button>
               </Link>
             ) : null}
-            {user && isStaff && !isAdmin ? (
+            {user && (isStaff || isAdmin) ? (
               <Link to="/staff">
                 <Button variant="outline" size="sm" className="ml-2">
                   {t("actions.staffDashboard")}
@@ -206,7 +206,7 @@ const Navbar = () => {
                       {t("actions.manageRoles")}
                     </DropdownMenuItem>
                   )}
-                  {isStaff && !isAdmin && (
+                  {(isStaff || isAdmin) && (
                     <DropdownMenuItem onClick={() => navigate("/staff")}>
                       {t("actions.staffDashboard")}
                     </DropdownMenuItem>
@@ -286,7 +286,7 @@ const Navbar = () => {
                   </Button>
                 </Link>
               ) : null}
-              {user && isStaff && !isAdmin ? (
+              {user && (isStaff || isAdmin) ? (
                 <Link to="/staff" onClick={() => setMobileMenuOpen(false)}>
                   <Button variant="outline" size="sm" className="w-full mt-2">
                     {t("actions.staffDashboard")}
