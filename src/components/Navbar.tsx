@@ -97,35 +97,6 @@ const Navbar = () => {
                 );
               })}
             </div>
-
-            {!isHost ? (
-              <Link to="/become-host" className="ml-2">
-                <Button variant="primary" size="sm">
-                  {t("actions.becomeHost")}
-                </Button>
-              </Link>
-            ) : (
-              <Link to="/host-dashboard" className="ml-2">
-                <Button variant="primary" size="sm">
-                  {t("actions.hostDashboard")}
-                </Button>
-              </Link>
-            )}
-
-            {user && isAdmin ? (
-              <Link to="/admin">
-                <Button variant="outline" size="sm" className="ml-2">
-                  {t("actions.adminDashboard")}
-                </Button>
-              </Link>
-            ) : null}
-            {user && (isStaff || isAdmin) ? (
-              <Link to="/staff">
-                <Button variant="outline" size="sm" className="ml-2">
-                  {t("actions.staffDashboard")}
-                </Button>
-              </Link>
-            ) : null}
           </div>
 
           {/* Right Actions - Desktop */}
