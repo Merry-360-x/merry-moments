@@ -62,7 +62,7 @@ const Transport = () => {
     },
   });
 
-  const { data: vehicles = [], isLoading: vehiclesLoading } = useQuery({
+  const { data: vehicles = [], isLoading: vehiclesLoading, isError: vehiclesError, error: vehiclesErrObj } = useQuery({
     queryKey: ["transport_vehicles", searchParams.get("vehicle") ?? "All Vehicles"],
     queryFn: async (): Promise<TransportVehicleRow[]> => {
       let q = supabase
@@ -77,7 +77,7 @@ const Transport = () => {
       if (vt && vt !== "All Vehicles") q = q.eq("vehicle_type", vt);
 
       const { data, error } = await q;
-      if (error) return [];
+      if (error) throw error;
       return (data as TransportVehicleRow[] | null) ?? [];
     },
   });
@@ -256,6 +256,14 @@ const Transport = () => {
           <div className="py-12 text-center">
             <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
             <p className="text-muted-foreground">Loading vehicles...</p>
+          </div>
+        ) : vehiclesError ? (
+          <div className="text-center py-12">
+            <Frown className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">Could not load vehicles.</p>
+            {import.meta.env.DEV && vehiclesErrObj instanceof Error ? (
+              <p className="mt-2 text-xs text-muted-foreground break-all">{vehiclesErrObj.message}</p>
+            ) : null}
           </div>
         ) : vehicles.length === 0 ? (
           <div className="text-center py-12">

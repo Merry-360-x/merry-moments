@@ -37,6 +37,16 @@ For Cloudinary image uploads (Host Dashboard), you must set these as well:
 - `VITE_CLOUDINARY_CLOUD_NAME`
 - `VITE_CLOUDINARY_UPLOAD_PRESET` (must be an **unsigned** upload preset)
 
+### Cloudinary CLI test
+
+Verify unsigned uploads from your terminal:
+
+```sh
+chmod +x scripts/cloudinary_test_upload.sh
+CLOUDINARY_CLOUD_NAME=YOUR_CLOUD_NAME CLOUDINARY_UPLOAD_PRESET=YOUR_UNSIGNED_UPLOAD_PRESET \
+  ./scripts/cloudinary_test_upload.sh ./public/brand/logo.png
+```
+
 ## Supabase CLI (recommended)
 
 This repo includes the Supabase CLI as a dev dependency, so you can run it with:

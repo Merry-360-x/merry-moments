@@ -21,6 +21,7 @@ type TransportRouteDetailRow = Pick<Tables<"transport_routes">, "id" | "from_loc
 
 type CartDetails =
   | { type: "tour"; title: string; price: number; currency: string; image?: string | null; meta?: string }
+  | { type: "property"; title: string; price: number; currency: string; image?: string | null; meta?: string }
   | { type: "transport_vehicle"; title: string; price: number; currency: string; image?: string | null; meta?: string }
   | { type: "transport_route"; title: string; price: number; currency: string; image?: string | null; meta?: string }
   | { type: "transport_service"; title: string; price: number; currency: string; image?: string | null; meta?: string };
@@ -47,22 +48,30 @@ export default function TripCart() {
       // Fetch details per type.
       const byType = {
         tour: items.filter((i) => i.item_type === "tour"),
+        property: items.filter((i) => i.item_type === "property"),
         transport_service: items.filter((i) => i.item_type === "transport_service"),
         transport_vehicle: items.filter((i) => i.item_type === "transport_vehicle"),
         transport_route: items.filter((i) => i.item_type === "transport_route"),
       };
 
       const tourIds = byType.tour.map((i) => i.reference_id);
+      const propertyIds = byType.property.map((i) => i.reference_id);
       const serviceIds = byType.transport_service.map((i) => i.reference_id);
       const vehicleIds = byType.transport_vehicle.map((i) => i.reference_id);
       const routeIds = byType.transport_route.map((i) => i.reference_id);
 
-      const [toursRes, servicesRes, vehiclesRes, routesRes] = await Promise.all([
+      const [toursRes, propertiesRes, servicesRes, vehiclesRes, routesRes] = await Promise.all([
         tourIds.length
           ? supabase
               .from("tours")
               .select("id, title, price_per_person, currency, images, duration_days")
               .in("id", tourIds)
+          : Promise.resolve({ data: [], error: null } as const),
+        propertyIds.length
+          ? supabase
+              .from("properties")
+              .select("id, title, price_per_night, currency, images, location")
+              .in("id", propertyIds)
           : Promise.resolve({ data: [], error: null } as const),
         serviceIds.length
           ? supabase
@@ -93,6 +102,26 @@ export default function TripCart() {
             currency: String(r.currency ?? "RWF"),
             image: (r.images as string[] | null)?.[0] ?? null,
             meta: `${Number(r.duration_days ?? 1)} day${Number(r.duration_days ?? 1) === 1 ? "" : "s"}`,
+          },
+        ])
+      );
+
+      const properties = new Map(
+        ((propertiesRes.data as Array<{
+          id: string;
+          title: string;
+          price_per_night: number;
+          currency: string | null;
+          images: string[] | null;
+          location: string;
+        }> | null) ?? []).map((r) => [
+          String(r.id),
+          {
+            title: String(r.title),
+            price: Number(r.price_per_night ?? 0),
+            currency: String(r.currency ?? "RWF"),
+            image: (r.images as string[] | null)?.[0] ?? null,
+            meta: String(r.location ?? ""),
           },
         ])
       );
@@ -135,6 +164,10 @@ export default function TripCart() {
         if (i.item_type === "tour") {
           const d = tours.get(i.reference_id);
           return { item: i, details: d ? ({ type: "tour", ...d } as CartDetails) : null };
+        }
+        if (i.item_type === "property") {
+          const d = properties.get(i.reference_id);
+          return { item: i, details: d ? ({ type: "property", ...d } as CartDetails) : null };
         }
         if (i.item_type === "transport_vehicle") {
           const d = vehicles.get(i.reference_id);

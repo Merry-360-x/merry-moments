@@ -31,7 +31,8 @@ export async function uploadFileToCloudinary(
     );
   }
 
-  const endpoint = `https://api.cloudinary.com/v1_1/${encodeURIComponent(CLOUDINARY_CLOUD_NAME)}/upload`;
+  // Use "auto" so unsigned uploads can accept images and videos.
+  const endpoint = `https://api.cloudinary.com/v1_1/${encodeURIComponent(CLOUDINARY_CLOUD_NAME)}/auto/upload`;
 
   const form = new FormData();
   form.append("file", file);

@@ -15,7 +15,10 @@ type UploadItem = {
   url?: string;
 };
 
-const isImageUrl = (url: string) => /\.(png|jpe?g|webp|gif|avif)(\?.*)?$/i.test(url);
+const isImageUrl = (url: string) =>
+  /\/image\/upload\//i.test(url) || /\.(png|jpe?g|webp|gif|avif)(\?.*)?$/i.test(url);
+const isVideoUrl = (url: string) =>
+  /\/video\/upload\//i.test(url) || /\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i.test(url);
 
 export function CloudinaryUploadDialog(props: {
   title: string;
@@ -51,7 +54,7 @@ export function CloudinaryUploadDialog(props: {
       next.push({
         id,
         file: f,
-        previewUrl: f.type.startsWith("image/") ? URL.createObjectURL(f) : null,
+        previewUrl: (f.type.startsWith("image/") || f.type.startsWith("video/")) ? URL.createObjectURL(f) : null,
         percent: 0,
         status: "queued",
       });
@@ -136,7 +139,7 @@ export function CloudinaryUploadDialog(props: {
               <div className="min-w-0">
                 <div className="font-semibold text-foreground">Click to select {props.multiple ? "files" : "a file"}</div>
                 <div className="text-sm text-muted-foreground">
-                  You’ll see real-time progress as files upload to Cloudinary.
+                  You’ll see real-time progress as files upload.
                 </div>
               </div>
             </div>
@@ -145,7 +148,7 @@ export function CloudinaryUploadDialog(props: {
           <input
             ref={inputRef}
             type="file"
-            accept={props.accept ?? "image/*"}
+            accept={props.accept ?? "image/*,video/*"}
             multiple={Boolean(props.multiple)}
             className="hidden"
             onChange={(e) => {
@@ -164,6 +167,15 @@ export function CloudinaryUploadDialog(props: {
                   <div key={url} className="relative rounded-lg overflow-hidden border border-border bg-muted">
                     {isImageUrl(url) ? (
                       <img src={url} alt="Uploaded" className="h-28 w-full object-cover" loading="lazy" />
+                    ) : isVideoUrl(url) ? (
+                      <video
+                        src={url}
+                        className="h-28 w-full object-cover"
+                        muted
+                        playsInline
+                        controls
+                        preload="metadata"
+                      />
                     ) : (
                       <div className="h-28 w-full flex items-center justify-center text-xs text-muted-foreground px-2 break-all">
                         {url}

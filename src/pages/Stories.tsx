@@ -20,7 +20,8 @@ const Stories = () => {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+  const mediaType = useMemo(() => (mediaUrl ? (/\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i.test(mediaUrl) || /\/video\/upload\//i.test(mediaUrl) ? "video" : "image") : null), [mediaUrl]);
   const [saving, setSaving] = useState(false);
 
   const canPost = Boolean(user?.id) && !authLoading;
@@ -69,7 +70,7 @@ const Stories = () => {
   const reset = () => {
     setTitle("");
     setBody("");
-    setImageUrl(null);
+    setMediaUrl(null);
   };
 
   const submit = async () => {
@@ -88,7 +89,8 @@ const Stories = () => {
         user_id: user.id,
         title: title.trim(),
         body: body.trim(),
-        image_url: imageUrl,
+        media_url: mediaUrl,
+        media_type: mediaType,
       });
       if (error) throw error;
       toast({ title: "Story posted" });
@@ -158,8 +160,22 @@ const Stories = () => {
               const author = authorProfiles[s.user_id];
               return (
                 <div key={s.id} className="bg-card rounded-xl shadow-card overflow-hidden">
-                  {s.image_url ? (
-                    <img src={s.image_url} alt={s.title} className="w-full h-56 object-cover" loading="lazy" />
+                  {((s as any).media_url ?? s.image_url) ? (
+                    (/\/video\/upload\//i.test(String((s as any).media_url ?? s.image_url)) ? (
+                      <video
+                        src={String((s as any).media_url ?? s.image_url)}
+                        className="w-full h-56 object-cover"
+                        controls
+                        preload="metadata"
+                      />
+                    ) : (
+                      <img
+                        src={String((s as any).media_url ?? s.image_url)}
+                        alt={s.title}
+                        className="w-full h-56 object-cover"
+                        loading="lazy"
+                      />
+                    ))
                   ) : (
                     <div className="w-full h-56 bg-gradient-to-br from-muted via-muted/70 to-muted/40" />
                   )}
@@ -207,14 +223,15 @@ const Stories = () => {
             </div>
             <div className="flex items-center justify-between gap-3">
               <CloudinaryUploadDialog
-                title="Upload story image"
+                title="Upload story media"
                 folder="stories"
                 multiple={false}
-                value={imageUrl ? [imageUrl] : []}
-                onChange={(urls) => setImageUrl(urls[0] ?? null)}
-                buttonLabel={imageUrl ? "Replace image" : "Add image"}
+                accept="image/*,video/*"
+                value={mediaUrl ? [mediaUrl] : []}
+                onChange={(urls) => setMediaUrl(urls[0] ?? null)}
+                buttonLabel={mediaUrl ? "Replace" : "Add image/video"}
               />
-              {imageUrl ? <span className="text-xs text-muted-foreground">Image attached</span> : null}
+              {mediaUrl ? <span className="text-xs text-muted-foreground">{mediaType === "video" ? "Video attached" : "Image attached"}</span> : null}
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>

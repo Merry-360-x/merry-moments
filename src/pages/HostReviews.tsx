@@ -31,7 +31,7 @@ export default function HostReviews() {
       const { data, error } = await supabase
         .from("profiles")
         .select("user_id, full_name, avatar_url, bio")
-        .eq("user_id", hostId)
+        .or(`user_id.eq.${hostId},id.eq.${hostId}`)
         .maybeSingle();
       if (error) throw error;
       return data as HostProfile | null;

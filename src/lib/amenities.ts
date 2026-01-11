@@ -9,6 +9,7 @@ import {
   Snowflake,
   Tv,
   WashingMachine,
+  CookingPot,
   Camera,
   ShieldCheck,
   CigaretteOff,
@@ -32,7 +33,10 @@ export const AMENITIES: AmenityOption[] = [
   { value: "Restaurant", label: "Restaurant", icon: Utensils },
   { value: "Gym", label: "Gym", icon: Dumbbell },
   { value: "Spa", label: "Spa", icon: Sparkles },
+  // Common DB variants
+  { value: "AC", label: "Air conditioning", icon: Snowflake },
   { value: "Air conditioning", label: "Air conditioning", icon: Snowflake },
+  { value: "Kitchen", label: "Kitchen", icon: CookingPot },
   { value: "TV", label: "TV", icon: Tv },
   { value: "Washer", label: "Washer", icon: WashingMachine },
   { value: "Security cameras", label: "Security cameras", icon: Camera },

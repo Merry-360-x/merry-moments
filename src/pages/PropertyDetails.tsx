@@ -94,7 +94,7 @@ export default function PropertyDetails() {
       const { data: prof, error } = await supabase
         .from("profiles")
         .select("user_id, full_name, avatar_url, bio, created_at")
-        .eq("user_id", hostId)
+        .or(`user_id.eq.${hostId},id.eq.${hostId}`)
         .maybeSingle();
       if (error) throw error;
       return prof as
@@ -262,6 +262,31 @@ export default function PropertyDetails() {
     }
   };
 
+  const addPropertyToTripCart = async () => {
+    if (!data || !propertyId) return;
+    if (!user) {
+      navigate(`/login?redirect=/properties/${encodeURIComponent(String(propertyId))}`);
+      return;
+    }
+    try {
+      const { error } = await supabase.from("trip_cart_items").insert({
+        user_id: user.id,
+        item_type: "property",
+        reference_id: data.id,
+        quantity: 1,
+      });
+      if (error) throw error;
+      toast({ title: "Added to Trip Cart", description: "Accommodation added to your cart." });
+      navigate("/trip-cart");
+    } catch (e) {
+      toast({
+        variant: "destructive",
+        title: "Could not add to Trip Cart",
+        description: e instanceof Error ? e.message : "Please try again.",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -306,7 +331,9 @@ export default function PropertyDetails() {
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            <div className="lg:col-span-7 bg-card rounded-xl shadow-card overflow-hidden">
+            {/* Gallery + content */}
+            <div className="lg:col-span-7 space-y-6">
+              <div className="bg-card rounded-xl shadow-card overflow-hidden">
               {data.images?.[0] ? (
                 <img
                   src={data.images[0]}
@@ -318,20 +345,29 @@ export default function PropertyDetails() {
                 <div className="w-full h-[320px] bg-gradient-to-br from-muted via-muted/70 to-muted/40" />
               )}
               {data.images && data.images.length > 1 ? (
-                <div className="grid grid-cols-3 gap-2 p-3">
-                  {data.images.slice(0, 3).map((src) => (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3">
+                  {data.images.map((src) => (
                     <img
                       key={src}
                       src={src}
                       alt={data.title}
-                      className="h-24 w-full object-cover rounded-lg"
+                      className="h-28 w-full object-cover rounded-lg"
                       loading="lazy"
                     />
                   ))}
                 </div>
               ) : null}
+              </div>
+
+              {data.description ? (
+                <div className="bg-card rounded-xl shadow-card p-5">
+                  <div className="text-sm font-semibold text-foreground mb-2">Description</div>
+                  <p className="text-foreground/90 leading-relaxed">{data.description}</p>
+                </div>
+              ) : null}
             </div>
 
+            {/* Right column */}
             <div className="lg:col-span-5">
               <div className="flex items-start justify-between gap-6">
                 <div>
@@ -339,20 +375,12 @@ export default function PropertyDetails() {
                   <p className="text-muted-foreground">{data.location}</p>
                 </div>
                 <div className="text-right">
-                  <div className="text-lg font-bold text-foreground">
+                  <div className="text-lg font-bold text-primary">
                     {data.currency ?? "RWF"} {Number(data.price_per_night).toLocaleString()}
                     <span className="text-sm text-muted-foreground"> {t("common.perNight")}</span>
                   </div>
                 </div>
               </div>
-
-              {data.description ? (
-                <p className="mt-6 text-foreground/90 leading-relaxed">{data.description}</p>
-              ) : (
-                <p className="mt-6 text-muted-foreground">
-                  {t("common.noPublishedProperties")}
-                </p>
-              )}
 
               {/* Details */}
               <div className="mt-6 bg-card rounded-xl shadow-card p-5">
@@ -391,6 +419,12 @@ export default function PropertyDetails() {
                     </div>
                   </div>
                 ) : null}
+
+                <div className="mt-5 flex flex-col sm:flex-row gap-3">
+                  <Button variant="outline" onClick={addPropertyToTripCart}>
+                    Add to Trip Cart
+                  </Button>
+                </div>
               </div>
 
               {/* Host */}
@@ -409,7 +443,7 @@ export default function PropertyDetails() {
                     )}
                     <div>
                       <Link
-                        to={`/accommodations?host=${encodeURIComponent(String(data.host_id))}`}
+                        to={`/hosts/${encodeURIComponent(String(data.host_id))}`}
                         className="text-base font-semibold text-foreground hover:underline"
                       >
                         Hosted by {hostProfile?.full_name ?? "Host"}
@@ -429,6 +463,11 @@ export default function PropertyDetails() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    <Link to={`/hosts/${encodeURIComponent(String(data.host_id))}`}>
+                      <Button variant="outline" size="sm">
+                        About host
+                      </Button>
+                    </Link>
                     <Link to={`/accommodations?host=${encodeURIComponent(String(data.host_id))}`}>
                       <Button variant="outline" size="sm">
                         All listings

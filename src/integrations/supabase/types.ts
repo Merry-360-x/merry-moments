@@ -600,6 +600,8 @@ export type Database = {
           created_at: string
           id: string
           image_url: string | null
+          media_type: string | null
+          media_url: string | null
           listing_id: string | null
           listing_type: string | null
           title: string
@@ -610,6 +612,8 @@ export type Database = {
           created_at?: string
           id?: string
           image_url?: string | null
+          media_type?: string | null
+          media_url?: string | null
           listing_id?: string | null
           listing_type?: string | null
           title: string
@@ -620,6 +624,8 @@ export type Database = {
           created_at?: string
           id?: string
           image_url?: string | null
+          media_type?: string | null
+          media_url?: string | null
           listing_id?: string | null
           listing_type?: string | null
           title?: string
@@ -669,7 +675,7 @@ export type Database = {
     }
     Enums: {
       app_role: "guest" | "host" | "staff" | "admin"
-      trip_item_type: "tour" | "transport_service" | "transport_vehicle" | "transport_route"
+      trip_item_type: "tour" | "transport_service" | "transport_vehicle" | "transport_route" | "property"
     }
     CompositeTypes: {
       [_ in never]: never
