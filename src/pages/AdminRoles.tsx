@@ -8,30 +8,23 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "@/contexts/AuthContext";
 
 type AppRole = "guest" | "host" | "staff" | "admin";
 
-type ProfileRow = {
+type AdminUserRow = {
   user_id: string;
+  email: string | null;
+  created_at: string;
+  last_sign_in_at: string | null;
   full_name: string | null;
   phone: string | null;
-  created_at: string;
 };
 
 type RoleRow = {
   user_id: string;
   role: AppRole;
   created_at: string;
-};
-
-const fetchProfiles = async (): Promise<ProfileRow[]> => {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("user_id, full_name, phone, created_at")
-    .order("created_at", { ascending: false });
-
-  if (error) throw error;
-  return (data ?? []) as ProfileRow[];
 };
 
 const fetchRoles = async (): Promise<RoleRow[]> => {
@@ -47,17 +40,22 @@ const fetchRoles = async (): Promise<RoleRow[]> => {
 export default function AdminRoles() {
   const { toast } = useToast();
   const { t } = useTranslation();
+  const { isAdmin, isStaff } = useAuth();
 
   const [search, setSearch] = useState("");
 
   const {
-    data: profiles = [],
-    isLoading: profilesLoading,
-    isError: profilesError,
-    refetch: refetchProfiles,
+    data: users = [],
+    isLoading: usersLoading,
+    isError: usersError,
+    refetch: refetchUsers,
   } = useQuery({
-    queryKey: ["profiles", "admin-roles"],
-    queryFn: fetchProfiles,
+    queryKey: ["admin_list_users", "admin-roles", search],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("admin_list_users", { _search: search });
+      if (error) throw error;
+      return (data ?? []) as AdminUserRow[];
+    },
   });
 
   const {
@@ -81,25 +79,18 @@ export default function AdminRoles() {
   }, [roleRows]);
 
   const combined = useMemo(() => {
-    const lower = search.trim().toLowerCase();
-
-    return profiles
-      .map((p) => ({
-        ...p,
-        roles: (rolesByUserId.get(p.user_id) ?? []).sort(),
-      }))
-      .filter((p) => {
-        if (!lower) return true;
-        return (
-          (p.full_name ?? "").toLowerCase().includes(lower) ||
-          (p.phone ?? "").toLowerCase().includes(lower) ||
-          p.user_id.toLowerCase().includes(lower)
-        );
-      });
-  }, [profiles, rolesByUserId, search]);
+    return users.map((u) => ({
+      ...u,
+      roles: (rolesByUserId.get(u.user_id) ?? []).sort(),
+    }));
+  }, [users, rolesByUserId]);
 
   const assignRole = async (userId: string, role: AppRole) => {
     try {
+      if (!isAdmin && !(isStaff && role === "host")) {
+        toast({ variant: "destructive", title: "Not allowed", description: "You don’t have permission for this action." });
+        return;
+      }
       const { error } = await supabase.from("user_roles").insert({ user_id: userId, role });
       if (error) throw error;
 
@@ -118,6 +109,10 @@ export default function AdminRoles() {
     try {
       const ok = window.confirm(`Remove role '${role}' from this user?`);
       if (!ok) return;
+      if (!isAdmin) {
+        toast({ variant: "destructive", title: "Not allowed", description: "Only admins can remove roles." });
+        return;
+      }
 
       const { error } = await supabase
         .from("user_roles")
@@ -153,6 +148,8 @@ export default function AdminRoles() {
 
   const loading = profilesLoading || rolesLoading;
   const isError = profilesError || rolesError;
+  const loadingAll = usersLoading || rolesLoading;
+  const isErrorAll = usersError || rolesError;
 
   return (
     <div className="min-h-screen bg-background">
@@ -163,13 +160,13 @@ export default function AdminRoles() {
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Manage Roles</h1>
             <p className="text-muted-foreground">
-              Assign or remove roles by user id. (Email lookup is not available on the client.)
+              Assign or remove roles for real users. (Emails are shown via a secure admin RPC.)
             </p>
           </div>
           <Button
             variant="outline"
             onClick={async () => {
-              await refetchProfiles();
+              await refetchUsers();
               await refetchRoles();
             }}
           >
@@ -184,17 +181,17 @@ export default function AdminRoles() {
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search name, phone, or user id"
+                placeholder="Search email, name, phone, or user id"
                 className="md:max-w-sm"
               />
             </div>
 
-            {loading ? (
+            {loadingAll ? (
               <div className="py-10 text-center">
                 <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
               </div>
-            ) : isError ? (
-              <p className="text-muted-foreground">Couldn’t load users/roles (check RLS policies).</p>
+            ) : isErrorAll ? (
+              <p className="text-muted-foreground">Couldn’t load users/roles (check role permissions / RPC).</p>
             ) : combined.length === 0 ? (
               <p className="text-muted-foreground">No users found.</p>
             ) : (
@@ -207,16 +204,15 @@ export default function AdminRoles() {
                     <div className="min-w-0">
                       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="font-medium text-foreground">{p.full_name || "(no name)"}</p>
+                          <p className="font-medium text-foreground break-all">{p.email || "(no email)"}</p>
+                          <p className="text-sm text-muted-foreground">{p.full_name || "(no name)"}</p>
                           <p className="text-sm text-muted-foreground break-all">user: {p.user_id}</p>
                         </div>
                         <Button variant="outline" size="sm" onClick={() => copyUserId(p.user_id)}>
                           {t("actions.copyUserId")}
                         </Button>
                       </div>
-                      {p.phone ? (
-                        <p className="text-sm text-muted-foreground">phone: {p.phone}</p>
-                      ) : null}
+                      <p className="text-sm text-muted-foreground">phone: {p.phone || "(no phone)"}</p>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
@@ -231,18 +227,26 @@ export default function AdminRoles() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
-                      <Button variant="outline" onClick={() => assignRole(p.user_id, "host")}
+                      <Button
+                        variant="outline"
+                        onClick={() => assignRole(p.user_id, "host")}
                         disabled={p.roles.includes("host")}
                       >
                         Add host
                       </Button>
-                      <Button variant="outline" onClick={() => assignRole(p.user_id, "staff")}
+                      <Button
+                        variant="outline"
+                        onClick={() => assignRole(p.user_id, "staff")}
                         disabled={p.roles.includes("staff")}
+                        title={!isAdmin ? "Only admins can grant staff" : undefined}
                       >
                         Add staff
                       </Button>
-                      <Button variant="outline" onClick={() => assignRole(p.user_id, "admin")}
+                      <Button
+                        variant="outline"
+                        onClick={() => assignRole(p.user_id, "admin")}
                         disabled={p.roles.includes("admin")}
+                        title={!isAdmin ? "Only admins can grant admin" : undefined}
                       >
                         Add admin
                       </Button>
