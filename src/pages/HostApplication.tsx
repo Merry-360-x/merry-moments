@@ -247,8 +247,26 @@ export default function HostApplication() {
         national_id_photo_url: details.national_id_photo_url.trim() || null,
       };
 
-      const { error } = await supabase.from("host_applications").insert(payload);
+      const { data: inserted, error } = await supabase
+        .from("host_applications")
+        .insert(payload)
+        .select("id")
+        .single();
       if (error) throw error;
+
+      // Grant host role immediately (admins can later suspend by removing the host role).
+      const { error: roleError } = await supabase
+        .from("user_roles")
+        .insert({ user_id: user.id, role: "host" });
+
+      if (roleError) {
+        // If self-assigning roles is blocked by RLS, keep the application consistent.
+        // Fall back to pending so admin review can grant the role.
+        if (inserted?.id) {
+          await supabase.from("host_applications").update({ status: "pending" }).eq("id", inserted.id);
+        }
+        throw roleError;
+      }
 
       // Keep profile in sync with what the user entered.
       await supabase
@@ -256,7 +274,7 @@ export default function HostApplication() {
         .update({ full_name: payload.full_name, phone: payload.phone })
         .eq("user_id", user.id);
 
-      toast({ title: "You’re a Host!", description: "Your account is active until an admin suspends it." });
+      toast({ title: "Welcome!", description: "You’re now a host." });
 
       // Reload latest application
       const { data } = await supabase
@@ -272,13 +290,18 @@ export default function HostApplication() {
       setExisting((data as HostApplicationRow) ?? null);
       setStep("type");
       await refreshRoles();
+
+      // With host role granted, take them straight to the dashboard.
       navigate("/host-dashboard");
     } catch (e) {
       logError("hostApplication.submit", e);
       toast({
         variant: "destructive",
         title: "Couldn’t submit application",
-        description: uiErrorMessage(e, "Please try again."),
+        description: uiErrorMessage(
+          e,
+          "If this keeps happening, an admin may need to approve your host role from the Admin Dashboard."
+        ),
       });
     }
   };
@@ -303,23 +326,11 @@ export default function HostApplication() {
     if (existing.status === "approved") {
       return (
         <Card className="p-6">
-          <h2 className="text-xl font-semibold text-foreground mb-2">You’re a Host!</h2>
+          <h2 className="text-xl font-semibold text-foreground mb-2">You’re approved!</h2>
           <p className="text-muted-foreground mb-4">
-            Your host access is active until an admin suspends it.
+            Your host access is active. You can now create and publish listings.
           </p>
           <Button onClick={() => navigate("/host-dashboard")}>Go to Host Dashboard</Button>
-        </Card>
-      );
-    }
-
-    if (existing.status === "suspended") {
-      return (
-        <Card className="p-6">
-          <h2 className="text-xl font-semibold text-foreground mb-2">Host account suspended</h2>
-          <p className="text-muted-foreground mb-4">
-            Your host access is currently suspended. Please contact Customer Support.
-          </p>
-          <Button variant="outline" onClick={() => navigate("/")}>Back home</Button>
         </Card>
       );
     }
@@ -332,6 +343,18 @@ export default function HostApplication() {
             {existing.review_notes ? existing.review_notes : "You can submit another application."}
           </p>
           <Button onClick={startNew}>Start a new application</Button>
+        </Card>
+      );
+    }
+
+    if (existing.status === "suspended") {
+      return (
+        <Card className="p-6">
+          <h2 className="text-xl font-semibold text-foreground mb-2">Host access suspended</h2>
+          <p className="text-muted-foreground mb-4">
+            Your host access is currently suspended by an admin. Please contact support if you believe this is a mistake.
+          </p>
+          <Button variant="outline" onClick={() => navigate("/")}>Back home</Button>
         </Card>
       );
     }
@@ -363,7 +386,7 @@ export default function HostApplication() {
                 <div className="text-sm">
                   <div className="font-semibold text-foreground">Your listing is not live yet</div>
                   <div className="text-muted-foreground">
-                    Until you submit this application and it’s approved, your property will not appear publicly.
+                    Once you submit, your host access activates immediately (unless an admin suspends it later).
                   </div>
                 </div>
               </div>

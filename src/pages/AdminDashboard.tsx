@@ -513,32 +513,56 @@ export default function AdminDashboard() {
   const suspend = async (app: HostApplicationRow) => {
     try {
       const note = window.prompt("Suspension reason (optional):") ?? null;
-      const { error } = await supabase
+
+      const { error: updateError } = await supabase
         .from("host_applications")
         .update({ status: "suspended", review_notes: note, reviewed_by: user?.id ?? null })
         .eq("id", app.id);
-      if (error) throw error;
+      if (updateError) throw updateError;
+
+      const { error: roleError } = await supabase
+        .from("user_roles")
+        .delete()
+        .eq("user_id", app.user_id)
+        .eq("role", "host");
+      if (roleError) throw roleError;
+
       toast({ title: "Suspended", description: "Host access removed." });
-      await refetch();
+      await Promise.all([refetch(), refetchRoles(), refetchUsers()]);
     } catch (e) {
       logError("admin.suspendHostApplication", e);
-      toast({ variant: "destructive", title: "Suspension failed", description: uiErrorMessage(e, "Please try again.") });
+      toast({
+        variant: "destructive",
+        title: "Suspension failed",
+        description: uiErrorMessage(e, "Please try again."),
+      });
     }
   };
 
   const reinstate = async (app: HostApplicationRow) => {
     try {
       const note = window.prompt("Reinstate note (optional):") ?? null;
-      const { error } = await supabase
+
+      const { error: updateError } = await supabase
         .from("host_applications")
         .update({ status: "approved", review_notes: note, reviewed_by: user?.id ?? null })
         .eq("id", app.id);
-      if (error) throw error;
+      if (updateError) throw updateError;
+
+      const { error: roleError } = await supabase
+        .from("user_roles")
+        .upsert({ user_id: app.user_id, role: "host" }, { onConflict: "user_id,role" });
+      if (roleError) throw roleError;
+
       toast({ title: "Reinstated", description: "Host access restored." });
-      await refetch();
+      await Promise.all([refetch(), refetchRoles(), refetchUsers()]);
     } catch (e) {
       logError("admin.reinstateHostApplication", e);
-      toast({ variant: "destructive", title: "Reinstate failed", description: uiErrorMessage(e, "Please try again.") });
+      toast({
+        variant: "destructive",
+        title: "Reinstate failed",
+        description: uiErrorMessage(e, "Please try again."),
+      });
     }
   };
 
@@ -754,21 +778,15 @@ export default function AdminDashboard() {
                             </Button>
                           </>
                         ) : app.status === "approved" ? (
-                          <>
-                            <Button variant="outline" onClick={() => suspend(app)}>
-                              Suspend
-                            </Button>
-                          </>
+                          <Button variant="destructive" onClick={() => suspend(app)}>
+                            Suspend
+                          </Button>
                         ) : app.status === "suspended" ? (
-                          <>
-                            <Button onClick={() => reinstate(app)}>Reinstate</Button>
-                          </>
+                          <Button onClick={() => reinstate(app)}>Reinstate</Button>
                         ) : (
-                          <>
-                            <Button variant="outline" onClick={() => approve(app)}>
-                              Approve
-                            </Button>
-                          </>
+                          <Button variant="outline" onClick={() => approve(app)}>
+                            Approve
+                          </Button>
                         )}
                       </div>
                     </div>

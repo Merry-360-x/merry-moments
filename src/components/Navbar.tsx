@@ -36,7 +36,6 @@ const navLinks = [
   { key: "nav.accommodations", path: "/accommodations" },
   { key: "nav.tours", path: "/tours" },
   { key: "nav.transport", path: "/transport" },
-  { key: "nav.services", path: "/services" },
   { key: "nav.stories", path: "/stories" },
 ];
 
@@ -59,7 +58,7 @@ const Navbar = () => {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-[#0b1220]/95 text-white backdrop-blur-sm border-b border-white/10">
+    <header className="sticky top-0 z-50 bg-background border-b border-border">
       <div className="container mx-auto px-4 lg:px-8">
         <nav className="relative flex items-center justify-between h-16 lg:h-20">
           {/* Mobile: menu on the left */}
@@ -69,7 +68,7 @@ const Navbar = () => {
             aria-label="Menu"
             type="button"
           >
-            {mobileMenuOpen ? <X className="w-6 h-6 text-white" /> : <Menu className="w-6 h-6 text-white" />}
+            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
 
           {/* Desktop logo (left) */}
@@ -99,7 +98,7 @@ const Navbar = () => {
                     className={`px-3 xl:px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                       isActive
                         ? "bg-primary/10 text-primary border border-primary"
-                        : "text-white/80 hover:text-white hover:bg-white/5"
+                        : "text-foreground hover:text-primary"
                     }`}
                   >
                     {t(link.key)}
@@ -137,22 +136,22 @@ const Navbar = () => {
             ) : null}
 
             <button
-              className="p-2 rounded-full hover:bg-white/10 transition-colors"
+              className="p-2 rounded-full hover:bg-muted transition-colors"
               onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
               aria-label={t("labels.theme")}
               type="button"
             >
               {resolvedTheme === "dark" ? (
-                <Sun className="w-5 h-5 text-white/80" />
+                <Sun className="w-5 h-5 text-muted-foreground" />
               ) : (
-                <Moon className="w-5 h-5 text-white/80" />
+                <Moon className="w-5 h-5 text-muted-foreground" />
               )}
             </button>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-white/20 text-sm text-white/90 hover:bg-white/5"
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-border text-sm"
                   aria-label={t("labels.currency")}
                 >
                   <span>{currency}</span>
@@ -170,7 +169,7 @@ const Navbar = () => {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-white/20 text-sm text-white/90 hover:bg-white/5">
+                <button className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-border text-sm">
                   <span>{language.toUpperCase()}</span>
                   <ChevronDown className="w-4 h-4" />
                 </button>
@@ -186,18 +185,14 @@ const Navbar = () => {
             </DropdownMenu>
 
             <Link to="/trip-cart">
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2 border-white/20 text-white hover:bg-white/10 hover:text-white"
-              >
+              <Button variant="outline" size="sm" className="gap-2">
                 {t("actions.tripCart")}
               </Button>
             </Link>
 
             <Link to="/favorites">
-              <button className="p-2 rounded-full hover:bg-white/10 transition-colors" aria-label={t("actions.favorites")}>
-                <Heart className="w-5 h-5 text-white/80" />
+              <button className="p-2 rounded-full hover:bg-muted transition-colors">
+                <Heart className="w-5 h-5 text-muted-foreground" />
               </button>
             </Link>
 
