@@ -31,11 +31,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       .eq("user_id", userId);
 
     if (error) {
-      setRoles([]);
+      // Keep existing roles on transient errors so nav buttons don't "disappear".
+      // If the table/policies are misconfigured, the roles will remain empty anyway.
+      console.warn("[AuthContext] Failed to load roles:", error.message);
       return;
     }
 
-    setRoles((data ?? []).map((r) => String(r.role)));
+    const normalized = (data ?? [])
+      .map((r) => String(r.role ?? "").trim().toLowerCase())
+      .filter(Boolean);
+    // Deduplicate and keep only known roles.
+    const uniq = Array.from(new Set(normalized)).filter((r) =>
+      ["guest", "host", "staff", "admin"].includes(r)
+    );
+    setRoles(uniq);
   };
 
   const refreshRoles = async () => {
