@@ -100,11 +100,20 @@ const Stories = () => {
       reset();
       await qc.invalidateQueries({ queryKey: ["stories"] });
     } catch (e) {
+      const msg =
+        e instanceof Error
+          ? e.message
+          : typeof e === "object" && e && "message" in e && typeof (e as any).message === "string"
+          ? String((e as any).message)
+          : "Please try again.";
       toast({
         variant: "destructive",
         title: "Could not post story",
-        description: e instanceof Error ? e.message : "Please try again.",
+        description: msg,
       });
+      // Helpful for debugging RLS/schema issues in production without exposing too much UI noise.
+      // eslint-disable-next-line no-console
+      console.error("Story insert failed:", e);
     } finally {
       setSaving(false);
     }
