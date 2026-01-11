@@ -23,6 +23,7 @@ type TransportVehicleRow = Pick<
   | "currency"
   | "driver_included"
   | "image_url"
+  | "media"
   | "rating"
   | "review_count"
 >;
@@ -68,7 +69,7 @@ const Transport = () => {
       let q = supabase
         .from("transport_vehicles")
         .select(
-          "id, title, provider_name, vehicle_type, seats, price_per_day, currency, driver_included, image_url, rating, review_count"
+          "id, title, provider_name, vehicle_type, seats, price_per_day, currency, driver_included, image_url, media, rating, review_count"
         )
         .or("is_published.eq.true,is_published.is.null")
         .order("created_at", { ascending: false });
@@ -278,8 +279,12 @@ const Transport = () => {
                 className="group rounded-xl overflow-hidden bg-card shadow-card hover:shadow-lg transition-all duration-300 animate-fade-in"
               >
                 <div className="relative aspect-[4/3] overflow-hidden">
-                  {v.image_url ? (
-                    <ListingImageCarousel images={[v.image_url]} alt={v.title} className="w-full h-full" />
+                  {(v.media?.length || v.image_url) ? (
+                    <ListingImageCarousel
+                      images={(v.media && v.media.length ? v.media : [v.image_url]) as Array<string | null | undefined>}
+                      alt={v.title}
+                      className="w-full h-full"
+                    />
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-muted via-muted/70 to-muted/40" />
                   )}

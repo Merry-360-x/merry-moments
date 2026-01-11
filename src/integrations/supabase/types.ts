@@ -288,6 +288,7 @@ export type Database = {
           id: string
           image_url: string | null
           is_published: boolean | null
+          media: string[] | null
           price_per_day: number
           provider_name: string | null
           seats: number
@@ -303,6 +304,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_published?: boolean | null
+          media?: string[] | null
           price_per_day?: number
           provider_name?: string | null
           seats?: number
@@ -318,6 +320,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_published?: boolean | null
+          media?: string[] | null
           price_per_day?: number
           provider_name?: string | null
           seats?: number

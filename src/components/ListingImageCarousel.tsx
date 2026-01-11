@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { isVideoUrl } from "@/lib/media";
 
 type Props = {
   images?: Array<string | null | undefined> | null;
@@ -53,13 +54,24 @@ export default function ListingImageCarousel({
         style={{ transform: `translateX(-${idx * 100}%)` }}
       >
         {clean.map((src) => (
-          <img
-            key={src}
-            src={src}
-            alt={alt}
-            className="w-full h-full object-cover shrink-0"
-            loading="lazy"
-          />
+          isVideoUrl(src) ? (
+            <video
+              key={src}
+              src={src}
+              className="w-full h-full object-cover shrink-0"
+              muted
+              playsInline
+              preload="metadata"
+            />
+          ) : (
+            <img
+              key={src}
+              src={src}
+              alt={alt}
+              className="w-full h-full object-cover shrink-0"
+              loading="lazy"
+            />
+          )
         ))}
       </div>
     </div>

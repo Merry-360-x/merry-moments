@@ -28,6 +28,7 @@ import {
   PlusCircle,
   MapPin,
   Car,
+  ExternalLink,
 } from "lucide-react";
 import {
   Dialog,
@@ -44,6 +45,7 @@ interface Property {
   location: string;
   property_type: string;
   price_per_night: number;
+  currency?: string | null;
   max_guests: number;
   bedrooms: number;
   bathrooms: number;
@@ -105,6 +107,7 @@ const HostDashboard = () => {
     currency: "RWF",
     driver_included: true,
     image_url: "",
+    media: [] as string[],
   });
 
   const [routeForm, setRouteForm] = useState({
@@ -123,6 +126,7 @@ const HostDashboard = () => {
     location: "",
     property_type: "Hotel",
     price_per_night: 50000,
+    currency: "RWF",
     max_guests: 2,
     bedrooms: 1,
     bathrooms: 1,
@@ -213,6 +217,7 @@ const HostDashboard = () => {
       location: "",
       property_type: "Hotel",
       price_per_night: 50000,
+      currency: "RWF",
       max_guests: 2,
       bedrooms: 1,
       bathrooms: 1,
@@ -232,6 +237,7 @@ const HostDashboard = () => {
       location: property.location,
       property_type: property.property_type,
       price_per_night: property.price_per_night,
+      currency: (property as any).currency ?? "RWF",
       max_guests: property.max_guests,
       bedrooms: property.bedrooms || 1,
       bathrooms: property.bathrooms || 1,
@@ -249,10 +255,6 @@ const HostDashboard = () => {
     if (!user) return;
     if (!tourForm.title.trim()) {
       toast({ variant: "destructive", title: "Tour title required" });
-      return;
-    }
-    if (tourForm.images.length === 0) {
-      toast({ variant: "destructive", title: "Tour image required", description: "Upload at least one tour image." });
       return;
     }
     const payload = {
@@ -294,10 +296,7 @@ const HostDashboard = () => {
       toast({ variant: "destructive", title: "Vehicle title required" });
       return;
     }
-    if (!vehicleForm.image_url) {
-      toast({ variant: "destructive", title: "Vehicle image required" });
-      return;
-    }
+    const first = vehicleForm.media?.[0] ?? vehicleForm.image_url ?? "";
     const payload = {
       created_by: user.id,
       provider_name: vehicleForm.provider_name.trim() || null,
@@ -307,7 +306,8 @@ const HostDashboard = () => {
       price_per_day: Number(vehicleForm.price_per_day || 0),
       currency: vehicleForm.currency,
       driver_included: Boolean(vehicleForm.driver_included),
-      image_url: vehicleForm.image_url,
+      image_url: first || null,
+      media: vehicleForm.media ?? (first ? [first] : []),
       is_published: true,
     } as const;
     const { error } = await supabase.from("transport_vehicles").insert(payload);
@@ -592,26 +592,26 @@ const HostDashboard = () => {
                           <option>RWF</option>
                           <option>USD</option>
                           <option>EUR</option>
+                          <option>GBP</option>
+                          <option>CNY</option>
                         </select>
                       </div>
                     </div>
 
                     <div>
-                      <Label>Images</Label>
+                      <Label>Media (images/videos)</Label>
                       <div className="mt-2 space-y-3">
                         <CloudinaryUploadDialog
-                          title="Upload tour images"
+                          title="Upload tour media"
                           folder="merry360/tours"
-                          accept="image/*"
+                          accept="image/*,video/*"
                           multiple
                           maxFiles={12}
-                          buttonLabel="Upload tour images"
+                          buttonLabel="Upload tour media"
                           value={tourForm.images}
                           onChange={(urls) => setTourForm((p) => ({ ...p, images: urls }))}
                         />
-                        {(tourForm.images?.length ?? 0) === 0 ? (
-                          <p className="text-sm text-muted-foreground">Upload at least one tour image.</p>
-                        ) : null}
+                        <p className="text-sm text-muted-foreground">Optional. You can add images and videos.</p>
                       </div>
                     </div>
 
@@ -692,6 +692,8 @@ const HostDashboard = () => {
                             <option>RWF</option>
                             <option>USD</option>
                             <option>EUR</option>
+                          <option>GBP</option>
+                          <option>CNY</option>
                           </select>
                         </div>
                       </div>
@@ -705,21 +707,21 @@ const HostDashboard = () => {
                       </div>
 
                       <div>
-                        <Label>Vehicle image</Label>
+                        <Label>Vehicle media (images/videos)</Label>
                         <div className="mt-2 space-y-3">
                           <CloudinaryUploadDialog
-                            title="Upload vehicle image"
+                            title="Upload vehicle media"
                             folder="merry360/transport/vehicles"
-                            accept="image/*"
-                            multiple={false}
-                            maxFiles={1}
-                            buttonLabel={vehicleForm.image_url ? "Replace vehicle image" : "Upload vehicle image"}
-                            value={vehicleForm.image_url ? [vehicleForm.image_url] : []}
-                            onChange={(urls) => setVehicleForm((p) => ({ ...p, image_url: urls[0] ?? "" }))}
+                            accept="image/*,video/*"
+                            multiple
+                            maxFiles={12}
+                            buttonLabel={(vehicleForm.media?.length ?? 0) ? "Replace / add media" : "Upload vehicle media"}
+                            value={vehicleForm.media ?? (vehicleForm.image_url ? [vehicleForm.image_url] : [])}
+                            onChange={(urls) =>
+                              setVehicleForm((p) => ({ ...p, media: urls, image_url: urls[0] ?? p.image_url }))
+                            }
                           />
-                          {!vehicleForm.image_url ? (
-                            <p className="text-sm text-muted-foreground">Upload a vehicle image.</p>
-                          ) : null}
+                          <p className="text-sm text-muted-foreground">Optional. You can add images and videos.</p>
                         </div>
                       </div>
 
@@ -738,6 +740,7 @@ const HostDashboard = () => {
                               currency: "RWF",
                               driver_included: true,
                               image_url: "",
+                              media: [],
                             });
                           }}
                         >
@@ -859,15 +862,15 @@ const HostDashboard = () => {
                 </div>
 
                 <div>
-                  <Label>Images</Label>
+                  <Label>Media (images/videos)</Label>
                   <div className="mt-2 space-y-3">
                     <CloudinaryUploadDialog
                       title="Upload property images"
                       folder="merry360/properties"
-                      accept="image/*"
+                      accept="image/*,video/*"
                       multiple
                       maxFiles={16}
-                      buttonLabel="Upload property images"
+                      buttonLabel="Upload property media"
                       value={formData.images ?? []}
                       onChange={(urls) => setFormData((p) => ({ ...p, images: urls }))}
                     />
@@ -897,7 +900,24 @@ const HostDashboard = () => {
                     </select>
                   </div>
                   <div>
-                    <Label>Price per Night (RWF)</Label>
+                    <Label>Currency</Label>
+                    <select
+                      value={formData.currency}
+                      onChange={(e) => setFormData((p) => ({ ...p, currency: e.target.value }))}
+                      className="w-full mt-1 h-10 px-3 rounded-md border border-input bg-background"
+                    >
+                      <option>RWF</option>
+                      <option>USD</option>
+                      <option>EUR</option>
+                      <option>GBP</option>
+                      <option>CNY</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Price per Night</Label>
                     <Input
                       type="number"
                       value={formData.price_per_night}
@@ -1092,7 +1112,7 @@ const HostDashboard = () => {
                       </td>
                       <td className="px-6 py-4 text-muted-foreground">{property.location}</td>
                       <td className="px-6 py-4 text-foreground">
-                        {Number(property.price_per_night).toLocaleString()} RWF
+                        {Number(property.price_per_night).toLocaleString()} {property.currency ?? "RWF"}
                       </td>
                       <td className="px-6 py-4">
                         <span
@@ -1107,6 +1127,13 @@ const HostDashboard = () => {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => window.open(`/properties/${property.id}`, "_blank")}
+                            className="p-2 hover:bg-muted rounded-lg transition-colors"
+                            title="Preview"
+                          >
+                            <ExternalLink className="w-4 h-4 text-muted-foreground" />
+                          </button>
                           <button
                             onClick={() => togglePublish(property)}
                             className="p-2 hover:bg-muted rounded-lg transition-colors"

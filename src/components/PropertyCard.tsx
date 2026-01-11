@@ -6,6 +6,7 @@ import ListingImageCarousel from "@/components/ListingImageCarousel";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useFavorites } from "@/hooks/useFavorites";
 import { usePreferences } from "@/hooks/usePreferences";
+import { isVideoUrl } from "@/lib/media";
 
 export interface PropertyCardProps {
   id?: string;
@@ -152,13 +153,14 @@ const PropertyCard = ({
       <Dialog open={viewerOpen} onOpenChange={setViewerOpen}>
         <DialogContent className="p-0 w-[95vw] max-w-4xl overflow-hidden">
           <div className="bg-black relative">
-            {gallery.length ? (
-              <img
-                src={gallery[Math.min(Math.max(viewerIdx, 0), gallery.length - 1)] ?? ""}
-                alt={title}
-                className="w-full h-[75vh] object-contain"
-              />
-            ) : null}
+            {gallery.length ? (() => {
+              const src = gallery[Math.min(Math.max(viewerIdx, 0), gallery.length - 1)] ?? "";
+              return isVideoUrl(src) ? (
+                <video src={src} className="w-full h-[75vh] object-contain" controls playsInline />
+              ) : (
+                <img src={src} alt={title} className="w-full h-[75vh] object-contain" />
+              );
+            })() : null}
 
             {gallery.length > 1 ? (
               <>
