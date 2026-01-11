@@ -13,6 +13,9 @@ import { useNavigate } from "react-router-dom";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites } from "@/hooks/useFavorites";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Filter } from "lucide-react";
 
 const propertyTypes = ["Hotel", "Motel", "Resort", "Lodge", "Apartment", "Villa", "Guesthouse"];
 const amenities = ["WiFi", "Pool", "Parking", "Restaurant", "Gym", "Spa"];
@@ -62,6 +65,7 @@ const Accommodations = () => {
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [minRating, setMinRating] = useState(0);
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { user } = useAuth();
@@ -119,6 +123,11 @@ const Accommodations = () => {
   });
 
   const favoritesSet = new Set(favoriteIds);
+  const activeFiltersCount =
+    (priceRange[1] < 500000 ? 1 : 0) +
+    (selectedTypes.length > 0 ? 1 : 0) +
+    (selectedAmenities.length > 0 ? 1 : 0) +
+    (minRating > 0 ? 1 : 0);
 
   return (
     <div className="min-h-screen bg-background">
@@ -152,101 +161,250 @@ const Accommodations = () => {
           <p className="text-muted-foreground">{t("accommodations.subtitle")}</p>
         </div>
 
+        {/* Mobile filters button */}
+        <div className="lg:hidden mb-6">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full justify-between"
+            onClick={() => setFiltersOpen(true)}
+          >
+            <span className="flex items-center gap-2">
+              <Filter className="w-4 h-4" />
+              {t("accommodations.filters")}
+            </span>
+            {activeFiltersCount > 0 ? (
+              <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">
+                {activeFiltersCount}
+              </span>
+            ) : null}
+          </Button>
+        </div>
+
+        {/* Mobile filters sheet */}
+        <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+          <SheetContent side="bottom" className="p-0">
+            <SheetHeader className="p-6 pb-2">
+              <SheetTitle>{t("accommodations.filters")}</SheetTitle>
+            </SheetHeader>
+            <div className="p-6 pt-4 max-h-[70vh] overflow-y-auto">
+              <Accordion type="multiple" defaultValue={["price", "type"]}>
+                <AccordionItem value="price">
+                  <AccordionTrigger>{t("accommodations.priceRange")}</AccordionTrigger>
+                  <AccordionContent>
+                    <Slider value={priceRange} onValueChange={setPriceRange} max={500000} step={10000} className="mb-2" />
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">0 RWF</span>
+                      <span className="text-primary font-medium">{priceRange[1].toLocaleString()} RWF</span>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="type">
+                  <AccordionTrigger>{t("accommodations.propertyType")}</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-2">
+                      {propertyTypes.map((type) => (
+                        <div key={type} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`m-${type}`}
+                            checked={selectedTypes.includes(type)}
+                            onCheckedChange={(checked) => {
+                              setSelectedTypes((prev) => {
+                                const next = new Set(prev);
+                                if (checked) next.add(type);
+                                else next.delete(type);
+                                return Array.from(next);
+                              });
+                            }}
+                          />
+                          <label htmlFor={`m-${type}`} className="text-sm text-muted-foreground cursor-pointer">
+                            {type}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="rating">
+                  <AccordionTrigger>{t("accommodations.minimumRating")}</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          className="p-1"
+                          type="button"
+                          onClick={() => setMinRating((prev) => (prev === star ? 0 : star))}
+                          aria-label={`Minimum rating ${star}`}
+                        >
+                          <Star
+                            className={`w-6 h-6 transition-colors ${
+                              minRating >= star ? "fill-primary text-primary" : "text-muted-foreground hover:text-primary"
+                            }`}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="amenities">
+                  <AccordionTrigger>{t("accommodations.amenities")}</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-2">
+                      {amenities.map((amenity) => (
+                        <div key={amenity} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`m-${amenity}`}
+                            checked={selectedAmenities.includes(amenity)}
+                            onCheckedChange={(checked) => {
+                              setSelectedAmenities((prev) => {
+                                const next = new Set(prev);
+                                if (checked) next.add(amenity);
+                                else next.delete(amenity);
+                                return Array.from(next);
+                              });
+                            }}
+                          />
+                          <label htmlFor={`m-${amenity}`} className="text-sm text-muted-foreground cursor-pointer">
+                            {amenity}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </div>
+            <div className="p-6 pt-0 border-t border-border flex items-center justify-between gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setPriceRange([0, 500000]);
+                  setSelectedTypes([]);
+                  setSelectedAmenities([]);
+                  setMinRating(0);
+                }}
+              >
+                Clear
+              </Button>
+              <Button type="button" onClick={() => setFiltersOpen(false)}>
+                Apply
+              </Button>
+            </div>
+          </SheetContent>
+        </Sheet>
+
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Filters Sidebar */}
-          <aside className="w-full lg:w-64 shrink-0">
+          {/* Filters Sidebar (desktop only, minimized with accordion) */}
+          <aside className="hidden lg:block w-72 shrink-0">
             <div className="bg-card rounded-xl p-6 shadow-card">
-              <h3 className="font-semibold text-foreground mb-4">{t("accommodations.filters")}</h3>
-
-              {/* Price Range */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-foreground mb-3">{t("accommodations.priceRange")}</label>
-                <Slider
-                  value={priceRange}
-                  onValueChange={setPriceRange}
-                  max={500000}
-                  step={10000}
-                  className="mb-2"
-                />
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">0 RWF</span>
-                  <span className="text-primary font-medium">{priceRange[1].toLocaleString()} RWF</span>
-                </div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-semibold text-foreground">{t("accommodations.filters")}</h3>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setPriceRange([0, 500000]);
+                    setSelectedTypes([]);
+                    setSelectedAmenities([]);
+                    setMinRating(0);
+                  }}
+                >
+                  Clear
+                </Button>
               </div>
 
-              {/* Property Type */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-foreground mb-3">{t("accommodations.propertyType")}</label>
-                <div className="space-y-2">
-                  {propertyTypes.map((type) => (
-                    <div key={type} className="flex items-center gap-2">
-                      <Checkbox
-                        id={type}
-                        checked={selectedTypes.includes(type)}
-                        onCheckedChange={(checked) => {
-                          setSelectedTypes((prev) => {
-                            const next = new Set(prev);
-                            if (checked) next.add(type);
-                            else next.delete(type);
-                            return Array.from(next);
-                          });
-                        }}
-                      />
-                      <label htmlFor={type} className="text-sm text-muted-foreground cursor-pointer">
-                        {type}
-                      </label>
+              <Accordion type="multiple" defaultValue={["price", "type"]}>
+                <AccordionItem value="price">
+                  <AccordionTrigger>{t("accommodations.priceRange")}</AccordionTrigger>
+                  <AccordionContent>
+                    <Slider value={priceRange} onValueChange={setPriceRange} max={500000} step={10000} className="mb-2" />
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">0 RWF</span>
+                      <span className="text-primary font-medium">{priceRange[1].toLocaleString()} RWF</span>
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </AccordionContent>
+                </AccordionItem>
 
-              {/* Minimum Rating */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-foreground mb-3">{t("accommodations.minimumRating")}</label>
-                <div className="flex gap-1">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      className="p-1"
-                      type="button"
-                      onClick={() => setMinRating((prev) => (prev === star ? 0 : star))}
-                      aria-label={`Minimum rating ${star}`}
-                    >
-                      <Star
-                        className={`w-5 h-5 transition-colors ${
-                          minRating >= star ? "fill-primary text-primary" : "text-muted-foreground hover:text-primary"
-                        }`}
-                      />
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Amenities */}
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-3">{t("accommodations.amenities")}</label>
-                <div className="space-y-2">
-                  {amenities.map((amenity) => (
-                    <div key={amenity} className="flex items-center gap-2">
-                      <Checkbox
-                        id={amenity}
-                        checked={selectedAmenities.includes(amenity)}
-                        onCheckedChange={(checked) => {
-                          setSelectedAmenities((prev) => {
-                            const next = new Set(prev);
-                            if (checked) next.add(amenity);
-                            else next.delete(amenity);
-                            return Array.from(next);
-                          });
-                        }}
-                      />
-                      <label htmlFor={amenity} className="text-sm text-muted-foreground cursor-pointer">
-                        {amenity}
-                      </label>
+                <AccordionItem value="type">
+                  <AccordionTrigger>{t("accommodations.propertyType")}</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-2">
+                      {propertyTypes.map((type) => (
+                        <div key={type} className="flex items-center gap-2">
+                          <Checkbox
+                            id={type}
+                            checked={selectedTypes.includes(type)}
+                            onCheckedChange={(checked) => {
+                              setSelectedTypes((prev) => {
+                                const next = new Set(prev);
+                                if (checked) next.add(type);
+                                else next.delete(type);
+                                return Array.from(next);
+                              });
+                            }}
+                          />
+                          <label htmlFor={type} className="text-sm text-muted-foreground cursor-pointer">
+                            {type}
+                          </label>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="rating">
+                  <AccordionTrigger>{t("accommodations.minimumRating")}</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          className="p-1"
+                          type="button"
+                          onClick={() => setMinRating((prev) => (prev === star ? 0 : star))}
+                          aria-label={`Minimum rating ${star}`}
+                        >
+                          <Star
+                            className={`w-5 h-5 transition-colors ${
+                              minRating >= star ? "fill-primary text-primary" : "text-muted-foreground hover:text-primary"
+                            }`}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="amenities">
+                  <AccordionTrigger>{t("accommodations.amenities")}</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-2">
+                      {amenities.map((amenity) => (
+                        <div key={amenity} className="flex items-center gap-2">
+                          <Checkbox
+                            id={amenity}
+                            checked={selectedAmenities.includes(amenity)}
+                            onCheckedChange={(checked) => {
+                              setSelectedAmenities((prev) => {
+                                const next = new Set(prev);
+                                if (checked) next.add(amenity);
+                                else next.delete(amenity);
+                                return Array.from(next);
+                              });
+                            }}
+                          />
+                          <label htmlFor={amenity} className="text-sm text-muted-foreground cursor-pointer">
+                            {amenity}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
             </div>
           </aside>
 
