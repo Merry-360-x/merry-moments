@@ -36,7 +36,7 @@ export function CloudinaryUploadDialog(props: {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<UploadItem[]>([]);
   const [busy, setBusy] = useState(false);
-  const autoStart = props.autoStart ?? true;
+  const autoStart = props.autoStart ?? false;
 
   const canAddMore = useMemo(() => {
     const max = props.maxFiles ?? (props.multiple ? 20 : 1);
@@ -97,7 +97,7 @@ export function CloudinaryUploadDialog(props: {
     }
   };
 
-  // Auto-start uploads AFTER items are enqueued (prevents "queued 0%" due to stale state).
+  // Auto-start uploads AFTER items are enqueued (optional).
   useEffect(() => {
     if (!autoStart) return;
     if (!open) return;
@@ -244,12 +244,19 @@ export function CloudinaryUploadDialog(props: {
                       </button>
                     </div>
                     {it.previewUrl ? (
-                      <div className="mt-3 rounded-lg overflow-hidden border border-border bg-muted">
+                      <div className="mt-3 rounded-lg overflow-hidden border border-border bg-muted relative">
                         {it.file.type.startsWith("video/") ? (
                           <video src={it.previewUrl} className="h-40 w-full object-cover" muted playsInline controls />
                         ) : (
                           <img src={it.previewUrl} alt={it.file.name} className="h-40 w-full object-cover" />
                         )}
+                        {it.status === "uploading" ? (
+                          <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                            <div className="h-12 w-12 rounded-full bg-black/35 flex items-center justify-center">
+                              <div className="h-8 w-8 border-4 border-white border-t-transparent rounded-full animate-spin" />
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
                     ) : null}
                     <div className="mt-2">
