@@ -134,9 +134,48 @@ const Accommodations = () => {
       <Navbar />
 
       {/* Search Bar */}
-      <div className="bg-background py-8 border-b border-border">
-        <div className="container mx-auto px-4 lg:px-8">
-          <div className="bg-card rounded-xl shadow-card p-4 flex flex-col md:flex-row items-stretch md:items-center gap-4 max-w-3xl mx-auto">
+      <div className="bg-background border-b border-border">
+        <div className="container mx-auto px-4 lg:px-8 py-5 sm:py-8">
+          {/* Mobile: nicer pill */}
+          <div className="sm:hidden">
+            <div className="bg-card rounded-full shadow-search border border-border px-4 py-3 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center shrink-0">
+                <Search className="w-4 h-4 text-muted-foreground" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[11px] font-semibold text-muted-foreground">{t("nav.accommodations")}</div>
+                <input
+                  type="text"
+                  placeholder={t("common.search")}
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") runSearch();
+                  }}
+                  className="w-full bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none text-sm"
+                />
+              </div>
+              {query.trim() ? (
+                <button
+                  type="button"
+                  className="text-xs px-3 py-2 rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+                  onClick={() => setQuery("")}
+                >
+                  Clear
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="text-xs px-4 py-2 rounded-full bg-primary text-primary-foreground font-semibold"
+                onClick={runSearch}
+              >
+                Search
+              </button>
+            </div>
+          </div>
+
+          {/* Desktop/tablet: existing layout */}
+          <div className="hidden sm:flex bg-card rounded-xl shadow-card p-4 flex-col md:flex-row items-stretch md:items-center gap-4 max-w-3xl mx-auto">
             <div className="flex-1">
               <label className="block text-xs text-muted-foreground mb-1">{t("nav.accommodations")}</label>
               <input
@@ -144,6 +183,9 @@ const Accommodations = () => {
                 placeholder={t("common.search")}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") runSearch();
+                }}
                 className="w-full bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none text-sm"
               />
             </div>
