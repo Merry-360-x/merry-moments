@@ -38,6 +38,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatMoney } from "@/lib/money";
 
 interface Property {
@@ -898,192 +899,180 @@ const HostDashboard = () => {
                     Add Property
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>{editingProperty ? "Edit Property" : "Add New Property"}</DialogTitle>
                   </DialogHeader>
                   <form onSubmit={handleSubmitProperty} className="space-y-4">
-                <div>
-                  <Label>Title</Label>
-                  <Input
-                    value={formData.title}
-                    onChange={(e) =>
-                      setFormData({ ...formData, title: e.target.value })
-                    }
-                    placeholder="Lakeside Luxury Suite"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label>Location</Label>
-                  <Input
-                    value={formData.location}
-                    onChange={(e) =>
-                      setFormData({ ...formData, location: e.target.value })
-                    }
-                    placeholder="Kigali, Rwanda"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label>Description</Label>
-                  <Textarea
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: e.target.value })
-                    }
-                    placeholder="Describe your property..."
-                    rows={3}
-                  />
-                </div>
+                    <Tabs defaultValue="basic" className="w-full">
+                      <TabsList className="w-full justify-start flex-wrap">
+                        <TabsTrigger value="basic">Basic</TabsTrigger>
+                        <TabsTrigger value="media">Media</TabsTrigger>
+                        <TabsTrigger value="pricing">Pricing</TabsTrigger>
+                        <TabsTrigger value="capacity">Capacity</TabsTrigger>
+                        <TabsTrigger value="policies">Policies</TabsTrigger>
+                      </TabsList>
 
-                <div>
-                  <Label>Media (images/videos)</Label>
-                  <div className="mt-2 space-y-3">
-                    <CloudinaryUploadDialog
-                      title="Upload property images"
-                      folder="merry360/properties"
-                      accept="image/*,video/*"
-                      multiple
-                      maxFiles={16}
-                      buttonLabel="Upload property media"
-                      value={formData.images ?? []}
-                      onChange={(urls) => setFormData((p) => ({ ...p, images: urls }))}
-                    />
-                    <p className="text-sm text-muted-foreground">Optional. Add images/videos. First item is used as the cover.</p>
-                    <MediaReorderGrid value={formData.images ?? []} onChange={(next) => setFormData((p) => ({ ...p, images: next }))} />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Property Type</Label>
-                    <select
-                      value={formData.property_type}
-                      onChange={(e) =>
-                        setFormData({ ...formData, property_type: e.target.value })
-                      }
-                      className="w-full mt-1 h-10 px-3 rounded-md border border-input bg-background"
-                    >
-                      <option>Hotel</option>
-                      <option>Villa</option>
-                      <option>Lodge</option>
-                      <option>Guesthouse</option>
-                      <option>Apartment</option>
-                      <option>Resort</option>
-                    </select>
-                  </div>
-                  <div>
-                    <Label>Currency</Label>
-                    <select
-                      value={formData.currency}
-                      onChange={(e) => setFormData((p) => ({ ...p, currency: e.target.value }))}
-                      className="w-full mt-1 h-10 px-3 rounded-md border border-input bg-background"
-                    >
-                      <option>RWF</option>
-                      <option>USD</option>
-                      <option>EUR</option>
-                      <option>GBP</option>
-                      <option>CNY</option>
-                    </select>
-                  </div>
-                </div>
+                      <TabsContent value="basic" className="mt-4 space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label>Title</Label>
+                            <Input
+                              value={formData.title}
+                              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                              placeholder="Lakeside Luxury Suite"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <Label>Location</Label>
+                            <Input
+                              value={formData.location}
+                              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                              placeholder="Kigali, Rwanda"
+                              required
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label>Description</Label>
+                          <Textarea
+                            value={formData.description}
+                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                            placeholder="Describe your property..."
+                            rows={4}
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label>Property Type</Label>
+                            <select
+                              value={formData.property_type}
+                              onChange={(e) => setFormData({ ...formData, property_type: e.target.value })}
+                              className="w-full mt-1 h-10 px-3 rounded-md border border-input bg-background"
+                            >
+                              <option>Hotel</option>
+                              <option>Villa</option>
+                              <option>Lodge</option>
+                              <option>Guesthouse</option>
+                              <option>Apartment</option>
+                              <option>Resort</option>
+                            </select>
+                          </div>
+                        </div>
+                      </TabsContent>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Price per Night</Label>
-                    <Input
-                      type="number"
-                      value={formData.price_per_night}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          price_per_night: Number(e.target.value),
-                        })
-                      }
-                      min={1000}
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Label>Max Guests</Label>
-                    <Input
-                      type="number"
-                      value={formData.max_guests}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          max_guests: Number(e.target.value),
-                        })
-                      }
-                      min={1}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label>Bedrooms</Label>
-                    <Input
-                      type="number"
-                      value={formData.bedrooms}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          bedrooms: Number(e.target.value),
-                        })
-                      }
-                      min={0}
-                    />
-                  </div>
-                  <div>
-                    <Label>Bathrooms</Label>
-                    <Input
-                      type="number"
-                      value={formData.bathrooms}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          bathrooms: Number(e.target.value),
-                        })
-                      }
-                      min={0}
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Beds</Label>
-                    <Input
-                      type="number"
-                      value={formData.beds}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          beds: Number(e.target.value),
-                        })
-                      }
-                      min={0}
-                    />
-                  </div>
-                  <div>
-                    <Label>Cancellation policy</Label>
-                    <select
-                      value={formData.cancellation_policy}
-                      onChange={(e) =>
-                        setFormData({ ...formData, cancellation_policy: e.target.value })
-                      }
-                      className="w-full mt-1 h-10 px-3 rounded-md border border-input bg-background"
-                    >
-                      <option value="fair">Fair</option>
-                      <option value="strict">Strict</option>
-                      <option value="lenient">Lenient</option>
-                    </select>
-                  </div>
-                </div>
-                {/* Lat/Lng are stored in DB (for Nearby search) but hidden from the host UI as requested */}
-                <Button type="submit" className="w-full">
-                  {editingProperty ? "Update Property" : "Create Property"}
-                </Button>
+                      <TabsContent value="media" className="mt-4 space-y-3">
+                        <Label>Media (images/videos)</Label>
+                        <CloudinaryUploadDialog
+                          title="Upload property media"
+                          folder="merry360/properties"
+                          accept="image/*,video/*"
+                          multiple
+                          maxFiles={16}
+                          buttonLabel="Upload media"
+                          value={formData.images ?? []}
+                          onChange={(urls) => setFormData((p) => ({ ...p, images: urls }))}
+                        />
+                        <p className="text-sm text-muted-foreground">
+                          Tip: the <span className="font-medium">first</span> item is used as the cover photo.
+                        </p>
+                        <MediaReorderGrid
+                          value={formData.images ?? []}
+                          onChange={(next) => setFormData((p) => ({ ...p, images: next }))}
+                        />
+                      </TabsContent>
+
+                      <TabsContent value="pricing" className="mt-4 space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label>Currency</Label>
+                            <select
+                              value={formData.currency}
+                              onChange={(e) => setFormData((p) => ({ ...p, currency: e.target.value }))}
+                              className="w-full mt-1 h-10 px-3 rounded-md border border-input bg-background"
+                            >
+                              <option>RWF</option>
+                              <option>USD</option>
+                              <option>EUR</option>
+                              <option>GBP</option>
+                              <option>CNY</option>
+                            </select>
+                          </div>
+                          <div>
+                            <Label>Price per Night</Label>
+                            <Input
+                              type="number"
+                              value={formData.price_per_night}
+                              onChange={(e) => setFormData({ ...formData, price_per_night: Number(e.target.value) })}
+                              min={0}
+                              required
+                            />
+                          </div>
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="capacity" className="mt-4 space-y-4">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div>
+                            <Label>Max Guests</Label>
+                            <Input
+                              type="number"
+                              value={formData.max_guests}
+                              onChange={(e) => setFormData({ ...formData, max_guests: Number(e.target.value) })}
+                              min={1}
+                              required
+                            />
+                          </div>
+                          <div>
+                            <Label>Bedrooms</Label>
+                            <Input
+                              type="number"
+                              value={formData.bedrooms}
+                              onChange={(e) => setFormData({ ...formData, bedrooms: Number(e.target.value) })}
+                              min={0}
+                            />
+                          </div>
+                          <div>
+                            <Label>Beds</Label>
+                            <Input
+                              type="number"
+                              value={formData.beds}
+                              onChange={(e) => setFormData({ ...formData, beds: Number(e.target.value) })}
+                              min={0}
+                            />
+                          </div>
+                          <div>
+                            <Label>Bathrooms</Label>
+                            <Input
+                              type="number"
+                              value={formData.bathrooms}
+                              onChange={(e) => setFormData({ ...formData, bathrooms: Number(e.target.value) })}
+                              min={0}
+                            />
+                          </div>
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="policies" className="mt-4 space-y-4">
+                        <div>
+                          <Label>Cancellation policy</Label>
+                          <select
+                            value={formData.cancellation_policy}
+                            onChange={(e) => setFormData({ ...formData, cancellation_policy: e.target.value })}
+                            className="w-full mt-1 h-10 px-3 rounded-md border border-input bg-background"
+                          >
+                            <option value="fair">Fair</option>
+                            <option value="strict">Strict</option>
+                            <option value="lenient">Lenient</option>
+                          </select>
+                        </div>
+                      </TabsContent>
+                    </Tabs>
+
+                    <Button type="submit" className="w-full">
+                      {editingProperty ? "Update Property" : "Create Property"}
+                    </Button>
                   </form>
                 </DialogContent>
               </Dialog>

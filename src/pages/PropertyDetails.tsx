@@ -11,10 +11,12 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useFavorites } from "@/hooks/useFavorites";
-import { Heart } from "lucide-react";
+import { ChevronLeft, ChevronRight, Heart } from "lucide-react";
 import { amenityByValue } from "@/lib/amenities";
 import PropertyCard from "@/components/PropertyCard";
 import { formatMoney } from "@/lib/money";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { isVideoUrl } from "@/lib/media";
 
 type PropertyRow = {
   id: string;
@@ -68,6 +70,8 @@ export default function PropertyDetails() {
   const [booking, setBooking] = useState(false);
   const [isFavorited, setIsFavorited] = useState(false);
   const [usePoints, setUsePoints] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerIdx, setViewerIdx] = useState(0);
 
   const { data: myPoints = 0 } = useQuery({
     queryKey: ["loyalty_points", user?.id],
@@ -187,6 +191,13 @@ export default function PropertyDetails() {
     const n = Math.ceil(ms / (1000 * 60 * 60 * 24));
     return Number.isFinite(n) && n > 0 ? n : 0;
   }, [checkIn, checkOut]);
+
+  const media = useMemo(() => (data?.images ?? []).filter(Boolean), [data?.images]);
+
+  const openViewer = (idx: number) => {
+    setViewerIdx(Math.max(0, Math.min(idx, Math.max(0, media.length - 1))));
+    setViewerOpen(true);
+  };
 
   const estimatedTotal = useMemo(() => {
     if (!data) return 0;
@@ -388,30 +399,121 @@ export default function PropertyDetails() {
             {/* Gallery + content */}
             <div className="lg:col-span-7 space-y-6">
             <div className="bg-card rounded-xl shadow-card overflow-hidden">
-              {data.images?.[0] ? (
-                <img
-                  src={data.images[0]}
-                  alt={data.title}
-                  className="w-full h-[320px] object-cover"
-                  loading="lazy"
-                />
+              {media[0] ? (
+                <button type="button" className="w-full" onClick={() => openViewer(0)} aria-label="Open gallery">
+                  {isVideoUrl(media[0]) ? (
+                    <video
+                      src={media[0]}
+                      className="w-full h-[320px] object-cover"
+                      muted
+                      playsInline
+                      preload="metadata"
+                    />
+                  ) : (
+                    <img
+                      src={media[0]}
+                      alt={data.title}
+                      className="w-full h-[320px] object-cover"
+                      loading="lazy"
+                    />
+                  )}
+                </button>
               ) : (
                 <div className="w-full h-[320px] bg-gradient-to-br from-muted via-muted/70 to-muted/40" />
               )}
-              {data.images && data.images.length > 1 ? (
+              {media.length > 1 ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3">
-                  {data.images.map((src) => (
-                    <img
-                      key={src}
-                      src={src}
-                      alt={data.title}
-                      className="h-28 w-full object-cover rounded-lg"
-                      loading="lazy"
-                    />
+                  {media.map((src, idx) => (
+                    <button
+                      key={`${src}-${idx}`}
+                      type="button"
+                      className="rounded-lg overflow-hidden"
+                      onClick={() => openViewer(idx)}
+                      aria-label="Open gallery item"
+                    >
+                      {isVideoUrl(src) ? (
+                        <video src={src} className="h-28 w-full object-cover" muted playsInline preload="metadata" />
+                      ) : (
+                        <img src={src} alt={data.title} className="h-28 w-full object-cover" loading="lazy" />
+                      )}
+                    </button>
                   ))}
                 </div>
               ) : null}
             </div>
+
+            <Dialog open={viewerOpen} onOpenChange={setViewerOpen}>
+              <DialogContent className="p-0 w-[92vw] max-w-6xl overflow-hidden">
+                <div className="bg-black relative">
+                  {media.length ? (
+                    isVideoUrl(media[viewerIdx] ?? "") ? (
+                      <video
+                        src={media[viewerIdx]}
+                        className="w-full h-[80vh] object-contain"
+                        controls
+                        playsInline
+                      />
+                    ) : (
+                      <img
+                        src={media[viewerIdx]}
+                        alt={data?.title ?? "Image"}
+                        className="w-full h-[80vh] object-contain"
+                      />
+                    )
+                  ) : null}
+
+                  {media.length > 1 ? (
+                    <>
+                      <button
+                        type="button"
+                        className="absolute left-3 top-1/2 -translate-y-1/2 h-11 w-11 rounded-full bg-black/50 text-white flex items-center justify-center"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setViewerIdx((v) => (v - 1 + media.length) % media.length);
+                        }}
+                        aria-label="Previous"
+                      >
+                        <ChevronLeft className="w-6 h-6" />
+                      </button>
+                      <button
+                        type="button"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 h-11 w-11 rounded-full bg-black/50 text-white flex items-center justify-center"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setViewerIdx((v) => (v + 1) % media.length);
+                        }}
+                        aria-label="Next"
+                      >
+                        <ChevronRight className="w-6 h-6" />
+                      </button>
+
+                      <div className="absolute bottom-0 left-0 right-0 bg-black/40 backdrop-blur px-3 py-2 overflow-x-auto">
+                        <div className="flex items-center gap-2">
+                          {media.map((src, idx) => (
+                            <button
+                              key={`${src}-thumb-${idx}`}
+                              type="button"
+                              onClick={() => setViewerIdx(idx)}
+                              className={`h-14 w-20 rounded-md overflow-hidden border ${
+                                idx === viewerIdx ? "border-white" : "border-white/20"
+                              }`}
+                            >
+                              {isVideoUrl(src) ? (
+                                <video src={src} className="h-full w-full object-cover" muted playsInline preload="metadata" />
+                              ) : (
+                                <img src={src} className="h-full w-full object-cover" alt="thumb" loading="lazy" />
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+              </DialogContent>
+            </Dialog>
 
               {data.description ? (
                 <div className="bg-card rounded-xl shadow-card p-5">

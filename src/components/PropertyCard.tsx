@@ -1,12 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
-import { Star, Heart, ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Star, Heart } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 import ListingImageCarousel from "@/components/ListingImageCarousel";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useFavorites } from "@/hooks/useFavorites";
 import { usePreferences } from "@/hooks/usePreferences";
-import { isVideoUrl } from "@/lib/media";
 
 export interface PropertyCardProps {
   id?: string;
@@ -48,8 +46,6 @@ const PropertyCard = ({
   const { currency: preferredCurrency } = usePreferences();
   const { toggleFavorite, checkFavorite } = useFavorites();
   const [fav, setFav] = useState(Boolean(isFavorited));
-  const [viewerOpen, setViewerOpen] = useState(false);
-  const [viewerIdx, setViewerIdx] = useState(0);
 
   const gallery = images?.length ? images : image ? [image] : [];
   const displayCurrency = currency ?? preferredCurrency;
@@ -74,19 +70,7 @@ const PropertyCard = ({
   const content = (
     <div className="group rounded-xl overflow-hidden bg-card shadow-card hover:shadow-lg transition-all duration-300 animate-fade-in">
       {/* Image */}
-      <div
-        className="relative aspect-[4/3] overflow-hidden"
-        onClick={(e) => {
-          // If the card is wrapped in a Link, avoid navigating when opening the viewer.
-          e.preventDefault();
-          e.stopPropagation();
-          if (!gallery.length) return;
-          setViewerIdx(0);
-          setViewerOpen(true);
-        }}
-        role="button"
-        tabIndex={0}
-      >
+      <div className="relative aspect-[4/3] overflow-hidden">
         {gallery.length ? (
           <ListingImageCarousel
             images={gallery}
@@ -148,51 +132,6 @@ const PropertyCard = ({
           <span className="text-sm text-muted-foreground">{t("common.perNight")}</span>
         </div>
       </div>
-
-      {/* Full image viewer */}
-      <Dialog open={viewerOpen} onOpenChange={setViewerOpen}>
-        <DialogContent className="p-0 w-[95vw] max-w-4xl overflow-hidden">
-          <div className="bg-black relative">
-            {gallery.length ? (() => {
-              const src = gallery[Math.min(Math.max(viewerIdx, 0), gallery.length - 1)] ?? "";
-              return isVideoUrl(src) ? (
-                <video src={src} className="w-full h-[75vh] object-contain" controls playsInline />
-              ) : (
-                <img src={src} alt={title} className="w-full h-[75vh] object-contain" />
-              );
-            })() : null}
-
-            {gallery.length > 1 ? (
-              <>
-                <button
-                  type="button"
-                  className="absolute left-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-black/50 text-white flex items-center justify-center"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setViewerIdx((v) => (v - 1 + gallery.length) % gallery.length);
-                  }}
-                  aria-label="Previous image"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-                <button
-                  type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-black/50 text-white flex items-center justify-center"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setViewerIdx((v) => (v + 1) % gallery.length);
-                  }}
-                  aria-label="Next image"
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              </>
-            ) : null}
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 

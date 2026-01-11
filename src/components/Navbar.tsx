@@ -97,37 +97,23 @@ const Navbar = () => {
                   </Link>
                 );
               })}
-
-              {user && isHost ? (
-                <Link
-                  to="/host-dashboard"
-                  className={`px-3 xl:px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                    location.pathname.startsWith("/host-dashboard") || location.pathname === "/host"
-                      ? "bg-primary/10 text-primary border border-primary"
-                      : "text-foreground hover:text-primary"
-                  }`}
-                >
-                  {t("actions.hostDashboard")}
-                </Link>
-              ) : null}
             </div>
           </div>
 
           {/* Right Actions - Desktop */}
           <div className="hidden lg:flex items-center gap-2">
-            {/* Dashboards (compact) */}
-            {user && isHost ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                onClick={() => navigate("/host-dashboard")}
-                type="button"
-              >
-                <LayoutDashboard className="w-4 h-4" />
-                {t("actions.hostDashboard")}
-              </Button>
-            ) : null}
+            {/* Become host / Host dashboard (primary) */}
+            <Button
+              size="sm"
+              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+              onClick={() => navigate(isHost ? "/host-dashboard" : "/become-host")}
+              type="button"
+            >
+              <LayoutDashboard className="w-4 h-4" />
+              {isHost ? t("actions.hostDashboard") : t("actions.becomeHost")}
+            </Button>
+
+            {/* Admin dashboard (side) */}
             {user && isAdmin ? (
               <Button
                 variant="outline"
