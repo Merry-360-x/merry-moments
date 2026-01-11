@@ -80,7 +80,51 @@ const Index = () => {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Mobile: 2.5-column horizontal scroll */}
+        <div className="sm:hidden">
+          {isLoading ? (
+            <div className="py-12 text-center">
+              <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-muted-foreground">{t("common.loadingProperties")}</p>
+            </div>
+          ) : isError ? (
+            <div className="py-12 text-center">
+              <p className="text-muted-foreground">{t("common.couldNotLoadProperties")}</p>
+              {(import.meta.env.DEV || isAdmin || isStaff) && error instanceof Error ? (
+                <p className="mt-2 text-xs text-muted-foreground break-all">{error.message}</p>
+              ) : null}
+            </div>
+          ) : properties.length === 0 ? (
+            <div className="py-12 text-center">
+              <p className="text-muted-foreground">{t("common.noPublishedProperties")}</p>
+            </div>
+          ) : (
+            <div className="grid grid-flow-col auto-cols-[46%] gap-4 overflow-x-auto pb-2 snap-x snap-mandatory">
+              {properties.map((property, index) => (
+                <div
+                  key={property.id}
+                  style={{ animationDelay: `${index * 100}ms` }}
+                  className="opacity-0 animate-fade-in snap-start"
+                >
+                  <PropertyCard
+                    id={property.id}
+                    image={property.images?.[0] ?? null}
+                    title={property.title}
+                    location={property.location}
+                    rating={Number(property.rating) || 0}
+                    reviews={property.review_count || 0}
+                    price={Number(property.price_per_night)}
+                    currency={property.currency}
+                    type={property.property_type}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Desktop/tablet */}
+        <div className="hidden sm:grid grid-cols-2 lg:grid-cols-4 gap-6">
           {isLoading ? (
             <div className="col-span-full py-12 text-center">
               <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />

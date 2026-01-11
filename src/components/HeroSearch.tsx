@@ -1,4 +1,4 @@
-import { Calendar as CalendarIcon, MapPin, Minus, Plus, Search, Users } from "lucide-react";
+import { Calendar as CalendarIcon, MapPin, Minus, Plus, Search, Users, X, Home, Map, ConciergeBell } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -9,6 +9,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import type { DateRange } from "react-day-picker";
 
 type DestinationSuggestion = {
@@ -55,6 +56,12 @@ const HeroSearch = () => {
   const [infants, setInfants] = useState(0);
   const [pets, setPets] = useState(0);
 
+  // Mobile Airbnb-style search modal
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileTab, setMobileTab] = useState<"homes" | "experiences" | "services">("homes");
+  const [mobileDateOpen, setMobileDateOpen] = useState(false);
+  const [mobileGuestsOpen, setMobileGuestsOpen] = useState(false);
+
   const guestsLabel = useMemo(() => {
     const total = adults + children + infants;
     return total <= 1 ? t("heroSearch.oneGuest") : t("heroSearch.guests", { count: total });
@@ -70,10 +77,11 @@ const HeroSearch = () => {
     return `${from} - ${to}`;
   }, [dateRange?.from, dateRange?.to, i18n.language, t]);
 
+  const suggestionsEnabled = openWhere || mobileOpen;
   const { data: suggestions = [], isLoading: suggestionsLoading } = useQuery({
     queryKey: ["destinations", where],
     queryFn: () => fetchDestinationSuggestions(where),
-    enabled: openWhere,
+    enabled: suggestionsEnabled,
   });
 
   const goSearch = () => {
@@ -114,6 +122,294 @@ const HeroSearch = () => {
 
   return (
     <div className="w-full max-w-4xl mx-auto animate-fade-in">
+      {/* Mobile search trigger (Airbnb-style) */}
+      <div className="md:hidden">
+        <button
+          type="button"
+          onClick={() => setMobileOpen(true)}
+          className="w-full bg-background/95 backdrop-blur rounded-full shadow-search border border-border px-4 py-3 flex items-center gap-3"
+        >
+          <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center">
+            <Search className="w-4 h-4 text-muted-foreground" />
+          </div>
+          <div className="flex-1 min-w-0 text-left">
+            <div className="text-sm font-semibold text-foreground truncate">
+              {where.trim() ? where : t("heroSearch.wherePlaceholder")}
+            </div>
+            <div className="text-xs text-muted-foreground truncate">
+              {dateLabel} · {guestsLabel}
+            </div>
+          </div>
+        </button>
+
+        <Dialog open={mobileOpen} onOpenChange={setMobileOpen}>
+          <DialogContent className="p-0 w-[100vw] max-w-[100vw] h-[100vh] max-h-[100vh] rounded-none">
+            <div className="h-full bg-background flex flex-col">
+              {/* Top tabs + close */}
+              <div className="px-4 pt-4 pb-3 border-b border-border relative">
+                <button
+                  type="button"
+                  className="absolute right-4 top-4 h-10 w-10 rounded-full border border-border bg-background shadow-sm flex items-center justify-center"
+                  onClick={() => setMobileOpen(false)}
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                <Tabs value={mobileTab} onValueChange={(v) => setMobileTab(v as typeof mobileTab)}>
+                  <TabsList className="w-full justify-center">
+                    <TabsTrigger value="homes" className="gap-2">
+                      <Home className="w-4 h-4" /> Homes
+                    </TabsTrigger>
+                    <TabsTrigger value="experiences" className="gap-2">
+                      <Map className="w-4 h-4" /> Experiences
+                    </TabsTrigger>
+                    <TabsTrigger value="services" className="gap-2">
+                      <ConciergeBell className="w-4 h-4" /> Services
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+
+              {/* Body */}
+              <div className="flex-1 overflow-y-auto px-4 py-4">
+                <div className="rounded-3xl border border-border bg-card shadow-card p-4">
+                  <div className="text-3xl font-bold text-foreground mb-3">Where?</div>
+
+                  <div className="rounded-2xl border border-border bg-background px-4 py-3 flex items-center gap-3">
+                    <Search className="w-5 h-5 text-muted-foreground" />
+                    <input
+                      value={where}
+                      onChange={(e) => setWhere(e.target.value)}
+                      placeholder="Search destinations"
+                      className="w-full bg-transparent outline-none text-foreground placeholder:text-muted-foreground"
+                    />
+                  </div>
+
+                  <div className="mt-4 text-sm font-semibold text-foreground">Suggested destinations</div>
+                  <div className="mt-2 space-y-2">
+                    {suggestionsLoading ? (
+                      <div className="text-sm text-muted-foreground">{t("common.loading")}</div>
+                    ) : suggestions.length === 0 ? (
+                      <div className="text-sm text-muted-foreground">{t("heroSearch.noDestinations")}</div>
+                    ) : (
+                      suggestions.map((loc) => (
+                        <button
+                          key={loc}
+                          type="button"
+                          onClick={() => setWhere(loc)}
+                          className="w-full flex items-center gap-3 rounded-2xl hover:bg-muted/40 p-2 text-left"
+                        >
+                          <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center">
+                            <MapPin className="w-5 h-5 text-muted-foreground" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-semibold text-foreground truncate">{loc}</div>
+                            <div className="text-xs text-muted-foreground truncate">From published listings</div>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  <button
+                    type="button"
+                    className="w-full rounded-2xl border border-border bg-card p-4 flex items-center justify-between"
+                    onClick={() => setMobileDateOpen(true)}
+                  >
+                    <div className="text-muted-foreground">When</div>
+                    <div className="font-semibold text-foreground">{dateLabel}</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="w-full rounded-2xl border border-border bg-card p-4 flex items-center justify-between"
+                    onClick={() => setMobileGuestsOpen(true)}
+                  >
+                    <div className="text-muted-foreground">Who</div>
+                    <div className="font-semibold text-foreground">{guestsLabel}</div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Bottom actions */}
+              <div className="border-t border-border p-4 flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  className="text-sm text-muted-foreground underline"
+                  onClick={() => {
+                    setWhere("");
+                    setDateRange(undefined);
+                    setDateFlexDays(0);
+                    setAdults(1);
+                    setChildren(0);
+                    setInfants(0);
+                    setPets(0);
+                  }}
+                >
+                  Clear all
+                </button>
+                <Button
+                  type="button"
+                  className="rounded-full px-6"
+                  onClick={() => {
+                    setMobileOpen(false);
+                    goSearch();
+                  }}
+                >
+                  <Search className="w-4 h-4 mr-2" />
+                  Search
+                </Button>
+              </div>
+
+              {/* Mobile date picker */}
+              <Dialog open={mobileDateOpen} onOpenChange={setMobileDateOpen}>
+                <DialogContent className="p-0 w-[100vw] max-w-[100vw] h-[100vh] max-h-[100vh] rounded-none">
+                  <div className="h-full bg-background flex flex-col">
+                    <div className="px-4 pt-4 pb-3 border-b border-border flex items-center justify-between">
+                      <div className="font-semibold text-foreground">When</div>
+                      <button
+                        type="button"
+                        className="h-10 w-10 rounded-full border border-border bg-background shadow-sm flex items-center justify-center"
+                        onClick={() => setMobileDateOpen(false)}
+                        aria-label="Close"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4">
+                      <Calendar
+                        mode="range"
+                        numberOfMonths={1}
+                        selected={dateRange}
+                        onSelect={setDateRange}
+                        initialFocus
+                      />
+                    </div>
+                    <div className="border-t border-border p-4 flex items-center justify-between">
+                      <button
+                        type="button"
+                        className="text-sm text-muted-foreground underline"
+                        onClick={() => {
+                          setDateRange(undefined);
+                          setDateFlexDays(0);
+                        }}
+                      >
+                        Clear dates
+                      </button>
+                      <Button type="button" className="rounded-full" onClick={() => setMobileDateOpen(false)}>
+                        Done
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              {/* Mobile guests picker */}
+              <Dialog open={mobileGuestsOpen} onOpenChange={setMobileGuestsOpen}>
+                <DialogContent className="p-0 w-[100vw] max-w-[100vw] h-[100vh] max-h-[100vh] rounded-none">
+                  <div className="h-full bg-background flex flex-col">
+                    <div className="px-4 pt-4 pb-3 border-b border-border flex items-center justify-between">
+                      <div className="font-semibold text-foreground">Who</div>
+                      <button
+                        type="button"
+                        className="h-10 w-10 rounded-full border border-border bg-background shadow-sm flex items-center justify-center"
+                        onClick={() => setMobileGuestsOpen(false)}
+                        aria-label="Close"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4">
+                      {[
+                        {
+                          key: "adults",
+                          label: t("heroSearch.adults"),
+                          hint: t("heroSearch.ages13Plus"),
+                          value: adults,
+                          set: (v: number) => setAdults(Math.max(1, v)),
+                          min: 1,
+                        },
+                        {
+                          key: "children",
+                          label: t("heroSearch.children"),
+                          hint: t("heroSearch.ages2to12"),
+                          value: children,
+                          set: (v: number) => setChildren(clamp(v)),
+                          min: 0,
+                        },
+                        {
+                          key: "infants",
+                          label: t("heroSearch.infants"),
+                          hint: t("heroSearch.under2"),
+                          value: infants,
+                          set: (v: number) => setInfants(clamp(v)),
+                          min: 0,
+                        },
+                        {
+                          key: "pets",
+                          label: t("heroSearch.pets"),
+                          hint: t("heroSearch.bringingServiceAnimal"),
+                          value: pets,
+                          set: (v: number) => setPets(clamp(v)),
+                          min: 0,
+                        },
+                      ].map((row) => (
+                        <div key={row.key} className="flex items-center justify-between py-4 border-b border-border last:border-b-0">
+                          <div>
+                            <div className="font-semibold text-foreground">{row.label}</div>
+                            <div className="text-xs text-muted-foreground">{row.hint}</div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              className="w-10 h-10 rounded-full border border-border flex items-center justify-center disabled:opacity-40"
+                              onClick={() => row.set(row.value - 1)}
+                              disabled={row.value <= row.min}
+                            >
+                              <Minus className="w-4 h-4" />
+                            </button>
+                            <div className="w-8 text-center font-medium">{row.value}</div>
+                            <button
+                              type="button"
+                              className="w-10 h-10 rounded-full border border-border flex items-center justify-center"
+                              onClick={() => row.set(row.value + 1)}
+                            >
+                              <Plus className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="border-t border-border p-4 flex items-center justify-between">
+                      <button
+                        type="button"
+                        className="text-sm text-muted-foreground underline"
+                        onClick={() => {
+                          setAdults(1);
+                          setChildren(0);
+                          setInfants(0);
+                          setPets(0);
+                        }}
+                      >
+                        Clear guests
+                      </button>
+                      <Button type="button" className="rounded-full" onClick={() => setMobileGuestsOpen(false)}>
+                        Done
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Desktop search bar (existing popovers) */}
+      <div className="hidden md:block">
       <div className="bg-background/95 backdrop-blur rounded-full shadow-search border border-border overflow-hidden">
         <div className="flex flex-col md:flex-row items-stretch">
           {/* Where */}
@@ -483,20 +779,9 @@ const HeroSearch = () => {
           </div>
         </div>
       </div>
-
-      {/* Mobile search button */}
-      <div className="md:hidden mt-4">
-        <Button
-          type="button"
-          className="w-full"
-          onClick={() => {
-            closeAll();
-            goSearch();
-          }}
-        >
-          {t("common.search")}
-        </Button>
       </div>
+
+      {/* Mobile search button removed (replaced by modal) */}
     </div>
   );
 };

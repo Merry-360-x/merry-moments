@@ -252,7 +252,52 @@ const Accommodations = () => {
 
           {/* Properties Grid */}
           <div className="flex-1">
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+            {/* Mobile: 2.5-column horizontal scroll */}
+            <div className="sm:hidden">
+              {isLoading ? (
+                <div className="py-16 text-center">
+                  <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                  <p className="text-muted-foreground">{t("common.loadingProperties")}</p>
+                </div>
+              ) : isError ? (
+                <div className="py-16 text-center">
+                  <p className="text-muted-foreground">{t("common.couldNotLoadProperties")}</p>
+                </div>
+              ) : properties.length === 0 ? (
+                <div className="py-16 text-center">
+                  <p className="text-muted-foreground">{t("accommodations.noMatches")}</p>
+                </div>
+              ) : (
+                <div className="grid grid-flow-col auto-cols-[46%] gap-4 overflow-x-auto pb-2 snap-x snap-mandatory">
+                  {properties.map((property) => (
+                    <div key={property.id} className="snap-start">
+                      <PropertyCard
+                        id={property.id}
+                        image={property.images?.[0] ?? null}
+                        title={property.title}
+                        location={property.location}
+                        rating={Number(property.rating) || 0}
+                        reviews={property.review_count || 0}
+                        price={Number(property.price_per_night)}
+                        currency={property.currency}
+                        type={property.property_type}
+                        isFavorited={favoritesSet.has(property.id)}
+                        onToggleFavorite={async () => {
+                          const isFav = favoritesSet.has(property.id);
+                          const changed = await toggleFavorite(String(property.id), isFav);
+                          if (changed) {
+                            await qc.invalidateQueries({ queryKey: ["favorites", "ids", user?.id] });
+                          }
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Tablet/Desktop */}
+            <div className="hidden sm:grid grid-cols-2 xl:grid-cols-3 gap-6">
               {isLoading ? (
                 <div className="col-span-full py-16 text-center">
                   <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
