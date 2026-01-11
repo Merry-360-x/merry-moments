@@ -60,23 +60,31 @@ const Navbar = () => {
   return (
     <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
       <div className="container mx-auto px-4 lg:px-8">
-        <nav className="flex items-center justify-between h-16 lg:h-20">
-          {/* Logo */}
-          <Link to="/" className="flex items-center shrink-0 -ml-1 pr-2">
+        <nav className="relative flex items-center justify-between h-16 lg:h-20">
+          {/* Mobile: menu on the left */}
+          <button
+            className="lg:hidden p-2 -ml-2"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label="Menu"
+            type="button"
+          >
+            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+
+          {/* Desktop logo (left) */}
+          <Link to="/" className="hidden lg:flex items-center shrink-0 -ml-1 pr-2">
             <Logo className="scale-90 origin-left" />
           </Link>
 
-          {/* Mobile menu button */}
-          <button
-            className="lg:hidden p-2"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          {/* Mobile logo (center) */}
+          <Link
+            to="/"
+            className="lg:hidden absolute left-1/2 -translate-x-1/2 flex items-center"
+            aria-label="Home"
+            onClick={() => setMobileMenuOpen(false)}
           >
-            {mobileMenuOpen ? (
-              <X className="w-6 h-6" />
-            ) : (
-              <Menu className="w-6 h-6" />
-            )}
-          </button>
+            <Logo className="scale-90" />
+          </Link>
 
           {/* Main Navigation - Desktop */}
           <div className="hidden lg:flex items-center gap-1 flex-1 min-w-0 mx-2">
@@ -250,6 +258,9 @@ const Navbar = () => {
               </Link>
             )}
           </div>
+
+          {/* Mobile right spacer (keeps the center logo visually balanced) */}
+          <div className="lg:hidden w-10" aria-hidden="true" />
         </nav>
 
         {/* Mobile Menu (clean + minimal) */}
