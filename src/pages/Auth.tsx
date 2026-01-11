@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import Logo from "@/components/Logo";
 import { Eye, EyeOff } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { logError, uiErrorMessage } from "@/lib/ui-errors";
 
 const GoogleIcon = (props: { className?: string }) => (
   <svg
@@ -86,11 +87,11 @@ const Auth = () => {
         navigate(redirectTo ?? "/");
       }
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : undefined;
+      logError("auth.emailPassword", error);
       toast({
         variant: "destructive",
         title: t("common.error"),
-        description: message || t("common.somethingWentWrong"),
+        description: uiErrorMessage(error, t("common.somethingWentWrong")),
       });
     } finally {
       setIsLoading(false);
@@ -110,11 +111,11 @@ const Auth = () => {
       if (error) throw error;
       // On success, Supabase will redirect the browser.
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : undefined;
+      logError("auth.google", error);
       toast({
         variant: "destructive",
         title: t("common.error"),
-        description: message || t("common.somethingWentWrong"),
+        description: uiErrorMessage(error, t("common.somethingWentWrong")),
       });
       setIsLoading(false);
     }

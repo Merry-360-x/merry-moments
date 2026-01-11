@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatMoney } from "@/lib/money";
+import { logError, uiErrorMessage } from "@/lib/ui-errors";
 
 type HostApplicationStatus = "draft" | "pending" | "approved" | "rejected";
 
@@ -359,10 +360,11 @@ export default function AdminDashboard() {
       toast({ title: "Role added", description: `${role} granted.` });
       await Promise.all([refetchRoles(), refetchUsers()]);
     } catch (e) {
+      logError("admin.addRole", e);
       toast({
         variant: "destructive",
         title: "Could not add role",
-        description: e instanceof Error ? e.message : "Please try again.",
+        description: uiErrorMessage(e, "Please try again."),
       });
     }
   };
@@ -376,10 +378,11 @@ export default function AdminDashboard() {
       toast({ title: "Role removed", description: `${role} removed.` });
       await Promise.all([refetchRoles(), refetchUsers()]);
     } catch (e) {
+      logError("admin.removeRole", e);
       toast({
         variant: "destructive",
         title: "Could not remove role",
-        description: e instanceof Error ? e.message : "Please try again.",
+        description: uiErrorMessage(e, "Please try again."),
       });
     }
   };
@@ -394,10 +397,11 @@ export default function AdminDashboard() {
       if (table === "transport_vehicles") await refetchVehicles();
       if (table === "transport_routes") await refetchRoutes();
     } catch (e) {
+      logError("admin.togglePublished", { table, id, next, e });
       toast({
         variant: "destructive",
         title: "Update failed",
-        description: e instanceof Error ? e.message : "Please try again.",
+        description: uiErrorMessage(e, "Please try again."),
       });
     }
   };
@@ -415,10 +419,11 @@ export default function AdminDashboard() {
       if (table === "transport_routes") await refetchRoutes();
       if (table === "stories") await refetchStories();
     } catch (e) {
+      logError("admin.deleteRow", { table, id, e });
       toast({
         variant: "destructive",
         title: "Delete failed",
-        description: e instanceof Error ? e.message : "Please try again.",
+        description: uiErrorMessage(e, "Please try again."),
       });
     }
   };
@@ -434,10 +439,11 @@ export default function AdminDashboard() {
       toast({ title: "All stories deleted" });
       await refetchStories();
     } catch (e) {
+      logError("admin.deleteAllStories", e);
       toast({
         variant: "destructive",
         title: "Delete all failed",
-        description: e instanceof Error ? e.message : "Please try again.",
+        description: uiErrorMessage(e, "Please try again."),
       });
     } finally {
       setStoryDeletingAll(false);
@@ -471,10 +477,11 @@ export default function AdminDashboard() {
       toast({ title: "Approved", description: "Host role granted." });
       await refetch();
     } catch (e) {
+      logError("admin.approveHostApplication", e);
       toast({
         variant: "destructive",
         title: "Approval failed",
-        description: e instanceof Error ? e.message : "Please try again.",
+        description: uiErrorMessage(e, "Please try again."),
       });
     }
   };
@@ -493,10 +500,11 @@ export default function AdminDashboard() {
       toast({ title: "Rejected" });
       await refetch();
     } catch (e) {
+      logError("admin.rejectHostApplication", e);
       toast({
         variant: "destructive",
         title: "Rejection failed",
-        description: e instanceof Error ? e.message : "Please try again.",
+        description: uiErrorMessage(e, "Please try again."),
       });
     }
   };

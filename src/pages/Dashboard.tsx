@@ -16,6 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
 import { CalendarDays, Camera, Heart, LogOut, Mail, Shield, Star } from "lucide-react";
 import { formatMoney } from "@/lib/money";
+import { logError, uiErrorMessage } from "@/lib/ui-errors";
 
 type ProfileRow = {
   user_id: string;
@@ -206,10 +207,11 @@ export default function Dashboard() {
 
       toast({ title: "Profile updated", description: "Your changes were saved." });
     } catch (e) {
+      logError("profile.update", e);
       toast({
         variant: "destructive",
         title: "Could not update profile",
-        description: e instanceof Error ? e.message : "Please try again.",
+        description: uiErrorMessage(e, "Please try again."),
       });
     } finally {
       setSaving(false);

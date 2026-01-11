@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Switch } from "@/components/ui/switch";
 import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
 import { isVideoUrl } from "@/lib/media";
+import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import {
   Home,
   Calendar,
@@ -254,7 +255,8 @@ const HostDashboard = () => {
         .eq("id", editingProperty.id);
 
       if (error) {
-        toast({ variant: "destructive", title: "Error", description: error.message });
+        logError("host.properties.update", error);
+        toast({ variant: "destructive", title: "Error", description: uiErrorMessage(error, "Please try again.") });
       } else {
         toast({ title: "Success", description: "Property updated successfully." });
         fetchData();
@@ -266,7 +268,8 @@ const HostDashboard = () => {
       });
 
       if (error) {
-        toast({ variant: "destructive", title: "Error", description: error.message });
+        logError("host.properties.insert", error);
+        toast({ variant: "destructive", title: "Error", description: uiErrorMessage(error, "Please try again.") });
       } else {
         toast({ title: "Success", description: "Property created successfully." });
         fetchData();
@@ -339,7 +342,12 @@ const HostDashboard = () => {
     } as const;
     const { error } = await supabase.from("tours").insert(payload);
     if (error) {
-      toast({ variant: "destructive", title: "Could not create tour", description: error.message });
+      logError("host.tours.insert", error);
+      toast({
+        variant: "destructive",
+        title: "Could not create tour",
+        description: uiErrorMessage(error, "Please try again."),
+      });
       return;
     }
     toast({ title: "Tour created", description: "Your tour is now visible on the Tours page." });
@@ -379,7 +387,12 @@ const HostDashboard = () => {
     } as const;
     const { error } = await supabase.from("transport_vehicles").insert(payload);
     if (error) {
-      toast({ variant: "destructive", title: "Could not create vehicle", description: error.message });
+      logError("host.transportVehicles.insert", error);
+      toast({
+        variant: "destructive",
+        title: "Could not create vehicle",
+        description: uiErrorMessage(error, "Please try again."),
+      });
       return;
     }
     toast({ title: "Transport vehicle created", description: "Your vehicle is now visible on the Transport page." });
@@ -403,7 +416,12 @@ const HostDashboard = () => {
     } as const;
     const { error } = await supabase.from("transport_routes").insert(payload);
     if (error) {
-      toast({ variant: "destructive", title: "Could not create route", description: error.message });
+      logError("host.transportRoutes.insert", error);
+      toast({
+        variant: "destructive",
+        title: "Could not create route",
+        description: uiErrorMessage(error, "Please try again."),
+      });
       return;
     }
     toast({ title: "Transport route created", description: "Your route is now visible on the Transport page." });
@@ -418,7 +436,8 @@ const HostDashboard = () => {
       .eq("id", id);
 
     if (error) {
-      toast({ variant: "destructive", title: "Error", description: error.message });
+      logError("host.properties.unpublish", error);
+      toast({ variant: "destructive", title: "Error", description: uiErrorMessage(error, "Please try again.") });
     } else {
       toast({ title: "Success", description: "Property removed from public view." });
       fetchData();
@@ -432,7 +451,8 @@ const HostDashboard = () => {
       .eq("id", property.id);
 
     if (error) {
-      toast({ variant: "destructive", title: "Error", description: error.message });
+      logError("host.properties.togglePublish", error);
+      toast({ variant: "destructive", title: "Error", description: uiErrorMessage(error, "Please try again.") });
     } else {
       toast({
         title: property.is_published ? "Unpublished" : "Published",
@@ -449,7 +469,8 @@ const HostDashboard = () => {
       .eq("id", bookingId);
 
     if (error) {
-      toast({ variant: "destructive", title: "Error", description: error.message });
+      logError("host.bookings.updateStatus", error);
+      toast({ variant: "destructive", title: "Error", description: uiErrorMessage(error, "Please try again.") });
     } else {
       toast({ title: "Success", description: `Booking ${status}.` });
       fetchData();

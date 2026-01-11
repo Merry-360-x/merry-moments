@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { isCloudinaryConfigured } from "@/lib/cloudinary";
 import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
 import { useAuth } from "@/contexts/AuthContext";
+import { logError, uiErrorMessage } from "@/lib/ui-errors";
 
 type CheckResult =
   | { ok: true; title: string; detail?: string }
@@ -63,10 +64,11 @@ export default function AdminIntegrations() {
           detail: data.session ? `Signed in as ${data.session.user.email ?? data.session.user.id}` : "No active session",
         });
       } catch (e) {
+        logError("integrations.session", e);
         next.push({
           ok: false,
           title: "Supabase auth session",
-          detail: e instanceof Error ? e.message : "Unknown error",
+          detail: "Failed",
         });
       }
 
@@ -91,13 +93,14 @@ export default function AdminIntegrations() {
           next.push({
             ok: true,
             title: `Supabase table read: ${tc.label}`,
-            detail: typeof count === "number" ? `${count} row(s) visible to this client (RLS applies)` : "OK",
+            detail: typeof count === "number" ? `${count} row(s) visible` : "OK",
           });
         } catch (e) {
+          logError(`integrations.tableRead.${tc.table}`, e);
           next.push({
             ok: false,
             title: `Supabase table read: ${tc.label}`,
-            detail: e instanceof Error ? e.message : "Unknown error",
+            detail: "Failed",
           });
         }
       }
@@ -130,14 +133,15 @@ export default function AdminIntegrations() {
 
       toast({
         title: "Published",
-        description: "All tours/transport content was set to published (where permitted by RLS).",
+        description: "All tours/transport content was set to published.",
       });
       await runChecks();
     } catch (e) {
+      logError("integrations.publishAll", e);
       toast({
         variant: "destructive",
         title: "Publish failed",
-        description: e instanceof Error ? e.message : "Check RLS policies and roles.",
+        description: uiErrorMessage(e, "Please try again."),
       });
     } finally {
       setPublishing(false);
@@ -153,7 +157,7 @@ export default function AdminIntegrations() {
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Integrations</h1>
             <p className="text-muted-foreground">
-              Live connectivity checks for Supabase + Cloudinary (useful to debug env vars, RLS, and uploads).
+              Live connectivity checks for Supabase + Cloudinary (useful to verify env vars and uploads).
             </p>
           </div>
           <Button onClick={runChecks} disabled={running}>

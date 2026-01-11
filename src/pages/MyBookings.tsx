@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { formatMoney } from "@/lib/money";
+import { logError, uiErrorMessage } from "@/lib/ui-errors";
 
 interface Booking {
   id: string;
@@ -87,7 +88,12 @@ const MyBookings = () => {
       .eq("guest_id", user!.id);
 
     if (error) {
-      toast({ variant: "destructive", title: t("common.error"), description: error.message });
+      logError("bookings.cancel", error);
+      toast({
+        variant: "destructive",
+        title: t("common.error"),
+        description: uiErrorMessage(error, t("common.somethingWentWrong")),
+      });
     } else {
       toast({ title: t("bookings.toast.cancelled") });
       fetchBookings();
@@ -127,10 +133,11 @@ const MyBookings = () => {
       setReviewOpen(false);
       await fetchBookings();
     } catch (e) {
+      logError("propertyReviews.insert", e);
       toast({
         variant: "destructive",
         title: "Could not submit review",
-        description: e instanceof Error ? e.message : "Please try again.",
+        description: uiErrorMessage(e, "Please try again."),
       });
     } finally {
       setSubmittingReview(false);

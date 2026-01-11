@@ -17,6 +17,7 @@ import PropertyCard from "@/components/PropertyCard";
 import { formatMoney } from "@/lib/money";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { isVideoUrl } from "@/lib/media";
+import { logError, uiErrorMessage } from "@/lib/ui-errors";
 
 type PropertyRow = {
   id: string;
@@ -266,10 +267,11 @@ export default function PropertyDetails() {
       toast({ title: "Booking requested", description: "Your booking is pending confirmation." });
       navigate("/my-bookings");
     } catch (e) {
+        logError("bookings.insert", e);
       toast({
         variant: "destructive",
         title: "Could not book",
-        description: e instanceof Error ? e.message : "Please try again.",
+          description: uiErrorMessage(e, "Please try again."),
       });
     } finally {
       setBooking(false);
@@ -293,10 +295,11 @@ export default function PropertyDetails() {
       toast({ title: "Added to Trip Cart", description: "Accommodation added to your cart." });
       await qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
     } catch (e) {
+        logError("tripCart.addProperty", e);
       toast({
         variant: "destructive",
         title: "Could not add to Trip Cart",
-        description: e instanceof Error ? e.message : "Please try again.",
+          description: uiErrorMessage(e, "Please try again."),
       });
     }
   };

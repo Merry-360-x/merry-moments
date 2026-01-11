@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
 import { useMemo, useState } from "react";
+import { logError, uiErrorMessage } from "@/lib/ui-errors";
 
 const Stories = () => {
   const { user, isLoading: authLoading } = useAuth();
@@ -104,20 +105,12 @@ const Stories = () => {
       reset();
       await qc.invalidateQueries({ queryKey: ["stories"] });
     } catch (e) {
-      const msg =
-        e instanceof Error
-          ? e.message
-          : typeof e === "object" && e && "message" in e && typeof (e as any).message === "string"
-          ? String((e as any).message)
-          : "Please try again.";
+      logError("stories.insert", e);
       toast({
         variant: "destructive",
         title: "Could not post story",
-        description: msg,
+        description: uiErrorMessage(e, "Please try again."),
       });
-      // Helpful for debugging RLS/schema issues in production without exposing too much UI noise.
-      // eslint-disable-next-line no-console
-      console.error("Story insert failed:", e);
     } finally {
       setSaving(false);
     }

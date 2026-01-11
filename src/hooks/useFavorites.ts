@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "react-i18next";
+import { logError, uiErrorMessage } from "@/lib/ui-errors";
 
 export const useFavorites = () => {
   const { user } = useAuth();
@@ -26,7 +27,12 @@ export const useFavorites = () => {
         .eq("property_id", propertyId);
 
       if (error) {
-        toast({ variant: "destructive", title: t("common.error"), description: error.message });
+        logError("favorites.delete", error);
+        toast({
+          variant: "destructive",
+          title: t("common.error"),
+          description: uiErrorMessage(error, t("common.somethingWentWrong")),
+        });
         return false;
       }
 
@@ -38,7 +44,12 @@ export const useFavorites = () => {
         .insert({ user_id: user.id, property_id: propertyId });
 
       if (error) {
-        toast({ variant: "destructive", title: t("common.error"), description: error.message });
+        logError("favorites.insert", error);
+        toast({
+          variant: "destructive",
+          title: t("common.error"),
+          description: uiErrorMessage(error, t("common.somethingWentWrong")),
+        });
         return false;
       }
 

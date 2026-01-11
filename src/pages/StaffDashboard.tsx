@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatMoney } from "@/lib/money";
+import { logError, uiErrorMessage } from "@/lib/ui-errors";
 
 type HostApplicationStatus = "draft" | "pending" | "approved" | "rejected";
 
@@ -265,10 +266,11 @@ export default function StaffDashboard() {
       if (table === "transport_vehicles") await refetchVehicles();
       if (table === "transport_routes") await refetchRoutes();
     } catch (e) {
+      logError("staff.togglePublished", { table, id, next, e });
       toast({
         variant: "destructive",
         title: "Update failed",
-        description: e instanceof Error ? e.message : "Please try again.",
+        description: uiErrorMessage(e, "Please try again."),
       });
     }
   };
@@ -285,10 +287,11 @@ export default function StaffDashboard() {
       if (table === "transport_routes") await refetchRoutes();
       if (table === "stories") await refetchStories();
     } catch (e) {
+      logError("staff.deleteRow", { table, id, e });
       toast({
         variant: "destructive",
         title: "Delete failed",
-        description: e instanceof Error ? e.message : "Please try again.",
+        description: uiErrorMessage(e, "Please try again."),
       });
     }
   };
@@ -349,10 +352,11 @@ export default function StaffDashboard() {
       toast({ title: "Approved", description: "Host role granted." });
       await refetch();
     } catch (e) {
+      logError("staff.approveHostApplication", e);
       toast({
         variant: "destructive",
         title: "Approval failed",
-        description: e instanceof Error ? e.message : "Please try again.",
+        description: uiErrorMessage(e, "Please try again."),
       });
     }
   };
@@ -371,10 +375,11 @@ export default function StaffDashboard() {
       toast({ title: "Rejected" });
       await refetch();
     } catch (e) {
+      logError("staff.rejectHostApplication", e);
       toast({
         variant: "destructive",
         title: "Rejection failed",
-        description: e instanceof Error ? e.message : "Please try again.",
+        description: uiErrorMessage(e, "Please try again."),
       });
     }
   };

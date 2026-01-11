@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
+import { logError, uiErrorMessage } from "@/lib/ui-errors";
 
 type AppRole = "guest" | "host" | "staff" | "admin";
 
@@ -97,10 +98,11 @@ export default function AdminRoles() {
       toast({ title: "Role assigned", description: `${role} added.` });
       await refetchRoles();
     } catch (e) {
+      logError("adminRoles.assignRole", e);
       toast({
         variant: "destructive",
         title: "Couldn’t assign role",
-        description: e instanceof Error ? e.message : "Please try again.",
+        description: uiErrorMessage(e, "Please try again."),
       });
     }
   };
@@ -125,10 +127,11 @@ export default function AdminRoles() {
       toast({ title: "Role removed", description: `${role} removed.` });
       await refetchRoles();
     } catch (e) {
+      logError("adminRoles.removeRole", e);
       toast({
         variant: "destructive",
         title: "Couldn’t remove role",
-        description: e instanceof Error ? e.message : "Please try again.",
+        description: uiErrorMessage(e, "Please try again."),
       });
     }
   };

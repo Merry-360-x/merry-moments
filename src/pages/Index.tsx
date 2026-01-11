@@ -93,9 +93,7 @@ const Index = () => {
           ) : isError ? (
             <div className="py-12 text-center">
               <p className="text-muted-foreground">{t("common.couldNotLoadProperties")}</p>
-              {(import.meta.env.DEV || isAdmin || isStaff) && error instanceof Error ? (
-                <p className="mt-2 text-xs text-muted-foreground break-all">{error.message}</p>
-              ) : null}
+              {/* Do not surface DB/implementation errors to users */}
             </div>
           ) : properties.length === 0 ? (
             <div className="py-12 text-center">
@@ -140,9 +138,7 @@ const Index = () => {
           ) : isError ? (
             <div className="py-12 text-center">
               <p className="text-muted-foreground">{t("common.couldNotLoadProperties")}</p>
-              {(import.meta.env.DEV || isAdmin || isStaff) && error instanceof Error ? (
-                <p className="mt-2 text-xs text-muted-foreground break-all">{error.message}</p>
-              ) : null}
+              {/* Do not surface DB/implementation errors to users */}
             </div>
           ) : properties.length === 0 ? (
             <div className="py-12 text-center">

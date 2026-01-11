@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { Tables } from "@/integrations/supabase/types";
 import { usePreferences } from "@/hooks/usePreferences";
 import { formatMoney } from "@/lib/money";
+import { logError, uiErrorMessage } from "@/lib/ui-errors";
 
 type CartItemRow = Pick<Tables<"trip_cart_items">, "id" | "item_type" | "reference_id" | "quantity" | "created_at">;
 
@@ -221,7 +222,12 @@ export default function TripCart() {
     if (!user) return;
     const { error } = await supabase.from("trip_cart_items").delete().eq("id", id).eq("user_id", user.id);
     if (error) {
-      toast({ variant: "destructive", title: "Could not remove item", description: error.message });
+      logError("tripCart.removeItem", error);
+      toast({
+        variant: "destructive",
+        title: "Could not remove item",
+        description: uiErrorMessage(error, "Please try again."),
+      });
       return;
     }
     toast({ title: "Removed", description: "Item removed from your Trip Cart." });
@@ -232,7 +238,12 @@ export default function TripCart() {
     if (!user) return;
     const { error } = await supabase.from("trip_cart_items").delete().eq("user_id", user.id);
     if (error) {
-      toast({ variant: "destructive", title: "Could not clear cart", description: error.message });
+      logError("tripCart.clearCart", error);
+      toast({
+        variant: "destructive",
+        title: "Could not clear cart",
+        description: uiErrorMessage(error, "Please try again."),
+      });
       return;
     }
     toast({ title: "Trip Cart cleared" });

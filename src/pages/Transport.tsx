@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import type { Tables } from "@/integrations/supabase/types";
 import ListingImageCarousel from "@/components/ListingImageCarousel";
 import { formatMoney } from "@/lib/money";
+import { logError, uiErrorMessage } from "@/lib/ui-errors";
 
 type TransportServiceRow = Pick<Tables<"transport_services">, "id" | "title" | "description" | "slug">;
 type TransportVehicleRow = Pick<
@@ -130,7 +131,12 @@ const Transport = () => {
     });
 
     if (error) {
-      toast({ variant: "destructive", title: "Could not add to Trip Cart", description: error.message });
+      logError("tripCart.addTransport", error);
+      toast({
+        variant: "destructive",
+        title: "Could not add to Trip Cart",
+        description: uiErrorMessage(error, "Please try again."),
+      });
       return;
     }
 

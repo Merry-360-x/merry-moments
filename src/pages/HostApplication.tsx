@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
 import { Building2, UserRound, Briefcase, CheckCircle2, AlertTriangle } from "lucide-react";
+import { logError, uiErrorMessage } from "@/lib/ui-errors";
 
 type HostApplicationStatus = "draft" | "pending" | "approved" | "rejected";
 
@@ -272,10 +273,11 @@ export default function HostApplication() {
       setStep("type");
       await refreshRoles();
     } catch (e) {
+      logError("hostApplication.submit", e);
       toast({
         variant: "destructive",
         title: "Couldn’t submit application",
-        description: e instanceof Error ? e.message : "Please try again.",
+        description: uiErrorMessage(e, "Please try again."),
       });
     }
   };

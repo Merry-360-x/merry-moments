@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import type { Tables } from "@/integrations/supabase/types";
 import ListingImageCarousel from "@/components/ListingImageCarousel";
 import { formatMoney } from "@/lib/money";
+import { logError, uiErrorMessage } from "@/lib/ui-errors";
 
 const categories = ["All", "Nature", "Adventure", "Cultural", "Wildlife", "Historical"];
 
@@ -133,7 +134,12 @@ const Tours = () => {
     });
 
     if (error) {
-      toast({ variant: "destructive", title: "Could not add to Trip Cart", description: error.message });
+      logError("tripCart.addTour", error);
+      toast({
+        variant: "destructive",
+        title: "Could not add to Trip Cart",
+        description: uiErrorMessage(error, "Please try again."),
+      });
       return;
     }
 
