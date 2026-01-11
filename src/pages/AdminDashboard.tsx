@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Card } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 type HostApplicationStatus = "draft" | "pending" | "approved" | "rejected";
 
@@ -94,6 +95,41 @@ type StoryRow = {
   created_at: string;
 };
 
+type BookingRow = {
+  id: string;
+  status: string;
+  total_price: number;
+  currency: string;
+  created_at: string;
+};
+
+type OrderRow = {
+  id: string;
+  item_type: string;
+  quantity: number;
+  created_at: string;
+};
+
+type Metrics = {
+  users_total: number;
+  stories_total: number;
+  properties_total: number;
+  properties_published: number;
+  tours_total: number;
+  tours_published: number;
+  transport_services_total: number;
+  transport_vehicles_total: number;
+  transport_vehicles_published: number;
+  transport_routes_total: number;
+  transport_routes_published: number;
+  bookings_total: number;
+  bookings_pending: number;
+  bookings_paid: number;
+  orders_total: number;
+  revenue_gross: number;
+  revenue_by_currency: Array<{ currency: string; amount: number }>;
+};
+
 const fetchApplications = async () => {
   const { data, error } = await supabase
     .from("host_applications")
@@ -108,12 +144,13 @@ const fetchApplications = async () => {
 
 export default function AdminDashboard() {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [tab, setTab] = useState<
     "applications" | "users" | "accommodations" | "tours" | "transport" | "stories"
   >("applications");
   const [userSearch, setUserSearch] = useState("");
   const [storyDeletingAll, setStoryDeletingAll] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const {
     data: applications = [],
@@ -229,6 +266,78 @@ export default function AdminDashboard() {
     enabled: tab === "stories",
   });
 
+  const { data: metrics, refetch: refetchMetrics } = useQuery({
+    queryKey: ["admin_dashboard_metrics"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("admin_dashboard_metrics");
+      if (error) throw error;
+      return data as unknown as Metrics;
+    },
+  });
+
+  const { data: recentBookings = [] } = useQuery({
+    queryKey: ["admin-recent-bookings"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("bookings")
+        .select("id, status, total_price, currency, created_at")
+        .order("created_at", { ascending: false })
+        .limit(8);
+      if (error) throw error;
+      return (data ?? []) as BookingRow[];
+    },
+  });
+
+  const { data: recentOrders = [] } = useQuery({
+    queryKey: ["admin-recent-orders"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("trip_cart_items")
+        .select("id, item_type, quantity, created_at")
+        .order("created_at", { ascending: false })
+        .limit(8);
+      if (error) throw error;
+      return (data ?? []) as OrderRow[];
+    },
+  });
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("admin-dashboard-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "bookings" }, async () => {
+        await refetchMetrics();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "trip_cart_items" }, async () => {
+        await refetchMetrics();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "properties" }, async () => {
+        await refetchMetrics();
+        if (tab === "accommodations") await refetchProperties();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "tours" }, async () => {
+        await refetchMetrics();
+        if (tab === "tours") await refetchTours();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "transport_vehicles" }, async () => {
+        await refetchMetrics();
+        if (tab === "transport") await refetchVehicles();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "transport_routes" }, async () => {
+        await refetchMetrics();
+        if (tab === "transport") await refetchRoutes();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "stories" }, async () => {
+        await refetchMetrics();
+        if (tab === "stories") await refetchStories();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
   const counts = useMemo(() => {
     const pending = applications.filter((a) => a.status === "pending").length;
     const approved = applications.filter((a) => a.status === "approved").length;
@@ -334,6 +443,13 @@ export default function AdminDashboard() {
     }
   };
 
+  const revenueLabel = useMemo(() => {
+    const list = metrics?.revenue_by_currency ?? [];
+    if (!list.length) return "—";
+    if (list.length === 1) return `${list[0].currency} ${Number(list[0].amount).toLocaleString()}`;
+    return `${list[0].currency} ${Number(list[0].amount).toLocaleString()} (+${list.length - 1} more)`;
+  }, [metrics?.revenue_by_currency]);
+
   const approve = async (app: HostApplicationRow) => {
     try {
       const note = window.prompt("Approval note (optional):") ?? null;
@@ -389,22 +505,134 @@ export default function AdminDashboard() {
       <Navbar />
 
       <div className="container mx-auto px-4 lg:px-8 py-10">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Admin Dashboard</h1>
             <p className="text-muted-foreground">Full management console: users, accommodations, tours, transport, stories</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" asChild>
               <Link to="/admin/roles">Manage Roles</Link>
             </Button>
             <Button variant="outline" asChild>
               <Link to="/admin/integrations">Integrations</Link>
             </Button>
-            <Button variant="outline" onClick={() => refetch()}>
-              Refresh
+            <Button
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+              onClick={async () => {
+                setRefreshing(true);
+                try {
+                  await Promise.all([
+                    refetchMetrics(),
+                    refetch(),
+                    refetchRoles(),
+                    tab === "users" ? refetchUsers() : Promise.resolve(),
+                    tab === "accommodations" ? refetchProperties() : Promise.resolve(),
+                    tab === "tours" ? refetchTours() : Promise.resolve(),
+                    tab === "transport" ? Promise.all([refetchVehicles(), refetchRoutes()]) : Promise.resolve(),
+                    tab === "stories" ? refetchStories() : Promise.resolve(),
+                  ]);
+                  toast({ title: "Refreshed" });
+                } finally {
+                  setRefreshing(false);
+                }
+              }}
+              disabled={refreshing}
+            >
+              {refreshing ? "Refreshing…" : "Refresh data"}
             </Button>
           </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
+          <Card className="p-5 border-primary/20">
+            <div className="text-sm text-muted-foreground">Revenue (gross)</div>
+            <div className="text-2xl font-bold text-foreground mt-1">{revenueLabel}</div>
+            <div className="text-xs text-muted-foreground mt-2">
+              From bookings where status ≠ cancelled
+            </div>
+          </Card>
+          <Card className="p-5">
+            <div className="text-sm text-muted-foreground">Bookings</div>
+            <div className="text-2xl font-bold text-foreground mt-1">{metrics?.bookings_total ?? 0}</div>
+            <div className="text-xs text-muted-foreground mt-2">
+              Pending: {metrics?.bookings_pending ?? 0} · Paid: {metrics?.bookings_paid ?? 0}
+            </div>
+          </Card>
+          <Card className="p-5">
+            <div className="text-sm text-muted-foreground">Orders</div>
+            <div className="text-2xl font-bold text-foreground mt-1">{metrics?.orders_total ?? 0}</div>
+            <div className="text-xs text-muted-foreground mt-2">Trip cart items</div>
+          </Card>
+          <Card className="p-5">
+            <div className="text-sm text-muted-foreground">Content</div>
+            <div className="text-2xl font-bold text-foreground mt-1">{metrics?.users_total ?? 0} users</div>
+            <div className="text-xs text-muted-foreground mt-2">
+              {metrics?.properties_published ?? 0} published stays · {metrics?.tours_published ?? 0} published tours
+            </div>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold text-foreground">Recent bookings</h2>
+              <Badge variant="outline" className="border-primary/30 text-primary">
+                {metrics?.bookings_total ?? 0} total
+              </Badge>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead className="text-right">Created</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {recentBookings.map((b) => (
+                  <TableRow key={b.id}>
+                    <TableCell className="font-medium">{b.status}</TableCell>
+                    <TableCell>
+                      {b.currency} {Number(b.total_price).toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-right text-muted-foreground">
+                      {new Date(b.created_at).toLocaleDateString()}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold text-foreground">Recent orders</h2>
+              <Badge variant="outline" className="border-primary/30 text-primary">
+                {metrics?.orders_total ?? 0} total
+              </Badge>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Qty</TableHead>
+                  <TableHead className="text-right">Created</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {recentOrders.map((o) => (
+                  <TableRow key={o.id}>
+                    <TableCell className="font-medium">{o.item_type}</TableCell>
+                    <TableCell>{o.quantity}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">
+                      {new Date(o.created_at).toLocaleDateString()}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
         </div>
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
@@ -606,9 +834,11 @@ export default function AdminDashboard() {
                           onCheckedChange={(v) => togglePublished("properties", p.id, v)}
                         />
                       </div>
-                      <Button variant="outline" onClick={() => deleteRow("properties", p.id)}>
-                        Delete
-                      </Button>
+                      {isAdmin ? (
+                        <Button variant="destructive" onClick={() => deleteRow("properties", p.id)}>
+                          Delete
+                        </Button>
+                      ) : null}
                     </div>
                   </div>
                 ))}
