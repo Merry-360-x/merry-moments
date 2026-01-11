@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { uploadFile } from "@/lib/uploads";
-import { X, UploadCloud } from "lucide-react";
+import { isCloudinaryConfigured } from "@/lib/cloudinary";
+import { Plus, Trash2, UploadCloud, X } from "lucide-react";
 
 type UploadItem = {
   id: string;
@@ -37,6 +38,7 @@ export function CloudinaryUploadDialog(props: {
   const [items, setItems] = useState<UploadItem[]>([]);
   const [busy, setBusy] = useState(false);
   const autoStart = props.autoStart ?? false;
+  const [dragActive, setDragActive] = useState(false);
 
   const canAddMore = useMemo(() => {
     const max = props.maxFiles ?? (props.multiple ? 20 : 1);
@@ -63,6 +65,17 @@ export function CloudinaryUploadDialog(props: {
     }
     setItems((prev) => [...prev, ...next]);
   };
+
+  const queuedCount = items.filter((i) => i.status === "queued").length;
+  const uploadedCount = items.filter((i) => i.status === "done").length;
+  const totalCount = items.length;
+  const averageProgress = useMemo(() => {
+    if (!items.length) return 0;
+    const sum = items.reduce((acc, it) => acc + Number(it.percent ?? 0), 0);
+    return Math.round(sum / items.length);
+  }, [items]);
+
+  const primaryItem = items[0] ?? null;
 
   const startUploads = async () => {
     if (busy) return;
@@ -120,6 +133,11 @@ export function CloudinaryUploadDialog(props: {
     });
   };
 
+  const closeDialog = () => {
+    setOpen(false);
+    setDragActive(false);
+  };
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -131,31 +149,96 @@ export function CloudinaryUploadDialog(props: {
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{props.title}</DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          {/* Dropzone */}
+      <DialogContent className="p-0 max-w-3xl overflow-hidden">
+        {/* Top bar */}
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+          <button type="button" onClick={closeDialog} className="h-10 w-10 rounded-full hover:bg-muted flex items-center justify-center">
+            <X className="w-5 h-5" />
+          </button>
+          <div className="text-center">
+            <div className="text-lg font-semibold text-foreground">{props.title}</div>
+            <div className="text-sm text-muted-foreground">
+              {totalCount === 0 ? "No items selected" : `${totalCount} item${totalCount === 1 ? "" : "s"} selected`}
+            </div>
+          </div>
           <button
             type="button"
             onClick={pickFiles}
             disabled={!canAddMore}
-            className="w-full rounded-xl border border-dashed border-border p-6 text-left hover:bg-muted/40 transition-colors disabled:opacity-60"
+            className="h-10 w-10 rounded-full hover:bg-muted disabled:opacity-50 flex items-center justify-center"
+            aria-label="Add"
           >
-            <div className="flex items-start gap-3">
-              <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                <UploadCloud className="w-5 h-5 text-primary" />
-              </div>
-              <div className="min-w-0">
-                <div className="font-semibold text-foreground">Click to select {props.multiple ? "files" : "a file"}</div>
-                <div className="text-sm text-muted-foreground">
-                  You’ll see real-time progress as files upload.
+            <Plus className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Progress bar */}
+        {busy ? <Progress value={averageProgress} className="h-1 rounded-none" /> : <div className="h-1" />}
+
+        {/* Body */}
+        <div className="p-6 space-y-6">
+          {/* Dropzone */}
+          {totalCount === 0 ? (
+            <div
+              className={`w-full rounded-2xl border-2 border-dashed p-10 transition-colors ${
+                dragActive ? "border-primary bg-primary/5" : "border-border"
+              }`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragActive(true);
+              }}
+              onDragLeave={() => setDragActive(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragActive(false);
+                enqueue(e.dataTransfer.files);
+              }}
+            >
+              <div className="flex flex-col items-center text-center gap-4">
+                <div className="w-20 h-20 rounded-2xl bg-muted flex items-center justify-center">
+                  <UploadCloud className="w-10 h-10 text-muted-foreground" />
                 </div>
+                <div className="text-3xl font-bold text-foreground">Drag and drop</div>
+                <div className="text-muted-foreground">or browse for photos</div>
+                <Button type="button" className="px-10" onClick={pickFiles}>
+                  Browse
+                </Button>
               </div>
             </div>
-          </button>
+          ) : (
+            <div className="w-full flex items-center justify-center">
+              <div className="relative w-full max-w-xl rounded-2xl overflow-hidden bg-muted border border-border">
+                {primaryItem?.previewUrl ? (
+                  primaryItem.file.type.startsWith("video/") ? (
+                    <video src={primaryItem.previewUrl} className="w-full h-[320px] object-cover" controls playsInline />
+                  ) : (
+                    <img src={primaryItem.previewUrl} alt={primaryItem.file.name} className="w-full h-[320px] object-cover" />
+                  )
+                ) : (
+                  <div className="w-full h-[320px]" />
+                )}
+
+                {/* remove */}
+                <button
+                  type="button"
+                  onClick={() => (primaryItem ? clearItem(primaryItem.id) : null)}
+                  className="absolute top-4 right-4 h-11 w-11 rounded-full bg-black/70 text-white flex items-center justify-center"
+                  aria-label="Remove"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+
+                {/* uploading overlay */}
+                {primaryItem?.status === "uploading" ? (
+                  <div className="absolute inset-0 bg-black/35 flex items-center justify-center">
+                    <div className="h-14 w-14 rounded-full bg-black/35 flex items-center justify-center">
+                      <div className="h-10 w-10 border-4 border-white border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          )}
 
           <input
             ref={inputRef}
@@ -169,50 +252,29 @@ export function CloudinaryUploadDialog(props: {
             }}
           />
 
-          {/* Actions */}
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-xs text-muted-foreground">
-              {items.some((i) => i.status === "queued") ? "Preview then upload when ready." : ""}
-            </div>
-            <Button
-              type="button"
-              onClick={startUploads}
-              disabled={busy || !items.some((i) => i.status === "queued")}
-            >
-              {busy ? "Uploading..." : "Upload"}
-            </Button>
-          </div>
-
-          {/* Existing URLs */}
+          {/* Uploaded thumbnails (optional) */}
           {props.value.length ? (
             <div className="space-y-2">
               <div className="text-sm font-semibold text-foreground">Uploaded</div>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                 {props.value.map((url) => (
-                  <div key={url} className="relative rounded-lg overflow-hidden border border-border bg-muted">
+                  <div key={url} className="relative rounded-xl overflow-hidden border border-border bg-muted">
                     {isImageUrl(url) ? (
-                      <img src={url} alt="Uploaded" className="h-28 w-full object-cover" loading="lazy" />
+                      <img src={url} alt="Uploaded" className="h-24 w-full object-cover" loading="lazy" />
                     ) : isVideoUrl(url) ? (
-                      <video
-                        src={url}
-                        className="h-28 w-full object-cover"
-                        muted
-                        playsInline
-                        controls
-                        preload="metadata"
-                      />
+                      <video src={url} className="h-24 w-full object-cover" muted playsInline controls preload="metadata" />
                     ) : (
-                      <div className="h-28 w-full flex items-center justify-center text-xs text-muted-foreground px-2 break-all">
+                      <div className="h-24 w-full flex items-center justify-center text-xs text-muted-foreground px-2 break-all">
                         {url}
                       </div>
                     )}
                     <button
                       type="button"
                       onClick={() => removeExisting(url)}
-                      className="absolute top-1 right-1 rounded bg-background/80 px-2 py-1 text-xs hover:bg-background"
+                      className="absolute top-2 right-2 h-8 w-8 rounded-full bg-black/70 text-white flex items-center justify-center"
                       aria-label="Remove"
                     >
-                      Remove
+                      <X className="w-4 h-4" />
                     </button>
                   </div>
                 ))}
@@ -220,54 +282,31 @@ export function CloudinaryUploadDialog(props: {
             </div>
           ) : null}
 
-          {/* Upload queue */}
-          {items.length ? (
-            <div className="space-y-2">
-              <div className="text-sm font-semibold text-foreground">Uploading</div>
-              <div className="space-y-2">
-                {items.map((it) => (
-                  <div key={it.id} className="rounded-lg border border-border p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium text-foreground truncate">{it.file.name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {it.status === "error" ? it.error : it.status}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => clearItem(it.id)}
-                        className="p-1 rounded hover:bg-muted"
-                        aria-label="Remove from queue"
-                      >
-                        <X className="w-4 h-4 text-muted-foreground" />
-                      </button>
-                    </div>
-                    {it.previewUrl ? (
-                      <div className="mt-3 rounded-lg overflow-hidden border border-border bg-muted relative">
-                        {it.file.type.startsWith("video/") ? (
-                          <video src={it.previewUrl} className="h-40 w-full object-cover" muted playsInline controls />
-                        ) : (
-                          <img src={it.previewUrl} alt={it.file.name} className="h-40 w-full object-cover" />
-                        )}
-                        {it.status === "uploading" ? (
-                          <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                            <div className="h-12 w-12 rounded-full bg-black/35 flex items-center justify-center">
-                              <div className="h-8 w-8 border-4 border-white border-t-transparent rounded-full animate-spin" />
-                            </div>
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : null}
-                    <div className="mt-2">
-                      <Progress value={it.percent} className="h-2" />
-                      <div className="text-xs text-muted-foreground mt-1">{it.percent}%</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+          {/* Status */}
+          {totalCount > 0 ? (
+            <div className="text-sm text-muted-foreground">
+              {busy ? `${uploadedCount} of ${totalCount} items uploaded` : isCloudinaryConfigured() ? "Uploads go to Cloudinary" : "Uploads go to Supabase Storage"}
             </div>
           ) : null}
+        </div>
+
+        {/* Bottom bar */}
+        <div className="px-6 py-5 border-t border-border flex items-center justify-between">
+          <button
+            type="button"
+            className="text-lg font-medium text-foreground"
+            onClick={closeDialog}
+          >
+            {totalCount === 0 ? "Done" : "Cancel"}
+          </button>
+          <Button
+            type="button"
+            className="px-10 h-12 rounded-xl"
+            onClick={startUploads}
+            disabled={busy || queuedCount === 0}
+          >
+            Upload
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
