@@ -221,6 +221,7 @@ export default function TripCart() {
       toast({ variant: "destructive", title: "Could not remove item", description: error.message });
       return;
     }
+    toast({ title: "Removed", description: "Item removed from your Trip Cart." });
     await qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
   };
 

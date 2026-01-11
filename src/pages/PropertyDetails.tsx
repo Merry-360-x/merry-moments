@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { useFavorites } from "@/hooks/useFavorites";
 import { Heart } from "lucide-react";
 import { amenityByValue } from "@/lib/amenities";
+import PropertyCard from "@/components/PropertyCard";
 
 type PropertyRow = {
   id: string;
@@ -57,6 +58,7 @@ export default function PropertyDetails() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const qc = useQueryClient();
   const { toggleFavorite, checkFavorite } = useFavorites();
 
   const [checkIn, setCheckIn] = useState(isoToday());
@@ -277,7 +279,7 @@ export default function PropertyDetails() {
       });
       if (error) throw error;
       toast({ title: "Added to Trip Cart", description: "Accommodation added to your cart." });
-      navigate("/trip-cart");
+      await qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
     } catch (e) {
       toast({
         variant: "destructive",
@@ -286,6 +288,57 @@ export default function PropertyDetails() {
       });
     }
   };
+
+  const { data: relatedTours = [] } = useQuery({
+    queryKey: ["related-tours", data?.location],
+    enabled: Boolean(data?.location),
+    queryFn: async () => {
+      const loc = String(data?.location ?? "").trim();
+      const q = loc ? loc.split(",")[0] : "";
+      const base = supabase
+        .from("tours")
+        .select("id, title, location, price_per_person, currency, images, rating, review_count")
+        .eq("is_published", true)
+        .order("created_at", { ascending: false })
+        .limit(6);
+
+      const { data: rows, error } = q ? await base.ilike("location", `%${q}%`) : await base;
+      if (error) throw error;
+      return (rows ?? []) as Array<{
+        id: string;
+        title: string;
+        location: string | null;
+        price_per_person: number;
+        currency: string | null;
+        images: string[] | null;
+        rating: number | null;
+        review_count: number | null;
+      }>;
+    },
+  });
+
+  const { data: relatedTransportVehicles = [] } = useQuery({
+    queryKey: ["related-transport-vehicles"],
+    queryFn: async () => {
+      const { data: rows, error } = await supabase
+        .from("transport_vehicles")
+        .select("id, title, provider_name, vehicle_type, seats, price_per_day, currency, image_url")
+        .eq("is_published", true)
+        .order("created_at", { ascending: false })
+        .limit(6);
+      if (error) throw error;
+      return (rows ?? []) as Array<{
+        id: string;
+        title: string;
+        provider_name: string | null;
+        vehicle_type: string | null;
+        seats: number | null;
+        price_per_day: number;
+        currency: string | null;
+        image_url: string | null;
+      }>;
+    },
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -333,7 +386,7 @@ export default function PropertyDetails() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             {/* Gallery + content */}
             <div className="lg:col-span-7 space-y-6">
-              <div className="bg-card rounded-xl shadow-card overflow-hidden">
+            <div className="bg-card rounded-xl shadow-card overflow-hidden">
               {data.images?.[0] ? (
                 <img
                   src={data.images[0]}
@@ -357,7 +410,7 @@ export default function PropertyDetails() {
                   ))}
                 </div>
               ) : null}
-              </div>
+            </div>
 
               {data.description ? (
                 <div className="bg-card rounded-xl shadow-card p-5">
@@ -365,6 +418,94 @@ export default function PropertyDetails() {
                   <p className="text-foreground/90 leading-relaxed">{data.description}</p>
                 </div>
               ) : null}
+
+              {/* Related Tours + Transport */}
+              <div className="bg-card rounded-xl shadow-card p-5">
+                <div className="flex items-center justify-between gap-4 mb-3">
+                  <div className="text-sm font-semibold text-foreground">Tours & Transport</div>
+                  <div className="flex items-center gap-2">
+                    <Link to="/tours" className="text-sm text-primary hover:underline">
+                      View tours
+                    </Link>
+                    <Link to="/transport" className="text-sm text-primary hover:underline">
+                      View transport
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <div>
+                    <div className="text-xs font-medium text-muted-foreground mb-2">Tours near this location</div>
+                    {relatedTours.length === 0 ? (
+                      <div className="text-sm text-muted-foreground">No tours found yet.</div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {relatedTours.slice(0, 4).map((t) => (
+                          <Link key={t.id} to="/tours" className="block">
+                            <div className="rounded-xl border border-border overflow-hidden hover:shadow-md transition">
+                              {t.images?.[0] ? (
+                                <img
+                                  src={t.images[0]}
+                                  alt={t.title}
+                                  className="h-36 w-full object-cover"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div className="h-36 w-full bg-muted" />
+                              )}
+                              <div className="p-3">
+                                <div className="font-medium text-foreground line-clamp-1">{t.title}</div>
+                                <div className="text-xs text-muted-foreground line-clamp-1">{t.location ?? ""}</div>
+                                <div className="mt-2 text-sm font-semibold text-primary">
+                                  {t.currency ?? "RWF"} {Number(t.price_per_person ?? 0).toLocaleString()}
+                                  <span className="text-xs text-muted-foreground"> / person</span>
+                                </div>
+                              </div>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <div className="text-xs font-medium text-muted-foreground mb-2">Transport vehicles</div>
+                    {relatedTransportVehicles.length === 0 ? (
+                      <div className="text-sm text-muted-foreground">No transport vehicles found yet.</div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {relatedTransportVehicles.slice(0, 4).map((v) => (
+                          <Link key={v.id} to="/transport" className="block">
+                            <div className="rounded-xl border border-border overflow-hidden hover:shadow-md transition">
+                              {v.image_url ? (
+                                <img
+                                  src={v.image_url}
+                                  alt={v.title}
+                                  className="h-36 w-full object-cover"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div className="h-36 w-full bg-muted" />
+                              )}
+                              <div className="p-3">
+                                <div className="font-medium text-foreground line-clamp-1">{v.title}</div>
+                                <div className="text-xs text-muted-foreground line-clamp-1">
+                                  {v.provider_name ?? ""} {v.vehicle_type ? `· ${v.vehicle_type}` : ""}{" "}
+                                  {v.seats ? `· ${v.seats} seats` : ""}
+                                </div>
+                                <div className="mt-2 text-sm font-semibold text-primary">
+                                  {v.currency ?? "RWF"} {Number(v.price_per_day ?? 0).toLocaleString()}
+                                  <span className="text-xs text-muted-foreground"> / day</span>
+                                </div>
+                              </div>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Right column */}
