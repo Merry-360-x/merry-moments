@@ -673,57 +673,40 @@ export default function PropertyDetails() {
 
               {/* Host */}
               <div className="mt-8 bg-card rounded-xl shadow-card p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-3">
-                    {hostProfile?.avatar_url ? (
-                      <img
-                        src={hostProfile.avatar_url}
-                        alt={hostProfile.full_name ?? "Host"}
-                        className="w-12 h-12 rounded-full object-cover"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 rounded-full bg-muted" />
-                    )}
-                    <div>
-                      <Link
-                        to={`/hosts/${encodeURIComponent(String(data.host_id))}`}
-                        className="text-base font-semibold text-foreground hover:underline"
-                      >
-                        Hosted by {hostProfile?.full_name ?? "Host"}
-                      </Link>
-                      <div className="mt-1 text-sm text-muted-foreground">
-                        <span>
-                          {hostStats?.reviewCount ? `${hostStats.reviewCount} reviews` : "No reviews yet"}
-                        </span>
-                        {hostStats?.rating ? <span> · {hostStats.rating} overall</span> : null}
-                        {hostStats?.hostingSince ? (
+                <Link
+                  to={`/hosts/${encodeURIComponent(String(data.host_id))}`}
+                  className="block rounded-xl hover:bg-muted/40 transition-colors p-2 -m-2"
+                  aria-label="View host profile"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      {hostProfile?.avatar_url ? (
+                        <img
+                          src={hostProfile.avatar_url}
+                          alt={hostProfile.full_name ?? "Host"}
+                          className="w-12 h-12 rounded-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-muted" />
+                      )}
+                      <div>
+                        <div className="text-base font-semibold text-foreground">
+                          Hosted by {hostProfile?.full_name ?? "Host"}
+                        </div>
+                        <div className="mt-1 text-sm text-muted-foreground">
                           <span>
-                            {" "}
-                            · Hosting since {new Date(hostStats.hostingSince).toLocaleDateString()}
+                            {hostStats?.reviewCount ? `${hostStats.reviewCount} reviews` : "No reviews yet"}
                           </span>
-                        ) : null}
+                          {hostStats?.rating ? <span> · {hostStats.rating} overall</span> : null}
+                          {hostStats?.hostingSince ? (
+                            <span> · Hosting since {new Date(hostStats.hostingSince).toLocaleDateString()}</span>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Link to={`/hosts/${encodeURIComponent(String(data.host_id))}`}>
-                      <Button variant="outline" size="sm">
-                        About host
-                      </Button>
-                    </Link>
-                    <Link to={`/accommodations?host=${encodeURIComponent(String(data.host_id))}`}>
-                      <Button variant="outline" size="sm">
-                        All listings
-                      </Button>
-                    </Link>
-                    <Link to={`/hosts/${encodeURIComponent(String(data.host_id))}/reviews`}>
-                      <Button variant="outline" size="sm">
-                        All reviews
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
+                </Link>
                 {hostProfile?.bio ? (
                   <p className="mt-4 text-sm text-foreground/90 leading-relaxed">{hostProfile.bio}</p>
                 ) : null}
