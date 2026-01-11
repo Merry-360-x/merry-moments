@@ -79,7 +79,7 @@ const Navbar = () => {
 
           {/* Main Navigation - Desktop */}
           <div className="hidden lg:flex items-center gap-1 flex-1 min-w-0 mx-2">
-            <div className="flex items-center gap-1 overflow-x-auto whitespace-nowrap pr-2">
+            <div className="flex items-center gap-1 flex-wrap">
               {navLinks.map((link) => {
                 const isActive = location.pathname === link.path;
                 return (
