@@ -12,7 +12,7 @@ export async function uploadFile(
       folder: opts.folder,
       onProgress: opts.onProgress,
     });
-    return { url: res.url };
+    return { url: res.secureUrl };
   }
 
   // Fallback to Supabase Storage (public bucket).
