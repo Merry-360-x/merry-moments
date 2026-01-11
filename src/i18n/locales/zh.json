@@ -48,6 +48,14 @@
     "noPublishedProperties": "暂时没有已发布的住宿。",
     "perNight": "/ 晚"
   },
+  "favorites": {
+    "toast": {
+      "signInTitle": "需要登录",
+      "signInDescription": "请先登录以使用收藏功能。",
+      "added": "已加入收藏。",
+      "removed": "已从收藏移除。"
+    }
+  },
   "bookings": {
     "title": "我的预订",
     "subtitle": "管理并查看你的预订",

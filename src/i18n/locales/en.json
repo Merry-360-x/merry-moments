@@ -48,6 +48,14 @@
     "noPublishedProperties": "No published properties yet.",
     "perNight": "/ night"
   },
+  "favorites": {
+    "toast": {
+      "signInTitle": "Sign in required",
+      "signInDescription": "Please sign in to use favorites.",
+      "added": "Saved to favorites.",
+      "removed": "Removed from favorites."
+    }
+  },
   "bookings": {
     "title": "My Bookings",
     "subtitle": "Manage and track your reservations",

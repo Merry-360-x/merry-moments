@@ -48,6 +48,14 @@
     "noPublishedProperties": "Nta macumbi yatangajwe ubu.",
     "perNight": "/ ijoro"
   },
+  "favorites": {
+    "toast": {
+      "signInTitle": "Bisaba kwinjira",
+      "signInDescription": "Injira kugira ngo ukoreshe iby’o ukunda.",
+      "added": "Byongewe mu byo ukunda.",
+      "removed": "Byakuwe mu byo ukunda."
+    }
+  },
   "bookings": {
     "title": "Amabukiro yanjye",
     "subtitle": "Kurikirana kandi ucunge amabukiro yawe",

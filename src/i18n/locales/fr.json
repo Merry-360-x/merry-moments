@@ -48,6 +48,14 @@
     "noPublishedProperties": "Aucun hébergement publié pour le moment.",
     "perNight": "/ nuit"
   },
+  "favorites": {
+    "toast": {
+      "signInTitle": "Connexion requise",
+      "signInDescription": "Veuillez vous connecter pour utiliser les favoris.",
+      "added": "Ajouté aux favoris.",
+      "removed": "Retiré des favoris."
+    }
+  },
   "bookings": {
     "title": "Mes réservations",
     "subtitle": "Gérez et suivez vos réservations",

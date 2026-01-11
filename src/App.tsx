@@ -30,6 +30,7 @@ import HostReviews from "./pages/HostReviews";
 import HostAbout from "./pages/HostAbout";
 import ScrollToTop from "@/components/ScrollToTop";
 import GlobalLoadingIndicator from "@/components/GlobalLoadingIndicator";
+import SupportCenterLauncher from "@/components/SupportCenterLauncher";
 
 const queryClient = new QueryClient();
 
@@ -53,6 +54,7 @@ const App = () => (
           <BrowserRouter>
             <ScrollToTop />
             <GlobalLoadingIndicator />
+            <SupportCenterLauncher />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />

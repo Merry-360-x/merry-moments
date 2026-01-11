@@ -48,6 +48,14 @@
     "noPublishedProperties": "Bado hakuna malazi yaliyochapishwa.",
     "perNight": "/ usiku"
   },
+  "favorites": {
+    "toast": {
+      "signInTitle": "Inahitaji kuingia",
+      "signInDescription": "Tafadhali ingia ili utumie vipendwa.",
+      "added": "Imehifadhiwa kwenye vipendwa.",
+      "removed": "Imeondolewa kwenye vipendwa."
+    }
+  },
   "bookings": {
     "title": "Uhifadhi wangu",
     "subtitle": "Dhibiti na fuatilia uhifadhi wako",
