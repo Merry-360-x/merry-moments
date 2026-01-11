@@ -8,9 +8,13 @@ import { Calendar, MapPin, Users, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 interface Booking {
   id: string;
+  property_id: string;
   check_in: string;
   check_out: string;
   guests_count: number;
@@ -32,6 +36,12 @@ const MyBookings = () => {
   const { toast } = useToast();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [reviewedBookingIds, setReviewedBookingIds] = useState<Set<string>>(new Set());
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewBooking, setReviewBooking] = useState<Booking | null>(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -53,6 +63,16 @@ const MyBookings = () => {
       .order("created_at", { ascending: false });
 
     if (data) setBookings(data as Booking[]);
+    if (!error && data && data.length > 0) {
+      const ids = (data as Booking[]).map((b) => String(b.id));
+      const { data: reviewed } = await supabase
+        .from("property_reviews")
+        .select("booking_id")
+        .in("booking_id", ids);
+      setReviewedBookingIds(new Set((reviewed ?? []).map((r) => String((r as { booking_id: string }).booking_id))));
+    } else {
+      setReviewedBookingIds(new Set());
+    }
     setIsLoading(false);
   };
 
@@ -70,6 +90,49 @@ const MyBookings = () => {
     } else {
       toast({ title: t("bookings.toast.cancelled") });
       fetchBookings();
+    }
+  };
+
+  const canReview = (b: Booking) => {
+    if (b.status !== "confirmed") return false;
+    const end = new Date(b.check_out).getTime();
+    return Number.isFinite(end) && end < Date.now();
+  };
+
+  const openReview = (b: Booking) => {
+    setReviewBooking(b);
+    setReviewRating(5);
+    setReviewComment("");
+    setReviewOpen(true);
+  };
+
+  const submitReview = async () => {
+    if (!user || !reviewBooking) return;
+    setSubmittingReview(true);
+    try {
+      if (!reviewRating || reviewRating < 1 || reviewRating > 5) {
+        toast({ variant: "destructive", title: t("common.error"), description: "Rating must be 1-5." });
+        return;
+      }
+      const { error } = await supabase.from("property_reviews").insert({
+        booking_id: reviewBooking.id,
+        property_id: reviewBooking.property_id,
+        reviewer_id: user.id,
+        rating: reviewRating,
+        comment: reviewComment.trim() ? reviewComment.trim() : null,
+      });
+      if (error) throw error;
+      toast({ title: "Review submitted" });
+      setReviewOpen(false);
+      await fetchBookings();
+    } catch (e) {
+      toast({
+        variant: "destructive",
+        title: "Could not submit review",
+        description: e instanceof Error ? e.message : "Please try again.",
+      });
+    } finally {
+      setSubmittingReview(false);
     }
   };
 
@@ -175,11 +238,65 @@ const MyBookings = () => {
                     </Button>
                   </div>
                 )}
+
+                {canReview(booking) && (
+                  <div className="flex md:flex-col justify-end gap-2">
+                    {reviewedBookingIds.has(String(booking.id)) ? (
+                      <Button variant="outline" size="sm" disabled>
+                        Reviewed
+                      </Button>
+                    ) : (
+                      <Button size="sm" onClick={() => openReview(booking)}>
+                        Leave a review
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
         )}
       </div>
+
+      <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Leave a review</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Rating</Label>
+              <select
+                value={reviewRating}
+                onChange={(e) => setReviewRating(Number(e.target.value))}
+                className="w-full mt-1 h-10 px-3 rounded-md border border-input bg-background"
+              >
+                <option value={5}>5 - Excellent</option>
+                <option value={4}>4 - Good</option>
+                <option value={3}>3 - Okay</option>
+                <option value={2}>2 - Bad</option>
+                <option value={1}>1 - Terrible</option>
+              </select>
+            </div>
+            <div>
+              <Label>Comment (optional)</Label>
+              <Textarea
+                value={reviewComment}
+                onChange={(e) => setReviewComment(e.target.value)}
+                placeholder="Share your experience…"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setReviewOpen(false)} disabled={submittingReview}>
+                Cancel
+              </Button>
+              <Button onClick={submitReview} disabled={submittingReview}>
+                {submittingReview ? "Submitting..." : "Submit"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Footer />
     </div>

@@ -27,6 +27,7 @@ import TripCart from "./pages/TripCart";
 import InfoPage from "./pages/InfoPage";
 import Dashboard from "./pages/Dashboard";
 import AdminIntegrations from "./pages/AdminIntegrations";
+import HostReviews from "./pages/HostReviews";
 
 const queryClient = new QueryClient();
 
@@ -122,6 +123,7 @@ const App = () => (
                 }
               />
               <Route path="/properties/:id" element={<PropertyDetails />} />
+              <Route path="/hosts/:id/reviews" element={<HostReviews />} />
               <Route path="/about" element={<InfoPage kind="about" />} />
               <Route path="/contact" element={<InfoPage kind="contact" />} />
               <Route path="/help" element={<InfoPage kind="help" />} />

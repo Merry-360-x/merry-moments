@@ -6,6 +6,7 @@ import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -137,12 +138,14 @@ export default function Dashboard() {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [dob, setDob] = useState("");
+  const [bio, setBio] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setFullName(profile?.full_name ?? "");
     setPhone(profile?.phone ?? "");
     setDob(profile?.date_of_birth ?? "");
+    setBio(profile?.bio ?? "");
   }, [profile]);
 
   const completeProfileMissing = useMemo(() => (phone.trim().length < 7) || !dob.trim(), [phone, dob]);
@@ -181,6 +184,7 @@ export default function Dashboard() {
       const payload: Record<string, unknown> = {
         full_name: fullName.trim() || null,
         phone: phone.trim() || null,
+        bio: bio.trim() || null,
       };
       if (dob.trim()) payload.date_of_birth = dob.trim();
 
@@ -531,6 +535,16 @@ export default function Dashboard() {
                       <div>
                         <Label htmlFor="dob">Date of birth</Label>
                         <Input id="dob" type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
+                      </div>
+
+                      <div className="md:col-span-3">
+                        <Label htmlFor="bio">About you</Label>
+                        <Textarea
+                          id="bio"
+                          value={bio}
+                          onChange={(e) => setBio(e.target.value)}
+                          placeholder="Share a little about yourself (shown on your host profile)."
+                        />
                       </div>
 
                       <div className="md:col-span-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-2">

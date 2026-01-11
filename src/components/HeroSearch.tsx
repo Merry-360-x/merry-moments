@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -15,6 +16,9 @@ import type { DateRange } from "react-day-picker";
 type DestinationSuggestion = {
   location: string;
 };
+
+const NEARBY_LABEL = "Find what's nearby";
+const STATIC_DESTINATIONS = ["Rebero", "Gacuriro", "Nyarutarama"];
 
 const fetchDestinationSuggestions = async (search: string) => {
   let query = supabase
@@ -36,12 +40,18 @@ const fetchDestinationSuggestions = async (search: string) => {
     new Set((data as DestinationSuggestion[] | null)?.map((d) => d.location).filter(Boolean) ?? [])
   );
 
-  return unique.slice(0, 8);
+  const trimmed2 = search.trim().toLowerCase();
+  const merged = [NEARBY_LABEL, ...STATIC_DESTINATIONS, ...unique];
+  const filtered = trimmed2
+    ? merged.filter((x) => String(x).toLowerCase().includes(trimmed2) || x === NEARBY_LABEL)
+    : merged;
+  return Array.from(new Set(filtered)).slice(0, 8);
 };
 
 const HeroSearch = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const [openWhere, setOpenWhere] = useState(false);
   const [openWhen, setOpenWhen] = useState(false);
@@ -84,7 +94,40 @@ const HeroSearch = () => {
     enabled: suggestionsEnabled,
   });
 
+  const geoToParams = async () => {
+    if (!("geolocation" in navigator)) {
+      toast({ variant: "destructive", title: "Location not available", description: "Geolocation is not supported." });
+      return null;
+    }
+    return await new Promise<{ lat: number; lng: number } | null>((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => {
+          toast({
+            variant: "destructive",
+            title: "Location permission denied",
+            description: "Enable location to search nearby listings.",
+          });
+          resolve(null);
+        },
+        { enableHighAccuracy: false, timeout: 8000 }
+      );
+    });
+  };
+
   const goSearch = () => {
+    if (where.trim() === NEARBY_LABEL) {
+      void (async () => {
+        const coords = await geoToParams();
+        if (!coords) return;
+        const params = new URLSearchParams();
+        params.set("nearby", "1");
+        params.set("lat", String(coords.lat));
+        params.set("lng", String(coords.lng));
+        navigate(`/accommodations?${params.toString()}`);
+      })();
+      return;
+    }
     const params = new URLSearchParams();
     if (where.trim()) params.set("q", where.trim());
     if (dateRange?.from) params.set("start", dateRange.from.toISOString().slice(0, 10));
@@ -100,6 +143,26 @@ const HeroSearch = () => {
   };
 
   const goMobileSearch = () => {
+    if (where.trim() === NEARBY_LABEL) {
+      void (async () => {
+        const coords = await geoToParams();
+        if (!coords) return;
+        const params = new URLSearchParams();
+        params.set("nearby", "1");
+        params.set("lat", String(coords.lat));
+        params.set("lng", String(coords.lng));
+        const qs = params.toString();
+        if (mobileTab === "tours") {
+          navigate(`/tours?${qs}`);
+        } else if (mobileTab === "transport") {
+          navigate(`/transport?${qs}`);
+        } else {
+          navigate(`/accommodations?${qs}`);
+        }
+        setMobileOpen(false);
+      })();
+      return;
+    }
     const params = new URLSearchParams();
     if (where.trim()) params.set("q", where.trim());
     if (dateRange?.from) params.set("start", dateRange.from.toISOString().slice(0, 10));
@@ -220,7 +283,13 @@ const HeroSearch = () => {
                         <button
                           key={loc}
                           type="button"
-                          onClick={() => setWhere(loc)}
+                          onClick={() => {
+                            setWhere(loc);
+                            if (loc === NEARBY_LABEL) {
+                              goMobileSearch();
+                              return;
+                            }
+                          }}
                           className="w-full flex items-center gap-3 rounded-2xl hover:bg-muted/40 p-2 text-left"
                         >
                           <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center">
@@ -228,7 +297,9 @@ const HeroSearch = () => {
                           </div>
                           <div className="min-w-0">
                             <div className="font-semibold text-foreground truncate">{loc}</div>
-                            <div className="text-xs text-muted-foreground truncate">From published listings</div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {loc === NEARBY_LABEL ? "Use your current location" : "Suggested destination"}
+                            </div>
                           </div>
                         </button>
                       ))
@@ -481,6 +552,10 @@ const HeroSearch = () => {
                           onSelect={() => {
                             setWhere(loc);
                             setOpenWhere(false);
+                            if (loc === NEARBY_LABEL) {
+                              goSearch();
+                              return;
+                            }
                             setOpenWhen(true);
                           }}
                           className="py-3"
@@ -491,7 +566,9 @@ const HeroSearch = () => {
                             </div>
                             <div className="leading-tight">
                               <div className="font-medium text-foreground">{loc}</div>
-                              <div className="text-xs text-muted-foreground">{t("heroSearch.destinationHint")}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {loc === NEARBY_LABEL ? "Use your current location" : t("heroSearch.destinationHint")}
+                              </div>
                             </div>
                           </div>
                         </CommandItem>

@@ -99,6 +99,7 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          bio: string | null
           created_at: string
           date_of_birth: string | null
           full_name: string | null
@@ -109,6 +110,7 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          bio?: string | null
           created_at?: string
           date_of_birth?: string | null
           full_name?: string | null
@@ -119,6 +121,7 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          bio?: string | null
           created_at?: string
           date_of_birth?: string | null
           full_name?: string | null
@@ -352,7 +355,9 @@ export type Database = {
         Row: {
           amenities: string[] | null
           bathrooms: number | null
+          beds: number | null
           bedrooms: number | null
+          cancellation_policy: string | null
           created_at: string
           currency: string
           description: string | null
@@ -360,6 +365,8 @@ export type Database = {
           id: string
           images: string[] | null
           is_published: boolean | null
+          lat: number | null
+          lng: number | null
           location: string
           max_guests: number
           price_per_night: number
@@ -372,7 +379,9 @@ export type Database = {
         Insert: {
           amenities?: string[] | null
           bathrooms?: number | null
+          beds?: number | null
           bedrooms?: number | null
+          cancellation_policy?: string | null
           created_at?: string
           currency?: string
           description?: string | null
@@ -380,6 +389,8 @@ export type Database = {
           id?: string
           images?: string[] | null
           is_published?: boolean | null
+          lat?: number | null
+          lng?: number | null
           location: string
           max_guests?: number
           price_per_night: number
@@ -392,7 +403,9 @@ export type Database = {
         Update: {
           amenities?: string[] | null
           bathrooms?: number | null
+          beds?: number | null
           bedrooms?: number | null
+          cancellation_policy?: string | null
           created_at?: string
           currency?: string
           description?: string | null
@@ -400,6 +413,8 @@ export type Database = {
           id?: string
           images?: string[] | null
           is_published?: boolean | null
+          lat?: number | null
+          lng?: number | null
           location?: string
           max_guests?: number
           price_per_night?: number
@@ -521,6 +536,51 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      property_reviews: {
+        Row: {
+          booking_id: string
+          comment: string | null
+          created_at: string
+          id: string
+          property_id: string
+          rating: number
+          reviewer_id: string
+        }
+        Insert: {
+          booking_id: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          property_id: string
+          rating: number
+          reviewer_id: string
+        }
+        Update: {
+          booking_id?: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          property_id?: string
+          rating?: number
+          reviewer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_reviews_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: true
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_reviews_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_preferences: {
         Row: {

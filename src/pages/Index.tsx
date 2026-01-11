@@ -15,7 +15,7 @@ const fetchLatestProperties = async () => {
   const { data, error } = await supabase
     .from("properties")
     .select(
-      "id, title, location, price_per_night, currency, property_type, rating, review_count, images, created_at"
+      "id, title, location, price_per_night, currency, property_type, rating, review_count, images, created_at, bedrooms, bathrooms, beds"
     )
     .eq("is_published", true)
     .order("created_at", { ascending: false })
@@ -116,6 +116,9 @@ const Index = () => {
                     price={Number(property.price_per_night)}
                     currency={property.currency}
                     type={property.property_type}
+                    bedrooms={(property as { bedrooms?: number | null }).bedrooms ?? null}
+                    bathrooms={(property as { bathrooms?: number | null }).bathrooms ?? null}
+                    beds={(property as { beds?: number | null }).beds ?? null}
                   />
                 </div>
               ))}
@@ -158,6 +161,9 @@ const Index = () => {
                   price={Number(property.price_per_night)}
                   currency={property.currency}
                   type={property.property_type}
+                  bedrooms={(property as { bedrooms?: number | null }).bedrooms ?? null}
+                  bathrooms={(property as { bathrooms?: number | null }).bathrooms ?? null}
+                  beds={(property as { beds?: number | null }).beds ?? null}
                 />
               </div>
             ))

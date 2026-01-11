@@ -26,11 +26,13 @@ const fetchProperties = async (args: {
   propertyTypes: string[];
   amenities: string[];
   minRating: number;
+  hostId?: string | null;
+  nearby?: { lat: number; lng: number } | null;
 }) => {
   let query = supabase
     .from("properties")
     .select(
-      "id, title, location, price_per_night, currency, property_type, rating, review_count, images, created_at"
+      "id, title, location, price_per_night, currency, property_type, rating, review_count, images, created_at, bedrooms, bathrooms, beds, lat, lng, host_id"
     )
     .eq("is_published", true)
     .order("created_at", { ascending: false });
@@ -38,6 +40,10 @@ const fetchProperties = async (args: {
   const trimmed = args.search.trim();
   if (trimmed) {
     query = query.or(`title.ilike.%${trimmed}%,location.ilike.%${trimmed}%`);
+  }
+
+  if (args.hostId) {
+    query = query.eq("host_id", args.hostId);
   }
 
   if (args.propertyTypes.length) {
@@ -54,7 +60,35 @@ const fetchProperties = async (args: {
 
   const { data, error } = await query.lte("price_per_night", args.maxPrice);
   if (error) throw error;
-  return data ?? [];
+  const rows = data ?? [];
+
+  if (!args.nearby) return rows;
+
+  const toRad = (x: number) => (x * Math.PI) / 180;
+  const haversineKm = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => {
+    const R = 6371;
+    const dLat = toRad(b.lat - a.lat);
+    const dLng = toRad(b.lng - a.lng);
+    const s1 =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(s1), Math.sqrt(1 - s1));
+    return R * c;
+  };
+
+  const origin = args.nearby;
+  const withDistance = rows
+    .map((r) => {
+      const lat = Number((r as { lat: number | null }).lat);
+      const lng = Number((r as { lng: number | null }).lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+      return { row: r, d: haversineKm(origin, { lat, lng }) };
+    })
+    .filter(Boolean) as Array<{ row: (typeof rows)[number]; d: number }>;
+
+  const within = withDistance.filter((x) => x.d <= 50);
+  within.sort((a, b) => a.d - b.d);
+  return within.map((x) => x.row);
 };
 
 const Accommodations = () => {
@@ -66,6 +100,13 @@ const Accommodations = () => {
   const [minRating, setMinRating] = useState(0);
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const hostId = searchParams.get("host");
+  const nearbyLat = searchParams.get("lat");
+  const nearbyLng = searchParams.get("lng");
+  const nearby =
+    searchParams.get("nearby") === "1" && nearbyLat && nearbyLng
+      ? { lat: Number(nearbyLat), lng: Number(nearbyLng) }
+      : null;
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { user } = useAuth();
@@ -98,6 +139,8 @@ const Accommodations = () => {
       selectedTypes.join("|"),
       selectedAmenities.join("|"),
       minRating,
+      hostId ?? "",
+      nearby ? `${nearby.lat},${nearby.lng}` : "",
     ],
     queryFn: () =>
       fetchProperties({
@@ -106,6 +149,8 @@ const Accommodations = () => {
         propertyTypes: selectedTypes,
         amenities: selectedAmenities,
         minRating,
+        hostId,
+        nearby,
       }),
   });
 
@@ -481,6 +526,9 @@ const Accommodations = () => {
                         price={Number(property.price_per_night)}
                         currency={property.currency}
                         type={property.property_type}
+                      bedrooms={(property as { bedrooms?: number | null }).bedrooms ?? null}
+                      bathrooms={(property as { bathrooms?: number | null }).bathrooms ?? null}
+                      beds={(property as { beds?: number | null }).beds ?? null}
                         isFavorited={favoritesSet.has(property.id)}
                         onToggleFavorite={async () => {
                           const isFav = favoritesSet.has(property.id);
@@ -524,6 +572,9 @@ const Accommodations = () => {
                     price={Number(property.price_per_night)}
                     currency={property.currency}
                     type={property.property_type}
+                    bedrooms={(property as { bedrooms?: number | null }).bedrooms ?? null}
+                    bathrooms={(property as { bathrooms?: number | null }).bathrooms ?? null}
+                    beds={(property as { beds?: number | null }).beds ?? null}
                     isFavorited={favoritesSet.has(property.id)}
                     onToggleFavorite={async () => {
                       const isFav = favoritesSet.has(property.id);

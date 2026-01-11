@@ -12,6 +12,9 @@ export interface PropertyCardProps {
   price: number;
   currency?: string;
   type: string;
+  bedrooms?: number | null;
+  beds?: number | null;
+  bathrooms?: number | null;
   isFavorited?: boolean;
   onToggleFavorite?: () => void;
 }
@@ -26,6 +29,9 @@ const PropertyCard = ({
   price,
   currency = "RWF",
   type,
+  bedrooms,
+  beds,
+  bathrooms,
   isFavorited,
   onToggleFavorite,
 }: PropertyCardProps) => {
@@ -80,6 +86,13 @@ const PropertyCard = ({
           </div>
         </div>
         <p className="text-sm text-muted-foreground mb-3">{location}</p>
+        {(bedrooms || beds || bathrooms) ? (
+          <p className="text-xs text-muted-foreground mb-3">
+            {[bedrooms ? `${bedrooms} bd` : null, beds ? `${beds} beds` : null, bathrooms ? `${bathrooms} bath` : null]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        ) : null}
         <div className="flex items-baseline gap-1">
           <span className="text-lg font-bold text-foreground">
             {currency} {price.toLocaleString()}

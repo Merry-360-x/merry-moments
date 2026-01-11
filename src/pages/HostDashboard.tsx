@@ -47,6 +47,10 @@ interface Property {
   max_guests: number;
   bedrooms: number;
   bathrooms: number;
+  beds?: number | null;
+  cancellation_policy?: string | null;
+  lat?: number | null;
+  lng?: number | null;
   is_published: boolean;
   images?: string[] | null;
   created_at: string;
@@ -122,6 +126,10 @@ const HostDashboard = () => {
     max_guests: 2,
     bedrooms: 1,
     bathrooms: 1,
+    beds: 1,
+    cancellation_policy: "fair",
+    lat: null as number | null,
+    lng: null as number | null,
     images: [] as string[],
   });
 
@@ -208,6 +216,10 @@ const HostDashboard = () => {
       max_guests: 2,
       bedrooms: 1,
       bathrooms: 1,
+      beds: 1,
+      cancellation_policy: "fair",
+      lat: null,
+      lng: null,
       images: [],
     });
     setEditingProperty(null);
@@ -223,6 +235,10 @@ const HostDashboard = () => {
       max_guests: property.max_guests,
       bedrooms: property.bedrooms || 1,
       bathrooms: property.bathrooms || 1,
+      beds: property.beds ?? 1,
+      cancellation_policy: property.cancellation_policy ?? "fair",
+      lat: property.lat ?? null,
+      lng: property.lng ?? null,
       images: property.images ?? [],
     });
     setEditingProperty(property);
@@ -938,6 +954,68 @@ const HostDashboard = () => {
                         })
                       }
                       min={0}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Beds</Label>
+                    <Input
+                      type="number"
+                      value={formData.beds}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          beds: Number(e.target.value),
+                        })
+                      }
+                      min={0}
+                    />
+                  </div>
+                  <div>
+                    <Label>Cancellation policy</Label>
+                    <select
+                      value={formData.cancellation_policy}
+                      onChange={(e) =>
+                        setFormData({ ...formData, cancellation_policy: e.target.value })
+                      }
+                      className="w-full mt-1 h-10 px-3 rounded-md border border-input bg-background"
+                    >
+                      <option value="fair">Fair</option>
+                      <option value="strict">Strict</option>
+                      <option value="lenient">Lenient</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Latitude (optional)</Label>
+                    <Input
+                      type="number"
+                      value={formData.lat ?? ""}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          lat: e.target.value === "" ? null : Number(e.target.value),
+                        })
+                      }
+                      step="0.000001"
+                      placeholder="-1.9441"
+                    />
+                  </div>
+                  <div>
+                    <Label>Longitude (optional)</Label>
+                    <Input
+                      type="number"
+                      value={formData.lng ?? ""}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          lng: e.target.value === "" ? null : Number(e.target.value),
+                        })
+                      }
+                      step="0.000001"
+                      placeholder="30.0619"
                     />
                   </div>
                 </div>

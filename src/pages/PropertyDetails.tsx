@@ -28,13 +28,17 @@ type PropertyRow = {
   host_id: string;
   max_guests: number;
   amenities: string[] | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  beds: number | null;
+  cancellation_policy: string | null;
 };
 
 const fetchProperty = async (id: string) => {
   const { data, error } = await supabase
     .from("properties")
     .select(
-      "id, title, location, price_per_night, currency, property_type, rating, review_count, images, description, is_published, host_id, max_guests, amenities"
+      "id, title, location, price_per_night, currency, property_type, rating, review_count, images, description, is_published, host_id, max_guests, amenities, bedrooms, bathrooms, beds, cancellation_policy"
     )
     .eq("id", id)
     .maybeSingle();
@@ -64,6 +68,85 @@ export default function PropertyDetails() {
     queryKey: ["property", propertyId],
     queryFn: () => fetchProperty(propertyId as string),
     enabled: Boolean(propertyId),
+  });
+
+  const { data: hostProfile } = useQuery({
+    queryKey: ["host-profile", data?.host_id],
+    enabled: Boolean(data?.host_id),
+    queryFn: async () => {
+      const hostId = String(data?.host_id ?? "");
+      const { data: prof, error } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, avatar_url, bio, created_at")
+        .eq("user_id", hostId)
+        .maybeSingle();
+      if (error) throw error;
+      return prof as
+        | {
+            user_id: string;
+            full_name: string | null;
+            avatar_url: string | null;
+            bio: string | null;
+            created_at: string;
+          }
+        | null;
+    },
+  });
+
+  const { data: hostStats } = useQuery({
+    queryKey: ["host-stats", data?.host_id],
+    enabled: Boolean(data?.host_id),
+    queryFn: async () => {
+      const hostId = String(data?.host_id ?? "");
+      const { data: hostProps, error: propsErr } = await supabase
+        .from("properties")
+        .select("id, created_at, is_published")
+        .eq("host_id", hostId);
+      if (propsErr) throw propsErr;
+      const propIds = (hostProps ?? []).map((p) => String((p as { id: string }).id));
+      const hostingSince = (hostProps ?? [])
+        .map((p) => new Date(String((p as { created_at: string }).created_at)).getTime())
+        .filter((n) => Number.isFinite(n))
+        .sort((a, b) => a - b)[0];
+
+      if (propIds.length === 0) {
+        return { listings: 0, hostingSince: null as string | null, reviewCount: 0, rating: null as number | null };
+      }
+
+      const { data: reviews, error: reviewsErr } = await supabase
+        .from("property_reviews")
+        .select("rating, property_id")
+        .in("property_id", propIds);
+      if (reviewsErr) throw reviewsErr;
+      const ratings = (reviews ?? [])
+        .map((r) => Number((r as { rating: number }).rating))
+        .filter((n) => Number.isFinite(n) && n > 0);
+      const reviewCount = ratings.length;
+      const avg = reviewCount > 0 ? ratings.reduce((a, b) => a + b, 0) / reviewCount : null;
+
+      return {
+        listings: propIds.length,
+        hostingSince: hostingSince ? new Date(hostingSince).toISOString() : null,
+        reviewCount,
+        rating: avg ? Math.round(avg * 100) / 100 : null,
+      };
+    },
+  });
+
+  const { data: topReviews } = useQuery({
+    queryKey: ["property-reviews", data?.id],
+    enabled: Boolean(data?.id),
+    queryFn: async () => {
+      const property = String(data?.id ?? "");
+      const { data: reviews, error } = await supabase
+        .from("property_reviews")
+        .select("id, rating, comment, created_at")
+        .eq("property_id", property)
+        .order("created_at", { ascending: false })
+        .limit(3);
+      if (error) throw error;
+      return (reviews ?? []) as Array<{ id: string; rating: number; comment: string | null; created_at: string }>;
+    },
   });
 
   useEffect(() => {
@@ -236,6 +319,129 @@ export default function PropertyDetails() {
                   {t("common.noPublishedProperties")}
                 </p>
               )}
+
+              {/* Rooms */}
+              {(data.bedrooms || data.bathrooms || data.beds) ? (
+                <div className="mt-6 text-sm text-muted-foreground">
+                  {[data.bedrooms ? `${data.bedrooms} bedrooms` : null, data.beds ? `${data.beds} beds` : null, data.bathrooms ? `${data.bathrooms} bathrooms` : null]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </div>
+              ) : null}
+
+              {/* Host */}
+              <div className="mt-8 bg-card rounded-xl shadow-card p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    {hostProfile?.avatar_url ? (
+                      <img
+                        src={hostProfile.avatar_url}
+                        alt={hostProfile.full_name ?? "Host"}
+                        className="w-12 h-12 rounded-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-muted" />
+                    )}
+                    <div>
+                      <h2 className="text-base font-semibold text-foreground">
+                        Hosted by {hostProfile?.full_name ?? "Host"}
+                      </h2>
+                      <div className="mt-1 text-sm text-muted-foreground">
+                        <span>
+                          {hostStats?.reviewCount ? `${hostStats.reviewCount} reviews` : "No reviews yet"}
+                        </span>
+                        {hostStats?.rating ? <span> · {hostStats.rating} overall</span> : null}
+                        {hostStats?.hostingSince ? (
+                          <span>
+                            {" "}
+                            · Hosting since {new Date(hostStats.hostingSince).toLocaleDateString()}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Link to={`/accommodations?host=${encodeURIComponent(String(data.host_id))}`}>
+                      <Button variant="outline" size="sm">
+                        All listings
+                      </Button>
+                    </Link>
+                    <Link to={`/hosts/${encodeURIComponent(String(data.host_id))}/reviews`}>
+                      <Button variant="outline" size="sm">
+                        All reviews
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+                {hostProfile?.bio ? (
+                  <p className="mt-4 text-sm text-foreground/90 leading-relaxed">{hostProfile.bio}</p>
+                ) : null}
+              </div>
+
+              {/* Reviews preview */}
+              {topReviews && topReviews.length > 0 ? (
+                <div className="mt-8 bg-card rounded-xl shadow-card p-5">
+                  <div className="flex items-center justify-between gap-3 mb-4">
+                    <h2 className="text-lg font-semibold text-foreground">Reviews</h2>
+                    <Link to={`/hosts/${encodeURIComponent(String(data.host_id))}/reviews`}>
+                      <Button variant="ghost" size="sm">
+                        View all
+                      </Button>
+                    </Link>
+                  </div>
+                  <div className="space-y-4">
+                    {topReviews.map((r) => (
+                      <div key={r.id} className="border border-border rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm font-medium text-foreground">{r.rating} / 5</div>
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(r.created_at).toLocaleDateString()}
+                          </div>
+                        </div>
+                        {r.comment ? (
+                          <p className="mt-2 text-sm text-foreground/90 leading-relaxed">{r.comment}</p>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Cancellation policy */}
+              <div className="mt-8 bg-card rounded-xl shadow-card p-5">
+                <h2 className="text-lg font-semibold text-foreground mb-2">Cancellation & Refund Policy</h2>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Policy: <span className="font-medium text-foreground">{(data.cancellation_policy ?? "fair")}</span>
+                </p>
+                <div className="text-sm text-muted-foreground space-y-3">
+                  {((data.cancellation_policy ?? "fair") === "strict") ? (
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>15-30 days before check-in: Full refund (minus fees)</li>
+                      <li>7-15 days before check-in: 75% refund (minus fees)</li>
+                      <li>3-7 days before check-in: 50% refund (minus fees)</li>
+                      <li>1-3 days before check-in: 25% refund (minus fees)</li>
+                      <li>0-1 day before check-in: No refund</li>
+                      <li>No-shows: Non-refundable</li>
+                    </ul>
+                  ) : (data.cancellation_policy ?? "fair") === "lenient" ? (
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>3-7 days before check-in: Full refund (minus fees)</li>
+                      <li>1-3 days before check-in: 75% refund (minus fees)</li>
+                      <li>0-1 day before check-in: 50% refund</li>
+                      <li>No-shows: Non-refundable</li>
+                    </ul>
+                  ) : (
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>7-15 days before check-in: Full refund (minus fees)</li>
+                      <li>3-7 days before check-in: 75% refund (minus fees)</li>
+                      <li>1-3 days before check-in: 50% refund (minus fees)</li>
+                      <li>0-1 day before check-in: 25% refund</li>
+                      <li>No-shows: Non-refundable</li>
+                    </ul>
+                  )}
+                </div>
+              </div>
 
               {/* Booking */}
               <div className="mt-8 bg-card rounded-xl shadow-card p-5">
