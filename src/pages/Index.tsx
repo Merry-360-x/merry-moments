@@ -7,6 +7,7 @@ import Footer from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "@/contexts/AuthContext";
 
 import heroImage from "@/assets/hero-resort.jpg";
 
@@ -26,10 +27,12 @@ const fetchLatestProperties = async () => {
 
 const Index = () => {
   const { t } = useTranslation();
+  const { isAdmin, isStaff } = useAuth();
   const {
     data: properties,
     isLoading,
     isError,
+    error,
   } = useQuery({
     queryKey: ["properties", "latest"],
     queryFn: fetchLatestProperties,
@@ -86,6 +89,9 @@ const Index = () => {
           ) : isError ? (
             <div className="col-span-full py-12 text-center">
               <p className="text-muted-foreground">{t("common.couldNotLoadProperties")}</p>
+              {(import.meta.env.DEV || isAdmin || isStaff) && error instanceof Error ? (
+                <p className="mt-2 text-xs text-muted-foreground break-all">{error.message}</p>
+              ) : null}
             </div>
           ) : properties.length === 0 ? (
             <div className="col-span-full py-12 text-center">
