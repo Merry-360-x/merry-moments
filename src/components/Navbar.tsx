@@ -79,23 +79,25 @@ const Navbar = () => {
           </button>
 
           {/* Main Navigation - Desktop */}
-          <div className="hidden lg:flex items-center gap-1">
-            {navLinks.map((link) => {
-              const isActive = location.pathname === link.path;
-              return (
-                <Link
-                  key={link.path}
-                  to={link.path}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                    isActive
-                      ? "bg-primary/10 text-primary border border-primary"
-                      : "text-foreground hover:text-primary"
-                  }`}
-                >
-                  {t(link.key)}
-                </Link>
-              );
-            })}
+          <div className="hidden lg:flex items-center gap-1 flex-1 min-w-0 mx-2">
+            <div className="flex items-center gap-1 overflow-x-auto whitespace-nowrap pr-2">
+              {navLinks.map((link) => {
+                const isActive = location.pathname === link.path;
+                return (
+                  <Link
+                    key={link.path}
+                    to={link.path}
+                    className={`px-3 xl:px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                      isActive
+                        ? "bg-primary/10 text-primary border border-primary"
+                        : "text-foreground hover:text-primary"
+                    }`}
+                  >
+                    {t(link.key)}
+                  </Link>
+                );
+              })}
+            </div>
 
             {!isHost ? (
               <Link to="/become-host" className="ml-2">
@@ -156,6 +158,8 @@ const Navbar = () => {
                 <DropdownMenuItem onClick={() => setCurrency("RWF")}>RWF</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setCurrency("USD")}>USD</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setCurrency("EUR")}>EUR</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCurrency("GBP")}>GBP</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCurrency("CNY")}>CNY</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
