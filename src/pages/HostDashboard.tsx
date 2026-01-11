@@ -10,8 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { isCloudinaryConfigured, uploadImageToCloudinary } from "@/lib/cloudinary";
 import { Switch } from "@/components/ui/switch";
+import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
 import {
   Home,
   Calendar,
@@ -76,10 +76,6 @@ const HostDashboard = () => {
   const [nav, setNav] = useState<"dashboard" | "properties" | "add-property" | "create-tour" | "create-transport">(
     "dashboard"
   );
-  const [isUploadingImages, setIsUploadingImages] = useState(false);
-  const [imageUploadProgress, setImageUploadProgress] = useState<
-    { done: number; total: number } | null
-  >(null);
   const [isTourDialogOpen, setIsTourDialogOpen] = useState(false);
   const [isTransportDialogOpen, setIsTransportDialogOpen] = useState(false);
   const [transportMode, setTransportMode] = useState<"vehicle" | "route">("vehicle");
@@ -231,80 +227,6 @@ const HostDashboard = () => {
     });
     setEditingProperty(property);
     setIsDialogOpen(true);
-  };
-
-  const handleImageFilesSelected = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-
-    if (!isCloudinaryConfigured()) {
-      toast({
-        variant: "destructive",
-        title: "Cloudinary not configured",
-        description:
-          "Set VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET in your .env.local (or .env).",
-      });
-      return;
-    }
-
-    const fileArray = Array.from(files);
-    setIsUploadingImages(true);
-    setImageUploadProgress({ done: 0, total: fileArray.length });
-
-    try {
-      const uploadedUrls: string[] = [];
-
-      for (let i = 0; i < fileArray.length; i++) {
-        const file = fileArray[i];
-        const result = await uploadImageToCloudinary(file, { folder: "merry360/properties" });
-        if (result.secureUrl) uploadedUrls.push(result.secureUrl);
-        setImageUploadProgress({ done: i + 1, total: fileArray.length });
-      }
-
-      if (uploadedUrls.length > 0) {
-        setFormData((prev) => ({
-          ...prev,
-          images: [...(prev.images ?? []), ...uploadedUrls],
-        }));
-      }
-    } catch (err) {
-      toast({
-        variant: "destructive",
-        title: "Image upload failed",
-        description: err instanceof Error ? err.message : "Couldn’t upload images right now.",
-      });
-    } finally {
-      setIsUploadingImages(false);
-      setImageUploadProgress(null);
-    }
-  };
-
-  const removeImageAtIndex = (index: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      images: (prev.images ?? []).filter((_, i) => i !== index),
-    }));
-  };
-
-  const uploadMany = async (files: FileList | null, folder: string) => {
-    if (!files || files.length === 0) return [];
-    if (!isCloudinaryConfigured()) {
-      throw new Error("Cloudinary is not configured. Set VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET.");
-    }
-    const fileArray = Array.from(files);
-    setIsUploadingImages(true);
-    setImageUploadProgress({ done: 0, total: fileArray.length });
-    const uploaded: string[] = [];
-    try {
-      for (let i = 0; i < fileArray.length; i++) {
-        const result = await uploadImageToCloudinary(fileArray[i], { folder });
-        if (result.secureUrl) uploaded.push(result.secureUrl);
-        setImageUploadProgress({ done: i + 1, total: fileArray.length });
-      }
-      return uploaded;
-    } finally {
-      setIsUploadingImages(false);
-      setImageUploadProgress(null);
-    }
   };
 
   const createTour = async () => {
@@ -661,45 +583,19 @@ const HostDashboard = () => {
                     <div>
                       <Label>Images</Label>
                       <div className="mt-2 space-y-3">
-                        <Input
-                          type="file"
+                        <CloudinaryUploadDialog
+                          title="Upload tour images"
+                          folder="merry360/tours"
                           accept="image/*"
                           multiple
-                          disabled={isUploadingImages}
-                          onChange={async (e) => {
-                            try {
-                              const uploaded = await uploadMany(e.target.files, "merry360/tours");
-                              if (uploaded.length) setTourForm((p) => ({ ...p, images: [...p.images, ...uploaded] }));
-                            } catch (err) {
-                              toast({
-                                variant: "destructive",
-                                title: "Image upload failed",
-                                description: err instanceof Error ? err.message : "Please try again.",
-                              });
-                            } finally {
-                              e.currentTarget.value = "";
-                            }
-                          }}
+                          maxFiles={12}
+                          buttonLabel="Upload tour images"
+                          value={tourForm.images}
+                          onChange={(urls) => setTourForm((p) => ({ ...p, images: urls }))}
                         />
-
-                        {(tourForm.images?.length ?? 0) > 0 ? (
-                          <div className="grid grid-cols-3 gap-2">
-                            {tourForm.images.map((url, idx) => (
-                              <div key={`${url}-${idx}`} className="relative rounded-md overflow-hidden border border-border">
-                                <img src={url} alt={`Tour image ${idx + 1}`} className="h-20 w-full object-cover" loading="lazy" />
-                                <button
-                                  type="button"
-                                  onClick={() => setTourForm((p) => ({ ...p, images: p.images.filter((_, i) => i !== idx) }))}
-                                  className="absolute top-1 right-1 rounded bg-background/80 px-2 py-1 text-xs text-foreground hover:bg-background"
-                                >
-                                  Remove
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
+                        {(tourForm.images?.length ?? 0) === 0 ? (
                           <p className="text-sm text-muted-foreground">Upload at least one tour image.</p>
-                        )}
+                        ) : null}
                       </div>
                     </div>
 
@@ -795,33 +691,19 @@ const HostDashboard = () => {
                       <div>
                         <Label>Vehicle image</Label>
                         <div className="mt-2 space-y-3">
-                          <Input
-                            type="file"
+                          <CloudinaryUploadDialog
+                            title="Upload vehicle image"
+                            folder="merry360/transport/vehicles"
                             accept="image/*"
-                            disabled={isUploadingImages}
-                            onChange={async (e) => {
-                              try {
-                                const uploaded = await uploadMany(e.target.files, "merry360/transport/vehicles");
-                                const first = uploaded[0];
-                                if (first) setVehicleForm((p) => ({ ...p, image_url: first }));
-                              } catch (err) {
-                                toast({
-                                  variant: "destructive",
-                                  title: "Image upload failed",
-                                  description: err instanceof Error ? err.message : "Please try again.",
-                                });
-                              } finally {
-                                e.currentTarget.value = "";
-                              }
-                            }}
+                            multiple={false}
+                            maxFiles={1}
+                            buttonLabel={vehicleForm.image_url ? "Replace vehicle image" : "Upload vehicle image"}
+                            value={vehicleForm.image_url ? [vehicleForm.image_url] : []}
+                            onChange={(urls) => setVehicleForm((p) => ({ ...p, image_url: urls[0] ?? "" }))}
                           />
-                          {vehicleForm.image_url ? (
-                            <div className="rounded-lg border border-border overflow-hidden">
-                              <img src={vehicleForm.image_url} alt="Vehicle" className="w-full h-48 object-cover" loading="lazy" />
-                            </div>
-                          ) : (
+                          {!vehicleForm.image_url ? (
                             <p className="text-sm text-muted-foreground">Upload a vehicle image.</p>
-                          )}
+                          ) : null}
                         </div>
                       </div>
 
@@ -963,49 +845,21 @@ const HostDashboard = () => {
                 <div>
                   <Label>Images</Label>
                   <div className="mt-2 space-y-3">
-                    <Input
-                      type="file"
+                    <CloudinaryUploadDialog
+                      title="Upload property images"
+                      folder="merry360/properties"
                       accept="image/*"
                       multiple
-                      disabled={isUploadingImages}
-                      onChange={(e) => handleImageFilesSelected(e.target.files)}
+                      maxFiles={16}
+                      buttonLabel="Upload property images"
+                      value={formData.images ?? []}
+                      onChange={(urls) => setFormData((p) => ({ ...p, images: urls }))}
                     />
-
-                    {isUploadingImages && imageUploadProgress ? (
-                      <p className="text-sm text-muted-foreground">
-                        Uploading {imageUploadProgress.done}/{imageUploadProgress.total}...
-                      </p>
-                    ) : null}
-
-                    {(formData.images?.length ?? 0) > 0 ? (
-                      <div className="grid grid-cols-3 gap-2">
-                        {formData.images.map((url, idx) => (
-                          <div
-                            key={`${url}-${idx}`}
-                            className="relative rounded-md overflow-hidden border border-border"
-                          >
-                            <img
-                              src={url}
-                              alt={`Property image ${idx + 1}`}
-                              className="h-20 w-full object-cover"
-                              loading="lazy"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => removeImageAtIndex(idx)}
-                              className="absolute top-1 right-1 rounded bg-background/80 px-2 py-1 text-xs text-foreground hover:bg-background"
-                              title="Remove"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
+                    {(formData.images?.length ?? 0) === 0 ? (
                       <p className="text-sm text-muted-foreground">
                         Upload at least one image to show on listings.
                       </p>
-                    )}
+                    ) : null}
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">

@@ -11,8 +11,8 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { uploadImageToCloudinary, isCloudinaryConfigured } from "@/lib/cloudinary";
-import { Building2, UserRound, Briefcase, Upload, CheckCircle2, AlertTriangle } from "lucide-react";
+import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
+import { Building2, UserRound, Briefcase, CheckCircle2, AlertTriangle } from "lucide-react";
 
 type HostApplicationStatus = "draft" | "pending" | "approved" | "rejected";
 
@@ -84,10 +84,6 @@ export default function HostApplication() {
     national_id_photo_url: "",
   });
 
-  const [uploading, setUploading] = useState<{ kind: "listing" | "certificate" | "id" | null; progress?: string }>({
-    kind: null,
-  });
-
   const propertyValid = useMemo(() => {
     return (
       property.title.trim().length >= 3 &&
@@ -102,12 +98,14 @@ export default function HostApplication() {
     if (details.full_name.trim().length < 2) return false;
     if (details.phone.trim().length < 7) return false;
     if (details.about.trim().length < 10) return false;
+    // ID verification is required for both individuals and businesses.
+    if (details.national_id_number.trim().length < 3) return false;
+    if (details.national_id_photo_url.trim().length < 5) return false;
+    // Business requires business info as well.
     if (applicantType === "business") {
       if (details.business_name.trim().length < 2) return false;
       if (details.business_tin.trim().length < 3) return false;
       if (details.business_certificate_url.trim().length < 5) return false;
-      if (details.national_id_number.trim().length < 3) return false;
-      if (details.national_id_photo_url.trim().length < 5) return false;
     }
     return true;
   }, [details, applicantType]);
@@ -212,18 +210,6 @@ export default function HostApplication() {
     });
   };
 
-  const uploadFiles = async (files: FileList | null, folder: string) => {
-    if (!files || files.length === 0) return [];
-    if (!isCloudinaryConfigured()) throw new Error("Cloudinary is not configured for uploads.");
-    const arr = Array.from(files);
-    const urls: string[] = [];
-    for (let i = 0; i < arr.length; i++) {
-      const res = await uploadImageToCloudinary(arr[i], { folder });
-      if (res.secureUrl) urls.push(res.secureUrl);
-    }
-    return urls;
-  };
-
   const submit = async () => {
     if (!user) return;
 
@@ -256,8 +242,8 @@ export default function HostApplication() {
         listing_images: property.images,
         business_tin: applicantType === "business" ? details.business_tin.trim() || null : null,
         business_certificate_url: applicantType === "business" ? details.business_certificate_url.trim() || null : null,
-        national_id_number: applicantType === "business" ? details.national_id_number.trim() || null : null,
-        national_id_photo_url: applicantType === "business" ? details.national_id_photo_url.trim() || null : null,
+        national_id_number: details.national_id_number.trim() || null,
+        national_id_photo_url: details.national_id_photo_url.trim() || null,
       };
 
       const { error } = await supabase.from("host_applications").insert(payload);
@@ -519,47 +505,19 @@ export default function HostApplication() {
                   <div>
                     <Label>Property photos (required)</Label>
                     <div className="mt-2 space-y-3">
-                      <Input
-                        type="file"
+                      <CloudinaryUploadDialog
+                        title="Upload property photos"
+                        folder="merry360/host-applications/listings"
                         accept="image/*"
                         multiple
-                        disabled={uploading.kind !== null}
-                        onChange={async (e) => {
-                          try {
-                            setUploading({ kind: "listing", progress: "Uploading..." });
-                            const uploaded = await uploadFiles(e.target.files, "merry360/host-applications/listings");
-                            setProperty((p) => ({ ...p, images: [...p.images, ...uploaded] }));
-                          } catch (err) {
-                            toast({ variant: "destructive", title: "Upload failed", description: err instanceof Error ? err.message : "Please try again." });
-                          } finally {
-                            setUploading({ kind: null });
-                            e.currentTarget.value = "";
-                          }
-                        }}
+                        maxFiles={12}
+                        buttonLabel="Upload photos"
+                        value={property.images}
+                        onChange={(urls) => setProperty((p) => ({ ...p, images: urls }))}
                       />
-                      {uploading.kind === "listing" ? (
-                        <div className="text-sm text-muted-foreground flex items-center gap-2">
-                          <Upload className="w-4 h-4" /> Uploading…
-                        </div>
-                      ) : null}
-                      {property.images.length ? (
-                        <div className="grid grid-cols-3 gap-2">
-                          {property.images.map((url, idx) => (
-                            <div key={`${url}-${idx}`} className="relative rounded-lg overflow-hidden border border-border">
-                              <img src={url} alt={`Property ${idx + 1}`} className="h-24 w-full object-cover" loading="lazy" />
-                              <button
-                                type="button"
-                                onClick={() => setProperty((p) => ({ ...p, images: p.images.filter((_, i) => i !== idx) }))}
-                                className="absolute top-1 right-1 rounded bg-background/80 px-2 py-1 text-xs"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
+                      {property.images.length === 0 ? (
                         <p className="text-sm text-muted-foreground">Upload at least one photo to continue.</p>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -599,29 +557,17 @@ export default function HostApplication() {
                           </div>
                           <div>
                             <Label>Business registration certificate (PDF or image)</Label>
-                            <Input
-                              type="file"
-                              accept="image/*,application/pdf"
-                              disabled={uploading.kind !== null}
-                              onChange={async (e) => {
-                                try {
-                                  setUploading({ kind: "certificate", progress: "Uploading..." });
-                                  const uploaded = await uploadFiles(e.target.files, "merry360/host-applications/business");
-                                  const first = uploaded[0];
-                                  if (first) setDetails((p) => ({ ...p, business_certificate_url: first }));
-                                } catch (err) {
-                                  toast({ variant: "destructive", title: "Upload failed", description: err instanceof Error ? err.message : "Please try again." });
-                                } finally {
-                                  setUploading({ kind: null });
-                                  e.currentTarget.value = "";
-                                }
-                              }}
+                            <CloudinaryUploadDialog
+                              title="Upload business certificate"
+                              folder="merry360/host-applications/business"
+                              accept="image/*"
+                              multiple={false}
+                              maxFiles={1}
+                              buttonLabel={details.business_certificate_url ? "Replace certificate" : "Upload certificate image"}
+                              value={details.business_certificate_url ? [details.business_certificate_url] : []}
+                              onChange={(urls) => setDetails((p) => ({ ...p, business_certificate_url: urls[0] ?? "" }))}
                             />
-                            {details.business_certificate_url ? (
-                              <div className="text-xs text-muted-foreground mt-2 break-all">{details.business_certificate_url}</div>
-                            ) : (
-                              <div className="text-xs text-muted-foreground mt-2">Upload required for businesses.</div>
-                            )}
+                            <div className="text-xs text-muted-foreground mt-2">Upload required for businesses.</div>
                           </div>
                         </TabsContent>
 
@@ -632,36 +578,47 @@ export default function HostApplication() {
                           </div>
                           <div>
                             <Label>National ID photo (image)</Label>
-                            <Input
-                              type="file"
+                            <CloudinaryUploadDialog
+                              title="Upload National ID photo"
+                              folder="merry360/host-applications/id"
                               accept="image/*"
-                              disabled={uploading.kind !== null}
-                              onChange={async (e) => {
-                                try {
-                                  setUploading({ kind: "id", progress: "Uploading..." });
-                                  const uploaded = await uploadFiles(e.target.files, "merry360/host-applications/id");
-                                  const first = uploaded[0];
-                                  if (first) setDetails((p) => ({ ...p, national_id_photo_url: first }));
-                                } catch (err) {
-                                  toast({ variant: "destructive", title: "Upload failed", description: err instanceof Error ? err.message : "Please try again." });
-                                } finally {
-                                  setUploading({ kind: null });
-                                  e.currentTarget.value = "";
-                                }
-                              }}
+                              multiple={false}
+                              maxFiles={1}
+                              buttonLabel={details.national_id_photo_url ? "Replace ID photo" : "Upload ID photo"}
+                              value={details.national_id_photo_url ? [details.national_id_photo_url] : []}
+                              onChange={(urls) => setDetails((p) => ({ ...p, national_id_photo_url: urls[0] ?? "" }))}
                             />
-                            {details.national_id_photo_url ? (
-                              <div className="rounded-lg border border-border overflow-hidden mt-3">
-                                <img src={details.national_id_photo_url} alt="National ID" className="w-full h-44 object-cover" loading="lazy" />
-                              </div>
-                            ) : (
-                              <div className="text-xs text-muted-foreground mt-2">Upload required for businesses.</div>
-                            )}
+                            <div className="text-xs text-muted-foreground mt-2">Upload required.</div>
                           </div>
                         </TabsContent>
                       </Tabs>
                     </div>
-                  ) : null}
+                  ) : (
+                    <div className="mt-2 space-y-4">
+                      <div>
+                        <Label>National ID number</Label>
+                        <Input
+                          value={details.national_id_number}
+                          onChange={(e) => setDetails((p) => ({ ...p, national_id_number: e.target.value }))}
+                          placeholder="Enter your National ID number"
+                        />
+                      </div>
+                      <div>
+                        <Label>National ID photo (image)</Label>
+                        <CloudinaryUploadDialog
+                          title="Upload National ID photo"
+                          folder="merry360/host-applications/id"
+                          accept="image/*"
+                          multiple={false}
+                          maxFiles={1}
+                          buttonLabel={details.national_id_photo_url ? "Replace ID photo" : "Upload ID photo"}
+                          value={details.national_id_photo_url ? [details.national_id_photo_url] : []}
+                          onChange={(urls) => setDetails((p) => ({ ...p, national_id_photo_url: urls[0] ?? "" }))}
+                        />
+                        <div className="text-xs text-muted-foreground mt-2">Upload required.</div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : null}
 

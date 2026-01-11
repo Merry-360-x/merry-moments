@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
 import { CalendarDays, Camera, Heart, LogOut, Mail, Shield, Star } from "lucide-react";
 
 type ProfileRow = {
@@ -219,42 +220,41 @@ export default function Dashboard() {
                     {(profile?.full_name ?? user?.email ?? "U").slice(0, 1).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                <button
-                  type="button"
-                  className="absolute bottom-0 right-0 h-9 w-9 rounded-full border border-border bg-background shadow-sm flex items-center justify-center"
-                  aria-label="Upload avatar"
-                  onClick={() => document.getElementById("avatarUploadInput")?.click()}
-                >
-                  <Camera className="w-4 h-4 text-muted-foreground" />
-                </button>
-                <input
-                  id="avatarUploadInput"
-                  type="file"
+                <CloudinaryUploadDialog
+                  title="Upload avatar"
+                  folder="merry360/avatars"
                   accept="image/*"
-                  className="hidden"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0] ?? null;
-                    e.currentTarget.value = "";
-                    if (!file) return;
+                  multiple={false}
+                  maxFiles={1}
+                  value={profile?.avatar_url ? [profile.avatar_url] : []}
+                  onChange={async (urls) => {
+                    const next = urls[0] ?? "";
                     if (!user) return;
-
                     try {
-                      const { uploadImageToCloudinary } = await import("@/lib/cloudinary");
-                      const res = await uploadImageToCloudinary(file, { folder: "merry360/avatars" });
                       const { error } = await supabase
                         .from("profiles")
-                        .update({ avatar_url: res.secureUrl })
+                        .update({ avatar_url: next || null })
                         .eq("user_id", user.id);
                       if (error) throw error;
+                      setProfile((p) => (p ? { ...p, avatar_url: next || null } : p));
                       toast({ title: "Avatar updated" });
                     } catch (err) {
                       toast({
                         variant: "destructive",
-                        title: "Avatar upload failed",
+                        title: "Avatar update failed",
                         description: err instanceof Error ? err.message : "Please try again.",
                       });
                     }
                   }}
+                  trigger={
+                    <button
+                      type="button"
+                      className="absolute bottom-0 right-0 h-9 w-9 rounded-full border border-border bg-background shadow-sm flex items-center justify-center"
+                      aria-label="Upload avatar"
+                    >
+                      <Camera className="w-4 h-4 text-muted-foreground" />
+                    </button>
+                  }
                 />
               </div>
 

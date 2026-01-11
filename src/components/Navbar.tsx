@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Heart, ShoppingCart, ChevronDown, Moon, Sun, LogOut, User, Menu, X } from "lucide-react";
+import { Heart, ChevronDown, Moon, Sun, LogOut, User, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import Logo from "./Logo";
@@ -162,7 +162,6 @@ const Navbar = () => {
 
             <Link to="/trip-cart">
               <Button variant="outline" size="sm" className="gap-2">
-                <ShoppingCart className="w-4 h-4" />
                 {t("actions.tripCart")}
               </Button>
             </Link>

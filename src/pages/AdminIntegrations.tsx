@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { isCloudinaryConfigured, uploadImageToCloudinary } from "@/lib/cloudinary";
+import { isCloudinaryConfigured } from "@/lib/cloudinary";
+import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
 import { useAuth } from "@/contexts/AuthContext";
 
 type CheckResult =
@@ -28,7 +29,6 @@ export default function AdminIntegrations() {
   const [running, setRunning] = useState(false);
   const [results, setResults] = useState<CheckResult[]>([]);
 
-  const [uploading, setUploading] = useState(false);
   const [lastUploadUrl, setLastUploadUrl] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
 
@@ -144,24 +144,6 @@ export default function AdminIntegrations() {
     }
   };
 
-  const handleCloudinaryTestUpload = async (file: File | null) => {
-    if (!file) return;
-    setUploading(true);
-    try {
-      const res = await uploadImageToCloudinary(file, { folder: "merry360/integration-tests" });
-      setLastUploadUrl(res.secureUrl);
-      toast({ title: "Cloudinary upload OK", description: res.publicId });
-    } catch (e) {
-      toast({
-        variant: "destructive",
-        title: "Cloudinary upload failed",
-        description: e instanceof Error ? e.message : "Unknown error",
-      });
-    } finally {
-      setUploading(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -267,12 +249,21 @@ export default function AdminIntegrations() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
               <div>
                 <Label htmlFor="cloudinaryUpload">Test image</Label>
-                <Input
-                  id="cloudinaryUpload"
-                  type="file"
+                <CloudinaryUploadDialog
+                  title="Cloudinary upload test"
+                  folder="merry360/integration-tests"
                   accept="image/*"
-                  disabled={uploading}
-                  onChange={(e) => handleCloudinaryTestUpload(e.target.files?.[0] ?? null)}
+                  multiple={false}
+                  maxFiles={1}
+                  buttonLabel="Upload test image"
+                  value={lastUploadUrl ? [lastUploadUrl] : []}
+                  onChange={(urls) => {
+                    const url = urls[0];
+                    if (url) {
+                      setLastUploadUrl(url);
+                      toast({ title: "Cloudinary upload OK" });
+                    }
+                  }}
                 />
                 <p className="text-xs text-muted-foreground mt-2">
                   Note: unsigned uploads must be enabled in your Cloudinary upload preset.
