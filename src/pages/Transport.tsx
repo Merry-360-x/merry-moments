@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Tables } from "@/integrations/supabase/types";
 import ListingImageCarousel from "@/components/ListingImageCarousel";
+import { formatMoney } from "@/lib/money";
 
 type TransportServiceRow = Pick<Tables<"transport_services">, "id" | "title" | "description" | "slug">;
 type TransportVehicleRow = Pick<
@@ -234,7 +235,7 @@ const Transport = () => {
                   {r.from_location} → {r.to_location}
                 </div>
                 <div className="text-muted-foreground mb-4">
-                  {r.currency} {Number(r.base_price).toLocaleString()}
+                  {formatMoney(Number(r.base_price), String(r.currency ?? "RWF"))}
                 </div>
                 <Button
                   className="w-full"
@@ -309,7 +310,7 @@ const Transport = () => {
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-foreground">
                       <span className="font-bold">
-                        {v.currency} {Number(v.price_per_day).toLocaleString()}
+                        {formatMoney(Number(v.price_per_day), String(v.currency ?? "RWF"))}
                       </span>
                       <span className="text-sm text-muted-foreground"> / day</span>
                     </div>

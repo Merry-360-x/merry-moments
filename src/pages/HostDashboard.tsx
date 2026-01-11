@@ -38,6 +38,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { formatMoney } from "@/lib/money";
 
 interface Property {
   id: string;
@@ -761,8 +762,8 @@ const HostDashboard = () => {
                             <option>RWF</option>
                             <option>USD</option>
                             <option>EUR</option>
-                          <option>GBP</option>
-                          <option>CNY</option>
+                            <option>GBP</option>
+                            <option>CNY</option>
                           </select>
                         </div>
                       </div>
@@ -860,6 +861,8 @@ const HostDashboard = () => {
                             <option>RWF</option>
                             <option>USD</option>
                             <option>EUR</option>
+                          <option>GBP</option>
+                          <option>CNY</option>
                           </select>
                         </div>
                       </div>
@@ -1129,7 +1132,7 @@ const HostDashboard = () => {
               <div>
                 <p className="text-sm text-muted-foreground">Total Earnings</p>
                 <p className="text-2xl font-bold text-foreground">
-                  {totalEarnings.toLocaleString()} RWF
+                  {formatMoney(Number(totalEarnings), "RWF")}
                 </p>
               </div>
             </div>
@@ -1286,7 +1289,7 @@ const HostDashboard = () => {
                         {booking.guests_count}
                       </td>
                       <td className="px-6 py-4 text-foreground">
-                        {Number(booking.total_price).toLocaleString()} RWF
+                        {formatMoney(Number(booking.total_price), String((booking as any).currency ?? "RWF"))}
                       </td>
                       <td className="px-6 py-4">
                         <span

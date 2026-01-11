@@ -451,6 +451,8 @@ export default function HostApplication() {
                         <option>RWF</option>
                         <option>USD</option>
                         <option>EUR</option>
+                          <option>GBP</option>
+                          <option>CNY</option>
                       </select>
                     </div>
                   </div>

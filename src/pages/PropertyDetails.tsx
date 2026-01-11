@@ -14,6 +14,7 @@ import { useFavorites } from "@/hooks/useFavorites";
 import { Heart } from "lucide-react";
 import { amenityByValue } from "@/lib/amenities";
 import PropertyCard from "@/components/PropertyCard";
+import { formatMoney } from "@/lib/money";
 
 type PropertyRow = {
   id: string;
@@ -457,7 +458,7 @@ export default function PropertyDetails() {
                                 <div className="font-medium text-foreground line-clamp-1">{t.title}</div>
                                 <div className="text-xs text-muted-foreground line-clamp-1">{t.location ?? ""}</div>
                                 <div className="mt-2 text-sm font-semibold text-primary">
-                                  {t.currency ?? "RWF"} {Number(t.price_per_person ?? 0).toLocaleString()}
+                                  {formatMoney(Number(t.price_per_person ?? 0), String(t.currency ?? "RWF"))}
                                   <span className="text-xs text-muted-foreground"> / person</span>
                                 </div>
                               </div>
@@ -494,7 +495,7 @@ export default function PropertyDetails() {
                                   {v.seats ? `· ${v.seats} seats` : ""}
                                 </div>
                                 <div className="mt-2 text-sm font-semibold text-primary">
-                                  {v.currency ?? "RWF"} {Number(v.price_per_day ?? 0).toLocaleString()}
+                                  {formatMoney(Number(v.price_per_day ?? 0), String(v.currency ?? "RWF"))}
                                   <span className="text-xs text-muted-foreground"> / day</span>
                                 </div>
                               </div>
@@ -517,7 +518,7 @@ export default function PropertyDetails() {
                 </div>
                 <div className="text-right">
                   <div className="text-lg font-bold text-primary">
-                    {data.currency ?? "RWF"} {Number(data.price_per_night).toLocaleString()}
+                    {formatMoney(Number(data.price_per_night), String(data.currency ?? "RWF"))}
                     <span className="text-sm text-muted-foreground"> {t("common.perNight")}</span>
                   </div>
                 </div>
@@ -733,7 +734,7 @@ export default function PropertyDetails() {
                       <>
                         {nights} night{nights === 1 ? "" : "s"} • Total:{" "}
                         <span className="font-semibold text-foreground">
-                          {data.currency ?? "RWF"} {Number(finalTotal).toLocaleString()}
+                          {formatMoney(Number(finalTotal), String(data.currency ?? "RWF"))}
                         </span>
                       </>
                     ) : (
@@ -771,7 +772,7 @@ export default function PropertyDetails() {
                       <div className="mt-2 text-xs text-muted-foreground">
                         Discount applied:{" "}
                         <span className="font-semibold text-foreground">
-                          {data.currency ?? "RWF"} {Number(discountAmount).toLocaleString()}
+                          {formatMoney(Number(discountAmount), String(data.currency ?? "RWF"))}
                         </span>
                       </div>
                     ) : null}

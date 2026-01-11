@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Tables } from "@/integrations/supabase/types";
 import ListingImageCarousel from "@/components/ListingImageCarousel";
+import { formatMoney } from "@/lib/money";
 
 const categories = ["All", "Nature", "Adventure", "Cultural", "Wildlife", "Historical"];
 
@@ -260,7 +261,7 @@ const Tours = () => {
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-foreground">
                       <span className="font-bold">
-                        {tour.currency} {Number(tour.price_per_person).toLocaleString()}
+                        {formatMoney(Number(tour.price_per_person), String(tour.currency ?? "RWF"))}
                       </span>
                       <span className="text-sm text-muted-foreground"> / person</span>
                     </div>

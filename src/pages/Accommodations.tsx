@@ -16,6 +16,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Filter } from "lucide-react";
 import { AMENITIES } from "@/lib/amenities";
+import { formatMoney } from "@/lib/money";
+import { usePreferences } from "@/hooks/usePreferences";
 
 const propertyTypes = ["Hotel", "Motel", "Resort", "Lodge", "Apartment", "Villa", "Guesthouse"];
 const amenities = AMENITIES;
@@ -111,6 +113,7 @@ const Accommodations = () => {
   const qc = useQueryClient();
   const { user } = useAuth();
   const { toggleFavorite } = useFavorites();
+  const { currency: preferredCurrency } = usePreferences();
 
   useEffect(() => {
     setQuery(searchParams.get("q") ?? "");
@@ -378,7 +381,7 @@ const Accommodations = () => {
                     />
                     <div className="flex items-center justify-between text-sm gap-3">
                       <span className="text-muted-foreground">Max</span>
-                      <span className="text-primary font-medium">{maxPrice.toLocaleString()} RWF</span>
+                      <span className="text-primary font-medium">{formatMoney(Number(maxPrice), String(preferredCurrency))}</span>
                     </div>
                   </AccordionContent>
                 </AccordionItem>
@@ -521,7 +524,7 @@ const Accommodations = () => {
                     />
                     <div className="flex items-center justify-between text-sm gap-3">
                       <span className="text-muted-foreground">Max</span>
-                      <span className="text-primary font-medium">{maxPrice.toLocaleString()} RWF</span>
+                      <span className="text-primary font-medium">{formatMoney(Number(maxPrice), String(preferredCurrency))}</span>
                     </div>
                   </AccordionContent>
                 </AccordionItem>

@@ -8,6 +8,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { Tables } from "@/integrations/supabase/types";
+import { usePreferences } from "@/hooks/usePreferences";
+import { formatMoney } from "@/lib/money";
 
 type CartItemRow = Pick<Tables<"trip_cart_items">, "id" | "item_type" | "reference_id" | "quantity" | "created_at">;
 
@@ -31,6 +33,7 @@ export default function TripCart() {
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { currency: preferredCurrency } = usePreferences();
 
   const { data, isLoading } = useQuery({
     queryKey: ["trip_cart_items", user?.id],
@@ -286,7 +289,7 @@ export default function TripCart() {
               <div className="text-foreground">
                 <span className="font-semibold">Estimated total: </span>
                 <span className="font-bold">
-                  {data?.totals.currency} {Number(data?.totals.amount ?? 0).toLocaleString()}
+                  {formatMoney(Number(data?.totals.amount ?? 0), String(data?.totals.currency ?? preferredCurrency))}
                 </span>
               </div>
               <div className="flex items-center gap-3">
@@ -318,7 +321,7 @@ export default function TripCart() {
                     </div>
                     <div className="text-right">
                       <div className="font-bold text-foreground">
-                        {details?.currency ?? "RWF"} {Number(details?.price ?? 0).toLocaleString()}
+                        {formatMoney(Number(details?.price ?? 0), String(details?.currency ?? preferredCurrency))}
                       </div>
                       <div className="text-sm text-muted-foreground">Qty: {item.quantity}</div>
                     </div>

@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { formatMoney } from "@/lib/money";
 
 interface Booking {
   id: string;
@@ -219,7 +220,7 @@ const MyBookings = () => {
                     <div>
                       <p className="text-xs text-muted-foreground">{t("bookings.labels.total")}</p>
                       <p className="font-semibold text-primary">
-                        {Number(booking.total_price).toLocaleString()} {booking.currency}
+                        {formatMoney(Number(booking.total_price), String(booking.currency ?? "RWF"))}
                       </p>
                     </div>
                   </div>

@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatMoney } from "@/lib/money";
 
 type HostApplicationStatus = "draft" | "pending" | "approved" | "rejected";
 
@@ -443,7 +444,7 @@ export default function StaffDashboard() {
                 <TableRow key={b.id}>
                   <TableCell className="font-medium">{b.status}</TableCell>
                   <TableCell>
-                    {b.currency} {Number(b.total_price).toLocaleString()}
+                    {formatMoney(Number(b.total_price), String(b.currency ?? "RWF"))}
                   </TableCell>
                   <TableCell className="text-right text-muted-foreground">
                     {new Date(b.created_at).toLocaleDateString()}

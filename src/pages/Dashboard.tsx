@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
 import { CalendarDays, Camera, Heart, LogOut, Mail, Shield, Star } from "lucide-react";
+import { formatMoney } from "@/lib/money";
 
 type ProfileRow = {
   user_id: string;
@@ -222,8 +223,8 @@ export default function Dashboard() {
       <div className="container mx-auto px-4 lg:px-8 py-10">
         <div className="mb-8">
           <h1 className="text-2xl lg:text-3xl font-bold text-foreground">My Profile</h1>
-          <p className="text-muted-foreground">Manage your account information and preferences</p>
-        </div>
+            <p className="text-muted-foreground">Manage your account information and preferences</p>
+          </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left profile card */}
@@ -313,8 +314,8 @@ export default function Dashboard() {
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Member Since</span>
                 <span className="font-semibold text-foreground">{memberSince ?? "—"}</span>
-              </div>
-            </div>
+          </div>
+        </div>
 
             <Button
               variant="outline"
@@ -349,18 +350,18 @@ export default function Dashboard() {
                   <Card className="p-5">
                     <div className="flex items-center justify-between">
                       <div>
-                        <div className="text-sm text-muted-foreground">Upcoming Trips</div>
+            <div className="text-sm text-muted-foreground">Upcoming Trips</div>
                         <div className="text-3xl font-bold text-foreground mt-1">{trips.upcoming}</div>
                       </div>
                       <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
                         <CalendarDays className="w-5 h-5 text-primary" />
-                      </div>
-                    </div>
+          </div>
+          </div>
                   </Card>
                   <Card className="p-5">
                     <div className="flex items-center justify-between">
                       <div>
-                        <div className="text-sm text-muted-foreground">Cart Items</div>
+            <div className="text-sm text-muted-foreground">Cart Items</div>
                         <div className="text-3xl font-bold text-foreground mt-1">{cartCount}</div>
                       </div>
                       <Link
@@ -434,7 +435,7 @@ export default function Dashboard() {
                             </div>
                             <div className="flex items-center gap-3">
                               <span className="text-sm font-semibold text-foreground">
-                                {b.currency} {Number(b.total_price).toLocaleString()}
+                                {formatMoney(Number(b.total_price), String(b.currency ?? "RWF"))}
                               </span>
                               <Link to="/my-bookings">
                                 <Button variant="outline" size="sm">
@@ -469,7 +470,7 @@ export default function Dashboard() {
                             </div>
                             <div className="flex items-center gap-3">
                               <span className="text-sm font-semibold text-foreground">
-                                {b.currency} {Number(b.total_price).toLocaleString()}
+                                {formatMoney(Number(b.total_price), String(b.currency ?? "RWF"))}
                               </span>
                               <Link to="/my-bookings">
                                 <Button variant="outline" size="sm">
@@ -518,8 +519,8 @@ export default function Dashboard() {
                                   <div className="mt-2 text-sm font-semibold text-foreground">
                                     {p.currency ?? "RWF"} {Number(p.price_per_night ?? 0).toLocaleString()}
                                     <span className="text-muted-foreground font-normal"> / night</span>
-                                  </div>
-                                </div>
+          </div>
+        </div>
                               </Card>
                             </Link>
                           );
@@ -532,25 +533,25 @@ export default function Dashboard() {
 
               <TabsContent value="personal" className="mt-6">
                 <Card className="p-6">
-                  <h2 className="text-xl font-semibold text-foreground mb-1">Personal Info</h2>
-                  <p className="text-muted-foreground mb-6">Keep your details up to date to unlock all features.</p>
+          <h2 className="text-xl font-semibold text-foreground mb-1">Personal Info</h2>
+          <p className="text-muted-foreground mb-6">Keep your details up to date to unlock all features.</p>
 
-                  {profileLoading ? (
-                    <div className="py-10 text-center">
-                      <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                      <div>
-                        <Label htmlFor="fullName">Full name</Label>
+          {profileLoading ? (
+            <div className="py-10 text-center">
+              <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div>
+                <Label htmlFor="fullName">Full name</Label>
                         <Input id="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Your name" />
-                      </div>
-                      <div>
-                        <Label htmlFor="phone">Phone number</Label>
+              </div>
+              <div>
+                <Label htmlFor="phone">Phone number</Label>
                         <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+250..." />
-                      </div>
-                      <div>
-                        <Label htmlFor="dob">Date of birth</Label>
+              </div>
+              <div>
+                <Label htmlFor="dob">Date of birth</Label>
                         <Input id="dob" type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
                       </div>
 
@@ -561,26 +562,26 @@ export default function Dashboard() {
                           value={bio}
                           onChange={(e) => setBio(e.target.value)}
                           placeholder="Share a little about yourself (shown on your host profile)."
-                        />
-                      </div>
+                />
+              </div>
 
-                      <div className="md:col-span-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-2">
-                        {completeProfileMissing ? (
-                          <div className="text-sm text-muted-foreground">
+              <div className="md:col-span-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-2">
+                {completeProfileMissing ? (
+                  <div className="text-sm text-muted-foreground">
                             Complete your profile to earn <span className="font-semibold text-foreground">5</span> loyalty points.
-                          </div>
-                        ) : (
+                  </div>
+                ) : (
                           <div className="text-sm text-muted-foreground">
                             Profile looks good. You have <span className="font-semibold text-foreground">{loyaltyPoints}</span>{" "}
                             loyalty points.
                           </div>
-                        )}
-                        <Button onClick={saveProfile} disabled={saving}>
-                          {saving ? "Saving..." : "Save changes"}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
+                )}
+                <Button onClick={saveProfile} disabled={saving}>
+                  {saving ? "Saving..." : "Save changes"}
+                </Button>
+              </div>
+            </div>
+          )}
                 </Card>
               </TabsContent>
 
@@ -592,7 +593,7 @@ export default function Dashboard() {
                       <p className="text-muted-foreground">Manage login and account security settings.</p>
                     </div>
                     <Shield className="w-5 h-5 text-muted-foreground mt-1" />
-                  </div>
+        </div>
 
                   <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Card className="p-5">
