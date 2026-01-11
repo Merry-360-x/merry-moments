@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Switch } from "@/components/ui/switch";
 import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
+import { isVideoUrl } from "@/lib/media";
 import {
   Home,
   Calendar,
@@ -118,6 +119,70 @@ const HostDashboard = () => {
     base_price: 0,
     currency: "RWF",
   });
+
+  const moveItem = <T,>(arr: T[], from: number, to: number) => {
+    if (from === to) return arr;
+    if (from < 0 || from >= arr.length) return arr;
+    if (to < 0 || to >= arr.length) return arr;
+    const copy = [...arr];
+    const [it] = copy.splice(from, 1);
+    copy.splice(to, 0, it);
+    return copy;
+  };
+
+  const MediaReorderGrid = ({
+    value,
+    onChange,
+  }: {
+    value: string[];
+    onChange: (next: string[]) => void;
+  }) => {
+    if (!value.length) return null;
+    return (
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {value.map((url, idx) => (
+          <div key={`${url}-${idx}`} className="relative rounded-lg border border-border overflow-hidden">
+            {isVideoUrl(url) ? (
+              <video src={url} className="w-full h-24 object-cover" muted playsInline preload="metadata" />
+            ) : (
+              <img src={url} className="w-full h-24 object-cover" alt="media" loading="lazy" />
+            )}
+            <div className="absolute inset-x-0 bottom-0 bg-background/90 backdrop-blur px-2 py-1 flex items-center justify-between">
+              <div className="text-[10px] text-muted-foreground">#{idx + 1}</div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  className="text-xs px-2 py-0.5 rounded border border-border hover:border-primary"
+                  onClick={() => onChange(moveItem(value, idx, Math.max(0, idx - 1)))}
+                  disabled={idx === 0}
+                  aria-label="Move left"
+                >
+                  ←
+                </button>
+                <button
+                  type="button"
+                  className="text-xs px-2 py-0.5 rounded border border-border hover:border-primary"
+                  onClick={() => onChange(moveItem(value, idx, Math.min(value.length - 1, idx + 1)))}
+                  disabled={idx === value.length - 1}
+                  aria-label="Move right"
+                >
+                  →
+                </button>
+                <button
+                  type="button"
+                  className="text-xs px-2 py-0.5 rounded border border-destructive text-destructive hover:bg-destructive/10"
+                  onClick={() => onChange(value.filter((_, i) => i !== idx))}
+                  aria-label="Remove"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   // Form state
   const [formData, setFormData] = useState({
@@ -612,6 +677,10 @@ const HostDashboard = () => {
                           onChange={(urls) => setTourForm((p) => ({ ...p, images: urls }))}
                         />
                         <p className="text-sm text-muted-foreground">Optional. You can add images and videos.</p>
+                        <MediaReorderGrid
+                          value={tourForm.images}
+                          onChange={(next) => setTourForm((p) => ({ ...p, images: next }))}
+                        />
                       </div>
                     </div>
 
@@ -722,6 +791,10 @@ const HostDashboard = () => {
                             }
                           />
                           <p className="text-sm text-muted-foreground">Optional. You can add images and videos.</p>
+                          <MediaReorderGrid
+                            value={vehicleForm.media ?? []}
+                            onChange={(next) => setVehicleForm((p) => ({ ...p, media: next, image_url: next[0] ?? p.image_url }))}
+                          />
                         </div>
                       </div>
 
@@ -874,11 +947,8 @@ const HostDashboard = () => {
                       value={formData.images ?? []}
                       onChange={(urls) => setFormData((p) => ({ ...p, images: urls }))}
                     />
-                    {(formData.images?.length ?? 0) === 0 ? (
-                      <p className="text-sm text-muted-foreground">
-                        Upload at least one image to show on listings.
-                      </p>
-                    ) : null}
+                    <p className="text-sm text-muted-foreground">Optional. Add images/videos. First item is used as the cover.</p>
+                    <MediaReorderGrid value={formData.images ?? []} onChange={(next) => setFormData((p) => ({ ...p, images: next }))} />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">

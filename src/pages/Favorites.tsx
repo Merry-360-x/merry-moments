@@ -8,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
+import { useFavorites } from "@/hooks/useFavorites";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface FavoriteProperty {
   id: string;
@@ -26,6 +28,8 @@ interface FavoriteProperty {
 const Favorites = () => {
   const { t } = useTranslation();
   const { user, isLoading: authLoading } = useAuth();
+  const { toggleFavorite } = useFavorites();
+  const qc = useQueryClient();
   const navigate = useNavigate();
   const [favorites, setFavorites] = useState<FavoriteProperty[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -95,6 +99,15 @@ const Favorites = () => {
                 reviews={fav.properties.review_count || 0}
                 price={Number(fav.properties.price_per_night)}
                 type={fav.properties.property_type}
+                isFavorited
+                onToggleFavorite={async () => {
+                  const changed = await toggleFavorite(String(fav.properties.id), true);
+                  if (!changed) return;
+                  setFavorites((prev) => prev.filter((x) => x.id !== fav.id));
+                  if (user?.id) {
+                    await qc.invalidateQueries({ queryKey: ["favorites", "ids", user.id] });
+                  }
+                }}
               />
             ))}
           </div>
