@@ -40,14 +40,21 @@ type PropertyRow = {
   bathrooms: number | null;
   beds: number | null;
   cancellation_policy: string | null;
+  // Discounts (optional until migration is applied)
+  weekly_discount?: number | null;
+  monthly_discount?: number | null;
+  // Rules (optional until migration is applied)
+  check_in_time?: string | null;
+  check_out_time?: string | null;
+  smoking_allowed?: boolean | null;
+  events_allowed?: boolean | null;
+  pets_allowed?: boolean | null;
 };
 
 const fetchProperty = async (id: string) => {
   const { data, error } = await supabase
     .from("properties")
-    .select(
-      "id, title, location, price_per_night, currency, property_type, rating, review_count, images, description, is_published, host_id, max_guests, amenities, bedrooms, bathrooms, beds, cancellation_policy"
-    )
+    .select("*")
     .eq("id", id)
     .maybeSingle();
 
@@ -674,6 +681,17 @@ export default function PropertyDetails() {
                     {formatMoney(Number(data.price_per_night), String(data.currency ?? "RWF"))}
                     <span className="text-sm text-muted-foreground"> {t("common.perNight")}</span>
                   </div>
+                  {/* Weekly/Monthly discounts */}
+                  {(data.weekly_discount && data.weekly_discount > 0) || (data.monthly_discount && data.monthly_discount > 0) ? (
+                    <div className="text-xs text-green-600 mt-1 space-y-0.5">
+                      {data.weekly_discount && data.weekly_discount > 0 ? (
+                        <div>{data.weekly_discount}% off weekly ({formatMoney(Number(data.price_per_night) * 7 * (1 - data.weekly_discount / 100), String(data.currency ?? "RWF"))}/week)</div>
+                      ) : null}
+                      {data.monthly_discount && data.monthly_discount > 0 ? (
+                        <div>{data.monthly_discount}% off monthly ({formatMoney(Number(data.price_per_night) * 28 * (1 - data.monthly_discount / 100), String(data.currency ?? "RWF"))}/month)</div>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
@@ -791,6 +809,47 @@ export default function PropertyDetails() {
                   </div>
                 </div>
               ) : null}
+
+              {/* House Rules */}
+              <div className="mt-8 bg-card rounded-xl shadow-card p-5">
+                <h2 className="text-lg font-semibold text-foreground mb-4">House Rules</h2>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                  {data.check_in_time ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">Check-in:</span>
+                      <span className="font-medium">{data.check_in_time?.slice(0, 5)}</span>
+                    </div>
+                  ) : null}
+                  {data.check_out_time ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">Check-out:</span>
+                      <span className="font-medium">{data.check_out_time?.slice(0, 5)}</span>
+                    </div>
+                  ) : null}
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">Max guests:</span>
+                    <span className="font-medium">{data.max_guests}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">Smoking:</span>
+                    <span className={`font-medium ${data.smoking_allowed ? "text-green-600" : "text-red-600"}`}>
+                      {data.smoking_allowed ? "Yes" : "No"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">Events:</span>
+                    <span className={`font-medium ${data.events_allowed ? "text-green-600" : "text-red-600"}`}>
+                      {data.events_allowed ? "Yes" : "No"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">Pets:</span>
+                    <span className={`font-medium ${data.pets_allowed ? "text-green-600" : "text-red-600"}`}>
+                      {data.pets_allowed ? "Yes" : "No"}
+                    </span>
+                  </div>
+                </div>
+              </div>
 
               {/* Cancellation policy */}
               <div className="mt-8 bg-card rounded-xl shadow-card p-5">

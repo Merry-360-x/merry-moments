@@ -52,6 +52,35 @@ import {
   ParkingCircle,
   Wind,
   Sparkles,
+  Monitor,
+  Laptop,
+  Flame,
+  SprayCan,
+  ShowerHead,
+  Shirt,
+  Lock,
+  Thermometer,
+  WashingMachine,
+  Fan,
+  Refrigerator,
+  Coffee,
+  Microwave,
+  CookingPot,
+  ChefHat,
+  GlassWater,
+  Zap,
+  Cctv,
+  Mountain,
+  Sunrise,
+  TreePine,
+  Accessibility,
+  Presentation,
+  Phone,
+  PawPrint,
+  Music,
+  Cigarette,
+  CircleOff,
+  Percent,
 } from "lucide-react";
 
 // Types
@@ -72,6 +101,15 @@ interface Property {
   is_published: boolean;
   images: string[] | null;
   created_at: string;
+  // Discounts (optional until DB migration is applied)
+  weekly_discount?: number | null;
+  monthly_discount?: number | null;
+  // Rules (optional until DB migration is applied)
+  check_in_time?: string | null;
+  check_out_time?: string | null;
+  smoking_allowed?: boolean | null;
+  events_allowed?: boolean | null;
+  pets_allowed?: boolean | null;
 }
 
 interface Tour {
@@ -133,16 +171,70 @@ const tourCategories = ["Nature", "Adventure", "Cultural", "Wildlife", "Historic
 const tourDifficulties = ["Easy", "Moderate", "Hard"];
 
 const amenitiesList = [
-  { id: "wifi", label: "WiFi", icon: Wifi },
-  { id: "tv", label: "TV", icon: Tv },
-  { id: "kitchen", label: "Kitchen", icon: UtensilsCrossed },
-  { id: "gym", label: "Gym", icon: Dumbbell },
+  // Connectivity & Entertainment
+  { id: "wifi", label: "Wi-Fi", icon: Wifi },
+  { id: "tv_smart", label: "TV (Smart)", icon: Monitor },
+  { id: "tv_basic", label: "TV (Basic)", icon: Tv },
+  // Parking
+  { id: "parking_free", label: "Parking (Free)", icon: ParkingCircle },
+  { id: "parking_paid", label: "Parking (Paid)", icon: ParkingCircle },
+  // Work & Storage
+  { id: "workspace", label: "Workspace", icon: Laptop },
+  { id: "wardrobe", label: "Wardrobe", icon: Shirt },
+  { id: "hangers", label: "Cloth Hangers", icon: Shirt },
+  { id: "safe", label: "Safe Box", icon: Lock },
+  // Climate
+  { id: "ac", label: "Air Conditioner", icon: Thermometer },
+  { id: "fans", label: "Fans", icon: Fan },
+  // Water & Bathroom
+  { id: "hot_water", label: "Hot Water", icon: Flame },
+  { id: "toiletries", label: "Toiletries", icon: SprayCan },
+  { id: "bathroom_essentials", label: "Bathroom Essentials (Towel, Shower Gel, Shampoo)", icon: ShowerHead },
+  { id: "cleaning_items", label: "Cleaning Items", icon: SprayCan },
+  // Bedding
+  { id: "bedsheets_pillows", label: "Bedsheets & Pillows", icon: Bed },
+  // Laundry
+  { id: "washing_machine", label: "Washing Machine", icon: WashingMachine },
+  { id: "nearby_laundry", label: "Nearby Laundry Place", icon: Sparkles },
+  { id: "iron", label: "Iron", icon: Zap },
+  // Kitchen & Dining
+  { id: "kitchen_items", label: "Kitchen Items", icon: UtensilsCrossed },
+  { id: "refrigerator", label: "Refrigerator", icon: Refrigerator },
+  { id: "microwave", label: "Microwave", icon: Microwave },
+  { id: "cooker", label: "Cooker", icon: Flame },
+  { id: "oven", label: "Oven", icon: ChefHat },
+  { id: "cooking_items", label: "Cooking Items (Pots, Pans, Spoons)", icon: CookingPot },
+  { id: "dining_items", label: "Dining Items (Plates, Cups, Glasses)", icon: GlassWater },
+  { id: "dining_table", label: "Dining Table", icon: UtensilsCrossed },
+  { id: "blender", label: "Blender", icon: Zap },
+  { id: "kettle", label: "Hot Water Kettle", icon: Coffee },
+  { id: "coffee_maker", label: "Coffee Maker", icon: Coffee },
+  // Meals
+  { id: "breakfast_free", label: "Breakfast (Free)", icon: UtensilsCrossed },
+  { id: "breakfast_paid", label: "Breakfast (Paid)", icon: UtensilsCrossed },
+  // Fitness & Wellness
+  { id: "gym_free", label: "Gym (Free)", icon: Dumbbell },
+  { id: "gym_paid", label: "Gym (Paid)", icon: Dumbbell },
   { id: "pool", label: "Pool", icon: Waves },
-  { id: "parking", label: "Parking", icon: ParkingCircle },
-  { id: "ac", label: "Air Conditioning", icon: Wind },
-  { id: "breakfast", label: "Breakfast", icon: UtensilsCrossed },
   { id: "spa", label: "Spa", icon: Sparkles },
-  { id: "laundry", label: "Laundry", icon: Sparkles },
+  // Safety
+  { id: "carbon_monoxide_alarm", label: "Carbon Monoxide Alarm", icon: CircleOff },
+  { id: "smoke_alarm", label: "Smoke Alarm", icon: CircleOff },
+  { id: "security_cameras", label: "Security Cameras (Exterior)", icon: Cctv },
+  { id: "fire_extinguisher", label: "Fire Extinguisher", icon: Flame },
+  { id: "first_aid", label: "First Aid Items", icon: Plus },
+  // Views & Outdoor
+  { id: "balcony", label: "Balcony", icon: Sunrise },
+  { id: "city_view", label: "City View", icon: Building2 },
+  { id: "landscape_view", label: "Landscape View", icon: TreePine },
+  { id: "sea_view", label: "Sea View", icon: Waves },
+  { id: "lake_view", label: "Lake View", icon: Waves },
+  { id: "mountain_view", label: "Mountain View", icon: Mountain },
+  // Accessibility & Facilities
+  { id: "elevator", label: "Elevator", icon: Building2 },
+  { id: "wheelchair_accessible", label: "Wheelchair Accessible", icon: Accessibility },
+  { id: "meeting_room", label: "Meeting Room", icon: Presentation },
+  { id: "reception", label: "Reception", icon: Phone },
 ];
 
 export default function HostDashboard() {
@@ -181,6 +273,15 @@ export default function HostDashboard() {
     amenities: [] as string[],
     cancellation_policy: "fair",
     images: [] as string[],
+    // Discounts
+    weekly_discount: 0,
+    monthly_discount: 0,
+    // Rules
+    check_in_time: "14:00",
+    check_out_time: "11:00",
+    smoking_allowed: false,
+    events_allowed: false,
+    pets_allowed: false,
   });
   const [creatingProperty, setCreatingProperty] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -275,6 +376,15 @@ export default function HostDashboard() {
       images: propertyForm.images,
       host_id: user!.id,
       is_published: false,
+      // Discounts
+      weekly_discount: propertyForm.weekly_discount || null,
+      monthly_discount: propertyForm.monthly_discount || null,
+      // Rules
+      check_in_time: propertyForm.check_in_time || null,
+      check_out_time: propertyForm.check_out_time || null,
+      smoking_allowed: propertyForm.smoking_allowed,
+      events_allowed: propertyForm.events_allowed,
+      pets_allowed: propertyForm.pets_allowed,
     };
 
     const { error, data: newProp } = await supabase.from("properties").insert(payload).select().single();
@@ -318,6 +428,13 @@ export default function HostDashboard() {
       amenities: [],
       cancellation_policy: "fair",
       images: [],
+      weekly_discount: 0,
+      monthly_discount: 0,
+      check_in_time: "14:00",
+      check_out_time: "11:00",
+      smoking_allowed: false,
+      events_allowed: false,
+      pets_allowed: false,
     });
   };
 
@@ -853,6 +970,125 @@ export default function HostDashboard() {
                           <div className="text-sm text-muted-foreground">{policy.label.split(" - ")[1]}</div>
                         </button>
                       ))}
+                    </div>
+                  </div>
+
+                  {/* Discounts */}
+                  <div className="pt-4 border-t border-border">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Percent className="w-5 h-5 text-primary" />
+                      <Label className="text-base font-medium">Long Stay Discounts</Label>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-4">Attract guests who book longer stays with automatic discounts</p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="p-4 rounded-xl border border-border bg-muted/20">
+                        <Label className="text-sm font-medium flex items-center gap-2">
+                          Weekly Discount (7+ days)
+                        </Label>
+                        <div className="flex items-center gap-3 mt-2">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={propertyForm.weekly_discount}
+                            onChange={(e) => setPropertyForm((f) => ({ ...f, weekly_discount: Number(e.target.value) }))}
+                            className="w-24"
+                          />
+                          <span className="text-muted-foreground">%</span>
+                        </div>
+                        {propertyForm.weekly_discount > 0 && (
+                          <p className="text-xs text-green-600 mt-2">
+                            Weekly price: {formatMoney(propertyForm.price_per_night * 7 * (1 - propertyForm.weekly_discount / 100), propertyForm.currency)}
+                            {" "}(saves {formatMoney(propertyForm.price_per_night * 7 * propertyForm.weekly_discount / 100, propertyForm.currency)})
+                          </p>
+                        )}
+                      </div>
+                      
+                      <div className="p-4 rounded-xl border border-border bg-muted/20">
+                        <Label className="text-sm font-medium flex items-center gap-2">
+                          Monthly Discount (28+ days)
+                        </Label>
+                        <div className="flex items-center gap-3 mt-2">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={propertyForm.monthly_discount}
+                            onChange={(e) => setPropertyForm((f) => ({ ...f, monthly_discount: Number(e.target.value) }))}
+                            className="w-24"
+                          />
+                          <span className="text-muted-foreground">%</span>
+                        </div>
+                        {propertyForm.monthly_discount > 0 && (
+                          <p className="text-xs text-green-600 mt-2">
+                            Monthly price: {formatMoney(propertyForm.price_per_night * 28 * (1 - propertyForm.monthly_discount / 100), propertyForm.currency)}
+                            {" "}(saves {formatMoney(propertyForm.price_per_night * 28 * propertyForm.monthly_discount / 100, propertyForm.currency)})
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Accommodation Rules */}
+                  <div className="pt-4 border-t border-border">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Clock className="w-5 h-5 text-primary" />
+                      <Label className="text-base font-medium">House Rules</Label>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4 mb-6">
+                      <div>
+                        <Label className="text-sm font-medium">Check-in Time</Label>
+                        <Input
+                          type="time"
+                          value={propertyForm.check_in_time}
+                          onChange={(e) => setPropertyForm((f) => ({ ...f, check_in_time: e.target.value }))}
+                          className="mt-2"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium">Check-out Time</Label>
+                        <Input
+                          type="time"
+                          value={propertyForm.check_out_time}
+                          onChange={(e) => setPropertyForm((f) => ({ ...f, check_out_time: e.target.value }))}
+                          className="mt-2"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="flex items-center justify-between p-4 rounded-xl border border-border">
+                        <div className="flex items-center gap-3">
+                          <Cigarette className="w-5 h-5 text-muted-foreground" />
+                          <span className="font-medium">Smoking</span>
+                        </div>
+                        <Switch
+                          checked={propertyForm.smoking_allowed}
+                          onCheckedChange={(v) => setPropertyForm((f) => ({ ...f, smoking_allowed: v }))}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between p-4 rounded-xl border border-border">
+                        <div className="flex items-center gap-3">
+                          <Music className="w-5 h-5 text-muted-foreground" />
+                          <span className="font-medium">Events</span>
+                        </div>
+                        <Switch
+                          checked={propertyForm.events_allowed}
+                          onCheckedChange={(v) => setPropertyForm((f) => ({ ...f, events_allowed: v }))}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between p-4 rounded-xl border border-border">
+                        <div className="flex items-center gap-3">
+                          <PawPrint className="w-5 h-5 text-muted-foreground" />
+                          <span className="font-medium">Pets</span>
+                        </div>
+                        <Switch
+                          checked={propertyForm.pets_allowed}
+                          onCheckedChange={(v) => setPropertyForm((f) => ({ ...f, pets_allowed: v }))}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
