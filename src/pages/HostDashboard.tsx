@@ -195,19 +195,37 @@ export default function HostDashboard() {
     if (!user) return;
     setIsLoading(true);
 
-    const [propsRes, toursRes, vehiclesRes, bookingsRes] = await Promise.all([
-      supabase.from("properties").select("*").eq("host_id", user.id).order("created_at", { ascending: false }),
-      supabase.from("tours").select("*").eq("created_by", user.id).order("created_at", { ascending: false }),
-      supabase.from("transport_vehicles").select("*").eq("created_by", user.id).order("created_at", { ascending: false }),
-      supabase.from("bookings").select("*").eq("host_id", user.id).order("created_at", { ascending: false }),
-    ]);
+    try {
+      // Fetch properties, tours, vehicles
+      const [propsRes, toursRes, vehiclesRes] = await Promise.all([
+        supabase.from("properties").select("*").eq("host_id", user.id).order("created_at", { ascending: false }),
+        supabase.from("tours").select("*").eq("created_by", user.id).order("created_at", { ascending: false }),
+        supabase.from("transport_vehicles").select("*").eq("created_by", user.id).order("created_at", { ascending: false }),
+      ]);
 
-    if (propsRes.data) setProperties(propsRes.data as Property[]);
-    if (toursRes.data) setTours(toursRes.data as Tour[]);
-    if (vehiclesRes.data) setVehicles(vehiclesRes.data as Vehicle[]);
-    if (bookingsRes.data) setBookings(bookingsRes.data as Booking[]);
+      if (propsRes.data) setProperties(propsRes.data as Property[]);
+      if (toursRes.data) setTours(toursRes.data as Tour[]);
+      if (vehiclesRes.data) setVehicles(vehiclesRes.data as Vehicle[]);
 
-    setIsLoading(false);
+      // Fetch bookings separately - try via property_id if host_id fails
+      const propertyIds = (propsRes.data || []).map((p: { id: string }) => p.id);
+      
+      if (propertyIds.length > 0) {
+        const { data: bookingsData } = await supabase
+          .from("bookings")
+          .select("*")
+          .in("property_id", propertyIds)
+          .order("created_at", { ascending: false });
+        
+        if (bookingsData) setBookings(bookingsData as Booking[]);
+      } else {
+        setBookings([]);
+      }
+    } catch (e) {
+      logError("host.fetchData", e);
+    } finally {
+      setIsLoading(false);
+    }
   }, [user]);
 
   useEffect(() => {
@@ -329,9 +347,16 @@ export default function HostDashboard() {
   };
 
   const createTour = async (data: Partial<Tour>) => {
+    const payload = {
+      title: data.title || "New Tour",
+      price_per_person: data.price_per_person || 0,
+      created_by: user!.id,
+      is_published: true,
+      ...data,
+    };
     const { error, data: newTour } = await supabase
       .from("tours")
-      .insert({ ...data, created_by: user!.id, is_published: true })
+      .insert(payload)
       .select()
       .single();
     if (error) {
@@ -370,9 +395,18 @@ export default function HostDashboard() {
   };
 
   const createVehicle = async (data: Partial<Vehicle>) => {
+    const payload = {
+      title: data.title || "New Vehicle",
+      vehicle_type: data.vehicle_type || "Sedan",
+      seats: data.seats || 4,
+      price_per_day: data.price_per_day || 0,
+      created_by: user!.id,
+      is_published: true,
+      ...data,
+    };
     const { error, data: newVehicle } = await supabase
       .from("transport_vehicles")
-      .insert({ ...data, created_by: user!.id, is_published: true })
+      .insert(payload)
       .select()
       .single();
     if (error) {
@@ -409,12 +443,12 @@ export default function HostDashboard() {
     toast({ title: "Booking updated" });
   };
 
-  // Stats
-  const totalEarnings = bookings
+  // Stats - use safe defaults
+  const totalEarnings = (bookings || [])
     .filter((b) => b.status === "confirmed" || b.status === "completed")
     .reduce((sum, b) => sum + Number(b.total_price), 0);
-  const pendingBookings = bookings.filter((b) => b.status === "pending").length;
-  const publishedProperties = properties.filter((p) => p.is_published).length;
+  const pendingBookings = (bookings || []).filter((b) => b.status === "pending").length;
+  const publishedProperties = (properties || []).filter((p) => p.is_published).length;
 
   // Wizard steps
   const totalSteps = 5;
@@ -532,17 +566,19 @@ export default function HostDashboard() {
                   <Button size="sm" onClick={handleSave}><Save className="w-3 h-3" /></Button>
                 </div>
               </div>
-              <CloudinaryUploadDialog
-                open={editUploadOpen}
-                onOpenChange={setEditUploadOpen}
-                onUploadComplete={(urls) => {
-                  setForm((f) => ({ ...f, images: [...(f.images || []), ...urls] }));
-                  setEditUploadOpen(false);
-                }}
-                multiple
-                accept="image/*,video/*"
-                title="Upload Property Media"
-              />
+              {editUploadOpen && (
+                <CloudinaryUploadDialog
+                  title="Upload Property Media"
+                  folder="merry360/properties"
+                  accept="image/*,video/*"
+                  multiple
+                  value={form.images || []}
+                  onChange={(urls) => {
+                    setForm((f) => ({ ...f, images: urls }));
+                    setEditUploadOpen(false);
+                  }}
+                />
+              )}
             </>
           ) : (
             <>
@@ -880,18 +916,20 @@ export default function HostDashboard() {
                   </div>
                 )}
 
-                <CloudinaryUploadDialog
-                  open={uploadDialogOpen}
-                  onOpenChange={setUploadDialogOpen}
-                  onUploadComplete={(urls) => {
-                    setPropertyForm((f) => ({ ...f, images: [...f.images, ...urls] }));
-                    setUploadDialogOpen(false);
-                  }}
-                  multiple
-                  maxFiles={20}
-                  accept="image/*,video/*"
-                  title="Upload Property Photos"
-                />
+                {uploadDialogOpen && (
+                  <CloudinaryUploadDialog
+                    title="Upload Property Photos"
+                    folder="merry360/properties"
+                    accept="image/*,video/*"
+                    multiple
+                    maxFiles={20}
+                    value={propertyForm.images}
+                    onChange={(urls) => {
+                      setPropertyForm((f) => ({ ...f, images: urls }));
+                      setUploadDialogOpen(false);
+                    }}
+                  />
+                )}
               </div>
             )}
 
