@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { useTripCart } from "@/hooks/useTripCart";
+import { useQuery } from "@tanstack/react-query";
 
 const isoToday = () => new Date().toISOString().slice(0, 10);
 
@@ -33,6 +34,7 @@ export default function Checkout() {
 
   const mode = (params.get("mode") ?? "cart") as "cart" | "booking";
   const propertyId = params.get("propertyId") ?? "";
+  const requireTripCart = params.get("requireTripCart") === "1";
   const checkIn = params.get("checkIn") ?? isoToday();
   const checkOut = params.get("checkOut") ?? isoToday();
   const guests = Number(params.get("guests") ?? "1");
@@ -55,10 +57,11 @@ export default function Checkout() {
     max_guests: number | null;
   }>(null);
 
-  // Enforce: booking checkout requires the property to already be in Trip Cart.
+  // Optional enforcement: booking checkout requires the property to already be in Trip Cart
+  // (only when coming from an add-on selection flow).
   const { data: inCartRow } = useQuery({
     queryKey: ["tripCart.hasProperty.checkout", user?.id, propertyId],
-    enabled: Boolean(mode === "booking" && user?.id && propertyId),
+    enabled: Boolean(requireTripCart && mode === "booking" && user?.id && propertyId),
     queryFn: async () => {
       const { data: rows, error } = await supabase
         .from("trip_cart_items")
@@ -73,10 +76,11 @@ export default function Checkout() {
   });
 
   const isPropertyInCart = useMemo(() => {
+    if (!requireTripCart) return true;
     if (mode !== "booking" || !propertyId) return true;
     if (user) return Boolean(inCartRow?.id);
     return guestCart.some((i) => i.item_type === "property" && String(i.reference_id) === String(propertyId));
-  }, [guestCart, inCartRow?.id, mode, propertyId, user]);
+  }, [guestCart, inCartRow?.id, mode, propertyId, requireTripCart, user]);
 
   // Prefill payer info for signed-in users
   useEffect(() => {
@@ -129,7 +133,7 @@ export default function Checkout() {
   }, [mode, propertyId]);
 
   const submitBooking = async () => {
-    if (!isPropertyInCart) {
+    if (requireTripCart && !isPropertyInCart) {
       toast({
         variant: "destructive",
         title: "Add to Trip Cart first",

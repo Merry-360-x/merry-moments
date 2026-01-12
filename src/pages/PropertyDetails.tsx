@@ -88,6 +88,7 @@ export default function PropertyDetails() {
   const [usePoints, setUsePoints] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIdx, setViewerIdx] = useState(0);
+  const [addedAddOn, setAddedAddOn] = useState(false);
 
   const { data: myPoints = 0 } = useQuery({
     queryKey: ["loyalty_points", user?.id],
@@ -250,10 +251,8 @@ export default function PropertyDetails() {
   const submitBooking = async () => {
     if (!data || !propertyId) return;
 
-    // Enforce: must add to Trip Cart first, then checkout.
-    // If not in cart yet, do not proceed to checkout.
-    // (Guests + signed-in users are both supported.)
-    if (!isInTripCart) {
+    // If user added a tour/transport add-on, enforce Trip Cart → Checkout flow.
+    if (addedAddOn && !isInTripCart) {
       toast({
         variant: "destructive",
         title: "Add to Trip Cart first",
@@ -287,6 +286,7 @@ export default function PropertyDetails() {
     qs.set("checkIn", String(checkIn));
     qs.set("checkOut", String(checkOut));
     qs.set("guests", String(guests));
+    if (addedAddOn) qs.set("requireTripCart", "1");
     navigate(`/checkout?${qs.toString()}`);
   };
 
@@ -614,6 +614,20 @@ export default function PropertyDetails() {
                                   {formatMoney(Number(t.price_per_person ?? 0), String(t.currency ?? "RWF"))}
                                   <span className="text-xs text-muted-foreground"> / person</span>
                                 </div>
+                                <div className="mt-3">
+                                  <Button
+                                    variant="outline"
+                                    className="w-full"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setAddedAddOn(true);
+                                      void addToCart("tour", t.id, 1);
+                                    }}
+                                  >
+                                    Add to Trip Cart
+                                  </Button>
+                                </div>
                               </div>
                             </div>
                           </Link>
@@ -650,6 +664,20 @@ export default function PropertyDetails() {
                                 <div className="mt-2 text-sm font-semibold text-primary">
                                   {formatMoney(Number(v.price_per_day ?? 0), String(v.currency ?? "RWF"))}
                                   <span className="text-xs text-muted-foreground"> / day</span>
+                                </div>
+                                <div className="mt-3">
+                                  <Button
+                                    variant="outline"
+                                    className="w-full"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setAddedAddOn(true);
+                                      void addToCart("transport_vehicle", v.id, 1);
+                                    }}
+                                  >
+                                    Add to Trip Cart
+                                  </Button>
                                 </div>
                               </div>
                             </div>
@@ -936,9 +964,29 @@ export default function PropertyDetails() {
                       <>Select valid dates to see total.</>
                     )}
                   </div>
-                  <Button onClick={submitBooking} disabled={booking || nights <= 0 || !isInTripCart}>
-                    {booking ? "Booking..." : isInTripCart ? "Checkout to book" : "Add to Trip Cart first"}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={addPropertyToTripCart}
+                      disabled={booking}
+                      type="button"
+                    >
+                      {isInTripCart ? "In Trip Cart" : "Add to Trip Cart"}
+                    </Button>
+                    <Button
+                      onClick={submitBooking}
+                      disabled={booking || nights <= 0 || (addedAddOn && !isInTripCart)}
+                      type="button"
+                    >
+                      {booking
+                        ? "Booking..."
+                        : addedAddOn
+                        ? isInTripCart
+                          ? "Checkout Trip"
+                          : "Add stay to Trip Cart"
+                        : "Book now"}
+                    </Button>
+                  </div>
                 </div>
 
                 {!user ? (
