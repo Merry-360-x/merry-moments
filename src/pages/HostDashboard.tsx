@@ -360,33 +360,39 @@ export default function HostDashboard() {
 
     setCreatingProperty(true);
 
-    const payload = {
+    // Use only columns guaranteed to exist in the database schema
+    const payload: Record<string, unknown> = {
       title: propertyForm.title.trim(),
       location: propertyForm.location.trim(),
-      property_type: propertyForm.property_type,
+      property_type: propertyForm.property_type || "Apartment",
       description: propertyForm.description.trim() || null,
-      price_per_night: propertyForm.price_per_night,
-      currency: propertyForm.currency,
-      max_guests: propertyForm.max_guests,
-      bedrooms: propertyForm.bedrooms,
-      bathrooms: propertyForm.bathrooms,
-      beds: propertyForm.beds,
-      amenities: propertyForm.amenities,
-      cancellation_policy: propertyForm.cancellation_policy,
-      images: propertyForm.images,
+      price_per_night: propertyForm.price_per_night || 50000,
+      currency: propertyForm.currency || "RWF",
+      max_guests: propertyForm.max_guests || 2,
+      bedrooms: propertyForm.bedrooms || 1,
+      bathrooms: propertyForm.bathrooms || 1,
+      images: propertyForm.images.length > 0 ? propertyForm.images : null,
       host_id: user!.id,
       is_published: true,
     };
 
+    // Add optional columns only if they have values (they might not exist in older schemas)
+    if (propertyForm.beds) payload.beds = propertyForm.beds;
+    if (propertyForm.amenities?.length > 0) payload.amenities = propertyForm.amenities;
+    if (propertyForm.cancellation_policy) payload.cancellation_policy = propertyForm.cancellation_policy;
+
+    console.log("[createProperty] Attempting insert with payload:", payload);
+
     const { error, data: newProp } = await supabase
       .from("properties")
-      .insert(payload)
+      .insert(payload as never)
       .select()
       .single();
 
     setCreatingProperty(false);
 
     if (error) {
+      console.error("[createProperty] Full error:", JSON.stringify(error, null, 2));
       logError("host.property.create", error);
       if (error.code === "42501" || error.message?.includes("policy")) {
         toast({
