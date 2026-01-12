@@ -278,9 +278,13 @@ export default function PropertyDetails() {
     try {
       let redeemed = 0;
       if (user && pointsToUse > 0) {
-        const { data: redeemedPoints, error: redeemErr } = await supabase.rpc("redeem_loyalty_points", {
+        // NOTE: supabase typed RPC list may lag behind migrations; cast for compatibility.
+        const { data: redeemedPoints, error: redeemErr } = await supabase.rpc(
+          "redeem_loyalty_points" as never,
+          {
           p_points: pointsToUse,
-        });
+          } as never
+        );
         if (redeemErr) throw redeemErr;
         redeemed = Number(redeemedPoints ?? 0);
       }
@@ -813,40 +817,48 @@ export default function PropertyDetails() {
               {/* House Rules */}
               <div className="mt-8 bg-card rounded-xl shadow-card p-5">
                 <h2 className="text-lg font-semibold text-foreground mb-4">House Rules</h2>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                  {data.check_in_time ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">Check-in:</span>
-                      <span className="font-medium">{data.check_in_time?.slice(0, 5)}</span>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+                  <div className="space-y-5">
+                    {data.check_in_time ? (
+                      <div className="flex items-center gap-3">
+                        <span className="text-muted-foreground">Check-in:</span>
+                        <span className="font-semibold text-foreground">{data.check_in_time?.slice(0, 5)}</span>
+                      </div>
+                    ) : null}
+                    <div className="flex items-center gap-3">
+                      <span className="text-muted-foreground">Smoking:</span>
+                      <span className={`font-semibold ${data.smoking_allowed ? "text-green-600" : "text-red-600"}`}>
+                        {data.smoking_allowed ? "Yes" : "No"}
+                      </span>
                     </div>
-                  ) : null}
-                  {data.check_out_time ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">Check-out:</span>
-                      <span className="font-medium">{data.check_out_time?.slice(0, 5)}</span>
+                  </div>
+
+                  <div className="space-y-5">
+                    {data.check_out_time ? (
+                      <div className="flex items-center gap-3">
+                        <span className="text-muted-foreground">Check-out:</span>
+                        <span className="font-semibold text-foreground">{data.check_out_time?.slice(0, 5)}</span>
+                      </div>
+                    ) : null}
+                    <div className="flex items-center gap-3">
+                      <span className="text-muted-foreground">Events:</span>
+                      <span className={`font-semibold ${data.events_allowed ? "text-green-600" : "text-red-600"}`}>
+                        {data.events_allowed ? "Yes" : "No"}
+                      </span>
                     </div>
-                  ) : null}
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground">Max guests:</span>
-                    <span className="font-medium">{data.max_guests}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground">Smoking:</span>
-                    <span className={`font-medium ${data.smoking_allowed ? "text-green-600" : "text-red-600"}`}>
-                      {data.smoking_allowed ? "Yes" : "No"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground">Events:</span>
-                    <span className={`font-medium ${data.events_allowed ? "text-green-600" : "text-red-600"}`}>
-                      {data.events_allowed ? "Yes" : "No"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground">Pets:</span>
-                    <span className={`font-medium ${data.pets_allowed ? "text-green-600" : "text-red-600"}`}>
-                      {data.pets_allowed ? "Yes" : "No"}
-                    </span>
+
+                  <div className="space-y-5">
+                    <div className="flex items-center gap-3">
+                      <span className="text-muted-foreground">Max guests:</span>
+                      <span className="font-semibold text-foreground">{data.max_guests}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-muted-foreground">Pets:</span>
+                      <span className={`font-semibold ${data.pets_allowed ? "text-green-600" : "text-red-600"}`}>
+                        {data.pets_allowed ? "Yes" : "No"}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
