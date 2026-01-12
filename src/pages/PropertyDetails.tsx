@@ -296,62 +296,91 @@ export default function PropertyDetails() {
 
     setBooking(true);
     try {
+      // Compute totals *inside* submit to ensure we don't under/over-charge if loyalty points redeem fails.
+      const stayDisc = Math.max(0, Number(stayDiscount.amount ?? 0));
+      const subtotal = Math.max(0, Number(subtotalAfterStayDiscount ?? 0));
+
       let redeemed = 0;
+      let loyaltyDisc = 0;
+      let totalToCharge = subtotal;
+
       if (user && pointsToUse > 0) {
         // NOTE: supabase typed RPC list may lag behind migrations; cast for compatibility.
         const { data: redeemedPoints, error: redeemErr } = await supabase.rpc(
           "redeem_loyalty_points" as never,
-          {
-          p_points: pointsToUse,
-          } as never
+          { p_points: pointsToUse } as never
         );
-        if (redeemErr) throw redeemErr;
-        redeemed = Number(redeemedPoints ?? 0);
+        if (redeemErr) {
+          // Don't block booking because of points; just proceed without applying them.
+          logError("bookings.redeem_loyalty_points", redeemErr);
+          redeemed = 0;
+        } else {
+          redeemed = Number(redeemedPoints ?? 0);
+        }
       }
 
-      const payload = user
-        ? {
-            guest_id: user.id,
-            property_id: data.id,
-            host_id: data.host_id,
-            check_in: checkIn,
-            check_out: checkOut,
-            guests_count: guests,
-            total_price: finalTotal,
-            currency: data.currency ?? "RWF",
-            status: "pending",
-            loyalty_points_used: redeemed,
-            // Save total discount (stay discount + loyalty discount if used)
-            discount_amount: Math.max(0, Number(stayDiscount.amount) + (redeemed > 0 ? Number(loyaltyDiscountAmount) : 0)),
-            is_guest_booking: false,
-          }
-        : {
-            property_id: data.id,
-            host_id: data.host_id,
-            check_in: checkIn,
-            check_out: checkOut,
-            guests_count: guests,
-            total_price: finalTotal,
-            currency: data.currency ?? "RWF",
-            status: "pending",
-            loyalty_points_used: 0,
-            discount_amount: Math.max(0, Number(stayDiscount.amount)),
-            is_guest_booking: true,
-            guest_name: guestName.trim(),
-            guest_email: guestEmail.trim().toLowerCase(),
-            guest_phone: guestPhone.trim(),
-          };
+      if (redeemed > 0) {
+        loyaltyDisc = Math.round(subtotal * (redeemed / 100) * 100) / 100;
+        totalToCharge = Math.max(0, subtotal - loyaltyDisc);
+      }
 
-      const { error } = await supabase.from("bookings").insert(payload);
-      if (error) throw error;
+      // Insert a minimal payload first for maximum compatibility (older schemas / partial migrations).
+      const basePayload: {
+        guest_id?: string;
+        property_id: string;
+        host_id?: string | null;
+        check_in: string;
+        check_out: string;
+        guests_count: number;
+        total_price: number;
+        currency: string;
+        status: string;
+      } = {
+        ...(user ? { guest_id: user.id } : {}),
+        property_id: data.id,
+        host_id: data.host_id ?? null,
+        check_in: checkIn,
+        check_out: checkOut,
+        guests_count: guests,
+        total_price: totalToCharge,
+        currency: data.currency ?? "RWF",
+        status: "pending",
+      };
+
+      const { data: inserted, error: insertErr } = await supabase
+        .from("bookings")
+        .insert(basePayload as never)
+        .select("id")
+        .maybeSingle();
+      if (insertErr) throw insertErr;
+
+      // Best-effort: persist extended booking fields when the DB supports them.
+      // This should never block the booking itself.
+      if (inserted?.id) {
+        const extended: Record<string, unknown> = {
+          discount_amount: Math.max(0, stayDisc + loyaltyDisc),
+          loyalty_points_used: redeemed,
+          is_guest_booking: !user,
+        };
+        if (!user) {
+          extended.guest_name = guestName.trim();
+          extended.guest_email = guestEmail.trim().toLowerCase();
+          extended.guest_phone = guestPhone.trim();
+        }
+        const { error: updateErr } = await supabase.from("bookings").update(extended as never).eq("id", inserted.id);
+        if (updateErr) {
+          // Ignore schema/policy mismatches here; booking already exists.
+          logError("bookings.updateExtended", updateErr);
+        }
+      }
 
       if (user) {
         toast({ title: "Booking requested", description: "Your booking is pending confirmation." });
         navigate("/my-bookings");
       } else {
         toast({
-          title: "Booking confirmed!",
-          description: `A confirmation email will be sent to ${guestEmail}.`,
+          title: "Booking requested",
+          description: `Your request is pending confirmation. We'll contact you at ${guestEmail}.`,
         });
         // Reset guest form
         setGuestName("");
