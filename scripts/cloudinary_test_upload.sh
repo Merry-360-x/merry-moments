@@ -23,10 +23,5 @@ ENDPOINT="https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload"
 curl -sS "${ENDPOINT}" \
   -F "file=@${FILE_PATH}" \
   -F "upload_preset=${CLOUDINARY_UPLOAD_PRESET}" \
-  | python3 - <<'PY'
-import json,sys
-data=json.load(sys.stdin)
-print("secure_url:", data.get("secure_url"))
-print("public_id:", data.get("public_id"))
-PY
+  | python3 -c 'import json,sys; data=json.load(sys.stdin); print("secure_url:", data.get("secure_url")); print("public_id:", data.get("public_id"))'
 
