@@ -6,6 +6,7 @@ type AuthContextType = {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
+  rolesLoading: boolean;
   roles: string[];
   isHost: boolean;
   isStaff: boolean;
@@ -22,9 +23,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [rolesLoading, setRolesLoading] = useState(true);
   const [roles, setRoles] = useState<string[]>([]);
 
   const fetchRoles = async (userId: string) => {
+    setRolesLoading(true);
     const { data, error } = await supabase
       .from("user_roles")
       .select("role")
@@ -34,6 +37,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Keep existing roles on transient errors so nav buttons don't "disappear".
       // If the table/policies are misconfigured, the roles will remain empty anyway.
       console.warn("[AuthContext] Failed to load roles:", error.message);
+      setRolesLoading(false);
       return;
     }
 
@@ -45,6 +49,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       ["guest", "host", "staff", "admin"].includes(r)
     );
     setRoles(uniq);
+    setRolesLoading(false);
   };
 
   const refreshRoles = async () => {
@@ -68,6 +73,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setTimeout(() => fetchRoles(session.user.id), 0);
         } else {
           setRoles([]);
+          setRolesLoading(false);
         }
         
         setIsLoading(false);
@@ -81,6 +87,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       if (session?.user) {
         fetchRoles(session.user.id);
+      } else {
+        setRolesLoading(false);
       }
       
       setIsLoading(false);
@@ -122,6 +130,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         user,
         session,
         isLoading,
+        rolesLoading,
         roles,
         isHost,
         isStaff,

@@ -238,7 +238,7 @@ const amenitiesList = [
 ];
 
 export default function HostDashboard() {
-  const { user, isHost, isLoading: authLoading } = useAuth();
+  const { user, isHost, isLoading: authLoading, rolesLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -726,8 +726,8 @@ export default function HostDashboard() {
     );
   };
 
-  // Show loading while auth is loading
-  if (authLoading) {
+  // Show loading while auth or roles are loading
+  if (authLoading || rolesLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -744,7 +744,7 @@ export default function HostDashboard() {
     );
   }
 
-  // Show "become a host" if user is not a host
+  // Show "become a host" if user is not a host (only after roles have loaded)
   if (!isHost) {
     return (
       <div className="min-h-screen bg-background">

@@ -39,7 +39,7 @@ const currencies = [
 ];
 
 export default function HostApplication() {
-  const { user, refreshRoles, isHost, isLoading: authLoading } = useAuth();
+  const { user, refreshRoles, isHost, isLoading: authLoading, rolesLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -212,7 +212,7 @@ export default function HostApplication() {
     }
   };
 
-  if (authLoading || isLoading) {
+  if (authLoading || rolesLoading || isLoading) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <Navbar />
@@ -224,7 +224,7 @@ export default function HostApplication() {
     );
   }
 
-  // If host, redirect to dashboard
+  // If host, redirect to dashboard (only check after roles have loaded)
   if (isHost) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
