@@ -494,14 +494,14 @@ const Accommodations = () => {
           {/* Filters Sidebar (desktop only, minimized with accordion) */}
           <aside className="hidden lg:block w-72 shrink-0">
             <div className="bg-card rounded-xl p-6 shadow-card">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-foreground">{t("accommodations.filters")}</h3>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    setPriceRange([0, 500000]);
+                    setMaxPrice(500000);
                     setSelectedTypes([]);
                     setSelectedAmenities([]);
                     setMinRating(0);
@@ -515,16 +515,47 @@ const Accommodations = () => {
                 <AccordionItem value="price">
                   <AccordionTrigger>{t("accommodations.priceRange")}</AccordionTrigger>
                   <AccordionContent>
-                    <Slider
-                      value={[maxPrice]}
-                      onValueChange={(v) => setMaxPrice(v[0] ?? 500000)}
-                      max={500000}
-                      step={10000}
-                      className="mb-2"
-                    />
-                    <div className="flex items-center justify-between text-sm gap-3">
-                      <span className="text-muted-foreground">Max</span>
-                      <span className="text-primary font-medium">{formatMoney(Number(maxPrice), String(preferredCurrency))}</span>
+                    <div className="space-y-4">
+                      {/* Price display */}
+                      <div className="flex items-center justify-between gap-2 p-3 bg-muted/50 rounded-lg">
+                        <div className="text-center flex-1">
+                          <div className="text-xs text-muted-foreground mb-1">Min</div>
+                          <div className="font-medium text-sm">RWF 0</div>
+                        </div>
+                        <div className="text-muted-foreground">—</div>
+                        <div className="text-center flex-1">
+                          <div className="text-xs text-muted-foreground mb-1">Max</div>
+                          <div className="font-medium text-sm text-primary">{formatMoney(Number(maxPrice), String(preferredCurrency))}</div>
+                        </div>
+                      </div>
+                      
+                      {/* Slider */}
+                      <Slider
+                        value={[maxPrice]}
+                        onValueChange={(v) => setMaxPrice(v[0] ?? 500000)}
+                        max={500000}
+                        min={10000}
+                        step={10000}
+                        className="py-2"
+                      />
+                      
+                      {/* Quick presets */}
+                      <div className="flex flex-wrap gap-1.5">
+                        {[50000, 100000, 200000, 300000, 500000].map((val) => (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => setMaxPrice(val)}
+                            className={`px-2 py-1 text-xs rounded-full border transition-colors ${
+                              maxPrice === val
+                                ? "bg-primary text-primary-foreground border-primary"
+                                : "bg-background border-border hover:border-primary"
+                            }`}
+                          >
+                            {val >= 1000 ? `${val / 1000}k` : val}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </AccordionContent>
                 </AccordionItem>

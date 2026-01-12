@@ -9,12 +9,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import {
@@ -40,11 +37,9 @@ import {
   Download,
   Search,
   UserPlus,
-  UserMinus,
-  Settings,
   DollarSign,
-  TrendingUp,
   Activity,
+  Image as ImageIcon,
 } from "lucide-react";
 
 type HostApplicationStatus = "draft" | "pending" | "approved" | "rejected";
@@ -83,6 +78,7 @@ type PropertyRow = {
   is_featured: boolean | null;
   host_id: string | null;
   rating: number | null;
+  images: string[] | null;
   created_at: string;
 };
 
@@ -94,6 +90,7 @@ type TourRow = {
   currency: string | null;
   is_published: boolean | null;
   is_featured: boolean | null;
+  images: string[] | null;
   created_by: string | null;
   created_at: string;
 };
@@ -107,6 +104,8 @@ type TransportVehicleRow = {
   price_per_day: number | null;
   currency: string | null;
   is_published: boolean | null;
+  image_url: string | null;
+  media: string[] | null;
   created_by: string | null;
   created_at: string;
 };
@@ -114,32 +113,23 @@ type TransportVehicleRow = {
 type BookingRow = {
   id: string;
   property_id: string;
-  property_title: string | null;
   guest_id: string;
-  guest_email: string | null;
-  host_id: string | null;
   check_in: string;
   check_out: string;
   guests: number;
   total_price: number;
   currency: string;
   status: string;
-  admin_notes: string | null;
-  refund_amount: number | null;
-  refund_status: string | null;
   created_at: string;
 };
 
 type ReviewRow = {
   id: string;
   property_id: string;
-  property_title: string | null;
   user_id: string;
-  user_email: string | null;
   rating: number;
   comment: string | null;
   is_hidden: boolean;
-  hidden_reason: string | null;
   created_at: string;
 };
 
@@ -238,6 +228,17 @@ const statusColors: Record<string, string> = {
   closed: "bg-gray-100 text-gray-800",
 };
 
+// Tiny thumbnail component
+const Thumb = ({ src, alt }: { src: string | null | undefined; alt: string }) => (
+  <div className="w-12 h-12 rounded overflow-hidden bg-muted flex items-center justify-center shrink-0">
+    {src ? (
+      <img src={src} alt={alt} className="w-full h-full object-cover" />
+    ) : (
+      <ImageIcon className="w-5 h-5 text-muted-foreground" />
+    )}
+  </div>
+);
+
 export default function AdminDashboard() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -246,6 +247,7 @@ export default function AdminDashboard() {
   const [userSearch, setUserSearch] = useState("");
   const [bookingStatus, setBookingStatus] = useState("");
   const [ticketStatus, setTicketStatus] = useState("");
+  const [roleToAdd, setRoleToAdd] = useState<Record<string, string>>({});
 
   // Metrics query
   const { data: metrics, refetch: refetchMetrics } = useQuery({
@@ -301,13 +303,13 @@ export default function AdminDashboard() {
     enabled: tab === "users" || tab === "overview",
   });
 
-  // Properties
+  // Properties with images
   const { data: properties = [], refetch: refetchProperties } = useQuery({
     queryKey: ["admin-properties"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("properties")
-        .select("id, title, location, price_per_night, currency, is_published, is_featured, host_id, rating, created_at")
+        .select("id, title, location, price_per_night, currency, is_published, is_featured, host_id, rating, images, created_at")
         .order("created_at", { ascending: false })
         .limit(200);
       if (error) throw error;
@@ -316,13 +318,13 @@ export default function AdminDashboard() {
     enabled: tab === "accommodations",
   });
 
-  // Tours
+  // Tours with images
   const { data: tours = [], refetch: refetchTours } = useQuery({
     queryKey: ["admin-tours"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tours")
-        .select("id, title, location, price_per_person, currency, is_published, is_featured, created_by, created_at")
+        .select("id, title, location, price_per_person, currency, is_published, is_featured, images, created_by, created_at")
         .order("created_at", { ascending: false })
         .limit(200);
       if (error) throw error;
@@ -331,13 +333,13 @@ export default function AdminDashboard() {
     enabled: tab === "tours",
   });
 
-  // Transport vehicles
+  // Transport vehicles with images
   const { data: vehicles = [], refetch: refetchVehicles } = useQuery({
     queryKey: ["admin-transport-vehicles"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transport_vehicles")
-        .select("id, title, provider_name, vehicle_type, seats, price_per_day, currency, is_published, created_by, created_at")
+        .select("id, title, provider_name, vehicle_type, seats, price_per_day, currency, is_published, image_url, media, created_by, created_at")
         .order("created_at", { ascending: false })
         .limit(200);
       if (error) throw error;
@@ -346,25 +348,32 @@ export default function AdminDashboard() {
     enabled: tab === "transport",
   });
 
-  // Bookings
+  // Bookings - direct query instead of RPC for better compatibility
   const { data: bookings = [], refetch: refetchBookings } = useQuery({
-    queryKey: ["admin-bookings", bookingStatus],
+    queryKey: ["admin-bookings-direct", bookingStatus],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("admin_list_bookings", {
-        _status: bookingStatus,
-        _limit: 200,
-      });
+      let q = supabase
+        .from("bookings")
+        .select("id, property_id, guest_id, check_in, check_out, guests, total_price, currency, status, created_at")
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (bookingStatus) q = q.eq("status", bookingStatus);
+      const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as BookingRow[];
     },
     enabled: tab === "bookings" || tab === "payments",
   });
 
-  // Reviews
+  // Reviews - direct query
   const { data: reviews = [], refetch: refetchReviews } = useQuery({
-    queryKey: ["admin-reviews"],
+    queryKey: ["admin-reviews-direct"],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("admin_list_reviews", { _limit: 200 });
+      const { data, error } = await supabase
+        .from("property_reviews")
+        .select("id, property_id, user_id, rating, comment, is_hidden, created_at")
+        .order("created_at", { ascending: false })
+        .limit(200);
       if (error) throw error;
       return (data ?? []) as ReviewRow[];
     },
@@ -485,20 +494,26 @@ export default function AdminDashboard() {
     }
   };
 
-  const addRole = async (userId: string, role: string) => {
+  const handleAddRole = async (userId: string) => {
+    const role = roleToAdd[userId];
+    if (!role) {
+      toast({ variant: "destructive", title: "Select a role first" });
+      return;
+    }
     try {
       const { error } = await supabase.from("user_roles").insert({ user_id: userId, role });
       if (error) throw error;
-      toast({ title: "Role added", description: `${role} granted.` });
+      toast({ title: "Role added", description: `${role} granted successfully.` });
+      setRoleToAdd((prev) => ({ ...prev, [userId]: "" }));
       await Promise.all([refetchRoles(), refetchUsers()]);
     } catch (e) {
       logError("admin.addRole", e);
-      toast({ variant: "destructive", title: "Failed", description: uiErrorMessage(e, "Please try again.") });
+      toast({ variant: "destructive", title: "Failed to add role", description: uiErrorMessage(e, "Please try again.") });
     }
   };
 
   const removeRole = async (userId: string, role: string) => {
-    if (!window.confirm(`Remove '${role}' role?`)) return;
+    if (!window.confirm(`Remove '${role}' role from this user?`)) return;
     try {
       const { error } = await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", role);
       if (error) throw error;
@@ -624,7 +639,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const hideReview = async (review: ReviewRow) => {
+  const hideReview = async (reviewId: string) => {
     const reason = window.prompt("Reason for hiding:");
     if (!reason) return;
     try {
@@ -636,7 +651,7 @@ export default function AdminDashboard() {
           hidden_by: user?.id,
           hidden_at: new Date().toISOString(),
         } as never)
-        .eq("id", review.id);
+        .eq("id", reviewId);
       if (error) throw error;
       toast({ title: "Review hidden" });
       await Promise.all([refetchReviews(), refetchMetrics()]);
@@ -841,7 +856,6 @@ export default function AdminDashboard() {
             </div>
 
             <div className="grid md:grid-cols-2 gap-6 mb-6">
-              {/* Quick Stats */}
               <Card className="p-4">
                 <h3 className="font-semibold mb-4 flex items-center gap-2">
                   <Activity className="w-4 h-4" /> Platform Stats
@@ -874,7 +888,6 @@ export default function AdminDashboard() {
                 </div>
               </Card>
 
-              {/* Pending Applications */}
               <Card className="p-4">
                 <h3 className="font-semibold mb-4 flex items-center gap-2">
                   <UserPlus className="w-4 h-4" /> Pending Host Applications ({pendingApps.length})
@@ -904,7 +917,6 @@ export default function AdminDashboard() {
               </Card>
             </div>
 
-            {/* Action Items */}
             <div className="grid md:grid-cols-3 gap-4">
               <Card className="p-4 border-l-4 border-l-yellow-500">
                 <h4 className="font-medium flex items-center gap-2">
@@ -932,16 +944,14 @@ export default function AdminDashboard() {
             <Card className="p-6">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
                 <h2 className="text-lg font-semibold">User & Host Management</h2>
-                <div className="flex gap-2">
-                  <div className="relative flex-1 md:w-80">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      value={userSearch}
-                      onChange={(e) => setUserSearch(e.target.value)}
-                      placeholder="Search users..."
-                      className="pl-9"
-                    />
-                  </div>
+                <div className="relative flex-1 md:max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                    placeholder="Search users..."
+                    className="pl-9"
+                  />
                 </div>
               </div>
 
@@ -954,6 +964,7 @@ export default function AdminDashboard() {
                       <TableHead>Status</TableHead>
                       <TableHead>Roles</TableHead>
                       <TableHead>Joined</TableHead>
+                      <TableHead>Assign Role</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -980,12 +991,14 @@ export default function AdminDashboard() {
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-wrap gap-1">
+                              {roles.length === 0 && <span className="text-xs text-muted-foreground">No roles</span>}
                               {roles.map((r) => (
                                 <Badge
                                   key={r}
                                   variant={r === "admin" ? "default" : "secondary"}
-                                  className="cursor-pointer"
+                                  className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
                                   onClick={() => removeRole(u.user_id, r)}
+                                  title="Click to remove"
                                 >
                                   {r} ×
                                 </Badge>
@@ -996,10 +1009,13 @@ export default function AdminDashboard() {
                             {new Date(u.created_at).toLocaleDateString()}
                           </TableCell>
                           <TableCell>
-                            <div className="flex justify-end gap-1">
-                              <Select onValueChange={(v) => addRole(u.user_id, v)}>
+                            <div className="flex gap-1">
+                              <Select
+                                value={roleToAdd[u.user_id] || ""}
+                                onValueChange={(v) => setRoleToAdd((prev) => ({ ...prev, [u.user_id]: v }))}
+                              >
                                 <SelectTrigger className="w-24 h-8">
-                                  <SelectValue placeholder="+Role" />
+                                  <SelectValue placeholder="Role" />
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="host">Host</SelectItem>
@@ -1007,6 +1023,17 @@ export default function AdminDashboard() {
                                   <SelectItem value="admin">Admin</SelectItem>
                                 </SelectContent>
                               </Select>
+                              <Button
+                                size="sm"
+                                onClick={() => handleAddRole(u.user_id)}
+                                disabled={!roleToAdd[u.user_id]}
+                              >
+                                Add
+                              </Button>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex justify-end">
                               {u.is_suspended ? (
                                 <Button size="sm" variant="outline" onClick={() => unsuspendUser(u.user_id)}>
                                   Activate
@@ -1035,6 +1062,7 @@ export default function AdminDashboard() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-16">Image</TableHead>
                       <TableHead>Property</TableHead>
                       <TableHead>Location</TableHead>
                       <TableHead>Price</TableHead>
@@ -1046,6 +1074,9 @@ export default function AdminDashboard() {
                   <TableBody>
                     {properties.map((p) => (
                       <TableRow key={p.id}>
+                        <TableCell>
+                          <Thumb src={p.images?.[0]} alt={p.title} />
+                        </TableCell>
                         <TableCell className="font-medium">{p.title}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{p.location || "—"}</TableCell>
                         <TableCell>{formatMoney(p.price_per_night ?? 0, p.currency ?? "RWF")}</TableCell>
@@ -1092,6 +1123,13 @@ export default function AdminDashboard() {
                         </TableCell>
                       </TableRow>
                     ))}
+                    {properties.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                          No properties found
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -1106,6 +1144,7 @@ export default function AdminDashboard() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-16">Image</TableHead>
                       <TableHead>Tour</TableHead>
                       <TableHead>Location</TableHead>
                       <TableHead>Price</TableHead>
@@ -1116,6 +1155,9 @@ export default function AdminDashboard() {
                   <TableBody>
                     {tours.map((t) => (
                       <TableRow key={t.id}>
+                        <TableCell>
+                          <Thumb src={t.images?.[0]} alt={t.title} />
+                        </TableCell>
                         <TableCell className="font-medium">{t.title}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{t.location || "—"}</TableCell>
                         <TableCell>{formatMoney(t.price_per_person ?? 0, t.currency ?? "RWF")}</TableCell>
@@ -1152,6 +1194,13 @@ export default function AdminDashboard() {
                         </TableCell>
                       </TableRow>
                     ))}
+                    {tours.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                          No tours found
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -1166,6 +1215,7 @@ export default function AdminDashboard() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-16">Image</TableHead>
                       <TableHead>Vehicle</TableHead>
                       <TableHead>Provider</TableHead>
                       <TableHead>Type</TableHead>
@@ -1177,6 +1227,9 @@ export default function AdminDashboard() {
                   <TableBody>
                     {vehicles.map((v) => (
                       <TableRow key={v.id}>
+                        <TableCell>
+                          <Thumb src={v.media?.[0] || v.image_url} alt={v.title} />
+                        </TableCell>
                         <TableCell className="font-medium">{v.title}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{v.provider_name || "—"}</TableCell>
                         <TableCell>{v.vehicle_type}</TableCell>
@@ -1208,6 +1261,13 @@ export default function AdminDashboard() {
                         </TableCell>
                       </TableRow>
                     ))}
+                    {vehicles.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                          No vehicles found
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -1237,9 +1297,10 @@ export default function AdminDashboard() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Property</TableHead>
+                      <TableHead>Booking ID</TableHead>
                       <TableHead>Guest</TableHead>
                       <TableHead>Dates</TableHead>
+                      <TableHead>Guests</TableHead>
                       <TableHead>Amount</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -1248,11 +1309,12 @@ export default function AdminDashboard() {
                   <TableBody>
                     {bookings.map((b) => (
                       <TableRow key={b.id}>
-                        <TableCell className="font-medium">{b.property_title || "—"}</TableCell>
-                        <TableCell className="text-sm">{b.guest_email || b.guest_id}</TableCell>
+                        <TableCell className="font-mono text-xs">{b.id.slice(0, 8)}...</TableCell>
+                        <TableCell className="text-sm font-mono text-xs">{b.guest_id.slice(0, 8)}...</TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {b.check_in} → {b.check_out}
                         </TableCell>
+                        <TableCell>{b.guests}</TableCell>
                         <TableCell>{formatMoney(b.total_price, b.currency)}</TableCell>
                         <TableCell>
                           <StatusBadge status={b.status} />
@@ -1270,7 +1332,7 @@ export default function AdminDashboard() {
                                 <SelectItem value="cancelled">Cancel</SelectItem>
                               </SelectContent>
                             </Select>
-                            {b.status === "cancelled" && !b.refund_status && (
+                            {b.status === "cancelled" && (
                               <Button size="sm" variant="outline" onClick={() => processRefund(b)}>
                                 Refund
                               </Button>
@@ -1279,6 +1341,13 @@ export default function AdminDashboard() {
                         </TableCell>
                       </TableRow>
                     ))}
+                    {bookings.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                          No bookings found
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -1324,7 +1393,7 @@ export default function AdminDashboard() {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold">Reviews & Ratings Moderation</h2>
                 <div className="text-sm text-muted-foreground">
-                  {metrics?.reviews_hidden ?? 0} hidden / {metrics?.reviews_total ?? 0} total
+                  {reviews.filter((r) => r.is_hidden).length} hidden / {reviews.length} total
                 </div>
               </div>
 
@@ -1332,8 +1401,8 @@ export default function AdminDashboard() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Property</TableHead>
-                      <TableHead>User</TableHead>
+                      <TableHead>Property ID</TableHead>
+                      <TableHead>User ID</TableHead>
                       <TableHead>Rating</TableHead>
                       <TableHead>Comment</TableHead>
                       <TableHead>Status</TableHead>
@@ -1343,8 +1412,8 @@ export default function AdminDashboard() {
                   <TableBody>
                     {reviews.map((r) => (
                       <TableRow key={r.id} className={r.is_hidden ? "opacity-50" : ""}>
-                        <TableCell className="font-medium">{r.property_title || "—"}</TableCell>
-                        <TableCell className="text-sm">{r.user_email || r.user_id}</TableCell>
+                        <TableCell className="font-mono text-xs">{r.property_id.slice(0, 8)}...</TableCell>
+                        <TableCell className="font-mono text-xs">{r.user_id.slice(0, 8)}...</TableCell>
                         <TableCell>
                           <span className="flex items-center gap-1">
                             <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
@@ -1366,7 +1435,7 @@ export default function AdminDashboard() {
                                 <Eye className="w-3 h-3" />
                               </Button>
                             ) : (
-                              <Button size="sm" variant="destructive" onClick={() => hideReview(r)}>
+                              <Button size="sm" variant="destructive" onClick={() => hideReview(r.id)}>
                                 <EyeOff className="w-3 h-3" />
                               </Button>
                             )}
@@ -1377,6 +1446,13 @@ export default function AdminDashboard() {
                         </TableCell>
                       </TableRow>
                     ))}
+                    {reviews.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                          No reviews found
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -1448,7 +1524,9 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                 ))}
-                {tickets.length === 0 && <p className="text-muted-foreground">No tickets found</p>}
+                {tickets.length === 0 && (
+                  <p className="text-muted-foreground text-center py-8">No support tickets found</p>
+                )}
               </div>
             </Card>
           </TabsContent>
@@ -1456,7 +1534,6 @@ export default function AdminDashboard() {
           {/* SAFETY TAB */}
           <TabsContent value="safety">
             <div className="grid md:grid-cols-2 gap-6">
-              {/* Incidents */}
               <Card className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold">Incident Reports</h2>
@@ -1501,7 +1578,6 @@ export default function AdminDashboard() {
                 </div>
               </Card>
 
-              {/* Blacklist */}
               <Card className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold">Blacklisted Users</h2>
@@ -1638,7 +1714,7 @@ export default function AdminDashboard() {
                   </div>
                   <div className="flex justify-between">
                     <span>Hidden Reviews</span>
-                    <span className="font-medium text-red-600">{metrics?.reviews_hidden ?? 0}</span>
+                    <span className="font-medium text-red-600">{reviews.filter((r) => r.is_hidden).length}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Stories</span>
