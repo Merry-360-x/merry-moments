@@ -985,18 +985,21 @@ export default function HostDashboard() {
           <div className="flex items-center justify-between mt-8">
             <Button
               variant="outline"
-              onClick={() => wizardStep > 1 && setWizardStep(wizardStep - 1)}
+              onClick={() => setWizardStep((s) => Math.max(1, s - 1))}
               disabled={wizardStep === 1}
             >
               <ChevronLeft className="w-4 h-4 mr-2" /> Previous
             </Button>
 
             {wizardStep < totalSteps ? (
-              <Button onClick={() => canProceed() && setWizardStep(wizardStep + 1)} disabled={!canProceed()}>
+              <Button 
+                onClick={() => setWizardStep((s) => s + 1)} 
+                disabled={!canProceed()}
+              >
                 Next <ChevronRight className="w-4 h-4 ml-2" />
               </Button>
             ) : (
-              <Button onClick={createProperty} disabled={creatingProperty}>
+              <Button onClick={createProperty} disabled={creatingProperty || !canProceed()}>
                 {creatingProperty ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
@@ -1009,6 +1012,33 @@ export default function HostDashboard() {
                 )}
               </Button>
             )}
+          </div>
+
+          {/* Step Indicators */}
+          <div className="flex justify-center gap-2 mt-6">
+            {stepTitles.map((title, idx) => (
+              <button
+                key={idx}
+                onClick={() => {
+                  // Allow going back or to completed steps
+                  if (idx + 1 <= wizardStep) {
+                    setWizardStep(idx + 1);
+                  }
+                }}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm transition-all ${
+                  wizardStep === idx + 1
+                    ? "bg-primary text-primary-foreground"
+                    : idx + 1 < wizardStep
+                    ? "bg-primary/20 text-primary cursor-pointer hover:bg-primary/30"
+                    : "bg-muted text-muted-foreground"
+                }`}
+              >
+                <span className="w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold border">
+                  {idx + 1 < wizardStep ? "✓" : idx + 1}
+                </span>
+                <span className="hidden sm:inline">{title}</span>
+              </button>
+            ))}
           </div>
         </div>
         <Footer />
