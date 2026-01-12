@@ -18,6 +18,7 @@ import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { formatMoney } from "@/lib/money";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
 import {
   Home,
   Calendar,
@@ -27,8 +28,6 @@ import {
   Trash2,
   Eye,
   EyeOff,
-  Users,
-  TrendingUp,
   Building2,
   MapPin,
   Car,
@@ -39,6 +38,20 @@ import {
   CheckCircle,
   Clock,
   XCircle,
+  ChevronLeft,
+  ChevronRight,
+  Upload,
+  Bed,
+  Bath,
+  Users,
+  Wifi,
+  Tv,
+  UtensilsCrossed,
+  Dumbbell,
+  Waves,
+  ParkingCircle,
+  Wind,
+  Sparkles,
 } from "lucide-react";
 
 // Types
@@ -108,17 +121,29 @@ interface Booking {
   is_guest_booking: boolean;
 }
 
-const propertyTypes = ["Hotel", "Apartment", "Villa", "Guesthouse", "Resort", "Lodge", "Motel"];
+const propertyTypes = ["Hotel", "Apartment", "Villa", "Guesthouse", "Resort", "Lodge", "Motel", "House", "Cabin"];
 const currencies = ["RWF", "USD", "EUR", "GBP", "CNY"];
-const amenitiesList = ["WiFi", "Pool", "Parking", "Kitchen", "Breakfast", "AC", "Gym", "Spa", "TV", "Laundry"];
 const cancellationPolicies = [
-  { value: "strict", label: "Strict" },
-  { value: "fair", label: "Fair" },
-  { value: "lenient", label: "Lenient" },
+  { value: "strict", label: "Strict - Less refunds" },
+  { value: "fair", label: "Fair - Moderate refunds" },
+  { value: "lenient", label: "Lenient - More refunds" },
 ];
 const vehicleTypes = ["Sedan", "SUV", "Van", "Bus", "Minibus", "Motorcycle"];
 const tourCategories = ["Nature", "Adventure", "Cultural", "Wildlife", "Historical"];
 const tourDifficulties = ["Easy", "Moderate", "Hard"];
+
+const amenitiesList = [
+  { id: "wifi", label: "WiFi", icon: Wifi },
+  { id: "tv", label: "TV", icon: Tv },
+  { id: "kitchen", label: "Kitchen", icon: UtensilsCrossed },
+  { id: "gym", label: "Gym", icon: Dumbbell },
+  { id: "pool", label: "Pool", icon: Waves },
+  { id: "parking", label: "Parking", icon: ParkingCircle },
+  { id: "ac", label: "Air Conditioning", icon: Wind },
+  { id: "breakfast", label: "Breakfast", icon: UtensilsCrossed },
+  { id: "spa", label: "Spa", icon: Sparkles },
+  { id: "laundry", label: "Laundry", icon: Sparkles },
+];
 
 export default function HostDashboard() {
   const { user, isHost, isLoading: authLoading } = useAuth();
@@ -139,15 +164,26 @@ export default function HostDashboard() {
   const [editingTourId, setEditingTourId] = useState<string | null>(null);
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
 
-  // New item states
-  const [showNewProperty, setShowNewProperty] = useState(false);
-  const [showNewTour, setShowNewTour] = useState(false);
-  const [showNewVehicle, setShowNewVehicle] = useState(false);
-
-  // Upload dialogs
-  const [propertyUploadOpen, setPropertyUploadOpen] = useState<string | null>(null);
-  const [tourUploadOpen, setTourUploadOpen] = useState<string | null>(null);
-  const [vehicleUploadOpen, setVehicleUploadOpen] = useState<string | null>(null);
+  // New property wizard
+  const [showPropertyWizard, setShowPropertyWizard] = useState(false);
+  const [wizardStep, setWizardStep] = useState(1);
+  const [propertyForm, setPropertyForm] = useState({
+    title: "",
+    location: "",
+    property_type: "Apartment",
+    description: "",
+    price_per_night: 50000,
+    currency: "RWF",
+    max_guests: 2,
+    bedrooms: 1,
+    bathrooms: 1,
+    beds: 1,
+    amenities: [] as string[],
+    cancellation_policy: "fair",
+    images: [] as string[],
+  });
+  const [creatingProperty, setCreatingProperty] = useState(false);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -193,44 +229,78 @@ export default function HostDashboard() {
     return true;
   };
 
-  const createProperty = async (data: Partial<Property>) => {
-    // Ensure required fields
+  const createProperty = async () => {
+    if (!propertyForm.title.trim()) {
+      toast({ variant: "destructive", title: "Title required" });
+      return null;
+    }
+    if (!propertyForm.location.trim()) {
+      toast({ variant: "destructive", title: "Location required" });
+      return null;
+    }
+
+    setCreatingProperty(true);
+
     const payload = {
-      title: data.title || "Untitled Property",
-      location: data.location || "Unknown",
-      property_type: data.property_type || "Apartment",
-      price_per_night: data.price_per_night || 0,
-      currency: data.currency || "RWF",
-      max_guests: data.max_guests || 2,
-      bedrooms: data.bedrooms || 1,
-      bathrooms: data.bathrooms || 1,
+      title: propertyForm.title.trim(),
+      location: propertyForm.location.trim(),
+      property_type: propertyForm.property_type,
+      description: propertyForm.description.trim() || null,
+      price_per_night: propertyForm.price_per_night,
+      currency: propertyForm.currency,
+      max_guests: propertyForm.max_guests,
+      bedrooms: propertyForm.bedrooms,
+      bathrooms: propertyForm.bathrooms,
+      beds: propertyForm.beds,
+      amenities: propertyForm.amenities,
+      cancellation_policy: propertyForm.cancellation_policy,
+      images: propertyForm.images,
       host_id: user!.id,
       is_published: false,
     };
 
-    const { error, data: newProp } = await supabase
-      .from("properties")
-      .insert(payload)
-      .select()
-      .single();
+    const { error, data: newProp } = await supabase.from("properties").insert(payload).select().single();
+
+    setCreatingProperty(false);
 
     if (error) {
       logError("host.property.create", error);
-      // Check for specific error types
       if (error.code === "42501" || error.message?.includes("policy")) {
         toast({
           variant: "destructive",
           title: "Permission denied",
-          description: "You need to be a verified host to create properties. Please complete the host application.",
+          description: "You need to be a verified host to create properties.",
         });
       } else {
         toast({ variant: "destructive", title: "Create failed", description: uiErrorMessage(error) });
       }
       return null;
     }
+
     setProperties((prev) => [newProp as Property, ...prev]);
-    toast({ title: "Created", description: "Property created. You can now edit and publish it." });
+    toast({ title: "Property Created!", description: "Your property is now in draft. Publish it when ready." });
+    resetPropertyForm();
+    setShowPropertyWizard(false);
+    setWizardStep(1);
     return newProp;
+  };
+
+  const resetPropertyForm = () => {
+    setPropertyForm({
+      title: "",
+      location: "",
+      property_type: "Apartment",
+      description: "",
+      price_per_night: 50000,
+      currency: "RWF",
+      max_guests: 2,
+      bedrooms: 1,
+      bathrooms: 1,
+      beds: 1,
+      amenities: [],
+      cancellation_policy: "fair",
+      images: [],
+    });
   };
 
   const deleteProperty = async (id: string) => {
@@ -254,7 +324,7 @@ export default function HostDashboard() {
       return false;
     }
     setTours((prev) => prev.map((t) => (t.id === id ? { ...t, ...updates } : t)));
-    toast({ title: "Saved", description: "Tour updated successfully." });
+    toast({ title: "Saved" });
     return true;
   };
 
@@ -270,12 +340,12 @@ export default function HostDashboard() {
       return null;
     }
     setTours((prev) => [newTour as Tour, ...prev]);
-    toast({ title: "Created", description: "Tour created and published." });
+    toast({ title: "Tour created" });
     return newTour;
   };
 
   const deleteTour = async (id: string) => {
-    if (!confirm("Delete this tour permanently?")) return;
+    if (!confirm("Delete this tour?")) return;
     const { error } = await supabase.from("tours").delete().eq("id", id);
     if (error) {
       logError("host.tour.delete", error);
@@ -295,7 +365,7 @@ export default function HostDashboard() {
       return false;
     }
     setVehicles((prev) => prev.map((v) => (v.id === id ? { ...v, ...updates } : v)));
-    toast({ title: "Saved", description: "Vehicle updated successfully." });
+    toast({ title: "Saved" });
     return true;
   };
 
@@ -311,12 +381,12 @@ export default function HostDashboard() {
       return null;
     }
     setVehicles((prev) => [newVehicle as Vehicle, ...prev]);
-    toast({ title: "Created", description: "Vehicle created and published." });
+    toast({ title: "Vehicle created" });
     return newVehicle;
   };
 
   const deleteVehicle = async (id: string) => {
-    if (!confirm("Delete this vehicle permanently?")) return;
+    if (!confirm("Delete this vehicle?")) return;
     const { error } = await supabase.from("transport_vehicles").delete().eq("id", id);
     if (error) {
       logError("host.vehicle.delete", error);
@@ -336,7 +406,7 @@ export default function HostDashboard() {
       return;
     }
     setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
-    toast({ title: "Booking updated", description: `Status changed to ${status}.` });
+    toast({ title: "Booking updated" });
   };
 
   // Stats
@@ -346,10 +416,32 @@ export default function HostDashboard() {
   const pendingBookings = bookings.filter((b) => b.status === "pending").length;
   const publishedProperties = properties.filter((p) => p.is_published).length;
 
-  // Inline editable property card
+  // Wizard steps
+  const totalSteps = 5;
+  const stepTitles = ["Basic Info", "Details", "Photos", "Amenities", "Review"];
+
+  const canProceed = () => {
+    switch (wizardStep) {
+      case 1:
+        return propertyForm.title.trim() && propertyForm.location.trim();
+      case 2:
+        return propertyForm.price_per_night > 0;
+      case 3:
+        return true; // Images optional
+      case 4:
+        return true; // Amenities optional
+      case 5:
+        return true;
+      default:
+        return false;
+    }
+  };
+
+  // Property Card Component
   const PropertyCard = ({ property }: { property: Property }) => {
     const isEditing = editingPropertyId === property.id;
     const [form, setForm] = useState(property);
+    const [editUploadOpen, setEditUploadOpen] = useState(false);
 
     const handleSave = async () => {
       const success = await updateProperty(property.id, {
@@ -373,7 +465,6 @@ export default function HostDashboard() {
 
     return (
       <Card className="overflow-hidden">
-        {/* Image */}
         <div className="relative h-40 bg-muted">
           {form.images?.[0] ? (
             <img src={form.images[0]} alt={form.title} className="w-full h-full object-cover" />
@@ -382,7 +473,7 @@ export default function HostDashboard() {
               <ImageIcon className="w-10 h-10 text-muted-foreground" />
             </div>
           )}
-          <div className="absolute top-2 right-2 flex gap-1">
+          <div className="absolute top-2 right-2">
             {form.is_published ? (
               <Badge className="bg-green-500">Live</Badge>
             ) : (
@@ -394,107 +485,20 @@ export default function HostDashboard() {
         <div className="p-4 space-y-3">
           {isEditing ? (
             <>
-              <Input
-                value={form.title}
-                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                placeholder="Property title"
-                className="font-semibold"
-              />
-              <Input
-                value={form.location}
-                onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
-                placeholder="Location"
-              />
+              <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Title" />
+              <Input value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} placeholder="Location" />
               <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-xs">Price/night</Label>
-                  <Input
-                    type="number"
-                    value={form.price_per_night}
-                    onChange={(e) => setForm((f) => ({ ...f, price_per_night: Number(e.target.value) }))}
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Currency</Label>
-                  <Select value={form.currency || "RWF"} onValueChange={(v) => setForm((f) => ({ ...f, currency: v }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {currencies.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="grid grid-cols-4 gap-2">
-                <div>
-                  <Label className="text-xs">Guests</Label>
-                  <Input type="number" min={1} value={form.max_guests} onChange={(e) => setForm((f) => ({ ...f, max_guests: Number(e.target.value) }))} />
-                </div>
-                <div>
-                  <Label className="text-xs">Beds</Label>
-                  <Input type="number" min={0} value={form.beds || 0} onChange={(e) => setForm((f) => ({ ...f, beds: Number(e.target.value) }))} />
-                </div>
-                <div>
-                  <Label className="text-xs">Bedrooms</Label>
-                  <Input type="number" min={0} value={form.bedrooms} onChange={(e) => setForm((f) => ({ ...f, bedrooms: Number(e.target.value) }))} />
-                </div>
-                <div>
-                  <Label className="text-xs">Baths</Label>
-                  <Input type="number" min={0} value={form.bathrooms} onChange={(e) => setForm((f) => ({ ...f, bathrooms: Number(e.target.value) }))} />
-                </div>
-              </div>
-              <div>
-                <Label className="text-xs">Type</Label>
-                <Select value={form.property_type} onValueChange={(v) => setForm((f) => ({ ...f, property_type: v }))}>
+                <Input type="number" value={form.price_per_night} onChange={(e) => setForm((f) => ({ ...f, price_per_night: Number(e.target.value) }))} />
+                <Select value={form.currency || "RWF"} onValueChange={(v) => setForm((f) => ({ ...f, currency: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {propertyTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                  </SelectContent>
+                  <SelectContent>{currencies.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                 </Select>
-              </div>
-              <div>
-                <Label className="text-xs">Cancellation Policy</Label>
-                <Select value={form.cancellation_policy || "fair"} onValueChange={(v) => setForm((f) => ({ ...f, cancellation_policy: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {cancellationPolicies.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <Textarea
-                value={form.description || ""}
-                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                placeholder="Description"
-                rows={3}
-              />
-              <div>
-                <Label className="text-xs">Amenities</Label>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {amenitiesList.map((a) => (
-                    <button
-                      key={a}
-                      type="button"
-                      onClick={() => setForm((f) => ({
-                        ...f,
-                        amenities: (f.amenities || []).includes(a)
-                          ? (f.amenities || []).filter((x) => x !== a)
-                          : [...(f.amenities || []), a],
-                      }))}
-                      className={`px-2 py-0.5 text-xs rounded-full border ${
-                        (form.amenities || []).includes(a)
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "border-border"
-                      }`}
-                    >
-                      {a}
-                    </button>
-                  ))}
-                </div>
               </div>
               <div>
                 <Label className="text-xs">Images ({(form.images || []).length})</Label>
                 <div className="flex flex-wrap gap-2 mt-1">
                   {(form.images || []).map((img, i) => (
-                    <div key={i} className="relative w-16 h-16 rounded overflow-hidden">
+                    <div key={i} className="relative w-14 h-14 rounded overflow-hidden">
                       {isVideoUrl(img) ? (
                         <video src={img} className="w-full h-full object-cover" muted />
                       ) : (
@@ -503,7 +507,7 @@ export default function HostDashboard() {
                       <button
                         type="button"
                         onClick={() => setForm((f) => ({ ...f, images: (f.images || []).filter((_, j) => j !== i) }))}
-                        className="absolute top-0 right-0 w-5 h-5 bg-black/50 text-white text-xs flex items-center justify-center"
+                        className="absolute top-0 right-0 w-4 h-4 bg-black/60 text-white text-xs flex items-center justify-center"
                       >
                         ×
                       </button>
@@ -511,30 +515,34 @@ export default function HostDashboard() {
                   ))}
                   <button
                     type="button"
-                    onClick={() => setPropertyUploadOpen(property.id)}
-                    className="w-16 h-16 rounded border-2 border-dashed border-border flex items-center justify-center text-muted-foreground hover:border-primary"
+                    onClick={() => setEditUploadOpen(true)}
+                    className="w-14 h-14 rounded border-2 border-dashed border-border flex items-center justify-center text-muted-foreground hover:border-primary"
                   >
-                    <Plus className="w-5 h-5" />
+                    <Plus className="w-4 h-4" />
                   </button>
                 </div>
               </div>
               <div className="flex items-center justify-between pt-2">
                 <div className="flex items-center gap-2">
-                  <Switch
-                    checked={form.is_published}
-                    onCheckedChange={(v) => setForm((f) => ({ ...f, is_published: v }))}
-                  />
-                  <span className="text-sm">{form.is_published ? "Published" : "Draft"}</span>
+                  <Switch checked={form.is_published} onCheckedChange={(v) => setForm((f) => ({ ...f, is_published: v }))} />
+                  <span className="text-sm">{form.is_published ? "Live" : "Draft"}</span>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => setEditingPropertyId(null)}>
-                    <X className="w-3 h-3 mr-1" /> Cancel
-                  </Button>
-                  <Button size="sm" onClick={handleSave}>
-                    <Save className="w-3 h-3 mr-1" /> Save
-                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setEditingPropertyId(null)}><X className="w-3 h-3" /></Button>
+                  <Button size="sm" onClick={handleSave}><Save className="w-3 h-3" /></Button>
                 </div>
               </div>
+              <CloudinaryUploadDialog
+                open={editUploadOpen}
+                onOpenChange={setEditUploadOpen}
+                onUploadComplete={(urls) => {
+                  setForm((f) => ({ ...f, images: [...(f.images || []), ...urls] }));
+                  setEditUploadOpen(false);
+                }}
+                multiple
+                accept="image/*,video/*"
+                title="Upload Property Media"
+              />
             </>
           ) : (
             <>
@@ -543,285 +551,29 @@ export default function HostDashboard() {
                   <h3 className="font-semibold text-foreground">{property.title}</h3>
                   <p className="text-sm text-muted-foreground">{property.location}</p>
                 </div>
-                <span className="text-primary font-bold">
+                <span className="text-primary font-bold text-sm">
                   {formatMoney(property.price_per_night, property.currency || "RWF")}
                 </span>
               </div>
-              <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                <span>{property.max_guests} guests</span>
-                <span>{property.bedrooms} bed</span>
-                <span>{property.bathrooms} bath</span>
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1"><Users className="w-3 h-3" />{property.max_guests}</span>
+                <span className="flex items-center gap-1"><Bed className="w-3 h-3" />{property.bedrooms}</span>
+                <span className="flex items-center gap-1"><Bath className="w-3 h-3" />{property.bathrooms}</span>
               </div>
               <div className="flex items-center justify-between pt-2">
-                <Link to={`/properties/${property.id}`} className="text-sm text-primary hover:underline flex items-center gap-1">
+                <Link to={`/properties/${property.id}`} className="text-xs text-primary hover:underline flex items-center gap-1">
                   <ExternalLink className="w-3 h-3" /> View
                 </Link>
                 <div className="flex gap-1">
-                  <Button size="sm" variant="ghost" onClick={() => setEditingPropertyId(property.id)}>
-                    <Edit className="w-3 h-3" />
-                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setEditingPropertyId(property.id)}><Edit className="w-3 h-3" /></Button>
                   <Button size="sm" variant="ghost" onClick={() => updateProperty(property.id, { is_published: !property.is_published })}>
                     {property.is_published ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                   </Button>
-                  <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteProperty(property.id)}>
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
+                  <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteProperty(property.id)}><Trash2 className="w-3 h-3" /></Button>
                 </div>
               </div>
             </>
           )}
-        </div>
-
-        {/* Upload dialog */}
-        <CloudinaryUploadDialog
-          open={propertyUploadOpen === property.id}
-          onOpenChange={(open) => setPropertyUploadOpen(open ? property.id : null)}
-          onUploadComplete={(urls) => {
-            setForm((f) => ({ ...f, images: [...(f.images || []), ...urls] }));
-            setPropertyUploadOpen(null);
-          }}
-          multiple
-          accept="image/*,video/*"
-          title="Upload Property Media"
-        />
-      </Card>
-    );
-  };
-
-  // Tour Card
-  const TourCard = ({ tour }: { tour: Tour }) => {
-    const isEditing = editingTourId === tour.id;
-    const [form, setForm] = useState(tour);
-
-    const handleSave = async () => {
-      const success = await updateTour(tour.id, {
-        title: form.title,
-        description: form.description,
-        location: form.location,
-        category: form.category,
-        difficulty: form.difficulty,
-        duration_days: form.duration_days,
-        price_per_person: form.price_per_person,
-        currency: form.currency,
-        images: form.images,
-        is_published: form.is_published,
-      });
-      if (success) setEditingTourId(null);
-    };
-
-    return (
-      <Card className="overflow-hidden">
-        <div className="relative h-32 bg-muted">
-          {form.images?.[0] ? (
-            <img src={form.images[0]} alt={form.title} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <MapPin className="w-8 h-8 text-muted-foreground" />
-            </div>
-          )}
-          {form.is_published && <Badge className="absolute top-2 right-2 bg-green-500">Live</Badge>}
-        </div>
-
-        <div className="p-4 space-y-2">
-          {isEditing ? (
-            <>
-              <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Tour title" />
-              <Input value={form.location || ""} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} placeholder="Location" />
-              <div className="grid grid-cols-2 gap-2">
-                <Select value={form.category || "Nature"} onValueChange={(v) => setForm((f) => ({ ...f, category: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{tourCategories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                </Select>
-                <Select value={form.difficulty || "Moderate"} onValueChange={(v) => setForm((f) => ({ ...f, difficulty: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{tourDifficulties.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <Input type="number" min={1} value={form.duration_days || 1} onChange={(e) => setForm((f) => ({ ...f, duration_days: Number(e.target.value) }))} placeholder="Days" />
-                <Input type="number" value={form.price_per_person} onChange={(e) => setForm((f) => ({ ...f, price_per_person: Number(e.target.value) }))} placeholder="Price" />
-                <Select value={form.currency || "RWF"} onValueChange={(v) => setForm((f) => ({ ...f, currency: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{currencies.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <Textarea value={form.description || ""} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Description" rows={2} />
-              <div className="flex items-center justify-between pt-2">
-                <Switch checked={form.is_published ?? true} onCheckedChange={(v) => setForm((f) => ({ ...f, is_published: v }))} />
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => setEditingTourId(null)}><X className="w-3 h-3" /></Button>
-                  <Button size="sm" onClick={handleSave}><Save className="w-3 h-3" /></Button>
-                </div>
-              </div>
-            </>
-          ) : (
-            <>
-              <h3 className="font-semibold">{tour.title}</h3>
-              <p className="text-sm text-muted-foreground">{tour.location}</p>
-              <div className="flex items-center justify-between">
-                <span className="text-primary font-bold">{formatMoney(tour.price_per_person, tour.currency || "RWF")}</span>
-                <div className="flex gap-1">
-                  <Button size="sm" variant="ghost" onClick={() => setEditingTourId(tour.id)}><Edit className="w-3 h-3" /></Button>
-                  <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteTour(tour.id)}><Trash2 className="w-3 h-3" /></Button>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      </Card>
-    );
-  };
-
-  // Vehicle Card
-  const VehicleCard = ({ vehicle }: { vehicle: Vehicle }) => {
-    const isEditing = editingVehicleId === vehicle.id;
-    const [form, setForm] = useState(vehicle);
-
-    const handleSave = async () => {
-      const success = await updateVehicle(vehicle.id, {
-        title: form.title,
-        provider_name: form.provider_name,
-        vehicle_type: form.vehicle_type,
-        seats: form.seats,
-        price_per_day: form.price_per_day,
-        currency: form.currency,
-        driver_included: form.driver_included,
-        image_url: form.media?.[0] || form.image_url,
-        media: form.media,
-        is_published: form.is_published,
-      });
-      if (success) setEditingVehicleId(null);
-    };
-
-    return (
-      <Card className="overflow-hidden">
-        <div className="relative h-32 bg-muted">
-          {(form.media?.[0] || form.image_url) ? (
-            <img src={form.media?.[0] || form.image_url || ""} alt={form.title} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <Car className="w-8 h-8 text-muted-foreground" />
-            </div>
-          )}
-          {form.is_published && <Badge className="absolute top-2 right-2 bg-green-500">Live</Badge>}
-        </div>
-
-        <div className="p-4 space-y-2">
-          {isEditing ? (
-            <>
-              <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Vehicle title" />
-              <Input value={form.provider_name || ""} onChange={(e) => setForm((f) => ({ ...f, provider_name: e.target.value }))} placeholder="Provider name" />
-              <div className="grid grid-cols-2 gap-2">
-                <Select value={form.vehicle_type} onValueChange={(v) => setForm((f) => ({ ...f, vehicle_type: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{vehicleTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-                </Select>
-                <Input type="number" min={1} value={form.seats} onChange={(e) => setForm((f) => ({ ...f, seats: Number(e.target.value) }))} placeholder="Seats" />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <Input type="number" value={form.price_per_day} onChange={(e) => setForm((f) => ({ ...f, price_per_day: Number(e.target.value) }))} placeholder="Price/day" />
-                <Select value={form.currency || "RWF"} onValueChange={(v) => setForm((f) => ({ ...f, currency: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{currencies.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch checked={form.driver_included ?? true} onCheckedChange={(v) => setForm((f) => ({ ...f, driver_included: v }))} />
-                <span className="text-sm">Driver included</span>
-              </div>
-              <div className="flex items-center justify-between pt-2">
-                <Switch checked={form.is_published ?? true} onCheckedChange={(v) => setForm((f) => ({ ...f, is_published: v }))} />
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => setEditingVehicleId(null)}><X className="w-3 h-3" /></Button>
-                  <Button size="sm" onClick={handleSave}><Save className="w-3 h-3" /></Button>
-                </div>
-              </div>
-            </>
-          ) : (
-            <>
-              <h3 className="font-semibold">{vehicle.title}</h3>
-              <p className="text-sm text-muted-foreground">{vehicle.provider_name} · {vehicle.vehicle_type} · {vehicle.seats} seats</p>
-              <div className="flex items-center justify-between">
-                <span className="text-primary font-bold">{formatMoney(vehicle.price_per_day, vehicle.currency || "RWF")}/day</span>
-                <div className="flex gap-1">
-                  <Button size="sm" variant="ghost" onClick={() => setEditingVehicleId(vehicle.id)}><Edit className="w-3 h-3" /></Button>
-                  <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteVehicle(vehicle.id)}><Trash2 className="w-3 h-3" /></Button>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      </Card>
-    );
-  };
-
-  // New Property Form
-  const NewPropertyForm = () => {
-    const [form, setForm] = useState({
-      title: "",
-      location: "",
-      property_type: "Apartment",
-      price_per_night: 50000,
-      currency: "RWF",
-      max_guests: 2,
-      bedrooms: 1,
-      bathrooms: 1,
-    });
-    const [creating, setCreating] = useState(false);
-
-    const handleCreate = async () => {
-      if (!form.title.trim()) {
-        toast({ variant: "destructive", title: "Title required", description: "Please enter a property title." });
-        return;
-      }
-      if (!form.location.trim()) {
-        toast({ variant: "destructive", title: "Location required", description: "Please enter a location." });
-        return;
-      }
-      if (form.price_per_night <= 0) {
-        toast({ variant: "destructive", title: "Price required", description: "Please enter a valid price." });
-        return;
-      }
-      setCreating(true);
-      const result = await createProperty(form);
-      setCreating(false);
-      if (result) {
-        setShowNewProperty(false);
-        setEditingPropertyId(result.id);
-      }
-    };
-
-    return (
-      <Card className="p-4 border-2 border-dashed border-primary/50">
-        <h3 className="font-semibold mb-3">New Property</h3>
-        <div className="space-y-3">
-          <div>
-            <Label className="text-xs text-muted-foreground">Title *</Label>
-            <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="e.g., Cozy Apartment in Kigali" />
-          </div>
-          <div>
-            <Label className="text-xs text-muted-foreground">Location *</Label>
-            <Input value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} placeholder="e.g., Kigali, Nyarutarama" />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label className="text-xs text-muted-foreground">Price per night *</Label>
-              <Input type="number" min={1} value={form.price_per_night} onChange={(e) => setForm((f) => ({ ...f, price_per_night: Number(e.target.value) }))} />
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">Property type</Label>
-              <Select value={form.property_type} onValueChange={(v) => setForm((f) => ({ ...f, property_type: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{propertyTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setShowNewProperty(false)} disabled={creating}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={creating}>
-              {creating ? "Creating..." : "Create Property"}
-            </Button>
-          </div>
         </div>
       </Card>
     );
@@ -842,9 +594,7 @@ export default function HostDashboard() {
         <div className="container mx-auto px-4 py-20 text-center max-w-md">
           <Home className="w-16 h-16 mx-auto text-primary mb-6" />
           <h1 className="text-2xl font-bold text-foreground mb-4">Become a Host</h1>
-          <p className="text-muted-foreground mb-6">
-            Start earning by listing your property. Join our community of hosts.
-          </p>
+          <p className="text-muted-foreground mb-6">Start earning by listing your property.</p>
           <Button onClick={() => navigate("/become-host")} size="lg">Apply to become a host</Button>
         </div>
         <Footer />
@@ -852,6 +602,421 @@ export default function HostDashboard() {
     );
   }
 
+  // Property Creation Wizard
+  if (showPropertyWizard) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-8 max-w-3xl">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-8">
+            <button
+              onClick={() => {
+                if (wizardStep > 1) {
+                  setWizardStep(wizardStep - 1);
+                } else {
+                  setShowPropertyWizard(false);
+                  resetPropertyForm();
+                }
+              }}
+              className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+            >
+              <ChevronLeft className="w-5 h-5" />
+              {wizardStep > 1 ? "Back" : "Cancel"}
+            </button>
+            <div className="text-center">
+              <h1 className="text-xl font-bold text-foreground">List Your Property</h1>
+              <p className="text-sm text-muted-foreground">Step {wizardStep} of {totalSteps}: {stepTitles[wizardStep - 1]}</p>
+            </div>
+            <div className="w-20" /> {/* Spacer */}
+          </div>
+
+          {/* Progress Bar */}
+          <Progress value={(wizardStep / totalSteps) * 100} className="mb-8 h-2" />
+
+          {/* Step Content */}
+          <Card className="p-6 md:p-8">
+            {/* Step 1: Basic Info */}
+            {wizardStep === 1 && (
+              <div className="space-y-6">
+                <div className="text-center mb-8">
+                  <Building2 className="w-12 h-12 mx-auto text-primary mb-4" />
+                  <h2 className="text-2xl font-bold text-foreground">Let's start with the basics</h2>
+                  <p className="text-muted-foreground mt-2">Tell us about your property</p>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-base font-medium">Property Title *</Label>
+                    <Input
+                      value={propertyForm.title}
+                      onChange={(e) => setPropertyForm((f) => ({ ...f, title: e.target.value }))}
+                      placeholder="e.g., Cozy Apartment with City View"
+                      className="mt-2 text-lg py-6"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-base font-medium">Location *</Label>
+                    <Input
+                      value={propertyForm.location}
+                      onChange={(e) => setPropertyForm((f) => ({ ...f, location: e.target.value }))}
+                      placeholder="e.g., Kigali, Nyarutarama"
+                      className="mt-2 text-lg py-6"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-base font-medium">Property Type</Label>
+                    <div className="grid grid-cols-3 gap-3 mt-2">
+                      {propertyTypes.map((type) => (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => setPropertyForm((f) => ({ ...f, property_type: type }))}
+                          className={`p-4 rounded-xl border-2 text-center transition-all ${
+                            propertyForm.property_type === type
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border hover:border-primary/50"
+                          }`}
+                        >
+                          {type}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: Details */}
+            {wizardStep === 2 && (
+              <div className="space-y-6">
+                <div className="text-center mb-8">
+                  <DollarSign className="w-12 h-12 mx-auto text-primary mb-4" />
+                  <h2 className="text-2xl font-bold text-foreground">Set your pricing & capacity</h2>
+                  <p className="text-muted-foreground mt-2">How much will you charge per night?</p>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-base font-medium">Price per Night *</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={propertyForm.price_per_night}
+                        onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_night: Number(e.target.value) }))}
+                        className="mt-2 text-lg py-6"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-base font-medium">Currency</Label>
+                      <Select value={propertyForm.currency} onValueChange={(v) => setPropertyForm((f) => ({ ...f, currency: v }))}>
+                        <SelectTrigger className="mt-2 h-14 text-lg"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {currencies.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <Label className="text-base font-medium flex items-center gap-2"><Users className="w-4 h-4" />Max Guests</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={propertyForm.max_guests}
+                        onChange={(e) => setPropertyForm((f) => ({ ...f, max_guests: Number(e.target.value) }))}
+                        className="mt-2"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-base font-medium flex items-center gap-2"><Bed className="w-4 h-4" />Bedrooms</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={propertyForm.bedrooms}
+                        onChange={(e) => setPropertyForm((f) => ({ ...f, bedrooms: Number(e.target.value) }))}
+                        className="mt-2"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-base font-medium flex items-center gap-2"><Bed className="w-4 h-4" />Beds</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={propertyForm.beds}
+                        onChange={(e) => setPropertyForm((f) => ({ ...f, beds: Number(e.target.value) }))}
+                        className="mt-2"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-base font-medium flex items-center gap-2"><Bath className="w-4 h-4" />Bathrooms</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={propertyForm.bathrooms}
+                        onChange={(e) => setPropertyForm((f) => ({ ...f, bathrooms: Number(e.target.value) }))}
+                        className="mt-2"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-base font-medium">Description</Label>
+                    <Textarea
+                      value={propertyForm.description}
+                      onChange={(e) => setPropertyForm((f) => ({ ...f, description: e.target.value }))}
+                      placeholder="Describe your property. What makes it special?"
+                      className="mt-2 min-h-32"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-base font-medium">Cancellation Policy</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
+                      {cancellationPolicies.map((policy) => (
+                        <button
+                          key={policy.value}
+                          type="button"
+                          onClick={() => setPropertyForm((f) => ({ ...f, cancellation_policy: policy.value }))}
+                          className={`p-4 rounded-xl border-2 text-left transition-all ${
+                            propertyForm.cancellation_policy === policy.value
+                              ? "border-primary bg-primary/10"
+                              : "border-border hover:border-primary/50"
+                          }`}
+                        >
+                          <div className="font-medium">{policy.label.split(" - ")[0]}</div>
+                          <div className="text-sm text-muted-foreground">{policy.label.split(" - ")[1]}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Photos */}
+            {wizardStep === 3 && (
+              <div className="space-y-6">
+                <div className="text-center mb-8">
+                  <ImageIcon className="w-12 h-12 mx-auto text-primary mb-4" />
+                  <h2 className="text-2xl font-bold text-foreground">Add photos of your property</h2>
+                  <p className="text-muted-foreground mt-2">Great photos help guests choose your place</p>
+                </div>
+
+                {/* Upload Area */}
+                <div
+                  onClick={() => setUploadDialogOpen(true)}
+                  className="border-2 border-dashed border-border rounded-2xl p-12 text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-all"
+                >
+                  <Upload className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-lg font-medium text-foreground">Click to upload photos</p>
+                  <p className="text-sm text-muted-foreground mt-2">or drag and drop</p>
+                  <p className="text-xs text-muted-foreground mt-4">PNG, JPG, or Video up to 10MB each</p>
+                </div>
+
+                {/* Uploaded Images Grid */}
+                {propertyForm.images.length > 0 && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-base font-medium">{propertyForm.images.length} photo(s) uploaded</Label>
+                      <Button variant="outline" size="sm" onClick={() => setUploadDialogOpen(true)}>
+                        <Plus className="w-4 h-4 mr-2" /> Add More
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {propertyForm.images.map((url, idx) => (
+                        <div key={idx} className="relative aspect-square rounded-xl overflow-hidden group">
+                          {isVideoUrl(url) ? (
+                            <video src={url} className="w-full h-full object-cover" muted playsInline />
+                          ) : (
+                            <img src={url} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover" />
+                          )}
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <button
+                              type="button"
+                              onClick={() => setPropertyForm((f) => ({ ...f, images: f.images.filter((_, i) => i !== idx) }))}
+                              className="p-2 bg-white rounded-full text-destructive hover:bg-destructive hover:text-white transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                          {idx === 0 && (
+                            <div className="absolute top-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                              Cover
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <CloudinaryUploadDialog
+                  open={uploadDialogOpen}
+                  onOpenChange={setUploadDialogOpen}
+                  onUploadComplete={(urls) => {
+                    setPropertyForm((f) => ({ ...f, images: [...f.images, ...urls] }));
+                    setUploadDialogOpen(false);
+                  }}
+                  multiple
+                  maxFiles={20}
+                  accept="image/*,video/*"
+                  title="Upload Property Photos"
+                />
+              </div>
+            )}
+
+            {/* Step 4: Amenities */}
+            {wizardStep === 4 && (
+              <div className="space-y-6">
+                <div className="text-center mb-8">
+                  <Wifi className="w-12 h-12 mx-auto text-primary mb-4" />
+                  <h2 className="text-2xl font-bold text-foreground">What amenities do you offer?</h2>
+                  <p className="text-muted-foreground mt-2">Select all that apply</p>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {amenitiesList.map((amenity) => {
+                    const Icon = amenity.icon;
+                    const isSelected = propertyForm.amenities.includes(amenity.id);
+                    return (
+                      <button
+                        key={amenity.id}
+                        type="button"
+                        onClick={() => {
+                          setPropertyForm((f) => ({
+                            ...f,
+                            amenities: isSelected
+                              ? f.amenities.filter((a) => a !== amenity.id)
+                              : [...f.amenities, amenity.id],
+                          }));
+                        }}
+                        className={`p-4 rounded-xl border-2 flex items-center gap-3 transition-all ${
+                          isSelected
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border hover:border-primary/50"
+                        }`}
+                      >
+                        <Icon className="w-5 h-5" />
+                        <span className="font-medium">{amenity.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Step 5: Review */}
+            {wizardStep === 5 && (
+              <div className="space-y-6">
+                <div className="text-center mb-8">
+                  <CheckCircle className="w-12 h-12 mx-auto text-primary mb-4" />
+                  <h2 className="text-2xl font-bold text-foreground">Review your listing</h2>
+                  <p className="text-muted-foreground mt-2">Make sure everything looks good</p>
+                </div>
+
+                <div className="bg-muted/50 rounded-2xl overflow-hidden">
+                  {/* Preview Image */}
+                  <div className="aspect-video bg-muted relative">
+                    {propertyForm.images[0] ? (
+                      <img src={propertyForm.images[0]} alt="Cover" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <ImageIcon className="w-16 h-16 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="absolute bottom-4 right-4 bg-background/90 backdrop-blur px-3 py-1 rounded-lg text-sm">
+                      {propertyForm.images.length} photo(s)
+                    </div>
+                  </div>
+
+                  {/* Details */}
+                  <div className="p-6 space-y-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="text-xl font-bold text-foreground">{propertyForm.title || "Untitled"}</h3>
+                        <p className="text-muted-foreground">{propertyForm.location || "No location"}</p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-primary">
+                          {formatMoney(propertyForm.price_per_night, propertyForm.currency)}
+                        </div>
+                        <div className="text-sm text-muted-foreground">per night</div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4 text-sm">
+                      <span className="flex items-center gap-1"><Users className="w-4 h-4" /> {propertyForm.max_guests} guests</span>
+                      <span className="flex items-center gap-1"><Bed className="w-4 h-4" /> {propertyForm.bedrooms} bedrooms</span>
+                      <span className="flex items-center gap-1"><Bath className="w-4 h-4" /> {propertyForm.bathrooms} bathrooms</span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="outline">{propertyForm.property_type}</Badge>
+                      <Badge variant="outline" className="capitalize">{propertyForm.cancellation_policy} cancellation</Badge>
+                      {propertyForm.amenities.slice(0, 5).map((a) => (
+                        <Badge key={a} variant="secondary" className="capitalize">{a}</Badge>
+                      ))}
+                      {propertyForm.amenities.length > 5 && (
+                        <Badge variant="secondary">+{propertyForm.amenities.length - 5} more</Badge>
+                      )}
+                    </div>
+
+                    {propertyForm.description && (
+                      <p className="text-muted-foreground text-sm line-clamp-3">{propertyForm.description}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4">
+                  <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                    <strong>Note:</strong> Your property will be saved as a draft. You can publish it after reviewing.
+                  </p>
+                </div>
+              </div>
+            )}
+          </Card>
+
+          {/* Navigation Buttons */}
+          <div className="flex items-center justify-between mt-8">
+            <Button
+              variant="outline"
+              onClick={() => wizardStep > 1 && setWizardStep(wizardStep - 1)}
+              disabled={wizardStep === 1}
+            >
+              <ChevronLeft className="w-4 h-4 mr-2" /> Previous
+            </Button>
+
+            {wizardStep < totalSteps ? (
+              <Button onClick={() => canProceed() && setWizardStep(wizardStep + 1)} disabled={!canProceed()}>
+                Next <ChevronRight className="w-4 h-4 ml-2" />
+              </Button>
+            ) : (
+              <Button onClick={createProperty} disabled={creatingProperty}>
+                {creatingProperty ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4 mr-2" /> Create Property
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Main Dashboard
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -904,7 +1069,7 @@ export default function HostDashboard() {
                     <Clock className="w-5 h-5 text-yellow-600" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Pending Bookings</p>
+                    <p className="text-sm text-muted-foreground">Pending</p>
                     <p className="text-xl font-bold">{pendingBookings}</p>
                   </div>
                 </div>
@@ -922,7 +1087,35 @@ export default function HostDashboard() {
               </Card>
             </div>
 
-            {/* Recent bookings */}
+            {/* Quick Actions */}
+            <Card className="p-6 mb-8">
+              <h3 className="font-semibold mb-4">Quick Actions</h3>
+              <div className="flex flex-wrap gap-3">
+                <Button onClick={() => setShowPropertyWizard(true)}>
+                  <Plus className="w-4 h-4 mr-2" /> Add Property
+                </Button>
+                <Button variant="outline" onClick={async () => {
+                  const result = await createTour({ title: "New Tour", price_per_person: 50000 });
+                  if (result) {
+                    setTab("tours");
+                    setEditingTourId(result.id);
+                  }
+                }}>
+                  <MapPin className="w-4 h-4 mr-2" /> Add Tour
+                </Button>
+                <Button variant="outline" onClick={async () => {
+                  const result = await createVehicle({ title: "New Vehicle", vehicle_type: "Sedan", seats: 4, price_per_day: 50000 });
+                  if (result) {
+                    setTab("transport");
+                    setEditingVehicleId(result.id);
+                  }
+                }}>
+                  <Car className="w-4 h-4 mr-2" /> Add Vehicle
+                </Button>
+              </div>
+            </Card>
+
+            {/* Recent Bookings */}
             <Card className="p-4">
               <h3 className="font-semibold mb-4">Recent Bookings</h3>
               {bookings.length === 0 ? (
@@ -953,15 +1146,20 @@ export default function HostDashboard() {
           {/* Properties */}
           <TabsContent value="properties">
             <div className="flex justify-end mb-4">
-              <Button onClick={() => setShowNewProperty(true)}>
+              <Button onClick={() => setShowPropertyWizard(true)}>
                 <Plus className="w-4 h-4 mr-2" /> Add Property
               </Button>
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {showNewProperty && <NewPropertyForm />}
               {properties.map((p) => <PropertyCard key={p.id} property={p} />)}
-              {properties.length === 0 && !showNewProperty && (
-                <p className="text-muted-foreground col-span-full text-center py-8">No properties yet. Add your first property!</p>
+              {properties.length === 0 && (
+                <div className="col-span-full text-center py-12">
+                  <Building2 className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground mb-4">No properties yet</p>
+                  <Button onClick={() => setShowPropertyWizard(true)}>
+                    <Plus className="w-4 h-4 mr-2" /> Add Your First Property
+                  </Button>
+                </div>
               )}
             </div>
           </TabsContent>
@@ -977,7 +1175,28 @@ export default function HostDashboard() {
               </Button>
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {tours.map((t) => <TourCard key={t.id} tour={t} />)}
+              {tours.map((t) => (
+                <Card key={t.id} className="overflow-hidden">
+                  <div className="h-32 bg-muted flex items-center justify-center">
+                    {t.images?.[0] ? (
+                      <img src={t.images[0]} alt={t.title} className="w-full h-full object-cover" />
+                    ) : (
+                      <MapPin className="w-8 h-8 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-semibold">{t.title}</h3>
+                    <p className="text-sm text-muted-foreground">{t.location}</p>
+                    <div className="flex items-center justify-between mt-3">
+                      <span className="text-primary font-bold">{formatMoney(t.price_per_person, t.currency || "RWF")}</span>
+                      <div className="flex gap-1">
+                        <Button size="sm" variant="ghost" onClick={() => setEditingTourId(t.id)}><Edit className="w-3 h-3" /></Button>
+                        <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteTour(t.id)}><Trash2 className="w-3 h-3" /></Button>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              ))}
               {tours.length === 0 && (
                 <p className="text-muted-foreground col-span-full text-center py-8">No tours yet</p>
               )}
@@ -995,7 +1214,28 @@ export default function HostDashboard() {
               </Button>
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {vehicles.map((v) => <VehicleCard key={v.id} vehicle={v} />)}
+              {vehicles.map((v) => (
+                <Card key={v.id} className="overflow-hidden">
+                  <div className="h-32 bg-muted flex items-center justify-center">
+                    {(v.media?.[0] || v.image_url) ? (
+                      <img src={v.media?.[0] || v.image_url || ""} alt={v.title} className="w-full h-full object-cover" />
+                    ) : (
+                      <Car className="w-8 h-8 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-semibold">{v.title}</h3>
+                    <p className="text-sm text-muted-foreground">{v.vehicle_type} · {v.seats} seats</p>
+                    <div className="flex items-center justify-between mt-3">
+                      <span className="text-primary font-bold">{formatMoney(v.price_per_day, v.currency || "RWF")}/day</span>
+                      <div className="flex gap-1">
+                        <Button size="sm" variant="ghost" onClick={() => setEditingVehicleId(v.id)}><Edit className="w-3 h-3" /></Button>
+                        <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteVehicle(v.id)}><Trash2 className="w-3 h-3" /></Button>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              ))}
               {vehicles.length === 0 && (
                 <p className="text-muted-foreground col-span-full text-center py-8">No vehicles yet</p>
               )}
@@ -1020,13 +1260,12 @@ export default function HostDashboard() {
                           <span>{b.guests_count} guests</span>
                           <span className="font-medium text-foreground">{formatMoney(b.total_price, b.currency)}</span>
                         </div>
-                        {/* Guest info for guest bookings */}
                         {b.is_guest_booking && (
                           <div className="mt-2 p-2 bg-muted/50 rounded-lg text-sm">
                             <p className="font-medium text-foreground">{b.guest_name}</p>
                             <p className="text-muted-foreground">{b.guest_email}</p>
                             {b.guest_phone && <p className="text-muted-foreground">{b.guest_phone}</p>}
-                            <Badge variant="outline" className="mt-1 text-xs">Guest booking (no account)</Badge>
+                            <Badge variant="outline" className="mt-1 text-xs">Guest booking</Badge>
                           </div>
                         )}
                       </div>
