@@ -13,6 +13,9 @@ import ListingImageCarousel from "@/components/ListingImageCarousel";
 import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { useTripCart } from "@/hooks/useTripCart";
+import { usePreferences } from "@/hooks/usePreferences";
+import { useFxRates } from "@/hooks/useFxRates";
+import { convertAmount } from "@/lib/fx";
 
 type TransportServiceRow = Pick<Tables<"transport_services">, "id" | "title" | "description" | "slug">;
 type TransportVehicleRow = Pick<
@@ -38,6 +41,15 @@ const Transport = () => {
   const [query, setQuery] = useState("");
   const [vehicle, setVehicle] = useState("All Vehicles");
   const { addToCart: addCartItem } = useTripCart();
+  const { currency: preferredCurrency } = usePreferences();
+  const { usdRates } = useFxRates();
+
+  const displayMoney = (amount: number, fromCurrency: string | null) => {
+    const from = String(fromCurrency ?? preferredCurrency ?? "RWF");
+    const to = String(preferredCurrency ?? from);
+    const converted = convertAmount(Number(amount ?? 0), from, to, usdRates);
+    return formatMoney(converted == null ? Number(amount ?? 0) : converted, to);
+  };
 
   useEffect(() => {
     setQuery(searchParams.get("q") ?? "");
@@ -209,7 +221,7 @@ const Transport = () => {
                   {r.from_location} → {r.to_location}
                 </div>
                 <div className="text-muted-foreground mb-4">
-                  {formatMoney(Number(r.base_price), String(r.currency ?? "RWF"))}
+                  {displayMoney(Number(r.base_price), String(r.currency ?? "RWF"))}
                 </div>
                 <Button
                   className="w-full"
@@ -279,7 +291,7 @@ const Transport = () => {
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-foreground">
                       <span className="font-bold">
-                        {formatMoney(Number(v.price_per_day), String(v.currency ?? "RWF"))}
+                        {displayMoney(Number(v.price_per_day), String(v.currency ?? "RWF"))}
                       </span>
                       <span className="text-sm text-muted-foreground"> / day</span>
                     </div>

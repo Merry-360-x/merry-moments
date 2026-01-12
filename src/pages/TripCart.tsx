@@ -12,7 +12,9 @@ import type { Tables } from "@/integrations/supabase/types";
 import { usePreferences } from "@/hooks/usePreferences";
 import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
-import { useTripCart, getGuestCart, type GuestCartItem } from "@/hooks/useTripCart";
+import { useTripCart, type GuestCartItem } from "@/hooks/useTripCart";
+import { useFxRates } from "@/hooks/useFxRates";
+import { convertAmount } from "@/lib/fx";
 
 type CartItemRow = Pick<Tables<"trip_cart_items">, "id" | "item_type" | "reference_id" | "quantity" | "created_at">;
 
@@ -142,59 +144,58 @@ export default function TripCart() {
   const qc = useQueryClient();
   const { currency: preferredCurrency } = usePreferences();
   const { guestCart, removeFromCart } = useTripCart();
+  const { usdRates } = useFxRates();
 
   // Query for authenticated user's cart
   const { data: authData, isLoading: authCartLoading } = useQuery({
     queryKey: ["trip_cart_items", user?.id],
     enabled: !!user?.id,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("trip_cart_items")
-        .select("id, item_type, reference_id, quantity, created_at")
-        .eq("user_id", user!.id)
-        .order("created_at", { ascending: false });
-
+      // Fast path: single RPC that hydrates cart items
+      const { data, error } = await supabase.rpc("trip_cart_details" as never, { p_user_id: user!.id } as never);
       if (error) throw error;
-      const items = (data as CartItemRow[] | null) ?? [];
-      const details = await fetchCartItemDetails(items);
+      const rows = ((data as any[]) ?? []).map((r) => ({
+        item: {
+          id: String(r.id),
+          item_type: String(r.item_type),
+          reference_id: String(r.reference_id),
+          quantity: Number(r.quantity ?? 1),
+          created_at: String(r.created_at),
+        },
+        details: {
+          type: String(r.item_type),
+          title: String(r.title ?? "Item"),
+          price: Number(r.price ?? 0),
+          currency: String(r.currency ?? "RWF"),
+          image: (r.image as string | null) ?? null,
+          meta: (r.meta as string | null) ?? undefined,
+        } as any,
+      }));
 
-      const detailed = items.map((i) => {
-        if (i.item_type === "tour") {
-          const d = details.tours.get(i.reference_id);
-          return { item: i, details: d ? ({ type: "tour", ...d } as CartDetails) : null };
-        }
-        if (i.item_type === "property") {
-          const d = details.properties.get(i.reference_id);
-          return { item: i, details: d ? ({ type: "property", ...d } as CartDetails) : null };
-        }
-        if (i.item_type === "transport_vehicle") {
-          const d = details.vehicles.get(i.reference_id);
-          return { item: i, details: d ? ({ type: "transport_vehicle", ...d } as CartDetails) : null };
-        }
-        if (i.item_type === "transport_route") {
-          const d = details.routes.get(i.reference_id);
-          return { item: i, details: d ? ({ type: "transport_route", ...d } as CartDetails) : null };
-        }
-        const s = details.services.get(i.reference_id);
-        return {
-          item: i,
-          details: s ? ({ type: "transport_service", title: s.title, price: 0, currency: "RWF", meta: s.meta } as CartDetails) : null,
-        };
-      });
-
-      const totals = detailed.reduce(
-        (acc, row) => {
-          if (!row.details) return acc;
-          const unit = Number(row.details.price ?? 0);
-          acc.amount += unit * Number(row.item.quantity ?? 1);
-          acc.currency = row.details.currency || acc.currency;
+      // Totals in preferred currency (convert if possible; fallback to item currency)
+      const totals = rows.reduce(
+        (acc: { amount: number; currency: string }, row: any) => {
+          const unit = Number(row.details?.price ?? 0);
+          const from = String(row.details?.currency ?? "RWF");
+          const qty = Number(row.item?.quantity ?? 1);
+          const converted = convertAmount(unit * qty, from, preferredCurrency, usdRates);
+          if (converted == null) {
+            acc.amount += unit * qty;
+            acc.currency = from || acc.currency;
+          } else {
+            acc.amount += converted;
+            acc.currency = preferredCurrency;
+          }
           return acc;
         },
-        { amount: 0, currency: "RWF" }
+        { amount: 0, currency: preferredCurrency || "RWF" }
       );
 
-      return { rows: detailed, totals };
+      return { rows, totals };
     },
+    staleTime: 15_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   // Query for guest cart details
@@ -232,15 +233,26 @@ export default function TripCart() {
         (acc, row) => {
           if (!row.details) return acc;
           const unit = Number(row.details.price ?? 0);
-          acc.amount += unit * Number(row.item.quantity ?? 1);
-          acc.currency = row.details.currency || acc.currency;
+          const qty = Number((row.item as any).quantity ?? 1);
+          const from = String(row.details.currency || "RWF");
+          const converted = convertAmount(unit * qty, from, preferredCurrency, usdRates);
+          if (converted == null) {
+            acc.amount += unit * qty;
+            acc.currency = from || acc.currency;
+          } else {
+            acc.amount += converted;
+            acc.currency = preferredCurrency;
+          }
           return acc;
         },
-        { amount: 0, currency: "RWF" }
+        { amount: 0, currency: preferredCurrency || "RWF" }
       );
 
       return { rows: detailed, totals };
     },
+    staleTime: 15_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   // Use appropriate data based on auth state
