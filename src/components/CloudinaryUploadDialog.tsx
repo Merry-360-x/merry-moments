@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { uploadFile } from "@/lib/uploads";
 import { Plus, Trash2, UploadCloud, X } from "lucide-react";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
 type UploadItem = {
   id: string;
@@ -182,7 +183,10 @@ export function CloudinaryUploadDialog(props: {
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="p-0 max-w-3xl overflow-hidden">
+      <DialogContent className="p-0 max-w-3xl overflow-hidden" aria-describedby={undefined}>
+        <VisuallyHidden>
+          <DialogTitle>{props.title}</DialogTitle>
+        </VisuallyHidden>
         {/* Top bar */}
         <div className="px-4 py-3 border-b border-border flex items-center justify-between">
           <button type="button" onClick={closeDialog} className="h-10 w-10 rounded-full hover:bg-muted flex items-center justify-center">

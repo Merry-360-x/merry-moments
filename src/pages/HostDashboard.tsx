@@ -376,18 +376,13 @@ export default function HostDashboard() {
       images: propertyForm.images,
       host_id: user!.id,
       is_published: true,
-      // Discounts
-      weekly_discount: propertyForm.weekly_discount || null,
-      monthly_discount: propertyForm.monthly_discount || null,
-      // Rules
-      check_in_time: propertyForm.check_in_time || null,
-      check_out_time: propertyForm.check_out_time || null,
-      smoking_allowed: propertyForm.smoking_allowed,
-      events_allowed: propertyForm.events_allowed,
-      pets_allowed: propertyForm.pets_allowed,
     };
 
-    const { error, data: newProp } = await supabase.from("properties").insert(payload).select().single();
+    const { error, data: newProp } = await supabase
+      .from("properties")
+      .insert(payload)
+      .select("id, title, description, location, property_type, price_per_night, currency, max_guests, bedrooms, bathrooms, beds, amenities, cancellation_policy, images, is_published, host_id, created_at")
+      .single();
 
     setCreatingProperty(false);
 
@@ -406,7 +401,7 @@ export default function HostDashboard() {
     }
 
     setProperties((prev) => [newProp as Property, ...prev]);
-    toast({ title: "Property Created!", description: "Your property is now in draft. Publish it when ready." });
+    toast({ title: "Property Created!", description: "Your property is now live on the homepage!" });
     resetPropertyForm();
     setShowPropertyWizard(false);
     setWizardStep(1);
@@ -1213,7 +1208,7 @@ export default function HostDashboard() {
                 <div className="text-center mb-8">
                   <CheckCircle className="w-12 h-12 mx-auto text-primary mb-4" />
                   <h2 className="text-2xl font-bold text-foreground">Review your listing</h2>
-                  <p className="text-muted-foreground mt-2">Make sure everything looks good</p>
+                  <p className="text-muted-foreground mt-2">Make sure everything looks good before publishing</p>
                 </div>
 
                 <div className="bg-muted/50 rounded-2xl overflow-hidden">
@@ -1232,31 +1227,53 @@ export default function HostDashboard() {
                   </div>
 
                   {/* Details */}
-                  <div className="p-6 space-y-4">
+                  <div className="p-6 space-y-5">
                     <div className="flex items-start justify-between">
                       <div>
                         <h3 className="text-xl font-bold text-foreground">{propertyForm.title || "Untitled"}</h3>
-                        <p className="text-muted-foreground">{propertyForm.location || "No location"}</p>
+                        <div className="flex items-center gap-1 text-muted-foreground mt-1">
+                          <MapPin className="w-4 h-4" />
+                          <span>{propertyForm.location || "No location set"}</span>
+                        </div>
                       </div>
                       <div className="text-right">
                         <div className="text-2xl font-bold text-primary">
                           {formatMoney(propertyForm.price_per_night, propertyForm.currency)}
                         </div>
                         <div className="text-sm text-muted-foreground">per night</div>
+                        {propertyForm.weekly_discount > 0 && (
+                          <div className="text-xs text-green-600">{propertyForm.weekly_discount}% weekly discount</div>
+                        )}
+                        {propertyForm.monthly_discount > 0 && (
+                          <div className="text-xs text-green-600">{propertyForm.monthly_discount}% monthly discount</div>
+                        )}
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-4 text-sm">
+                    <div className="flex items-center gap-4 text-sm flex-wrap">
                       <span className="flex items-center gap-1"><Users className="w-4 h-4" /> {propertyForm.max_guests} guests</span>
                       <span className="flex items-center gap-1"><Bed className="w-4 h-4" /> {propertyForm.bedrooms} bedrooms</span>
+                      <span className="flex items-center gap-1"><Bed className="w-4 h-4" /> {propertyForm.beds} beds</span>
                       <span className="flex items-center gap-1"><Bath className="w-4 h-4" /> {propertyForm.bathrooms} bathrooms</span>
+                    </div>
+
+                    {/* House Rules */}
+                    <div className="pt-3 border-t border-border">
+                      <div className="text-sm font-medium mb-2">House Rules</div>
+                      <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+                        <span>Check-in: {propertyForm.check_in_time || "14:00"}</span>
+                        <span>Check-out: {propertyForm.check_out_time || "11:00"}</span>
+                        <span>Smoking: {propertyForm.smoking_allowed ? "Yes" : "No"}</span>
+                        <span>Events: {propertyForm.events_allowed ? "Yes" : "No"}</span>
+                        <span>Pets: {propertyForm.pets_allowed ? "Yes" : "No"}</span>
+                      </div>
                     </div>
 
                     <div className="flex flex-wrap gap-2">
                       <Badge variant="outline">{propertyForm.property_type}</Badge>
                       <Badge variant="outline" className="capitalize">{propertyForm.cancellation_policy} cancellation</Badge>
                       {propertyForm.amenities.slice(0, 5).map((a) => (
-                        <Badge key={a} variant="secondary" className="capitalize">{a}</Badge>
+                        <Badge key={a} variant="secondary" className="capitalize">{a.replace(/_/g, " ")}</Badge>
                       ))}
                       {propertyForm.amenities.length > 5 && (
                         <Badge variant="secondary">+{propertyForm.amenities.length - 5} more</Badge>
@@ -1264,14 +1281,17 @@ export default function HostDashboard() {
                     </div>
 
                     {propertyForm.description && (
-                      <p className="text-muted-foreground text-sm line-clamp-3">{propertyForm.description}</p>
+                      <div className="pt-3 border-t border-border">
+                        <div className="text-sm font-medium mb-1">Description</div>
+                        <p className="text-muted-foreground text-sm">{propertyForm.description}</p>
+                      </div>
                     )}
                   </div>
                 </div>
 
-                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4">
-                  <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                    <strong>Note:</strong> Your property will be saved as a draft. You can publish it after reviewing.
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
+                  <p className="text-sm text-green-800 dark:text-green-200">
+                    <strong>Ready to publish!</strong> Your property will be visible on the homepage immediately after creation.
                   </p>
                 </div>
               </div>
