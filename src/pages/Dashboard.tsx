@@ -520,9 +520,9 @@ export default function Dashboard() {
                                   <div className="font-semibold text-foreground line-clamp-1">{p.title}</div>
                                   <div className="text-sm text-muted-foreground line-clamp-1">{extractNeighborhood(p.location)}</div>
                                   <div className="mt-2 text-sm font-semibold text-foreground">
-                                    {p.currency ?? "RWF"} {Number(p.price_per_night ?? 0).toLocaleString()}
+                                    {formatMoney(Number(p.price_per_night ?? 0), String(p.currency ?? "RWF"))}
                                     <span className="text-muted-foreground font-normal"> / night</span>
-          </div>
+                                  </div>
         </div>
                               </Card>
                             </Link>

@@ -252,8 +252,8 @@ export default function StaffDashboard() {
   const revenueLabel = useMemo(() => {
     const list = metrics?.revenue_by_currency ?? [];
     if (!list.length) return "—";
-    if (list.length === 1) return `${list[0].currency} ${Number(list[0].amount).toLocaleString()}`;
-    return `${list[0].currency} ${Number(list[0].amount).toLocaleString()} (+${list.length - 1} more)`;
+    if (list.length === 1) return formatMoney(Number(list[0].amount), String(list[0].currency ?? "RWF"));
+    return `${formatMoney(Number(list[0].amount), String(list[0].currency ?? "RWF"))} (+${list.length - 1} more)`;
   }, [metrics?.revenue_by_currency]);
 
   const togglePublished = async (table: string, id: string, next: boolean) => {
@@ -563,7 +563,7 @@ export default function StaffDashboard() {
                     <div className="min-w-0">
                       <div className="font-medium text-foreground">{p.title}</div>
                       <div className="text-sm text-muted-foreground">
-                        {p.location ?? "(no location)"} · {(p.price_per_night ?? 0).toLocaleString()} {p.currency ?? "RWF"}
+                        {p.location ?? "(no location)"} · {formatMoney(p.price_per_night ?? 0, p.currency ?? "RWF")}
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -598,7 +598,7 @@ export default function StaffDashboard() {
                     <div className="min-w-0">
                       <div className="font-medium text-foreground">{t.title}</div>
                       <div className="text-sm text-muted-foreground">
-                        {t.location ?? "(no location)"} · {(t.price_per_person ?? 0).toLocaleString()} {t.currency ?? "RWF"}
+                        {t.location ?? "(no location)"} · {formatMoney(t.price_per_person ?? 0, t.currency ?? "RWF")}
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -634,7 +634,7 @@ export default function StaffDashboard() {
                           {v.provider_name ?? "(no provider)"} · {v.vehicle_type ?? "Vehicle"} · {v.seats ?? 0} seats
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          {(v.price_per_day ?? 0).toLocaleString()} {v.currency ?? "RWF"} / day
+                          {formatMoney(v.price_per_day ?? 0, v.currency ?? "RWF")} / day
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
@@ -669,7 +669,7 @@ export default function StaffDashboard() {
                           {r.from_location ?? "From"} → {r.to_location ?? "To"}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          {(r.base_price ?? 0).toLocaleString()} {r.currency ?? "RWF"}
+                          {formatMoney(r.base_price ?? 0, r.currency ?? "RWF")}
                         </div>
                       </div>
                       <div className="flex items-center gap-3">

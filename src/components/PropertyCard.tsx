@@ -6,6 +6,7 @@ import ListingImageCarousel from "@/components/ListingImageCarousel";
 import { useFavorites } from "@/hooks/useFavorites";
 import { usePreferences } from "@/hooks/usePreferences";
 import { extractNeighborhood } from "@/lib/location";
+import { formatMoney } from "@/lib/money";
 
 export interface PropertyCardProps {
   id?: string;
@@ -199,9 +200,7 @@ const PropertyCard = ({
           </div>
         ) : null}
         <div className="flex items-baseline gap-1">
-          <span className="text-lg font-bold text-foreground">
-            {displayCurrency} {price.toLocaleString()}
-          </span>
+          <span className="text-lg font-bold text-foreground">{formatMoney(price, displayCurrency)}</span>
           <span className="text-sm text-muted-foreground">{t("common.perNight")}</span>
         </div>
       </div>
