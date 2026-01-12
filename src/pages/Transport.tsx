@@ -12,6 +12,7 @@ import type { Tables } from "@/integrations/supabase/types";
 import ListingImageCarousel from "@/components/ListingImageCarousel";
 import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
+import { useTripCart } from "@/hooks/useTripCart";
 
 type TransportServiceRow = Pick<Tables<"transport_services">, "id" | "title" | "description" | "slug">;
 type TransportVehicleRow = Pick<
@@ -36,6 +37,7 @@ const Transport = () => {
   const [searchParams] = useSearchParams();
   const [query, setQuery] = useState("");
   const [vehicle, setVehicle] = useState("All Vehicles");
+  const { addToCart: addCartItem } = useTripCart();
 
   useEffect(() => {
     setQuery(searchParams.get("q") ?? "");
@@ -103,41 +105,9 @@ const Transport = () => {
     },
   });
 
-  const requireSignIn = () => {
-    if (user) return true;
-    toast({
-      variant: "destructive",
-      title: "Sign in required",
-      description: "Please sign in to add items to your Trip Cart.",
-    });
-    const qs = searchParams.toString();
-    navigate(`/login?redirect=/transport${qs ? `?${qs}` : ""}`);
-    return false;
-  };
-
-  const addToCart = async (payload: {
-    item_type: Tables<"trip_cart_items">["item_type"];
-    reference_id: string;
-  }) => {
-    if (!requireSignIn()) return;
-
-    const { error } = await supabase.from("trip_cart_items").insert({
-      user_id: user!.id,
-      item_type: payload.item_type,
-      reference_id: payload.reference_id,
-      quantity: 1,
-    });
-
-    if (error) {
-      logError("tripCart.addTransport", error);
-      toast({
-        variant: "destructive",
-        title: "Could not add to Trip Cart",
-        description: uiErrorMessage(error, "Please try again."),
-      });
-      return;
-    }
-
+  const addToCart = async (payload: { item_type: string; reference_id: string }) => {
+    const ok = await addCartItem(payload.item_type as any, payload.reference_id, 1);
+    if (!ok) return;
     toast({ title: "Added to Trip Cart" });
   };
 

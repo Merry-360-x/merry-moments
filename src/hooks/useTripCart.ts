@@ -180,12 +180,39 @@ export function useTripCart() {
     [user, toast, qc]
   );
 
+  const clearCart = useCallback(async () => {
+    if (user) {
+      try {
+        const { error } = await supabase.from("trip_cart_items").delete().eq("user_id", user.id);
+        if (error) throw error;
+        qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
+        toast({ title: "Cart cleared" });
+        return true;
+      } catch (e) {
+        logError("tripCart.clear", e);
+        toast({ variant: "destructive", title: "Could not clear cart", description: uiErrorMessage(e) });
+        return false;
+      }
+    }
+    // Guest
+    try {
+      clearGuestCart();
+      setGuestCart([]);
+      toast({ title: "Cart cleared" });
+      return true;
+    } catch {
+      setGuestCart([]);
+      return true;
+    }
+  }, [user, qc, toast]);
+
   const cartItemCount = user ? 0 : guestCart.length; // For guests, show count; for users, query handles it
 
   return {
     guestCart,
     addToCart,
     removeFromCart,
+    clearCart,
     cartItemCount,
     isGuest: !user,
   };

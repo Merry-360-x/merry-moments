@@ -81,6 +81,42 @@ export type Database = {
           },
         ]
       }
+      checkout_requests: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          items: Json
+          message: string | null
+          name: string
+          phone: string | null
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          items?: Json
+          message?: string | null
+          name: string
+          phone?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          items?: Json
+          message?: string | null
+          name?: string
+          phone?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       favorites: {
         Row: {
           created_at: string

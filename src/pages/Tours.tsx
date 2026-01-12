@@ -13,6 +13,7 @@ import ListingImageCarousel from "@/components/ListingImageCarousel";
 import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { extractNeighborhood } from "@/lib/location";
+import { useTripCart } from "@/hooks/useTripCart";
 
 const categories = ["All", "Nature", "Adventure", "Cultural", "Wildlife", "Historical"];
 
@@ -78,6 +79,7 @@ const fetchTours = async ({
 const Tours = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { addToCart: addCartItem } = useTripCart();
   const [searchParams] = useSearchParams();
   const [activeCategory, setActiveCategory] = useState("All");
   const [query, setQuery] = useState("");
@@ -116,36 +118,9 @@ const Tours = () => {
   });
 
   const addToCart = async (tour: TourRow) => {
-    if (!user) {
-      toast({
-        variant: "destructive",
-        title: "Sign in required",
-        description: "Please sign in to book a tour.",
-      });
-      const qs = searchParams.toString();
-      navigate(`/login?redirect=/tours${qs ? `?${qs}` : ""}`);
-      return;
-    }
-
-    const { error } = await supabase.from("trip_cart_items").insert({
-      user_id: user.id,
-      item_type: "tour",
-      reference_id: tour.id,
-      quantity: 1,
-    });
-
-    if (error) {
-      logError("tripCart.addTour", error);
-      toast({
-        variant: "destructive",
-        title: "Could not add to Trip Cart",
-        description: uiErrorMessage(error, "Please try again."),
-      });
-      return;
-    }
-
+    const ok = await addCartItem("tour", tour.id, 1);
+    if (!ok) return;
     toast({ title: "Added to Trip Cart", description: "Tour added to your cart." });
-    navigate("/trip-cart");
   };
 
   return (

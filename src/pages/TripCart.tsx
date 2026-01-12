@@ -325,6 +325,9 @@ export default function TripCart() {
                 </span>
               </div>
               <div className="flex items-center gap-3">
+                <Link to="/checkout?mode=cart">
+                  <Button>Checkout</Button>
+                </Link>
                 <Button variant="outline" onClick={clearCart}>Clear cart</Button>
               </div>
             </div>
