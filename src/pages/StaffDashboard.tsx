@@ -460,7 +460,7 @@ export default function StaffDashboard() {
           </Table>
         </Card>
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
+        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
           <TabsList className="flex flex-wrap h-auto">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="applications">Host applications</TabsTrigger>

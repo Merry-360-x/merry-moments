@@ -38,7 +38,20 @@ export default function HostAbout() {
         .eq("is_published", true)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as Array<any>;
+      return (data ?? []) as Array<{
+        id: string;
+        title: string;
+        location: string;
+        price_per_night: number;
+        currency: string | null;
+        property_type: string | null;
+        rating: number | null;
+        review_count: number | null;
+        images: string[] | null;
+        bedrooms: number | null;
+        bathrooms: number | null;
+        beds: number | null;
+      }>;
     },
   });
 
@@ -50,7 +63,7 @@ export default function HostAbout() {
       if (ids.length === 0) return { reviewCount: 0, rating: null as number | null };
       const { data, error } = await supabase.from("property_reviews").select("rating, property_id").in("property_id", ids);
       if (error) throw error;
-      const ratings = (data ?? []).map((r) => Number((r as any).rating)).filter((n) => Number.isFinite(n) && n > 0);
+      const ratings = (data ?? []).map((r) => Number((r as { rating: number }).rating)).filter((n) => Number.isFinite(n) && n > 0);
       const reviewCount = ratings.length;
       const avg = reviewCount ? ratings.reduce((a, b) => a + b, 0) / reviewCount : null;
       return { reviewCount, rating: avg ? Math.round(avg * 100) / 100 : null };

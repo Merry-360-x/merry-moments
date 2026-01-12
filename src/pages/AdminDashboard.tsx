@@ -644,7 +644,7 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
+        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
           <TabsList className="flex flex-wrap h-auto">
             <TabsTrigger value="applications">Host applications</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>

@@ -663,6 +663,39 @@ export type Database = {
         }
         Relationships: []
       }
+      support_tickets: {
+        Row: {
+          id: string
+          created_at: string
+          user_id: string | null
+          category: string
+          subject: string
+          message: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          user_id?: string | null
+          category?: string
+          subject: string
+          message: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          user_id?: string | null
+          category?: string
+          subject?: string
+          message?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

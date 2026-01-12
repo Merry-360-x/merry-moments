@@ -307,7 +307,7 @@ const HostDashboard = () => {
       location: property.location,
       property_type: property.property_type,
       price_per_night: property.price_per_night,
-      currency: (property as any).currency ?? "RWF",
+      currency: (property as Property & { currency?: string }).currency ?? "RWF",
       max_guests: property.max_guests,
       bedrooms: property.bedrooms || 1,
       bathrooms: property.bathrooms || 1,
@@ -1299,7 +1299,7 @@ const HostDashboard = () => {
                         {booking.guests_count}
                       </td>
                       <td className="px-6 py-4 text-foreground">
-                        {formatMoney(Number(booking.total_price), String((booking as any).currency ?? "RWF"))}
+                        {formatMoney(Number(booking.total_price), String((booking as Booking & { currency?: string }).currency ?? "RWF"))}
                       </td>
                       <td className="px-6 py-4">
                         <span
