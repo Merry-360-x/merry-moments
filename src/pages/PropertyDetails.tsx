@@ -610,17 +610,6 @@ export default function PropertyDetails() {
                     {formatMoney(Number(data.price_per_night), String(data.currency ?? "RWF"))}
                     <span className="text-sm text-muted-foreground"> {t("common.perNight")}</span>
                   </div>
-                  {/* Weekly/Monthly discounts */}
-                  {(data.weekly_discount && data.weekly_discount > 0) || (data.monthly_discount && data.monthly_discount > 0) ? (
-                    <div className="text-xs text-green-600 mt-1 space-y-0.5">
-                      {data.weekly_discount && data.weekly_discount > 0 ? (
-                        <div>{data.weekly_discount}% off weekly ({formatMoney(Number(data.price_per_night) * 7 * (1 - data.weekly_discount / 100), String(data.currency ?? "RWF"))}/week)</div>
-                      ) : null}
-                      {data.monthly_discount && data.monthly_discount > 0 ? (
-                        <div>{data.monthly_discount}% off monthly ({formatMoney(Number(data.price_per_night) * 28 * (1 - data.monthly_discount / 100), String(data.currency ?? "RWF"))}/month)</div>
-                      ) : null}
-                    </div>
-                  ) : null}
                 </div>
               </div>
 
