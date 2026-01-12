@@ -412,6 +412,7 @@ export default function HostDashboard() {
       bedrooms: propertyForm.bedrooms || 1,
       bathrooms: propertyForm.bathrooms || 1,
       images: propertyForm.images.length > 0 ? propertyForm.images : null,
+      main_image: propertyForm.images.length > 0 ? propertyForm.images[0] : null,
       host_id: user!.id,
       is_published: true,
     };
@@ -420,6 +421,14 @@ export default function HostDashboard() {
     if (propertyForm.beds) payload.beds = propertyForm.beds;
     if (propertyForm.amenities?.length > 0) payload.amenities = propertyForm.amenities;
     if (propertyForm.cancellation_policy) payload.cancellation_policy = propertyForm.cancellation_policy;
+    // Discounts / rules (these columns exist in prod; save them so details page reflects host choices)
+    payload.weekly_discount = Number(propertyForm.weekly_discount || 0);
+    payload.monthly_discount = Number(propertyForm.monthly_discount || 0);
+    payload.check_in_time = propertyForm.check_in_time || "14:00";
+    payload.check_out_time = propertyForm.check_out_time || "11:00";
+    payload.smoking_allowed = Boolean(propertyForm.smoking_allowed);
+    payload.events_allowed = Boolean(propertyForm.events_allowed);
+    payload.pets_allowed = Boolean(propertyForm.pets_allowed);
 
     console.log("[createProperty] Attempting insert with payload:", payload);
 
