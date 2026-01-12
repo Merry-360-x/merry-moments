@@ -19,6 +19,7 @@ import { formatMoney } from "@/lib/money";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Home,
   Calendar,
@@ -81,6 +82,7 @@ import {
   Cigarette,
   CircleOff,
   Percent,
+  Info,
 } from "lucide-react";
 
 // Types
@@ -167,6 +169,39 @@ const cancellationPolicies = [
   { value: "fair", label: "Fair - Moderate refunds" },
   { value: "lenient", label: "Lenient - More refunds" },
 ];
+
+const cancellationPolicyDetails: Record<string, { title: string; lines: string[] }> = {
+  strict: {
+    title: "Strict",
+    lines: [
+      "15–30 days before check-in: Full refund (minus fees)",
+      "7–15 days: 75% refund (minus fees)",
+      "3–7 days: 50% refund (minus fees)",
+      "1–3 days: 25% refund (minus fees)",
+      "0–1 day: No refund",
+      "No-shows: Non-refundable",
+    ],
+  },
+  fair: {
+    title: "Fair",
+    lines: [
+      "7–15 days before check-in: Full refund (minus fees)",
+      "3–7 days: 75% refund (minus fees)",
+      "1–3 days: 50% refund (minus fees)",
+      "0–1 day: 25% refund",
+      "No-shows: Non-refundable",
+    ],
+  },
+  lenient: {
+    title: "Lenient",
+    lines: [
+      "3–7 days before check-in: Full refund (minus fees)",
+      "1–3 days: 75% refund (minus fees)",
+      "0–1 day: 50% refund",
+      "No-shows: Non-refundable",
+    ],
+  },
+};
 const vehicleTypes = ["Sedan", "SUV", "Van", "Bus", "Minibus", "Motorcycle"];
 const tourCategories = ["Nature", "Adventure", "Cultural", "Wildlife", "Historical"];
 const tourDifficulties = ["Easy", "Moderate", "Hard"];
@@ -1049,19 +1084,38 @@ export default function HostDashboard() {
                     <Label className="text-base font-medium">Cancellation Policy</Label>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
                       {cancellationPolicies.map((policy) => (
-                        <button
-                          key={policy.value}
-                          type="button"
-                          onClick={() => setPropertyForm((f) => ({ ...f, cancellation_policy: policy.value }))}
-                          className={`p-4 rounded-xl border-2 text-left transition-all ${
-                            propertyForm.cancellation_policy === policy.value
-                              ? "border-primary bg-primary/10"
-                              : "border-border hover:border-primary/50"
-                          }`}
-                        >
-                          <div className="font-medium">{policy.label.split(" - ")[0]}</div>
-                          <div className="text-sm text-muted-foreground">{policy.label.split(" - ")[1]}</div>
-                        </button>
+                        <Tooltip key={policy.value}>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={() => setPropertyForm((f) => ({ ...f, cancellation_policy: policy.value }))}
+                              className={`p-4 rounded-xl border-2 text-left transition-all ${
+                                propertyForm.cancellation_policy === policy.value
+                                  ? "border-primary bg-primary/10"
+                                  : "border-border hover:border-primary/50"
+                              }`}
+                              aria-label={`Select ${policy.label.split(" - ")[0]} cancellation policy`}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <div className="font-medium">{policy.label.split(" - ")[0]}</div>
+                                  <div className="text-sm text-muted-foreground">{policy.label.split(" - ")[1]}</div>
+                                </div>
+                                <Info className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+                              </div>
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-sm p-3">
+                            <div className="font-semibold mb-2">
+                              {cancellationPolicyDetails[policy.value]?.title ?? policy.label.split(" - ")[0]}
+                            </div>
+                            <ul className="text-xs leading-relaxed space-y-1 text-muted-foreground">
+                              {(cancellationPolicyDetails[policy.value]?.lines ?? []).map((line) => (
+                                <li key={line}>• {line}</li>
+                              ))}
+                            </ul>
+                          </TooltipContent>
+                        </Tooltip>
                       ))}
                     </div>
                   </div>
