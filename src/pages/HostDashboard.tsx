@@ -95,13 +95,17 @@ interface Booking {
   id: string;
   check_in: string;
   check_out: string;
-  guests: number;
+  guests_count: number;
   total_price: number;
   currency: string;
   status: string;
   created_at: string;
   property_id: string;
-  guest_id: string;
+  guest_id: string | null;
+  guest_name: string | null;
+  guest_email: string | null;
+  guest_phone: string | null;
+  is_guest_booking: boolean;
 }
 
 const propertyTypes = ["Hotel", "Apartment", "Villa", "Guesthouse", "Resort", "Lodge", "Motel"];
@@ -880,7 +884,12 @@ export default function HostDashboard() {
                     <div key={b.id} className="flex items-center justify-between p-3 border rounded-lg">
                       <div>
                         <p className="font-medium">{b.check_in} → {b.check_out}</p>
-                        <p className="text-sm text-muted-foreground">{b.guests} guests · {formatMoney(b.total_price, b.currency)}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {b.guests_count} guests · {formatMoney(b.total_price, b.currency)}
+                          {b.is_guest_booking && b.guest_name && (
+                            <span className="ml-2 text-xs">• Guest: {b.guest_name}</span>
+                          )}
+                        </p>
                       </div>
                       <Badge className={b.status === "confirmed" ? "bg-green-500" : b.status === "pending" ? "bg-yellow-500" : "bg-gray-500"}>
                         {b.status}
@@ -953,15 +962,24 @@ export default function HostDashboard() {
                 bookings.map((b) => (
                   <Card key={b.id} className="p-4">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                      <div>
+                      <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <Calendar className="w-4 h-4 text-muted-foreground" />
                           <span className="font-medium">{b.check_in} → {b.check_out}</span>
                         </div>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span>{b.guests} guests</span>
+                          <span>{b.guests_count} guests</span>
                           <span className="font-medium text-foreground">{formatMoney(b.total_price, b.currency)}</span>
                         </div>
+                        {/* Guest info for guest bookings */}
+                        {b.is_guest_booking && (
+                          <div className="mt-2 p-2 bg-muted/50 rounded-lg text-sm">
+                            <p className="font-medium text-foreground">{b.guest_name}</p>
+                            <p className="text-muted-foreground">{b.guest_email}</p>
+                            {b.guest_phone && <p className="text-muted-foreground">{b.guest_phone}</p>}
+                            <Badge variant="outline" className="mt-1 text-xs">Guest booking (no account)</Badge>
+                          </div>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge className={

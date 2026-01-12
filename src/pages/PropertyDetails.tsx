@@ -80,6 +80,12 @@ export default function PropertyDetails() {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIdx, setViewerIdx] = useState(0);
 
+  // Guest checkout fields
+  const [guestName, setGuestName] = useState("");
+  const [guestEmail, setGuestEmail] = useState("");
+  const [guestPhone, setGuestPhone] = useState("");
+  const [showGuestForm, setShowGuestForm] = useState(false);
+
   const { data: myPoints = 0 } = useQuery({
     queryKey: ["loyalty_points", user?.id],
     enabled: Boolean(user?.id),
@@ -220,11 +226,8 @@ export default function PropertyDetails() {
 
   const submitBooking = async () => {
     if (!data || !propertyId) return;
-    if (!user) {
-      navigate(`/login?redirect=/properties/${encodeURIComponent(String(propertyId))}`);
-      return;
-    }
 
+    // Validation
     if (nights <= 0) {
       toast({ variant: "destructive", title: "Invalid dates", description: "Check-out must be after check-in." });
       return;
@@ -242,10 +245,30 @@ export default function PropertyDetails() {
       return;
     }
 
+    // Guest checkout validation
+    if (!user) {
+      if (!showGuestForm) {
+        setShowGuestForm(true);
+        return;
+      }
+      if (!guestName.trim()) {
+        toast({ variant: "destructive", title: "Name required", description: "Please enter your full name." });
+        return;
+      }
+      if (!guestEmail.trim() || !guestEmail.includes("@")) {
+        toast({ variant: "destructive", title: "Email required", description: "Please enter a valid email address." });
+        return;
+      }
+      if (!guestPhone.trim()) {
+        toast({ variant: "destructive", title: "Phone required", description: "Please enter your phone number." });
+        return;
+      }
+    }
+
     setBooking(true);
     try {
       let redeemed = 0;
-      if (pointsToUse > 0) {
+      if (user && pointsToUse > 0) {
         const { data: redeemedPoints, error: redeemErr } = await supabase.rpc("redeem_loyalty_points", {
           p_points: pointsToUse,
         });
@@ -253,31 +276,64 @@ export default function PropertyDetails() {
         redeemed = Number(redeemedPoints ?? 0);
       }
 
-      const payload = {
-        guest_id: user.id,
-        property_id: data.id,
-        host_id: data.host_id,
-        check_in: checkIn,
-        check_out: checkOut,
-        guests_count: guests,
-        total_price: finalTotal,
-        currency: data.currency ?? "RWF",
-        status: "pending",
-        loyalty_points_used: redeemed,
-        discount_amount: redeemed > 0 ? discountAmount : 0,
-      } as const;
+      const payload = user
+        ? {
+            guest_id: user.id,
+            property_id: data.id,
+            host_id: data.host_id,
+            check_in: checkIn,
+            check_out: checkOut,
+            guests_count: guests,
+            total_price: finalTotal,
+            currency: data.currency ?? "RWF",
+            status: "pending",
+            loyalty_points_used: redeemed,
+            discount_amount: redeemed > 0 ? discountAmount : 0,
+            is_guest_booking: false,
+          }
+        : {
+            property_id: data.id,
+            host_id: data.host_id,
+            check_in: checkIn,
+            check_out: checkOut,
+            guests_count: guests,
+            total_price: finalTotal,
+            currency: data.currency ?? "RWF",
+            status: "pending",
+            loyalty_points_used: 0,
+            discount_amount: 0,
+            is_guest_booking: true,
+            guest_name: guestName.trim(),
+            guest_email: guestEmail.trim().toLowerCase(),
+            guest_phone: guestPhone.trim(),
+          };
 
       const { error } = await supabase.from("bookings").insert(payload);
       if (error) throw error;
 
-      toast({ title: "Booking requested", description: "Your booking is pending confirmation." });
-      navigate("/my-bookings");
+      if (user) {
+        toast({ title: "Booking requested", description: "Your booking is pending confirmation." });
+        navigate("/my-bookings");
+      } else {
+        toast({
+          title: "Booking confirmed!",
+          description: `A confirmation email will be sent to ${guestEmail}.`,
+        });
+        // Reset guest form
+        setGuestName("");
+        setGuestEmail("");
+        setGuestPhone("");
+        setShowGuestForm(false);
+        setCheckIn(isoToday());
+        setCheckOut(isoTomorrow());
+        setGuests(1);
+      }
     } catch (e) {
-        logError("bookings.insert", e);
+      logError("bookings.insert", e);
       toast({
         variant: "destructive",
         title: "Could not book",
-          description: uiErrorMessage(e, "Please try again."),
+        description: uiErrorMessage(e, "Please try again."),
       });
     } finally {
       setBooking(false);
@@ -827,6 +883,55 @@ export default function PropertyDetails() {
                   </div>
                 </div>
 
+                {/* Guest checkout form - shown when not logged in */}
+                {!user && showGuestForm && (
+                  <div className="mt-4 border-t border-border pt-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-medium text-foreground">Your Information</h3>
+                      <button
+                        type="button"
+                        onClick={() => navigate("/auth?redirect=/properties/" + propertyId)}
+                        className="text-xs text-primary hover:underline"
+                      >
+                        Have an account? Sign in
+                      </button>
+                    </div>
+                    <div>
+                      <Label htmlFor="guestName">Full Name *</Label>
+                      <Input
+                        id="guestName"
+                        type="text"
+                        placeholder="John Doe"
+                        value={guestName}
+                        onChange={(e) => setGuestName(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="guestEmail">Email Address *</Label>
+                      <Input
+                        id="guestEmail"
+                        type="email"
+                        placeholder="john@example.com"
+                        value={guestEmail}
+                        onChange={(e) => setGuestEmail(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="guestPhone">Phone Number *</Label>
+                      <Input
+                        id="guestPhone"
+                        type="tel"
+                        placeholder="+250 788 123 456"
+                        value={guestPhone}
+                        onChange={(e) => setGuestPhone(e.target.value)}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Booking confirmation will be sent to your email. No account required.
+                    </p>
+                  </div>
+                )}
+
                 <div className="mt-4 flex items-center justify-between gap-4">
                   <div className="text-sm text-muted-foreground">
                     {nights > 0 ? (
@@ -841,9 +946,30 @@ export default function PropertyDetails() {
                     )}
                   </div>
                   <Button onClick={submitBooking} disabled={booking || nights <= 0}>
-                    {booking ? "Booking..." : "Request to book"}
+                    {booking
+                      ? "Booking..."
+                      : !user && !showGuestForm
+                      ? "Continue"
+                      : "Request to book"}
                   </Button>
                 </div>
+
+                {/* Sign in prompt for guests who haven't started checkout */}
+                {!user && !showGuestForm && (
+                  <div className="mt-3 text-center">
+                    <p className="text-xs text-muted-foreground">
+                      No account needed to book.{" "}
+                      <button
+                        type="button"
+                        onClick={() => navigate("/auth?redirect=/properties/" + propertyId)}
+                        className="text-primary hover:underline"
+                      >
+                        Sign in
+                      </button>{" "}
+                      for loyalty points.
+                    </p>
+                  </div>
+                )}
 
                 {user ? (
                   <div className="mt-4 border-t border-border pt-4">

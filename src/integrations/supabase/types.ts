@@ -21,7 +21,7 @@ export type Database = {
           created_at: string
           currency: string
           discount_amount: number
-          guest_id: string
+          guest_id: string | null
           guests_count: number
           host_id: string | null
           id: string
@@ -30,6 +30,10 @@ export type Database = {
           status: string
           total_price: number
           updated_at: string
+          guest_name: string | null
+          guest_email: string | null
+          guest_phone: string | null
+          is_guest_booking: boolean
         }
         Insert: {
           check_in: string
@@ -37,7 +41,7 @@ export type Database = {
           created_at?: string
           currency?: string
           discount_amount?: number
-          guest_id: string
+          guest_id?: string | null
           guests_count?: number
           host_id?: string | null
           id?: string
@@ -45,6 +49,10 @@ export type Database = {
           property_id: string
           status?: string
           total_price: number
+          guest_name?: string | null
+          guest_email?: string | null
+          guest_phone?: string | null
+          is_guest_booking?: boolean
           updated_at?: string
         }
         Update: {
