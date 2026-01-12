@@ -579,6 +579,7 @@ export default function HostDashboard() {
     );
   };
 
+  // Show loading while auth is loading
   if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -587,7 +588,17 @@ export default function HostDashboard() {
     );
   }
 
-  if (!isHost && user) {
+  // If user is not logged in, they'll be redirected by useEffect
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Show "become a host" if user is not a host
+  if (!isHost) {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
@@ -596,6 +607,20 @@ export default function HostDashboard() {
           <h1 className="text-2xl font-bold text-foreground mb-4">Become a Host</h1>
           <p className="text-muted-foreground mb-6">Start earning by listing your property.</p>
           <Button onClick={() => navigate("/become-host")} size="lg">Apply to become a host</Button>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Show loading while fetching data
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-20 flex flex-col items-center justify-center">
+          <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
+          <p className="text-muted-foreground">Loading your dashboard...</p>
         </div>
         <Footer />
       </div>
