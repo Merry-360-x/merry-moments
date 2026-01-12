@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Star, Heart } from "lucide-react";
+import { Star, Heart, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 import ListingImageCarousel from "@/components/ListingImageCarousel";
@@ -21,6 +21,12 @@ export interface PropertyCardProps {
   bedrooms?: number | null;
   beds?: number | null;
   bathrooms?: number | null;
+  maxGuests?: number | null;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
+  smokingAllowed?: boolean | null;
+  eventsAllowed?: boolean | null;
+  petsAllowed?: boolean | null;
   isFavorited?: boolean;
   onToggleFavorite?: () => void;
 }
@@ -39,6 +45,12 @@ const PropertyCard = ({
   bedrooms,
   beds,
   bathrooms,
+  maxGuests,
+  checkInTime,
+  checkOutTime,
+  smokingAllowed,
+  eventsAllowed,
+  petsAllowed,
   isFavorited,
   onToggleFavorite,
 }: PropertyCardProps) => {
@@ -50,6 +62,13 @@ const PropertyCard = ({
 
   const gallery = images?.length ? images : image ? [image] : [];
   const displayCurrency = currency ?? preferredCurrency;
+  const hasRules =
+    typeof smokingAllowed === "boolean" ||
+    typeof eventsAllowed === "boolean" ||
+    typeof petsAllowed === "boolean" ||
+    Boolean(checkInTime) ||
+    Boolean(checkOutTime) ||
+    typeof maxGuests === "number";
 
   useEffect(() => {
     setFav(Boolean(isFavorited));
@@ -125,6 +144,59 @@ const PropertyCard = ({
               .filter(Boolean)
               .join(" · ")}
           </p>
+        ) : null}
+        {hasRules ? (
+          <div className="mb-3 rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs">
+            <div className="grid grid-cols-3 gap-x-3 gap-y-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-muted-foreground">Check-in</span>
+                <span className="font-semibold text-foreground">
+                  {checkInTime ? String(checkInTime).slice(0, 5) : "—"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-muted-foreground">Check-out</span>
+                <span className="font-semibold text-foreground">
+                  {checkOutTime ? String(checkOutTime).slice(0, 5) : "—"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 min-w-0 justify-end">
+                <Users className="w-3 h-3 text-muted-foreground" />
+                <span className="text-muted-foreground">Max</span>
+                <span className="font-semibold text-foreground">{typeof maxGuests === "number" ? maxGuests : "—"}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Smoking</span>
+                {typeof smokingAllowed === "boolean" ? (
+                  <span className={`font-semibold ${smokingAllowed ? "text-green-600" : "text-red-600"}`}>
+                    {smokingAllowed ? "Yes" : "No"}
+                  </span>
+                ) : (
+                  <span className="font-semibold text-foreground">—</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Events</span>
+                {typeof eventsAllowed === "boolean" ? (
+                  <span className={`font-semibold ${eventsAllowed ? "text-green-600" : "text-red-600"}`}>
+                    {eventsAllowed ? "Yes" : "No"}
+                  </span>
+                ) : (
+                  <span className="font-semibold text-foreground">—</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 justify-end">
+                <span className="text-muted-foreground">Pets</span>
+                {typeof petsAllowed === "boolean" ? (
+                  <span className={`font-semibold ${petsAllowed ? "text-green-600" : "text-red-600"}`}>
+                    {petsAllowed ? "Yes" : "No"}
+                  </span>
+                ) : (
+                  <span className="font-semibold text-foreground">—</span>
+                )}
+              </div>
+            </div>
+          </div>
         ) : null}
         <div className="flex items-baseline gap-1">
           <span className="text-lg font-bold text-foreground">

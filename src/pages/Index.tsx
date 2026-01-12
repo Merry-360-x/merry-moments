@@ -17,7 +17,7 @@ const fetchLatestProperties = async () => {
   const { data, error } = await supabase
     .from("properties")
     .select(
-      "id, title, location, price_per_night, currency, property_type, rating, review_count, images, created_at, bedrooms, bathrooms, beds"
+      "id, title, location, price_per_night, currency, property_type, rating, review_count, images, created_at, bedrooms, bathrooms, beds, max_guests, check_in_time, check_out_time, smoking_allowed, events_allowed, pets_allowed"
     )
     .eq("is_published", true)
     .order("created_at", { ascending: false })
@@ -121,6 +121,12 @@ const Index = () => {
                     bedrooms={(property as { bedrooms?: number | null }).bedrooms ?? null}
                     bathrooms={(property as { bathrooms?: number | null }).bathrooms ?? null}
                     beds={(property as { beds?: number | null }).beds ?? null}
+                    maxGuests={(property as { max_guests?: number | null }).max_guests ?? null}
+                    checkInTime={(property as { check_in_time?: string | null }).check_in_time ?? null}
+                    checkOutTime={(property as { check_out_time?: string | null }).check_out_time ?? null}
+                    smokingAllowed={(property as { smoking_allowed?: boolean | null }).smoking_allowed ?? null}
+                    eventsAllowed={(property as { events_allowed?: boolean | null }).events_allowed ?? null}
+                    petsAllowed={(property as { pets_allowed?: boolean | null }).pets_allowed ?? null}
                   />
                 </div>
               ))}
@@ -187,6 +193,12 @@ const Index = () => {
                       bedrooms={(property as { bedrooms?: number | null }).bedrooms ?? null}
                       bathrooms={(property as { bathrooms?: number | null }).bathrooms ?? null}
                       beds={(property as { beds?: number | null }).beds ?? null}
+                      maxGuests={(property as { max_guests?: number | null }).max_guests ?? null}
+                      checkInTime={(property as { check_in_time?: string | null }).check_in_time ?? null}
+                      checkOutTime={(property as { check_out_time?: string | null }).check_out_time ?? null}
+                      smokingAllowed={(property as { smoking_allowed?: boolean | null }).smoking_allowed ?? null}
+                      eventsAllowed={(property as { events_allowed?: boolean | null }).events_allowed ?? null}
+                      petsAllowed={(property as { pets_allowed?: boolean | null }).pets_allowed ?? null}
                     />
                   </div>
                 ))}
