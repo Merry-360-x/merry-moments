@@ -17,6 +17,7 @@ import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
 import { CalendarDays, Camera, Heart, LogOut, Mail, Shield, Star } from "lucide-react";
 import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
+import { extractNeighborhood } from "@/lib/location";
 
 type ProfileRow = {
   user_id: string;
@@ -431,7 +432,7 @@ export default function Dashboard() {
                             <div className="min-w-0">
                               <div className="font-semibold text-foreground truncate">{b.properties?.title ?? "Booking"}</div>
                               <div className="text-sm text-muted-foreground">
-                                {(b.properties?.location ?? "").trim()} • {new Date(b.check_in).toLocaleDateString()} →{" "}
+                                {extractNeighborhood(b.properties?.location)} • {new Date(b.check_in).toLocaleDateString()} →{" "}
                                 {new Date(b.check_out).toLocaleDateString()}
                               </div>
                             </div>
@@ -466,7 +467,7 @@ export default function Dashboard() {
                             <div className="min-w-0">
                               <div className="font-semibold text-foreground truncate">{b.properties?.title ?? "Booking"}</div>
                               <div className="text-sm text-muted-foreground">
-                                {(b.properties?.location ?? "").trim()} • {new Date(b.check_in).toLocaleDateString()} →{" "}
+                                {extractNeighborhood(b.properties?.location)} • {new Date(b.check_in).toLocaleDateString()} →{" "}
                                 {new Date(b.check_out).toLocaleDateString()}
                               </div>
                             </div>
@@ -517,7 +518,7 @@ export default function Dashboard() {
                                 </div>
                                 <div className="p-4">
                                   <div className="font-semibold text-foreground line-clamp-1">{p.title}</div>
-                                  <div className="text-sm text-muted-foreground line-clamp-1">{p.location}</div>
+                                  <div className="text-sm text-muted-foreground line-clamp-1">{extractNeighborhood(p.location)}</div>
                                   <div className="mt-2 text-sm font-semibold text-foreground">
                                     {p.currency ?? "RWF"} {Number(p.price_per_night ?? 0).toLocaleString()}
                                     <span className="text-muted-foreground font-normal"> / night</span>

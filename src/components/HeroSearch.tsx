@@ -17,6 +17,8 @@ type DestinationSuggestion = {
   location: string;
 };
 
+import { extractNeighborhood } from "@/lib/location";
+
 const NEARBY_LABEL = "Find what's nearby";
 const STATIC_DESTINATIONS = ["Rebero", "Gacuriro", "Nyarutarama"];
 
@@ -36,9 +38,11 @@ const fetchDestinationSuggestions = async (search: string) => {
   const { data, error } = await query;
   if (error) throw error;
 
-  const unique = Array.from(
-    new Set((data as DestinationSuggestion[] | null)?.map((d) => d.location).filter(Boolean) ?? [])
-  );
+  // Extract neighborhoods from full locations and deduplicate
+  const neighborhoods = (data as DestinationSuggestion[] | null)
+    ?.map((d) => extractNeighborhood(d.location))
+    .filter(Boolean) ?? [];
+  const unique = Array.from(new Set(neighborhoods));
 
   const trimmed2 = search.trim().toLowerCase();
   const merged = [NEARBY_LABEL, ...STATIC_DESTINATIONS, ...unique];

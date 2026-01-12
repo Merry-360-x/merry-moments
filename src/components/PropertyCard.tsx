@@ -5,6 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import ListingImageCarousel from "@/components/ListingImageCarousel";
 import { useFavorites } from "@/hooks/useFavorites";
 import { usePreferences } from "@/hooks/usePreferences";
+import { extractNeighborhood } from "@/lib/location";
 
 export interface PropertyCardProps {
   id?: string;
@@ -117,7 +118,7 @@ const PropertyCard = ({
             <span className="text-sm text-muted-foreground">({reviews})</span>
           </div>
         </div>
-        <p className="text-sm text-muted-foreground mb-3">{location}</p>
+        <p className="text-sm text-muted-foreground mb-3">{extractNeighborhood(location)}</p>
         {(bedrooms || beds || bathrooms) ? (
           <p className="text-xs text-muted-foreground mb-3">
             {[bedrooms ? `${bedrooms} bd` : null, beds ? `${beds} beds` : null, bathrooms ? `${bathrooms} bath` : null]

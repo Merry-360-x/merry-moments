@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
+import { extractNeighborhood } from "@/lib/location";
 
 interface Booking {
   id: string;
@@ -188,7 +189,7 @@ const MyBookings = () => {
                       </h3>
                       <p className="text-sm text-muted-foreground flex items-center gap-1">
                         <MapPin className="w-4 h-4" />
-                        {booking.properties?.location}
+                        {extractNeighborhood(booking.properties?.location)}
                       </p>
                     </div>
                     <span

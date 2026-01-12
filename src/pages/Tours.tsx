@@ -12,6 +12,7 @@ import type { Tables } from "@/integrations/supabase/types";
 import ListingImageCarousel from "@/components/ListingImageCarousel";
 import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
+import { extractNeighborhood } from "@/lib/location";
 
 const categories = ["All", "Nature", "Adventure", "Cultural", "Wildlife", "Historical"];
 
@@ -259,7 +260,7 @@ const Tours = () => {
                     </div>
                   </div>
 
-                  <p className="text-sm text-muted-foreground mb-2">{tour.location}</p>
+                  <p className="text-sm text-muted-foreground mb-2">{extractNeighborhood(tour.location)}</p>
                   <p className="text-xs text-muted-foreground mb-3">
                     {tour.difficulty} · {tour.duration_days} day{tour.duration_days === 1 ? "" : "s"}
                   </p>

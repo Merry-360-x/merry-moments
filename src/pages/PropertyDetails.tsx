@@ -18,6 +18,7 @@ import { formatMoney } from "@/lib/money";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { isVideoUrl } from "@/lib/media";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
+import { extractNeighborhood } from "@/lib/location";
 
 type PropertyRow = {
   id: string;
@@ -629,7 +630,7 @@ export default function PropertyDetails() {
               <div className="flex items-start justify-between gap-6">
                 <div>
                   <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">{data.title}</h1>
-                  <p className="text-muted-foreground">{data.location}</p>
+                  <p className="text-muted-foreground">{extractNeighborhood(data.location)}</p>
                 </div>
                 <div className="text-right">
                   <div className="text-lg font-bold text-primary">
