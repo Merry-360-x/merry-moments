@@ -506,16 +506,42 @@ export default function HostDashboard() {
   };
 
   const createTour = async (data: Partial<Tour>) => {
-    const payload = {
-      ...data,
-      title: data.title || "New Tour",
-      price_per_person: data.price_per_person ?? 0,
+    // Tours table has some legacy columns in production (name, destination, price, main_image, available)
+    // Populate both legacy + new fields so inserts are compatible across schemas.
+    const title = String(data.title ?? "").trim() || "New Tour";
+    const location = String((data as any).location ?? "").trim();
+    const images = ((data as any).images as string[] | null | undefined) ?? null;
+    const cover = (images && images.length > 0 ? images[0] : null) as string | null;
+
+    const pricePerPerson = Number((data as any).price_per_person ?? 0);
+    const currency = String((data as any).currency ?? "RWF") || "RWF";
+
+    const payload: Record<string, unknown> = {
+      // Newer columns
+      title,
+      location: location || null,
+      price_per_person: pricePerPerson,
+      currency,
+      difficulty: (data as any).difficulty ?? null,
+      duration_days: (data as any).duration_days ?? null,
+      category: String((data as any).category ?? "").trim() || "General",
+      description: (data as any).description ?? null,
+      images: images && images.length > 0 ? images : null,
       created_by: user!.id,
-      is_published: typeof data.is_published === "boolean" ? data.is_published : true,
+      is_published: typeof (data as any).is_published === "boolean" ? (data as any).is_published : true,
+
+      // Legacy columns (still present in prod)
+      name: title,
+      destination: location || null,
+      price: pricePerPerson,
+      main_image: cover,
+      available: true,
+      // Some older schemas used host_id; set it defensively if it exists.
+      host_id: user!.id,
     };
     const { error, data: newTour } = await supabase
       .from("tours")
-      .insert(payload)
+      .insert(payload as never)
       .select()
       .single();
     if (error) {
