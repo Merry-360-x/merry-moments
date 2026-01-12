@@ -361,8 +361,11 @@ export default function HostDashboard() {
     setCreatingProperty(true);
 
     // Use only columns guaranteed to exist in the database schema
+    // NOTE: Database has both 'name' (required NOT NULL) and 'title' columns
+    const propertyName = propertyForm.title.trim();
     const payload: Record<string, unknown> = {
-      title: propertyForm.title.trim(),
+      name: propertyName,  // Required column (NOT NULL)
+      title: propertyName,
       location: propertyForm.location.trim(),
       property_type: propertyForm.property_type || "Apartment",
       description: propertyForm.description.trim() || null,
@@ -376,7 +379,7 @@ export default function HostDashboard() {
       is_published: true,
     };
 
-    // Add optional columns only if they have values (they might not exist in older schemas)
+    // Add optional columns only if they have values
     if (propertyForm.beds) payload.beds = propertyForm.beds;
     if (propertyForm.amenities?.length > 0) payload.amenities = propertyForm.amenities;
     if (propertyForm.cancellation_policy) payload.cancellation_policy = propertyForm.cancellation_policy;
