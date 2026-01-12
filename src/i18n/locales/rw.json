@@ -49,12 +49,22 @@
     "perNight": "/ ijoro"
   },
   "favorites": {
+    "title": "Ibyabitswe",
+    "subtitle": "Amacumbi wakunze",
+    "emptyTitle": "Nta byo nakunze",
+    "emptySubtitle": "Bika amacumbi wakunze kandi azagaragara hano.",
+    "browse": "Reba amacumbi",
     "toast": {
       "signInTitle": "Bisaba kwinjira",
-      "signInDescription": "Injira kugira ngo ukoreshe iby’o ukunda.",
+      "signInDescription": "Injira kugira ngo ukoreshe iby'o ukunda.",
       "added": "Byongewe mu byo ukunda.",
       "removed": "Byakuwe mu byo ukunda."
     }
+  },
+  "tripCart": {
+    "subtitle": "Ibintu byo mu rugendo rwawe",
+    "empty": "Agatebo k'urugendo ni ubusa.",
+    "browse": "Reba amacumbi"
   },
   "bookings": {
     "title": "Amabukiro yanjye",

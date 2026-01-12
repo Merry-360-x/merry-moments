@@ -49,12 +49,22 @@
     "perNight": "/ night"
   },
   "favorites": {
+    "title": "Saved",
+    "subtitle": "Your favorite properties",
+    "emptyTitle": "No favorites yet",
+    "emptySubtitle": "Save properties you love and they'll appear here.",
+    "browse": "Browse properties",
     "toast": {
       "signInTitle": "Sign in required",
       "signInDescription": "Please sign in to use favorites.",
       "added": "Saved to favorites.",
       "removed": "Removed from favorites."
     }
+  },
+  "tripCart": {
+    "subtitle": "Items in your trip",
+    "empty": "Your Trip Cart is empty.",
+    "browse": "Browse properties"
   },
   "bookings": {
     "title": "My Bookings",

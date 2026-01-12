@@ -119,6 +119,21 @@ export function CloudinaryUploadDialog(props: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoStart, open, busy, items.length]);
 
+  // Auto-close dialog and clear queue after all uploads complete.
+  useEffect(() => {
+    if (!open) return;
+    if (busy) return;
+    if (items.length === 0) return;
+    if (items.some((i) => i.status === "queued" || i.status === "uploading")) return;
+    // All items are done or errored
+    const allDone = items.every((i) => i.status === "done");
+    if (allDone && items.length > 0) {
+      // Clear queue and close
+      setItems([]);
+      setOpen(false);
+    }
+  }, [open, busy, items]);
+
   const removeExisting = (url: string) => {
     props.onChange(props.value.filter((u) => u !== url));
   };

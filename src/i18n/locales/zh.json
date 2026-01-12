@@ -49,12 +49,22 @@
     "perNight": "/ 晚"
   },
   "favorites": {
+    "title": "已保存",
+    "subtitle": "您喜欢的房源",
+    "emptyTitle": "暂无收藏",
+    "emptySubtitle": "保存您喜欢的房源，它们将出现在这里。",
+    "browse": "浏览房源",
     "toast": {
       "signInTitle": "需要登录",
       "signInDescription": "请先登录以使用收藏功能。",
       "added": "已加入收藏。",
       "removed": "已从收藏移除。"
     }
+  },
+  "tripCart": {
+    "subtitle": "您的行程项目",
+    "empty": "您的行程购物车是空的。",
+    "browse": "浏览房源"
   },
   "bookings": {
     "title": "我的预订",

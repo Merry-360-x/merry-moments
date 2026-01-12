@@ -49,12 +49,22 @@
     "perNight": "/ usiku"
   },
   "favorites": {
+    "title": "Zilizohifadhiwa",
+    "subtitle": "Malazi unayoyapenda",
+    "emptyTitle": "Hakuna vipendwa bado",
+    "emptySubtitle": "Hifadhi malazi unayopenda na yataonekana hapa.",
+    "browse": "Vinjari malazi",
     "toast": {
       "signInTitle": "Inahitaji kuingia",
       "signInDescription": "Tafadhali ingia ili utumie vipendwa.",
       "added": "Imehifadhiwa kwenye vipendwa.",
       "removed": "Imeondolewa kwenye vipendwa."
     }
+  },
+  "tripCart": {
+    "subtitle": "Vitu kwenye safari yako",
+    "empty": "Kikapu chako cha safari ni tupu.",
+    "browse": "Vinjari malazi"
   },
   "bookings": {
     "title": "Uhifadhi wangu",

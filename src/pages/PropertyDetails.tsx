@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useFavorites } from "@/hooks/useFavorites";
-import { ChevronLeft, ChevronRight, Heart } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Heart } from "lucide-react";
 import { amenityByValue } from "@/lib/amenities";
 import PropertyCard from "@/components/PropertyCard";
 import { formatMoney } from "@/lib/money";
@@ -54,6 +54,11 @@ const fetchProperty = async (id: string) => {
 };
 
 const isoToday = () => new Date().toISOString().slice(0, 10);
+const isoTomorrow = () => {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
+};
 
 export default function PropertyDetails() {
   const { t } = useTranslation();
@@ -66,7 +71,7 @@ export default function PropertyDetails() {
   const { toggleFavorite, checkFavorite } = useFavorites();
 
   const [checkIn, setCheckIn] = useState(isoToday());
-  const [checkOut, setCheckOut] = useState(isoToday());
+  const [checkOut, setCheckOut] = useState(isoTomorrow());
   const [guests, setGuests] = useState(1);
   const [booking, setBooking] = useState(false);
   const [isFavorited, setIsFavorited] = useState(false);
@@ -361,9 +366,14 @@ export default function PropertyDetails() {
 
       <div className="container mx-auto px-4 lg:px-8 py-10">
         <div className="flex items-center justify-between gap-4 mb-6">
-          <Link to="/accommodations" className="text-primary font-medium hover:underline">
-            {t("nav.accommodations")}
-          </Link>
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="inline-flex items-center gap-2 text-primary font-medium hover:underline"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </button>
           <button
             type="button"
             className="inline-flex items-center gap-2 text-muted-foreground hover:text-primary"

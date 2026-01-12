@@ -308,44 +308,75 @@ export default function TripCart() {
               </div>
             </div>
 
-            {data!.rows.map(({ item, details }) => (
-              <div key={item.id} className="bg-card rounded-xl shadow-card p-5 flex flex-col md:flex-row gap-4">
-                {details?.image ? (
-                  <img
-                    src={details.image}
-                    alt={details.title}
-                    className="w-full md:w-40 h-36 object-cover rounded-lg"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="w-full md:w-40 h-36 bg-muted rounded-lg" />
-                )}
+            {data!.rows.map(({ item, details }) => {
+              // Determine the link based on item type
+              const itemLink =
+                item.item_type === "property"
+                  ? `/properties/${item.reference_id}`
+                  : item.item_type === "tour"
+                  ? `/tours`
+                  : item.item_type === "transport_vehicle" || item.item_type === "transport_route"
+                  ? `/transport`
+                  : null;
 
-                <div className="flex-1">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="font-semibold text-foreground">{details?.title ?? "Item"}</div>
-                      {details?.meta ? (
-                        <div className="text-sm text-muted-foreground mt-1">{details.meta}</div>
-                      ) : null}
-                      <div className="text-xs text-muted-foreground mt-2">Type: {item.item_type}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-bold text-foreground">
-                        {formatMoney(Number(details?.price ?? 0), String(details?.currency ?? preferredCurrency))}
+              return (
+                <div key={item.id} className="bg-card rounded-xl shadow-card p-5 flex flex-col md:flex-row gap-4">
+                  {itemLink ? (
+                    <Link to={itemLink} className="block w-full md:w-40 h-36 rounded-lg overflow-hidden">
+                      {details?.image ? (
+                        <img
+                          src={details.image}
+                          alt={details.title}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-muted" />
+                      )}
+                    </Link>
+                  ) : details?.image ? (
+                    <img
+                      src={details.image}
+                      alt={details.title}
+                      className="w-full md:w-40 h-36 object-cover rounded-lg"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="w-full md:w-40 h-36 bg-muted rounded-lg" />
+                  )}
+
+                  <div className="flex-1">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        {itemLink ? (
+                          <Link to={itemLink} className="font-semibold text-foreground hover:text-primary hover:underline">
+                            {details?.title ?? "Item"}
+                          </Link>
+                        ) : (
+                          <div className="font-semibold text-foreground">{details?.title ?? "Item"}</div>
+                        )}
+                        {details?.meta ? (
+                          <div className="text-sm text-muted-foreground mt-1">{details.meta}</div>
+                        ) : null}
+                        <div className="text-xs text-muted-foreground mt-2">Type: {item.item_type}</div>
                       </div>
-                      <div className="text-sm text-muted-foreground">Qty: {item.quantity}</div>
+                      <div className="text-right">
+                        <div className="font-bold text-foreground">
+                          {formatMoney(Number(details?.price ?? 0), String(details?.currency ?? preferredCurrency))}
+                        </div>
+                        <div className="text-sm text-muted-foreground">Qty: {item.quantity}</div>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="mt-4 flex items-center justify-end">
-                    <Button variant="outline" onClick={() => removeItem(item.id)}>
-                      Remove
-                    </Button>
+                    <div className="mt-4 flex items-center justify-end">
+                      <Button variant="outline" onClick={() => removeItem(item.id)}>
+                        Remove
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

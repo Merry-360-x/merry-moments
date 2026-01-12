@@ -49,12 +49,22 @@
     "perNight": "/ nuit"
   },
   "favorites": {
+    "title": "Enregistrés",
+    "subtitle": "Vos propriétés préférées",
+    "emptyTitle": "Pas encore de favoris",
+    "emptySubtitle": "Enregistrez les propriétés que vous aimez et elles apparaîtront ici.",
+    "browse": "Parcourir les propriétés",
     "toast": {
       "signInTitle": "Connexion requise",
       "signInDescription": "Veuillez vous connecter pour utiliser les favoris.",
       "added": "Ajouté aux favoris.",
       "removed": "Retiré des favoris."
     }
+  },
+  "tripCart": {
+    "subtitle": "Articles de votre voyage",
+    "empty": "Votre panier de voyage est vide.",
+    "browse": "Parcourir les propriétés"
   },
   "bookings": {
     "title": "Mes réservations",

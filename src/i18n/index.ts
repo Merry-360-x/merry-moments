@@ -25,8 +25,9 @@ void i18n
     supportedLngs: ["en", "rw", "fr", "sw", "zh"],
     interpolation: { escapeValue: false },
     detection: {
-      order: ["navigator"],
-      caches: [],
+      order: ["localStorage", "navigator"],
+      caches: ["localStorage"],
+      lookupLocalStorage: "i18nextLng",
     },
     returnNull: false,
   });

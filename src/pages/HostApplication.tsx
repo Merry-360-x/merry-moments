@@ -15,7 +15,7 @@ import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
 import { Building2, UserRound, Briefcase, CheckCircle2, AlertTriangle } from "lucide-react";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 
-type HostApplicationStatus = "draft" | "pending" | "approved" | "rejected" | "suspended";
+type HostApplicationStatus = "draft" | "pending" | "approved" | "rejected";
 
 type HostApplicationRow = {
   id: string;
@@ -224,7 +224,7 @@ export default function HostApplication() {
 
       const payload = {
         user_id: user.id,
-        status: "approved" as const,
+        status: "pending" as const,
         applicant_type: applicantType,
         full_name: details.full_name.trim(),
         phone: details.phone.trim(),
@@ -247,26 +247,8 @@ export default function HostApplication() {
         national_id_photo_url: details.national_id_photo_url.trim() || null,
       };
 
-      const { data: inserted, error } = await supabase
-        .from("host_applications")
-        .insert(payload)
-        .select("id")
-        .single();
+      const { error } = await supabase.from("host_applications").insert(payload);
       if (error) throw error;
-
-      // Grant host role immediately (admins can later suspend by removing the host role).
-      const { error: roleError } = await supabase
-        .from("user_roles")
-        .insert({ user_id: user.id, role: "host" });
-
-      if (roleError) {
-        // If self-assigning roles is blocked by RLS, keep the application consistent.
-        // Fall back to pending so admin review can grant the role.
-        if (inserted?.id) {
-          await supabase.from("host_applications").update({ status: "pending" }).eq("id", inserted.id);
-        }
-        throw roleError;
-      }
 
       // Keep profile in sync with what the user entered.
       await supabase
@@ -274,7 +256,7 @@ export default function HostApplication() {
         .update({ full_name: payload.full_name, phone: payload.phone })
         .eq("user_id", user.id);
 
-      toast({ title: "Welcome!", description: "You’re now a host." });
+      toast({ title: "Application submitted", description: "We’ll review it shortly." });
 
       // Reload latest application
       const { data } = await supabase
@@ -290,18 +272,12 @@ export default function HostApplication() {
       setExisting((data as HostApplicationRow) ?? null);
       setStep("type");
       await refreshRoles();
-
-      // With host role granted, take them straight to the dashboard.
-      navigate("/host-dashboard");
     } catch (e) {
       logError("hostApplication.submit", e);
       toast({
         variant: "destructive",
         title: "Couldn’t submit application",
-        description: uiErrorMessage(
-          e,
-          "If this keeps happening, an admin may need to approve your host role from the Admin Dashboard."
-        ),
+        description: uiErrorMessage(e, "Please try again."),
       });
     }
   };
@@ -347,18 +323,6 @@ export default function HostApplication() {
       );
     }
 
-    if (existing.status === "suspended") {
-      return (
-        <Card className="p-6">
-          <h2 className="text-xl font-semibold text-foreground mb-2">Host access suspended</h2>
-          <p className="text-muted-foreground mb-4">
-            Your host access is currently suspended by an admin. Please contact support if you believe this is a mistake.
-          </p>
-          <Button variant="outline" onClick={() => navigate("/")}>Back home</Button>
-        </Card>
-      );
-    }
-
     return null;
   };
 
@@ -386,7 +350,7 @@ export default function HostApplication() {
                 <div className="text-sm">
                   <div className="font-semibold text-foreground">Your listing is not live yet</div>
                   <div className="text-muted-foreground">
-                    Once you submit, your host access activates immediately (unless an admin suspends it later).
+                    Until you submit this application and it’s approved, your property will not appear publicly.
                   </div>
                 </div>
               </div>
