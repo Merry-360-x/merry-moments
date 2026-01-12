@@ -379,6 +379,7 @@ const HeroSearch = () => {
                         numberOfMonths={1}
                         selected={dateRange}
                         onSelect={setDateRange}
+                        disabled={{ before: new Date() }}
                         initialFocus
                       />
                     </div>
@@ -643,6 +644,7 @@ const HeroSearch = () => {
                       numberOfMonths={2}
                       selected={dateRange}
                       onSelect={setDateRange}
+                      disabled={{ before: new Date() }}
                       initialFocus
                     />
 
@@ -702,6 +704,7 @@ const HeroSearch = () => {
                         if (!d) return;
                         setDateRange(monthRange(d));
                       }}
+                      disabled={{ before: new Date() }}
                       initialFocus
                     />
                     <div className="mt-3 flex justify-end">
