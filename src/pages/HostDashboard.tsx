@@ -145,6 +145,17 @@ interface Vehicle {
   created_at: string;
 }
 
+interface TransportRoute {
+  id: string;
+  from_location: string;
+  to_location: string;
+  base_price: number;
+  currency: string | null;
+  is_published: boolean | null;
+  created_at: string;
+  created_by: string | null;
+}
+
 interface Booking {
   id: string;
   check_in: string;
@@ -285,12 +296,14 @@ export default function HostDashboard() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [tours, setTours] = useState<Tour[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [routes, setRoutes] = useState<TransportRoute[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
 
   // Editing states
   const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null);
   const [editingTourId, setEditingTourId] = useState<string | null>(null);
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
+  const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
 
   // New property wizard
   const [showPropertyWizard, setShowPropertyWizard] = useState(false);
@@ -346,6 +359,15 @@ export default function HostDashboard() {
   const [vehicleWizardStep, setVehicleWizardStep] = useState(1);
   const [creatingVehicle, setCreatingVehicle] = useState(false);
   const [vehicleUploadDialogOpen, setVehicleUploadDialogOpen] = useState(false);
+  const [showRouteWizard, setShowRouteWizard] = useState(false);
+  const [creatingRoute, setCreatingRoute] = useState(false);
+  const [routeForm, setRouteForm] = useState({
+    from_location: "",
+    to_location: "",
+    base_price: 50000,
+    currency: "RWF",
+    is_published: true,
+  });
   const [vehicleForm, setVehicleForm] = useState({
     title: "",
     provider_name: "",
@@ -369,16 +391,18 @@ export default function HostDashboard() {
     setIsLoading(true);
 
     try {
-      // Fetch properties, tours, vehicles
-      const [propsRes, toursRes, vehiclesRes] = await Promise.all([
+      // Fetch properties, tours, vehicles, routes
+      const [propsRes, toursRes, vehiclesRes, routesRes] = await Promise.all([
         supabase.from("properties").select("*").eq("host_id", user.id).order("created_at", { ascending: false }),
         supabase.from("tours").select("*").eq("created_by", user.id).order("created_at", { ascending: false }),
         supabase.from("transport_vehicles").select("*").eq("created_by", user.id).order("created_at", { ascending: false }),
+        supabase.from("transport_routes").select("*").eq("created_by", user.id).order("created_at", { ascending: false }),
       ]);
 
       if (propsRes.data) setProperties(propsRes.data as Property[]);
       if (toursRes.data) setTours(toursRes.data as Tour[]);
       if (vehiclesRes.data) setVehicles(vehiclesRes.data as Vehicle[]);
+      if (routesRes.data) setRoutes(routesRes.data as TransportRoute[]);
 
       // Fetch bookings separately - try via property_id if host_id fails
       const propertyIds = (propsRes.data || []).map((p: { id: string }) => p.id);
@@ -658,6 +682,61 @@ export default function HostDashboard() {
       return;
     }
     setVehicles((prev) => prev.filter((v) => v.id !== id));
+    toast({ title: "Deleted" });
+  };
+
+  // Route CRUD (From → To)
+  const updateRoute = async (id: string, updates: Partial<TransportRoute>) => {
+    const { error } = await supabase.from("transport_routes").update(updates as never).eq("id", id);
+    if (error) {
+      logError("host.route.update", error);
+      toast({ variant: "destructive", title: "Update failed", description: uiErrorMessage(error) });
+      return false;
+    }
+    setRoutes((prev) => prev.map((r) => (r.id === id ? { ...r, ...updates } : r)));
+    toast({ title: "Saved" });
+    return true;
+  };
+
+  const createRoute = async (payload: {
+    from_location: string;
+    to_location: string;
+    base_price: number;
+    currency: string;
+    is_published: boolean;
+  }) => {
+    if (!user) return null;
+    const { data, error } = await supabase
+      .from("transport_routes")
+      .insert({
+        from_location: payload.from_location,
+        to_location: payload.to_location,
+        base_price: payload.base_price,
+        currency: payload.currency,
+        is_published: payload.is_published,
+        created_by: user.id,
+      } as never)
+      .select()
+      .single();
+    if (error) {
+      logError("host.route.create", error);
+      toast({ variant: "destructive", title: "Create failed", description: uiErrorMessage(error) });
+      return null;
+    }
+    setRoutes((prev) => [data as TransportRoute, ...prev]);
+    toast({ title: "Route created" });
+    return data as TransportRoute;
+  };
+
+  const deleteRoute = async (id: string) => {
+    if (!confirm("Delete this route?")) return;
+    const { error } = await supabase.from("transport_routes").delete().eq("id", id);
+    if (error) {
+      logError("host.route.delete", error);
+      toast({ variant: "destructive", title: "Delete failed", description: uiErrorMessage(error) });
+      return;
+    }
+    setRoutes((prev) => prev.filter((r) => r.id !== id));
     toast({ title: "Deleted" });
   };
 
@@ -2283,15 +2362,139 @@ export default function HostDashboard() {
 
           {/* Transport */}
           <TabsContent value="transport">
-            <div className="flex justify-end mb-4">
-              <Button onClick={() => setShowVehicleWizard(true)}>
-                <Plus className="w-4 h-4 mr-2" /> Add Vehicle
-              </Button>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div className="text-sm text-muted-foreground">
+                Create <span className="font-medium text-foreground">Routes</span> like “Airport → Gisenyi” or rent out vehicles.
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => setShowRouteWizard(true)}>
+                  <Plus className="w-4 h-4 mr-2" /> Add Route
+                </Button>
+                <Button onClick={() => setShowVehicleWizard(true)}>
+                  <Plus className="w-4 h-4 mr-2" /> Add Vehicle
+                </Button>
+              </div>
             </div>
+
+            {/* Routes */}
+            <div className="mb-8">
+              <div className="text-sm font-semibold text-foreground mb-3">Routes</div>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {(routes || []).map((r) => (
+                  <Card key={r.id} className="overflow-hidden">
+                    <div className="p-4">
+                      {editingRouteId === r.id ? (
+                        <div className="space-y-3">
+                          <div>
+                            <Label>From *</Label>
+                            <Input
+                              value={r.from_location}
+                              onChange={(e) => setRoutes((prev) => prev.map((x) => (x.id === r.id ? { ...x, from_location: e.target.value } : x)))}
+                              className="mt-1"
+                              placeholder="Airport"
+                            />
+                          </div>
+                          <div>
+                            <Label>To *</Label>
+                            <Input
+                              value={r.to_location}
+                              onChange={(e) => setRoutes((prev) => prev.map((x) => (x.id === r.id ? { ...x, to_location: e.target.value } : x)))}
+                              className="mt-1"
+                              placeholder="Gisenyi"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <Label>Price (per trip)</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={Number(r.base_price ?? 0)}
+                                onChange={(e) => setRoutes((prev) => prev.map((x) => (x.id === r.id ? { ...x, base_price: Number(e.target.value) } : x)))}
+                                className="mt-1"
+                              />
+                            </div>
+                            <div>
+                              <Label>Currency</Label>
+                              <Select
+                                value={String(r.currency ?? "RWF")}
+                                onValueChange={(v) => setRoutes((prev) => prev.map((x) => (x.id === r.id ? { ...x, currency: v } : x)))}
+                              >
+                                <SelectTrigger className="mt-1">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {currencies.map((c) => (
+                                    <SelectItem key={c} value={c}>
+                                      {c}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+
+                          <div className="flex justify-end gap-2 pt-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setEditingRouteId(null);
+                                fetchData();
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={async () => {
+                                const ok = await updateRoute(r.id, {
+                                  from_location: r.from_location,
+                                  to_location: r.to_location,
+                                  base_price: Number(r.base_price ?? 0),
+                                  currency: r.currency ?? "RWF",
+                                });
+                                if (ok) setEditingRouteId(null);
+                              }}
+                            >
+                              <Save className="w-4 h-4" /> Save
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="font-semibold text-foreground">{r.from_location} → {r.to_location}</div>
+                          <div className="text-xs text-muted-foreground mt-1">Price per trip</div>
+                          <div className="flex items-center justify-between mt-3">
+                            <span className="text-primary font-bold">
+                              {formatMoney(Number(r.base_price ?? 0), r.currency || "RWF")}
+                            </span>
+                            <div className="flex gap-1">
+                              <Button size="sm" variant="ghost" onClick={() => setEditingRouteId(r.id)}>
+                                <Edit className="w-3 h-3" />
+                              </Button>
+                              <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteRoute(r.id)}>
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </Card>
+                ))}
+                {(routes || []).length === 0 && (
+                  <p className="text-muted-foreground col-span-full text-center py-6">No routes yet</p>
+                )}
+              </div>
+            </div>
+
+            {/* Vehicles */}
+            <div className="text-sm font-semibold text-foreground mb-3">Vehicles</div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {(vehicles || []).map((v) => (
                 <Card key={v.id} className="overflow-hidden">
-                  <div className="h-32 bg-muted flex items-center justify-center">
+                  <div className="h-44 bg-muted flex items-center justify-center">
                     {(v.media?.[0] || v.image_url) ? (
                       <img src={v.media?.[0] || v.image_url || ""} alt={v.title} className="w-full h-full object-cover" />
                     ) : (

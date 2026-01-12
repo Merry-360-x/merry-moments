@@ -32,6 +32,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { usePreferences } from "@/hooks/usePreferences";
 import { supabase } from "@/integrations/supabase/client";
+import { useTripCart } from "@/hooks/useTripCart";
+import { useQuery } from "@tanstack/react-query";
 
 const navLinks = [
   { key: "nav.home", path: "/" },
@@ -45,6 +47,7 @@ const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut, isHost, isAdmin, isStaff } = useAuth();
+  const { guestCart } = useTripCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { t } = useTranslation();
   const { language, setLanguage, currency, setCurrency, resolvedTheme, setTheme } = usePreferences();
@@ -111,6 +114,21 @@ const Navbar = () => {
     if (!user?.email) return "U";
     return user.email.charAt(0).toUpperCase();
   };
+
+  const { data: authedCartCount = 0 } = useQuery({
+    queryKey: ["trip_cart_count", user?.id],
+    enabled: Boolean(user?.id),
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("trip_cart_items")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user!.id);
+      if (error) return 0;
+      return Number(count ?? 0);
+    },
+  });
+
+  const tripCartCount = user ? authedCartCount : guestCart.length;
 
   return (
     <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
@@ -271,8 +289,13 @@ const Navbar = () => {
             </DropdownMenu>
 
             <Link to="/trip-cart">
-              <Button variant="outline" size="sm" className="gap-2">
+              <Button variant="outline" size="sm" className="gap-2 relative">
                 {t("actions.tripCart")}
+                {tripCartCount > 0 ? (
+                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold">
+                    {tripCartCount > 99 ? "99+" : tripCartCount}
+                  </span>
+                ) : null}
               </Button>
             </Link>
 
@@ -378,8 +401,13 @@ const Navbar = () => {
                     </button>
                   </Link>
                   <Link to="/trip-cart" onClick={() => setMobileMenuOpen(false)}>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" className="relative">
                       {t("actions.tripCart")}
+                      {tripCartCount > 0 ? (
+                        <span className="ml-2 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold">
+                          {tripCartCount > 99 ? "99+" : tripCartCount}
+                        </span>
+                      ) : null}
                     </Button>
                   </Link>
                 </div>
