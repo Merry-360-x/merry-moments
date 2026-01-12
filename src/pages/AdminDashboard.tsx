@@ -39,6 +39,7 @@ import {
   UserPlus,
   DollarSign,
   Activity,
+  Megaphone,
   Image as ImageIcon,
 } from "lucide-react";
 
@@ -202,8 +203,24 @@ type Metrics = {
   refunds_total: number;
 };
 
+type AdBannerRow = {
+  id: string;
+  message: string;
+  cta_label: string | null;
+  cta_url: string | null;
+  bg_color: string | null;
+  text_color: string | null;
+  sort_order: number;
+  is_active: boolean;
+  starts_at: string | null;
+  ends_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 type TabValue =
   | "overview"
+  | "ads"
   | "users"
   | "accommodations"
   | "tours"
@@ -249,6 +266,19 @@ export default function AdminDashboard() {
   const [ticketStatus, setTicketStatus] = useState("");
   const [roleToAdd, setRoleToAdd] = useState<Record<string, string>>({});
 
+  const [newBanner, setNewBanner] = useState<Omit<AdBannerRow, "id" | "created_at" | "updated_at">>({
+    message: "",
+    cta_label: null,
+    cta_url: null,
+    bg_color: "rgba(239, 68, 68, 0.08)",
+    text_color: null,
+    sort_order: 0,
+    is_active: true,
+    starts_at: null,
+    ends_at: null,
+  });
+  const [bannerEdits, setBannerEdits] = useState<Record<string, Partial<AdBannerRow>>>({});
+
   // Metrics query
   const { data: metrics, refetch: refetchMetrics } = useQuery({
     queryKey: ["admin_dashboard_metrics"],
@@ -258,6 +288,96 @@ export default function AdminDashboard() {
       return data as unknown as Metrics;
     },
   });
+
+  const { data: adBanners = [], refetch: refetchAdBanners } = useQuery({
+    queryKey: ["admin_ad_banners"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ad_banners")
+        .select("*")
+        .order("sort_order", { ascending: true })
+        .order("updated_at", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return (data ?? []) as unknown as AdBannerRow[];
+    },
+  });
+
+  const upsertBanner = async (payload: Partial<AdBannerRow> & { id?: string }) => {
+    try {
+      if (!payload.message?.trim()) {
+        toast({ variant: "destructive", title: "Message is required" });
+        return;
+      }
+      if (payload.id) {
+        const { error } = await supabase
+          .from("ad_banners")
+          .update({
+            message: payload.message.trim(),
+            cta_label: payload.cta_label || null,
+            cta_url: payload.cta_url || null,
+            bg_color: payload.bg_color || null,
+            text_color: payload.text_color || null,
+            sort_order: payload.sort_order ?? 0,
+            is_active: Boolean(payload.is_active),
+            starts_at: payload.starts_at || null,
+            ends_at: payload.ends_at || null,
+            updated_at: new Date().toISOString(),
+          } as never)
+          .eq("id", payload.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("ad_banners").insert({
+          message: payload.message.trim(),
+          cta_label: payload.cta_label || null,
+          cta_url: payload.cta_url || null,
+          bg_color: payload.bg_color || null,
+          text_color: payload.text_color || null,
+          sort_order: payload.sort_order ?? 0,
+          is_active: Boolean(payload.is_active),
+          starts_at: payload.starts_at || null,
+          ends_at: payload.ends_at || null,
+        } as never);
+        if (error) throw error;
+      }
+      toast({ title: "Saved" });
+      setNewBanner({
+        message: "",
+        cta_label: null,
+        cta_url: null,
+        bg_color: "rgba(239, 68, 68, 0.08)",
+        text_color: null,
+        sort_order: 0,
+        is_active: true,
+        starts_at: null,
+        ends_at: null,
+      });
+      await refetchAdBanners();
+      if (payload.id) {
+        setBannerEdits((prev) => {
+          const next = { ...prev };
+          delete next[payload.id as string];
+          return next;
+        });
+      }
+    } catch (e) {
+      logError("admin.ad_banners.upsert", e);
+      toast({ variant: "destructive", title: "Failed", description: uiErrorMessage(e) });
+    }
+  };
+
+  const deleteBanner = async (id: string) => {
+    if (!confirm("Delete this banner?")) return;
+    try {
+      const { error } = await supabase.from("ad_banners").delete().eq("id", id);
+      if (error) throw error;
+      toast({ title: "Deleted" });
+      await refetchAdBanners();
+    } catch (e) {
+      logError("admin.ad_banners.delete", e);
+      toast({ variant: "destructive", title: "Failed", description: uiErrorMessage(e) });
+    }
+  };
 
   // Host applications
   const { data: applications = [], refetch: refetchApplications } = useQuery({
@@ -785,6 +905,9 @@ export default function AdminDashboard() {
             <TabsTrigger value="overview" className="gap-1">
               <BarChart3 className="w-4 h-4" /> Overview
             </TabsTrigger>
+            <TabsTrigger value="ads" className="gap-1">
+              <Megaphone className="w-4 h-4" /> Ads
+            </TabsTrigger>
             <TabsTrigger value="users" className="gap-1">
               <Users className="w-4 h-4" /> Users
             </TabsTrigger>
@@ -935,6 +1058,233 @@ export default function AdminDashboard() {
                   <Ban className="w-4 h-4" /> Blacklisted
                 </h4>
                 <p className="text-2xl font-bold">{metrics?.blacklist_count ?? 0}</p>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* ADS TAB */}
+          <TabsContent value="ads">
+            <div className="grid lg:grid-cols-2 gap-6">
+              <Card className="p-6">
+                <h2 className="text-lg font-semibold mb-1">Header Ad Strip</h2>
+                <p className="text-sm text-muted-foreground mb-4">
+                  These banners rotate above the header every 5 seconds.
+                </p>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium">Message *</label>
+                    <Input
+                      value={newBanner.message}
+                      onChange={(e) => setNewBanner((b) => ({ ...b, message: e.target.value }))}
+                      placeholder="e.g., New: 10% off weekly stays"
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-sm font-medium">CTA Label</label>
+                      <Input
+                        value={newBanner.cta_label ?? ""}
+                        onChange={(e) => setNewBanner((b) => ({ ...b, cta_label: e.target.value || null }))}
+                        placeholder="e.g., Learn more"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">CTA URL</label>
+                      <Input
+                        value={newBanner.cta_url ?? ""}
+                        onChange={(e) => setNewBanner((b) => ({ ...b, cta_url: e.target.value || null }))}
+                        placeholder="https://..."
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-sm font-medium">Sort</label>
+                      <Input
+                        type="number"
+                        value={newBanner.sort_order}
+                        onChange={(e) => setNewBanner((b) => ({ ...b, sort_order: Number(e.target.value) }))}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Background</label>
+                      <Input
+                        value={newBanner.bg_color ?? ""}
+                        onChange={(e) => setNewBanner((b) => ({ ...b, bg_color: e.target.value || null }))}
+                        placeholder="rgba(...) or #fff"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Text</label>
+                      <Input
+                        value={newBanner.text_color ?? ""}
+                        onChange={(e) => setNewBanner((b) => ({ ...b, text_color: e.target.value || null }))}
+                        placeholder="#111"
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between border rounded-lg p-3">
+                    <div>
+                      <p className="text-sm font-medium">Active</p>
+                      <p className="text-xs text-muted-foreground">Only active banners show publicly</p>
+                    </div>
+                    <Select
+                      value={newBanner.is_active ? "active" : "inactive"}
+                      onValueChange={(v) => setNewBanner((b) => ({ ...b, is_active: v === "active" }))}
+                    >
+                      <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button variant="outline" size="sm" onClick={() => refetchAdBanners()}>
+                      <RefreshCw className="w-4 h-4 mr-2" /> Refresh
+                    </Button>
+                    <Button size="sm" onClick={() => upsertBanner(newBanner)}>
+                      <CheckCircle className="w-4 h-4 mr-2" /> Add Banner
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold">Existing Banners</h2>
+                  <Badge variant="outline">{adBanners.length}</Badge>
+                </div>
+
+                <div className="space-y-3">
+                  {adBanners.map((b) => (
+                    <div key={b.id} className="border rounded-xl p-4 space-y-3">
+                      {(() => {
+                        const draft = { ...b, ...(bannerEdits[b.id] ?? {}) } as AdBannerRow;
+                        const hasEdits = Boolean(bannerEdits[b.id]);
+                        return (
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <Input
+                            value={draft.message}
+                            onChange={(e) =>
+                              setBannerEdits((prev) => ({ ...prev, [b.id]: { ...(prev[b.id] ?? {}), message: e.target.value } }))
+                            }
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => upsertBanner({ ...b, is_active: !b.is_active })}
+                            title={b.is_active ? "Deactivate" : "Activate"}
+                          >
+                            {b.is_active ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={!hasEdits}
+                            onClick={() => upsertBanner(draft)}
+                            title="Save changes"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={!hasEdits}
+                            onClick={() => setBannerEdits((prev) => {
+                              const next = { ...prev };
+                              delete next[b.id];
+                              return next;
+                            })}
+                            title="Discard changes"
+                          >
+                            <XCircle className="w-4 h-4" />
+                          </Button>
+                          <Button size="sm" variant="destructive" onClick={() => deleteBanner(b.id)}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <Input
+                          value={draft.cta_label ?? ""}
+                          onChange={(e) =>
+                            setBannerEdits((prev) => ({ ...prev, [b.id]: { ...(prev[b.id] ?? {}), cta_label: e.target.value || null } }))
+                          }
+                          placeholder="CTA label"
+                        />
+                        <Input
+                          value={draft.cta_url ?? ""}
+                          onChange={(e) =>
+                            setBannerEdits((prev) => ({ ...prev, [b.id]: { ...(prev[b.id] ?? {}), cta_url: e.target.value || null } }))
+                          }
+                          placeholder="CTA url"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-3">
+                        <Input
+                          type="number"
+                          value={draft.sort_order ?? 0}
+                          onChange={(e) =>
+                            setBannerEdits((prev) => ({ ...prev, [b.id]: { ...(prev[b.id] ?? {}), sort_order: Number(e.target.value) } }))
+                          }
+                          placeholder="Sort"
+                        />
+                        <Input
+                          value={draft.bg_color ?? ""}
+                          onChange={(e) =>
+                            setBannerEdits((prev) => ({ ...prev, [b.id]: { ...(prev[b.id] ?? {}), bg_color: e.target.value || null } }))
+                          }
+                          placeholder="Background"
+                        />
+                        <Input
+                          value={draft.text_color ?? ""}
+                          onChange={(e) =>
+                            setBannerEdits((prev) => ({ ...prev, [b.id]: { ...(prev[b.id] ?? {}), text_color: e.target.value || null } }))
+                          }
+                          placeholder="Text"
+                        />
+                      </div>
+
+                      <div
+                        className="rounded-lg px-3 py-2 text-sm flex items-center justify-between gap-2"
+                        style={{
+                          backgroundColor: draft.bg_color || "rgba(239, 68, 68, 0.08)",
+                          color: draft.text_color || "inherit",
+                        }}
+                      >
+                        <span className="font-medium">{draft.message}</span>
+                        {draft.cta_label && draft.cta_url && (
+                          <span className="underline underline-offset-4 font-semibold">{draft.cta_label}</span>
+                        )}
+                      </div>
+                        );
+                      })()}
+                    </div>
+                  ))}
+
+                  {adBanners.length === 0 && (
+                    <div className="text-center text-muted-foreground py-10">
+                      No banners yet. Add one on the left.
+                    </div>
+                  )}
+                </div>
               </Card>
             </div>
           </TabsContent>
@@ -1107,7 +1457,7 @@ export default function AdminDashboard() {
                               variant="outline"
                               onClick={() => togglePublished("properties", p.id, !p.is_published)}
                             >
-                              {p.is_published ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                              {p.is_published ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
                             </Button>
                             <Button
                               size="sm"
@@ -1178,7 +1528,7 @@ export default function AdminDashboard() {
                               variant="outline"
                               onClick={() => togglePublished("tours", t.id, !t.is_published)}
                             >
-                              {t.is_published ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                              {t.is_published ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
                             </Button>
                             <Button
                               size="sm"
@@ -1248,7 +1598,7 @@ export default function AdminDashboard() {
                               variant="outline"
                               onClick={() => togglePublished("transport_vehicles", v.id, !v.is_published)}
                             >
-                              {v.is_published ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                              {v.is_published ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
                             </Button>
                             <Button
                               size="sm"

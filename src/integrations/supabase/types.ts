@@ -449,6 +449,51 @@ export type Database = {
         }
         Relationships: []
       }
+      ad_banners: {
+        Row: {
+          id: string
+          message: string
+          cta_label: string | null
+          cta_url: string | null
+          bg_color: string | null
+          text_color: string | null
+          sort_order: number
+          is_active: boolean
+          starts_at: string | null
+          ends_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          message: string
+          cta_label?: string | null
+          cta_url?: string | null
+          bg_color?: string | null
+          text_color?: string | null
+          sort_order?: number
+          is_active?: boolean
+          starts_at?: string | null
+          ends_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          message?: string
+          cta_label?: string | null
+          cta_url?: string | null
+          bg_color?: string | null
+          text_color?: string | null
+          sort_order?: number
+          is_active?: boolean
+          starts_at?: string | null
+          ends_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string

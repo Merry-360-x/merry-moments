@@ -262,6 +262,7 @@ export default function HostDashboard() {
   const [propertyForm, setPropertyForm] = useState({
     title: "",
     location: "",
+    address: "",
     property_type: "Apartment",
     description: "",
     price_per_night: 50000,
@@ -285,6 +286,41 @@ export default function HostDashboard() {
   });
   const [creatingProperty, setCreatingProperty] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+
+  // New Tour wizard (matches property wizard UX)
+  const [showTourWizard, setShowTourWizard] = useState(false);
+  const [tourWizardStep, setTourWizardStep] = useState(1);
+  const [creatingTour, setCreatingTour] = useState(false);
+  const [tourUploadDialogOpen, setTourUploadDialogOpen] = useState(false);
+  const [tourForm, setTourForm] = useState({
+    title: "",
+    location: "",
+    description: "",
+    category: "",
+    difficulty: "",
+    duration_days: 1,
+    price_per_person: 50000,
+    currency: "RWF",
+    images: [] as string[],
+    is_published: true,
+  });
+
+  // New Vehicle wizard (matches property wizard UX)
+  const [showVehicleWizard, setShowVehicleWizard] = useState(false);
+  const [vehicleWizardStep, setVehicleWizardStep] = useState(1);
+  const [creatingVehicle, setCreatingVehicle] = useState(false);
+  const [vehicleUploadDialogOpen, setVehicleUploadDialogOpen] = useState(false);
+  const [vehicleForm, setVehicleForm] = useState({
+    title: "",
+    provider_name: "",
+    vehicle_type: "Sedan",
+    seats: 4,
+    driver_included: true,
+    price_per_day: 50000,
+    currency: "RWF",
+    media: [] as string[],
+    is_published: true,
+  });
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -367,6 +403,7 @@ export default function HostDashboard() {
       name: propertyName,  // Required column (NOT NULL)
       title: propertyName,
       location: propertyForm.location.trim(),
+      address: propertyForm.address.trim() || null,
       property_type: propertyForm.property_type || "Apartment",
       description: propertyForm.description.trim() || null,
       price_per_night: propertyForm.price_per_night || 50000,
@@ -421,6 +458,7 @@ export default function HostDashboard() {
     setPropertyForm({
       title: "",
       location: "",
+      address: "",
       property_type: "Apartment",
       description: "",
       price_per_night: 50000,
@@ -469,11 +507,11 @@ export default function HostDashboard() {
 
   const createTour = async (data: Partial<Tour>) => {
     const payload = {
-      title: data.title || "New Tour",
-      price_per_person: data.price_per_person || 0,
-      created_by: user!.id,
-      is_published: true,
       ...data,
+      title: data.title || "New Tour",
+      price_per_person: data.price_per_person ?? 0,
+      created_by: user!.id,
+      is_published: typeof data.is_published === "boolean" ? data.is_published : true,
     };
     const { error, data: newTour } = await supabase
       .from("tours")
@@ -517,13 +555,13 @@ export default function HostDashboard() {
 
   const createVehicle = async (data: Partial<Vehicle>) => {
     const payload = {
+      ...data,
       title: data.title || "New Vehicle",
       vehicle_type: data.vehicle_type || "Sedan",
-      seats: data.seats || 4,
-      price_per_day: data.price_per_day || 0,
+      seats: data.seats ?? 4,
+      price_per_day: data.price_per_day ?? 0,
       created_by: user!.id,
-      is_published: true,
-      ...data,
+      is_published: typeof data.is_published === "boolean" ? data.is_published : true,
     };
     const { error, data: newVehicle } = await supabase
       .from("transport_vehicles")
@@ -723,7 +761,7 @@ export default function HostDashboard() {
                 <div className="flex gap-1">
                   <Button size="sm" variant="ghost" onClick={() => setEditingPropertyId(property.id)}><Edit className="w-3 h-3" /></Button>
                   <Button size="sm" variant="ghost" onClick={() => updateProperty(property.id, { is_published: !property.is_published })}>
-                    {property.is_published ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                    {property.is_published ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
                   </Button>
                   <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteProperty(property.id)}><Trash2 className="w-3 h-3" /></Button>
                 </div>
@@ -845,6 +883,19 @@ export default function HostDashboard() {
                       placeholder="e.g., Kigali, Nyarutarama"
                       className="mt-2 text-lg py-6"
                     />
+                  </div>
+
+                  <div>
+                    <Label className="text-base font-medium">Address</Label>
+                    <Input
+                      value={propertyForm.address}
+                      onChange={(e) => setPropertyForm((f) => ({ ...f, address: e.target.value }))}
+                      placeholder="Street, building, or nearby landmark (optional)"
+                      className="mt-2 text-lg py-6"
+                    />
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Tip: keep it general. Exact address can be shared after booking.
+                    </p>
                   </div>
 
                   <div>
@@ -1244,6 +1295,11 @@ export default function HostDashboard() {
                           <MapPin className="w-4 h-4" />
                           <span>{propertyForm.location || "No location set"}</span>
                         </div>
+                        {propertyForm.address.trim() && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {propertyForm.address}
+                          </div>
+                        )}
                       </div>
                       <div className="text-right">
                         <div className="text-2xl font-bold text-primary">
@@ -1365,6 +1421,582 @@ export default function HostDashboard() {
                 <span className="hidden sm:inline">{title}</span>
               </button>
             ))}
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Tour Creation Wizard
+  if (showTourWizard) {
+    const totalSteps = 4;
+    const stepTitles = ["Basics", "Media", "Pricing", "Review"];
+
+    const canProceedTour = () => {
+      switch (tourWizardStep) {
+        case 1:
+          return tourForm.title.trim().length >= 3 && tourForm.location.trim().length >= 2;
+        case 2:
+          return true;
+        case 3:
+          return Number(tourForm.price_per_person) > 0;
+        default:
+          return true;
+      }
+    };
+
+    const submitTour = async () => {
+      if (!user) return;
+      setCreatingTour(true);
+      const payload: Partial<Tour> = {
+        title: tourForm.title.trim(),
+        location: tourForm.location.trim(),
+        description: tourForm.description.trim() || null,
+        category: tourForm.category.trim() || null,
+        difficulty: tourForm.difficulty.trim() || null,
+        duration_days: Number(tourForm.duration_days) || null,
+        price_per_person: Number(tourForm.price_per_person) || 0,
+        currency: tourForm.currency,
+        images: tourForm.images.length > 0 ? tourForm.images : null,
+        is_published: tourForm.is_published,
+      };
+      const created = await createTour(payload);
+      setCreatingTour(false);
+      if (created) {
+        setShowTourWizard(false);
+        setTourForm({
+          title: "",
+          location: "",
+          description: "",
+          category: "",
+          difficulty: "",
+          duration_days: 1,
+          price_per_person: 50000,
+          currency: "RWF",
+          images: [],
+          is_published: true,
+        });
+        setTourWizardStep(1);
+        setTab("tours");
+        setEditingTourId((created as any).id);
+      }
+    };
+
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-8 max-w-3xl">
+          <div className="flex items-center justify-between mb-8">
+            <button
+              type="button"
+              onClick={() => {
+                if (tourWizardStep > 1) setTourWizardStep((s) => s - 1);
+                else {
+                  setShowTourWizard(false);
+                  setTourWizardStep(1);
+                }
+              }}
+              className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5" />
+              {tourWizardStep > 1 ? "Back" : "Cancel"}
+            </button>
+            <div className="text-center">
+              <h1 className="text-xl font-bold text-foreground">Create a Tour</h1>
+              <p className="text-sm text-muted-foreground">
+                Step {tourWizardStep} of {totalSteps}: {stepTitles[tourWizardStep - 1]}
+              </p>
+            </div>
+            <div className="w-20" />
+          </div>
+
+          <Progress value={(tourWizardStep / totalSteps) * 100} className="mb-8 h-2" />
+
+          <Card className="p-6 md:p-8">
+            {tourWizardStep === 1 && (
+              <div className="space-y-6">
+                <div className="text-center mb-8">
+                  <MapPin className="w-12 h-12 mx-auto text-primary mb-4" />
+                  <h2 className="text-2xl font-bold text-foreground">Tell guests about your tour</h2>
+                  <p className="text-muted-foreground mt-2">Basics first—title and location</p>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-base font-medium">Tour Title *</Label>
+                    <Input
+                      value={tourForm.title}
+                      onChange={(e) => setTourForm((f) => ({ ...f, title: e.target.value }))}
+                      placeholder="e.g., Kigali City Highlights Tour"
+                      className="mt-2 text-lg py-6"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-base font-medium">Location *</Label>
+                    <Input
+                      value={tourForm.location}
+                      onChange={(e) => setTourForm((f) => ({ ...f, location: e.target.value }))}
+                      placeholder="e.g., Kigali, Remera"
+                      className="mt-2 text-lg py-6"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-base font-medium">Category</Label>
+                      <Input
+                        value={tourForm.category}
+                        onChange={(e) => setTourForm((f) => ({ ...f, category: e.target.value }))}
+                        placeholder="e.g., Culture"
+                        className="mt-2 text-lg py-6"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-base font-medium">Difficulty</Label>
+                      <Input
+                        value={tourForm.difficulty}
+                        onChange={(e) => setTourForm((f) => ({ ...f, difficulty: e.target.value }))}
+                        placeholder="e.g., Easy"
+                        className="mt-2 text-lg py-6"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-base font-medium">Description</Label>
+                    <Textarea
+                      value={tourForm.description}
+                      onChange={(e) => setTourForm((f) => ({ ...f, description: e.target.value }))}
+                      placeholder="What will guests do on this tour?"
+                      className="mt-2 min-h-[120px]"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {tourWizardStep === 2 && (
+              <div className="space-y-6">
+                <div className="text-center mb-8">
+                  <ImageIcon className="w-12 h-12 mx-auto text-primary mb-4" />
+                  <h2 className="text-2xl font-bold text-foreground">Add tour photos or video</h2>
+                  <p className="text-muted-foreground mt-2">Media helps guests decide faster</p>
+                </div>
+
+                <div
+                  onClick={() => setTourUploadDialogOpen(true)}
+                  className="border-2 border-dashed border-border rounded-2xl p-12 text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-all"
+                >
+                  <Upload className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-lg font-medium text-foreground">Click to upload media</p>
+                  <p className="text-sm text-muted-foreground mt-2">or drag and drop</p>
+                  <p className="text-xs text-muted-foreground mt-4">PNG, JPG, or Video up to 10MB each</p>
+                </div>
+
+                {tourForm.images.length > 0 && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {tourForm.images.map((url, idx) => (
+                      <div key={idx} className="relative aspect-square rounded-xl overflow-hidden group">
+                        {isVideoUrl(url) ? (
+                          <video src={url} className="w-full h-full object-cover" muted playsInline />
+                        ) : (
+                          <img src={url} alt={`Media ${idx + 1}`} className="w-full h-full object-cover" />
+                        )}
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <button
+                            type="button"
+                            onClick={() => setTourForm((f) => ({ ...f, images: f.images.filter((_, i) => i !== idx) }))}
+                            className="p-2 bg-white rounded-full text-destructive hover:bg-destructive hover:text-white transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <CloudinaryUploadDialog
+                  title="Upload Tour Media"
+                  folder="merry360x/tours"
+                  accept="image/*,video/*"
+                  multiple
+                  maxFiles={20}
+                  value={tourForm.images}
+                  onChange={(urls) => setTourForm((f) => ({ ...f, images: urls }))}
+                  open={tourUploadDialogOpen}
+                  onOpenChange={setTourUploadDialogOpen}
+                />
+              </div>
+            )}
+
+            {tourWizardStep === 3 && (
+              <div className="space-y-6">
+                <div className="text-center mb-8">
+                  <DollarSign className="w-12 h-12 mx-auto text-primary mb-4" />
+                  <h2 className="text-2xl font-bold text-foreground">Set pricing</h2>
+                  <p className="text-muted-foreground mt-2">Price per guest</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-base font-medium">Price per Person *</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={tourForm.price_per_person}
+                      onChange={(e) => setTourForm((f) => ({ ...f, price_per_person: Number(e.target.value) }))}
+                      className="mt-2 text-lg py-6"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-base font-medium">Currency</Label>
+                    <Select value={tourForm.currency} onValueChange={(v) => setTourForm((f) => ({ ...f, currency: v }))}>
+                      <SelectTrigger className="mt-2 h-14 text-lg"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {currencies.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-base font-medium">Duration (days)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={tourForm.duration_days}
+                    onChange={(e) => setTourForm((f) => ({ ...f, duration_days: Number(e.target.value) }))}
+                    className="mt-2 text-lg py-6"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between border rounded-xl p-4">
+                  <div>
+                    <p className="font-medium text-foreground">Publish now</p>
+                    <p className="text-sm text-muted-foreground">Turn off to save as draft</p>
+                  </div>
+                  <Switch checked={tourForm.is_published} onCheckedChange={(v) => setTourForm((f) => ({ ...f, is_published: v }))} />
+                </div>
+              </div>
+            )}
+
+            {tourWizardStep === 4 && (
+              <div className="space-y-6">
+                <div className="text-center mb-8">
+                  <CheckCircle className="w-12 h-12 mx-auto text-primary mb-4" />
+                  <h2 className="text-2xl font-bold text-foreground">Review your tour</h2>
+                  <p className="text-muted-foreground mt-2">Confirm before saving</p>
+                </div>
+
+                <div className="bg-muted/50 rounded-xl p-4 space-y-2 text-sm">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Title</span><span className="font-medium">{tourForm.title || "—"}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Location</span><span className="font-medium">{tourForm.location || "—"}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Price</span><span className="font-medium">{formatMoney(tourForm.price_per_person, tourForm.currency)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Media</span><span className="font-medium">{tourForm.images.length} file(s)</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Status</span><span className="font-medium">{tourForm.is_published ? "Live" : "Draft"}</span></div>
+                </div>
+              </div>
+            )}
+          </Card>
+
+          <div className="flex items-center justify-between mt-6">
+            <Button variant="outline" onClick={() => setTourWizardStep((s) => Math.max(1, s - 1))} disabled={tourWizardStep === 1}>
+              <ChevronLeft className="w-4 h-4 mr-2" /> Previous
+            </Button>
+            {tourWizardStep < totalSteps ? (
+              <Button onClick={() => setTourWizardStep((s) => s + 1)} disabled={!canProceedTour()}>
+                Next <ChevronRight className="w-4 h-4 ml-2" />
+              </Button>
+            ) : (
+              <Button onClick={submitTour} disabled={creatingTour}>
+                {creatingTour ? "Creating..." : "Create Tour"}
+              </Button>
+            )}
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Vehicle Creation Wizard
+  if (showVehicleWizard) {
+    const totalSteps = 4;
+    const stepTitles = ["Basics", "Media", "Pricing", "Review"];
+
+    const canProceedVehicle = () => {
+      switch (vehicleWizardStep) {
+        case 1:
+          return vehicleForm.title.trim().length >= 3 && vehicleForm.vehicle_type.trim().length >= 2;
+        case 2:
+          return true;
+        case 3:
+          return Number(vehicleForm.price_per_day) > 0 && Number(vehicleForm.seats) >= 1;
+        default:
+          return true;
+      }
+    };
+
+    const submitVehicle = async () => {
+      if (!user) return;
+      setCreatingVehicle(true);
+      const media = vehicleForm.media.length > 0 ? vehicleForm.media : null;
+      const payload: Partial<Vehicle> = {
+        title: vehicleForm.title.trim(),
+        provider_name: vehicleForm.provider_name.trim() || null,
+        vehicle_type: vehicleForm.vehicle_type.trim(),
+        seats: Number(vehicleForm.seats) || 1,
+        price_per_day: Number(vehicleForm.price_per_day) || 0,
+        currency: vehicleForm.currency,
+        driver_included: vehicleForm.driver_included,
+        media,
+        image_url: media?.[0] ?? null,
+        is_published: vehicleForm.is_published,
+      };
+      const created = await createVehicle(payload);
+      setCreatingVehicle(false);
+      if (created) {
+        setShowVehicleWizard(false);
+        setVehicleForm({
+          title: "",
+          provider_name: "",
+          vehicle_type: "Sedan",
+          seats: 4,
+          driver_included: true,
+          price_per_day: 50000,
+          currency: "RWF",
+          media: [],
+          is_published: true,
+        });
+        setVehicleWizardStep(1);
+        setTab("transport");
+        setEditingVehicleId((created as any).id);
+      }
+    };
+
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-8 max-w-3xl">
+          <div className="flex items-center justify-between mb-8">
+            <button
+              type="button"
+              onClick={() => {
+                if (vehicleWizardStep > 1) setVehicleWizardStep((s) => s - 1);
+                else {
+                  setShowVehicleWizard(false);
+                  setVehicleWizardStep(1);
+                }
+              }}
+              className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5" />
+              {vehicleWizardStep > 1 ? "Back" : "Cancel"}
+            </button>
+            <div className="text-center">
+              <h1 className="text-xl font-bold text-foreground">Add a Vehicle</h1>
+              <p className="text-sm text-muted-foreground">
+                Step {vehicleWizardStep} of {totalSteps}: {stepTitles[vehicleWizardStep - 1]}
+              </p>
+            </div>
+            <div className="w-20" />
+          </div>
+
+          <Progress value={(vehicleWizardStep / totalSteps) * 100} className="mb-8 h-2" />
+
+          <Card className="p-6 md:p-8">
+            {vehicleWizardStep === 1 && (
+              <div className="space-y-6">
+                <div className="text-center mb-8">
+                  <Car className="w-12 h-12 mx-auto text-primary mb-4" />
+                  <h2 className="text-2xl font-bold text-foreground">Vehicle details</h2>
+                  <p className="text-muted-foreground mt-2">Tell guests what you offer</p>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-base font-medium">Title *</Label>
+                    <Input
+                      value={vehicleForm.title}
+                      onChange={(e) => setVehicleForm((f) => ({ ...f, title: e.target.value }))}
+                      placeholder="e.g., Toyota Prado with driver"
+                      className="mt-2 text-lg py-6"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-base font-medium">Vehicle Type *</Label>
+                      <Input
+                        value={vehicleForm.vehicle_type}
+                        onChange={(e) => setVehicleForm((f) => ({ ...f, vehicle_type: e.target.value }))}
+                        placeholder="e.g., SUV"
+                        className="mt-2 text-lg py-6"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-base font-medium">Seats *</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={vehicleForm.seats}
+                        onChange={(e) => setVehicleForm((f) => ({ ...f, seats: Number(e.target.value) }))}
+                        className="mt-2 text-lg py-6"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-base font-medium">Provider / Company</Label>
+                    <Input
+                      value={vehicleForm.provider_name}
+                      onChange={(e) => setVehicleForm((f) => ({ ...f, provider_name: e.target.value }))}
+                      placeholder="Optional"
+                      className="mt-2 text-lg py-6"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between border rounded-xl p-4">
+                    <div>
+                      <p className="font-medium text-foreground">Driver included</p>
+                      <p className="text-sm text-muted-foreground">Toggle off for self-drive</p>
+                    </div>
+                    <Switch checked={vehicleForm.driver_included} onCheckedChange={(v) => setVehicleForm((f) => ({ ...f, driver_included: v }))} />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {vehicleWizardStep === 2 && (
+              <div className="space-y-6">
+                <div className="text-center mb-8">
+                  <ImageIcon className="w-12 h-12 mx-auto text-primary mb-4" />
+                  <h2 className="text-2xl font-bold text-foreground">Add vehicle photos or video</h2>
+                  <p className="text-muted-foreground mt-2">Show guests what they get</p>
+                </div>
+
+                <div
+                  onClick={() => setVehicleUploadDialogOpen(true)}
+                  className="border-2 border-dashed border-border rounded-2xl p-12 text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-all"
+                >
+                  <Upload className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-lg font-medium text-foreground">Click to upload media</p>
+                  <p className="text-sm text-muted-foreground mt-2">or drag and drop</p>
+                  <p className="text-xs text-muted-foreground mt-4">PNG, JPG, or Video up to 10MB each</p>
+                </div>
+
+                {vehicleForm.media.length > 0 && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {vehicleForm.media.map((url, idx) => (
+                      <div key={idx} className="relative aspect-square rounded-xl overflow-hidden group">
+                        {isVideoUrl(url) ? (
+                          <video src={url} className="w-full h-full object-cover" muted playsInline />
+                        ) : (
+                          <img src={url} alt={`Media ${idx + 1}`} className="w-full h-full object-cover" />
+                        )}
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <button
+                            type="button"
+                            onClick={() => setVehicleForm((f) => ({ ...f, media: f.media.filter((_, i) => i !== idx) }))}
+                            className="p-2 bg-white rounded-full text-destructive hover:bg-destructive hover:text-white transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                        {idx === 0 && (
+                          <div className="absolute top-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                            Cover
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <CloudinaryUploadDialog
+                  title="Upload Vehicle Media"
+                  folder="merry360x/vehicles"
+                  accept="image/*,video/*"
+                  multiple
+                  maxFiles={20}
+                  value={vehicleForm.media}
+                  onChange={(urls) => setVehicleForm((f) => ({ ...f, media: urls }))}
+                  open={vehicleUploadDialogOpen}
+                  onOpenChange={setVehicleUploadDialogOpen}
+                />
+              </div>
+            )}
+
+            {vehicleWizardStep === 3 && (
+              <div className="space-y-6">
+                <div className="text-center mb-8">
+                  <DollarSign className="w-12 h-12 mx-auto text-primary mb-4" />
+                  <h2 className="text-2xl font-bold text-foreground">Set pricing</h2>
+                  <p className="text-muted-foreground mt-2">Price per day</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-base font-medium">Price per Day *</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={vehicleForm.price_per_day}
+                      onChange={(e) => setVehicleForm((f) => ({ ...f, price_per_day: Number(e.target.value) }))}
+                      className="mt-2 text-lg py-6"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-base font-medium">Currency</Label>
+                    <Select value={vehicleForm.currency} onValueChange={(v) => setVehicleForm((f) => ({ ...f, currency: v }))}>
+                      <SelectTrigger className="mt-2 h-14 text-lg"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {currencies.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between border rounded-xl p-4">
+                  <div>
+                    <p className="font-medium text-foreground">Publish now</p>
+                    <p className="text-sm text-muted-foreground">Turn off to save as draft</p>
+                  </div>
+                  <Switch checked={vehicleForm.is_published} onCheckedChange={(v) => setVehicleForm((f) => ({ ...f, is_published: v }))} />
+                </div>
+              </div>
+            )}
+
+            {vehicleWizardStep === 4 && (
+              <div className="space-y-6">
+                <div className="text-center mb-8">
+                  <CheckCircle className="w-12 h-12 mx-auto text-primary mb-4" />
+                  <h2 className="text-2xl font-bold text-foreground">Review your vehicle</h2>
+                  <p className="text-muted-foreground mt-2">Confirm before saving</p>
+                </div>
+
+                <div className="bg-muted/50 rounded-xl p-4 space-y-2 text-sm">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Title</span><span className="font-medium">{vehicleForm.title || "—"}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Type</span><span className="font-medium">{vehicleForm.vehicle_type || "—"}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Seats</span><span className="font-medium">{vehicleForm.seats}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Price</span><span className="font-medium">{formatMoney(vehicleForm.price_per_day, vehicleForm.currency)}/day</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Media</span><span className="font-medium">{vehicleForm.media.length} file(s)</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Status</span><span className="font-medium">{vehicleForm.is_published ? "Live" : "Draft"}</span></div>
+                </div>
+              </div>
+            )}
+          </Card>
+
+          <div className="flex items-center justify-between mt-6">
+            <Button variant="outline" onClick={() => setVehicleWizardStep((s) => Math.max(1, s - 1))} disabled={vehicleWizardStep === 1}>
+              <ChevronLeft className="w-4 h-4 mr-2" /> Previous
+            </Button>
+            {vehicleWizardStep < totalSteps ? (
+              <Button onClick={() => setVehicleWizardStep((s) => s + 1)} disabled={!canProceedVehicle()}>
+                Next <ChevronRight className="w-4 h-4 ml-2" />
+              </Button>
+            ) : (
+              <Button onClick={submitVehicle} disabled={creatingVehicle}>
+                {creatingVehicle ? "Creating..." : "Create Vehicle"}
+              </Button>
+            )}
           </div>
         </div>
         <Footer />
@@ -1523,10 +2155,7 @@ export default function HostDashboard() {
           {/* Tours */}
           <TabsContent value="tours">
             <div className="flex justify-end mb-4">
-              <Button onClick={async () => {
-                const result = await createTour({ title: "New Tour", price_per_person: 50000 });
-                if (result) setEditingTourId(result.id);
-              }}>
+              <Button onClick={() => setShowTourWizard(true)}>
                 <Plus className="w-4 h-4 mr-2" /> Add Tour
               </Button>
             </div>
@@ -1562,10 +2191,7 @@ export default function HostDashboard() {
           {/* Transport */}
           <TabsContent value="transport">
             <div className="flex justify-end mb-4">
-              <Button onClick={async () => {
-                const result = await createVehicle({ title: "New Vehicle", vehicle_type: "Sedan", seats: 4, price_per_day: 50000 });
-                if (result) setEditingVehicleId(result.id);
-              }}>
+              <Button onClick={() => setShowVehicleWizard(true)}>
                 <Plus className="w-4 h-4 mr-2" /> Add Vehicle
               </Button>
             </div>

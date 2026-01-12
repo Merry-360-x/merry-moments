@@ -27,9 +27,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { usePreferences } from "@/hooks/usePreferences";
+import { supabase } from "@/integrations/supabase/client";
 
 const navLinks = [
   { key: "nav.home", path: "/" },
@@ -47,6 +48,49 @@ const Navbar = () => {
   const { t } = useTranslation();
   const { language, setLanguage, currency, setCurrency, resolvedTheme, setTheme } = usePreferences();
 
+  const [adBanners, setAdBanners] = useState<
+    Array<{
+      id: string;
+      message: string;
+      cta_label: string | null;
+      cta_url: string | null;
+      bg_color: string | null;
+      text_color: string | null;
+    }>
+  >([]);
+  const [adIndex, setAdIndex] = useState(0);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      const { data } = await supabase
+        .from("ad_banners")
+        .select("id, message, cta_label, cta_url, bg_color, text_color")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+
+      if (!mounted) return;
+      setAdBanners((data ?? []) as any);
+      setAdIndex(0);
+    };
+
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (adBanners.length <= 1) return;
+    const t = setInterval(() => setAdIndex((i) => (i + 1) % adBanners.length), 5000);
+    return () => clearInterval(t);
+  }, [adBanners.length]);
+
+  const activeAd = useMemo(() => {
+    if (adBanners.length === 0) return null;
+    return adBanners[Math.min(adIndex, adBanners.length - 1)] ?? null;
+  }, [adBanners, adIndex]);
+
   const handleSignOut = async () => {
     await signOut();
     navigate("/");
@@ -59,6 +103,29 @@ const Navbar = () => {
 
   return (
     <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
+      {activeAd && (
+        <div
+          className="w-full border-b border-border/60"
+          style={{
+            backgroundColor: activeAd.bg_color || "rgba(239, 68, 68, 0.08)",
+            color: activeAd.text_color || "inherit",
+          }}
+        >
+          <div className="container mx-auto px-4 lg:px-8 py-2 text-sm flex items-center justify-center gap-3 text-center">
+            <span className="font-medium">{activeAd.message}</span>
+            {activeAd.cta_label && activeAd.cta_url && (
+              <a
+                href={activeAd.cta_url}
+                className="underline underline-offset-4 font-semibold hover:opacity-80"
+                target="_blank"
+                rel="noreferrer"
+              >
+                {activeAd.cta_label}
+              </a>
+            )}
+          </div>
+        </div>
+      )}
       <div className="container mx-auto px-4 lg:px-8">
         <nav className="relative flex items-center justify-between h-16 lg:h-20">
           {/* Mobile: menu on the left */}
