@@ -221,17 +221,37 @@ export default function PropertyDetails() {
     setViewerOpen(true);
   };
 
-  const estimatedTotal = useMemo(() => {
+  const baseTotal = useMemo(() => {
     if (!data) return 0;
     return nights * Number(data.price_per_night ?? 0);
   }, [data, nights]);
 
+  // Stay discounts (weekly/monthly) based on selected nights
+  const stayDiscount = useMemo(() => {
+    if (!data || nights <= 0) return { percent: 0, amount: 0, label: null as string | null };
+    const weekly = Number(data.weekly_discount ?? 0);
+    const monthly = Number(data.monthly_discount ?? 0);
+    const percent = nights >= 28 && monthly > 0 ? monthly : nights >= 7 && weekly > 0 ? weekly : 0;
+    const amount = percent > 0 ? Math.round((baseTotal * percent) / 100) : 0;
+    const label = percent > 0 ? (nights >= 28 ? "Monthly discount" : "Weekly discount") : null;
+    return { percent, amount, label };
+  }, [data, nights, baseTotal]);
+
+  const subtotalAfterStayDiscount = useMemo(
+    () => Math.max(0, baseTotal - stayDiscount.amount),
+    [baseTotal, stayDiscount.amount]
+  );
+
   const pointsToUse = useMemo(() => (usePoints && myPoints >= 5 ? 5 : 0), [usePoints, myPoints]);
-  const discountAmount = useMemo(() => {
-    if (!estimatedTotal || !pointsToUse) return 0;
-    return Math.round((estimatedTotal * (pointsToUse / 100)) * 100) / 100;
-  }, [estimatedTotal, pointsToUse]);
-  const finalTotal = useMemo(() => Math.max(0, estimatedTotal - discountAmount), [estimatedTotal, discountAmount]);
+  const loyaltyDiscountAmount = useMemo(() => {
+    if (!subtotalAfterStayDiscount || !pointsToUse) return 0;
+    return Math.round((subtotalAfterStayDiscount * (pointsToUse / 100)) * 100) / 100;
+  }, [subtotalAfterStayDiscount, pointsToUse]);
+
+  const finalTotal = useMemo(
+    () => Math.max(0, subtotalAfterStayDiscount - loyaltyDiscountAmount),
+    [subtotalAfterStayDiscount, loyaltyDiscountAmount]
+  );
 
   const submitBooking = async () => {
     if (!data || !propertyId) return;
@@ -301,7 +321,8 @@ export default function PropertyDetails() {
             currency: data.currency ?? "RWF",
             status: "pending",
             loyalty_points_used: redeemed,
-            discount_amount: redeemed > 0 ? discountAmount : 0,
+            // Save total discount (stay discount + loyalty discount if used)
+            discount_amount: Math.max(0, Number(stayDiscount.amount) + (redeemed > 0 ? Number(loyaltyDiscountAmount) : 0)),
             is_guest_booking: false,
           }
         : {
@@ -314,7 +335,7 @@ export default function PropertyDetails() {
             currency: data.currency ?? "RWF",
             status: "pending",
             loyalty_points_used: 0,
-            discount_amount: 0,
+            discount_amount: Math.max(0, Number(stayDiscount.amount)),
             is_guest_booking: true,
             guest_name: guestName.trim(),
             guest_email: guestEmail.trim().toLowerCase(),
@@ -992,6 +1013,11 @@ export default function PropertyDetails() {
                         <span className="font-semibold text-foreground">
                           {formatMoney(Number(finalTotal), String(data.currency ?? "RWF"))}
                         </span>
+                        {stayDiscount.amount > 0 && stayDiscount.label ? (
+                          <span className="ml-2 text-green-600 font-medium">
+                            • You save {formatMoney(Number(stayDiscount.amount), String(data.currency ?? "RWF"))}
+                          </span>
+                        ) : null}
                       </>
                     ) : (
                       <>Select valid dates to see total.</>
@@ -1049,7 +1075,7 @@ export default function PropertyDetails() {
                       <div className="mt-2 text-xs text-muted-foreground">
                         Discount applied:{" "}
                         <span className="font-semibold text-foreground">
-                          {formatMoney(Number(discountAmount), String(data.currency ?? "RWF"))}
+                          {formatMoney(Number(loyaltyDiscountAmount), String(data.currency ?? "RWF"))}
                         </span>
                       </div>
                     ) : null}
