@@ -194,14 +194,38 @@ export default function HostDashboard() {
   };
 
   const createProperty = async (data: Partial<Property>) => {
+    // Ensure required fields
+    const payload = {
+      title: data.title || "Untitled Property",
+      location: data.location || "Unknown",
+      property_type: data.property_type || "Apartment",
+      price_per_night: data.price_per_night || 0,
+      currency: data.currency || "RWF",
+      max_guests: data.max_guests || 2,
+      bedrooms: data.bedrooms || 1,
+      bathrooms: data.bathrooms || 1,
+      host_id: user!.id,
+      is_published: false,
+    };
+
     const { error, data: newProp } = await supabase
       .from("properties")
-      .insert({ ...data, host_id: user!.id, is_published: false })
+      .insert(payload)
       .select()
       .single();
+
     if (error) {
       logError("host.property.create", error);
-      toast({ variant: "destructive", title: "Create failed", description: uiErrorMessage(error) });
+      // Check for specific error types
+      if (error.code === "42501" || error.message?.includes("policy")) {
+        toast({
+          variant: "destructive",
+          title: "Permission denied",
+          description: "You need to be a verified host to create properties. Please complete the host application.",
+        });
+      } else {
+        toast({ variant: "destructive", title: "Create failed", description: uiErrorMessage(error) });
+      }
       return null;
     }
     setProperties((prev) => [newProp as Property, ...prev]);
@@ -743,13 +767,24 @@ export default function HostDashboard() {
       bedrooms: 1,
       bathrooms: 1,
     });
+    const [creating, setCreating] = useState(false);
 
     const handleCreate = async () => {
       if (!form.title.trim()) {
-        toast({ variant: "destructive", title: "Title required" });
+        toast({ variant: "destructive", title: "Title required", description: "Please enter a property title." });
         return;
       }
+      if (!form.location.trim()) {
+        toast({ variant: "destructive", title: "Location required", description: "Please enter a location." });
+        return;
+      }
+      if (form.price_per_night <= 0) {
+        toast({ variant: "destructive", title: "Price required", description: "Please enter a valid price." });
+        return;
+      }
+      setCreating(true);
       const result = await createProperty(form);
+      setCreating(false);
       if (result) {
         setShowNewProperty(false);
         setEditingPropertyId(result.id);
@@ -760,18 +795,32 @@ export default function HostDashboard() {
       <Card className="p-4 border-2 border-dashed border-primary/50">
         <h3 className="font-semibold mb-3">New Property</h3>
         <div className="space-y-3">
-          <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Property title" />
-          <Input value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} placeholder="Location" />
+          <div>
+            <Label className="text-xs text-muted-foreground">Title *</Label>
+            <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="e.g., Cozy Apartment in Kigali" />
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">Location *</Label>
+            <Input value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} placeholder="e.g., Kigali, Nyarutarama" />
+          </div>
           <div className="grid grid-cols-2 gap-2">
-            <Input type="number" value={form.price_per_night} onChange={(e) => setForm((f) => ({ ...f, price_per_night: Number(e.target.value) }))} placeholder="Price/night" />
-            <Select value={form.property_type} onValueChange={(v) => setForm((f) => ({ ...f, property_type: v }))}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{propertyTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-            </Select>
+            <div>
+              <Label className="text-xs text-muted-foreground">Price per night *</Label>
+              <Input type="number" min={1} value={form.price_per_night} onChange={(e) => setForm((f) => ({ ...f, price_per_night: Number(e.target.value) }))} />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">Property type</Label>
+              <Select value={form.property_type} onValueChange={(v) => setForm((f) => ({ ...f, property_type: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{propertyTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setShowNewProperty(false)}>Cancel</Button>
-            <Button onClick={handleCreate}>Create</Button>
+            <Button variant="outline" onClick={() => setShowNewProperty(false)} disabled={creating}>Cancel</Button>
+            <Button onClick={handleCreate} disabled={creating}>
+              {creating ? "Creating..." : "Create Property"}
+            </Button>
           </div>
         </div>
       </Card>
