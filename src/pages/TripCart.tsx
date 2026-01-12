@@ -146,6 +146,13 @@ export default function TripCart() {
   const { guestCart, removeFromCart } = useTripCart();
   const { usdRates } = useFxRates();
 
+  const displayMoney = (amount: number, fromCurrency: string) => {
+    const to = String(preferredCurrency || fromCurrency || "RWF");
+    const from = String(fromCurrency || to || "RWF");
+    const converted = convertAmount(Number(amount ?? 0), from, to, usdRates);
+    return formatMoney(converted == null ? Number(amount ?? 0) : converted, to);
+  };
+
   // Query for authenticated user's cart
   const { data: authData, isLoading: authCartLoading } = useQuery({
     queryKey: ["trip_cart_items", user?.id],
@@ -385,7 +392,7 @@ export default function TripCart() {
                       </div>
                       <div className="text-right">
                         <div className="font-bold text-foreground">
-                          {formatMoney(Number(details?.price ?? 0), String(details?.currency ?? preferredCurrency))}
+                          {displayMoney(Number(details?.price ?? 0), String(details?.currency ?? preferredCurrency))}
                         </div>
                         <div className="text-sm text-muted-foreground">Qty: {item.quantity}</div>
                       </div>
