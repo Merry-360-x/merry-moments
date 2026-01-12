@@ -89,6 +89,7 @@ interface Property {
   title: string;
   description: string | null;
   location: string;
+  address?: string | null;
   property_type: string;
   price_per_night: number;
   currency: string | null;
@@ -779,6 +780,9 @@ export default function HostDashboard() {
                 <div>
                   <h3 className="font-semibold text-foreground">{property.title}</h3>
                   <p className="text-sm text-muted-foreground">{property.location}</p>
+                  {property.address ? (
+                    <p className="text-xs text-muted-foreground mt-1">{property.address}</p>
+                  ) : null}
                 </div>
                 <span className="text-primary font-bold text-sm">
                   {formatMoney(property.price_per_night, property.currency || "RWF")}
