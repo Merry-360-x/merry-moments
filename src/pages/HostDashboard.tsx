@@ -1361,10 +1361,10 @@ export default function HostDashboard() {
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="mb-6">
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="properties">Properties ({properties.length})</TabsTrigger>
-            <TabsTrigger value="tours">Tours ({tours.length})</TabsTrigger>
-            <TabsTrigger value="transport">Transport ({vehicles.length})</TabsTrigger>
-            <TabsTrigger value="bookings">Bookings ({bookings.length})</TabsTrigger>
+            <TabsTrigger value="properties">Properties ({(properties || []).length})</TabsTrigger>
+            <TabsTrigger value="tours">Tours ({(tours || []).length})</TabsTrigger>
+            <TabsTrigger value="transport">Transport ({(vehicles || []).length})</TabsTrigger>
+            <TabsTrigger value="bookings">Bookings ({(bookings || []).length})</TabsTrigger>
           </TabsList>
 
           {/* Overview */}
@@ -1388,7 +1388,7 @@ export default function HostDashboard() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Properties</p>
-                    <p className="text-xl font-bold">{publishedProperties} / {properties.length}</p>
+                    <p className="text-xl font-bold">{publishedProperties} / {(properties || []).length}</p>
                   </div>
                 </div>
               </Card>
@@ -1410,7 +1410,7 @@ export default function HostDashboard() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Total Bookings</p>
-                    <p className="text-xl font-bold">{bookings.length}</p>
+                    <p className="text-xl font-bold">{(bookings || []).length}</p>
                   </div>
                 </div>
               </Card>
@@ -1447,11 +1447,11 @@ export default function HostDashboard() {
             {/* Recent Bookings */}
             <Card className="p-4">
               <h3 className="font-semibold mb-4">Recent Bookings</h3>
-              {bookings.length === 0 ? (
+              {(bookings || []).length === 0 ? (
                 <p className="text-muted-foreground">No bookings yet</p>
               ) : (
                 <div className="space-y-2">
-                  {bookings.slice(0, 5).map((b) => (
+                  {(bookings || []).slice(0, 5).map((b) => (
                     <div key={b.id} className="flex items-center justify-between p-3 border rounded-lg">
                       <div>
                         <p className="font-medium">{b.check_in} → {b.check_out}</p>
@@ -1480,8 +1480,8 @@ export default function HostDashboard() {
               </Button>
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {properties.map((p) => <PropertyCard key={p.id} property={p} />)}
-              {properties.length === 0 && (
+              {(properties || []).map((p) => <PropertyCard key={p.id} property={p} />)}
+              {(properties || []).length === 0 && (
                 <div className="col-span-full text-center py-12">
                   <Building2 className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                   <p className="text-muted-foreground mb-4">No properties yet</p>
@@ -1504,7 +1504,7 @@ export default function HostDashboard() {
               </Button>
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {tours.map((t) => (
+              {(tours || []).map((t) => (
                 <Card key={t.id} className="overflow-hidden">
                   <div className="h-32 bg-muted flex items-center justify-center">
                     {t.images?.[0] ? (
@@ -1526,7 +1526,7 @@ export default function HostDashboard() {
                   </div>
                 </Card>
               ))}
-              {tours.length === 0 && (
+              {(tours || []).length === 0 && (
                 <p className="text-muted-foreground col-span-full text-center py-8">No tours yet</p>
               )}
             </div>
@@ -1543,7 +1543,7 @@ export default function HostDashboard() {
               </Button>
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {vehicles.map((v) => (
+              {(vehicles || []).map((v) => (
                 <Card key={v.id} className="overflow-hidden">
                   <div className="h-32 bg-muted flex items-center justify-center">
                     {(v.media?.[0] || v.image_url) ? (
@@ -1565,7 +1565,7 @@ export default function HostDashboard() {
                   </div>
                 </Card>
               ))}
-              {vehicles.length === 0 && (
+              {(vehicles || []).length === 0 && (
                 <p className="text-muted-foreground col-span-full text-center py-8">No vehicles yet</p>
               )}
             </div>
@@ -1574,10 +1574,10 @@ export default function HostDashboard() {
           {/* Bookings */}
           <TabsContent value="bookings">
             <div className="space-y-3">
-              {bookings.length === 0 ? (
+              {(bookings || []).length === 0 ? (
                 <p className="text-muted-foreground text-center py-8">No bookings yet</p>
               ) : (
-                bookings.map((b) => (
+                (bookings || []).map((b) => (
                   <Card key={b.id} className="p-4">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                       <div className="flex-1">
