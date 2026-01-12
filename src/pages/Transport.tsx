@@ -1,4 +1,4 @@
-import { Car, Search, MapPin, Frown, ArrowLeftRight, Star } from "lucide-react";
+import { Car, Search, MapPin, Frown, ArrowLeftRight } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -26,8 +26,6 @@ type TransportVehicleRow = Pick<
   | "driver_included"
   | "image_url"
   | "media"
-  | "rating"
-  | "review_count"
 >;
 type TransportRouteRow = Pick<Tables<"transport_routes">, "id" | "from_location" | "to_location" | "base_price" | "currency">;
 
@@ -71,7 +69,7 @@ const Transport = () => {
       let q = supabase
         .from("transport_vehicles")
         .select(
-          "id, title, provider_name, vehicle_type, seats, price_per_day, currency, driver_included, image_url, media, rating, review_count"
+          "id, title, provider_name, vehicle_type, seats, price_per_day, currency, driver_included, image_url, media"
         )
         .or("is_published.eq.true,is_published.is.null")
         .order("created_at", { ascending: false });
@@ -303,11 +301,6 @@ const Transport = () => {
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <h3 className="font-semibold text-foreground line-clamp-1">{v.provider_name ?? v.title}</h3>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Star className="w-4 h-4 fill-primary text-primary" />
-                      <span className="text-sm font-medium">{Number(v.rating ?? 0).toFixed(1)}</span>
-                      <span className="text-sm text-muted-foreground">({v.review_count ?? 0})</span>
-                    </div>
                   </div>
                   <p className="text-sm text-muted-foreground mb-2">
                     {v.driver_included ? "Driver included" : "Self drive"} · {v.seats} seats
