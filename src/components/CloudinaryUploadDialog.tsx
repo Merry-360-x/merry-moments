@@ -31,9 +31,19 @@ export function CloudinaryUploadDialog(props: {
   value: string[];
   onChange: (urls: string[]) => void;
   autoStart?: boolean;
+  // External control (optional)
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(props.open ?? false);
+  
+  // Support both internal and external open state
+  const open = props.open !== undefined ? props.open : internalOpen;
+  const setOpen = (value: boolean) => {
+    setInternalOpen(value);
+    props.onOpenChange?.(value);
+  };
   const [items, setItems] = useState<UploadItem[]>([]);
   const [busy, setBusy] = useState(false);
   const autoStart = props.autoStart ?? false;
@@ -196,67 +206,99 @@ export function CloudinaryUploadDialog(props: {
         {/* Body */}
         <div className="p-6 space-y-6">
           {/* Dropzone */}
-          {totalCount === 0 ? (
-            <div
-              className={`w-full rounded-2xl border-2 border-dashed p-10 transition-colors ${
-                dragActive ? "border-primary bg-primary/5" : "border-border"
-              }`}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragActive(true);
-              }}
-              onDragLeave={() => setDragActive(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragActive(false);
-                enqueue(e.dataTransfer.files);
-              }}
-            >
+          <div
+            className={`w-full rounded-2xl border-2 border-dashed p-8 transition-colors ${
+              dragActive ? "border-primary bg-primary/5" : "border-border"
+            }`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragActive(true);
+            }}
+            onDragLeave={() => setDragActive(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragActive(false);
+              enqueue(e.dataTransfer.files);
+            }}
+          >
+            {totalCount === 0 ? (
               <div className="flex flex-col items-center text-center gap-4">
                 <div className="w-20 h-20 rounded-2xl bg-muted flex items-center justify-center">
                   <UploadCloud className="w-10 h-10 text-muted-foreground" />
                 </div>
-                <div className="text-3xl font-bold text-foreground">Drag and drop</div>
-                <div className="text-muted-foreground">or browse for photos</div>
+                <div className="text-2xl font-bold text-foreground">Click to upload photos</div>
+                <div className="text-muted-foreground">or drag and drop</div>
+                <div className="text-sm text-muted-foreground">PNG, JPG, or Video up to 10MB each</div>
                 <Button type="button" className="px-10" onClick={pickFiles}>
-                  Browse
+                  Browse Files
                 </Button>
               </div>
-            </div>
-          ) : (
-            <div className="w-full flex items-center justify-center">
-              <div className="relative w-full max-w-xl rounded-2xl overflow-hidden bg-muted border border-border">
-                {primaryItem?.previewUrl ? (
-                  primaryItem.file.type.startsWith("video/") ? (
-                    <video src={primaryItem.previewUrl} className="w-full h-[320px] object-cover" controls playsInline />
-                  ) : (
-                    <img src={primaryItem.previewUrl} alt={primaryItem.file.name} className="w-full h-[320px] object-cover" />
-                  )
-                ) : (
-                  <div className="w-full h-[320px]" />
-                )}
+            ) : (
+              <div className="space-y-4">
+                {/* Grid of all items being uploaded */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  {items.map((item) => (
+                    <div key={item.id} className="relative aspect-square rounded-xl overflow-hidden bg-muted border border-border group">
+                      {item.previewUrl ? (
+                        item.file.type.startsWith("video/") ? (
+                          <video src={item.previewUrl} className="w-full h-full object-cover" muted playsInline />
+                        ) : (
+                          <img src={item.previewUrl} alt={item.file.name} className="w-full h-full object-cover" />
+                        )
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground px-2">
+                          {item.file.name}
+                        </div>
+                      )}
 
-                {/* remove */}
-                <button
-                  type="button"
-                  onClick={() => (primaryItem ? clearItem(primaryItem.id) : null)}
-                  className="absolute top-4 right-4 h-11 w-11 rounded-full bg-black/70 text-white flex items-center justify-center"
-                  aria-label="Remove"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
+                      {/* Status overlay */}
+                      {item.status === "uploading" && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                          <div className="h-8 w-8 border-3 border-white border-t-transparent rounded-full animate-spin" />
+                        </div>
+                      )}
+                      {item.status === "done" && (
+                        <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded">✓</div>
+                      )}
+                      {item.status === "error" && (
+                        <div className="absolute inset-0 bg-red-500/70 flex items-center justify-center text-white text-xs px-2">
+                          Failed
+                        </div>
+                      )}
 
-                {/* uploading overlay */}
-                {primaryItem?.status === "uploading" ? (
-                  <div className="absolute inset-0 bg-black/35 flex items-center justify-center">
-                    <div className="h-14 w-14 rounded-full bg-black/35 flex items-center justify-center">
-                      <div className="h-10 w-10 border-4 border-white border-t-transparent rounded-full animate-spin" />
+                      {/* Remove button */}
+                      <button
+                        type="button"
+                        onClick={() => clearItem(item.id)}
+                        className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/70 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        aria-label="Remove"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+
+                      {/* Progress bar */}
+                      {item.status === "uploading" && (
+                        <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/30">
+                          <div className="h-full bg-white transition-all" style={{ width: `${item.percent}%` }} />
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ) : null}
+                  ))}
+
+                  {/* Add more button */}
+                  {canAddMore && (
+                    <button
+                      type="button"
+                      onClick={pickFiles}
+                      className="aspect-square rounded-xl border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 flex items-center justify-center transition-colors"
+                    >
+                      <Plus className="w-8 h-8 text-muted-foreground" />
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           <input
             ref={inputRef}

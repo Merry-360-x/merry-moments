@@ -375,7 +375,7 @@ export default function HostDashboard() {
       cancellation_policy: propertyForm.cancellation_policy,
       images: propertyForm.images,
       host_id: user!.id,
-      is_published: false,
+      is_published: true,
       // Discounts
       weekly_discount: propertyForm.weekly_discount || null,
       monthly_discount: propertyForm.monthly_discount || null,
@@ -683,19 +683,18 @@ export default function HostDashboard() {
                   <Button size="sm" onClick={handleSave}><Save className="w-3 h-3" /></Button>
                 </div>
               </div>
-              {editUploadOpen && (
-                <CloudinaryUploadDialog
-                  title="Upload Property Media"
-                  folder="merry360/properties"
-                  accept="image/*,video/*"
-                  multiple
-                  value={form.images || []}
-                  onChange={(urls) => {
-                    setForm((f) => ({ ...f, images: urls }));
-                    setEditUploadOpen(false);
-                  }}
-                />
-              )}
+              <CloudinaryUploadDialog
+                title="Upload Property Media"
+                folder="merry360/properties"
+                accept="image/*,video/*"
+                multiple
+                value={form.images || []}
+                onChange={(urls) => {
+                  setForm((f) => ({ ...f, images: urls }));
+                }}
+                open={editUploadOpen}
+                onOpenChange={setEditUploadOpen}
+              />
             </>
           ) : (
             <>
@@ -1152,20 +1151,19 @@ export default function HostDashboard() {
                   </div>
                 )}
 
-                {uploadDialogOpen && (
-                  <CloudinaryUploadDialog
-                    title="Upload Property Photos"
-                    folder="merry360/properties"
-                    accept="image/*,video/*"
-                    multiple
-                    maxFiles={20}
-                    value={propertyForm.images}
-                    onChange={(urls) => {
-                      setPropertyForm((f) => ({ ...f, images: urls }));
-                      setUploadDialogOpen(false);
-                    }}
-                  />
-                )}
+                <CloudinaryUploadDialog
+                  title="Upload Property Photos"
+                  folder="merry360/properties"
+                  accept="image/*,video/*"
+                  multiple
+                  maxFiles={20}
+                  value={propertyForm.images}
+                  onChange={(urls) => {
+                    setPropertyForm((f) => ({ ...f, images: urls }));
+                  }}
+                  open={uploadDialogOpen}
+                  onOpenChange={setUploadDialogOpen}
+                />
               </div>
             )}
 
