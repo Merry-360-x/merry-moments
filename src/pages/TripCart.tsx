@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import type { Tables } from "@/integrations/supabase/types";
 import { usePreferences } from "@/hooks/usePreferences";
 import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
+import { useTripCart, getGuestCart, type GuestCartItem } from "@/hooks/useTripCart";
 
 type CartItemRow = Pick<Tables<"trip_cart_items">, "id" | "item_type" | "reference_id" | "quantity" | "created_at">;
 
@@ -29,14 +31,120 @@ type CartDetails =
   | { type: "transport_route"; title: string; price: number; currency: string; image?: string | null; meta?: string }
   | { type: "transport_service"; title: string; price: number; currency: string; image?: string | null; meta?: string };
 
+// Helper to fetch details for cart items
+async function fetchCartItemDetails(items: Array<{ item_type: string; reference_id: string }>) {
+  const byType = {
+    tour: items.filter((i) => i.item_type === "tour"),
+    property: items.filter((i) => i.item_type === "property"),
+    transport_service: items.filter((i) => i.item_type === "transport_service"),
+    transport_vehicle: items.filter((i) => i.item_type === "transport_vehicle"),
+    transport_route: items.filter((i) => i.item_type === "transport_route"),
+  };
+
+  const tourIds = byType.tour.map((i) => i.reference_id);
+  const propertyIds = byType.property.map((i) => i.reference_id);
+  const serviceIds = byType.transport_service.map((i) => i.reference_id);
+  const vehicleIds = byType.transport_vehicle.map((i) => i.reference_id);
+  const routeIds = byType.transport_route.map((i) => i.reference_id);
+
+  const [toursRes, propertiesRes, servicesRes, vehiclesRes, routesRes] = await Promise.all([
+    tourIds.length
+      ? supabase.from("tours").select("id, title, price_per_person, currency, images, duration_days").in("id", tourIds)
+      : Promise.resolve({ data: [], error: null } as const),
+    propertyIds.length
+      ? supabase.from("properties").select("id, title, price_per_night, currency, images, location").in("id", propertyIds)
+      : Promise.resolve({ data: [], error: null } as const),
+    serviceIds.length
+      ? supabase.from("transport_services").select("id, title, description").in("id", serviceIds)
+      : Promise.resolve({ data: [], error: null } as const),
+    vehicleIds.length
+      ? supabase.from("transport_vehicles").select("id, title, vehicle_type, seats, price_per_day, currency, image_url").in("id", vehicleIds)
+      : Promise.resolve({ data: [], error: null } as const),
+    routeIds.length
+      ? supabase.from("transport_routes").select("id, from_location, to_location, base_price, currency").in("id", routeIds)
+      : Promise.resolve({ data: [], error: null } as const),
+  ]);
+
+  const tours = new Map(
+    ((toursRes.data as TourDetailRow[] | null) ?? []).map((r) => [
+      String(r.id),
+      {
+        title: String(r.title),
+        price: Number(r.price_per_person ?? 0),
+        currency: String(r.currency ?? "RWF"),
+        image: (r.images as string[] | null)?.[0] ?? null,
+        meta: `${Number(r.duration_days ?? 1)} day${Number(r.duration_days ?? 1) === 1 ? "" : "s"}`,
+      },
+    ])
+  );
+
+  const properties = new Map(
+    ((propertiesRes.data as Array<{
+      id: string;
+      title: string;
+      price_per_night: number;
+      currency: string | null;
+      images: string[] | null;
+      location: string;
+    }> | null) ?? []).map((r) => [
+      String(r.id),
+      {
+        title: String(r.title),
+        price: Number(r.price_per_night ?? 0),
+        currency: String(r.currency ?? "RWF"),
+        image: (r.images as string[] | null)?.[0] ?? null,
+        meta: String(r.location ?? ""),
+      },
+    ])
+  );
+
+  const services = new Map(
+    ((servicesRes.data as TransportServiceDetailRow[] | null) ?? []).map((r) => [
+      String(r.id),
+      {
+        title: String(r.title),
+        meta: r.description ? String(r.description) : undefined,
+      },
+    ])
+  );
+
+  const vehicles = new Map(
+    ((vehiclesRes.data as TransportVehicleDetailRow[] | null) ?? []).map((r) => [
+      String(r.id),
+      {
+        title: String(r.title),
+        price: Number(r.price_per_day ?? 0),
+        currency: String(r.currency ?? "RWF"),
+        image: (r.image_url as string | null) ?? null,
+        meta: `${String(r.vehicle_type ?? "Vehicle")} • ${Number(r.seats ?? 0)} seats`,
+      },
+    ])
+  );
+
+  const routes = new Map(
+    ((routesRes.data as TransportRouteDetailRow[] | null) ?? []).map((r) => [
+      String(r.id),
+      {
+        title: `${String(r.from_location)} → ${String(r.to_location)}`,
+        price: Number(r.base_price ?? 0),
+        currency: String(r.currency ?? "RWF"),
+      },
+    ])
+  );
+
+  return { tours, properties, services, vehicles, routes };
+}
+
 export default function TripCart() {
   const { t } = useTranslation();
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
   const { currency: preferredCurrency } = usePreferences();
+  const { guestCart, removeFromCart } = useTripCart();
 
-  const { data, isLoading } = useQuery({
+  // Query for authenticated user's cart
+  const { data: authData, isLoading: authCartLoading } = useQuery({
     queryKey: ["trip_cart_items", user?.id],
     enabled: !!user?.id,
     queryFn: async () => {
@@ -48,158 +156,29 @@ export default function TripCart() {
 
       if (error) throw error;
       const items = (data as CartItemRow[] | null) ?? [];
-
-      // Fetch details per type.
-      const byType = {
-        tour: items.filter((i) => i.item_type === "tour"),
-        property: items.filter((i) => i.item_type === "property"),
-        transport_service: items.filter((i) => i.item_type === "transport_service"),
-        transport_vehicle: items.filter((i) => i.item_type === "transport_vehicle"),
-        transport_route: items.filter((i) => i.item_type === "transport_route"),
-      };
-
-      const tourIds = byType.tour.map((i) => i.reference_id);
-      const propertyIds = byType.property.map((i) => i.reference_id);
-      const serviceIds = byType.transport_service.map((i) => i.reference_id);
-      const vehicleIds = byType.transport_vehicle.map((i) => i.reference_id);
-      const routeIds = byType.transport_route.map((i) => i.reference_id);
-
-      const [toursRes, propertiesRes, servicesRes, vehiclesRes, routesRes] = await Promise.all([
-        tourIds.length
-          ? supabase
-              .from("tours")
-              .select("id, title, price_per_person, currency, images, duration_days")
-              .in("id", tourIds)
-          : Promise.resolve({ data: [], error: null } as const),
-        propertyIds.length
-          ? supabase
-              .from("properties")
-              .select("id, title, price_per_night, currency, images, location")
-              .in("id", propertyIds)
-          : Promise.resolve({ data: [], error: null } as const),
-        serviceIds.length
-          ? supabase
-              .from("transport_services")
-              .select("id, title, description")
-              .in("id", serviceIds)
-          : Promise.resolve({ data: [], error: null } as const),
-        vehicleIds.length
-          ? supabase
-              .from("transport_vehicles")
-              .select("id, title, vehicle_type, seats, price_per_day, currency, image_url")
-              .in("id", vehicleIds)
-          : Promise.resolve({ data: [], error: null } as const),
-        routeIds.length
-          ? supabase
-              .from("transport_routes")
-              .select("id, from_location, to_location, base_price, currency")
-              .in("id", routeIds)
-          : Promise.resolve({ data: [], error: null } as const),
-      ]);
-
-      const tours = new Map(
-        ((toursRes.data as TourDetailRow[] | null) ?? []).map((r) => [
-          String(r.id),
-          {
-            title: String(r.title),
-            price: Number(r.price_per_person ?? 0),
-            currency: String(r.currency ?? "RWF"),
-            image: (r.images as string[] | null)?.[0] ?? null,
-            meta: `${Number(r.duration_days ?? 1)} day${Number(r.duration_days ?? 1) === 1 ? "" : "s"}`,
-          },
-        ])
-      );
-
-      const properties = new Map(
-        ((propertiesRes.data as Array<{
-          id: string;
-          title: string;
-          price_per_night: number;
-          currency: string | null;
-          images: string[] | null;
-          location: string;
-        }> | null) ?? []).map((r) => [
-          String(r.id),
-          {
-            title: String(r.title),
-            price: Number(r.price_per_night ?? 0),
-            currency: String(r.currency ?? "RWF"),
-            image: (r.images as string[] | null)?.[0] ?? null,
-            meta: String(r.location ?? ""),
-          },
-        ])
-      );
-
-      const services = new Map(
-        ((servicesRes.data as TransportServiceDetailRow[] | null) ?? []).map((r) => [
-          String(r.id),
-          {
-            title: String(r.title),
-            meta: r.description ? String(r.description) : undefined,
-          },
-        ])
-      );
-
-      const vehicles = new Map(
-        ((vehiclesRes.data as TransportVehicleDetailRow[] | null) ?? []).map((r) => [
-          String(r.id),
-          {
-            title: String(r.title),
-            price: Number(r.price_per_day ?? 0),
-            currency: String(r.currency ?? "RWF"),
-            image: (r.image_url as string | null) ?? null,
-            meta: `${String(r.vehicle_type ?? "Vehicle")} • ${Number(r.seats ?? 0)} seats`,
-          },
-        ])
-      );
-
-      const routes = new Map(
-        ((routesRes.data as TransportRouteDetailRow[] | null) ?? []).map((r) => [
-          String(r.id),
-          {
-            title: `${String(r.from_location)} → ${String(r.to_location)}`,
-            price: Number(r.base_price ?? 0),
-            currency: String(r.currency ?? "RWF"),
-          },
-        ])
-      );
+      const details = await fetchCartItemDetails(items);
 
       const detailed = items.map((i) => {
         if (i.item_type === "tour") {
-          const d = tours.get(i.reference_id);
+          const d = details.tours.get(i.reference_id);
           return { item: i, details: d ? ({ type: "tour", ...d } as CartDetails) : null };
         }
         if (i.item_type === "property") {
-          const d = properties.get(i.reference_id);
+          const d = details.properties.get(i.reference_id);
           return { item: i, details: d ? ({ type: "property", ...d } as CartDetails) : null };
         }
         if (i.item_type === "transport_vehicle") {
-          const d = vehicles.get(i.reference_id);
-          return {
-            item: i,
-            details: d ? ({ type: "transport_vehicle", ...d } as CartDetails) : null,
-          };
+          const d = details.vehicles.get(i.reference_id);
+          return { item: i, details: d ? ({ type: "transport_vehicle", ...d } as CartDetails) : null };
         }
         if (i.item_type === "transport_route") {
-          const d = routes.get(i.reference_id);
-          return {
-            item: i,
-            details: d ? ({ type: "transport_route", ...d } as CartDetails) : null,
-          };
+          const d = details.routes.get(i.reference_id);
+          return { item: i, details: d ? ({ type: "transport_route", ...d } as CartDetails) : null };
         }
-
-        const s = services.get(i.reference_id);
+        const s = details.services.get(i.reference_id);
         return {
           item: i,
-          details: s
-            ? ({
-                type: "transport_service",
-                title: s.title,
-                price: 0,
-                currency: "RWF",
-                meta: s.meta,
-              } as CartDetails)
-            : null,
+          details: s ? ({ type: "transport_service", title: s.title, price: 0, currency: "RWF", meta: s.meta } as CartDetails) : null,
         };
       });
 
@@ -218,36 +197,79 @@ export default function TripCart() {
     },
   });
 
-  const removeItem = async (id: string) => {
-    if (!user) return;
-    const { error } = await supabase.from("trip_cart_items").delete().eq("id", id).eq("user_id", user.id);
-    if (error) {
-      logError("tripCart.removeItem", error);
-      toast({
-        variant: "destructive",
-        title: "Could not remove item",
-        description: uiErrorMessage(error, "Please try again."),
+  // Query for guest cart details
+  const { data: guestData, isLoading: guestCartLoading } = useQuery({
+    queryKey: ["guest_cart_details", guestCart.map((i) => i.id).join(",")],
+    enabled: !user && guestCart.length > 0,
+    queryFn: async () => {
+      const details = await fetchCartItemDetails(guestCart);
+
+      const detailed = guestCart.map((i) => {
+        if (i.item_type === "tour") {
+          const d = details.tours.get(i.reference_id);
+          return { item: i, details: d ? ({ type: "tour", ...d } as CartDetails) : null };
+        }
+        if (i.item_type === "property") {
+          const d = details.properties.get(i.reference_id);
+          return { item: i, details: d ? ({ type: "property", ...d } as CartDetails) : null };
+        }
+        if (i.item_type === "transport_vehicle") {
+          const d = details.vehicles.get(i.reference_id);
+          return { item: i, details: d ? ({ type: "transport_vehicle", ...d } as CartDetails) : null };
+        }
+        if (i.item_type === "transport_route") {
+          const d = details.routes.get(i.reference_id);
+          return { item: i, details: d ? ({ type: "transport_route", ...d } as CartDetails) : null };
+        }
+        const s = details.services.get(i.reference_id);
+        return {
+          item: i,
+          details: s ? ({ type: "transport_service", title: s.title, price: 0, currency: "RWF", meta: s.meta } as CartDetails) : null,
+        };
       });
-      return;
-    }
-    toast({ title: "Removed", description: "Item removed from your Trip Cart." });
-    await qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
+
+      const totals = detailed.reduce(
+        (acc, row) => {
+          if (!row.details) return acc;
+          const unit = Number(row.details.price ?? 0);
+          acc.amount += unit * Number(row.item.quantity ?? 1);
+          acc.currency = row.details.currency || acc.currency;
+          return acc;
+        },
+        { amount: 0, currency: "RWF" }
+      );
+
+      return { rows: detailed, totals };
+    },
+  });
+
+  // Use appropriate data based on auth state
+  const data = user ? authData : guestData;
+  const isLoading = user ? authCartLoading : guestCartLoading;
+
+  const removeItem = async (id: string) => {
+    await removeFromCart(id);
   };
 
   const clearCart = async () => {
-    if (!user) return;
-    const { error } = await supabase.from("trip_cart_items").delete().eq("user_id", user.id);
-    if (error) {
-      logError("tripCart.clearCart", error);
-      toast({
-        variant: "destructive",
-        title: "Could not clear cart",
-        description: uiErrorMessage(error, "Please try again."),
-      });
-      return;
+    if (user) {
+      const { error } = await supabase.from("trip_cart_items").delete().eq("user_id", user.id);
+      if (error) {
+        logError("tripCart.clearCart", error);
+        toast({
+          variant: "destructive",
+          title: "Could not clear cart",
+          description: uiErrorMessage(error, "Please try again."),
+        });
+        return;
+      }
+      toast({ title: "Trip Cart cleared" });
+      await qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
+    } else {
+      // Clear guest cart
+      localStorage.removeItem("merry360_guest_cart");
+      window.location.reload(); // Simple refresh to update state
     }
-    toast({ title: "Trip Cart cleared" });
-    await qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
   };
 
   if (authLoading) {
@@ -258,21 +280,7 @@ export default function TripCart() {
     );
   }
 
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="container mx-auto px-4 lg:px-8 py-12">
-          <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">{t("actions.tripCart")}</h1>
-          <p className="text-muted-foreground mb-8">Please sign in to view your Trip Cart.</p>
-          <Link to="/login?redirect=/trip-cart">
-            <Button>Sign In</Button>
-          </Link>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
+  const hasItems = (data?.rows?.length ?? 0) > 0 || (!user && guestCart.length > 0);
 
   return (
     <div className="min-h-screen bg-background">
@@ -282,12 +290,25 @@ export default function TripCart() {
         <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">{t("actions.tripCart")}</h1>
         <p className="text-muted-foreground mb-8">{t("tripCart.subtitle")}</p>
 
+        {/* Guest notice */}
+        {!user && hasItems && (
+          <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 mb-6">
+            <p className="text-sm text-foreground">
+              <strong>You're browsing as a guest.</strong>{" "}
+              <Link to="/auth?redirect=/trip-cart" className="text-primary hover:underline">
+                Sign in
+              </Link>{" "}
+              to save your cart across devices and earn loyalty points.
+            </p>
+          </div>
+        )}
+
         {isLoading ? (
           <div className="bg-card rounded-xl shadow-card p-8 text-center">
             <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
             <p className="text-muted-foreground">Loading your cart…</p>
           </div>
-        ) : (data?.rows?.length ?? 0) === 0 ? (
+        ) : !hasItems ? (
           <div className="bg-card rounded-xl shadow-card p-8 text-center">
             <p className="text-muted-foreground mb-6">{t("tripCart.empty")}</p>
             <Link to="/accommodations">
@@ -308,8 +329,7 @@ export default function TripCart() {
               </div>
             </div>
 
-            {data!.rows.map(({ item, details }) => {
-              // Determine the link based on item type
+            {data?.rows.map(({ item, details }) => {
               const itemLink =
                 item.item_type === "property"
                   ? `/properties/${item.reference_id}`
@@ -324,23 +344,13 @@ export default function TripCart() {
                   {itemLink ? (
                     <Link to={itemLink} className="block w-full md:w-40 h-36 rounded-lg overflow-hidden">
                       {details?.image ? (
-                        <img
-                          src={details.image}
-                          alt={details.title}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
+                        <img src={details.image} alt={details.title} className="w-full h-full object-cover" loading="lazy" />
                       ) : (
                         <div className="w-full h-full bg-muted" />
                       )}
                     </Link>
                   ) : details?.image ? (
-                    <img
-                      src={details.image}
-                      alt={details.title}
-                      className="w-full md:w-40 h-36 object-cover rounded-lg"
-                      loading="lazy"
-                    />
+                    <img src={details.image} alt={details.title} className="w-full md:w-40 h-36 object-cover rounded-lg" loading="lazy" />
                   ) : (
                     <div className="w-full md:w-40 h-36 bg-muted rounded-lg" />
                   )}
@@ -355,9 +365,7 @@ export default function TripCart() {
                         ) : (
                           <div className="font-semibold text-foreground">{details?.title ?? "Item"}</div>
                         )}
-                        {details?.meta ? (
-                          <div className="text-sm text-muted-foreground mt-1">{details.meta}</div>
-                        ) : null}
+                        {details?.meta ? <div className="text-sm text-muted-foreground mt-1">{details.meta}</div> : null}
                         <div className="text-xs text-muted-foreground mt-2">Type: {item.item_type}</div>
                       </div>
                       <div className="text-right">

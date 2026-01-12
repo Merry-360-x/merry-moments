@@ -19,6 +19,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { isVideoUrl } from "@/lib/media";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { extractNeighborhood } from "@/lib/location";
+import { useTripCart } from "@/hooks/useTripCart";
 
 type PropertyRow = {
   id: string;
@@ -70,6 +71,7 @@ export default function PropertyDetails() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const { toggleFavorite, checkFavorite } = useFavorites();
+  const { addToCart } = useTripCart();
 
   const [checkIn, setCheckIn] = useState(isoToday());
   const [checkOut, setCheckOut] = useState(isoTomorrow());
@@ -342,28 +344,7 @@ export default function PropertyDetails() {
 
   const addPropertyToTripCart = async () => {
     if (!data || !propertyId) return;
-    if (!user) {
-      navigate(`/login?redirect=/properties/${encodeURIComponent(String(propertyId))}`);
-      return;
-    }
-    try {
-      const { error } = await supabase.from("trip_cart_items").insert({
-        user_id: user.id,
-        item_type: "property",
-        reference_id: data.id,
-        quantity: 1,
-      });
-      if (error) throw error;
-      toast({ title: "Added to Trip Cart", description: "Accommodation added to your cart." });
-      await qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
-    } catch (e) {
-        logError("tripCart.addProperty", e);
-      toast({
-        variant: "destructive",
-        title: "Could not add to Trip Cart",
-          description: uiErrorMessage(e, "Please try again."),
-      });
-    }
+    await addToCart("property", data.id);
   };
 
   const { data: relatedTours = [] } = useQuery({
