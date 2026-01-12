@@ -16,14 +16,12 @@ const HostingCTA = () => {
         >
           <div className="absolute inset-0 bg-gradient-to-r from-foreground/70 to-foreground/20" />
           <div className="relative z-10 p-7">
-            <h3 className="text-2xl font-bold text-primary-foreground italic">
-              {t("nav.accommodations")}
-            </h3>
-            <p className="text-primary-foreground/90 mt-2 mb-5 max-w-[28ch]">
-              Find stays that feel like home — hotels, villas, guesthouses, and more.
+            <h3 className="text-2xl font-bold text-primary-foreground">{t("nav.accommodations")}</h3>
+            <p className="text-primary-foreground/90 mt-2 mb-5 max-w-[34ch]">
+              Browse hotels, villas, apartments, and guesthouses.
             </p>
             <Button variant="hero" onClick={() => navigate("/accommodations")}>
-              Browse stays
+              View accommodations
             </Button>
           </div>
         </div>
@@ -35,14 +33,12 @@ const HostingCTA = () => {
         >
           <div className="absolute inset-0 bg-gradient-to-r from-foreground/70 to-foreground/20" />
           <div className="relative z-10 p-7">
-            <h3 className="text-2xl font-bold text-primary-foreground italic">
-              {t("nav.tours")}
-            </h3>
-            <p className="text-primary-foreground/90 mt-2 mb-5 max-w-[28ch]">
-              Book unforgettable experiences — culture, adventure, wildlife, and more.
+            <h3 className="text-2xl font-bold text-primary-foreground">{t("nav.tours")}</h3>
+            <p className="text-primary-foreground/90 mt-2 mb-5 max-w-[34ch]">
+              Discover experiences and day trips curated by local hosts.
             </p>
             <Button variant="hero" onClick={() => navigate("/tours")}>
-              Explore tours
+              View tours
             </Button>
           </div>
         </div>
@@ -54,14 +50,12 @@ const HostingCTA = () => {
         >
           <div className="absolute inset-0 bg-gradient-to-r from-foreground/70 to-foreground/20" />
           <div className="relative z-10 p-7">
-            <h3 className="text-2xl font-bold text-primary-foreground italic">
-              {t("nav.transport")}
-            </h3>
-            <p className="text-primary-foreground/90 mt-2 mb-5 max-w-[28ch]">
-              Get around easily — vehicles, transfers, and local transport options.
+            <h3 className="text-2xl font-bold text-primary-foreground">{t("nav.transport")}</h3>
+            <p className="text-primary-foreground/90 mt-2 mb-5 max-w-[34ch]">
+              Find rides, transfers, and vehicles for rent.
             </p>
             <Button variant="hero" onClick={() => navigate("/transport")}>
-              Find transport
+              View transport
             </Button>
           </div>
         </div>
