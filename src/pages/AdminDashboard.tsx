@@ -1174,106 +1174,128 @@ export default function AdminDashboard() {
                         const draft = { ...b, ...(bannerEdits[b.id] ?? {}) } as AdBannerRow;
                         const hasEdits = Boolean(bannerEdits[b.id]);
                         return (
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1">
-                          <Input
-                            value={draft.message}
-                            onChange={(e) =>
-                              setBannerEdits((prev) => ({ ...prev, [b.id]: { ...(prev[b.id] ?? {}), message: e.target.value } }))
-                            }
-                          />
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => upsertBanner({ ...b, is_active: !b.is_active })}
-                            title={b.is_active ? "Deactivate" : "Activate"}
-                          >
-                            {b.is_active ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={!hasEdits}
-                            onClick={() => upsertBanner(draft)}
-                            title="Save changes"
-                          >
-                            <CheckCircle className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={!hasEdits}
-                            onClick={() => setBannerEdits((prev) => {
-                              const next = { ...prev };
-                              delete next[b.id];
-                              return next;
-                            })}
-                            title="Discard changes"
-                          >
-                            <XCircle className="w-4 h-4" />
-                          </Button>
-                          <Button size="sm" variant="destructive" onClick={() => deleteBanner(b.id)}>
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
+                          <div className="space-y-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1">
+                                <Input
+                                  value={draft.message}
+                                  onChange={(e) =>
+                                    setBannerEdits((prev) => ({
+                                      ...prev,
+                                      [b.id]: { ...(prev[b.id] ?? {}), message: e.target.value },
+                                    }))
+                                  }
+                                />
+                              </div>
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => upsertBanner({ ...b, is_active: !b.is_active })}
+                                  title={b.is_active ? "Deactivate" : "Activate"}
+                                >
+                                  {b.is_active ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={!hasEdits}
+                                  onClick={() => upsertBanner(draft)}
+                                  title="Save changes"
+                                >
+                                  <CheckCircle className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={!hasEdits}
+                                  onClick={() =>
+                                    setBannerEdits((prev) => {
+                                      const next = { ...prev };
+                                      delete next[b.id];
+                                      return next;
+                                    })
+                                  }
+                                  title="Discard changes"
+                                >
+                                  <XCircle className="w-4 h-4" />
+                                </Button>
+                                <Button size="sm" variant="destructive" onClick={() => deleteBanner(b.id)}>
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
 
-                      <div className="grid grid-cols-2 gap-3">
-                        <Input
-                          value={draft.cta_label ?? ""}
-                          onChange={(e) =>
-                            setBannerEdits((prev) => ({ ...prev, [b.id]: { ...(prev[b.id] ?? {}), cta_label: e.target.value || null } }))
-                          }
-                          placeholder="CTA label"
-                        />
-                        <Input
-                          value={draft.cta_url ?? ""}
-                          onChange={(e) =>
-                            setBannerEdits((prev) => ({ ...prev, [b.id]: { ...(prev[b.id] ?? {}), cta_url: e.target.value || null } }))
-                          }
-                          placeholder="CTA url"
-                        />
-                      </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <Input
+                                value={draft.cta_label ?? ""}
+                                onChange={(e) =>
+                                  setBannerEdits((prev) => ({
+                                    ...prev,
+                                    [b.id]: { ...(prev[b.id] ?? {}), cta_label: e.target.value || null },
+                                  }))
+                                }
+                                placeholder="CTA label"
+                              />
+                              <Input
+                                value={draft.cta_url ?? ""}
+                                onChange={(e) =>
+                                  setBannerEdits((prev) => ({
+                                    ...prev,
+                                    [b.id]: { ...(prev[b.id] ?? {}), cta_url: e.target.value || null },
+                                  }))
+                                }
+                                placeholder="CTA url"
+                              />
+                            </div>
 
-                      <div className="grid grid-cols-3 gap-3">
-                        <Input
-                          type="number"
-                          value={draft.sort_order ?? 0}
-                          onChange={(e) =>
-                            setBannerEdits((prev) => ({ ...prev, [b.id]: { ...(prev[b.id] ?? {}), sort_order: Number(e.target.value) } }))
-                          }
-                          placeholder="Sort"
-                        />
-                        <Input
-                          value={draft.bg_color ?? ""}
-                          onChange={(e) =>
-                            setBannerEdits((prev) => ({ ...prev, [b.id]: { ...(prev[b.id] ?? {}), bg_color: e.target.value || null } }))
-                          }
-                          placeholder="Background"
-                        />
-                        <Input
-                          value={draft.text_color ?? ""}
-                          onChange={(e) =>
-                            setBannerEdits((prev) => ({ ...prev, [b.id]: { ...(prev[b.id] ?? {}), text_color: e.target.value || null } }))
-                          }
-                          placeholder="Text"
-                        />
-                      </div>
+                            <div className="grid grid-cols-3 gap-3">
+                              <Input
+                                type="number"
+                                value={draft.sort_order ?? 0}
+                                onChange={(e) =>
+                                  setBannerEdits((prev) => ({
+                                    ...prev,
+                                    [b.id]: { ...(prev[b.id] ?? {}), sort_order: Number(e.target.value) },
+                                  }))
+                                }
+                                placeholder="Sort"
+                              />
+                              <Input
+                                value={draft.bg_color ?? ""}
+                                onChange={(e) =>
+                                  setBannerEdits((prev) => ({
+                                    ...prev,
+                                    [b.id]: { ...(prev[b.id] ?? {}), bg_color: e.target.value || null },
+                                  }))
+                                }
+                                placeholder="Background"
+                              />
+                              <Input
+                                value={draft.text_color ?? ""}
+                                onChange={(e) =>
+                                  setBannerEdits((prev) => ({
+                                    ...prev,
+                                    [b.id]: { ...(prev[b.id] ?? {}), text_color: e.target.value || null },
+                                  }))
+                                }
+                                placeholder="Text"
+                              />
+                            </div>
 
-                      <div
-                        className="rounded-lg px-3 py-2 text-sm flex items-center justify-between gap-2"
-                        style={{
-                          backgroundColor: draft.bg_color || "rgba(239, 68, 68, 0.08)",
-                          color: draft.text_color || "inherit",
-                        }}
-                      >
-                        <span className="font-medium">{draft.message}</span>
-                        {draft.cta_label && draft.cta_url && (
-                          <span className="underline underline-offset-4 font-semibold">{draft.cta_label}</span>
-                        )}
-                      </div>
+                            <div
+                              className="rounded-lg px-3 py-2 text-sm flex items-center justify-between gap-2"
+                              style={{
+                                backgroundColor: draft.bg_color || "rgba(239, 68, 68, 0.08)",
+                                color: draft.text_color || "inherit",
+                              }}
+                            >
+                              <span className="font-medium">{draft.message}</span>
+                              {draft.cta_label && draft.cta_url && (
+                                <span className="underline underline-offset-4 font-semibold">{draft.cta_label}</span>
+                              )}
+                            </div>
+                          </div>
                         );
                       })()}
                     </div>
