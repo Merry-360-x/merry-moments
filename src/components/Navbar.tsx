@@ -91,6 +91,16 @@ const Navbar = () => {
     return adBanners[Math.min(adIndex, adBanners.length - 1)] ?? null;
   }, [adBanners, adIndex]);
 
+  const fallbackAd = useMemo(() => {
+    return {
+      message: "We host accommodations, tours, and transportation.",
+      cta_label: null,
+      cta_url: null,
+      bg_color: "rgba(239, 68, 68, 0.08)",
+      text_color: null,
+    };
+  }, []);
+
   const handleSignOut = async () => {
     await signOut();
     navigate("/");
@@ -103,17 +113,17 @@ const Navbar = () => {
 
   return (
     <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
-      {activeAd && (
+      {(activeAd || fallbackAd) && (
         <div
           className="w-full border-b border-border/60"
           style={{
-            backgroundColor: activeAd.bg_color || "rgba(239, 68, 68, 0.08)",
-            color: activeAd.text_color || "inherit",
+            backgroundColor: (activeAd?.bg_color ?? fallbackAd.bg_color) || "rgba(239, 68, 68, 0.08)",
+            color: (activeAd?.text_color ?? fallbackAd.text_color) || "inherit",
           }}
         >
           <div className="container mx-auto px-4 lg:px-8 py-2 text-sm flex items-center justify-center gap-3 text-center">
-            <span className="font-medium">{activeAd.message}</span>
-            {activeAd.cta_label && activeAd.cta_url && (
+            <span className="font-medium">{(activeAd?.message ?? fallbackAd.message) as string}</span>
+            {activeAd?.cta_label && activeAd?.cta_url && (
               <a
                 href={activeAd.cta_url}
                 className="underline underline-offset-4 font-semibold hover:opacity-80"
