@@ -29,6 +29,7 @@ interface Booking {
     title: string;
     location: string;
     property_type: string;
+    address?: string | null;
   } | null;
 }
 
@@ -61,7 +62,7 @@ const MyBookings = () => {
   const fetchBookings = async () => {
     const { data, error } = await supabase
       .from("bookings")
-      .select("*, properties(title, location, property_type)")
+      .select("*, properties(title, location, property_type, address)")
       .eq("guest_id", user!.id)
       .order("created_at", { ascending: false });
 
@@ -191,6 +192,18 @@ const MyBookings = () => {
                         <MapPin className="w-4 h-4" />
                         {extractNeighborhood(booking.properties?.location)}
                       </p>
+                      {booking.status === "confirmed" || booking.status === "completed" ? (
+                        booking.properties?.address ? (
+                          <p className="text-sm text-foreground mt-1">
+                            <span className="text-muted-foreground">Address:</span>{" "}
+                            <span className="font-medium">{booking.properties.address}</span>
+                          </p>
+                        ) : null
+                      ) : (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Exact address will be shared after your booking is confirmed.
+                        </p>
+                      )}
                     </div>
                     <span
                       className={`px-3 py-1 rounded-full text-xs font-medium ${
