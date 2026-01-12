@@ -16,6 +16,7 @@ import {
   CalendarDays,
   LayoutDashboard,
   Shield,
+  Megaphone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -121,18 +122,30 @@ const Navbar = () => {
             color: (activeAd?.text_color ?? fallbackAd.text_color) || "inherit",
           }}
         >
-          <div className="container mx-auto px-4 lg:px-8 py-2 text-sm flex items-center justify-center gap-3 text-center">
-            <span className="font-medium">{(activeAd?.message ?? fallbackAd.message) as string}</span>
-            {activeAd?.cta_label && activeAd?.cta_url && (
-              <a
-                href={activeAd.cta_url}
-                className="underline underline-offset-4 font-semibold hover:opacity-80"
-                target="_blank"
-                rel="noreferrer"
-              >
-                {activeAd.cta_label}
-              </a>
-            )}
+          <div className="container mx-auto px-4 lg:px-8 py-2">
+            <div className="mx-auto max-w-4xl">
+              <div className="rounded-full border border-border/70 bg-background/70 backdrop-blur px-4 py-2 shadow-sm flex items-center justify-center gap-3 text-center">
+                <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary shrink-0">
+                  <Megaphone className="w-4 h-4" />
+                </span>
+                <span className="text-sm font-semibold text-foreground">
+                  {(activeAd?.message ?? fallbackAd.message) as string}
+                </span>
+                {activeAd?.cta_label && activeAd?.cta_url && (
+                  <>
+                    <span className="hidden sm:inline-block w-1 h-1 rounded-full bg-muted-foreground/40" />
+                    <a
+                      href={activeAd.cta_url}
+                      className="text-sm font-semibold text-primary hover:underline underline-offset-4"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {activeAd.cta_label}
+                    </a>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
