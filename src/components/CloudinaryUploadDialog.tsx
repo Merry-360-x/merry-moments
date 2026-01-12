@@ -89,6 +89,10 @@ export function CloudinaryUploadDialog(props: {
   const startUploads = async () => {
     if (busy) return;
     setBusy(true);
+    
+    // Track all newly uploaded URLs
+    const newUrls: string[] = [];
+    
     try {
       // Upload sequentially to keep the progress UI stable.
       for (const it of items) {
@@ -108,11 +112,16 @@ export function CloudinaryUploadDialog(props: {
               p.id === it.id ? { ...p, status: "done", percent: 100, url: res.url } : p
             )
           );
-          props.onChange([...props.value, res.url]);
+          newUrls.push(res.url);
         } catch (e) {
           const msg = e instanceof Error ? e.message : "Upload failed";
           setItems((prev) => prev.map((p) => (p.id === it.id ? { ...p, status: "error", error: msg } : p)));
         }
+      }
+      
+      // Call onChange once at the end with ALL uploaded URLs
+      if (newUrls.length > 0) {
+        props.onChange([...props.value, ...newUrls]);
       }
     } finally {
       setBusy(false);
