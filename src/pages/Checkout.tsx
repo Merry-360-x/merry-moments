@@ -55,6 +55,29 @@ export default function Checkout() {
     max_guests: number | null;
   }>(null);
 
+  // Enforce: booking checkout requires the property to already be in Trip Cart.
+  const { data: inCartRow } = useQuery({
+    queryKey: ["tripCart.hasProperty.checkout", user?.id, propertyId],
+    enabled: Boolean(mode === "booking" && user?.id && propertyId),
+    queryFn: async () => {
+      const { data: rows, error } = await supabase
+        .from("trip_cart_items")
+        .select("id")
+        .eq("user_id", user!.id)
+        .eq("item_type", "property")
+        .eq("reference_id", String(propertyId))
+        .limit(1);
+      if (error) return null;
+      return (rows ?? [])[0] ?? null;
+    },
+  });
+
+  const isPropertyInCart = useMemo(() => {
+    if (mode !== "booking" || !propertyId) return true;
+    if (user) return Boolean(inCartRow?.id);
+    return guestCart.some((i) => i.item_type === "property" && String(i.reference_id) === String(propertyId));
+  }, [guestCart, inCartRow?.id, mode, propertyId, user]);
+
   // Prefill payer info for signed-in users
   useEffect(() => {
     let alive = true;
@@ -106,6 +129,14 @@ export default function Checkout() {
   }, [mode, propertyId]);
 
   const submitBooking = async () => {
+    if (!isPropertyInCart) {
+      toast({
+        variant: "destructive",
+        title: "Add to Trip Cart first",
+        description: "Please add this stay to your Trip Cart first, then checkout.",
+      });
+      return;
+    }
     if (!propertyId) {
       toast({ variant: "destructive", title: "Missing property", description: "Please go back and try again." });
       return;
@@ -294,7 +325,7 @@ export default function Checkout() {
               <Button
                 type="button"
                 onClick={mode === "booking" ? submitBooking : submitCartCheckout}
-                disabled={loading}
+                disabled={loading || (mode === "booking" && !isPropertyInCart)}
               >
                 {loading ? "Submitting..." : mode === "booking" ? "Request booking" : "Submit checkout"}
               </Button>

@@ -78,7 +78,7 @@ export default function PropertyDetails() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const { toggleFavorite, checkFavorite } = useFavorites();
-  const { addToCart } = useTripCart();
+  const { addToCart, guestCart, isGuest } = useTripCart();
 
   const [checkIn, setCheckIn] = useState(isoToday());
   const [checkOut, setCheckOut] = useState(isoTomorrow());
@@ -250,6 +250,18 @@ export default function PropertyDetails() {
   const submitBooking = async () => {
     if (!data || !propertyId) return;
 
+    // Enforce: must add to Trip Cart first, then checkout.
+    // If not in cart yet, do not proceed to checkout.
+    // (Guests + signed-in users are both supported.)
+    if (!isInTripCart) {
+      toast({
+        variant: "destructive",
+        title: "Add to Trip Cart first",
+        description: "Please add this stay to your Trip Cart, then proceed to checkout.",
+      });
+      return;
+    }
+
     // Validation
     if (nights <= 0) {
       toast({ variant: "destructive", title: "Invalid dates", description: "Check-out must be after check-in." });
@@ -282,6 +294,30 @@ export default function PropertyDetails() {
     if (!data || !propertyId) return;
     await addToCart("property", data.id);
   };
+
+  const { data: inCartRow } = useQuery({
+    queryKey: ["tripCart.hasProperty", user?.id, propertyId],
+    enabled: Boolean(user?.id && propertyId),
+    queryFn: async () => {
+      const { data: rows, error } = await supabase
+        .from("trip_cart_items")
+        .select("id")
+        .eq("user_id", user!.id)
+        .eq("item_type", "property")
+        .eq("reference_id", String(propertyId))
+        .limit(1);
+      if (error) return null;
+      return (rows ?? [])[0] ?? null;
+    },
+  });
+
+  const isInTripCart = useMemo(() => {
+    if (!propertyId) return false;
+    if (!isGuest) return Boolean(inCartRow?.id);
+    return (guestCart ?? []).some(
+      (i) => i.item_type === "property" && String(i.reference_id) === String(propertyId)
+    );
+  }, [guestCart, inCartRow?.id, isGuest, propertyId]);
 
   const { data: relatedTours = [] } = useQuery({
     queryKey: ["related-tours", data?.location],
@@ -653,7 +689,7 @@ export default function PropertyDetails() {
 
                 <div className="mt-5 flex flex-col sm:flex-row gap-3">
                   <Button variant="outline" onClick={addPropertyToTripCart}>
-                    Add to Trip Cart
+                    {isInTripCart ? "Added to Trip Cart" : "Add to Trip Cart"}
                   </Button>
                 </div>
               </div>
@@ -867,8 +903,8 @@ export default function PropertyDetails() {
                       <>Select valid dates to see total.</>
                     )}
                   </div>
-                  <Button onClick={submitBooking} disabled={booking || nights <= 0}>
-                    {booking ? "Booking..." : "Request to book"}
+                  <Button onClick={submitBooking} disabled={booking || nights <= 0 || !isInTripCart}>
+                    {booking ? "Booking..." : isInTripCart ? "Checkout to book" : "Add to Trip Cart first"}
                   </Button>
                 </div>
 
