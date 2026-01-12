@@ -147,27 +147,33 @@ const PropertyCard = ({
           </p>
         ) : null}
         {hasRules ? (
-          <div className="mb-3 rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs">
-            <div className="grid grid-cols-3 gap-x-3 gap-y-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-muted-foreground">Check-in</span>
-                <span className="font-semibold text-foreground">
+          <div className="mb-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground whitespace-nowrap">Check-in</span>
+                <span className="font-semibold text-foreground tabular-nums">
                   {checkInTime ? String(checkInTime).slice(0, 5) : "—"}
                 </span>
               </div>
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-muted-foreground">Check-out</span>
-                <span className="font-semibold text-foreground">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground whitespace-nowrap">Check-out</span>
+                <span className="font-semibold text-foreground tabular-nums">
                   {checkOutTime ? String(checkOutTime).slice(0, 5) : "—"}
                 </span>
               </div>
-              <div className="flex items-center gap-2 min-w-0 justify-end">
-                <Users className="w-3 h-3 text-muted-foreground" />
-                <span className="text-muted-foreground">Max</span>
-                <span className="font-semibold text-foreground">{typeof maxGuests === "number" ? maxGuests : "—"}</span>
+              <div className="flex items-center justify-between gap-3 sm:justify-end">
+                <span className="text-muted-foreground whitespace-nowrap hidden sm:inline">Guests</span>
+                <span className="text-muted-foreground whitespace-nowrap sm:hidden inline-flex items-center gap-2">
+                  <Users className="w-3 h-3" />
+                  Max
+                </span>
+                <span className="font-semibold text-foreground tabular-nums">
+                  {typeof maxGuests === "number" ? maxGuests : "—"}
+                </span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">Smoking</span>
+
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground whitespace-nowrap">Smoking</span>
                 {typeof smokingAllowed === "boolean" ? (
                   <span className={`font-semibold ${smokingAllowed ? "text-green-600" : "text-red-600"}`}>
                     {smokingAllowed ? "Yes" : "No"}
@@ -176,8 +182,8 @@ const PropertyCard = ({
                   <span className="font-semibold text-foreground">—</span>
                 )}
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">Events</span>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground whitespace-nowrap">Events</span>
                 {typeof eventsAllowed === "boolean" ? (
                   <span className={`font-semibold ${eventsAllowed ? "text-green-600" : "text-red-600"}`}>
                     {eventsAllowed ? "Yes" : "No"}
@@ -186,8 +192,8 @@ const PropertyCard = ({
                   <span className="font-semibold text-foreground">—</span>
                 )}
               </div>
-              <div className="flex items-center gap-2 justify-end">
-                <span className="text-muted-foreground">Pets</span>
+              <div className="flex items-center justify-between gap-3 sm:justify-end">
+                <span className="text-muted-foreground whitespace-nowrap">Pets</span>
                 {typeof petsAllowed === "boolean" ? (
                   <span className={`font-semibold ${petsAllowed ? "text-green-600" : "text-red-600"}`}>
                     {petsAllowed ? "Yes" : "No"}
