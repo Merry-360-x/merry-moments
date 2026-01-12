@@ -117,14 +117,10 @@ const Navbar = () => {
       {(activeAd || fallbackAd) && (
         <div
           className="w-full border-b border-border/60"
-          style={{
-            backgroundColor: (activeAd?.bg_color ?? fallbackAd.bg_color) || "rgba(239, 68, 68, 0.08)",
-            color: (activeAd?.text_color ?? fallbackAd.text_color) || "inherit",
-          }}
         >
           <div className="container mx-auto px-4 lg:px-8 py-2">
             <div className="mx-auto max-w-4xl">
-              <div className="rounded-full border border-border/70 bg-background/70 backdrop-blur px-4 py-2 shadow-sm flex items-center justify-center gap-3 text-center">
+              <div className="rounded-full border border-border/70 bg-background px-4 py-2 shadow-sm flex items-center justify-center gap-3 text-center">
                 <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary shrink-0">
                   <Megaphone className="w-4 h-4" />
                 </span>
