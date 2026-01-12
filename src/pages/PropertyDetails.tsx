@@ -538,10 +538,38 @@ export default function PropertyDetails() {
               </DialogContent>
             </Dialog>
 
-              {data.description ? (
+              {media.length > 1 || data.description ? (
                 <div className="bg-card rounded-xl shadow-card p-5">
-                  <div className="text-sm font-semibold text-foreground mb-2">Description</div>
-                  <p className="text-foreground/90 leading-relaxed">{data.description}</p>
+                  {media.length > 1 ? (
+                    <>
+                      <div className="text-sm font-semibold text-foreground mb-3">More photos</div>
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                        {media.slice(1, 9).map((src, i) => {
+                          const idx = i + 1;
+                          return (
+                            <button
+                              key={`${src}-mini-${idx}`}
+                              type="button"
+                              onClick={() => openViewer(idx)}
+                              className="rounded-lg overflow-hidden aspect-[4/3] bg-muted"
+                              aria-label="Open photo"
+                            >
+                              {isVideoUrl(src) ? (
+                                <video src={src} className="h-full w-full object-cover" muted playsInline preload="metadata" />
+                              ) : (
+                                <img src={src} alt="photo" className="h-full w-full object-cover" loading="lazy" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  ) : null}
+                  {data.description ? (
+                    <p className={media.length > 1 ? "mt-4 text-sm text-muted-foreground leading-relaxed" : "text-sm text-muted-foreground leading-relaxed"}>
+                      {data.description}
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
 
@@ -646,6 +674,11 @@ export default function PropertyDetails() {
                     {formatMoney(Number(data.price_per_night), String(data.currency ?? "RWF"))}
                     <span className="text-sm text-muted-foreground"> {t("common.perNight")}</span>
                   </div>
+                  {data.description ? (
+                    <p className="mt-2 text-xs text-muted-foreground max-w-[34ch] ml-auto leading-relaxed line-clamp-3">
+                      {data.description}
+                    </p>
+                  ) : null}
                 </div>
               </div>
 

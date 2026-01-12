@@ -3,6 +3,8 @@ import { MapPin, Star } from "lucide-react";
 import ListingImageCarousel from "@/components/ListingImageCarousel";
 import { extractNeighborhood } from "@/lib/location";
 import { formatMoney } from "@/lib/money";
+import { Button } from "@/components/ui/button";
+import { useTripCart } from "@/hooks/useTripCart";
 
 export type TourPromoCardProps = {
   id: string;
@@ -18,6 +20,7 @@ export type TourPromoCardProps = {
 };
 
 export default function TourPromoCard(props: TourPromoCardProps) {
+  const { addToCart } = useTripCart();
   const gallery = (props.images ?? []).filter(Boolean);
   return (
     <Link to="/tours" className="block" aria-label={props.title}>
@@ -28,6 +31,19 @@ export default function TourPromoCard(props: TourPromoCardProps) {
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-muted via-muted/70 to-muted/40" />
           )}
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="absolute top-3 right-3 shadow-sm bg-background/90 hover:bg-background"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              void addToCart("tour", props.id, 1);
+            }}
+          >
+            Add to Trip
+          </Button>
           {props.category ? (
             <span className="absolute bottom-3 left-3 px-3 py-1 rounded-full bg-background/90 backdrop-blur-sm text-xs font-medium">
               {props.category}

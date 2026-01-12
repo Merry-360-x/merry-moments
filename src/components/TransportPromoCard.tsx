@@ -2,6 +2,8 @@ import { Link } from "react-router-dom";
 import { Car } from "lucide-react";
 import ListingImageCarousel from "@/components/ListingImageCarousel";
 import { formatMoney } from "@/lib/money";
+import { Button } from "@/components/ui/button";
+import { useTripCart } from "@/hooks/useTripCart";
 
 export type TransportPromoCardProps = {
   id: string;
@@ -15,6 +17,7 @@ export type TransportPromoCardProps = {
 };
 
 export default function TransportPromoCard(props: TransportPromoCardProps) {
+  const { addToCart } = useTripCart();
   const gallery = (props.media ?? []).filter(Boolean);
   const imgs = gallery.length ? gallery : props.imageUrl ? [props.imageUrl] : [];
   return (
@@ -28,6 +31,19 @@ export default function TransportPromoCard(props: TransportPromoCardProps) {
               <Car className="w-8 h-8 text-muted-foreground" />
             </div>
           )}
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="absolute top-3 right-3 shadow-sm bg-background/90 hover:bg-background"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              void addToCart("transport_vehicle", props.id, 1);
+            }}
+          >
+            Add to Trip
+          </Button>
           {props.vehicleType ? (
             <span className="absolute bottom-3 left-3 px-3 py-1 rounded-full bg-background/90 backdrop-blur-sm text-xs font-medium">
               {props.vehicleType}
