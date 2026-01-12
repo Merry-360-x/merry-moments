@@ -381,7 +381,7 @@ export default function HostDashboard() {
     const { error, data: newProp } = await supabase
       .from("properties")
       .insert(payload)
-      .select("id, title, description, location, property_type, price_per_night, currency, max_guests, bedrooms, bathrooms, beds, amenities, cancellation_policy, images, is_published, host_id, created_at")
+      .select()
       .single();
 
     setCreatingProperty(false);
