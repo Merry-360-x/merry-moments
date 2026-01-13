@@ -213,16 +213,19 @@ const Navbar = () => {
           </div>
 
           {/* Right Actions - Desktop */}
-          <div className="hidden lg:flex items-center gap-2">
+          <div className="hidden lg:flex items-center gap-1 xl:gap-2">
             {/* Become host / Host dashboard (primary) */}
             <Button
               size="sm"
-              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 px-3"
               onClick={() => navigate(isHost ? "/host-dashboard" : "/become-host")}
               type="button"
             >
               <LayoutDashboard className="w-4 h-4" />
-              {isHost ? t("actions.hostDashboard") : t("actions.becomeHost")}
+              <span className="hidden xl:inline">
+                {isHost ? t("actions.hostDashboard") : t("actions.becomeHost")}
+              </span>
+              <span className="xl:hidden">{isHost ? "Host" : "Host"}</span>
             </Button>
 
             {/* Admin dashboard (side) */}
@@ -230,12 +233,13 @@ const Navbar = () => {
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-2"
+                className="gap-2 px-3"
                 onClick={() => navigate("/admin")}
                 type="button"
               >
                 <Shield className="w-4 h-4" />
-                {t("actions.adminDashboard")}
+                <span className="hidden xl:inline">{t("actions.adminDashboard")}</span>
+                <span className="xl:hidden">Admin</span>
               </Button>
             ) : null}
 
@@ -255,7 +259,7 @@ const Navbar = () => {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-border text-sm"
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-full border border-border text-sm"
                   aria-label={t("labels.currency")}
                 >
                   <span>{currency}</span>
@@ -273,7 +277,7 @@ const Navbar = () => {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-border text-sm">
+                <button className="flex items-center gap-1 px-2.5 py-1.5 rounded-full border border-border text-sm">
                   <span>{language.toUpperCase()}</span>
                   <ChevronDown className="w-4 h-4" />
                 </button>
@@ -289,8 +293,9 @@ const Navbar = () => {
             </DropdownMenu>
 
             <Link to="/trip-cart">
-              <Button variant="outline" size="sm" className="gap-2 relative">
-                {t("actions.tripCart")}
+              <Button variant="outline" size="sm" className="gap-2 relative px-3">
+                <span className="hidden xl:inline">{t("actions.tripCart")}</span>
+                <span className="xl:hidden">Cart</span>
                 {tripCartCount > 0 ? (
                   <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold">
                     {tripCartCount > 99 ? "99+" : tripCartCount}

@@ -520,7 +520,7 @@ const Accommodations = () => {
                       <div className="flex items-center justify-between gap-2 p-3 bg-muted/50 rounded-lg">
                         <div className="text-center flex-1">
                           <div className="text-xs text-muted-foreground mb-1">Min</div>
-                        <div className="font-medium text-sm">{formatMoney(0, currency)}</div>
+                          <div className="font-medium text-sm">{formatMoney(0, String(preferredCurrency ?? "RWF"))}</div>
                         </div>
                         <div className="text-muted-foreground">—</div>
                         <div className="text-center flex-1">
