@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -87,7 +87,8 @@ export default function HostApplication() {
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
-      navigate("/auth?redirect=/become-host");
+      // Don't redirect away — show an explicit sign-in gate so the page is "visible".
+      setIsLoading(false);
       return;
     }
 
@@ -116,7 +117,7 @@ export default function HostApplication() {
     };
 
     checkExisting();
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading]);
 
   // Validation
   const propertyValid = useMemo(() => {
@@ -174,32 +175,16 @@ export default function HostApplication() {
 
       if (appErr) throw appErr;
 
-      // Also create a draft property (not published)
-      const { error: propErr } = await supabase.from("properties").insert({
-        host_id: user.id,
-        title: property.title.trim(),
-        location: property.location.trim(),
-        description: property.description.trim() || null,
-        property_type: property.property_type,
-        price_per_night: property.price_per_night,
-        currency: property.currency,
-        max_guests: property.max_guests,
-        bedrooms: property.bedrooms,
-        bathrooms: property.bathrooms,
-        amenities: property.amenities,
-        images: property.images,
-        is_published: false, // Not live until verified
-      });
-
-      if (propErr) throw propErr;
-
       toast({
         title: "Application submitted!",
-        description: "Your application is under review. Your listing will go live once verified.",
+        description: "Your application is under review. You’ll be notified once it’s approved.",
       });
 
+      // They aren't a host yet (until approved), so keep them here and show the "Under Review" state.
+      setHasExistingApp(true);
+      setExistingStatus("pending");
+      setStep(1);
       await refreshRoles();
-      navigate("/host-dashboard");
     } catch (e) {
       logError("host-app.submit", e);
       toast({
@@ -218,6 +203,32 @@ export default function HostApplication() {
         <Navbar />
         <main className="flex-1 flex items-center justify-center">
           <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Only signed-in users can apply
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Navbar />
+        <main className="flex-1 container max-w-2xl mx-auto px-4 py-12">
+          <Card className="p-8 text-center">
+            <h1 className="text-2xl font-bold text-foreground mb-2">Become a Host</h1>
+            <p className="text-muted-foreground mb-6">
+              Please sign in to apply for becoming a host. It only takes a minute.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Link to="/auth?redirect=/become-host">
+                <Button size="lg">Sign in to continue</Button>
+              </Link>
+              <Button variant="outline" size="lg" onClick={() => navigate("/")}>
+                Back to home
+              </Button>
+            </div>
+          </Card>
         </main>
         <Footer />
       </div>
