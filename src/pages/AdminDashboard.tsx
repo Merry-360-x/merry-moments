@@ -262,8 +262,8 @@ export default function AdminDashboard() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<TabValue>("overview");
   const [userSearch, setUserSearch] = useState("");
-  const [bookingStatus, setBookingStatus] = useState("");
-  const [ticketStatus, setTicketStatus] = useState("");
+  const [bookingStatus, setBookingStatus] = useState<"all" | string>("all");
+  const [ticketStatus, setTicketStatus] = useState<"all" | string>("all");
   const [roleToAdd, setRoleToAdd] = useState<Record<string, string>>({});
 
   const [newBanner, setNewBanner] = useState<Omit<AdBannerRow, "id" | "created_at" | "updated_at">>({
@@ -385,7 +385,8 @@ export default function AdminDashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("host_applications")
-        .select("id, user_id, status, full_name, phone, business_name, hosting_location, review_notes, created_at")
+        // Use * so this query works even if some columns aren't present yet on the remote DB
+        .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as HostApplicationRow[];
@@ -474,10 +475,13 @@ export default function AdminDashboard() {
     queryFn: async () => {
       let q = supabase
         .from("bookings")
-        .select("id, property_id, guest_id, check_in, check_out, guests, total_price, currency, status, created_at")
+        // guest_* fields support guest checkout (guest_id can be NULL)
+        .select(
+          "id, property_id, guest_id, guest_name, guest_email, is_guest_booking, check_in, check_out, guests, total_price, currency, status, created_at"
+        )
         .order("created_at", { ascending: false })
         .limit(200);
-      if (bookingStatus) q = q.eq("status", bookingStatus);
+      if (bookingStatus && bookingStatus !== "all") q = q.eq("status", bookingStatus);
       const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as BookingRow[];
@@ -509,7 +513,7 @@ export default function AdminDashboard() {
         .select("id, user_id, subject, message, category, status, priority, response, created_at")
         .order("created_at", { ascending: false })
         .limit(200);
-      if (ticketStatus) q = q.eq("status", ticketStatus);
+      if (ticketStatus && ticketStatus !== "all") q = q.eq("status", ticketStatus);
       const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as SupportTicketRow[];
@@ -1656,7 +1660,7 @@ export default function AdminDashboard() {
                     <SelectValue placeholder="All statuses" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All</SelectItem>
+                    <SelectItem value="all">All</SelectItem>
                     <SelectItem value="pending">Pending</SelectItem>
                     <SelectItem value="confirmed">Confirmed</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
@@ -1682,7 +1686,16 @@ export default function AdminDashboard() {
                     {bookings.map((b) => (
                       <TableRow key={b.id}>
                         <TableCell className="font-mono text-xs">{b.id.slice(0, 8)}...</TableCell>
-                        <TableCell className="text-sm font-mono text-xs">{b.guest_id.slice(0, 8)}...</TableCell>
+                        <TableCell className="text-sm">
+                          {b.is_guest_booking ? (
+                            <div className="min-w-0">
+                              <div className="font-medium truncate">{b.guest_name || "Guest"}</div>
+                              <div className="text-xs text-muted-foreground truncate">{b.guest_email || "—"}</div>
+                            </div>
+                          ) : (
+                            <span className="font-mono text-xs">{(b.guest_id ?? "").slice(0, 8)}...</span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {b.check_in} → {b.check_out}
                         </TableCell>
@@ -1841,7 +1854,7 @@ export default function AdminDashboard() {
                     <SelectValue placeholder="All tickets" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All</SelectItem>
+                    <SelectItem value="all">All</SelectItem>
                     <SelectItem value="open">Open</SelectItem>
                     <SelectItem value="in_progress">In Progress</SelectItem>
                     <SelectItem value="resolved">Resolved</SelectItem>
