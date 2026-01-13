@@ -282,15 +282,12 @@ export default function HostApplication() {
         hosting_location: property.location.trim(),
       };
 
-      console.log("Submitting host application with payload:", fullPayload);
       const fullAttempt = await supabase.from("host_applications").insert(fullPayload as never);
-      console.log("Full attempt result:", fullAttempt);
       
       if (fullAttempt.error) {
         // Fallback for older schemas or stricter policies.
         const msg = String(fullAttempt.error.message ?? "");
         const code = String((fullAttempt.error as any)?.code ?? "");
-        console.error("Insert error - Code:", code, "Message:", msg, "Full error:", fullAttempt.error);
 
         // Check if table doesn't exist at all
         if (code === "42P01" || msg.includes("relation") && msg.includes("does not exist")) {
