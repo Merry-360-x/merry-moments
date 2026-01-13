@@ -48,7 +48,7 @@ const Auth = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -60,6 +60,13 @@ const Auth = () => {
     if (raw.startsWith("//")) return null;
     return raw;
   })();
+
+  // Redirect authenticated users away from auth page
+  useEffect(() => {
+    if (!authLoading && user) {
+      navigate(redirectTo ?? "/", { replace: true });
+    }
+  }, [user, authLoading, navigate, redirectTo]);
 
   useEffect(() => {
     const mode = searchParams.get("mode");
@@ -101,10 +108,12 @@ const Auth = () => {
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     try {
-      // Build the callback URL - must match what's configured in Supabase OAuth settings
+      // Build the callback URL - OAuth should always redirect back to /auth first
+      // so Supabase can detect the session from URL hash, then we redirect to final destination
       const baseUrl = window.location.origin;
-      const callbackPath = redirectTo ?? "/";
-      const callbackUrl = `${baseUrl}${callbackPath}`;
+      // Always redirect back to /auth, with the final destination as a redirect param
+      const finalRedirect = redirectTo ?? "/";
+      const callbackUrl = `${baseUrl}/auth?redirect=${encodeURIComponent(finalRedirect)}`;
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
