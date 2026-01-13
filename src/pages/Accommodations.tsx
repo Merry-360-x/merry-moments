@@ -138,8 +138,7 @@ const Accommodations = () => {
   };
 
   const {
-    data: properties,
-    isLoading,
+    data: properties = [],
     isError,
   } = useQuery({
     queryKey: [
@@ -163,6 +162,7 @@ const Accommodations = () => {
         hostId,
         nearby,
       }),
+    placeholderData: [],
   });
 
   const { data: hostPreview } = useQuery({
@@ -661,12 +661,7 @@ const Accommodations = () => {
           <div className="flex-1">
             {/* Mobile: 2.5-column horizontal scroll */}
             <div className="sm:hidden">
-              {isLoading ? (
-                <div className="py-16 text-center">
-                  <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                  <p className="text-muted-foreground">{t("common.loadingProperties")}</p>
-                </div>
-              ) : isError ? (
+              {isError ? (
                 <div className="py-16 text-center">
                   <p className="text-muted-foreground">{t("common.couldNotLoadProperties")}</p>
                 </div>
@@ -715,12 +710,7 @@ const Accommodations = () => {
 
             {/* Tablet/Desktop */}
             <div className="hidden sm:grid grid-cols-2 xl:grid-cols-3 gap-6">
-              {isLoading ? (
-                <div className="col-span-full py-16 text-center">
-                  <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                  <p className="text-muted-foreground">{t("common.loadingProperties")}</p>
-                </div>
-              ) : isError ? (
+              {isError ? (
                 <div className="col-span-full py-16 text-center">
                   <p className="text-muted-foreground">{t("common.couldNotLoadProperties")}</p>
                 </div>

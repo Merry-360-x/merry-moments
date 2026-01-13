@@ -102,7 +102,7 @@ const Tours = () => {
     navigate(qs ? `/tours?${qs}` : "/tours");
   };
 
-  const { data: tours = [], isLoading, isError } = useQuery({
+  const { data: tours = [], isError } = useQuery({
     queryKey: [
       "tours",
       searchParams.get("q") ?? "",
@@ -115,6 +115,7 @@ const Tours = () => {
         category: searchParams.get("category") ?? "All",
         duration: searchParams.get("duration") ?? "Any Duration",
       }),
+    placeholderData: [],
   });
 
   const addToCart = async (tour: TourRow) => {
@@ -194,12 +195,7 @@ const Tours = () => {
 
       {/* Tours */}
       <div className="container mx-auto px-4 lg:px-8 py-10">
-        {isLoading ? (
-          <div className="py-20 text-center">
-            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-muted-foreground">Loading tours...</p>
-          </div>
-        ) : isError ? (
+        {isError ? (
           <div className="py-20 text-center">
             <p className="text-muted-foreground">Could not load tours right now.</p>
           </div>

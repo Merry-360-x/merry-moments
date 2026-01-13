@@ -77,7 +77,7 @@ const Transport = () => {
     },
   });
 
-  const { data: vehicles = [], isLoading: vehiclesLoading, isError: vehiclesError, error: vehiclesErrObj } = useQuery({
+  const { data: vehicles = [], isError: vehiclesError, error: vehiclesErrObj } = useQuery({
     queryKey: ["transport_vehicles", searchParams.get("vehicle") ?? "All Vehicles"],
     queryFn: async (): Promise<TransportVehicleRow[]> => {
       let q = supabase
@@ -95,6 +95,7 @@ const Transport = () => {
       if (error) throw error;
       return (data as TransportVehicleRow[] | null) ?? [];
     },
+    placeholderData: [],
   });
 
   const { data: routes = [] } = useQuery({
@@ -168,7 +169,7 @@ const Transport = () => {
       {/* Service Cards */}
       <div className="container mx-auto px-4 lg:px-8 mb-10">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {services.length === 0 && routes.length === 0 && vehicles.length === 0 && !vehiclesLoading ? (
+          {services.length === 0 && routes.length === 0 && vehicles.length === 0 ? (
             <div className="md:col-span-3 bg-card rounded-xl p-10 shadow-card text-center">
               <div className="w-16 h-16 rounded-full bg-primary/10 mx-auto mb-6 flex items-center justify-center">
                 <Car className="w-7 h-7 text-primary" />

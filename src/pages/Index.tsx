@@ -99,37 +99,41 @@ const Index = () => {
   const featuredToursRef = useRef<HTMLDivElement | null>(null);
   const vehiclesRef = useRef<HTMLDivElement | null>(null);
   const {
-    data: properties,
-    isLoading,
+    data: properties = [],
     isError,
   } = useQuery({
     queryKey: ["properties", "latest"],
     queryFn: fetchLatestProperties,
     staleTime: 1000 * 60 * 10, // 10 minutes for homepage data
+    placeholderData: [], // Never show loading state
   });
 
   const { data: featuredStays = [] } = useQuery({
     queryKey: ["properties", "featured-home"],
     queryFn: fetchFeaturedProperties,
     staleTime: 1000 * 60 * 10,
+    placeholderData: [],
   });
 
   const { data: topRated = [] } = useQuery({
     queryKey: ["properties", "top-rated-home"],
     queryFn: fetchTopRatedProperties,
     staleTime: 1000 * 60 * 10,
+    placeholderData: [],
   });
 
   const { data: featuredTours = [] } = useQuery({
     queryKey: ["tours", "featured-home"],
     queryFn: fetchFeaturedTours,
     staleTime: 1000 * 60 * 10,
+    placeholderData: [],
   });
 
   const { data: latestVehicles = [] } = useQuery({
     queryKey: ["transport_vehicles", "latest-home"],
     queryFn: fetchLatestVehicles,
     staleTime: 1000 * 60 * 10,
+    placeholderData: [],
   });
 
   return (
@@ -176,12 +180,7 @@ const Index = () => {
 
         {/* Mobile: 2.5-column horizontal scroll */}
         <div className="sm:hidden">
-          {isLoading ? (
-            <div className="py-12 text-center">
-              <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-muted-foreground">{t("common.loadingProperties")}</p>
-            </div>
-          ) : isError ? (
+          {isError ? (
             <div className="py-12 text-center">
               <p className="text-muted-foreground">{t("common.couldNotLoadProperties")}</p>
               {/* Do not surface DB/implementation errors to users */}
@@ -227,12 +226,7 @@ const Index = () => {
 
         {/* Desktop/tablet: horizontal scroll (show all in same section) */}
         <div className="hidden sm:block">
-          {isLoading ? (
-            <div className="py-12 text-center">
-              <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-muted-foreground">{t("common.loadingProperties")}</p>
-            </div>
-          ) : isError ? (
+          {isError ? (
             <div className="py-12 text-center">
               <p className="text-muted-foreground">{t("common.couldNotLoadProperties")}</p>
               {/* Do not surface DB/implementation errors to users */}
