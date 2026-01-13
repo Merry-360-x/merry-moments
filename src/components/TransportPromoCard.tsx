@@ -4,6 +4,9 @@ import ListingImageCarousel from "@/components/ListingImageCarousel";
 import { formatMoney } from "@/lib/money";
 import { Button } from "@/components/ui/button";
 import { useTripCart } from "@/hooks/useTripCart";
+import { usePreferences } from "@/hooks/usePreferences";
+import { useFxRates } from "@/hooks/useFxRates";
+import { convertAmount } from "@/lib/fx";
 
 export type TransportPromoCardProps = {
   id: string;
@@ -18,8 +21,14 @@ export type TransportPromoCardProps = {
 
 export default function TransportPromoCard(props: TransportPromoCardProps) {
   const { addToCart } = useTripCart();
+  const { currency: preferredCurrency } = usePreferences();
+  const { usdRates } = useFxRates();
   const gallery = (props.media ?? []).filter(Boolean);
   const imgs = gallery.length ? gallery : props.imageUrl ? [props.imageUrl] : [];
+  const from = String(props.currency ?? preferredCurrency ?? "RWF");
+  const to = String(preferredCurrency ?? from);
+  const converted = convertAmount(Number(props.pricePerDay ?? 0), from, to, usdRates);
+  const displayPrice = formatMoney(converted == null ? Number(props.pricePerDay ?? 0) : converted, to);
   return (
     <Link to="/transport" className="block" aria-label={props.title}>
       <div className="group rounded-xl overflow-hidden bg-card shadow-card hover:shadow-lg transition-all duration-300">
@@ -58,9 +67,7 @@ export default function TransportPromoCard(props: TransportPromoCardProps) {
             {props.seats ? ` · ${props.seats} seats` : ""}
           </p>
           <div className="flex items-baseline gap-1">
-            <span className="text-lg font-bold text-foreground">
-              {formatMoney(Number(props.pricePerDay ?? 0), String(props.currency ?? "RWF"))}
-            </span>
+            <span className="text-lg font-bold text-foreground">{displayPrice}</span>
             <span className="text-sm text-muted-foreground">/ day</span>
           </div>
         </div>

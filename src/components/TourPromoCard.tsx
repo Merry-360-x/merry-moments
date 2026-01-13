@@ -5,6 +5,9 @@ import { extractNeighborhood } from "@/lib/location";
 import { formatMoney } from "@/lib/money";
 import { Button } from "@/components/ui/button";
 import { useTripCart } from "@/hooks/useTripCart";
+import { usePreferences } from "@/hooks/usePreferences";
+import { useFxRates } from "@/hooks/useFxRates";
+import { convertAmount } from "@/lib/fx";
 
 export type TourPromoCardProps = {
   id: string;
@@ -21,7 +24,13 @@ export type TourPromoCardProps = {
 
 export default function TourPromoCard(props: TourPromoCardProps) {
   const { addToCart } = useTripCart();
+  const { currency: preferredCurrency } = usePreferences();
+  const { usdRates } = useFxRates();
   const gallery = (props.images ?? []).filter(Boolean);
+  const from = String(props.currency ?? preferredCurrency ?? "RWF");
+  const to = String(preferredCurrency ?? from);
+  const converted = convertAmount(Number(props.price ?? 0), from, to, usdRates);
+  const displayPrice = formatMoney(converted == null ? Number(props.price ?? 0) : converted, to);
   return (
     <Link to="/tours" className="block" aria-label={props.title}>
       <div className="group rounded-xl overflow-hidden bg-card shadow-card hover:shadow-lg transition-all duration-300">
@@ -67,9 +76,7 @@ export default function TourPromoCard(props: TourPromoCardProps) {
             {extractNeighborhood(props.location ?? "")}
           </p>
           <div className="flex items-baseline gap-1">
-            <span className="text-lg font-bold text-foreground">
-              {formatMoney(Number(props.price ?? 0), String(props.currency ?? "RWF"))}
-            </span>
+            <span className="text-lg font-bold text-foreground">{displayPrice}</span>
             <span className="text-sm text-muted-foreground">/ person</span>
             {props.durationDays ? (
               <span className="ml-auto text-xs text-muted-foreground">{props.durationDays} day(s)</span>

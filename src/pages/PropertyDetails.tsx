@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
@@ -20,6 +20,9 @@ import { isVideoUrl } from "@/lib/media";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { extractNeighborhood } from "@/lib/location";
 import { useTripCart } from "@/hooks/useTripCart";
+import { usePreferences } from "@/hooks/usePreferences";
+import { useFxRates } from "@/hooks/useFxRates";
+import { convertAmount } from "@/lib/fx";
 
 type PropertyRow = {
   id: string;
@@ -79,6 +82,8 @@ export default function PropertyDetails() {
   const qc = useQueryClient();
   const { toggleFavorite, checkFavorite } = useFavorites();
   const { addToCart, guestCart, isGuest } = useTripCart();
+  const { currency: preferredCurrency } = usePreferences();
+  const { usdRates } = useFxRates();
 
   const [checkIn, setCheckIn] = useState(isoToday());
   const [checkOut, setCheckOut] = useState(isoTomorrow());
@@ -210,6 +215,16 @@ export default function PropertyDetails() {
   }, [checkIn, checkOut]);
 
   const media = useMemo(() => (data?.images ?? []).filter(Boolean), [data?.images]);
+
+  const displayMoney = useCallback(
+    (amount: number, fromCurrency: string | null) => {
+      const from = String(fromCurrency ?? preferredCurrency ?? "RWF");
+      const to = String(preferredCurrency ?? from);
+      const converted = convertAmount(Number(amount ?? 0), from, to, usdRates);
+      return formatMoney(converted == null ? Number(amount ?? 0) : converted, to);
+    },
+    [preferredCurrency, usdRates]
+  );
 
   const openViewer = (idx: number) => {
     setViewerIdx(Math.max(0, Math.min(idx, Math.max(0, media.length - 1))));
@@ -611,7 +626,7 @@ export default function PropertyDetails() {
                                 <div className="font-medium text-foreground line-clamp-1">{t.title}</div>
                                 <div className="text-xs text-muted-foreground line-clamp-1">{t.location ?? ""}</div>
                                 <div className="mt-2 text-sm font-semibold text-primary">
-                                  {formatMoney(Number(t.price_per_person ?? 0), String(t.currency ?? "RWF"))}
+                                  {displayMoney(Number(t.price_per_person ?? 0), String(t.currency ?? "RWF"))}
                                   <span className="text-xs text-muted-foreground"> / person</span>
                                 </div>
                                 <div className="mt-3">
@@ -662,7 +677,7 @@ export default function PropertyDetails() {
                                   {v.seats ? `· ${v.seats} seats` : ""}
                                 </div>
                                 <div className="mt-2 text-sm font-semibold text-primary">
-                                  {formatMoney(Number(v.price_per_day ?? 0), String(v.currency ?? "RWF"))}
+                                  {displayMoney(Number(v.price_per_day ?? 0), String(v.currency ?? "RWF"))}
                                   <span className="text-xs text-muted-foreground"> / day</span>
                                 </div>
                                 <div className="mt-3">
