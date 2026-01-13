@@ -7,11 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AMENITIES } from "@/lib/amenities";
 import {
   Building2,
   UserRound,
@@ -23,13 +27,18 @@ import {
   ArrowRight,
   ArrowLeft,
   Info,
+  DollarSign,
+  Users,
+  Bed,
+  Bath,
+  ChevronLeft,
+  Percent,
 } from "lucide-react";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 
 type ApplicantType = "individual" | "business";
 
-const propertyTypes = ["Hotel", "Apartment", "Villa", "Guesthouse", "Resort", "Lodge", "Motel"];
-const amenitiesList = ["WiFi", "Pool", "Parking", "Kitchen", "Breakfast", "AC", "Gym", "Spa", "TV", "Laundry"];
+const propertyTypes = ["Hotel", "Apartment", "Villa", "Guesthouse", "Resort", "Lodge", "Motel", "House", "Cabin"];
 const currencies = [
   { value: "RWF", label: "RWF - Rwandan Franc" },
   { value: "USD", label: "USD - US Dollar" },
@@ -37,6 +46,45 @@ const currencies = [
   { value: "GBP", label: "GBP - British Pound" },
   { value: "CNY", label: "CNY - Chinese Yuan" },
 ];
+
+const cancellationPolicies = [
+  { value: "strict", label: "Strict - Less refunds" },
+  { value: "fair", label: "Fair - Moderate refunds" },
+  { value: "lenient", label: "Lenient - More refunds" },
+] as const;
+
+const cancellationPolicyDetails: Record<string, { title: string; lines: string[] }> = {
+  strict: {
+    title: "Strict",
+    lines: [
+      "15–30 days before check-in: Full refund (minus fees)",
+      "7–15 days: 75% refund (minus fees)",
+      "3–7 days: 50% refund (minus fees)",
+      "1–3 days: 25% refund (minus fees)",
+      "0–1 day: No refund",
+      "No-shows: Non-refundable",
+    ],
+  },
+  fair: {
+    title: "Fair",
+    lines: [
+      "7–15 days before check-in: Full refund (minus fees)",
+      "3–7 days: 75% refund (minus fees)",
+      "1–3 days: 50% refund (minus fees)",
+      "0–1 day: 25% refund",
+      "No-shows: Non-refundable",
+    ],
+  },
+  lenient: {
+    title: "Lenient",
+    lines: [
+      "3–7 days before check-in: Full refund (minus fees)",
+      "1–3 days: 75% refund (minus fees)",
+      "0–1 day: 50% refund",
+      "No-shows: Non-refundable",
+    ],
+  },
+};
 
 export default function HostApplication() {
   const { user, refreshRoles, isHost, isLoading: authLoading, rolesLoading } = useAuth();
@@ -55,6 +103,7 @@ export default function HostApplication() {
   const [property, setProperty] = useState({
     title: "",
     location: "",
+    address: "",
     description: "",
     property_type: "Apartment",
     price_per_night: 50000,
@@ -62,8 +111,17 @@ export default function HostApplication() {
     max_guests: 2,
     bedrooms: 1,
     bathrooms: 1,
+    beds: 1,
     amenities: [] as string[],
     images: [] as string[],
+    cancellation_policy: "fair",
+    weekly_discount: 0,
+    monthly_discount: 0,
+    check_in_time: "14:00",
+    check_out_time: "11:00",
+    smoking_allowed: false,
+    events_allowed: false,
+    pets_allowed: false,
   });
 
   // Personal/Business details
@@ -82,6 +140,11 @@ export default function HostApplication() {
   const [imageUploadOpen, setImageUploadOpen] = useState(false);
   const [idPhotoUploadOpen, setIdPhotoUploadOpen] = useState(false);
   const [certificateUploadOpen, setCertificateUploadOpen] = useState(false);
+
+  // "Add property" wizard inside Become Host (same UX as Host Dashboard)
+  const [listingStep, setListingStep] = useState(1);
+  const listingTotalSteps = 5;
+  const listingStepTitles = ["Basic Info", "Details", "Photos", "Amenities", "Review"];
 
   // Check for existing application
   useEffect(() => {
@@ -130,6 +193,23 @@ export default function HostApplication() {
     );
   }, [property]);
 
+  const canProceedListing = useMemo(() => {
+    switch (listingStep) {
+      case 1:
+        return property.title.trim().length >= 3 && property.location.trim().length >= 2;
+      case 2:
+        return Number(property.price_per_night) > 0 && Number(property.max_guests) >= 1;
+      case 3:
+        return property.images.length >= 1; // require at least 1 photo for application
+      case 4:
+        return true;
+      case 5:
+        return propertyValid;
+      default:
+        return false;
+    }
+  }, [listingStep, property, propertyValid]);
+
   const detailsValid = useMemo(() => {
     if (details.full_name.trim().length < 2) return false;
     if (details.phone.trim().length < 7) return false;
@@ -171,6 +251,8 @@ export default function HostApplication() {
         business_certificate_url: applicantType === "business" ? details.business_certificate_url : null,
         national_id_number: details.national_id_number.trim(),
         national_id_photo_url: details.national_id_photo_url,
+        // Best-effort: store policy choice if the column exists in your schema (older schemas may ignore this)
+        // NOTE: host_applications schema varies across environments; keep insert limited to known columns elsewhere.
       });
 
       if (appErr) throw appErr;
@@ -364,191 +446,477 @@ export default function HostApplication() {
           </Card>
         )}
 
-        {/* Step 2: Property Details */}
+        {/* Step 2: Add your property (same wizard UX as Host Dashboard) */}
         {step === 2 && (
-          <Card className="p-6 md:p-8">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <Home className="w-5 h-5 text-primary" />
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => {
+                  if (listingStep > 1) {
+                    setListingStep((s) => Math.max(1, s - 1));
+                  } else {
+                    setStep(1);
+                  }
+                }}
+                className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+              >
+                <ChevronLeft className="w-5 h-5" />
+                {listingStep > 1 ? "Back" : "Cancel"}
+              </button>
+              <div className="text-center">
+                <h1 className="text-xl font-bold text-foreground">Add your property</h1>
+                <p className="text-sm text-muted-foreground">
+                  Step {listingStep} of {listingTotalSteps}: {listingStepTitles[listingStep - 1]}
+                </p>
               </div>
-              <div>
-                <h1 className="text-xl font-bold text-foreground">List Your Property</h1>
-                <p className="text-sm text-muted-foreground">Tell us about the property you want to list</p>
-              </div>
+              <div className="w-20" />
             </div>
 
-            <div className="space-y-6">
-              {/* Basic Info */}
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <Label htmlFor="title">Property Title *</Label>
-                  <Input
-                    id="title"
-                    value={property.title}
-                    onChange={(e) => setProperty((p) => ({ ...p, title: e.target.value }))}
-                    placeholder="e.g., Cozy apartment in Kigali"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <Label htmlFor="location">Location *</Label>
-                  <Input
-                    id="location"
-                    value={property.location}
-                    onChange={(e) => setProperty((p) => ({ ...p, location: e.target.value }))}
-                    placeholder="e.g., Kimihurura, Kigali"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="type">Property Type</Label>
-                  <Select
-                    value={property.property_type}
-                    onValueChange={(v) => setProperty((p) => ({ ...p, property_type: v }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {propertyTypes.map((t) => (
-                        <SelectItem key={t} value={t}>{t}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="price">Price per Night *</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="price"
-                      type="number"
-                      value={property.price_per_night}
-                      onChange={(e) => setProperty((p) => ({ ...p, price_per_night: Number(e.target.value) }))}
-                      className="flex-1"
-                    />
-                    <Select
-                      value={property.currency}
-                      onValueChange={(v) => setProperty((p) => ({ ...p, currency: v }))}
-                    >
-                      <SelectTrigger className="w-28">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {currencies.map((c) => (
-                          <SelectItem key={c.value} value={c.value}>{c.value}</SelectItem>
+            <Progress value={(listingStep / listingTotalSteps) * 100} className="h-2" />
+
+            <Card className="p-6 md:p-8">
+              {/* Step 1 */}
+              {listingStep === 1 && (
+                <div className="space-y-6">
+                  <div className="text-center mb-8">
+                    <Building2 className="w-12 h-12 mx-auto text-primary mb-4" />
+                    <h2 className="text-2xl font-bold text-foreground">Let’s start with the basics</h2>
+                    <p className="text-muted-foreground mt-2">Tell us about your property</p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <Label className="text-base font-medium">Property Title *</Label>
+                      <Input
+                        value={property.title}
+                        onChange={(e) => setProperty((p) => ({ ...p, title: e.target.value }))}
+                        placeholder="e.g., Cozy Apartment with City View"
+                        className="mt-2 text-lg py-6"
+                      />
+                    </div>
+
+                    <div>
+                      <Label className="text-base font-medium">Location *</Label>
+                      <Input
+                        value={property.location}
+                        onChange={(e) => setProperty((p) => ({ ...p, location: e.target.value }))}
+                        placeholder="e.g., Kigali, Nyarutarama"
+                        className="mt-2 text-lg py-6"
+                      />
+                    </div>
+
+                    <div>
+                      <Label className="text-base font-medium">Address</Label>
+                      <Input
+                        value={property.address}
+                        onChange={(e) => setProperty((p) => ({ ...p, address: e.target.value }))}
+                        placeholder="Street, building, or nearby landmark (optional)"
+                        className="mt-2 text-lg py-6"
+                      />
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Tip: keep it general. Exact address can be shared after booking.
+                      </p>
+                    </div>
+
+                    <div>
+                      <Label className="text-base font-medium">Property Type</Label>
+                      <div className="grid grid-cols-3 gap-3 mt-2">
+                        {propertyTypes.map((type) => (
+                          <button
+                            key={type}
+                            type="button"
+                            onClick={() => setProperty((p) => ({ ...p, property_type: type }))}
+                            className={`p-4 rounded-xl border-2 text-center transition-all ${
+                              property.property_type === type
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-border hover:border-primary/50"
+                            }`}
+                          >
+                            {type}
+                          </button>
                         ))}
-                      </SelectContent>
-                    </Select>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
-              {/* Capacity */}
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label>Max Guests</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={property.max_guests}
-                    onChange={(e) => setProperty((p) => ({ ...p, max_guests: Number(e.target.value) }))}
-                  />
-                </div>
-                <div>
-                  <Label>Bedrooms</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={property.bedrooms}
-                    onChange={(e) => setProperty((p) => ({ ...p, bedrooms: Number(e.target.value) }))}
-                  />
-                </div>
-                <div>
-                  <Label>Bathrooms</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={property.bathrooms}
-                    onChange={(e) => setProperty((p) => ({ ...p, bathrooms: Number(e.target.value) }))}
-                  />
-                </div>
-              </div>
+              {/* Step 2 */}
+              {listingStep === 2 && (
+                <div className="space-y-6">
+                  <div className="text-center mb-8">
+                    <DollarSign className="w-12 h-12 mx-auto text-primary mb-4" />
+                    <h2 className="text-2xl font-bold text-foreground">Set pricing & capacity</h2>
+                    <p className="text-muted-foreground mt-2">How much will you charge per night?</p>
+                  </div>
 
-              {/* Description */}
-              <div>
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={property.description}
-                  onChange={(e) => setProperty((p) => ({ ...p, description: e.target.value }))}
-                  placeholder="Describe your property, surroundings, and what makes it special..."
-                  rows={4}
-                />
-              </div>
-
-              {/* Amenities */}
-              <div>
-                <Label className="mb-2 block">Amenities</Label>
-                <div className="flex flex-wrap gap-2">
-                  {amenitiesList.map((a) => (
-                    <button
-                      key={a}
-                      type="button"
-                      onClick={() =>
-                        setProperty((p) => ({
-                          ...p,
-                          amenities: p.amenities.includes(a)
-                            ? p.amenities.filter((x) => x !== a)
-                            : [...p.amenities, a],
-                        }))
-                      }
-                      className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
-                        property.amenities.includes(a)
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-background border-border hover:border-primary"
-                      }`}
-                    >
-                      {a}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Photos */}
-              <div>
-                <Label className="mb-2 block">Property Photos * (at least 1)</Label>
-                <div className="flex flex-wrap gap-3">
-                  {property.images.map((img, i) => (
-                    <div key={i} className="relative w-24 h-24 rounded-lg overflow-hidden border">
-                      <img src={img} alt="" className="w-full h-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => setProperty((p) => ({ ...p, images: p.images.filter((_, j) => j !== i) }))}
-                        className="absolute top-1 right-1 w-5 h-5 bg-black/50 rounded-full text-white text-xs flex items-center justify-center hover:bg-black/70"
-                      >
-                        ×
-                      </button>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-base font-medium">Price per Night *</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={property.price_per_night}
+                        onChange={(e) => setProperty((p) => ({ ...p, price_per_night: Number(e.target.value) }))}
+                        className="mt-2 text-lg py-6"
+                      />
                     </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => setImageUploadOpen(true)}
-                    className="w-24 h-24 rounded-lg border-2 border-dashed border-border hover:border-primary flex flex-col items-center justify-center text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    <ImageIcon className="w-6 h-6 mb-1" />
-                    <span className="text-xs">Add</span>
-                  </button>
-                </div>
-              </div>
-            </div>
+                    <div>
+                      <Label className="text-base font-medium">Currency</Label>
+                      <Select value={property.currency} onValueChange={(v) => setProperty((p) => ({ ...p, currency: v }))}>
+                        <SelectTrigger className="mt-2 h-14 text-lg">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {currencies.map((c) => (
+                            <SelectItem key={c.value} value={c.value}>
+                              {c.value}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
 
-            <div className="flex gap-3 mt-8">
-              <Button variant="outline" onClick={() => setStep(1)}>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <Label className="text-base font-medium flex items-center gap-2">
+                        <Users className="w-4 h-4" /> Max Guests
+                      </Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={property.max_guests}
+                        onChange={(e) => setProperty((p) => ({ ...p, max_guests: Number(e.target.value) }))}
+                        className="mt-2"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-base font-medium flex items-center gap-2">
+                        <Bed className="w-4 h-4" /> Bedrooms
+                      </Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={property.bedrooms}
+                        onChange={(e) => setProperty((p) => ({ ...p, bedrooms: Number(e.target.value) }))}
+                        className="mt-2"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-base font-medium flex items-center gap-2">
+                        <Bed className="w-4 h-4" /> Beds
+                      </Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={property.beds}
+                        onChange={(e) => setProperty((p) => ({ ...p, beds: Number(e.target.value) }))}
+                        className="mt-2"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-base font-medium flex items-center gap-2">
+                        <Bath className="w-4 h-4" /> Bathrooms
+                      </Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={property.bathrooms}
+                        onChange={(e) => setProperty((p) => ({ ...p, bathrooms: Number(e.target.value) }))}
+                        className="mt-2"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-base font-medium">Description</Label>
+                    <Textarea
+                      value={property.description}
+                      onChange={(e) => setProperty((p) => ({ ...p, description: e.target.value }))}
+                      placeholder="Describe your property. What makes it special?"
+                      className="mt-2 min-h-32"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-base font-medium">Cancellation Policy</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
+                      {cancellationPolicies.map((policy) => (
+                        <Tooltip key={policy.value}>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={() => setProperty((p) => ({ ...p, cancellation_policy: policy.value }))}
+                              className={`p-4 rounded-xl border-2 text-left transition-all ${
+                                property.cancellation_policy === policy.value
+                                  ? "border-primary bg-primary/10"
+                                  : "border-border hover:border-primary/50"
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <div className="font-medium">{policy.label.split(" - ")[0]}</div>
+                                  <div className="text-sm text-muted-foreground">{policy.label.split(" - ")[1]}</div>
+                                </div>
+                                <Info className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+                              </div>
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-sm p-3">
+                            <div className="font-semibold mb-2">
+                              {cancellationPolicyDetails[policy.value]?.title ?? policy.label.split(" - ")[0]}
+                            </div>
+                            <ul className="text-xs leading-relaxed space-y-1 text-muted-foreground">
+                              {(cancellationPolicyDetails[policy.value]?.lines ?? []).map((line) => (
+                                <li key={line}>• {line}</li>
+                              ))}
+                            </ul>
+                          </TooltipContent>
+                        </Tooltip>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-border">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Percent className="w-5 h-5 text-primary" />
+                      <Label className="text-base font-medium">Long stay discounts</Label>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="p-4 rounded-xl border border-border bg-muted/20">
+                        <Label className="text-sm font-medium">Weekly Discount (7+ days)</Label>
+                        <div className="flex items-center gap-3 mt-2">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={property.weekly_discount}
+                            onChange={(e) => setProperty((p) => ({ ...p, weekly_discount: Number(e.target.value) }))}
+                            className="w-24"
+                          />
+                          <span className="text-muted-foreground">%</span>
+                        </div>
+                      </div>
+                      <div className="p-4 rounded-xl border border-border bg-muted/20">
+                        <Label className="text-sm font-medium">Monthly Discount (28+ days)</Label>
+                        <div className="flex items-center gap-3 mt-2">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={property.monthly_discount}
+                            onChange={(e) => setProperty((p) => ({ ...p, monthly_discount: Number(e.target.value) }))}
+                            className="w-24"
+                          />
+                          <span className="text-muted-foreground">%</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-border">
+                    <Label className="text-base font-medium">Accommodation rules</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                      <div>
+                        <Label className="text-sm text-muted-foreground">Check-in time</Label>
+                        <Input
+                          type="time"
+                          value={property.check_in_time}
+                          onChange={(e) => setProperty((p) => ({ ...p, check_in_time: e.target.value }))}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-sm text-muted-foreground">Check-out time</Label>
+                        <Input
+                          type="time"
+                          value={property.check_out_time}
+                          onChange={(e) => setProperty((p) => ({ ...p, check_out_time: e.target.value }))}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between rounded-xl border border-border p-3">
+                        <div>
+                          <div className="font-medium">Smoking</div>
+                          <div className="text-xs text-muted-foreground">Allow smoking</div>
+                        </div>
+                        <Switch checked={property.smoking_allowed} onCheckedChange={(v) => setProperty((p) => ({ ...p, smoking_allowed: v }))} />
+                      </div>
+                      <div className="flex items-center justify-between rounded-xl border border-border p-3">
+                        <div>
+                          <div className="font-medium">Events</div>
+                          <div className="text-xs text-muted-foreground">Allow events</div>
+                        </div>
+                        <Switch checked={property.events_allowed} onCheckedChange={(v) => setProperty((p) => ({ ...p, events_allowed: v }))} />
+                      </div>
+                      <div className="flex items-center justify-between rounded-xl border border-border p-3">
+                        <div>
+                          <div className="font-medium">Pets</div>
+                          <div className="text-xs text-muted-foreground">Allow pets</div>
+                        </div>
+                        <Switch checked={property.pets_allowed} onCheckedChange={(v) => setProperty((p) => ({ ...p, pets_allowed: v }))} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3 */}
+              {listingStep === 3 && (
+                <div className="space-y-6">
+                  <div className="text-center mb-8">
+                    <ImageIcon className="w-12 h-12 mx-auto text-primary mb-4" />
+                    <h2 className="text-2xl font-bold text-foreground">Add photos</h2>
+                    <p className="text-muted-foreground mt-2">Upload at least 1 photo to continue</p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-3">
+                    {property.images.map((img, i) => (
+                      <div key={img + i} className="relative w-24 h-24 rounded-lg overflow-hidden border">
+                        <img src={img} alt="" className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => setProperty((p) => ({ ...p, images: p.images.filter((_, j) => j !== i) }))}
+                          className="absolute top-1 right-1 w-6 h-6 bg-black/60 rounded-full text-white text-xs flex items-center justify-center"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setImageUploadOpen(true)}
+                      className="w-24 h-24 rounded-lg border-2 border-dashed border-border hover:border-primary flex flex-col items-center justify-center text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      <ImageIcon className="w-6 h-6 mb-1" />
+                      <span className="text-xs">Add</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 4 */}
+              {listingStep === 4 && (
+                <div className="space-y-6">
+                  <div className="text-center mb-8">
+                    <Home className="w-12 h-12 mx-auto text-primary mb-4" />
+                    <h2 className="text-2xl font-bold text-foreground">Select amenities</h2>
+                    <p className="text-muted-foreground mt-2">Guests love details</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {Array.from(new Map(AMENITIES.map((a) => [a.value, a])).values()).map((a) => {
+                      const Icon = a.icon;
+                      const selected = property.amenities.includes(a.value);
+                      return (
+                        <button
+                          key={a.value}
+                          type="button"
+                          onClick={() =>
+                            setProperty((p) => ({
+                              ...p,
+                              amenities: selected ? p.amenities.filter((x) => x !== a.value) : [...p.amenities, a.value],
+                            }))
+                          }
+                          className={`p-4 rounded-xl border-2 text-left transition-all ${
+                            selected ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Icon className="w-4 h-4 text-primary" />
+                            <span className="text-sm font-medium">{a.label}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Step 5 */}
+              {listingStep === 5 && (
+                <div className="space-y-6">
+                  <div className="text-center mb-6">
+                    <CheckCircle2 className="w-12 h-12 mx-auto text-primary mb-4" />
+                    <h2 className="text-2xl font-bold text-foreground">Review your listing</h2>
+                    <p className="text-muted-foreground mt-2">Make sure everything looks right</p>
+                  </div>
+
+                  <div className="rounded-xl border border-border p-4">
+                    <div className="font-semibold text-foreground">{property.title || "Untitled"}</div>
+                    <div className="text-sm text-muted-foreground">{property.location || "Location"}</div>
+                    {property.images?.[0] ? (
+                      <div className="mt-3 rounded-lg overflow-hidden border border-border">
+                        <img src={property.images[0]} alt="" className="w-full h-56 object-cover" />
+                      </div>
+                    ) : null}
+                    <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                      <div>
+                        <div className="text-xs text-muted-foreground">Price</div>
+                        <div className="font-semibold">
+                          {property.currency} {Number(property.price_per_night).toLocaleString()}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground">Guests</div>
+                        <div className="font-semibold">{property.max_guests}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground">Beds</div>
+                        <div className="font-semibold">{property.beds}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground">Bedrooms</div>
+                        <div className="font-semibold">{property.bedrooms}</div>
+                      </div>
+                    </div>
+                    {property.amenities.length ? (
+                      <div className="mt-3 text-sm text-muted-foreground">
+                        Amenities: <span className="text-foreground">{property.amenities.slice(0, 6).join(", ")}</span>
+                        {property.amenities.length > 6 ? "…" : ""}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              )}
+            </Card>
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (listingStep > 1) setListingStep((s) => Math.max(1, s - 1));
+                  else setStep(1);
+                }}
+              >
                 <ArrowLeft className="w-4 h-4 mr-2" /> Back
               </Button>
-              <Button className="flex-1" disabled={!propertyValid} onClick={() => setStep(3)}>
-                Continue to Verification <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
+              {listingStep < listingTotalSteps ? (
+                <Button
+                  className="flex-1"
+                  disabled={!canProceedListing}
+                  onClick={() => setListingStep((s) => Math.min(listingTotalSteps, s + 1))}
+                >
+                  Next <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              ) : (
+                <Button
+                  className="flex-1"
+                  disabled={!propertyValid}
+                  onClick={() => {
+                    setStep(3);
+                    setListingStep(1);
+                  }}
+                >
+                  Continue to Verification <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              )}
             </div>
-          </Card>
+          </div>
         )}
 
         {/* Step 3: Verification */}
