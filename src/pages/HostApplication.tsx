@@ -198,8 +198,8 @@ export default function HostApplication() {
   // Validation
   const propertyValid = useMemo(() => {
     return (
-      property.title.trim().length >= 3 &&
-      property.location.trim().length >= 2 &&
+      property.title.trim().length >= 1 &&
+      property.location.trim().length >= 1 &&
       property.price_per_night > 0 &&
       property.max_guests >= 1 &&
       property.images.length >= 1
@@ -209,7 +209,7 @@ export default function HostApplication() {
   const canProceedListing = useMemo(() => {
     switch (listingStep) {
       case 1:
-        return property.title.trim().length >= 3 && property.location.trim().length >= 2;
+        return property.title.trim().length >= 1 && property.location.trim().length >= 1;
       case 2:
         return Number(property.price_per_night) > 0 && Number(property.max_guests) >= 1;
       case 3:
@@ -232,54 +232,44 @@ export default function HostApplication() {
   }, [property.amenities]);
 
   const detailsValid = useMemo(() => {
-    if (details.full_name.trim().length < 2) return false;
-    if (details.phone.trim().length < 7) return false;
-    if (details.national_id_number.trim().length < 5) return false;
+    // Very permissive - just check that required fields have some content
+    if (!details.full_name.trim()) return false;
+    if (!details.phone.trim()) return false;
+    if (!details.national_id_number.trim()) return false;
     if (!details.national_id_photo_url) return false;
     if (applicantType === "business") {
-      if (details.business_name.trim().length < 2) return false;
-      if (details.business_tin.trim().length < 5) return false;
+      if (!details.business_name.trim()) return false;
+      if (!details.business_tin.trim()) return false;
     }
     return true;
   }, [details, applicantType]);
 
-  // Validate individual fields and return error messages
+  // Validate individual fields and return error messages - very permissive
   const validateField = (fieldName: string): string => {
     switch (fieldName) {
       case 'full_name':
         if (!details.full_name.trim()) return 'Full name is required';
-        if (details.full_name.trim().length < 2) return 'Full name must be at least 2 characters';
         return '';
       case 'phone':
         if (!details.phone.trim()) return 'Phone number is required';
-        if (details.phone.trim().length < 7) return 'Phone number must be at least 7 digits';
         return '';
       case 'national_id_number':
         if (!details.national_id_number.trim()) return 'National ID number is required';
-        if (details.national_id_number.trim().length < 5) return 'ID number must be at least 5 characters';
         return '';
       case 'national_id_photo_url':
         if (!details.national_id_photo_url) return 'ID photo is required';
         return '';
       case 'business_name':
-        if (applicantType === 'business') {
-          if (!details.business_name.trim()) return 'Business name is required';
-          if (details.business_name.trim().length < 2) return 'Business name must be at least 2 characters';
-        }
+        if (applicantType === 'business' && !details.business_name.trim()) return 'Business name is required';
         return '';
       case 'business_tin':
-        if (applicantType === 'business') {
-          if (!details.business_tin.trim()) return 'TIN number is required';
-          if (details.business_tin.trim().length < 5) return 'TIN must be at least 5 characters';
-        }
+        if (applicantType === 'business' && !details.business_tin.trim()) return 'TIN number is required';
         return '';
       case 'property_title':
         if (!property.title.trim()) return 'Property title is required';
-        if (property.title.trim().length < 3) return 'Title must be at least 3 characters';
         return '';
       case 'property_location':
         if (!property.location.trim()) return 'Location is required';
-        if (property.location.trim().length < 2) return 'Location must be at least 2 characters';
         return '';
       case 'property_price':
         if (!property.price_per_night || property.price_per_night <= 0) return 'Price must be greater than 0';
@@ -315,33 +305,33 @@ export default function HostApplication() {
       business_tin: true,
     });
 
-    // Validate all fields before submitting
+    // Very permissive validation - just check required fields are not empty
     const errors: string[] = [];
-    if (!details.full_name.trim() || details.full_name.trim().length < 2) {
-      errors.push('Full name must be at least 2 characters');
+    if (!details.full_name.trim()) {
+      errors.push('Full name is required');
     }
-    if (!details.phone.trim() || details.phone.trim().length < 7) {
-      errors.push('Phone number must be at least 7 digits');
+    if (!details.phone.trim()) {
+      errors.push('Phone number is required');
     }
-    if (!details.national_id_number.trim() || details.national_id_number.trim().length < 5) {
-      errors.push('National ID number must be at least 5 characters');
+    if (!details.national_id_number.trim()) {
+      errors.push('National ID number is required');
     }
     if (!details.national_id_photo_url) {
       errors.push('ID photo is required');
     }
     if (applicantType === 'business') {
-      if (!details.business_name.trim() || details.business_name.trim().length < 2) {
-        errors.push('Business name must be at least 2 characters');
+      if (!details.business_name.trim()) {
+        errors.push('Business name is required');
       }
-      if (!details.business_tin.trim() || details.business_tin.trim().length < 5) {
-        errors.push('TIN number must be at least 5 characters');
+      if (!details.business_tin.trim()) {
+        errors.push('TIN number is required');
       }
     }
 
     if (errors.length > 0) {
       toast({
         variant: "destructive",
-        title: "Validation errors",
+        title: "Please fill in all required fields",
         description: (
           <ul className="list-disc list-inside space-y-1">
             {errors.map((err, i) => <li key={i}>{err}</li>)}
