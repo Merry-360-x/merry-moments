@@ -57,6 +57,8 @@ export default function HostApplication() {
 
   // Simplified form state
   const [formData, setFormData] = useState({
+    // Service Types
+    service_types: [] as string[], // accommodation, transport, tour
     // Personal
     full_name: "",
     phone: "",
@@ -83,7 +85,7 @@ export default function HostApplication() {
   const [imageUploadOpen, setImageUploadOpen] = useState(false);
   const [idPhotoUploadOpen, setIdPhotoUploadOpen] = useState(false);
 
-  const totalSteps = 3;
+  const totalSteps = 4; // Added service type step
   const progress = (currentStep / totalSteps) * 100;
 
   // Check for existing application
@@ -136,6 +138,7 @@ export default function HostApplication() {
         user_id: user.id,
         status: "pending",
         applicant_type: applicantType,
+        service_types: formData.service_types,
         full_name: formData.full_name,
         phone: formData.phone,
         about: formData.about || null,
@@ -318,17 +321,161 @@ export default function HostApplication() {
           </div>
           <Progress value={progress} className="h-2" />
           <div className="flex justify-between mt-2 text-xs text-muted-foreground">
+            <span>Service Type</span>
             <span>Personal Info</span>
-            <span>Property Details</span>
-            <span>Review & Submit</span>
+            <span>Details</span>
+            <span>Review</span>
           </div>
         </div>
 
         {/* Step Content */}
         <Card className="shadow-xl">
           <CardContent className="p-6 md:p-8">
-            {/* Step 1: Personal Information */}
+            {/* Step 1: Service Type Selection */}
             {currentStep === 1 && (
+              <div className="space-y-6">
+                <div className="text-center mb-6">
+                  <h2 className="text-2xl font-bold mb-2">What Will You Offer?</h2>
+                  <p className="text-muted-foreground">Select one or more services you want to provide</p>
+                </div>
+
+                <div className="grid md:grid-cols-3 gap-4">
+                  {/* Accommodation */}
+                  <div
+                    onClick={() => {
+                      const types = formData.service_types.includes("accommodation")
+                        ? formData.service_types.filter((t) => t !== "accommodation")
+                        : [...formData.service_types, "accommodation"];
+                      updateField("service_types", types);
+                    }}
+                    className={`p-6 border-2 rounded-xl cursor-pointer transition-all hover:shadow-lg ${
+                      formData.service_types.includes("accommodation")
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                  >
+                    <div className="flex flex-col items-center text-center space-y-3">
+                      <div
+                        className={`w-16 h-16 rounded-full flex items-center justify-center ${
+                          formData.service_types.includes("accommodation")
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted"
+                        }`}
+                      >
+                        <Home className="w-8 h-8" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-lg">Accommodation</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Hotels, apartments, villas, guesthouses
+                        </p>
+                      </div>
+                      {formData.service_types.includes("accommodation") && (
+                        <CheckCircle2 className="w-6 h-6 text-primary" />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Transport */}
+                  <div
+                    onClick={() => {
+                      const types = formData.service_types.includes("transport")
+                        ? formData.service_types.filter((t) => t !== "transport")
+                        : [...formData.service_types, "transport"];
+                      updateField("service_types", types);
+                    }}
+                    className={`p-6 border-2 rounded-xl cursor-pointer transition-all hover:shadow-lg ${
+                      formData.service_types.includes("transport")
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                  >
+                    <div className="flex flex-col items-center text-center space-y-3">
+                      <div
+                        className={`w-16 h-16 rounded-full flex items-center justify-center ${
+                          formData.service_types.includes("transport")
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted"
+                        }`}
+                      >
+                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-lg">Transport</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Vehicle rentals, shuttle services
+                        </p>
+                      </div>
+                      {formData.service_types.includes("transport") && (
+                        <CheckCircle2 className="w-6 h-6 text-primary" />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Tours */}
+                  <div
+                    onClick={() => {
+                      const types = formData.service_types.includes("tour")
+                        ? formData.service_types.filter((t) => t !== "tour")
+                        : [...formData.service_types, "tour"];
+                      updateField("service_types", types);
+                    }}
+                    className={`p-6 border-2 rounded-xl cursor-pointer transition-all hover:shadow-lg ${
+                      formData.service_types.includes("tour")
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                  >
+                    <div className="flex flex-col items-center text-center space-y-3">
+                      <div
+                        className={`w-16 h-16 rounded-full flex items-center justify-center ${
+                          formData.service_types.includes("tour")
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted"
+                        }`}
+                      >
+                        <MapPin className="w-8 h-8" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-lg">Tours</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Guided tours, experiences, activities
+                        </p>
+                      </div>
+                      {formData.service_types.includes("tour") && (
+                        <CheckCircle2 className="w-6 h-6 text-primary" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {formData.service_types.length === 0 && (
+                  <p className="text-center text-sm text-muted-foreground mt-4">
+                    Please select at least one service type to continue
+                  </p>
+                )}
+
+                <div className="flex justify-end gap-3 mt-8 pt-6 border-t">
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate("/")}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() => setCurrentStep(2)}
+                    disabled={formData.service_types.length === 0}
+                  >
+                    Continue <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: Personal Information */}
+            {currentStep === 2 && (
               <div className="space-y-6">
                 <div className="text-center mb-6">
                   <h2 className="text-2xl font-bold mb-2">Personal Information</h2>
@@ -404,11 +551,16 @@ export default function HostApplication() {
                   </div>
                 </div>
 
-                <div className="flex justify-end pt-4">
+                <div className="flex justify-between gap-3 mt-8 pt-6 border-t">
                   <Button
-                    size="lg"
+                    variant="outline"
+                    onClick={() => setCurrentStep(1)}
+                  >
+                    Back
+                  </Button>
+                  <Button
                     disabled={!formData.full_name || !formData.phone || !formData.national_id_number || !formData.national_id_photo_url}
-                    onClick={() => setCurrentStep(2)}
+                    onClick={() => setCurrentStep(3)}
                   >
                     Continue <ArrowRight className="ml-2 w-4 h-4" />
                   </Button>
@@ -416,8 +568,8 @@ export default function HostApplication() {
               </div>
             )}
 
-            {/* Step 2: Property Details */}
-            {currentStep === 2 && (
+            {/* Step 3: Property Details */}
+            {currentStep === 3 && (
               <div className="space-y-6">
                 <div className="text-center mb-6">
                   <h2 className="text-2xl font-bold mb-2">Property Details</h2>
@@ -605,14 +757,13 @@ export default function HostApplication() {
                   </div>
                 </div>
 
-                <div className="flex gap-3 pt-4">
-                  <Button variant="outline" onClick={() => setCurrentStep(1)}>
+                <div className="flex justify-between gap-3 mt-8 pt-6 border-t">
+                  <Button variant="outline" onClick={() => setCurrentStep(2)}>
                     Back
                   </Button>
                   <Button
-                    className="flex-1"
                     disabled={!formData.title || !formData.location || formData.images.length === 0}
-                    onClick={() => setCurrentStep(3)}
+                    onClick={() => setCurrentStep(4)}
                   >
                     Review Application <ArrowRight className="ml-2 w-4 h-4" />
                   </Button>
@@ -620,8 +771,8 @@ export default function HostApplication() {
               </div>
             )}
 
-            {/* Step 3: Review & Submit */}
-            {currentStep === 3 && (
+            {/* Step 4: Review & Submit */}
+            {currentStep === 4 && (
               <div className="space-y-6">
                 <div className="text-center mb-6">
                   <h2 className="text-2xl font-bold mb-2">Review Your Application</h2>
@@ -629,6 +780,25 @@ export default function HostApplication() {
                 </div>
 
                 <div className="space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <Building2 className="w-5 h-5" />
+                        Service Types
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex flex-wrap gap-2">
+                        {formData.service_types.map((type) => (
+                          <div key={type} className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium capitalize flex items-center gap-1">
+                            <Check className="w-4 h-4" />
+                            {type}
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2 text-lg">
@@ -706,12 +876,11 @@ export default function HostApplication() {
                   </div>
                 </div>
 
-                <div className="flex gap-3 pt-4">
-                  <Button variant="outline" onClick={() => setCurrentStep(2)}>
+                <div className="flex justify-between gap-3 mt-8 pt-6 border-t">
+                  <Button variant="outline" onClick={() => setCurrentStep(3)}>
                     Back
                   </Button>
                   <Button
-                    className="flex-1"
                     size="lg"
                     disabled={submitting}
                     onClick={handleSubmit}
@@ -747,6 +916,21 @@ export default function HostApplication() {
         multiple
         value={formData.images}
         onChange={(urls) => updateField("images", urls)}
+      />
+
+      <CloudinaryUploadDialog
+        open={idPhotoUploadOpen}
+        onOpenChange={setIdPhotoUploadOpen}
+        title="Upload National ID Photo"
+        folder="host_applications/id_photos"
+        accept="image/*"
+        multiple={false}
+        value={formData.national_id_photo_url ? [formData.national_id_photo_url] : []}
+        onChange={(urls) => updateField("national_id_photo_url", urls[0] || "")}
+      />
+    </div>
+  );
+}
       />
 
       <CloudinaryUploadDialog
