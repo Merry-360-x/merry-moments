@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -60,6 +60,7 @@ export default function Dashboard() {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [resetting, setResetting] = useState(false);
 
@@ -271,7 +272,7 @@ export default function Dashboard() {
                         .update({ avatar_url: next || null })
                         .eq("user_id", user.id);
                       if (error) throw error;
-                      setProfile((p) => (p ? { ...p, avatar_url: next || null } : p));
+                      queryClient.invalidateQueries({ queryKey: ["profile", user.id] });
                       toast({ title: "Avatar updated" });
                     } catch (err) {
                       toast({
