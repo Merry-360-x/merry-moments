@@ -931,19 +931,3 @@ export default function HostApplication() {
     </div>
   );
 }
-      />
-
-      <CloudinaryUploadDialog
-        open={idPhotoUploadOpen}
-        onOpenChange={setIdPhotoUploadOpen}
-        title="Upload ID Photo"
-        folder="host_applications/id_photos"
-        accept="image/*"
-        multiple={false}
-        maxFiles={1}
-        value={formData.national_id_photo_url ? [formData.national_id_photo_url] : []}
-        onChange={(urls) => updateField("national_id_photo_url", urls[0] ?? "")}
-      />
-    </div>
-  );
-}
