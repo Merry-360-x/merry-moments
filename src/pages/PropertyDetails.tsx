@@ -450,10 +450,10 @@ export default function PropertyDetails() {
                   ) : (
                     <img
                       src={media[0]}
-                      alt={data.title}
-                      className="w-full h-[320px] object-cover"
-                      loading="lazy"
-                    />
+                  alt={data.title}
+                  className="w-full h-[320px] object-cover"
+                  loading="lazy"
+                />
                   )}
                 </button>
               ) : (
@@ -649,9 +649,9 @@ export default function PropertyDetails() {
                         ))}
                       </div>
                     )}
-                  </div>
+            </div>
 
-                  <div>
+            <div>
                     <div className="text-xs font-medium text-muted-foreground mb-2">Transport vehicles</div>
                     {relatedTransportVehicles.length === 0 ? (
                       <div className="text-sm text-muted-foreground">No transport vehicles found yet.</div>

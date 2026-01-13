@@ -389,7 +389,7 @@ export default function HostDashboard() {
   const fetchData = useCallback(async () => {
     if (!user) return;
     setIsLoading(true);
-
+    
     try {
       // Fetch properties, tours, vehicles, routes
       const [propsRes, toursRes, vehiclesRes, routesRes] = await Promise.all([
@@ -408,20 +408,20 @@ export default function HostDashboard() {
       const propertyIds = (propsRes.data || []).map((p: { id: string }) => p.id);
       
       if (propertyIds.length > 0) {
-        const { data: bookingsData } = await supabase
-          .from("bookings")
+    const { data: bookingsData } = await supabase
+      .from("bookings")
           .select("*")
           .in("property_id", propertyIds)
-          .order("created_at", { ascending: false });
-        
-        if (bookingsData) setBookings(bookingsData as Booking[]);
+      .order("created_at", { ascending: false });
+
+    if (bookingsData) setBookings(bookingsData as Booking[]);
       } else {
         setBookings([]);
       }
     } catch (e) {
       logError("host.fetchData", e);
     } finally {
-      setIsLoading(false);
+    setIsLoading(false);
     }
   }, [user]);
 
@@ -493,14 +493,14 @@ export default function HostDashboard() {
     console.log("[createProperty] Attempting insert with payload:", payload);
 
     const { error, data: newProp } = await supabase
-      .from("properties")
+        .from("properties")
       .insert(payload as never)
       .select()
       .single();
 
     setCreatingProperty(false);
 
-    if (error) {
+      if (error) {
       console.error("[createProperty] Full error:", JSON.stringify(error, null, 2));
       logError("host.property.create", error);
       if (error.code === "42501" || error.message?.includes("policy")) {
@@ -819,10 +819,10 @@ export default function HostDashboard() {
           <div className="absolute top-2 right-2">
             {form.is_published ? (
               <Badge className="bg-green-500">Live</Badge>
-            ) : (
+          ) : (
               <Badge variant="secondary">Draft</Badge>
-            )}
-          </div>
+          )}
+        </div>
         </div>
 
         <div className="p-4 space-y-3">
@@ -946,9 +946,9 @@ export default function HostDashboard() {
 
   // Show "become a host" if user is not a host (only after roles have loaded)
   if (!isHost) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
+  return (
+    <div className="min-h-screen bg-background">
+      <Navbar />
         <div className="container mx-auto px-4 py-20 text-center max-w-md">
           <Home className="w-16 h-16 mx-auto text-primary mb-6" />
           <h1 className="text-2xl font-bold text-foreground mb-4">Become a Host</h1>
@@ -981,7 +981,7 @@ export default function HostDashboard() {
         <Navbar />
         <div className="container mx-auto px-4 py-8 max-w-3xl">
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-8">
             <button
               onClick={() => {
                 if (wizardStep > 1) {
@@ -1018,7 +1018,7 @@ export default function HostDashboard() {
                 </div>
 
                 <div className="space-y-4">
-                  <div>
+          <div>
                     <Label className="text-base font-medium">Property Title *</Label>
                     <Input
                       value={propertyForm.title}
@@ -1048,10 +1048,10 @@ export default function HostDashboard() {
                     />
                     <p className="text-xs text-muted-foreground mt-2">
                       Tip: keep it general. Exact address can be shared after booking.
-                    </p>
-                  </div>
+            </p>
+          </div>
 
-                  <div>
+                <div>
                     <Label className="text-base font-medium">Property Type</Label>
                     <div className="grid grid-cols-3 gap-3 mt-2">
                       {propertyTypes.map((type) => (
@@ -1087,15 +1087,15 @@ export default function HostDashboard() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label className="text-base font-medium">Price per Night *</Label>
-                      <Input
+                  <Input
                         type="number"
                         min={1}
                         value={propertyForm.price_per_night}
                         onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_night: Number(e.target.value) }))}
                         className="mt-2 text-lg py-6"
-                      />
-                    </div>
-                    <div>
+                  />
+                </div>
+                <div>
                       <Label className="text-base font-medium">Currency</Label>
                       <Select value={propertyForm.currency} onValueChange={(v) => setPropertyForm((f) => ({ ...f, currency: v }))}>
                         <SelectTrigger className="mt-2 h-14 text-lg"><SelectValue /></SelectTrigger>
@@ -1109,15 +1109,15 @@ export default function HostDashboard() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div>
                       <Label className="text-base font-medium flex items-center gap-2"><Users className="w-4 h-4" />Max Guests</Label>
-                      <Input
+                  <Input
                         type="number"
                         min={1}
                         value={propertyForm.max_guests}
                         onChange={(e) => setPropertyForm((f) => ({ ...f, max_guests: Number(e.target.value) }))}
                         className="mt-2"
-                      />
-                    </div>
-                    <div>
+                  />
+                </div>
+                <div>
                       <Label className="text-base font-medium flex items-center gap-2"><Bed className="w-4 h-4" />Bedrooms</Label>
                       <Input
                         type="number"
@@ -1151,15 +1151,15 @@ export default function HostDashboard() {
 
                   <div>
                     <Label className="text-base font-medium">Description</Label>
-                    <Textarea
+                  <Textarea
                       value={propertyForm.description}
                       onChange={(e) => setPropertyForm((f) => ({ ...f, description: e.target.value }))}
                       placeholder="Describe your property. What makes it special?"
                       className="mt-2 min-h-32"
-                    />
-                  </div>
+                  />
+                </div>
 
-                  <div>
+                <div>
                     <Label className="text-base font-medium">Cancellation Policy</Label>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
                       {cancellationPolicies.map((policy) => (
@@ -1213,7 +1213,7 @@ export default function HostDashboard() {
                           Weekly Discount (7+ days)
                         </Label>
                         <div className="flex items-center gap-3 mt-2">
-                          <Input
+                    <Input
                             type="number"
                             min={0}
                             max={100}
@@ -1408,9 +1408,9 @@ export default function HostDashboard() {
                     const Icon = amenity.icon;
                     const isSelected = propertyForm.amenities.includes(amenity.id);
                     return (
-                      <button
+                            <button
                         key={amenity.id}
-                        type="button"
+                              type="button"
                         onClick={() => {
                           setPropertyForm((f) => ({
                             ...f,
@@ -1427,10 +1427,10 @@ export default function HostDashboard() {
                       >
                         <Icon className="w-5 h-5" />
                         <span className="font-medium">{amenity.label}</span>
-                      </button>
+                            </button>
                     );
                   })}
-                </div>
+                          </div>
               </div>
             )}
 
@@ -1515,7 +1515,7 @@ export default function HostDashboard() {
                       {propertyForm.amenities.length > 5 && (
                         <Badge variant="secondary">+{propertyForm.amenities.length - 5} more</Badge>
                       )}
-                    </div>
+                      </div>
 
                     {propertyForm.description && (
                       <div className="pt-3 border-t border-border">
@@ -1676,10 +1676,10 @@ export default function HostDashboard() {
             </button>
             <div className="text-center">
               <h1 className="text-xl font-bold text-foreground">Create a Tour</h1>
-              <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-muted-foreground">
                 Step {tourWizardStep} of {totalSteps}: {stepTitles[tourWizardStep - 1]}
-              </p>
-            </div>
+                      </p>
+                  </div>
             <div className="w-20" />
           </div>
 
@@ -1712,9 +1712,9 @@ export default function HostDashboard() {
                       placeholder="e.g., Kigali, Remera"
                       className="mt-2 text-lg py-6"
                     />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
                       <Label className="text-base font-medium">Category</Label>
                       <Input
                         value={tourForm.category}
@@ -1722,17 +1722,17 @@ export default function HostDashboard() {
                         placeholder="e.g., Culture"
                         className="mt-2 text-lg py-6"
                       />
-                    </div>
-                    <div>
+                  </div>
+                  <div>
                       <Label className="text-base font-medium">Difficulty</Label>
-                      <Input
+                    <Input
                         value={tourForm.difficulty}
                         onChange={(e) => setTourForm((f) => ({ ...f, difficulty: e.target.value }))}
                         placeholder="e.g., Easy"
                         className="mt-2 text-lg py-6"
-                      />
-                    </div>
+                    />
                   </div>
+                </div>
                   <div>
                     <Label className="text-base font-medium">Description</Label>
                     <Textarea
@@ -1833,8 +1833,8 @@ export default function HostDashboard() {
 
                 <div>
                   <Label className="text-base font-medium">Duration (days)</Label>
-                  <Input
-                    type="number"
+                    <Input
+                      type="number"
                     min={1}
                     value={tourForm.duration_days}
                     onChange={(e) => setTourForm((f) => ({ ...f, duration_days: Number(e.target.value) }))}
@@ -1996,7 +1996,7 @@ export default function HostDashboard() {
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
+                  <div>
                       <Label className="text-base font-medium">Vehicle Type *</Label>
                       <Input
                         value={vehicleForm.vehicle_type}
@@ -2007,15 +2007,15 @@ export default function HostDashboard() {
                     </div>
                     <div>
                       <Label className="text-base font-medium">Seats *</Label>
-                      <Input
-                        type="number"
+                    <Input
+                      type="number"
                         min={1}
                         value={vehicleForm.seats}
                         onChange={(e) => setVehicleForm((f) => ({ ...f, seats: Number(e.target.value) }))}
                         className="mt-2 text-lg py-6"
-                      />
-                    </div>
+                    />
                   </div>
+                </div>
                   <div>
                     <Label className="text-base font-medium">Provider / Company</Label>
                     <Input
@@ -2024,7 +2024,7 @@ export default function HostDashboard() {
                       placeholder="Optional"
                       className="mt-2 text-lg py-6"
                     />
-                  </div>
+        </div>
                   <div className="flex items-center justify-between border rounded-xl p-4">
                     <div>
                       <p className="font-medium text-foreground">Driver included</p>
@@ -2042,7 +2042,7 @@ export default function HostDashboard() {
                   <ImageIcon className="w-12 h-12 mx-auto text-primary mb-4" />
                   <h2 className="text-2xl font-bold text-foreground">Add vehicle photos or video</h2>
                   <p className="text-muted-foreground mt-2">Show guests what they get</p>
-                </div>
+              </div>
 
                 <div
                   onClick={() => setVehicleUploadDialogOpen(true)}
@@ -2105,7 +2105,7 @@ export default function HostDashboard() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
+              <div>
                     <Label className="text-base font-medium">Price per Day *</Label>
                     <Input
                       type="number"
@@ -2114,7 +2114,7 @@ export default function HostDashboard() {
                       onChange={(e) => setVehicleForm((f) => ({ ...f, price_per_day: Number(e.target.value) }))}
                       className="mt-2 text-lg py-6"
                     />
-                  </div>
+              </div>
                   <div>
                     <Label className="text-base font-medium">Currency</Label>
                     <Select value={vehicleForm.currency} onValueChange={(v) => setVehicleForm((f) => ({ ...f, currency: v }))}>
@@ -2123,14 +2123,14 @@ export default function HostDashboard() {
                         {currencies.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                       </SelectContent>
                     </Select>
-                  </div>
-                </div>
+            </div>
+          </div>
 
                 <div className="flex items-center justify-between border rounded-xl p-4">
                   <div>
                     <p className="font-medium text-foreground">Publish now</p>
                     <p className="text-sm text-muted-foreground">Turn off to save as draft</p>
-                  </div>
+              </div>
                   <Switch checked={vehicleForm.is_published} onCheckedChange={(v) => setVehicleForm((f) => ({ ...f, is_published: v }))} />
                 </div>
               </div>
@@ -2183,11 +2183,11 @@ export default function HostDashboard() {
 
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
-          <div>
+              <div>
             <h1 className="text-2xl font-bold text-foreground">Host Dashboard</h1>
             <p className="text-muted-foreground">Manage your properties, tours, and bookings</p>
-          </div>
-        </div>
+              </div>
+            </div>
 
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="mb-6">
@@ -2205,7 +2205,7 @@ export default function HostDashboard() {
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
                     <DollarSign className="w-5 h-5 text-green-600" />
-                  </div>
+          </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Total Earnings</p>
                     <p className="text-xl font-bold">{formatMoney(totalEarnings, "RWF")}</p>
@@ -2227,22 +2227,22 @@ export default function HostDashboard() {
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center">
                     <Clock className="w-5 h-5 text-yellow-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Pending</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Pending</p>
                     <p className="text-xl font-bold">{pendingBookings}</p>
-                  </div>
-                </div>
+              </div>
+            </div>
               </Card>
               <Card className="p-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
                     <Calendar className="w-5 h-5 text-purple-600" />
-                  </div>
+          </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Total Bookings</p>
                     <p className="text-xl font-bold">{(bookings || []).length}</p>
-                  </div>
+              </div>
                 </div>
               </Card>
             </div>
@@ -2284,21 +2284,21 @@ export default function HostDashboard() {
                 <div className="space-y-2">
                   {(bookings || []).slice(0, 5).map((b) => (
                     <div key={b.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
+              <div>
                         <p className="font-medium">{b.check_in} → {b.check_out}</p>
                         <p className="text-sm text-muted-foreground">
                           {b.guests_count} guests · {formatMoney(b.total_price, b.currency)}
                           {b.is_guest_booking && b.guest_name && (
                             <span className="ml-2 text-xs">• Guest: {b.guest_name}</span>
                           )}
-                        </p>
-                      </div>
+                </p>
+              </div>
                       <Badge className={b.status === "confirmed" ? "bg-green-500" : b.status === "pending" ? "bg-yellow-500" : "bg-gray-500"}>
                         {b.status}
                       </Badge>
-                    </div>
+            </div>
                   ))}
-                </div>
+          </div>
               )}
             </Card>
           </TabsContent>
@@ -2309,7 +2309,7 @@ export default function HostDashboard() {
               <Button onClick={() => setShowPropertyWizard(true)}>
                 <Plus className="w-4 h-4 mr-2" /> Add Property
               </Button>
-            </div>
+          </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {(properties || []).map((p) => <PropertyCard key={p.id} property={p} />)}
               {(properties || []).length === 0 && (
@@ -2319,7 +2319,7 @@ export default function HostDashboard() {
                   <Button onClick={() => setShowPropertyWizard(true)}>
                     <Plus className="w-4 h-4 mr-2" /> Add Your First Property
                   </Button>
-                </div>
+            </div>
               )}
             </div>
           </TabsContent>
@@ -2330,7 +2330,7 @@ export default function HostDashboard() {
               <Button onClick={() => setShowTourWizard(true)}>
                 <Plus className="w-4 h-4 mr-2" /> Add Tour
               </Button>
-            </div>
+                        </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {(tours || []).map((t) => (
                 <Card key={t.id} className="overflow-hidden">
@@ -2340,7 +2340,7 @@ export default function HostDashboard() {
                     ) : (
                       <MapPin className="w-8 h-8 text-muted-foreground" />
                     )}
-                  </div>
+                        </div>
                   <div className="p-4">
                     <h3 className="font-semibold">{t.title}</h3>
                     <p className="text-sm text-muted-foreground">{t.location}</p>
@@ -2349,15 +2349,15 @@ export default function HostDashboard() {
                       <div className="flex gap-1">
                         <Button size="sm" variant="ghost" onClick={() => setEditingTourId(t.id)}><Edit className="w-3 h-3" /></Button>
                         <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteTour(t.id)}><Trash2 className="w-3 h-3" /></Button>
-                      </div>
+            </div>
                     </div>
                   </div>
                 </Card>
               ))}
               {(tours || []).length === 0 && (
                 <p className="text-muted-foreground col-span-full text-center py-8">No tours yet</p>
-              )}
-            </div>
+          )}
+        </div>
           </TabsContent>
 
           {/* Transport */}
@@ -2365,7 +2365,7 @@ export default function HostDashboard() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <div className="text-sm text-muted-foreground">
                 Create <span className="font-medium text-foreground">Routes</span> like “Airport → Gisenyi” or rent out vehicles.
-              </div>
+          </div>
               <div className="flex gap-2 justify-end">
                 <Button variant="outline" onClick={() => setShowRouteWizard(true)}>
                   <Plus className="w-4 h-4 mr-2" /> Add Route
@@ -2373,7 +2373,7 @@ export default function HostDashboard() {
                 <Button onClick={() => setShowVehicleWizard(true)}>
                   <Plus className="w-4 h-4 mr-2" /> Add Vehicle
                 </Button>
-              </div>
+            </div>
             </div>
 
             {/* Routes */}
@@ -2486,7 +2486,7 @@ export default function HostDashboard() {
                 {(routes || []).length === 0 && (
                   <p className="text-muted-foreground col-span-full text-center py-6">No routes yet</p>
                 )}
-              </div>
+            </div>
             </div>
 
             {/* Vehicles */}
@@ -2499,8 +2499,8 @@ export default function HostDashboard() {
                       <img src={v.media?.[0] || v.image_url || ""} alt={v.title} className="w-full h-full object-cover" />
                     ) : (
                       <Car className="w-8 h-8 text-muted-foreground" />
-                    )}
-                  </div>
+          )}
+        </div>
                   <div className="p-4">
                     <h3 className="font-semibold">{v.title}</h3>
                     <p className="text-sm text-muted-foreground">{v.vehicle_type} · {v.seats} seats</p>

@@ -522,7 +522,7 @@ export default function Dashboard() {
                                   <div className="mt-2 text-sm font-semibold text-foreground">
                                     {formatMoney(Number(p.price_per_night ?? 0), String(p.currency ?? "RWF"))}
                                     <span className="text-muted-foreground font-normal"> / night</span>
-                                  </div>
+          </div>
         </div>
                               </Card>
                             </Link>

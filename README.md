@@ -47,6 +47,33 @@ CLOUDINARY_CLOUD_NAME=YOUR_CLOUD_NAME CLOUDINARY_UPLOAD_PRESET=YOUR_UNSIGNED_UPL
   ./scripts/cloudinary_test_upload.sh ./public/brand/logo.png
 ```
 
+## Payments (Rwanda) — DPO Pay
+
+The checkout page (`/checkout`) supports redirecting users to **DPO Pay** for payment (Mobile Money/Card depending on your DPO configuration).
+
+### Required Vercel env vars
+
+Set these in **Vercel → Project → Settings → Environment Variables**:
+
+- `DPO_COMPANY_TOKEN`
+- `DPO_SERVICE_TYPE`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+Optional (only if DPO gives you different endpoints):
+
+- `DPO_API_URL` (default: `https://secure.3gdirectpay.com/API/v6/`)
+- `DPO_PAY_URL` (default: `https://secure.3gdirectpay.com/payv2.php`)
+
+### Flow
+
+- Frontend calls `POST /api/dpo-create-payment`
+- Server creates a `checkout_requests` row and requests a DPO `createToken`
+- User is redirected to DPO hosted payment page
+- DPO redirects back to `GET /api/dpo-callback?checkoutId=...` which marks the request as paid and:
+  - **booking checkout**: creates a row in `public.bookings`
+  - **cart checkout**: clears the authenticated user's `trip_cart_items`
+
 ## Supabase CLI (recommended)
 
 This repo includes the Supabase CLI as a dev dependency, so you can run it with:

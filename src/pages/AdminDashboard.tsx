@@ -900,8 +900,8 @@ export default function AdminDashboard() {
           <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
           <Button variant="outline" size="sm" onClick={() => refetchMetrics()}>
             <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
-          </Button>
+              Refresh
+            </Button>
         </div>
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)}>
@@ -947,7 +947,7 @@ export default function AdminDashboard() {
           {/* OVERVIEW TAB */}
           <TabsContent value="overview">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <Card className="p-4">
+          <Card className="p-4">
                 <div className="flex items-center gap-2 text-muted-foreground mb-1">
                   <DollarSign className="w-4 h-4" />
                   <span className="text-sm">Revenue</span>
@@ -955,32 +955,32 @@ export default function AdminDashboard() {
                 <p className="text-2xl font-bold text-primary">
                   {formatMoney(metrics?.revenue_gross ?? 0, "RWF")}
                 </p>
-              </Card>
-              <Card className="p-4">
+          </Card>
+          <Card className="p-4">
                 <div className="flex items-center gap-2 text-muted-foreground mb-1">
                   <Calendar className="w-4 h-4" />
                   <span className="text-sm">Bookings</span>
                 </div>
                 <p className="text-2xl font-bold text-foreground">{metrics?.bookings_total ?? 0}</p>
                 <p className="text-xs text-muted-foreground">{metrics?.bookings_pending ?? 0} pending</p>
-              </Card>
-              <Card className="p-4">
+          </Card>
+          <Card className="p-4">
                 <div className="flex items-center gap-2 text-muted-foreground mb-1">
                   <Users className="w-4 h-4" />
                   <span className="text-sm">Users</span>
                 </div>
                 <p className="text-2xl font-bold text-foreground">{metrics?.users_total ?? 0}</p>
                 <p className="text-xs text-muted-foreground">{metrics?.hosts_total ?? 0} hosts</p>
-              </Card>
-              <Card className="p-4">
+          </Card>
+          <Card className="p-4">
                 <div className="flex items-center gap-2 text-muted-foreground mb-1">
                   <Home className="w-4 h-4" />
                   <span className="text-sm">Properties</span>
                 </div>
                 <p className="text-2xl font-bold text-foreground">{metrics?.properties_total ?? 0}</p>
                 <p className="text-xs text-muted-foreground">{metrics?.properties_published ?? 0} live</p>
-              </Card>
-            </div>
+          </Card>
+        </div>
 
             <div className="grid md:grid-cols-2 gap-6 mb-6">
               <Card className="p-4">
@@ -1069,7 +1069,7 @@ export default function AdminDashboard() {
           {/* ADS TAB */}
           <TabsContent value="ads">
             <div className="grid lg:grid-cols-2 gap-6">
-              <Card className="p-6">
+        <Card className="p-6">
                 <h2 className="text-lg font-semibold mb-1">Header Ad Strip</h2>
                 <p className="text-sm text-muted-foreground mb-4">
                   These banners rotate above the header every 5 seconds.
@@ -1084,7 +1084,7 @@ export default function AdminDashboard() {
                       placeholder="e.g., New: 10% off weekly stays"
                       className="mt-1"
                     />
-                  </div>
+            </div>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -1171,7 +1171,7 @@ export default function AdminDashboard() {
                   <Badge variant="outline">{adBanners.length}</Badge>
                 </div>
 
-                <div className="space-y-3">
+            <div className="space-y-3">
                   {adBanners.map((b) => (
                     <div key={b.id} className="border rounded-xl p-4 space-y-3">
                       {(() => {
@@ -1688,10 +1688,10 @@ export default function AdminDashboard() {
                         <TableCell className="font-mono text-xs">{b.id.slice(0, 8)}...</TableCell>
                         <TableCell className="text-sm">
                           {b.is_guest_booking ? (
-                            <div className="min-w-0">
+                  <div className="min-w-0">
                               <div className="font-medium truncate">{b.guest_name || "Guest"}</div>
                               <div className="text-xs text-muted-foreground truncate">{b.guest_email || "—"}</div>
-                            </div>
+                  </div>
                           ) : (
                             <span className="font-mono text-xs">{(b.guest_id ?? "").slice(0, 8)}...</span>
                           )}
@@ -1818,12 +1818,12 @@ export default function AdminDashboard() {
                             {r.is_hidden ? (
                               <Button size="sm" variant="outline" onClick={() => unhideReview(r.id)}>
                                 <Eye className="w-3 h-3" />
-                              </Button>
-                            ) : (
+                        </Button>
+                    ) : (
                               <Button size="sm" variant="destructive" onClick={() => hideReview(r.id)}>
                                 <EyeOff className="w-3 h-3" />
-                              </Button>
-                            )}
+                      </Button>
+                    )}
                             <Button size="sm" variant="destructive" onClick={() => deleteItem("property_reviews", r.id)}>
                               <Trash2 className="w-3 h-3" />
                             </Button>
@@ -1906,13 +1906,13 @@ export default function AdminDashboard() {
                           </>
                         )}
                       </div>
-                    </div>
                   </div>
-                ))}
+                </div>
+              ))}
                 {tickets.length === 0 && (
                   <p className="text-muted-foreground text-center py-8">No support tickets found</p>
                 )}
-              </div>
+            </div>
             </Card>
           </TabsContent>
 
@@ -1961,7 +1961,7 @@ export default function AdminDashboard() {
                   ))}
                   {incidents.length === 0 && <p className="text-muted-foreground">No incidents</p>}
                 </div>
-              </Card>
+        </Card>
 
               <Card className="p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -1969,7 +1969,7 @@ export default function AdminDashboard() {
                   <Button size="sm" onClick={addToBlacklist}>
                     <Ban className="w-3 h-3 mr-1" /> Add
                   </Button>
-                </div>
+      </div>
 
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {blacklist.map((b) => (

@@ -14,6 +14,7 @@ import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { useTripCart } from "@/hooks/useTripCart";
 import { useQuery } from "@tanstack/react-query";
+import { Separator } from "@/components/ui/separator";
 
 const isoToday = () => new Date().toISOString().slice(0, 10);
 
@@ -255,6 +256,93 @@ export default function Checkout() {
   const nightly = Number(property?.price_per_night ?? 0);
   const bookingTotal = nights > 0 ? nights * nightly : 0;
 
+  const status = params.get("status") ?? "";
+  const checkoutId = params.get("checkoutId") ?? "";
+
+  const startDpoPayment = async () => {
+    if (requireTripCart && !isPropertyInCart) {
+      toast({
+        variant: "destructive",
+        title: "Add to Trip Cart first",
+        description: "Please add this stay to your Trip Cart first, then checkout.",
+      });
+      return;
+    }
+    if (mode === "booking") {
+      if (!propertyId) {
+        toast({ variant: "destructive", title: "Missing property", description: "Please go back and try again." });
+        return;
+      }
+      if (nights <= 0) {
+        toast({ variant: "destructive", title: "Invalid dates", description: "Check-out must be after check-in." });
+        return;
+      }
+    }
+    if (!name.trim()) {
+      toast({ variant: "destructive", title: "Name required", description: "Please enter your full name." });
+      return;
+    }
+    if (!email.trim() || !email.includes("@")) {
+      toast({ variant: "destructive", title: "Email required", description: "Please enter a valid email address." });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const accessToken = session?.session?.access_token ?? null;
+
+      const payload: Record<string, unknown> = {
+        mode,
+        payCurrency: "RWF",
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        phone: phone.trim() || null,
+        message: message.trim() || null,
+      };
+
+      if (mode === "booking") {
+        payload.propertyId = propertyId;
+        payload.checkIn = checkIn;
+        payload.checkOut = checkOut;
+        payload.guests = Math.max(1, guests);
+      } else {
+        // Guest cart items only; authenticated users are computed server-side from trip_cart_items.
+        if (!user) {
+          payload.guestItems = guestCart.map((i) => ({
+            item_type: i.item_type,
+            reference_id: i.reference_id,
+            quantity: i.quantity,
+          }));
+        }
+      }
+
+      const r = await fetch("/api/dpo-create-payment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify(payload),
+      });
+      const out = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(out?.error || "Payment init failed");
+      if (typeof out?.payUrl !== "string" || !out.payUrl) throw new Error("Missing payment URL");
+
+      // Redirect to DPO hosted payment page
+      window.location.href = out.payUrl;
+    } catch (e) {
+      logError("checkout.dpo.start", e);
+      toast({
+        variant: "destructive",
+        title: "Could not start payment",
+        description: uiErrorMessage(e, "Please try again."),
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -283,6 +371,34 @@ export default function Checkout() {
                   <div className="text-xl font-bold text-foreground">{formatMoney(bookingTotal, currency)}</div>
                 </div>
               </div>
+            </Card>
+          ) : null}
+
+          {status ? (
+            <Card className="p-5 mb-6">
+              <div className="text-sm text-muted-foreground">Payment status</div>
+              <div className="mt-1 text-lg font-semibold text-foreground">
+                {status === "paid"
+                  ? "Payment received"
+                  : status === "failed"
+                    ? "Payment failed"
+                    : status === "cancelled"
+                      ? "Payment cancelled"
+                      : "Payment update"}
+              </div>
+              {checkoutId ? <div className="mt-1 text-xs text-muted-foreground">Ref: {checkoutId}</div> : null}
+              {status === "paid" ? (
+                <div className="mt-3 flex gap-2">
+                  <Button type="button" onClick={() => navigate("/")}>
+                    Back to home
+                  </Button>
+                  {user ? (
+                    <Button variant="outline" type="button" onClick={() => navigate("/my-bookings")}>
+                      My bookings
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
             </Card>
           ) : null}
 
@@ -322,16 +438,33 @@ export default function Checkout() {
               </div>
             </div>
 
+            <Separator className="my-6" />
+
+            <div>
+              <div className="text-sm text-muted-foreground">Payment</div>
+              <div className="mt-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div>
+                  <div className="font-medium text-foreground">Pay with DPO Pay (Rwanda)</div>
+                  <div className="text-sm text-muted-foreground">
+                    Supports Rwanda payment options (e.g. Mobile Money) depending on your DPO configuration.
+                  </div>
+                </div>
+                <div className="text-sm font-semibold text-foreground">
+                  {mode === "booking" ? formatMoney(bookingTotal, currency) : null}
+                </div>
+              </div>
+            </div>
+
             <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-end">
               <Button variant="outline" type="button" onClick={() => navigate(-1)} disabled={loading}>
                 Back
               </Button>
               <Button
                 type="button"
-                onClick={mode === "booking" ? submitBooking : submitCartCheckout}
+                onClick={startDpoPayment}
                 disabled={loading || (mode === "booking" && !isPropertyInCart)}
               >
-                {loading ? "Submitting..." : mode === "booking" ? "Request booking" : "Submit checkout"}
+                {loading ? "Starting payment..." : "Pay now"}
               </Button>
             </div>
           </Card>
