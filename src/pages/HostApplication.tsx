@@ -16,6 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AMENITIES } from "@/lib/amenities";
+import { amenityByValue } from "@/lib/amenities";
 import {
   Building2,
   UserRound,
@@ -35,6 +36,7 @@ import {
   Percent,
 } from "lucide-react";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
+import { formatMoney } from "@/lib/money";
 
 type ApplicantType = "individual" | "business";
 
@@ -209,6 +211,14 @@ export default function HostApplication() {
         return false;
     }
   }, [listingStep, property, propertyValid]);
+
+  const amenityLabels = useMemo(() => {
+    const raw = property.amenities ?? [];
+    const uniq = Array.from(new Set(raw.map((v) => String(v ?? "").trim()).filter(Boolean)));
+    return uniq
+      .map((v) => amenityByValue.get(v)?.label ?? amenityByValue.get(v.toLowerCase())?.label ?? v)
+      .filter(Boolean);
+  }, [property.amenities]);
 
   const detailsValid = useMemo(() => {
     if (details.full_name.trim().length < 2) return false;
@@ -841,43 +851,44 @@ export default function HostApplication() {
               {listingStep === 5 && (
                 <div className="space-y-6">
                   <div className="text-center mb-6">
-                    <CheckCircle2 className="w-12 h-12 mx-auto text-primary mb-4" />
-                    <h2 className="text-2xl font-bold text-foreground">Review your listing</h2>
-                    <p className="text-muted-foreground mt-2">Make sure everything looks right</p>
+                    <CheckCircle2 className="w-10 h-10 mx-auto text-primary mb-3" />
+                    <h2 className="text-xl font-bold text-foreground">Review your listing</h2>
+                    <p className="text-sm text-muted-foreground mt-1">Make sure everything looks right</p>
                   </div>
 
                   <div className="rounded-xl border border-border p-4">
-                    <div className="font-semibold text-foreground">{property.title || "Untitled"}</div>
-                    <div className="text-sm text-muted-foreground">{property.location || "Location"}</div>
+                    <div className="font-semibold text-foreground text-sm">{property.title || "Untitled"}</div>
+                    <div className="text-xs text-muted-foreground">{property.location || "Location"}</div>
                     {property.images?.[0] ? (
                       <div className="mt-3 rounded-lg overflow-hidden border border-border">
-                        <img src={property.images[0]} alt="" className="w-full h-56 object-cover" />
+                        <img src={property.images[0]} alt="" className="w-full h-44 object-cover" />
                       </div>
                     ) : null}
-                    <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                    <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                       <div>
-                        <div className="text-xs text-muted-foreground">Price</div>
-                        <div className="font-semibold">
-                          {property.currency} {Number(property.price_per_night).toLocaleString()}
-                        </div>
+                        <div className="text-[11px] text-muted-foreground">Price</div>
+                        <div className="font-semibold">{formatMoney(Number(property.price_per_night || 0), property.currency)}</div>
                       </div>
                       <div>
-                        <div className="text-xs text-muted-foreground">Guests</div>
+                        <div className="text-[11px] text-muted-foreground">Guests</div>
                         <div className="font-semibold">{property.max_guests}</div>
                       </div>
                       <div>
-                        <div className="text-xs text-muted-foreground">Beds</div>
+                        <div className="text-[11px] text-muted-foreground">Beds</div>
                         <div className="font-semibold">{property.beds}</div>
                       </div>
                       <div>
-                        <div className="text-xs text-muted-foreground">Bedrooms</div>
+                        <div className="text-[11px] text-muted-foreground">Bedrooms</div>
                         <div className="font-semibold">{property.bedrooms}</div>
                       </div>
                     </div>
-                    {property.amenities.length ? (
-                      <div className="mt-3 text-sm text-muted-foreground">
-                        Amenities: <span className="text-foreground">{property.amenities.slice(0, 6).join(", ")}</span>
-                        {property.amenities.length > 6 ? "…" : ""}
+                    {amenityLabels.length ? (
+                      <div className="mt-3 text-xs text-muted-foreground">
+                        Amenities:{" "}
+                        <span className="text-foreground">
+                          {amenityLabels.slice(0, 6).join(", ")}
+                          {amenityLabels.length > 6 ? "…" : ""}
+                        </span>
                       </div>
                     ) : null}
                   </div>
