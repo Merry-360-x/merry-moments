@@ -200,14 +200,29 @@ export default function Dashboard() {
         full_name: fullName.trim() || null,
         phone: phone.trim() || null,
         bio: bio.trim() || null,
+        updated_at: new Date().toISOString(),
       };
       if (dob.trim()) payload.date_of_birth = dob.trim();
 
-      const { error } = await supabase.from("profiles").update(payload).eq("user_id", user.id);
-      if (error) throw error;
+      const { error } = await supabase
+        .from("profiles")
+        .update(payload)
+        .eq("user_id", user.id);
+      
+      if (error) {
+        // Ignore AbortError - can happen on navigation or component unmount
+        if (error.message?.includes("AbortError") || error.message?.includes("aborted")) {
+          return;
+        }
+        throw error;
+      }
 
       toast({ title: "Profile updated", description: "Your changes were saved." });
     } catch (e) {
+      // Ignore AbortError exceptions
+      if (e instanceof Error && e.name === "AbortError") {
+        return;
+      }
       logError("profile.update", e);
       toast({
         variant: "destructive",

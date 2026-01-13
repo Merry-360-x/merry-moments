@@ -41,11 +41,36 @@ const queryClient = new QueryClient({
         if (error instanceof Error && error.name === "AbortError") {
           return false;
         }
+        // Check if error message contains abort-related text
+        if (error instanceof Error && (
+          error.message?.includes("AbortError") ||
+          error.message?.includes("aborted") ||
+          error.message?.includes("signal")
+        )) {
+          return false;
+        }
         // Retry up to 2 times for other errors
         return failureCount < 2;
       },
       staleTime: 1000 * 60, // 1 minute
       refetchOnWindowFocus: false,
+      // Don't throw errors to the UI for aborted requests
+      throwOnError: (error) => {
+        if (error instanceof Error && error.name === "AbortError") {
+          return false;
+        }
+        return false; // Don't throw errors - handle them in components
+      },
+    },
+    mutations: {
+      retry: false, // Don't retry mutations
+      // Don't throw errors for aborted mutations
+      throwOnError: (error) => {
+        if (error instanceof Error && error.name === "AbortError") {
+          return false;
+        }
+        return false;
+      },
     },
   },
 });

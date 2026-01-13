@@ -101,16 +101,28 @@ const Auth = () => {
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     try {
-      const callbackUrl = new URL(redirectTo ?? "/", window.location.origin).toString();
+      // Build the callback URL - must match what's configured in Supabase OAuth settings
+      const baseUrl = window.location.origin;
+      const callbackPath = redirectTo ?? "/";
+      const callbackUrl = `${baseUrl}${callbackPath}`;
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
           redirectTo: callbackUrl,
+          queryParams: {
+            access_type: "offline",
+            prompt: "consent",
+          },
         },
       });
       if (error) throw error;
       // On success, Supabase will redirect the browser.
     } catch (error: unknown) {
+      // Ignore AbortError - it's expected during redirect
+      if (error instanceof Error && error.name === "AbortError") {
+        return;
+      }
       logError("auth.google", error);
       toast({
         variant: "destructive",
