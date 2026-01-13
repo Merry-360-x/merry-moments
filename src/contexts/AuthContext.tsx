@@ -121,8 +121,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setRolesLoading(false);
       }
     }).catch((err) => {
-      // Handle getSession errors gracefully
+      // Handle getSession errors gracefully - including AbortError
       if (!mounted) return;
+      
+      // Silently ignore AbortError - expected during navigation/cleanup
+      if (err instanceof Error && (
+        err.name === "AbortError" ||
+        err.message?.includes("aborted") ||
+        err.message?.includes("signal")
+      )) {
+        setIsLoading(false);
+        setRolesLoading(false);
+        return;
+      }
+      
       console.warn("[AuthContext] getSession error:", err);
       setIsLoading(false);
       setRolesLoading(false);
