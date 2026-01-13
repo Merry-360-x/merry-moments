@@ -238,7 +238,9 @@ export default function HostApplication() {
 
     try {
       // Create host application
-      const { error: appErr } = await supabase.from("host_applications").insert({
+      // We try full payload first; if the remote DB schema is older (missing listing_* columns),
+      // we fall back to a minimal insert so the application is still submitted.
+      const fullPayload: Record<string, unknown> = {
         user_id: user.id,
         status: "pending",
         full_name: details.full_name.trim(),
@@ -261,11 +263,36 @@ export default function HostApplication() {
         business_certificate_url: applicantType === "business" ? details.business_certificate_url : null,
         national_id_number: details.national_id_number.trim(),
         national_id_photo_url: details.national_id_photo_url,
-        // Best-effort: store policy choice if the column exists in your schema (older schemas may ignore this)
-        // NOTE: host_applications schema varies across environments; keep insert limited to known columns elsewhere.
-      });
+      };
 
-      if (appErr) throw appErr;
+      const minimalPayload: Record<string, unknown> = {
+        user_id: user.id,
+        status: "pending",
+        full_name: details.full_name.trim(),
+        phone: details.phone.trim(),
+        hosting_location: property.location.trim(),
+      };
+
+      const fullAttempt = await supabase.from("host_applications").insert(fullPayload as never);
+      if (fullAttempt.error) {
+        // Fallback for older schemas or stricter policies.
+        const msg = String(fullAttempt.error.message ?? "");
+        const code = String((fullAttempt.error as any)?.code ?? "");
+
+        // Only attempt fallback when it's likely schema mismatch; otherwise rethrow.
+        const looksLikeSchemaMismatch =
+          code === "42703" ||
+          msg.includes("does not exist") ||
+          msg.includes("column") ||
+          msg.includes("schema cache");
+
+        if (looksLikeSchemaMismatch) {
+          const fallback = await supabase.from("host_applications").insert(minimalPayload as never);
+          if (fallback.error) throw fallback.error;
+        } else {
+          throw fullAttempt.error;
+        }
+      }
 
       toast({
         title: "Application submitted!",
