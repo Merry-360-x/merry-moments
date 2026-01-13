@@ -732,34 +732,36 @@ export default function HostApplication() {
       <CloudinaryUploadDialog
         open={imageUploadOpen}
         onOpenChange={setImageUploadOpen}
-        onUploadComplete={(urls) => {
-          setProperty((p) => ({ ...p, images: [...p.images, ...urls] }));
-        }}
-        multiple
-        accept="image/*"
         title="Upload Property Photos"
+        folder="host_applications/listing_photos"
+        accept="image/*"
+        multiple
+        value={property.images}
+        onChange={(urls) => setProperty((p) => ({ ...p, images: urls }))}
       />
 
       <CloudinaryUploadDialog
         open={idPhotoUploadOpen}
         onOpenChange={setIdPhotoUploadOpen}
-        onUploadComplete={(urls) => {
-          if (urls[0]) setDetails((d) => ({ ...d, national_id_photo_url: urls[0] }));
-        }}
-        multiple={false}
-        accept="image/*"
         title="Upload ID Photo"
+        folder="host_applications/id_photos"
+        accept="image/*"
+        multiple={false}
+        maxFiles={1}
+        value={details.national_id_photo_url ? [details.national_id_photo_url] : []}
+        onChange={(urls) => setDetails((d) => ({ ...d, national_id_photo_url: urls[0] ?? "" }))}
       />
 
       <CloudinaryUploadDialog
         open={certificateUploadOpen}
         onOpenChange={setCertificateUploadOpen}
-        onUploadComplete={(urls) => {
-          if (urls[0]) setDetails((d) => ({ ...d, business_certificate_url: urls[0] }));
-        }}
-        multiple={false}
-        accept="image/*,application/pdf"
         title="Upload Business Certificate"
+        folder="host_applications/business_certificates"
+        accept="image/*,application/pdf"
+        multiple={false}
+        maxFiles={1}
+        value={details.business_certificate_url ? [details.business_certificate_url] : []}
+        onChange={(urls) => setDetails((d) => ({ ...d, business_certificate_url: urls[0] ?? "" }))}
       />
     </div>
   );
