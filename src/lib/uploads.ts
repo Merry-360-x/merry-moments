@@ -1,6 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
 import { isCloudinaryConfigured, uploadFileToCloudinary } from "@/lib/cloudinary";
-import { compressImage } from "@/lib/image-compression";
 
 const randomId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
@@ -8,13 +7,8 @@ export async function uploadFile(
   file: File,
   opts: { folder: string; onProgress?: (percent: number) => void }
 ): Promise<{ url: string }> {
-  // Compress image before upload to reduce upload time by 60-90%
-  const fileToUpload = file.type.startsWith('image/') 
-    ? await compressImage(file, { maxSizeMB: 1, maxWidthOrHeight: 1920, quality: 0.85 })
-    : file;
-  
   if (isCloudinaryConfigured()) {
-    const res = await uploadFileToCloudinary(fileToUpload, {
+    const res = await uploadFileToCloudinary(file, {
       folder: opts.folder,
       onProgress: (progress) => {
         opts.onProgress?.(progress.percent);
@@ -24,8 +18,8 @@ export async function uploadFile(
   }
 
   // Fallback to Supabase Storage (public bucket).
-  const path = `${opts.folder}/${randomId()}-${fileToUpload.name}`.replaceAll("//", "/");
-  const { error } = await supabase.storage.from("uploads").upload(path, fileToUpload, {
+  const path = `${opts.folder}/${randomId()}-${file.name}`.replaceAll("//", "/");
+  const { error } = await supabase.storage.from("uploads").upload(path, file, {
     cacheControl: "3600",
     upsert: false,
   });
