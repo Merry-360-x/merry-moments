@@ -728,8 +728,8 @@ export default function HostApplication() {
 
                   <div className="md:col-span-2 space-y-2">
                     <Label>Amenities (Select all that apply)</Label>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                      {AMENITIES.slice(0, 8).map((amenity) => {
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-96 overflow-y-auto pr-2">
+                      {AMENITIES.map((amenity) => {
                         const Icon = amenity.icon;
                         const selected = formData.amenities.includes(amenity.value);
                         return (

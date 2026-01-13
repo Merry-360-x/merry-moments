@@ -1,23 +1,38 @@
 export function formatMoney(amount: number, currency: string) {
   const value = Number.isFinite(amount) ? amount : 0;
   const code = (currency || "RWF").toUpperCase();
+  
+  // Currency symbol mapping
+  const currencySymbols: Record<string, string> = {
+    USD: "$",
+    EUR: "€",
+    GBP: "£",
+    JPY: "¥",
+    CNY: "¥",
+    RWF: "FRw",
+    KES: "KSh",
+    UGX: "USh",
+    TZS: "TSh",
+  };
+  
+  const symbol = currencySymbols[code] || code;
+  
   try {
-    // Prefer symbols (e.g. $, €, £, ¥) instead of currency codes (USD, EUR, etc).
-    // Rwanda Franc doesn't have a consistent "narrow symbol" across locales, so we override to "FRw".
-    if (code === "RWF") {
-      // Format number without currency then prefix with FRw.
-      const num = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(value);
-      return `FRw ${num}`;
-    }
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: code,
-      currencyDisplay: "narrowSymbol",
+    const num = new Intl.NumberFormat(undefined, { 
       maximumFractionDigits: 0,
+      minimumFractionDigits: 0
     }).format(value);
+    
+    // For USD, EUR, GBP, JPY, CNY - symbol goes before
+    if (["USD", "EUR", "GBP", "JPY", "CNY"].includes(code)) {
+      return `${symbol}${num}`;
+    }
+    
+    // For RWF and other African currencies - symbol goes after with space
+    return `${symbol} ${num}`;
   } catch {
     // Fallback (for unexpected/unsupported currency codes)
-    return `${code} ${Math.round(value).toLocaleString()}`;
+    return `${symbol} ${Math.round(value).toLocaleString()}`;
   }
 }
 
