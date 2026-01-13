@@ -73,17 +73,26 @@ BEGIN
     ALTER TABLE public.host_applications ADD COLUMN national_id_photo_url TEXT;
   END IF;
 
-  -- Ensure has_role exists for admin/staff policies
-  EXECUTE 'CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role text)
-  RETURNS boolean
-  LANGUAGE sql
-  STABLE
-  AS $fn$
-    select exists (
-      select 1 from public.user_roles ur
-      where ur.user_id = _user_id and ur.role::text = _role
-    );
-  $fn$';
+  -- Ensure has_role exists for admin/staff policies.
+  -- IMPORTANT: Do NOT "CREATE OR REPLACE" if it already exists because some environments have
+  -- a different parameter naming (e.g. p_user_id) and Postgres rejects renaming params.
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public' AND p.proname = 'has_role'
+  ) THEN
+    EXECUTE 'CREATE FUNCTION public.has_role(p_user_id uuid, p_role text)
+    RETURNS boolean
+    LANGUAGE sql
+    STABLE
+    AS $fn$
+      select exists (
+        select 1 from public.user_roles ur
+        where ur.user_id = p_user_id and ur.role::text = p_role
+      );
+    $fn$';
+  END IF;
 
   ALTER TABLE public.host_applications ENABLE ROW LEVEL SECURITY;
 
