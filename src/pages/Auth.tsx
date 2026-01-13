@@ -90,8 +90,15 @@ const Auth = () => {
         }
         const { error } = await signUp(email, password, fullName);
         if (error) throw error;
-        toast({ title: t("auth.toast.accountCreated"), description: t("auth.toast.signedUp") });
-        navigate(redirectTo ?? "/");
+        toast({ 
+          title: t("auth.toast.checkEmail"), 
+          description: t("auth.toast.confirmEmail"),
+          duration: 6000
+        });
+        // Don't navigate - user needs to confirm email first
+        setEmail("");
+        setPassword("");
+        setFullName("");
       }
     } catch (error: unknown) {
       logError("auth.emailPassword", error);

@@ -121,7 +121,9 @@
       "welcomeBack": "Welcome back",
       "loggedIn": "You’re signed in.",
       "accountCreated": "Account created",
-      "signedUp": "You’re signed up."
+      "signedUp": "You're signed up.",
+      "checkEmail": "Check your email",
+      "confirmEmail": "Please confirm your email address first, then sign in to continue."
     }
   },
   "index": {
