@@ -169,7 +169,15 @@ export default function HostApplication() {
           .limit(1)
           .maybeSingle();
 
-        if (error) throw error;
+        if (error) {
+          // If table doesn't exist yet, just proceed with no existing application
+          const msg = error.message || "";
+          if (msg.includes("does not exist") || error.code === "42P01" || error.code === "PGRST204") {
+            console.warn("host_applications table not yet created in database");
+            return;
+          }
+          throw error;
+        }
 
         if (data) {
           setHasExistingApp(true);
@@ -280,18 +288,28 @@ export default function HostApplication() {
         const msg = String(fullAttempt.error.message ?? "");
         const code = String((fullAttempt.error as any)?.code ?? "");
 
+        // Check if table doesn't exist at all
+        if (code === "42P01" || msg.includes("relation") && msg.includes("does not exist")) {
+          throw new Error("The host application feature is not yet available. Please contact support to enable this feature.");
+        }
+
         // Only attempt fallback when it's likely schema mismatch; otherwise rethrow.
         const looksLikeSchemaMismatch =
           code === "42703" ||
           code.startsWith("PGRST") ||
-          msg.includes("does not exist") ||
-          msg.includes("column") ||
+          msg.includes("column") && msg.includes("does not exist") ||
           msg.includes("schema cache") ||
           msg.toLowerCase().includes("could not find");
 
         if (looksLikeSchemaMismatch) {
           const fallback = await supabase.from("host_applications").insert(minimalPayload as never);
-          if (fallback.error) throw fallback.error;
+          if (fallback.error) {
+            // If fallback also fails with table not found
+            if (fallback.error.code === "42P01") {
+              throw new Error("The host application feature is not yet available. Please contact support to enable this feature.");
+            }
+            throw fallback.error;
+          }
         } else {
           throw fullAttempt.error;
         }

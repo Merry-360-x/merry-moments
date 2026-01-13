@@ -498,7 +498,14 @@ export default function AdminDashboard() {
         .select("id, property_id, user_id, rating, comment, is_hidden, created_at")
         .order("created_at", { ascending: false })
         .limit(200);
-      if (error) throw error;
+      if (error) {
+        // If table doesn't exist, return empty array instead of throwing
+        if (error.message?.includes("does not exist") || error.code === "42P01" || error.code === "PGRST204") {
+          console.warn("property_reviews table not yet created in database");
+          return [];
+        }
+        throw error;
+      }
       return (data ?? []) as ReviewRow[];
     },
     enabled: tab === "reviews",
@@ -515,7 +522,14 @@ export default function AdminDashboard() {
         .limit(200);
       if (ticketStatus && ticketStatus !== "all") q = q.eq("status", ticketStatus);
       const { data, error } = await q;
-      if (error) throw error;
+      if (error) {
+        // If table doesn't exist, return empty array instead of throwing
+        if (error.message?.includes("does not exist") || error.code === "42P01" || error.code === "PGRST204") {
+          console.warn("support_tickets table not yet created in database");
+          return [];
+        }
+        throw error;
+      }
       return (data ?? []) as SupportTicketRow[];
     },
     enabled: tab === "support",
