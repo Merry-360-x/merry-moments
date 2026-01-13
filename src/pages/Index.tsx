@@ -105,26 +105,31 @@ const Index = () => {
   } = useQuery({
     queryKey: ["properties", "latest"],
     queryFn: fetchLatestProperties,
+    staleTime: 1000 * 60 * 10, // 10 minutes for homepage data
   });
 
   const { data: featuredStays = [] } = useQuery({
     queryKey: ["properties", "featured-home"],
     queryFn: fetchFeaturedProperties,
+    staleTime: 1000 * 60 * 10,
   });
 
   const { data: topRated = [] } = useQuery({
     queryKey: ["properties", "top-rated-home"],
     queryFn: fetchTopRatedProperties,
+    staleTime: 1000 * 60 * 10,
   });
 
   const { data: featuredTours = [] } = useQuery({
     queryKey: ["tours", "featured-home"],
     queryFn: fetchFeaturedTours,
+    staleTime: 1000 * 60 * 10,
   });
 
   const { data: latestVehicles = [] } = useQuery({
     queryKey: ["transport_vehicles", "latest-home"],
     queryFn: fetchLatestVehicles,
+    staleTime: 1000 * 60 * 10,
   });
 
   return (

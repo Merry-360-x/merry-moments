@@ -49,11 +49,14 @@ const queryClient = new QueryClient({
         )) {
           return false;
         }
-        // Retry up to 2 times for other errors
-        return failureCount < 2;
+        // Retry up to 1 time for other errors (faster failure)
+        return failureCount < 1;
       },
-      staleTime: 1000 * 60, // 1 minute
+      staleTime: 1000 * 60 * 5, // 5 minutes - data stays fresh longer
+      gcTime: 1000 * 60 * 30, // 30 minutes cache retention
       refetchOnWindowFocus: false,
+      refetchOnReconnect: false, // Don't refetch on reconnect
+      networkMode: 'offlineFirst', // Use cache first, then network
       // Don't throw errors to the UI for aborted requests
       throwOnError: (error) => {
         if (error instanceof Error && error.name === "AbortError") {
