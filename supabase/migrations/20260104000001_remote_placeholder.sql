@@ -1,3 +1,0 @@
--- Placeholder migration to align local history with remote
--- Version: 20260104000001
--- This file intentionally contains no SQL.
