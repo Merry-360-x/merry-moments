@@ -25,9 +25,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [rolesLoading, setRolesLoading] = useState(true);
   const [roles, setRoles] = useState<string[]>([]);
+  const [isFetchingRoles, setIsFetchingRoles] = useState(false);
 
   const fetchRoles = async (userId: string) => {
+    // Prevent duplicate simultaneous fetches
+    if (isFetchingRoles) return;
+    
+    setIsFetchingRoles(true);
     setRolesLoading(true);
+    
     const { data, error } = await supabase
       .from("user_roles")
       .select("role")
@@ -38,6 +44,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // If the table/policies are misconfigured, the roles will remain empty anyway.
       console.warn("[AuthContext] Failed to load roles:", error.message);
       setRolesLoading(false);
+      setIsFetchingRoles(false);
       return;
     }
 
@@ -50,6 +57,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     );
     setRoles(uniq);
     setRolesLoading(false);
+    setIsFetchingRoles(false);
   };
 
   const refreshRoles = async () => {
@@ -62,39 +70,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const isAdmin = useMemo(() => roles.includes("admin"), [roles]);
 
   useEffect(() => {
+    let mounted = true;
+    
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (!mounted) return;
+        
         setSession(session);
         setUser(session?.user ?? null);
+        setIsLoading(false);
         
         if (session?.user) {
-          // Use setTimeout to avoid potential race conditions
-          setTimeout(() => fetchRoles(session.user.id), 0);
+          await fetchRoles(session.user.id);
         } else {
           setRoles([]);
           setRolesLoading(false);
         }
-        
-        setIsLoading(false);
       }
     );
 
-    // THEN check for existing session
+    // THEN check for existing session (only once on mount)
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
+      
       setSession(session);
       setUser(session?.user ?? null);
+      setIsLoading(false);
       
       if (session?.user) {
-        fetchRoles(session.user.id);
+        void fetchRoles(session.user.id);
       } else {
         setRolesLoading(false);
       }
-      
-      setIsLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signUp = async (email: string, password: string, fullName: string) => {
