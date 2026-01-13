@@ -23,6 +23,13 @@ export async function compressImage(
     return file;
   }
 
+  // Skip compression for formats that might not be supported
+  const unsupportedTypes = ['image/heic', 'image/heif', 'image/tiff', 'image/bmp'];
+  if (unsupportedTypes.includes(file.type.toLowerCase())) {
+    console.log('[compression] Skipping unsupported format:', file.type);
+    return file;
+  }
+
   const {
     maxSizeMB = 1, // Target max size 1MB
     maxWidthOrHeight = 1920, // Max dimension 1920px

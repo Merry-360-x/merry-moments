@@ -8,31 +8,42 @@ export async function uploadFile(
   file: File,
   opts: { folder: string; onProgress?: (percent: number) => void }
 ): Promise<{ url: string }> {
-  // Compress image before upload to reduce upload time by 60-90%
-  const fileToUpload = file.type.startsWith('image/') 
-    ? await compressImage(file, { maxSizeMB: 1, maxWidthOrHeight: 1920, quality: 0.85 })
-    : file;
-  
-  if (isCloudinaryConfigured()) {
-    const res = await uploadFileToCloudinary(fileToUpload, {
-      folder: opts.folder,
-      onProgress: (progress) => {
-        opts.onProgress?.(progress.percent);
-      },
+  try {
+    // Compress image before upload to reduce upload time by 60-90%
+    let fileToUpload = file;
+    try {
+      if (file.type.startsWith('image/')) {
+        fileToUpload = await compressImage(file, { maxSizeMB: 1, maxWidthOrHeight: 1920, quality: 0.85 });
+      }
+    } catch (compressError) {
+      console.warn("[uploads] Image compression failed, using original:", compressError);
+      fileToUpload = file;
+    }
+    
+    if (isCloudinaryConfigured()) {
+      const res = await uploadFileToCloudinary(fileToUpload, {
+        folder: opts.folder,
+        onProgress: (progress) => {
+          opts.onProgress?.(progress.percent);
+        },
+      });
+      return { url: res.secureUrl };
+    }
+
+    // Fallback to Supabase Storage (public bucket).
+    const path = `${opts.folder}/${randomId()}-${fileToUpload.name}`.replaceAll("//", "/");
+    const { error } = await supabase.storage.from("uploads").upload(path, fileToUpload, {
+      cacheControl: "3600",
+      upsert: false,
     });
-    return { url: res.secureUrl };
+    if (error) throw error;
+
+    const { data } = supabase.storage.from("uploads").getPublicUrl(path);
+    if (!data?.publicUrl) throw new Error("Could not get public URL for uploaded file.");
+    return { url: data.publicUrl };
+  } catch (error) {
+    console.error("[uploads] Upload failed:", error);
+    throw error;
   }
-
-  // Fallback to Supabase Storage (public bucket).
-  const path = `${opts.folder}/${randomId()}-${fileToUpload.name}`.replaceAll("//", "/");
-  const { error } = await supabase.storage.from("uploads").upload(path, fileToUpload, {
-    cacheControl: "3600",
-    upsert: false,
-  });
-  if (error) throw error;
-
-  const { data } = supabase.storage.from("uploads").getPublicUrl(path);
-  if (!data?.publicUrl) throw new Error("Could not get public URL for uploaded file.");
-  return { url: data.publicUrl };
 }
 
