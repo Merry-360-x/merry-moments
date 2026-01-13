@@ -51,7 +51,7 @@ export default function HostApplication() {
   const [hasExistingApp, setHasExistingApp] = useState(false);
   const [existingStatus, setExistingStatus] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
-  const [applicantType, setApplicantType] = useState<ApplicantType>("individual");
+  const applicantType = "individual"; // Always individual
   const [submitting, setSubmitting] = useState(false);
 
   // Simplified form state
@@ -82,7 +82,7 @@ export default function HostApplication() {
   const [imageUploadOpen, setImageUploadOpen] = useState(false);
   const [idPhotoUploadOpen, setIdPhotoUploadOpen] = useState(false);
 
-  const totalSteps = 4;
+  const totalSteps = 3;
   const progress = (currentStep / totalSteps) * 100;
 
   // Check for existing application
@@ -306,7 +306,7 @@ export default function HostApplication() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-foreground mb-2">Become a Host</h1>
-          <p className="text-lg text-muted-foreground">Start your hosting journey in 4 simple steps</p>
+          <p className="text-lg text-muted-foreground">Start your hosting journey in 3 simple steps</p>
         </div>
 
         {/* Progress Bar */}
@@ -317,7 +317,6 @@ export default function HostApplication() {
           </div>
           <Progress value={progress} className="h-2" />
           <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-            <span>Account Type</span>
             <span>Personal Info</span>
             <span>Property Details</span>
             <span>Review & Submit</span>
@@ -327,86 +326,8 @@ export default function HostApplication() {
         {/* Step Content */}
         <Card className="shadow-xl">
           <CardContent className="p-6 md:p-8">
-            {/* Step 1: Account Type */}
+            {/* Step 1: Personal Information */}
             {currentStep === 1 && (
-              <div className="space-y-6">
-                <div className="text-center mb-6">
-                  <h2 className="text-2xl font-bold mb-2">Choose Account Type</h2>
-                  <p className="text-muted-foreground">How will you be hosting?</p>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-4">
-                  <button
-                    onClick={() => setApplicantType("individual")}
-                    className={`group p-6 rounded-xl border-2 transition-all hover:shadow-lg ${
-                      applicantType === "individual"
-                        ? "border-primary bg-primary/5 shadow-md"
-                        : "border-border hover:border-primary/50"
-                    }`}
-                  >
-                    <div className="flex flex-col items-center text-center space-y-3">
-                      <div className={`w-16 h-16 rounded-full flex items-center justify-center ${
-                        applicantType === "individual" ? "bg-primary/10" : "bg-muted"
-                      }`}>
-                        <UserRound className={`w-8 h-8 ${
-                          applicantType === "individual" ? "text-primary" : "text-muted-foreground"
-                        }`} />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-lg mb-1">Individual Host</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Rent your personal property or spare room
-                        </p>
-                      </div>
-                      {applicantType === "individual" && (
-                        <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                          <Check className="w-4 h-4 text-primary-foreground" />
-                        </div>
-                      )}
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => setApplicantType("business")}
-                    className={`group p-6 rounded-xl border-2 transition-all hover:shadow-lg ${
-                      applicantType === "business"
-                        ? "border-primary bg-primary/5 shadow-md"
-                        : "border-border hover:border-primary/50"
-                    }`}
-                  >
-                    <div className="flex flex-col items-center text-center space-y-3">
-                      <div className={`w-16 h-16 rounded-full flex items-center justify-center ${
-                        applicantType === "business" ? "bg-primary/10" : "bg-muted"
-                      }`}>
-                        <Building2 className={`w-8 h-8 ${
-                          applicantType === "business" ? "text-primary" : "text-muted-foreground"
-                        }`} />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-lg mb-1">Business Host</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Manage multiple properties professionally
-                        </p>
-                      </div>
-                      {applicantType === "business" && (
-                        <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                          <Check className="w-4 h-4 text-primary-foreground" />
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                </div>
-
-                <div className="flex justify-end pt-4">
-                  <Button size="lg" onClick={() => setCurrentStep(2)}>
-                    Continue <ArrowRight className="ml-2 w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Step 2: Personal Information */}
-            {currentStep === 2 && (
               <div className="space-y-6">
                 <div className="text-center mb-6">
                   <h2 className="text-2xl font-bold mb-2">Personal Information</h2>
@@ -470,30 +391,6 @@ export default function HostApplication() {
                     )}
                   </div>
 
-                  {applicantType === "business" && (
-                    <>
-                      <div className="space-y-2">
-                        <Label htmlFor="businessName">Business Name *</Label>
-                        <Input
-                          id="businessName"
-                          placeholder="Your company name"
-                          value={formData.business_name}
-                          onChange={(e) => updateField("business_name", e.target.value)}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="businessTin">TIN Number *</Label>
-                        <Input
-                          id="businessTin"
-                          placeholder="Tax ID number"
-                          value={formData.business_tin}
-                          onChange={(e) => updateField("business_tin", e.target.value)}
-                        />
-                      </div>
-                    </>
-                  )}
-
                   <div className="md:col-span-2 space-y-2">
                     <Label htmlFor="about">About You (Optional)</Label>
                     <Textarea
@@ -506,14 +403,11 @@ export default function HostApplication() {
                   </div>
                 </div>
 
-                <div className="flex gap-3 pt-4">
-                  <Button variant="outline" onClick={() => setCurrentStep(1)}>
-                    Back
-                  </Button>
+                <div className="flex justify-end pt-4">
                   <Button
-                    className="flex-1"
-                    disabled={!formData.full_name || !formData.phone || !formData.national_id_number || !formData.national_id_photo_url || (applicantType === "business" && (!formData.business_name || !formData.business_tin))}
-                    onClick={() => setCurrentStep(3)}
+                    size="lg"
+                    disabled={!formData.full_name || !formData.phone || !formData.national_id_number || !formData.national_id_photo_url}
+                    onClick={() => setCurrentStep(2)}
                   >
                     Continue <ArrowRight className="ml-2 w-4 h-4" />
                   </Button>
@@ -521,8 +415,8 @@ export default function HostApplication() {
               </div>
             )}
 
-            {/* Step 3: Property Details */}
-            {currentStep === 3 && (
+            {/* Step 2: Property Details */}
+            {currentStep === 2 && (
               <div className="space-y-6">
                 <div className="text-center mb-6">
                   <h2 className="text-2xl font-bold mb-2">Property Details</h2>
@@ -711,13 +605,13 @@ export default function HostApplication() {
                 </div>
 
                 <div className="flex gap-3 pt-4">
-                  <Button variant="outline" onClick={() => setCurrentStep(2)}>
+                  <Button variant="outline" onClick={() => setCurrentStep(1)}>
                     Back
                   </Button>
                   <Button
                     className="flex-1"
                     disabled={!formData.title || !formData.location || formData.images.length === 0}
-                    onClick={() => setCurrentStep(4)}
+                    onClick={() => setCurrentStep(3)}
                   >
                     Review Application <ArrowRight className="ml-2 w-4 h-4" />
                   </Button>
@@ -725,8 +619,8 @@ export default function HostApplication() {
               </div>
             )}
 
-            {/* Step 4: Review & Submit */}
-            {currentStep === 4 && (
+            {/* Step 3: Review & Submit */}
+            {currentStep === 3 && (
               <div className="space-y-6">
                 <div className="text-center mb-6">
                   <h2 className="text-2xl font-bold mb-2">Review Your Application</h2>
@@ -753,10 +647,6 @@ export default function HostApplication() {
                       <div>
                         <span className="text-muted-foreground">ID Number:</span>
                         <p className="font-medium">{formData.national_id_number}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Account Type:</span>
-                        <p className="font-medium capitalize">{applicantType}</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -816,7 +706,7 @@ export default function HostApplication() {
                 </div>
 
                 <div className="flex gap-3 pt-4">
-                  <Button variant="outline" onClick={() => setCurrentStep(3)}>
+                  <Button variant="outline" onClick={() => setCurrentStep(2)}>
                     Back
                   </Button>
                   <Button
