@@ -162,7 +162,8 @@ export default function HostApplication() {
       try {
         const { data, error } = await supabase
           .from("host_applications")
-          .select("id, status")
+          // Use * to avoid 400s when remote schema differs (missing columns).
+          .select("*")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false })
           .limit(1)
@@ -282,9 +283,11 @@ export default function HostApplication() {
         // Only attempt fallback when it's likely schema mismatch; otherwise rethrow.
         const looksLikeSchemaMismatch =
           code === "42703" ||
+          code.startsWith("PGRST") ||
           msg.includes("does not exist") ||
           msg.includes("column") ||
-          msg.includes("schema cache");
+          msg.includes("schema cache") ||
+          msg.toLowerCase().includes("could not find");
 
         if (looksLikeSchemaMismatch) {
           const fallback = await supabase.from("host_applications").insert(minimalPayload as never);
