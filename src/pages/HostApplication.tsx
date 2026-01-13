@@ -142,6 +142,8 @@ export default function HostApplication() {
   const [imageUploadOpen, setImageUploadOpen] = useState(false);
   const [idPhotoUploadOpen, setIdPhotoUploadOpen] = useState(false);
   const [certificateUploadOpen, setCertificateUploadOpen] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   // "Add property" wizard inside Become Host (same UX as Host Dashboard)
   const [listingStep, setListingStep] = useState(1);
@@ -241,8 +243,114 @@ export default function HostApplication() {
     return true;
   }, [details, applicantType]);
 
+  // Validate individual fields and return error messages
+  const validateField = (fieldName: string): string => {
+    switch (fieldName) {
+      case 'full_name':
+        if (!details.full_name.trim()) return 'Full name is required';
+        if (details.full_name.trim().length < 2) return 'Full name must be at least 2 characters';
+        return '';
+      case 'phone':
+        if (!details.phone.trim()) return 'Phone number is required';
+        if (details.phone.trim().length < 7) return 'Phone number must be at least 7 digits';
+        return '';
+      case 'national_id_number':
+        if (!details.national_id_number.trim()) return 'National ID number is required';
+        if (details.national_id_number.trim().length < 5) return 'ID number must be at least 5 characters';
+        return '';
+      case 'national_id_photo_url':
+        if (!details.national_id_photo_url) return 'ID photo is required';
+        return '';
+      case 'business_name':
+        if (applicantType === 'business') {
+          if (!details.business_name.trim()) return 'Business name is required';
+          if (details.business_name.trim().length < 2) return 'Business name must be at least 2 characters';
+        }
+        return '';
+      case 'business_tin':
+        if (applicantType === 'business') {
+          if (!details.business_tin.trim()) return 'TIN number is required';
+          if (details.business_tin.trim().length < 5) return 'TIN must be at least 5 characters';
+        }
+        return '';
+      case 'property_title':
+        if (!property.title.trim()) return 'Property title is required';
+        if (property.title.trim().length < 3) return 'Title must be at least 3 characters';
+        return '';
+      case 'property_location':
+        if (!property.location.trim()) return 'Location is required';
+        if (property.location.trim().length < 2) return 'Location must be at least 2 characters';
+        return '';
+      case 'property_price':
+        if (!property.price_per_night || property.price_per_night <= 0) return 'Price must be greater than 0';
+        return '';
+      case 'property_images':
+        if (property.images.length < 1) return 'At least 1 property photo is required';
+        return '';
+      default:
+        return '';
+    }
+  };
+
+  // Update validation errors when fields change
+  useEffect(() => {
+    const errors: Record<string, string> = {};
+    ['full_name', 'phone', 'national_id_number', 'national_id_photo_url', 'business_name', 'business_tin'].forEach(field => {
+      const error = validateField(field);
+      if (error && touched[field]) errors[field] = error;
+    });
+    setValidationErrors(errors);
+  }, [details, applicantType, touched]);
+
   const handleSubmit = async () => {
     if (!user) return;
+    
+    // Mark all fields as touched to show validation errors
+    setTouched({
+      full_name: true,
+      phone: true,
+      national_id_number: true,
+      national_id_photo_url: true,
+      business_name: true,
+      business_tin: true,
+    });
+
+    // Validate all fields before submitting
+    const errors: string[] = [];
+    if (!details.full_name.trim() || details.full_name.trim().length < 2) {
+      errors.push('Full name must be at least 2 characters');
+    }
+    if (!details.phone.trim() || details.phone.trim().length < 7) {
+      errors.push('Phone number must be at least 7 digits');
+    }
+    if (!details.national_id_number.trim() || details.national_id_number.trim().length < 5) {
+      errors.push('National ID number must be at least 5 characters');
+    }
+    if (!details.national_id_photo_url) {
+      errors.push('ID photo is required');
+    }
+    if (applicantType === 'business') {
+      if (!details.business_name.trim() || details.business_name.trim().length < 2) {
+        errors.push('Business name must be at least 2 characters');
+      }
+      if (!details.business_tin.trim() || details.business_tin.trim().length < 5) {
+        errors.push('TIN number must be at least 5 characters');
+      }
+    }
+
+    if (errors.length > 0) {
+      toast({
+        variant: "destructive",
+        title: "Validation errors",
+        description: (
+          <ul className="list-disc list-inside space-y-1">
+            {errors.map((err, i) => <li key={i}>{err}</li>)}
+          </ul>
+        ),
+      });
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -1021,8 +1129,13 @@ export default function HostApplication() {
                       id="fullName"
                       value={details.full_name}
                       onChange={(e) => setDetails((d) => ({ ...d, full_name: e.target.value }))}
+                      onBlur={() => setTouched(t => ({ ...t, full_name: true }))}
                       placeholder="As shown on your ID"
+                      className={validationErrors.full_name ? 'border-red-500 focus-visible:ring-red-500' : ''}
                     />
+                    {validationErrors.full_name && (
+                      <p className="text-sm text-red-500 mt-1">{validationErrors.full_name}</p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="phone">Phone Number *</Label>
@@ -1031,8 +1144,13 @@ export default function HostApplication() {
                       type="tel"
                       value={details.phone}
                       onChange={(e) => setDetails((d) => ({ ...d, phone: e.target.value }))}
+                      onBlur={() => setTouched(t => ({ ...t, phone: true }))}
                       placeholder="+250 7XX XXX XXX"
+                      className={validationErrors.phone ? 'border-red-500 focus-visible:ring-red-500' : ''}
                     />
+                    {validationErrors.phone && (
+                      <p className="text-sm text-red-500 mt-1">{validationErrors.phone}</p>
+                    )}
                   </div>
                   <div className="md:col-span-2">
                     <Label htmlFor="about">About You (optional)</Label>
@@ -1058,8 +1176,13 @@ export default function HostApplication() {
                         id="businessName"
                         value={details.business_name}
                         onChange={(e) => setDetails((d) => ({ ...d, business_name: e.target.value }))}
+                        onBlur={() => setTouched(t => ({ ...t, business_name: true }))}
                         placeholder="Your company name"
+                        className={validationErrors.business_name ? 'border-red-500 focus-visible:ring-red-500' : ''}
                       />
+                      {validationErrors.business_name && (
+                        <p className="text-sm text-red-500 mt-1">{validationErrors.business_name}</p>
+                      )}
                     </div>
                     <div>
                       <Label htmlFor="businessTin">TIN Number *</Label>
@@ -1067,8 +1190,13 @@ export default function HostApplication() {
                         id="businessTin"
                         value={details.business_tin}
                         onChange={(e) => setDetails((d) => ({ ...d, business_tin: e.target.value }))}
+                        onBlur={() => setTouched(t => ({ ...t, business_tin: true }))}
                         placeholder="Tax Identification Number"
+                        className={validationErrors.business_tin ? 'border-red-500 focus-visible:ring-red-500' : ''}
                       />
+                      {validationErrors.business_tin && (
+                        <p className="text-sm text-red-500 mt-1">{validationErrors.business_tin}</p>
+                      )}
                     </div>
                     <div className="md:col-span-2">
                       <Label className="mb-2 block">Business Certificate (optional)</Label>
@@ -1104,8 +1232,13 @@ export default function HostApplication() {
                       id="idNumber"
                       value={details.national_id_number}
                       onChange={(e) => setDetails((d) => ({ ...d, national_id_number: e.target.value }))}
+                      onBlur={() => setTouched(t => ({ ...t, national_id_number: true }))}
                       placeholder="Enter your ID number"
+                      className={validationErrors.national_id_number ? 'border-red-500 focus-visible:ring-red-500' : ''}
                     />
+                    {validationErrors.national_id_number && (
+                      <p className="text-sm text-red-500 mt-1">{validationErrors.national_id_number}</p>
+                    )}
                   </div>
                   <div>
                     <Label className="mb-2 block">ID Photo *</Label>
@@ -1116,15 +1249,27 @@ export default function HostApplication() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => setDetails((d) => ({ ...d, national_id_photo_url: "" }))}
+                          onClick={() => {
+                            setDetails((d) => ({ ...d, national_id_photo_url: "" }));
+                            setTouched(t => ({ ...t, national_id_photo_url: true }));
+                          }}
                         >
                           Remove
                         </Button>
                       </div>
                     ) : (
-                      <Button variant="outline" onClick={() => setIdPhotoUploadOpen(true)}>
-                        <ImageIcon className="w-4 h-4 mr-2" /> Upload ID Photo
-                      </Button>
+                      <>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setIdPhotoUploadOpen(true)}
+                          className={validationErrors.national_id_photo_url ? 'border-red-500' : ''}
+                        >
+                          <ImageIcon className="w-4 h-4 mr-2" /> Upload ID Photo
+                        </Button>
+                        {validationErrors.national_id_photo_url && touched.national_id_photo_url && (
+                          <p className="text-sm text-red-500 mt-1">{validationErrors.national_id_photo_url}</p>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
