@@ -31,66 +31,74 @@ const fetchProperties = async (args: {
   hostId?: string | null;
   nearby?: { lat: number; lng: number } | null;
 }) => {
-  let query = supabase
-    .from("properties")
-    .select(
-      "id, title, location, price_per_night, currency, property_type, rating, review_count, images, created_at, bedrooms, bathrooms, beds, lat, lng, host_id, max_guests, check_in_time, check_out_time, smoking_allowed, events_allowed, pets_allowed"
-    )
-    .eq("is_published", true)
-    .order("created_at", { ascending: false });
+  try {
+    let query = supabase
+      .from("properties")
+      .select(
+        "id, title, location, price_per_night, currency, property_type, rating, review_count, images, created_at, bedrooms, bathrooms, beds, lat, lng, host_id, max_guests, check_in_time, check_out_time, smoking_allowed, events_allowed, pets_allowed"
+      )
+      .eq("is_published", true)
+      .order("created_at", { ascending: false });
 
-  const trimmed = args.search.trim();
-  if (trimmed) {
-    query = query.or(`title.ilike.%${trimmed}%,location.ilike.%${trimmed}%`);
+    const trimmed = args.search.trim();
+    if (trimmed) {
+      query = query.or(`title.ilike.%${trimmed}%,location.ilike.%${trimmed}%`);
+    }
+
+    if (args.hostId) {
+      query = query.eq("host_id", args.hostId);
+    }
+
+    if (args.propertyTypes.length) {
+      query = query.in("property_type", args.propertyTypes);
+    }
+
+    if (args.minRating > 0) {
+      query = query.gte("rating", args.minRating);
+    }
+
+    if (args.amenities.length) {
+      query = query.contains("amenities", args.amenities);
+    }
+
+    const { data, error } = await query.lte("price_per_night", args.maxPrice);
+    if (error) {
+      console.warn("[Accommodations] fetchProperties error:", error.message);
+      return [];
+    }
+    const rows = data ?? [];
+
+    if (!args.nearby) return rows;
+
+    const toRad = (x: number) => (x * Math.PI) / 180;
+    const haversineKm = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => {
+      const R = 6371;
+      const dLat = toRad(b.lat - a.lat);
+      const dLng = toRad(b.lng - a.lng);
+      const s1 =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+      const c = 2 * Math.atan2(Math.sqrt(s1), Math.sqrt(1 - s1));
+      return R * c;
+    };
+
+    const origin = args.nearby;
+    const withDistance = rows
+      .map((r) => {
+        const lat = Number((r as { lat: number | null }).lat);
+        const lng = Number((r as { lng: number | null }).lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+        return { row: r, d: haversineKm(origin, { lat, lng }) };
+      })
+      .filter(Boolean) as Array<{ row: (typeof rows)[number]; d: number }>;
+
+    const within = withDistance.filter((x) => x.d <= 50);
+    within.sort((a, b) => a.d - b.d);
+    return within.map((x) => x.row);
+  } catch (err) {
+    console.warn("[Accommodations] fetchProperties exception:", err);
+    return [];
   }
-
-  if (args.hostId) {
-    query = query.eq("host_id", args.hostId);
-  }
-
-  if (args.propertyTypes.length) {
-    query = query.in("property_type", args.propertyTypes);
-  }
-
-  if (args.minRating > 0) {
-    query = query.gte("rating", args.minRating);
-  }
-
-  if (args.amenities.length) {
-    query = query.contains("amenities", args.amenities);
-  }
-
-  const { data, error } = await query.lte("price_per_night", args.maxPrice);
-  if (error) throw error;
-  const rows = data ?? [];
-
-  if (!args.nearby) return rows;
-
-  const toRad = (x: number) => (x * Math.PI) / 180;
-  const haversineKm = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => {
-    const R = 6371;
-    const dLat = toRad(b.lat - a.lat);
-    const dLng = toRad(b.lng - a.lng);
-    const s1 =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
-    const c = 2 * Math.atan2(Math.sqrt(s1), Math.sqrt(1 - s1));
-    return R * c;
-  };
-
-  const origin = args.nearby;
-  const withDistance = rows
-    .map((r) => {
-      const lat = Number((r as { lat: number | null }).lat);
-      const lng = Number((r as { lng: number | null }).lng);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-      return { row: r, d: haversineKm(origin, { lat, lng }) };
-    })
-    .filter(Boolean) as Array<{ row: (typeof rows)[number]; d: number }>;
-
-  const within = withDistance.filter((x) => x.d <= 50);
-  within.sort((a, b) => a.d - b.d);
-  return within.map((x) => x.row);
 };
 
 const Accommodations = () => {

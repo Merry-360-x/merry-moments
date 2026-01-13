@@ -34,30 +34,47 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsFetchingRoles(true);
     setRolesLoading(true);
     
-    const { data, error } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId);
+    try {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId);
 
-    if (error) {
-      // Keep existing roles on transient errors so nav buttons don't "disappear".
-      // If the table/policies are misconfigured, the roles will remain empty anyway.
-      console.warn("[AuthContext] Failed to load roles:", error.message);
+      if (error) {
+        // Keep existing roles on transient errors so nav buttons don't "disappear".
+        // Ignore AbortError - it's expected during component cleanup
+        if (error.message?.includes("AbortError") || error.message?.includes("aborted")) {
+          setRolesLoading(false);
+          setIsFetchingRoles(false);
+          return;
+        }
+        console.warn("[AuthContext] Failed to load roles:", error.message);
+        setRolesLoading(false);
+        setIsFetchingRoles(false);
+        return;
+      }
+
+      const normalized = (data ?? [])
+        .map((r) => String(r.role ?? "").trim().toLowerCase())
+        .filter(Boolean);
+      // Deduplicate and keep only known roles.
+      const uniq = Array.from(new Set(normalized)).filter((r) =>
+        ["guest", "host", "staff", "admin"].includes(r)
+      );
+      setRoles(uniq);
       setRolesLoading(false);
       setIsFetchingRoles(false);
-      return;
+    } catch (err) {
+      // Silently handle AbortError - expected during React cleanup/navigation
+      if (err instanceof Error && err.name === "AbortError") {
+        setRolesLoading(false);
+        setIsFetchingRoles(false);
+        return;
+      }
+      console.warn("[AuthContext] Error fetching roles:", err);
+      setRolesLoading(false);
+      setIsFetchingRoles(false);
     }
-
-    const normalized = (data ?? [])
-      .map((r) => String(r.role ?? "").trim().toLowerCase())
-      .filter(Boolean);
-    // Deduplicate and keep only known roles.
-    const uniq = Array.from(new Set(normalized)).filter((r) =>
-      ["guest", "host", "staff", "admin"].includes(r)
-    );
-    setRoles(uniq);
-    setRolesLoading(false);
-    setIsFetchingRoles(false);
   };
 
   const refreshRoles = async () => {
@@ -103,6 +120,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } else {
         setRolesLoading(false);
       }
+    }).catch((err) => {
+      // Handle getSession errors gracefully
+      if (!mounted) return;
+      console.warn("[AuthContext] getSession error:", err);
+      setIsLoading(false);
+      setRolesLoading(false);
     });
 
     return () => {

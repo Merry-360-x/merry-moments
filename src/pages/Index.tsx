@@ -16,17 +16,25 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import heroImage from "@/assets/hero-resort.jpg";
 
 const fetchLatestProperties = async () => {
-  const { data, error } = await supabase
-    .from("properties")
-    .select(
-      "id, name, title, location, price_per_night, currency, property_type, rating, review_count, images, created_at, bedrooms, bathrooms, beds, max_guests, check_in_time, check_out_time, smoking_allowed, events_allowed, pets_allowed"
-    )
-    .eq("is_published", true)
-    .order("created_at", { ascending: false })
-    .limit(4);
+  try {
+    const { data, error } = await supabase
+      .from("properties")
+      .select(
+        "id, name, title, location, price_per_night, currency, property_type, rating, review_count, images, created_at, bedrooms, bathrooms, beds, max_guests, check_in_time, check_out_time, smoking_allowed, events_allowed, pets_allowed"
+      )
+      .eq("is_published", true)
+      .order("created_at", { ascending: false })
+      .limit(4);
 
-  if (error) throw error;
-  return data ?? [];
+    if (error) {
+      console.warn("[Index] fetchLatestProperties error:", error.message);
+      return [];
+    }
+    return data ?? [];
+  } catch (err) {
+    console.warn("[Index] fetchLatestProperties exception:", err);
+    return [];
+  }
 };
 
 const fetchFeaturedProperties = async () => {

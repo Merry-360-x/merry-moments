@@ -33,7 +33,22 @@ import ScrollToTop from "@/components/ScrollToTop";
 import GlobalLoadingIndicator from "@/components/GlobalLoadingIndicator";
 import SupportCenterLauncher from "@/components/SupportCenterLauncher";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: (failureCount, error) => {
+        // Don't retry on AbortError
+        if (error instanceof Error && error.name === "AbortError") {
+          return false;
+        }
+        // Retry up to 2 times for other errors
+        return failureCount < 2;
+      },
+      staleTime: 1000 * 60, // 1 minute
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 function AuthModeRedirect({ mode }: { mode: "login" | "signup" }) {
   const location = useLocation();
