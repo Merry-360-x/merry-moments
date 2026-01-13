@@ -23,13 +23,18 @@ export function formatMoney(amount: number, currency: string) {
       minimumFractionDigits: 0
     }).format(value);
     
-    // For USD, EUR, GBP, JPY, CNY - symbol goes before
-    if (["USD", "EUR", "GBP", "JPY", "CNY"].includes(code)) {
+    // For USD, EUR, GBP - symbol goes before with no space
+    if (["USD", "EUR", "GBP"].includes(code)) {
       return `${symbol}${num}`;
     }
     
-    // For RWF and other African currencies - symbol goes after with space
-    return `${symbol} ${num}`;
+    // For JPY, CNY (Asian currencies) - symbol before with space
+    if (["JPY", "CNY"].includes(code)) {
+      return `${symbol} ${num}`;
+    }
+    
+    // For RWF and other African currencies - format with space after
+    return `${num} ${symbol}`;
   } catch {
     // Fallback (for unexpected/unsupported currency codes)
     return `${symbol} ${Math.round(value).toLocaleString()}`;

@@ -95,6 +95,15 @@ export async function uploadFileToCloudinary(
   form.append("file", file);
   form.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
   if (options?.folder) form.append("folder", options.folder);
+  
+  // Add optimization parameters for faster uploads
+  form.append("quality", "auto:good"); // Automatic quality optimization
+  form.append("fetch_format", "auto"); // Auto format selection
+  
+  // Compress images before upload to reduce upload time
+  if (file.type.startsWith('image/')) {
+    form.append("transformation", "q_auto:good,f_auto");
+  }
 
   // Prefer XHR for upload progress events.
   if (typeof XMLHttpRequest !== "undefined") {

@@ -174,7 +174,13 @@ interface Booking {
 }
 
 const propertyTypes = ["Hotel", "Apartment", "Villa", "Guesthouse", "Resort", "Lodge", "Motel", "House", "Cabin"];
-const currencies = ["RWF", "USD", "EUR", "GBP", "CNY"];
+const currencies = [
+  { value: "RWF", label: "FRw - Rwandan Franc" },
+  { value: "USD", label: "$ - US Dollar" },
+  { value: "EUR", label: "€ - Euro" },
+  { value: "GBP", label: "£ - British Pound" },
+  { value: "CNY", label: "¥ - Chinese Yuan" },
+];
 const cancellationPolicies = [
   { value: "strict", label: "Strict - Less refunds" },
   { value: "fair", label: "Fair - Moderate refunds" },
@@ -834,7 +840,7 @@ export default function HostDashboard() {
                 <Input type="number" value={form.price_per_night} onChange={(e) => setForm((f) => ({ ...f, price_per_night: Number(e.target.value) }))} />
                 <Select value={form.currency || "RWF"} onValueChange={(v) => setForm((f) => ({ ...f, currency: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{currencies.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  <SelectContent>{currencies.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div>
@@ -1100,7 +1106,7 @@ export default function HostDashboard() {
                       <Select value={propertyForm.currency} onValueChange={(v) => setPropertyForm((f) => ({ ...f, currency: v }))}>
                         <SelectTrigger className="mt-2 h-14 text-lg"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          {currencies.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                          {currencies.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
@@ -1825,7 +1831,7 @@ export default function HostDashboard() {
                     <Select value={tourForm.currency} onValueChange={(v) => setTourForm((f) => ({ ...f, currency: v }))}>
                       <SelectTrigger className="mt-2 h-14 text-lg"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {currencies.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                        {currencies.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
@@ -2120,7 +2126,7 @@ export default function HostDashboard() {
                     <Select value={vehicleForm.currency} onValueChange={(v) => setVehicleForm((f) => ({ ...f, currency: v }))}>
                       <SelectTrigger className="mt-2 h-14 text-lg"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {currencies.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                        {currencies.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
                       </SelectContent>
                     </Select>
             </div>
@@ -2425,8 +2431,8 @@ export default function HostDashboard() {
                                 </SelectTrigger>
                                 <SelectContent>
                                   {currencies.map((c) => (
-                                    <SelectItem key={c} value={c}>
-                                      {c}
+                                    <SelectItem key={c.value} value={c.value}>
+                                      {c.label}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>

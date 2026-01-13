@@ -38,9 +38,9 @@ type ApplicantType = "individual" | "business";
 
 const propertyTypes = ["Hotel", "Apartment", "Villa", "Guesthouse", "Resort", "Lodge", "House"];
 const currencies = [
-  { value: "RWF", label: "RWF" },
-  { value: "USD", label: "USD" },
-  { value: "EUR", label: "EUR" },
+  { value: "RWF", label: "FRw - Rwandan Franc", symbol: "FRw" },
+  { value: "USD", label: "$ - US Dollar", symbol: "$" },
+  { value: "EUR", label: "€ - Euro", symbol: "€" },
 ];
 
 export default function HostApplication() {
@@ -728,8 +728,8 @@ export default function HostApplication() {
 
                   <div className="md:col-span-2 space-y-2">
                     <Label>Amenities (Select all that apply)</Label>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-96 overflow-y-auto pr-2">
-                      {AMENITIES.map((amenity) => {
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {AMENITIES.slice(0, 8).map((amenity) => {
                         const Icon = amenity.icon;
                         const selected = formData.amenities.includes(amenity.value);
                         return (
