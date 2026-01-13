@@ -2,7 +2,7 @@
 
 -- Delete in order of dependencies (child tables first)
 DELETE FROM bookings;
-DELETE FROM reviews;
+DELETE FROM property_reviews;
 DELETE FROM favorites;
 DELETE FROM properties;
 DELETE FROM tours;

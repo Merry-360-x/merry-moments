@@ -23,7 +23,7 @@ BEGIN
       SELECT EXISTS (
         SELECT 1
         FROM public.user_roles ur
-        WHERE ur.user_id = p_user_id AND ur.role = p_role
+        WHERE ur.user_id = p_user_id AND ur.role::text = p_role
       );
     $fn$;
   END IF;

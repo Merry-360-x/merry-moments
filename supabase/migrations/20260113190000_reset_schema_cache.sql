@@ -47,7 +47,7 @@ CREATE POLICY "Anyone can view published tours" ON tours
 
 DROP POLICY IF EXISTS "Hosts can manage their own tours" ON tours;
 CREATE POLICY "Hosts can manage their own tours" ON tours
-  FOR ALL USING (auth.uid() = host_id);
+  FOR ALL USING (auth.uid() = created_by);
 
 -- Transport vehicles policies
 DROP POLICY IF EXISTS "Anyone can view published vehicles" ON transport_vehicles;
@@ -93,11 +93,11 @@ CREATE POLICY "Users can manage their own reviews" ON property_reviews
 -- Bookings policies
 DROP POLICY IF EXISTS "Users can view their own bookings" ON bookings;
 CREATE POLICY "Users can view their own bookings" ON bookings
-  FOR SELECT USING (auth.uid() = user_id);
+  FOR SELECT USING (auth.uid() = guest_id);
 
 DROP POLICY IF EXISTS "Users can manage their own bookings" ON bookings;
 CREATE POLICY "Users can manage their own bookings" ON bookings
-  FOR ALL USING (auth.uid() = user_id);
+  FOR ALL USING (auth.uid() = guest_id);
 
 DROP POLICY IF EXISTS "Hosts can view bookings for their properties" ON bookings;
 CREATE POLICY "Hosts can view bookings for their properties" ON bookings
