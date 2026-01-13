@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { isVideoUrl } from "@/lib/media";
+import { optimizeCloudinaryImage } from "@/lib/cloudinary";
 
 type Props = {
   images?: Array<string | null | undefined> | null;
@@ -66,10 +67,11 @@ export default function ListingImageCarousel({
           ) : (
             <img
               key={src}
-              src={src}
+              src={optimizeCloudinaryImage(src, { width: 800, height: 600, quality: 'auto', format: 'auto' })}
               alt={alt}
               className="w-full h-full object-cover shrink-0"
               loading="lazy"
+              decoding="async"
             />
           )
         ))}
@@ -77,4 +79,3 @@ export default function ListingImageCarousel({
     </div>
   );
 }
-

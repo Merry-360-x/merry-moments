@@ -9,6 +9,63 @@ const CLOUDINARY_UPLOAD_PRESET = readEnv(import.meta.env.VITE_CLOUDINARY_UPLOAD_
 export const isCloudinaryConfigured = () =>
   Boolean(CLOUDINARY_CLOUD_NAME) && Boolean(CLOUDINARY_UPLOAD_PRESET);
 
+/**
+ * Optimizes a Cloudinary image URL for faster loading
+ * Adds automatic format conversion, quality optimization, and responsive sizing
+ */
+export function optimizeCloudinaryImage(url: string, options?: {
+  width?: number;
+  height?: number;
+  quality?: 'auto' | number;
+  format?: 'auto' | 'webp' | 'jpg' | 'png';
+  crop?: 'fill' | 'fit' | 'scale' | 'thumb';
+}): string {
+  if (!url || !url.includes('cloudinary.com')) return url;
+  
+  const {
+    width,
+    height,
+    quality = 'auto',
+    format = 'auto',
+    crop = 'fill'
+  } = options || {};
+  
+  // Build transformation string
+  const transformations: string[] = [];
+  
+  // Add quality and format for automatic optimization
+  transformations.push(`f_${format}`);
+  transformations.push(`q_${quality}`);
+  
+  // Add dimensions if specified
+  if (width) transformations.push(`w_${width}`);
+  if (height) transformations.push(`h_${height}`);
+  if (width || height) transformations.push(`c_${crop}`);
+  
+  // Add progressive loading and fetch format
+  transformations.push('fl_progressive');
+  
+  const transformStr = transformations.join(',');
+  
+  // Insert transformations into the URL
+  return url.replace(/\/upload\//, `/upload/${transformStr}/`);
+}
+
+/**
+ * Get responsive image sizes for different breakpoints
+ */
+export function getResponsiveImageUrl(url: string, size: 'thumbnail' | 'small' | 'medium' | 'large' | 'hero'): string {
+  const sizeMap = {
+    thumbnail: { width: 150, height: 150, crop: 'thumb' as const },
+    small: { width: 400, height: 300 },
+    medium: { width: 800, height: 600 },
+    large: { width: 1200, height: 900 },
+    hero: { width: 1920, height: 1080 },
+  };
+  
+  return optimizeCloudinaryImage(url, sizeMap[size]);
+}
+
 export type CloudinaryUploadResult = {
   secureUrl: string;
   publicId: string;

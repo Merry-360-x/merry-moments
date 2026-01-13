@@ -3,6 +3,7 @@ import { Star, Heart, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 import ListingImageCarousel from "@/components/ListingImageCarousel";
+import { OptimizedImage } from "@/components/OptimizedImage";
 import { useFavorites } from "@/hooks/useFavorites";
 import { usePreferences } from "@/hooks/usePreferences";
 import { extractNeighborhood } from "@/lib/location";
