@@ -73,7 +73,7 @@ ON bookings(status);
 
 CREATE INDEX IF NOT EXISTS idx_bookings_status_revenue 
 ON bookings(status, total_price) 
-WHERE status IN ('confirmed', 'completed', 'paid');
+WHERE status IN ('confirmed', 'completed');
 
 -- Property reviews indexes
 CREATE INDEX IF NOT EXISTS idx_property_reviews_property_id 
