@@ -65,6 +65,7 @@ export default function HostApplication() {
     about: "",
     national_id_number: "",
     national_id_photo_url: "",
+    selfie_photo_url: "",
     // Business (if applicable)
     business_name: "",
     business_tin: "",
@@ -84,6 +85,8 @@ export default function HostApplication() {
 
   const [imageUploadOpen, setImageUploadOpen] = useState(false);
   const [idPhotoUploadOpen, setIdPhotoUploadOpen] = useState(false);
+  const [selfieUploadOpen, setSelfieUploadOpen] = useState(false);
+  const [selfieUploadOpen, setSelfieUploadOpen] = useState(false);
 
   const totalSteps = 4; // Added service type step
   const progress = (currentStep / totalSteps) * 100;
@@ -147,6 +150,7 @@ export default function HostApplication() {
         about: formData.about || null,
         national_id_number: formData.national_id_number,
         national_id_photo_url: formData.national_id_photo_url,
+        selfie_photo_url: formData.selfie_photo_url,
         business_name: null,
         business_tin: null,
         hosting_location: formData.location,
@@ -629,34 +633,277 @@ export default function HostApplication() {
                     </div>
                   </div>
 
-                  <div className="md:col-span-2 space-y-2">
-                    <Label>Amenities (Select all that apply)</Label>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                      {AMENITIES.slice(0, 8).map((amenity) => {
-                        const Icon = amenity.icon;
-                        const selected = formData.amenities.includes(amenity.value);
-                        return (
-                          <button
-                            key={amenity.value}
-                            type="button"
-                            onClick={() => {
-                              const newAmenities = selected
-                                ? formData.amenities.filter((a) => a !== amenity.value)
-                                : [...formData.amenities, amenity.value];
-                              updateField("amenities", newAmenities);
-                            }}
-                            className={`p-3 rounded-lg border-2 text-left transition-all ${
-                              selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <Icon className="w-4 h-4" />
-                              <span className="text-sm">{amenity.label}</span>
-                            </div>
-                          </button>
-                        );
-                      })}
+                  <div className="md:col-span-2 space-y-4">
+                    <Label className="text-lg font-medium">Amenities (Select all that apply)</Label>
+                    <p className="text-sm text-muted-foreground">Choose all amenities available in your property to attract more guests</p>
+                    
+                    {/* Organize amenities by category */}
+                    <div className="space-y-6">
+                      {/* Essential Amenities */}
+                      <div>
+                        <h4 className="font-medium text-sm text-muted-foreground mb-3">🏠 Essential</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {AMENITIES.filter(a => ['wifi', 'WiFi', 'hot_water', 'Hot water', 'AC', 'ac', 'Air conditioning', 'parking_free', 'parking_paid', 'Parking'].includes(a.value)).map((amenity) => {
+                            const Icon = amenity.icon;
+                            const selected = formData.amenities.includes(amenity.value);
+                            return (
+                              <button
+                                key={amenity.value}
+                                type="button"
+                                onClick={() => {
+                                  const newAmenities = selected
+                                    ? formData.amenities.filter((a) => a !== amenity.value)
+                                    : [...formData.amenities, amenity.value];
+                                  updateField("amenities", newAmenities);
+                                }}
+                                className={`p-3 rounded-lg border-2 text-left transition-all ${
+                                  selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Icon className="w-4 h-4" />
+                                  <span className="text-sm">{amenity.label}</span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Kitchen & Dining */}
+                      <div>
+                        <h4 className="font-medium text-sm text-muted-foreground mb-3">🍳 Kitchen & Dining</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {AMENITIES.filter(a => ['Kitchen', 'kitchen_items', 'refrigerator', 'microwave', 'cooker', 'oven', 'cooking_items', 'dining_items', 'dining_table', 'blender', 'kettle', 'coffee_maker', 'breakfast_free', 'breakfast_paid', 'Breakfast'].includes(a.value)).map((amenity) => {
+                            const Icon = amenity.icon;
+                            const selected = formData.amenities.includes(amenity.value);
+                            return (
+                              <button
+                                key={amenity.value}
+                                type="button"
+                                onClick={() => {
+                                  const newAmenities = selected
+                                    ? formData.amenities.filter((a) => a !== amenity.value)
+                                    : [...formData.amenities, amenity.value];
+                                  updateField("amenities", newAmenities);
+                                }}
+                                className={`p-3 rounded-lg border-2 text-left transition-all ${
+                                  selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Icon className="w-4 h-4" />
+                                  <span className="text-sm">{amenity.label}</span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Entertainment & Technology */}
+                      <div>
+                        <h4 className="font-medium text-sm text-muted-foreground mb-3">📺 Entertainment & Tech</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {AMENITIES.filter(a => ['tv_smart', 'tv_basic', 'TV', 'workspace', 'wardrobe', 'hangers'].includes(a.value)).map((amenity) => {
+                            const Icon = amenity.icon;
+                            const selected = formData.amenities.includes(amenity.value);
+                            return (
+                              <button
+                                key={amenity.value}
+                                type="button"
+                                onClick={() => {
+                                  const newAmenities = selected
+                                    ? formData.amenities.filter((a) => a !== amenity.value)
+                                    : [...formData.amenities, amenity.value];
+                                  updateField("amenities", newAmenities);
+                                }}
+                                className={`p-3 rounded-lg border-2 text-left transition-all ${
+                                  selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Icon className="w-4 h-4" />
+                                  <span className="text-sm">{amenity.label}</span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Bathroom & Laundry */}
+                      <div>
+                        <h4 className="font-medium text-sm text-muted-foreground mb-3">🚿 Bathroom & Laundry</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {AMENITIES.filter(a => ['toiletries', 'bathroom_essentials', 'cleaning_items', 'bedsheets_pillows', 'washing_machine', 'Washer', 'nearby_laundry', 'iron'].includes(a.value)).map((amenity) => {
+                            const Icon = amenity.icon;
+                            const selected = formData.amenities.includes(amenity.value);
+                            return (
+                              <button
+                                key={amenity.value}
+                                type="button"
+                                onClick={() => {
+                                  const newAmenities = selected
+                                    ? formData.amenities.filter((a) => a !== amenity.value)
+                                    : [...formData.amenities, amenity.value];
+                                  updateField("amenities", newAmenities);
+                                }}
+                                className={`p-3 rounded-lg border-2 text-left transition-all ${
+                                  selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Icon className="w-4 h-4" />
+                                  <span className="text-sm">{amenity.label}</span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Recreation & Wellness */}
+                      <div>
+                        <h4 className="font-medium text-sm text-muted-foreground mb-3">💪 Recreation & Wellness</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {AMENITIES.filter(a => ['gym_free', 'gym_paid', 'Gym', 'pool', 'Pool', 'spa', 'Spa', 'Restaurant'].includes(a.value)).map((amenity) => {
+                            const Icon = amenity.icon;
+                            const selected = formData.amenities.includes(amenity.value);
+                            return (
+                              <button
+                                key={amenity.value}
+                                type="button"
+                                onClick={() => {
+                                  const newAmenities = selected
+                                    ? formData.amenities.filter((a) => a !== amenity.value)
+                                    : [...formData.amenities, amenity.value];
+                                  updateField("amenities", newAmenities);
+                                }}
+                                className={`p-3 rounded-lg border-2 text-left transition-all ${
+                                  selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Icon className="w-4 h-4" />
+                                  <span className="text-sm">{amenity.label}</span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Safety & Security */}
+                      <div>
+                        <h4 className="font-medium text-sm text-muted-foreground mb-3">🛡️ Safety & Security</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {AMENITIES.filter(a => ['carbon_monoxide_alarm', 'smoke_alarm', 'security_cameras', 'Security cameras', 'Security', 'fire_extinguisher', 'first_aid', 'safe', 'No smoking'].includes(a.value)).map((amenity) => {
+                            const Icon = amenity.icon;
+                            const selected = formData.amenities.includes(amenity.value);
+                            return (
+                              <button
+                                key={amenity.value}
+                                type="button"
+                                onClick={() => {
+                                  const newAmenities = selected
+                                    ? formData.amenities.filter((a) => a !== amenity.value)
+                                    : [...formData.amenities, amenity.value];
+                                  updateField("amenities", newAmenities);
+                                }}
+                                className={`p-3 rounded-lg border-2 text-left transition-all ${
+                                  selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Icon className="w-4 h-4" />
+                                  <span className="text-sm">{amenity.label}</span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Views & Outdoor */}
+                      <div>
+                        <h4 className="font-medium text-sm text-muted-foreground mb-3">🌅 Views & Outdoor</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {AMENITIES.filter(a => ['balcony', 'city_view', 'landscape_view', 'sea_view', 'lake_view', 'mountain_view', 'Garden'].includes(a.value)).map((amenity) => {
+                            const Icon = amenity.icon;
+                            const selected = formData.amenities.includes(amenity.value);
+                            return (
+                              <button
+                                key={amenity.value}
+                                type="button"
+                                onClick={() => {
+                                  const newAmenities = selected
+                                    ? formData.amenities.filter((a) => a !== amenity.value)
+                                    : [...formData.amenities, amenity.value];
+                                  updateField("amenities", newAmenities);
+                                }}
+                                className={`p-3 rounded-lg border-2 text-left transition-all ${
+                                  selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Icon className="w-4 h-4" />
+                                  <span className="text-sm">{amenity.label}</span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Accessibility & Other */}
+                      <div>
+                        <h4 className="font-medium text-sm text-muted-foreground mb-3">♿ Accessibility & Other</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {AMENITIES.filter(a => ['elevator', 'wheelchair_accessible', 'meeting_room', 'reception', 'Family friendly', 'Fireplace', 'fans'].includes(a.value)).map((amenity) => {
+                            const Icon = amenity.icon;
+                            const selected = formData.amenities.includes(amenity.value);
+                            return (
+                              <button
+                                key={amenity.value}
+                                type="button"
+                                onClick={() => {
+                                  const newAmenities = selected
+                                    ? formData.amenities.filter((a) => a !== amenity.value)
+                                    : [...formData.amenities, amenity.value];
+                                  updateField("amenities", newAmenities);
+                                }}
+                                className={`p-3 rounded-lg border-2 text-left transition-all ${
+                                  selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Icon className="w-4 h-4" />
+                                  <span className="text-sm">{amenity.label}</span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
+                    
+                    {formData.amenities.length > 0 && (
+                      <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                        <p className="text-sm font-medium mb-2">Selected amenities ({formData.amenities.length}):</p>
+                        <div className="flex flex-wrap gap-1">
+                          {formData.amenities.map((amenityValue) => {
+                            const amenity = AMENITIES.find(a => a.value === amenityValue);
+                            return amenity ? (
+                              <span key={amenityValue} className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary rounded-full text-xs">
+                                <amenity.icon className="w-3 h-3" />
+                                {amenity.label}
+                              </span>
+                            ) : null;
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -743,6 +990,34 @@ export default function HostApplication() {
                   </div>
 
                   <div className="md:col-span-2 space-y-2">
+                    <Label>Selfie Photo *</Label>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Please upload a clear selfie for identity verification
+                    </p>
+                    {formData.selfie_photo_url ? (
+                      <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                        <CheckCircle2 className="w-5 h-5 text-green-600" />
+                        <span className="text-sm flex-1">Selfie uploaded</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => updateField("selfie_photo_url", "")}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => setSelfieUploadOpen(true)}
+                      >
+                        <Upload className="w-4 h-4 mr-2" /> Upload Selfie
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="md:col-span-2 space-y-2">
                     <Label htmlFor="about">About You (Optional)</Label>
                     <Textarea
                       id="about"
@@ -762,7 +1037,7 @@ export default function HostApplication() {
                     Back
                   </Button>
                   <Button
-                    disabled={!formData.full_name || !formData.phone || !formData.national_id_number || !formData.national_id_photo_url}
+                    disabled={!formData.full_name || !formData.phone || !formData.national_id_number || !formData.national_id_photo_url || !formData.selfie_photo_url}
                     onClick={() => setCurrentStep(4)}
                   >
                     Review Application <ArrowRight className="ml-2 w-4 h-4" />
@@ -940,6 +1215,17 @@ export default function HostApplication() {
         multiple={false}
         value={formData.national_id_photo_url ? [formData.national_id_photo_url] : []}
         onChange={(urls) => updateField("national_id_photo_url", urls[0] || "")}
+      />
+
+      <CloudinaryUploadDialog
+        open={selfieUploadOpen}
+        onOpenChange={setSelfieUploadOpen}
+        title="Upload Selfie Photo"
+        folder="host_applications/selfies"
+        accept="image/*"
+        multiple={false}
+        value={formData.selfie_photo_url ? [formData.selfie_photo_url] : []}
+        onChange={(urls) => updateField("selfie_photo_url", urls[0] || "")}
       />
     </div>
   );
