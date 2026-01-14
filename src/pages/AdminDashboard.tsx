@@ -297,12 +297,17 @@ export default function AdminDashboard() {
 
   const { data: adBanners = [], refetch: refetchAdBanners } = useQuery({
     queryKey: ["admin_ad_banners"],
-    enabled: false, // Disabled: ad_banners table doesn't exist yet
     queryFn: async () => {
-      // TODO: Re-enable when ad_banners table is created
-      return [] as unknown as AdBannerRow[];
+      const { data, error } = await supabase
+        .from("ad_banners")
+        .select("*")
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as AdBannerRow[];
     },
-    placeholderData: [],
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    gcTime: 1000 * 60 * 15, // 15 minutes
+    refetchOnWindowFocus: true,
   });
 
   const upsertBanner = async (payload: Partial<AdBannerRow> & { id?: string }) => {
