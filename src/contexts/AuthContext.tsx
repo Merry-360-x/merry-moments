@@ -43,21 +43,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsFetchingRoles(true);
     setRolesLoading(true);
     
+    // Add timeout for roles query
+    const queryTimeout = setTimeout(() => {
+      console.warn("[AuthContext] Roles query timeout - forcing completion");
+      setRolesLoading(false);
+      setIsFetchingRoles(false);
+    }, 5000);
+    
     try {
       const { data, error } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", userId);
 
+      clearTimeout(queryTimeout);
+
       if (error) {
-        // Keep existing roles on transient errors so nav buttons don't "disappear".
-        // Ignore AbortError - it's expected during component cleanup
-        if (error.message?.includes("AbortError") || error.message?.includes("aborted")) {
-          setRolesLoading(false);
-          setIsFetchingRoles(false);
-          return;
-        }
         console.warn("[AuthContext] Failed to load roles:", error.message);
+        // Don't let roles loading get stuck on error
+        setRoles([]); // Set empty roles instead of keeping old state
         setRolesLoading(false);
         setIsFetchingRoles(false);
         return;
@@ -81,6 +85,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setRolesLoading(false);
       setIsFetchingRoles(false);
     } catch (err) {
+      clearTimeout(queryTimeout);
+      
       // Silently handle AbortError - expected during React cleanup/navigation
       if (err instanceof Error && err.name === "AbortError") {
         setRolesLoading(false);
@@ -88,6 +94,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       console.warn("[AuthContext] Error fetching roles:", err);
+      setRoles([]); // Clear roles on error
       setRolesLoading(false);
       setIsFetchingRoles(false);
     }
@@ -113,9 +120,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.warn("[AuthContext] Failsafe timeout triggered - forcing auth completion");
         setIsLoading(false);
         setRolesLoading(false);
+        setIsFetchingRoles(false);
         setInitialized(true);
       }
-    }, 15000); // 15 second timeout
+    }, 8000); // Reduced to 8 second timeout for faster resolution
     
     const initializeAuth = async () => {
       try {

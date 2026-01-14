@@ -55,14 +55,14 @@ export default function HostApplication() {
   const applicantType = "individual"; // Always individual
   const [submitting, setSubmitting] = useState(false);
 
-  // Failsafe: Force loading completion after 10 seconds to prevent infinite loading
+  // Failsafe: Force loading completion after 6 seconds to prevent infinite loading
   useEffect(() => {
     const failsafeTimeout = setTimeout(() => {
       if (isLoading || authLoading || rolesLoading) {
         console.warn("[HostApplication] Failsafe triggered - forcing loading completion");
         setIsLoading(false);
       }
-    }, 10000);
+    }, 6000);
 
     return () => clearTimeout(failsafeTimeout);
   }, []);
@@ -143,7 +143,7 @@ export default function HostApplication() {
     const timeout = setTimeout(() => {
       console.warn("[HostApplication] Loading timeout reached, forcing completion");
       setIsLoading(false);
-    }, 5000);
+    }, 3000);
 
     checkExisting().finally(() => {
       clearTimeout(timeout);
