@@ -251,22 +251,22 @@ const Navbar = () => {
                   aria-label={t("labels.currency")}
                 >
                   <span>
-                    {currency === "RWF" && "RF "}
-                    {currency === "USD" && "$ "}
-                    {currency === "EUR" && "€ "}
-                    {currency === "GBP" && "£ "}
-                    {currency === "CNY" && "¥ "}
+                    {currency === "RWF" && "(RF) "}
+                    {currency === "USD" && "($) "}
+                    {currency === "EUR" && "(€) "}
+                    {currency === "GBP" && "(£) "}
+                    {currency === "CNY" && "(¥) "}
                     {currency}
                   </span>
                   <ChevronDown className="w-4 h-4" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-40">
-                <DropdownMenuItem onClick={() => setCurrency("RWF")}>RF RWF</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setCurrency("USD")}>$ USD</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setCurrency("EUR")}>€ EUR</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setCurrency("GBP")}>£ GBP</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setCurrency("CNY")}>¥ CNY</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCurrency("RWF")}>(RF) RWF</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCurrency("USD")}>($) USD</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCurrency("EUR")}>(€) EUR</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCurrency("GBP")}>(£) GBP</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCurrency("CNY")}>(¥) CNY</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
