@@ -1,7 +1,7 @@
 export function uiErrorMessage(err: unknown, fallback = "Something went wrong. Please try again.") {
   // Extract user-friendly messages from common error types
   if (err && typeof err === "object") {
-    const error = err as any;
+    const error = err as { message?: unknown; details?: unknown };
     
     // Supabase/PostgREST errors
     if (error.message) {
@@ -38,26 +38,21 @@ export function uiErrorMessage(err: unknown, fallback = "Something went wrong. P
 
 export function logError(context: string, err: unknown) {
   // Log comprehensive error details for debugging
-  // eslint-disable-next-line no-console
   console.error(`[${context}]`, err);
   
   // Log additional details if it's an error object
   if (err && typeof err === "object") {
-    const error = err as any;
+    const error = err as { message?: unknown; code?: unknown; details?: unknown; hint?: unknown };
     if (error.message) {
-      // eslint-disable-next-line no-console
       console.error(`[${context}] Message:`, error.message);
     }
     if (error.code) {
-      // eslint-disable-next-line no-console
       console.error(`[${context}] Code:`, error.code);
     }
     if (error.details) {
-      // eslint-disable-next-line no-console
       console.error(`[${context}] Details:`, error.details);
     }
     if (error.hint) {
-      // eslint-disable-next-line no-console
       console.error(`[${context}] Hint:`, error.hint);
     }
   }

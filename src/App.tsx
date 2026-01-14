@@ -49,25 +49,38 @@ const queryClient = new QueryClient({
         )) {
           return false;
         }
-        // Retry up to 3 times for other errors with exponential backoff
-        return failureCount < 3;
+        // Don't retry on auth errors (401, 403)
+        if (error instanceof Error && (
+          error.message?.includes("401") ||
+          error.message?.includes("403") ||
+          error.message?.includes("JWT")
+        )) {
+          return false;
+        }
+        // Retry up to 2 times for other errors with exponential backoff
+        return failureCount < 2;
       },
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff: 1s, 2s, 4s, max 30s
-      staleTime: 1000 * 60 * 5, // 5 minutes - data stays fresh longer
-      gcTime: 1000 * 60 * 30, // 30 minutes cache retention
-      refetchOnWindowFocus: false,
-      refetchOnReconnect: true, // Retry on reconnect for better resilience
-      networkMode: 'online', // Changed from offlineFirst to online for more reliable fetching
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000), // 1s, 2s, max 10s
+      staleTime: 1000 * 60 * 2, // 2 minutes - reasonable freshness
+      gcTime: 1000 * 60 * 10, // 10 minutes cache retention
+      refetchOnWindowFocus: false, // Prevent unnecessary refetches
+      refetchOnReconnect: true, // Retry on reconnect
+      refetchOnMount: true, // Always fetch fresh data on mount
+      networkMode: 'online', // Only fetch when online
       // Don't throw errors to the UI for aborted requests
       throwOnError: (error) => {
-        if (error instanceof Error && error.name === "AbortError") {
+        if (error instanceof Error && (
+          error.name === "AbortError" ||
+          error.message?.includes("aborted")
+        )) {
           return false;
         }
         return false; // Don't throw errors - handle them in components
       },
     },
     mutations: {
-      retry: false, // Don't retry mutations
+      retry: false, // Don't retry mutations to avoid duplicate operations
+      networkMode: 'online',
       // Don't throw errors for aborted mutations
       throwOnError: (error) => {
         if (error instanceof Error && error.name === "AbortError") {

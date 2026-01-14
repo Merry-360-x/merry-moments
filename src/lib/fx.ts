@@ -38,8 +38,11 @@ export async function getUsdRates(): Promise<FxRates | null> {
     const res = await fetch("https://open.er-api.com/v6/latest/USD", { signal: ctrl.signal });
     clearTimeout(t);
     if (!res.ok) return cached?.rates ?? null;
-    const json = (await res.json()) as any;
-    const rates = (json?.rates ?? null) as FxRates | null;
+    const json: unknown = await res.json();
+    const rates =
+      json && typeof json === "object" && "rates" in json
+        ? (((json as Record<string, unknown>).rates ?? null) as FxRates | null)
+        : null;
     if (!rates || typeof rates !== "object") return cached?.rates ?? null;
     // Ensure USD base exists
     rates.USD = 1;

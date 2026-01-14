@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -249,7 +249,7 @@ export default function HostApplication() {
   }, [details, applicantType]);
 
   // Validate individual fields and return error messages - very permissive
-  const validateField = (fieldName: string): string => {
+  const validateField = useCallback((fieldName: string): string => {
     switch (fieldName) {
       case 'full_name':
         if (!details.full_name.trim()) return 'Full name is required';
@@ -284,7 +284,7 @@ export default function HostApplication() {
       default:
         return '';
     }
-  };
+  }, [details, applicantType, property]);
 
   // Update validation errors when fields change
   useEffect(() => {
@@ -294,7 +294,7 @@ export default function HostApplication() {
       if (error && touched[field]) errors[field] = error;
     });
     setValidationErrors(errors);
-  }, [details, applicantType, touched]);
+  }, [details, applicantType, touched, validateField, setValidationErrors]);
 
   const handleSubmit = async () => {
     if (!user) return;

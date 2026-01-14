@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogTrigger, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -36,15 +36,19 @@ export function CloudinaryUploadDialog(props: {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
+  const { onOpenChange, open: controlledOpen } = props;
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [internalOpen, setInternalOpen] = useState(props.open ?? false);
   
   // Support both internal and external open state
-  const open = props.open !== undefined ? props.open : internalOpen;
-  const setOpen = (value: boolean) => {
-    setInternalOpen(value);
-    props.onOpenChange?.(value);
-  };
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setOpen = useCallback(
+    (value: boolean) => {
+      setInternalOpen(value);
+      onOpenChange?.(value);
+    },
+    [onOpenChange],
+  );
   const [items, setItems] = useState<UploadItem[]>([]);
   const [busy, setBusy] = useState(false);
   const autoStart = props.autoStart ?? false;
@@ -152,7 +156,7 @@ export function CloudinaryUploadDialog(props: {
       setItems([]);
       setOpen(false);
     }
-  }, [open, busy, items]);
+  }, [open, busy, items, setItems, setOpen]);
 
   const removeExisting = (url: string) => {
     props.onChange(props.value.filter((u) => u !== url));

@@ -582,7 +582,7 @@ export default function AdminDashboard() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [tab]);
+  }, [tab, refetchMetrics, refetchProperties, refetchTours, refetchTickets]);
 
   // Helper for status badge
   const StatusBadge = ({ status }: { status: string }) => (
