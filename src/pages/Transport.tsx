@@ -248,12 +248,12 @@ const Transport = () => {
       <div className="container mx-auto px-4 lg:px-8 pb-16">
         <h2 className="text-2xl font-bold text-foreground text-center mb-12">All Vehicles</h2>
 
-        {vehiclesLoading ? (
+        {/* {vehiclesLoading ? (
           <div className="py-12 text-center">
             <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
             <p className="text-muted-foreground">Loading vehicles...</p>
           </div>
-        ) : vehiclesError ? (
+        ) : */ vehiclesError ? (
           <div className="text-center py-12">
             <Frown className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
             <p className="text-muted-foreground">Could not load vehicles.</p>

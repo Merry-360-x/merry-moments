@@ -213,27 +213,28 @@ export default function HostApplication() {
     }
   };
 
-  if (authLoading || rolesLoading || isLoading) {
-    // Add debugging info
-    console.log("[HostApplication] Loading states:", { authLoading, rolesLoading, isLoading, hasUser: !!user });
-    
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex flex-col">
-        <Navbar />
-        <main className="flex-1 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm text-muted-foreground">
-              {authLoading ? "Checking authentication..." : 
-               rolesLoading ? "Loading user permissions..." : 
-               "Loading application data..."}
-            </p>
-          </div>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
+  // Disable loading screen - show content immediately
+  // if (authLoading || rolesLoading || isLoading) {
+  //   // Add debugging info
+  //   console.log("[HostApplication] Loading states:", { authLoading, rolesLoading, isLoading, hasUser: !!user });
+  //   
+  //   return (
+  //     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex flex-col">
+  //       <Navbar />
+  //       <main className="flex-1 flex items-center justify-center">
+  //         <div className="flex flex-col items-center gap-4">
+  //           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+  //           <p className="text-sm text-muted-foreground">
+  //             {authLoading ? "Checking authentication..." : 
+  //              rolesLoading ? "Loading user permissions..." : 
+  //              "Loading application data..."}
+  //           </p>
+  //         </div>
+  //       </main>
+  //       <Footer />
+  //     </div>
+  //   );
+  // }
 
   if (!user) {
     return (

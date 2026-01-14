@@ -74,12 +74,12 @@ export default function HostAbout() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="container mx-auto px-4 lg:px-8 py-10">
-        {hostLoading ? (
+        {/* {hostLoading ? (
           <div className="py-20 text-center">
             <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
             <p className="text-muted-foreground">Loading host…</p>
           </div>
-        ) : (
+        ) : */ (
           <div className="bg-card rounded-xl shadow-card p-6">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="flex items-start gap-3">

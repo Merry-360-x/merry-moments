@@ -189,11 +189,11 @@ export default function AdminRoles() {
               />
             </div>
 
-            {loadingAll ? (
+            {/* {loadingAll ? (
               <div className="py-10 text-center">
                 <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
               </div>
-            ) : isErrorAll ? (
+            ) : */ isErrorAll ? (
               <p className="text-muted-foreground">Couldn’t load users/roles (check role permissions / RPC).</p>
             ) : combined.length === 0 ? (
               <p className="text-muted-foreground">No users found.</p>

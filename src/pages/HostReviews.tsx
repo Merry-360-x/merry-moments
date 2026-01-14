@@ -90,12 +90,12 @@ export default function HostReviews() {
           </Link>
         </div>
 
-        {isLoading ? (
+        {/* {isLoading ? (
           <div className="py-16 text-center">
             <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
             <p className="text-muted-foreground">Loading reviews…</p>
           </div>
-        ) : reviews.length === 0 ? (
+        ) : */ reviews.length === 0 ? (
           <div className="py-16 text-center">
             <p className="text-muted-foreground">No reviews yet.</p>
           </div>

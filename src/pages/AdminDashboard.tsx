@@ -1476,14 +1476,14 @@ export default function AdminDashboard() {
           <TabsContent value="accommodations">
             <Card className="p-6">
               <h2 className="text-lg font-semibold mb-4">Accommodation Management</h2>
-              {propertiesLoading ? (
+              {/* {propertiesLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                     <span className="text-muted-foreground">Loading properties...</span>
                   </div>
                 </div>
-              ) : (
+              ) : */ (
                 <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
@@ -1563,14 +1563,14 @@ export default function AdminDashboard() {
           <TabsContent value="tours">
             <Card className="p-6">
               <h2 className="text-lg font-semibold mb-4">Tours & Experiences Management</h2>
-              {toursLoading ? (
+              {/* {toursLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                     <span className="text-muted-foreground">Loading tours...</span>
                   </div>
                 </div>
-              ) : (
+              ) : */ (
                 <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>

@@ -421,12 +421,12 @@ export default function PropertyDetails() {
           </button>
         </div>
 
-        {isLoading ? (
+        {/* {isLoading ? (
           <div className="py-20 text-center">
             <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
             <p className="text-muted-foreground">{t("common.loadingProperties")}</p>
           </div>
-        ) : isError ? (
+        ) : */ isError ? (
           <div className="py-20 text-center">
             <p className="text-muted-foreground">{t("common.couldNotLoadProperties")}</p>
           </div>

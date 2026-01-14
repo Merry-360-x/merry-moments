@@ -427,12 +427,12 @@ export default function Dashboard() {
                   </TabsList>
 
                   <TabsContent value="upcoming" className="pt-6">
-                    {bookingsLoading ? (
+                    {/* {bookingsLoading ? (
                       <div className="py-14 text-center">
                         <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
                         <p className="text-muted-foreground">Loading trips…</p>
                       </div>
-                    ) : upcomingBookings.length === 0 ? (
+                    ) : */ upcomingBookings.length === 0 ? (
                       <Card className="p-10 text-center">
                         <CalendarDays className="w-14 h-14 text-muted-foreground mx-auto mb-4" />
                         <div className="text-lg font-semibold text-foreground mb-1">No upcoming trips</div>
@@ -469,12 +469,12 @@ export default function Dashboard() {
                   </TabsContent>
 
                   <TabsContent value="past" className="pt-6">
-                    {bookingsLoading ? (
+                    {/* {bookingsLoading ? (
                       <div className="py-14 text-center">
                         <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
                         <p className="text-muted-foreground">Loading trips…</p>
                       </div>
-                    ) : pastBookings.length === 0 ? (
+                    ) : */ pastBookings.length === 0 ? (
                       <Card className="p-10 text-center text-muted-foreground">No past trips yet.</Card>
                     ) : (
                       <div className="space-y-3">
@@ -504,12 +504,12 @@ export default function Dashboard() {
                   </TabsContent>
 
                   <TabsContent value="saved" className="pt-6">
-                    {savedLoading ? (
+                    {/* {savedLoading ? (
                       <div className="py-14 text-center">
                         <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
                         <p className="text-muted-foreground">Loading saved items…</p>
                       </div>
-                    ) : saved.length === 0 ? (
+                    ) : */ saved.length === 0 ? (
                       <Card className="p-10 text-center">
                         <Heart className="w-14 h-14 text-muted-foreground mx-auto mb-4" />
                         <div className="text-lg font-semibold text-foreground mb-1">No saved items</div>
@@ -555,11 +555,11 @@ export default function Dashboard() {
           <h2 className="text-xl font-semibold text-foreground mb-1">Personal Info</h2>
           <p className="text-muted-foreground mb-6">Keep your details up to date to unlock all features.</p>
 
-          {profileLoading ? (
+          {/* {profileLoading ? (
             <div className="py-10 text-center">
               <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
             </div>
-          ) : (
+          ) : */ (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               <div>
                 <Label htmlFor="fullName">Full name</Label>

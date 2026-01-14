@@ -483,11 +483,11 @@ export default function StaffDashboard() {
           <TabsContent value="applications" className="mt-6">
             <Card className="p-6">
               <h2 className="text-lg font-semibold text-foreground mb-4">Pending host applications</h2>
-              {isLoading ? (
+              {/* {isLoading ? (
                 <div className="py-10 text-center">
                   <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
                 </div>
-              ) : isError ? (
+              ) : */ isError ? (
                 <p className="text-muted-foreground">Couldn’t load applications.</p>
               ) : applications.length === 0 ? (
                 <p className="text-muted-foreground">No pending applications.</p>

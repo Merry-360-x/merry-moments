@@ -322,12 +322,12 @@ export default function TripCart() {
           </div>
         )}
 
-        {isLoading ? (
+        {/* {isLoading ? (
           <div className="bg-card rounded-xl shadow-card p-8 text-center">
             <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
             <p className="text-muted-foreground">Loading your cart…</p>
           </div>
-        ) : !hasItems ? (
+        ) : */ !hasItems ? (
           <div className="bg-card rounded-xl shadow-card p-8 text-center">
             <p className="text-muted-foreground mb-6">{t("tripCart.empty")}</p>
             <Link to="/accommodations">

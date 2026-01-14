@@ -227,12 +227,12 @@ const Stories = () => {
 
       {/* Stories Content */}
       <section className="container mx-auto px-4 lg:px-8 py-12">
-        {isLoading ? (
+        {/* {isLoading ? (
           <div className="py-20 text-center">
             <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
             <p className="text-muted-foreground">Loading stories…</p>
           </div>
-        ) : stories.length === 0 ? (
+        ) : */ stories.length === 0 ? (
           <div className="bg-card rounded-xl p-10 shadow-card text-center">
             <h2 className="text-xl font-semibold text-foreground mb-2">No stories yet</h2>
             <p className="text-muted-foreground max-w-xl mx-auto">
@@ -322,7 +322,7 @@ const Stories = () => {
                 );
               })()
             ) : (
-              <div className="h-[70vh] flex items-center justify-center text-white/70">Loading…</div>
+              <div className="h-[70vh] flex items-center justify-center text-white/70">No media</div>
             )}
           </div>
         </DialogContent>

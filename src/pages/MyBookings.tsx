@@ -164,11 +164,11 @@ const MyBookings = () => {
         <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">{t("bookings.title")}</h1>
         <p className="text-muted-foreground mb-8">{t("bookings.subtitle")}</p>
 
-        {isLoading ? (
+        {/* {isLoading ? (
           <div className="py-20 text-center">
             <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
           </div>
-        ) : bookings.length === 0 ? (
+        ) : */ bookings.length === 0 ? (
           <div className="py-20 text-center">
             <Calendar className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
             <h2 className="text-xl font-semibold text-foreground mb-2">{t("bookings.emptyTitle")}</h2>
