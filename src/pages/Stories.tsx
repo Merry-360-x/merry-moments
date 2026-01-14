@@ -342,56 +342,96 @@ const Stories = () => {
               const author = authorProfiles[s.user_id];
               const media = s.media_url || s.image_url;
               return (
-                <div key={s.id} className="bg-card rounded-xl shadow-card overflow-hidden">
-                  {media ? (
-                    (/\/video\/upload\//i.test(String(media)) || s.media_type === "video" ? (
-                      <video
-                        src={String(media)}
-                        className="w-full h-56 object-cover"
-                        controls
-                        preload="metadata"
-                      />
+                <div 
+                  key={s.id} 
+                  className="relative bg-card rounded-2xl shadow-card overflow-hidden cursor-pointer group hover:shadow-lg transition-all duration-300 hover:scale-[1.02]"
+                  onClick={() => openViewer(s.id)}
+                >
+                  {/* Media Background */}
+                  <div className="relative h-80">
+                    {media ? (
+                      (/\/video\/upload\//i.test(String(media)) || s.media_type === "video" ? (
+                        <video
+                          src={String(media)}
+                          className="w-full h-full object-cover"
+                          muted
+                          loop
+                          playsInline
+                          preload="metadata"
+                        />
+                      ) : (
+                        <img
+                          src={String(media)}
+                          alt={s.title}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      ))
                     ) : (
-                      <img
-                        src={String(media)}
-                        alt={s.title}
-                        className="w-full h-56 object-cover"
-                        loading="lazy"
-                      />
-                    ))
-                  ) : (
-                    <div className="w-full h-56 bg-gradient-to-br from-muted via-muted/70 to-muted/40" />
-                  )}
-                  <div className="p-5">
-                    {/* Caption first */}
-                    <p className="text-sm text-foreground mb-3 line-clamp-4">{s.body}</p>
-                    
-                    {/* Location with icon */}
-                    {s.location && (
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground mb-3">
-                        <MapPin className="w-3 h-3" />
-                        <span>{s.location}</span>
-                      </div>
+                      <div className="w-full h-full bg-gradient-to-br from-primary/20 via-primary/10 to-primary/5" />
                     )}
                     
-                    {/* Author info */}
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="text-xs text-muted-foreground">
-                          {author?.full_name ?? "Traveler"} · {new Date(s.created_at).toLocaleDateString()}
-                        </div>
-                      </div>
+                    {/* Gradient Overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/70" />
+                    
+                    {/* Author Info - Top */}
+                    <div className="absolute top-4 left-4 right-4 flex items-center gap-3">
                       {author?.avatar_url ? (
                         <img
                           src={author.avatar_url}
                           alt={author.full_name ?? "Traveler"}
-                          className="w-8 h-8 rounded-full object-cover"
-                          loading="lazy"
+                          className="w-10 h-10 rounded-full object-cover border-2 border-white/50"
                         />
                       ) : (
-                        <div className="w-8 h-8 rounded-full bg-muted" />
+                        <div className="w-10 h-10 rounded-full bg-white/20 border-2 border-white/50" />
                       )}
+                      <div>
+                        <div className="text-white text-sm font-medium drop-shadow-sm">
+                          {author?.full_name ?? "Traveler"}
+                        </div>
+                        <div className="text-white/80 text-xs drop-shadow-sm">
+                          {new Date(s.created_at).toLocaleDateString()}
+                        </div>
+                      </div>
                     </div>
+                    
+                    {/* Content Overlay - Bottom */}
+                    <div className="absolute bottom-0 left-0 right-0 p-4">
+                      {/* Caption */}
+                      <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 mb-3">
+                        <p className="text-white text-sm leading-relaxed line-clamp-3 drop-shadow-sm">
+                          {s.body}
+                        </p>
+                        
+                        {/* Location */}
+                        {s.location && (
+                          <div className="flex items-center gap-1 mt-2 text-white/90 text-xs">
+                            <MapPin className="w-3 h-3 drop-shadow-sm" />
+                            <span className="drop-shadow-sm">{s.location}</span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Interaction Preview */}
+                      <div className="flex items-center justify-between text-white/80 text-xs">
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-1">
+                            <Heart className="w-4 h-4" />
+                            <span>0</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <MessageCircle className="w-4 h-4" />
+                            <span>0</span>
+                          </div>
+                        </div>
+                        <div className="text-white/60 text-xs">
+                          Tap to view
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Hover Effect */}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
                   </div>
                 </div>
               );
