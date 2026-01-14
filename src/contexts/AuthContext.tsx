@@ -107,6 +107,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     let subscription: { unsubscribe: () => void } | null = null;
     const epoch = ++authEpochRef.current;
     
+    // Failsafe timeout to prevent infinite loading
+    const failsafeTimeout = setTimeout(() => {
+      if (mounted && authEpochRef.current === epoch) {
+        console.warn("[AuthContext] Failsafe timeout triggered - forcing auth completion");
+        setIsLoading(false);
+        setRolesLoading(false);
+        setInitialized(true);
+      }
+    }, 15000); // 15 second timeout
+    
     const initializeAuth = async () => {
       try {
         // 0. Try to recover session from URL first (OAuth callback)
@@ -152,6 +162,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         setIsLoading(false);
         setInitialized(true);
+        
+        // Clear the failsafe timeout since initialization completed
+        clearTimeout(failsafeTimeout);
         
         // 4. Set up listener for auth changes (after initial load)
         const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
@@ -213,6 +226,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       mounted = false;
       subscription?.unsubscribe();
+      clearTimeout(failsafeTimeout);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

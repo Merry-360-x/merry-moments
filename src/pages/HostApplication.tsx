@@ -55,6 +55,18 @@ export default function HostApplication() {
   const applicantType = "individual"; // Always individual
   const [submitting, setSubmitting] = useState(false);
 
+  // Failsafe: Force loading completion after 10 seconds to prevent infinite loading
+  useEffect(() => {
+    const failsafeTimeout = setTimeout(() => {
+      if (isLoading || authLoading || rolesLoading) {
+        console.warn("[HostApplication] Failsafe triggered - forcing loading completion");
+        setIsLoading(false);
+      }
+    }, 10000);
+
+    return () => clearTimeout(failsafeTimeout);
+  }, []);
+
   // Simplified form state
   const [formData, setFormData] = useState({
     // Service Types
@@ -127,7 +139,19 @@ export default function HostApplication() {
       }
     };
 
-    checkExisting();
+    // Add a timeout to prevent infinite loading
+    const timeout = setTimeout(() => {
+      console.warn("[HostApplication] Loading timeout reached, forcing completion");
+      setIsLoading(false);
+    }, 5000);
+
+    checkExisting().finally(() => {
+      clearTimeout(timeout);
+    });
+
+    return () => {
+      clearTimeout(timeout);
+    };
   }, [user, authLoading, rolesLoading]);
 
   const updateField = (field: string, value: any) => {
@@ -190,11 +214,21 @@ export default function HostApplication() {
   };
 
   if (authLoading || rolesLoading || isLoading) {
+    // Add debugging info
+    console.log("[HostApplication] Loading states:", { authLoading, rolesLoading, isLoading, hasUser: !!user });
+    
     return (
       <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex flex-col">
         <Navbar />
         <main className="flex-1 flex items-center justify-center">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm text-muted-foreground">
+              {authLoading ? "Checking authentication..." : 
+               rolesLoading ? "Loading user permissions..." : 
+               "Loading application data..."}
+            </p>
+          </div>
         </main>
         <Footer />
       </div>
