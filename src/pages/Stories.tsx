@@ -304,7 +304,7 @@ const Stories = () => {
 
       {/* Instagram-style Story viewer */}
       <Dialog open={viewerOpen} onOpenChange={setViewerOpen}>
-        <DialogContent className="p-0 max-w-sm mx-auto h-[80vh] overflow-hidden rounded-2xl">
+        <DialogContent className="p-0 max-w-sm mx-auto h-[80vh] overflow-hidden rounded-2xl [&>button]:hidden">
           <div className="relative w-full h-full bg-black">
             {activeStory ? (
               (() => {
@@ -392,23 +392,16 @@ const Stories = () => {
                     </div>
                     
                     {/* Interaction Section */}
-                    <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <button className="flex items-center gap-2 text-white/90 hover:text-white transition-colors">
-                          <Heart className="w-5 h-5" />
-                          <span className="text-sm">24</span>
+                    <div className="absolute bottom-4 left-4 right-4 flex items-center justify-center">
+                      <div className="flex items-center gap-6">
+                        <button className="flex flex-col items-center gap-1 text-white/90 hover:text-white transition-colors">
+                          <Heart className="w-6 h-6" />
+                          <span className="text-xs">24</span>
                         </button>
-                        <button className="flex items-center gap-2 text-white/90 hover:text-white transition-colors">
-                          <MessageCircle className="w-5 h-5" />
-                          <span className="text-sm">12</span>
+                        <button className="flex flex-col items-center gap-1 text-white/90 hover:text-white transition-colors">
+                          <MessageCircle className="w-6 h-6" />
+                          <span className="text-xs">12</span>
                         </button>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input 
-                          type="text" 
-                          placeholder="Send message..." 
-                          className="bg-white/20 backdrop-blur-sm text-white placeholder-white/60 text-sm px-3 py-2 rounded-full border-0 outline-0 w-32"
-                        />
                       </div>
                     </div>
                   </div>
