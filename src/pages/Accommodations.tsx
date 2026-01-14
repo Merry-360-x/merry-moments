@@ -1,4 +1,4 @@
-import { Search, Star } from "lucide-react";
+import { Search, Star, MapPin, Users, Calendar, Zap, TrendingUp } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -110,6 +110,10 @@ const Accommodations = () => {
   const [minRating, setMinRating] = useState(0);
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [showRecommendations, setShowRecommendations] = useState(true);
+  const [guestCount, setGuestCount] = useState(1);
+  const [checkIn, setCheckIn] = useState<Date | null>(null);
+  const [checkOut, setCheckOut] = useState<Date | null>(null);
   const hostId = searchParams.get("host");
   const nearbyLat = searchParams.get("lat");
   const nearbyLng = searchParams.get("lng");
@@ -223,6 +227,52 @@ const Accommodations = () => {
     },
   });
 
+  // Smart recommendations based on user behavior and popular choices
+  const { data: recommendations = [] } = useQuery({
+    queryKey: ["smart-recommendations", user?.id, query],
+    queryFn: async () => {
+      // Get popular properties with high ratings
+      const { data: popular, error: popularError } = await supabase
+        .from("properties")
+        .select("id, title, location, price_per_night, currency, property_type, rating, review_count, images, max_guests")
+        .eq("is_published", true)
+        .gte("rating", 4.2)
+        .gte("review_count", 3)
+        .order("rating", { ascending: false })
+        .order("review_count", { ascending: false })
+        .limit(6);
+      
+      if (popularError) return [];
+      
+      // If user is searching, prioritize matching results
+      if (query.trim()) {
+        const searchMatches = (popular ?? []).filter(p => 
+          p.title.toLowerCase().includes(query.toLowerCase()) || 
+          p.location.toLowerCase().includes(query.toLowerCase())
+        );
+        if (searchMatches.length > 0) return searchMatches;
+      }
+      
+      // If user has favorites, recommend similar properties
+      if (user?.id && favoriteIds.length > 0) {
+        const { data: similarProps } = await supabase
+          .from("properties")
+          .select("id, title, location, price_per_night, currency, property_type, rating, review_count, images, max_guests")
+          .eq("is_published", true)
+          .not("id", "in", `(${favoriteIds.join(",")})`)
+          .gte("rating", 4.0)
+          .limit(6);
+        
+        if (similarProps && similarProps.length > 0) {
+          return [...(similarProps.slice(0, 3) ?? []), ...(popular?.slice(0, 3) ?? [])];
+        }
+      }
+      
+      return popular ?? [];
+    },
+    enabled: showRecommendations,
+  });
+
   const favoritesSet = new Set(favoriteIds);
   const activeFiltersCount =
     (maxPrice < 500000 ? 1 : 0) +
@@ -275,24 +325,72 @@ const Accommodations = () => {
             </div>
           </div>
 
-          {/* Desktop/tablet: existing layout */}
-          <div className="hidden sm:flex bg-card rounded-xl shadow-card p-4 flex-col md:flex-row items-stretch md:items-center gap-4 max-w-3xl mx-auto">
-            <div className="flex-1">
-              <label className="block text-xs text-muted-foreground mb-1">{t("nav.accommodations")}</label>
-              <input
-                type="text"
-                placeholder={t("common.search")}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") runSearch();
-                }}
-                className="w-full bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none text-sm"
-              />
+          {/* Desktop/tablet: Enhanced search with Where, When, Who */}
+          <div className="hidden sm:block max-w-4xl mx-auto">
+            <div className="bg-card rounded-2xl shadow-search border border-border overflow-hidden">
+              <div className="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-border">
+                {/* Where */}
+                <div className="p-4 hover:bg-muted/50 transition-colors cursor-pointer">
+                  <div className="flex items-center gap-3">
+                    <MapPin className="w-5 h-5 text-muted-foreground" />
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">Where</label>
+                      <input
+                        type="text"
+                        placeholder="Search destinations"
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") runSearch();
+                        }}
+                        className="w-full bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none text-sm font-medium"
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                {/* When */}
+                <div className="p-4 hover:bg-muted/50 transition-colors cursor-pointer">
+                  <div className="flex items-center gap-3">
+                    <Calendar className="w-5 h-5 text-muted-foreground" />
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">When</label>
+                      <div className="text-sm font-medium text-foreground">
+                        {checkIn && checkOut ? 
+                          `${checkIn.toLocaleDateString()} - ${checkOut.toLocaleDateString()}` : 
+                          "Add dates"
+                        }
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Who */}
+                <div className="p-4 hover:bg-muted/50 transition-colors cursor-pointer">
+                  <div className="flex items-center gap-3">
+                    <Users className="w-5 h-5 text-muted-foreground" />
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">Who</label>
+                      <div className="text-sm font-medium text-foreground">
+                        {guestCount === 1 ? "1 guest" : `${guestCount} guests`}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Search Button */}
+                <div className="p-2 md:p-4 flex items-center justify-center">
+                  <Button 
+                    onClick={runSearch}
+                    size="lg"
+                    className="w-full md:w-auto bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl px-6 py-3 font-semibold"
+                  >
+                    <Search className="w-4 h-4 mr-2" />
+                    Search
+                  </Button>
+                </div>
+              </div>
             </div>
-            <Button variant="search" size="icon-lg" type="button" onClick={runSearch}>
-              <Search className="w-5 h-5" />
-            </Button>
           </div>
         </div>
       </div>
@@ -304,7 +402,59 @@ const Accommodations = () => {
           <p className="text-muted-foreground">{t("accommodations.subtitle")}</p>
         </div>
 
-        {hostId && hostPreview ? (
+        {/* Smart Recommendations */}
+        {showRecommendations && recommendations.length > 0 && !query.trim() && (
+          <div className="mb-12">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-amber-500" />
+                  <h2 className="text-xl font-bold text-foreground">Smart Recommendations</h2>
+                </div>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground bg-amber-50 dark:bg-amber-950 px-2 py-1 rounded-full">
+                  <TrendingUp className="w-3 h-3" />
+                  Personalized for you
+                </div>
+              </div>
+              <button
+                onClick={() => setShowRecommendations(false)}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                Hide
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {recommendations.slice(0, 6).map((property: any) => (
+                <div key={property.id} className="group">
+                  <PropertyCard
+                    id={property.id}
+                    title={property.title}
+                    location={property.location}
+                    pricePerNight={property.price_per_night}
+                    currency={property.currency || "RWF"}
+                    images={property.images}
+                    rating={property.rating}
+                    reviewCount={property.review_count}
+                    isFavorite={favoritesSet.has(String(property.id))}
+                    onToggleFavorite={() => toggleFavorite(String(property.id))}
+                    showWishlisted={false}
+                  />
+                </div>
+              ))}
+            </div>
+            
+            <div className="text-center mt-6">
+              <Button 
+                variant="outline"
+                onClick={() => setShowRecommendations(false)}
+                className="rounded-full"
+              >
+                Show all accommodations
+              </Button>
+            </div>
+          </div>
+        )}
           <div className="mb-8 bg-card rounded-xl shadow-card p-6">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="flex items-start gap-3">
@@ -348,6 +498,11 @@ const Accommodations = () => {
                   }}
                 >
                   View all listings
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : null}
                 </Button>
               </div>
             </div>
