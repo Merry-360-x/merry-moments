@@ -77,7 +77,7 @@ const Transport = () => {
     },
   });
 
-  const { data: vehicles = [], isError: vehiclesError, error: vehiclesErrObj } = useQuery({
+  const { data: vehicles = [], isLoading: vehiclesLoading, isError: vehiclesError, error: vehiclesErrObj } = useQuery({
     queryKey: ["transport_vehicles", searchParams.get("vehicle") ?? "All Vehicles"],
     queryFn: async (): Promise<TransportVehicleRow[]> => {
       let q = supabase

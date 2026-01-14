@@ -90,7 +90,10 @@ export default function HostApplication() {
 
   // Check for existing application
   useEffect(() => {
-    if (authLoading || rolesLoading) return;
+    if (authLoading || rolesLoading) {
+      setIsLoading(true);
+      return;
+    }
     if (!user) {
       setIsLoading(false);
       return;
