@@ -90,7 +90,7 @@ export default function HostApplication() {
 
   // Check for existing application
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading || rolesLoading) return;
     if (!user) {
       setIsLoading(false);
       return;
@@ -123,7 +123,7 @@ export default function HostApplication() {
     };
 
     checkExisting();
-  }, [user, authLoading]);
+  }, [user, authLoading, rolesLoading]);
 
   const updateField = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
