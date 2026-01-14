@@ -587,39 +587,26 @@ export default function HostDashboard() {
   };
 
   const createTour = async (data: Partial<Tour>) => {
-    // Tours table has some legacy columns in production (name, destination, price, main_image, available)
-    // Populate both legacy + new fields so inserts are compatible across schemas.
     const title = String(data.title ?? "").trim() || "New Tour";
-    const location = String((data as any).location ?? "").trim();
+    const location = String((data as any).location ?? "").trim() || "Kigali";
     const images = ((data as any).images as string[] | null | undefined) ?? null;
-    const cover = (images && images.length > 0 ? images[0] : null) as string | null;
-
     const pricePerPerson = Number((data as any).price_per_person ?? 0);
     const currency = String((data as any).currency ?? "RWF") || "RWF";
 
     const payload: Record<string, unknown> = {
-      // Newer columns
       title,
-      location: location || null,
+      location,
       price_per_person: pricePerPerson,
       currency,
       difficulty: (data as any).difficulty ?? null,
       duration_days: (data as any).duration_days ?? null,
-      category: String((data as any).category ?? "").trim() || "General",
+      category: String((data as any).category ?? "").trim() || null,
       description: (data as any).description ?? null,
       images: images && images.length > 0 ? images : null,
       created_by: user!.id,
       is_published: typeof (data as any).is_published === "boolean" ? (data as any).is_published : true,
-
-      // Legacy columns (still present in prod)
-      name: title,
-      destination: location || null,
-      price: pricePerPerson,
-      main_image: cover,
-      available: true,
-      // Some older schemas used host_id; set it defensively if it exists.
-      host_id: user!.id,
     };
+    
     const { error, data: newTour } = await supabase
       .from("tours")
       .insert(payload as never)
@@ -661,18 +648,23 @@ export default function HostDashboard() {
   };
 
   const createVehicle = async (data: Partial<Vehicle>) => {
-    const payload = {
-      ...data,
+    const payload: Record<string, unknown> = {
       title: data.title || "New Vehicle",
       vehicle_type: data.vehicle_type || "Sedan",
       seats: data.seats ?? 4,
       price_per_day: data.price_per_day ?? 0,
+      currency: data.currency || "RWF",
+      provider_name: data.provider_name || null,
+      driver_included: typeof data.driver_included === "boolean" ? data.driver_included : false,
+      media: data.media && data.media.length > 0 ? data.media : null,
+      image_url: data.media && data.media.length > 0 ? data.media[0] : null,
       created_by: user!.id,
       is_published: typeof data.is_published === "boolean" ? data.is_published : true,
     };
+    
     const { error, data: newVehicle } = await supabase
       .from("transport_vehicles")
-      .insert(payload)
+      .insert(payload as never)
       .select()
       .single();
     if (error) {
