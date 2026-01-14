@@ -29,6 +29,7 @@ import Dashboard from "./pages/Dashboard";
 import AdminIntegrations from "./pages/AdminIntegrations";
 import HostReviews from "./pages/HostReviews";
 import HostAbout from "./pages/HostAbout";
+import ConnectionTest from "./pages/ConnectionTest";
 import ScrollToTop from "@/components/ScrollToTop";
 import GlobalLoadingIndicator from "@/components/GlobalLoadingIndicator";
 import SupportCenterLauncher from "@/components/SupportCenterLauncher";
@@ -207,6 +208,7 @@ const App = () => (
               <Route path="/privacy" element={<InfoPage kind="privacy" />} />
               <Route path="/cookies" element={<InfoPage kind="cookies" />} />
               <Route path="/terms" element={<InfoPage kind="terms" />} />
+              <Route path="/connection-test" element={<ConnectionTest />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
