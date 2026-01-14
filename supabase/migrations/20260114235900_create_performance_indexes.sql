@@ -80,8 +80,7 @@ CREATE INDEX IF NOT EXISTS idx_property_reviews_property_id
 ON property_reviews(property_id);
 
 CREATE INDEX IF NOT EXISTS idx_property_reviews_rating 
-ON property_reviews(rating) 
-WHERE NOT is_hidden;
+ON property_reviews(rating);
 
 CREATE INDEX IF NOT EXISTS idx_property_reviews_created_at 
 ON property_reviews(created_at DESC);
