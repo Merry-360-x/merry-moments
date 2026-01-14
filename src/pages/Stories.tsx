@@ -76,6 +76,45 @@ const Stories = () => {
     },
   });
 
+  const activeStory = useMemo(
+    () => stories.find((s) => s.id === activeStoryId) || null,
+    [stories, activeStoryId]
+  );
+
+  // Get likes for active story
+  const { data: likesData = [], refetch: refetchLikes } = useQuery({
+    queryKey: ["story-likes", activeStoryId],
+    queryFn: async () => {
+      if (!activeStoryId) return [];
+      const { data, error } = await supabase
+        .from("story_likes")
+        .select("id, user_id")
+        .eq("story_id", activeStoryId);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!activeStoryId,
+  });
+
+  // Get comments for active story
+  const { data: commentsData = [], refetch: refetchComments } = useQuery({
+    queryKey: ["story-comments", activeStoryId],
+    queryFn: async () => {
+      if (!activeStoryId) return [];
+      const { data, error } = await supabase
+        .from("story_comments")
+        .select(`
+          id, comment_text, created_at, user_id,
+          profiles:user_id (full_name, avatar_url)
+        `)
+        .eq("story_id", activeStoryId)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!activeStoryId && showComments,
+  });
+
   const reset = () => {
     setLocation("");
     setBody("");
@@ -188,8 +227,6 @@ const Stories = () => {
     () => (canPost ? "Share your moments and inspire other travelers." : "Read real traveler stories."),
     [canPost]
   );
-
-  const activeStory = useMemo(() => stories.find((s) => s.id === activeStoryId) ?? null, [stories, activeStoryId]);
 
   const markViewed = (id: string) => {
     try {
