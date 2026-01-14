@@ -251,7 +251,7 @@ const Navbar = () => {
                   aria-label={t("labels.currency")}
                 >
                   <span>
-                    {currency === "RWF" && "FRw "}
+                    {currency === "RWF" && "RF "}
                     {currency === "USD" && "$ "}
                     {currency === "EUR" && "€ "}
                     {currency === "GBP" && "£ "}
@@ -262,7 +262,7 @@ const Navbar = () => {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-40">
-                <DropdownMenuItem onClick={() => setCurrency("RWF")}>FRw RWF</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCurrency("RWF")}>RF RWF</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setCurrency("USD")}>$ USD</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setCurrency("EUR")}>€ EUR</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setCurrency("GBP")}>£ GBP</DropdownMenuItem>
