@@ -29,6 +29,8 @@ const Stories = () => {
   const [activeStoryId, setActiveStoryId] = useState<string | null>(null);
   const [commentText, setCommentText] = useState("");
   const [showComments, setShowComments] = useState(false);
+  const [floatingCommentsOpen, setFloatingCommentsOpen] = useState(false);
+  const [floatingCommentsStoryId, setFloatingCommentsStoryId] = useState<string | null>(null);
 
   const canPost = Boolean(user?.id) && !authLoading;
 
@@ -115,6 +117,25 @@ const Stories = () => {
     enabled: !!activeStoryId && showComments,
   });
 
+  // Get comments for floating comment section
+  const { data: floatingCommentsData = [], refetch: refetchFloatingComments } = useQuery({
+    queryKey: ["floating-story-comments", floatingCommentsStoryId],
+    queryFn: async () => {
+      if (!floatingCommentsStoryId) return [];
+      const { data, error } = await supabase
+        .from("story_comments")
+        .select(`
+          id, comment_text, created_at, user_id,
+          profiles:user_id (full_name, avatar_url)
+        `)
+        .eq("story_id", floatingCommentsStoryId)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!floatingCommentsStoryId && floatingCommentsOpen,
+  });
+
   // Get engagement counts for all stories
   const { data: engagementCounts = {} } = useQuery({
     queryKey: ["story-engagement-counts", stories.map(s => s.id).join("|")],
@@ -154,6 +175,16 @@ const Stories = () => {
     },
     enabled: stories.length > 0,
   });
+
+  const openFloatingComments = (storyId: string) => {
+    setFloatingCommentsStoryId(storyId);
+    setFloatingCommentsOpen(true);
+  };
+
+  const closeFloatingComments = () => {
+    setFloatingCommentsOpen(false);
+    setFloatingCommentsStoryId(null);
+  };
 
   const reset = () => {
     setLocation("");
@@ -463,10 +494,16 @@ const Stories = () => {
                             <Heart className="w-4 h-4" />
                             <span>{engagementCounts[s.id]?.likes || 0}</span>
                           </div>
-                          <div className="flex items-center gap-1">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openFloatingComments(s.id);
+                            }}
+                            className="flex items-center gap-1 hover:text-white transition-colors"
+                          >
                             <MessageCircle className="w-4 h-4" />
                             <span>{engagementCounts[s.id]?.comments || 0}</span>
-                          </div>
+                          </button>
                         </div>
                         <div className="text-white/60 text-xs">
                           Tap to view
@@ -709,6 +746,91 @@ const Stories = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Floating Comment Section */}
+      {floatingCommentsOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[70vh] overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-primary to-primary/80 text-white p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <MessageCircle className="w-5 h-5" />
+                <div>
+                  <h3 className="font-semibold">Comments</h3>
+                  <p className="text-xs text-white/80">
+                    {floatingCommentsData.length} {floatingCommentsData.length === 1 ? 'comment' : 'comments'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={closeFloatingComments}
+                className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors"
+              >
+                <span className="text-lg leading-none">×</span>
+              </button>
+            </div>
+            
+            {/* Comments List */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 max-h-96">
+              {floatingCommentsData.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p className="text-sm">No comments yet</p>
+                  <p className="text-xs mt-1">Be the first to share your thoughts!</p>
+                </div>
+              ) : (
+                floatingCommentsData.map((comment: any) => (
+                  <div key={comment.id} className="flex gap-3">
+                    {comment.profiles?.avatar_url ? (
+                      <img
+                        src={comment.profiles.avatar_url}
+                        alt={comment.profiles.full_name || 'User'}
+                        className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-muted flex-shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="bg-muted/50 rounded-2xl px-3 py-2">
+                        <div className="font-medium text-sm text-foreground mb-1">
+                          {comment.profiles?.full_name || 'Anonymous User'}
+                        </div>
+                        <p className="text-sm text-foreground/90 leading-relaxed">
+                          {comment.comment_text}
+                        </p>
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1 px-3">
+                        {new Date(comment.created_at).toLocaleDateString()} at {new Date(comment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            
+            {/* Quick Actions */}
+            <div className="border-t bg-muted/20 p-4 flex gap-2">
+              <button
+                onClick={() => {
+                  closeFloatingComments();
+                  if (floatingCommentsStoryId) {
+                    openViewer(floatingCommentsStoryId);
+                  }
+                }}
+                className="flex-1 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+              >
+                View Story
+              </button>
+              <button
+                onClick={closeFloatingComments}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Footer />
     </div>
