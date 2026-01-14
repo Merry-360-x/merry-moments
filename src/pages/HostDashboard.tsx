@@ -797,6 +797,7 @@ export default function HostDashboard() {
     const isEditing = editingPropertyId === property.id;
     const [form, setForm] = useState(property);
     const [editUploadOpen, setEditUploadOpen] = useState(false);
+    const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
     const handleSave = async () => {
       const success = await updateProperty(property.id, {
@@ -816,6 +817,27 @@ export default function HostDashboard() {
         is_published: form.is_published,
       });
       if (success) setEditingPropertyId(null);
+    };
+
+    const handleDragStart = (index: number) => {
+      setDraggedIndex(index);
+    };
+
+    const handleDragOver = (e: React.DragEvent, index: number) => {
+      e.preventDefault();
+      if (draggedIndex === null || draggedIndex === index) return;
+      
+      const newImages = [...(form.images || [])];
+      const draggedImage = newImages[draggedIndex];
+      newImages.splice(draggedIndex, 1);
+      newImages.splice(index, 0, draggedImage);
+      
+      setForm((f) => ({ ...f, images: newImages }));
+      setDraggedIndex(index);
+    };
+
+    const handleDragEnd = () => {
+      setDraggedIndex(null);
     };
 
     return (
@@ -857,57 +879,41 @@ export default function HostDashboard() {
                 </Select>
               </div>
               <div>
-                <Label className="text-xs">Images ({(form.images || []).length}) - First image is the cover</Label>
+                <Label className="text-xs">Images ({(form.images || []).length}) - Drag to reorder, first image is the cover</Label>
                 <div className="flex flex-wrap gap-2 mt-1">
                   {(form.images || []).map((img, i) => (
-                    <div key={i} className="relative w-14 h-14 rounded overflow-hidden group">
+                    <div 
+                      key={i} 
+                      className={`relative w-14 h-14 rounded overflow-hidden group cursor-move ${draggedIndex === i ? 'opacity-50' : ''}`}
+                      draggable
+                      onDragStart={() => handleDragStart(i)}
+                      onDragOver={(e) => handleDragOver(e, i)}
+                      onDragEnd={handleDragEnd}
+                    >
                       {isVideoUrl(img) ? (
-                        <video src={img} className="w-full h-full object-cover" muted />
+                        <video src={img} className="w-full h-full object-cover pointer-events-none" muted />
                       ) : (
-                        <img src={img} className="w-full h-full object-cover" />
+                        <img src={img} className="w-full h-full object-cover pointer-events-none" draggable={false} />
                       )}
-                      {i === 0 && <span className="absolute bottom-0 left-0 right-0 bg-primary/80 text-white text-[10px] text-center py-0.5">Cover</span>}
+                      {i === 0 && <span className="absolute bottom-0 left-0 right-0 bg-primary/90 text-white text-[10px] text-center py-0.5 font-semibold">Cover</span>}
                       <button
                         type="button"
-                        onClick={() => setForm((f) => ({ ...f, images: (f.images || []).filter((_, j) => j !== i) }))}
-                        className="absolute top-0 right-0 w-4 h-4 bg-black/60 text-white text-xs flex items-center justify-center hover:bg-red-600"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setForm((f) => ({ ...f, images: (f.images || []).filter((_, j) => j !== i) }));
+                        }}
+                        className="absolute top-0 right-0 w-5 h-5 bg-red-600 text-white text-xs flex items-center justify-center hover:bg-red-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Remove"
                       >
                         ×
                       </button>
-                      {i > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const newImages = [...(form.images || [])];
-                            [newImages[i - 1], newImages[i]] = [newImages[i], newImages[i - 1]];
-                            setForm((f) => ({ ...f, images: newImages }));
-                          }}
-                          className="absolute top-0 left-0 w-4 h-4 bg-black/60 text-white text-xs flex items-center justify-center hover:bg-blue-600 opacity-0 group-hover:opacity-100"
-                          title="Move left"
-                        >
-                          ←
-                        </button>
-                      )}
-                      {i < (form.images || []).length - 1 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const newImages = [...(form.images || [])];
-                            [newImages[i], newImages[i + 1]] = [newImages[i + 1], newImages[i]];
-                            setForm((f) => ({ ...f, images: newImages }));
-                          }}
-                          className="absolute bottom-0 left-0 w-4 h-4 bg-black/60 text-white text-xs flex items-center justify-center hover:bg-blue-600 opacity-0 group-hover:opacity-100"
-                          title="Move right"
-                        >
-                          →
-                        </button>
-                      )}
                     </div>
                   ))}
                   <button
                     type="button"
                     onClick={() => setEditUploadOpen(true)}
-                    className="w-14 h-14 rounded border-2 border-dashed border-border flex items-center justify-center text-muted-foreground hover:border-primary"
+                    className="w-14 h-14 rounded border-2 border-dashed border-border flex items-center justify-center text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                    title="Add images"
                   >
                     <Plus className="w-4 h-4" />
                   </button>
