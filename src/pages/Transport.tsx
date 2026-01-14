@@ -45,7 +45,7 @@ const Transport = () => {
   const { usdRates } = useFxRates();
 
   const displayMoney = (amount: number, fromCurrency: string | null) => {
-    const from = String(fromCurrency ?? preferredCurrency ?? "RWF");
+    const from = String(fromCurrency ?? preferredCurrency ?? "USD");
     const to = String(preferredCurrency ?? from);
     const converted = convertAmount(Number(amount ?? 0), from, to, usdRates);
     return formatMoney(converted == null ? Number(amount ?? 0) : converted, to);
@@ -77,7 +77,7 @@ const Transport = () => {
     },
   });
 
-  const { data: vehicles = [], isLoading: vehiclesLoading, isError: vehiclesError, error: vehiclesErrObj } = useQuery({
+  const { data: vehicles = [], isLoading: vehiclesLoading, isError: vehiclesError, error: vehiclesErrObj, refetch: refetchVehicles } = useQuery({
     queryKey: ["transport_vehicles", searchParams.get("vehicle") ?? "All Vehicles"],
     queryFn: async (): Promise<TransportVehicleRow[]> => {
       let q = supabase
@@ -95,10 +95,13 @@ const Transport = () => {
       if (error) throw error;
       return (data as TransportVehicleRow[] | null) ?? [];
     },
-    placeholderData: [],
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    gcTime: 1000 * 60 * 10,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 
-  const { data: routes = [] } = useQuery({
+  const { data: routes = [], isLoading: routesLoading, refetch: refetchRoutes } = useQuery({
     queryKey: ["transport_routes", searchParams.get("q") ?? ""],
     queryFn: async (): Promise<TransportRouteRow[]> => {
       let q = supabase
@@ -113,9 +116,13 @@ const Transport = () => {
       }
 
       const { data, error } = await q;
-      if (error) return [];
+      if (error) throw error;
       return (data as TransportRouteRow[] | null) ?? [];
     },
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    gcTime: 1000 * 60 * 10,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 
   const addToCart = async (payload: { item_type: string; reference_id: string }) => {
@@ -222,7 +229,7 @@ const Transport = () => {
                   {r.from_location} → {r.to_location}
                 </div>
                 <div className="text-muted-foreground mb-4">
-                  {displayMoney(Number(r.base_price), String(r.currency ?? "RWF"))}
+                  {displayMoney(Number(r.base_price), String(r.currency ?? "USD"))}
                 </div>
                 <Button
                   className="w-full"
@@ -292,7 +299,7 @@ const Transport = () => {
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-foreground">
                       <span className="font-bold">
-                        {displayMoney(Number(v.price_per_day), String(v.currency ?? "RWF"))}
+                        {displayMoney(Number(v.price_per_day), String(v.currency ?? "USD"))}
                       </span>
                       <span className="text-sm text-muted-foreground"> / day</span>
                     </div>

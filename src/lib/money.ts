@@ -1,6 +1,6 @@
 export function formatMoney(amount: number, currency: string) {
   const value = Number.isFinite(amount) ? amount : 0;
-  const code = (currency || "RWF").toUpperCase();
+  const code = (currency || "USD").toUpperCase();
   
   // Currency symbol mapping
   const currencySymbols: Record<string, string> = {

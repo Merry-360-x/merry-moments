@@ -43,9 +43,9 @@ export const PreferencesProvider = ({ children }: { children: ReactNode }) => {
     return (raw as AppLanguage | null) ?? detectNavigatorLanguage();
   });
   const [currency, setCurrencyState] = useState<AppCurrency>(() => {
-    if (typeof window === "undefined") return "RWF";
+    if (typeof window === "undefined") return "USD";
     const raw = window.localStorage.getItem("merry360_currency");
-    return (raw as AppCurrency | null) ?? "RWF";
+    return (raw as AppCurrency | null) ?? "USD";
   });
   const [isReady, setIsReady] = useState(false);
 

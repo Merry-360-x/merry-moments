@@ -32,6 +32,12 @@ import HostAbout from "./pages/HostAbout";
 import ScrollToTop from "@/components/ScrollToTop";
 import GlobalLoadingIndicator from "@/components/GlobalLoadingIndicator";
 import SupportCenterLauncher from "@/components/SupportCenterLauncher";
+import { useRealtimeSync } from "@/hooks/useRealtimeSync";
+import { useDataPersistence } from "@/hooks/useDataPersistence";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import { RealtimeProvider } from "@/components/RealtimeProvider";
+import { DataSyncStatus } from "@/components/DataSyncStatus";
+import { DatabaseConnectivityTest } from "@/components/DatabaseConnectivityTest";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -57,16 +63,18 @@ const queryClient = new QueryClient({
         )) {
           return false;
         }
-        // Retry up to 2 times for other errors with exponential backoff
-        return failureCount < 2;
+        // Retry up to 3 times for better reliability
+        return failureCount < 3;
       },
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000), // 1s, 2s, max 10s
-      staleTime: 1000 * 60 * 2, // 2 minutes - reasonable freshness
-      gcTime: 1000 * 60 * 10, // 10 minutes cache retention
-      refetchOnWindowFocus: false, // Prevent unnecessary refetches
+      retryDelay: (attemptIndex) => Math.min(500 * 2 ** attemptIndex, 5000), // Faster retries: 500ms, 1s, 2s, max 5s
+      staleTime: 1000 * 60 * 3, // 3 minutes - optimized for fresh data
+      gcTime: 1000 * 60 * 20, // 20 minutes cache retention
+      refetchOnWindowFocus: true, // Refetch when window gains focus
       refetchOnReconnect: true, // Retry on reconnect
-      refetchOnMount: true, // Always fetch fresh data on mount
+      refetchOnMount: true, // Fetch fresh data on mount for consistency
       networkMode: 'online', // Only fetch when online
+      // Query deduplication - prevent duplicate requests
+      structuralSharing: true, // Optimize re-renders
       // Don't throw errors to the UI for aborted requests
       throwOnError: (error) => {
         if (error instanceof Error && (
@@ -106,13 +114,15 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <PreferencesProvider>
-        <TooltipProvider>
+        <RealtimeProvider>
+          <TooltipProvider>
           <Toaster />
           <Sonner />
           <BrowserRouter>
             <ScrollToTop />
             <GlobalLoadingIndicator />
             <SupportCenterLauncher />
+            <DataSyncStatus />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
@@ -200,10 +210,12 @@ const App = () => (
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+            <DatabaseConnectivityTest />
           </BrowserRouter>
         </TooltipProvider>
-      </PreferencesProvider>
-    </AuthProvider>
+      </RealtimeProvider>
+    </PreferencesProvider>
+  </AuthProvider>
   </QueryClientProvider>
 );
 

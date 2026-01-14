@@ -243,7 +243,7 @@ const MyBookings = () => {
                     <div>
                       <p className="text-xs text-muted-foreground">{t("bookings.labels.total")}</p>
                       <p className="font-semibold text-primary">
-                        {formatMoney(Number(booking.total_price), String(booking.currency ?? "RWF"))}
+                        {formatMoney(Number(booking.total_price), String(booking.currency ?? "USD"))}
                       </p>
                     </div>
                   </div>

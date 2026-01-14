@@ -102,7 +102,7 @@ const Tours = () => {
     navigate(qs ? `/tours?${qs}` : "/tours");
   };
 
-  const { data: tours = [], isError } = useQuery({
+  const { data: tours = [], isError, isLoading: toursLoading, refetch: refetchTours } = useQuery({
     queryKey: [
       "tours",
       searchParams.get("q") ?? "",
@@ -115,7 +115,10 @@ const Tours = () => {
         category: searchParams.get("category") ?? "All",
         duration: searchParams.get("duration") ?? "Any Duration",
       }),
-    placeholderData: [],
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    gcTime: 1000 * 60 * 10,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 
   const addToCart = async (tour: TourRow) => {

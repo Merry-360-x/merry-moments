@@ -38,9 +38,9 @@ type ApplicantType = "individual" | "business";
 
 const propertyTypes = ["Hotel", "Apartment", "Villa", "Guesthouse", "Resort", "Lodge", "House"];
 const currencies = [
-  { value: "RWF", label: "FRw - Rwandan Franc", symbol: "FRw" },
   { value: "USD", label: "$ - US Dollar", symbol: "$" },
   { value: "EUR", label: "€ - Euro", symbol: "€" },
+  { value: "RWF", label: "FRw - Rwandan Franc", symbol: "FRw" },
 ];
 
 export default function HostApplication() {
@@ -87,7 +87,7 @@ export default function HostApplication() {
     description: "",
     property_type: "Apartment",
     price_per_night: 50000,
-    currency: "RWF",
+    currency: "USD",
     max_guests: 2,
     bedrooms: 1,
     bathrooms: 1,

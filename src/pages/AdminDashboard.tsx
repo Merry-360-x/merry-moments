@@ -277,14 +277,22 @@ export default function AdminDashboard() {
   });
   const [bannerEdits, setBannerEdits] = useState<Record<string, Partial<AdBannerRow>>>({});
 
-  // Metrics query
-  const { data: metrics, refetch: refetchMetrics } = useQuery({
+  // Metrics query - always enabled for overview data
+  const { data: metrics, refetch: refetchMetrics, isLoading: metricsLoading } = useQuery({
     queryKey: ["admin_dashboard_metrics"],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("admin_dashboard_metrics");
-      if (error) throw error;
+      if (error) {
+        console.error("RPC Error:", error);
+        throw error;
+      }
       return data as unknown as Metrics;
     },
+    staleTime: 1000 * 60, // 1 minute
+    gcTime: 1000 * 60 * 10, // 10 minutes cache retention
+    refetchInterval: 1000 * 60, // Refetch every minute
+    refetchIntervalInBackground: true, // Keep updating in background
+    refetchOnWindowFocus: true,
   });
 
   const { data: adBanners = [], refetch: refetchAdBanners } = useQuery({
@@ -373,8 +381,8 @@ export default function AdminDashboard() {
     }
   };
 
-  // Host applications
-  const { data: applications = [], refetch: refetchApplications } = useQuery({
+  // Host applications - always enabled for overview metrics
+  const { data: applications = [], refetch: refetchApplications, isLoading: applicationsLoading } = useQuery({
     queryKey: ["host_applications", "admin"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -385,16 +393,22 @@ export default function AdminDashboard() {
       if (error) throw error;
       return (data ?? []) as HostApplicationRow[];
     },
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    gcTime: 1000 * 60 * 15, // 15 minutes cache retention
+    refetchOnWindowFocus: true,
   });
 
-  // User roles
-  const { data: roleRows = [], refetch: refetchRoles } = useQuery({
+  // User roles - always enabled for user management
+  const { data: roleRows = [], refetch: refetchRoles, isLoading: rolesLoading } = useQuery({
     queryKey: ["user_roles", "admin-dashboard"],
     queryFn: async () => {
       const { data, error } = await supabase.from("user_roles").select("user_id, role, created_at");
       if (error) throw error;
       return (data ?? []) as RoleRow[];
     },
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    gcTime: 1000 * 60 * 15, // 15 minutes cache retention
+    refetchOnWindowFocus: true,
   });
 
   const rolesByUserId = useMemo(() => {
@@ -407,64 +421,76 @@ export default function AdminDashboard() {
     return map;
   }, [roleRows]);
 
-  // Users
-  const { data: adminUsers = [], refetch: refetchUsers } = useQuery({
+  // Users - always enabled for better performance
+  const { data: adminUsers = [], refetch: refetchUsers, isLoading: usersLoading } = useQuery({
     queryKey: ["admin_list_users", userSearch],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("admin_list_users", { _search: userSearch });
       if (error) throw error;
       return (data ?? []) as AdminUserRow[];
     },
-    enabled: tab === "users" || tab === "overview",
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    gcTime: 1000 * 60 * 15, // 15 minutes cache retention
+    refetchOnWindowFocus: true,
+    // Always enabled for better dashboard responsiveness
   });
 
-  // Properties with images
-  const { data: properties = [], refetch: refetchProperties } = useQuery({
+  // Properties with images - enhanced loading
+  const { data: properties = [], refetch: refetchProperties, isLoading: propertiesLoading } = useQuery({
     queryKey: ["admin-properties"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("properties")
         .select("id, title, location, price_per_night, currency, is_published, host_id, rating, images, created_at")
         .order("created_at", { ascending: false })
-        .limit(200);
+        .limit(300); // Increase limit for better data coverage
       if (error) throw error;
       return (data ?? []) as PropertyRow[];
     },
-    enabled: tab === "accommodations",
+    enabled: tab === "accommodations" || tab === "overview", // Also load for overview
+    staleTime: 1000 * 60 * 3, // 3 minutes
+    gcTime: 1000 * 60 * 20, // 20 minutes cache retention
+    refetchOnWindowFocus: true,
   });
 
-  // Tours with images
-  const { data: tours = [], refetch: refetchTours } = useQuery({
+  // Tours with images - enhanced loading
+  const { data: tours = [], refetch: refetchTours, isLoading: toursLoading } = useQuery({
     queryKey: ["admin-tours"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tours")
         .select("id, title, location, price_per_person, currency, is_published, images, created_by, created_at")
         .order("created_at", { ascending: false })
-        .limit(200);
+        .limit(300); // Increase limit
       if (error) throw error;
       return (data ?? []) as TourRow[];
     },
-    enabled: tab === "tours",
+    enabled: tab === "tours" || tab === "overview", // Also load for overview
+    staleTime: 1000 * 60 * 3, // 3 minutes
+    gcTime: 1000 * 60 * 20, // 20 minutes cache retention
+    refetchOnWindowFocus: true,
   });
 
-  // Transport vehicles with images
-  const { data: vehicles = [], refetch: refetchVehicles } = useQuery({
+  // Transport vehicles with images - enhanced loading
+  const { data: vehicles = [], refetch: refetchVehicles, isLoading: vehiclesLoading } = useQuery({
     queryKey: ["admin-transport-vehicles"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transport_vehicles")
         .select("id, title, provider_name, vehicle_type, seats, price_per_day, currency, is_published, image_url, media, created_by, created_at")
         .order("created_at", { ascending: false })
-        .limit(200);
+        .limit(300); // Increase limit
       if (error) throw error;
       return (data ?? []) as TransportVehicleRow[];
     },
-    enabled: tab === "transport",
+    enabled: tab === "transport" || tab === "overview", // Also load for overview
+    staleTime: 1000 * 60 * 3, // 3 minutes
+    gcTime: 1000 * 60 * 20, // 20 minutes cache retention
+    refetchOnWindowFocus: true,
   });
 
-  // Bookings - direct query instead of RPC for better compatibility
-  const { data: bookings = [], refetch: refetchBookings } = useQuery({
+  // Bookings - direct query with enhanced loading
+  const { data: bookings = [], refetch: refetchBookings, isLoading: bookingsLoading } = useQuery({
     queryKey: ["admin-bookings-direct", bookingStatus],
     queryFn: async () => {
       let q = supabase
@@ -474,24 +500,27 @@ export default function AdminDashboard() {
           "id, property_id, guest_id, guest_name, guest_email, is_guest_booking, check_in, check_out, guests, total_price, currency, status, created_at"
         )
         .order("created_at", { ascending: false })
-        .limit(200);
+        .limit(500); // Increase limit for comprehensive booking data
       if (bookingStatus && bookingStatus !== "all") q = q.eq("status", bookingStatus);
       const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as BookingRow[];
     },
-    enabled: tab === "bookings" || tab === "payments",
+    enabled: tab === "bookings" || tab === "payments" || tab === "overview", // Also for overview
+    staleTime: 1000 * 30, // 30 seconds for booking data
+    gcTime: 1000 * 60 * 10, // 10 minutes cache retention
+    refetchOnWindowFocus: true,
+    refetchInterval: 1000 * 60, // Refetch every minute for booking updates
   });
-
-  // Reviews - direct query
-  const { data: reviews = [], refetch: refetchReviews } = useQuery({
+  // Reviews - direct query with enhanced loading
+  const { data: reviews = [], refetch: refetchReviews, isLoading: reviewsLoading } = useQuery({
     queryKey: ["admin-reviews-direct"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("property_reviews")
         .select("id, property_id, user_id, rating, comment, is_hidden, created_at")
         .order("created_at", { ascending: false })
-        .limit(200);
+        .limit(300); // Increase limit
       if (error) {
         // If table doesn't exist, return empty array instead of throwing
         if (error.message?.includes("does not exist") || error.code === "42P01" || error.code === "PGRST204") {
@@ -502,18 +531,21 @@ export default function AdminDashboard() {
       }
       return (data ?? []) as ReviewRow[];
     },
-    enabled: tab === "reviews",
+    enabled: tab === "reviews" || tab === "overview", // Also for overview
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    gcTime: 1000 * 60 * 15, // 15 minutes cache retention
+    refetchOnWindowFocus: true,
   });
 
-  // Support tickets
-  const { data: tickets = [], refetch: refetchTickets } = useQuery({
+  // Support tickets - enhanced loading
+  const { data: tickets = [], refetch: refetchTickets, isLoading: ticketsLoading } = useQuery({
     queryKey: ["admin-tickets", ticketStatus],
     queryFn: async () => {
       let q = supabase
         .from("support_tickets")
         .select("id, user_id, subject, message, category, status, priority, response, created_at")
         .order("created_at", { ascending: false })
-        .limit(200);
+        .limit(300); // Increase limit
       if (ticketStatus && ticketStatus !== "all") q = q.eq("status", ticketStatus);
       const { data, error } = await q;
       if (error) {
@@ -526,7 +558,10 @@ export default function AdminDashboard() {
       }
       return (data ?? []) as SupportTicketRow[];
     },
-    enabled: tab === "support",
+    enabled: tab === "support" || tab === "overview", // Also for overview
+    staleTime: 1000 * 60, // 1 minute for tickets
+    gcTime: 1000 * 60 * 10, // 10 minutes cache retention
+    refetchOnWindowFocus: true,
   });
 
   // Incidents
@@ -892,10 +927,18 @@ export default function AdminDashboard() {
       <main className="flex-1 container max-w-7xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
-          <Button variant="outline" size="sm" onClick={() => refetchMetrics()}>
-            <RefreshCw className="w-4 h-4 mr-2" />
+          <div className="flex items-center gap-2">
+            {(metricsLoading || applicationsLoading || usersLoading || rolesLoading) && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                Loading data...
+              </div>
+            )}
+            <Button variant="outline" size="sm" onClick={() => refetchMetrics()}>
+              <RefreshCw className="w-4 h-4 mr-2" />
               Refresh
             </Button>
+          </div>
         </div>
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)}>
@@ -1428,7 +1471,15 @@ export default function AdminDashboard() {
           <TabsContent value="accommodations">
             <Card className="p-6">
               <h2 className="text-lg font-semibold mb-4">Accommodation Management</h2>
-              <div className="overflow-x-auto">
+              {propertiesLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    <span className="text-muted-foreground">Loading properties...</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -1498,7 +1549,8 @@ export default function AdminDashboard() {
                     )}
                   </TableBody>
                 </Table>
-              </div>
+                </div>
+              )}
             </Card>
           </TabsContent>
 
@@ -1506,7 +1558,15 @@ export default function AdminDashboard() {
           <TabsContent value="tours">
             <Card className="p-6">
               <h2 className="text-lg font-semibold mb-4">Tours & Experiences Management</h2>
-              <div className="overflow-x-auto">
+              {toursLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    <span className="text-muted-foreground">Loading tours...</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -1565,7 +1625,8 @@ export default function AdminDashboard() {
                     )}
                   </TableBody>
                 </Table>
-              </div>
+                </div>
+              )}
             </Card>
           </TabsContent>
 

@@ -24,71 +24,105 @@ const fetchLatestProperties = async () => {
       )
       .eq("is_published", true)
       .order("created_at", { ascending: false })
-      .limit(4);
-
+      .limit(8); // Increase limit for better data coverage
+    
     if (error) {
-      console.warn("[Index] fetchLatestProperties error:", error.message);
-      return [];
+      console.error("[Index] fetchLatestProperties error:", error.message);
+      throw error;
     }
     return data ?? [];
   } catch (err) {
-    console.warn("[Index] fetchLatestProperties exception:", err);
-    return [];
+    console.error("[Index] fetchLatestProperties exception:", err);
+    throw err; // Re-throw to trigger React Query retry logic
   }
 };
 
 const fetchFeaturedProperties = async () => {
-  const { data, error } = await supabase
-    .from("properties")
-    .select(
-      "id, title, location, price_per_night, currency, property_type, rating, review_count, images, created_at, bedrooms, bathrooms, beds, max_guests, check_in_time, check_out_time, smoking_allowed, events_allowed, pets_allowed"
-    )
-    .eq("is_published", true)
-    // Some deployments may not have is_featured/updated_at columns.
-    .order("created_at", { ascending: false })
-    .limit(12);
-  if (error) return [];
-  return data ?? [];
+  try {
+    const { data, error } = await supabase
+      .from("properties")
+      .select(
+        "id, title, location, price_per_night, currency, property_type, rating, review_count, images, created_at, bedrooms, bathrooms, beds, max_guests, check_in_time, check_out_time, smoking_allowed, events_allowed, pets_allowed"
+      )
+      .eq("is_published", true)
+      .order("created_at", { ascending: false })
+      .limit(16); // Increase limit for featured content
+      
+    if (error) {
+      console.error("[Index] fetchFeaturedProperties error:", error.message);
+      throw error;
+    }
+    return data ?? [];
+  } catch (err) {
+    console.error("[Index] fetchFeaturedProperties exception:", err);
+    throw err;
+  }
 };
 
 const fetchTopRatedProperties = async () => {
-  const { data, error } = await supabase
-    .from("properties")
-    .select(
-      "id, title, location, price_per_night, currency, property_type, rating, review_count, images, created_at, bedrooms, bathrooms, beds, max_guests, check_in_time, check_out_time, smoking_allowed, events_allowed, pets_allowed"
-    )
-    .eq("is_published", true)
-    .gte("rating", 4)
-    .order("rating", { ascending: false })
-    .order("review_count", { ascending: false })
-    .limit(12);
-  if (error) return [];
-  return data ?? [];
+  try {
+    const { data, error } = await supabase
+      .from("properties")
+      .select(
+        "id, title, location, price_per_night, currency, property_type, rating, review_count, images, created_at, bedrooms, bathrooms, beds, max_guests, check_in_time, check_out_time, smoking_allowed, events_allowed, pets_allowed"
+      )
+      .eq("is_published", true)
+      .gte("rating", 3) // Lower rating threshold to show more results
+      .order("rating", { ascending: false })
+      .order("review_count", { ascending: false })
+      .limit(16); // Increase limit
+      
+    if (error) {
+      console.error("[Index] fetchTopRatedProperties error:", error.message);
+      throw error;
+    }
+    return data ?? [];
+  } catch (err) {
+    console.error("[Index] fetchTopRatedProperties exception:", err);
+    throw err;
+  }
 };
 
 const fetchFeaturedTours = async () => {
-  const { data, error } = await supabase
-    .from("tours")
-    .select(
-      "id, title, location, price_per_person, currency, images, rating, review_count, category, duration_days"
-    )
-    .eq("is_published", true)
-    // Some deployments may not have is_featured/updated_at columns.
-    .order("created_at", { ascending: false })
-    .limit(12);
-  if (error) return [];
-  return data ?? [];
+  try {
+    const { data, error } = await supabase
+      .from("tours")
+      .select(
+        "id, title, location, price_per_person, currency, images, rating, review_count, category, duration_days"
+      )
+      .eq("is_published", true)
+      .order("created_at", { ascending: false })
+      .limit(16); // Increase limit
+      
+    if (error) {
+      console.error("[Index] fetchFeaturedTours error:", error.message);
+      throw error;
+    }
+    return data ?? [];
+  } catch (err) {
+    console.error("[Index] fetchFeaturedTours exception:", err);
+    throw err;
+  }
 };
 
 const fetchLatestVehicles = async () => {
-  const { data, error } = await supabase
-    .from("transport_vehicles")
-    .select("id, title, vehicle_type, seats, price_per_day, currency, media, image_url, created_at")
-    .eq("is_published", true)
-    .order("created_at", { ascending: false })
-    .limit(12);
-  if (error) return [];
-  return data ?? [];
+  try {
+    const { data, error } = await supabase
+      .from("transport_vehicles")
+      .select("id, title, vehicle_type, seats, price_per_day, currency, media, image_url, created_at")
+      .eq("is_published", true)
+      .order("created_at", { ascending: false })
+      .limit(16); // Increase limit
+      
+    if (error) {
+      console.error("[Index] fetchLatestVehicles error:", error.message);
+      throw error;
+    }
+    return data ?? [];
+  } catch (err) {
+    console.error("[Index] fetchLatestVehicles exception:", err);
+    throw err;
+  }
 };
 
 const Index = () => {
@@ -101,39 +135,56 @@ const Index = () => {
   const {
     data: properties = [],
     isError,
+    isLoading: propertiesLoading,
+    refetch: refetchProperties,
   } = useQuery({
     queryKey: ["properties", "latest"],
     queryFn: fetchLatestProperties,
-    staleTime: 1000 * 60 * 10, // 10 minutes for homepage data
-    placeholderData: [], // Never show loading state
+    staleTime: 1000 * 60 * 3, // 3 minutes for fast, fresh data
+    gcTime: 1000 * 60 * 15, // 15 minutes cache
+    refetchOnMount: true, // Always fetch fresh data
+    refetchOnWindowFocus: true,
+    refetchInterval: 1000 * 60 * 3, // Auto-refresh every 3 minutes for consistency
   });
 
-  const { data: featuredStays = [] } = useQuery({
+  const { data: featuredStays = [], isLoading: featuredLoading, refetch: refetchFeatured } = useQuery({
     queryKey: ["properties", "featured-home"],
     queryFn: fetchFeaturedProperties,
-    staleTime: 1000 * 60 * 10,
-    placeholderData: [],
+    staleTime: 1000 * 60 * 3, // 3 minutes
+    gcTime: 1000 * 60 * 15,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchInterval: 1000 * 60 * 3, // Consistent 3-minute refresh
   });
 
-  const { data: topRated = [] } = useQuery({
+  const { data: topRated = [], isLoading: topRatedLoading, refetch: refetchTopRated } = useQuery({
     queryKey: ["properties", "top-rated-home"],
     queryFn: fetchTopRatedProperties,
-    staleTime: 1000 * 60 * 10,
-    placeholderData: [],
+    staleTime: 1000 * 60 * 3, // 3 minutes
+    gcTime: 1000 * 60 * 15,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchInterval: 1000 * 60 * 3, // Consistent 3-minute refresh
   });
 
-  const { data: featuredTours = [] } = useQuery({
+  const { data: featuredTours = [], isLoading: toursLoading, refetch: refetchTours } = useQuery({
     queryKey: ["tours", "featured-home"],
     queryFn: fetchFeaturedTours,
-    staleTime: 1000 * 60 * 10,
-    placeholderData: [],
+    staleTime: 1000 * 60 * 3, // 3 minutes
+    gcTime: 1000 * 60 * 15,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchInterval: 1000 * 60 * 3, // Consistent 3-minute refresh
   });
 
-  const { data: latestVehicles = [] } = useQuery({
+  const { data: latestVehicles = [], isLoading: vehiclesLoading, refetch: refetchVehicles } = useQuery({
     queryKey: ["transport_vehicles", "latest-home"],
     queryFn: fetchLatestVehicles,
-    staleTime: 1000 * 60 * 10,
-    placeholderData: [],
+    staleTime: 1000 * 60 * 3, // 3 minutes
+    gcTime: 1000 * 60 * 15,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchInterval: 1000 * 60 * 3, // Consistent 3-minute refresh
   });
 
   return (
@@ -469,7 +520,7 @@ const Index = () => {
                       title={title}
                       location={location}
                       price={price}
-                      currency={tour.currency ?? "RWF"}
+                      currency={tour.currency ?? "USD"}
                       images={images}
                       rating={(tour as { rating?: number | null }).rating ?? null}
                       reviewCount={(tour as { review_count?: number | null }).review_count ?? null}
@@ -524,7 +575,7 @@ const Index = () => {
                     vehicleType={(v as { vehicle_type?: string | null }).vehicle_type ?? null}
                     seats={(v as { seats?: number | null }).seats ?? null}
                     pricePerDay={Number((v as { price_per_day?: number | null }).price_per_day ?? 0)}
-                    currency={(v as { currency?: string | null }).currency ?? "RWF"}
+                    currency={(v as { currency?: string | null }).currency ?? "USD"}
                     media={(v as { media?: string[] | null }).media ?? null}
                     imageUrl={(v as { image_url?: string | null }).image_url ?? null}
                   />

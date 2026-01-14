@@ -140,6 +140,8 @@ const Accommodations = () => {
   const {
     data: properties = [],
     isError,
+    isLoading: propertiesLoading,
+    refetch: refetchProperties,
   } = useQuery({
     queryKey: [
       "properties",
@@ -162,7 +164,10 @@ const Accommodations = () => {
         hostId,
         nearby,
       }),
-    placeholderData: [],
+    staleTime: 1000 * 60 * 2, // 2 minutes for search results
+    gcTime: 1000 * 60 * 10, // 10 minutes cache
+    refetchOnMount: true, // Fresh results on mount
+    refetchOnWindowFocus: true,
   });
 
   const { data: hostPreview } = useQuery({
@@ -528,7 +533,7 @@ const Accommodations = () => {
                       <div className="flex items-center justify-between gap-2 p-3 bg-muted/50 rounded-lg">
                         <div className="text-center flex-1">
                           <div className="text-xs text-muted-foreground mb-1">Min</div>
-                          <div className="font-medium text-sm">{formatMoney(0, String(preferredCurrency ?? "RWF"))}</div>
+                          <div className="font-medium text-sm">{formatMoney(0, String(preferredCurrency ?? "USD"))}</div>
                         </div>
                         <div className="text-muted-foreground">—</div>
                         <div className="text-center flex-1">

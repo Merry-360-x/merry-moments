@@ -113,11 +113,16 @@ export default function PropertyDetails() {
     queryKey: ["property", propertyId],
     queryFn: () => fetchProperty(propertyId as string),
     enabled: Boolean(propertyId),
+    staleTime: 1000 * 60 * 3, // 3 minutes for property details
+    gcTime: 1000 * 60 * 15, // 15 minutes cache
+    refetchOnWindowFocus: true,
   });
 
   const { data: hostProfile } = useQuery({
     queryKey: ["host-profile", data?.host_id],
     enabled: Boolean(data?.host_id),
+    staleTime: 1000 * 60 * 5, // 5 minutes - host info changes rarely
+    gcTime: 1000 * 60 * 20,
     queryFn: async () => {
       const hostId = String(data?.host_id ?? "");
       const { data: prof, error } = await supabase
@@ -141,6 +146,8 @@ export default function PropertyDetails() {
   const { data: hostStats } = useQuery({
     queryKey: ["host-stats", data?.host_id],
     enabled: Boolean(data?.host_id),
+    staleTime: 1000 * 60 * 5, // 5 minutes - stats change rarely
+    gcTime: 1000 * 60 * 20,
     queryFn: async () => {
       const hostId = String(data?.host_id ?? "");
       const { data: hostProps, error: propsErr } = await supabase
@@ -218,7 +225,7 @@ export default function PropertyDetails() {
 
   const displayMoney = useCallback(
     (amount: number, fromCurrency: string | null) => {
-      const from = String(fromCurrency ?? preferredCurrency ?? "RWF");
+      const from = String(fromCurrency ?? preferredCurrency ?? "USD");
       const to = String(preferredCurrency ?? from);
       const converted = convertAmount(Number(amount ?? 0), from, to, usdRates);
       return formatMoney(converted == null ? Number(amount ?? 0) : converted, to);
@@ -626,7 +633,7 @@ export default function PropertyDetails() {
                                 <div className="font-medium text-foreground line-clamp-1">{t.title}</div>
                                 <div className="text-xs text-muted-foreground line-clamp-1">{t.location ?? ""}</div>
                                 <div className="mt-2 text-sm font-semibold text-primary">
-                                  {displayMoney(Number(t.price_per_person ?? 0), String(t.currency ?? "RWF"))}
+                                  {displayMoney(Number(t.price_per_person ?? 0), String(t.currency ?? "USD"))}
                                   <span className="text-xs text-muted-foreground"> / person</span>
                                 </div>
                                 <div className="mt-3">
