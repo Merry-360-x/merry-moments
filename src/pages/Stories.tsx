@@ -1,4 +1,4 @@
-import { Plus, MapPin } from "lucide-react";
+import { Plus, MapPin, Heart, MessageCircle } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
@@ -302,33 +302,120 @@ const Stories = () => {
         )}
       </section>
 
-      {/* Story viewer */}
+      {/* Instagram-style Story viewer */}
       <Dialog open={viewerOpen} onOpenChange={setViewerOpen}>
-        <DialogContent className="p-0 w-[100vw] max-w-[600px] overflow-hidden">
-          <div className="bg-black text-white relative">
-            <button
-              type="button"
-              className="absolute top-3 right-3 h-10 w-10 rounded-full bg-black/50 flex items-center justify-center"
-              onClick={() => setViewerOpen(false)}
-              aria-label="Close"
-            >
-              <span className="text-xl leading-none">×</span>
-            </button>
+        <DialogContent className="p-0 max-w-sm mx-auto h-[80vh] overflow-hidden rounded-2xl">
+          <div className="relative w-full h-full bg-black">
             {activeStory ? (
               (() => {
                 const media = activeStory.media_url || activeStory.image_url;
+                const author = authorProfiles[activeStory.user_id];
                 if (!media) {
-                  return <div className="h-[70vh] flex items-center justify-center text-white/70">No media</div>;
+                  return <div className="h-full flex items-center justify-center text-white/70">No media</div>;
                 }
                 const isVid = /\/video\/upload\//i.test(media) || activeStory.media_type === "video";
-                return isVid ? (
-                  <video src={media} className="w-full h-[70vh] object-contain bg-black" controls playsInline />
-                ) : (
-                  <img src={media} className="w-full h-[70vh] object-contain bg-black" alt={activeStory.title} />
+                
+                return (
+                  <div className="relative w-full h-full">
+                    {/* Media Background */}
+                    {isVid ? (
+                      <video 
+                        src={media} 
+                        className="w-full h-full object-cover" 
+                        autoPlay 
+                        muted 
+                        loop 
+                        playsInline 
+                      />
+                    ) : (
+                      <img 
+                        src={media} 
+                        className="w-full h-full object-cover" 
+                        alt={activeStory.title} 
+                      />
+                    )}
+                    
+                    {/* Gradient Overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/60" />
+                    
+                    {/* Top Section - Author Info */}
+                    <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {author?.avatar_url ? (
+                          <img
+                            src={author.avatar_url}
+                            alt={author.full_name ?? "Traveler"}
+                            className="w-8 h-8 rounded-full object-cover border-2 border-white"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-white/20 border-2 border-white" />
+                        )}
+                        <div>
+                          <div className="text-white text-sm font-medium">
+                            {author?.full_name ?? "Traveler"}
+                          </div>
+                          <div className="text-white/80 text-xs">
+                            {new Date(activeStory.created_at).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="w-8 h-8 rounded-full bg-black/30 flex items-center justify-center text-white"
+                        onClick={() => setViewerOpen(false)}
+                        aria-label="Close"
+                      >
+                        <span className="text-lg leading-none">×</span>
+                      </button>
+                    </div>
+                    
+                    {/* Progress bar */}
+                    <div className="absolute top-2 left-4 right-4 h-0.5 bg-white/30 rounded-full">
+                      <div className="h-full w-full bg-white rounded-full" />
+                    </div>
+                    
+                    {/* Bottom Section - Caption & Location */}
+                    <div className="absolute bottom-16 left-4 right-4">
+                      {/* Caption */}
+                      <div className="bg-black/40 backdrop-blur-sm rounded-lg p-3 mb-3">
+                        <p className="text-white text-sm leading-relaxed">
+                          {activeStory.body}
+                        </p>
+                        {/* Location */}
+                        {activeStory.location && (
+                          <div className="flex items-center gap-1 mt-2 text-white/90 text-xs">
+                            <MapPin className="w-3 h-3" />
+                            <span>{activeStory.location}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Interaction Section */}
+                    <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <button className="flex items-center gap-2 text-white/90 hover:text-white transition-colors">
+                          <Heart className="w-5 h-5" />
+                          <span className="text-sm">24</span>
+                        </button>
+                        <button className="flex items-center gap-2 text-white/90 hover:text-white transition-colors">
+                          <MessageCircle className="w-5 h-5" />
+                          <span className="text-sm">12</span>
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input 
+                          type="text" 
+                          placeholder="Send message..." 
+                          className="bg-white/20 backdrop-blur-sm text-white placeholder-white/60 text-sm px-3 py-2 rounded-full border-0 outline-0 w-32"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 );
               })()
             ) : (
-              <div className="h-[70vh] flex items-center justify-center text-white/70">No media</div>
+              <div className="h-full flex items-center justify-center text-white/70">No media</div>
             )}
           </div>
         </DialogContent>
