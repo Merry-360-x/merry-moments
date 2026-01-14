@@ -44,8 +44,8 @@ const fetchFeaturedProperties = async () => {
       "id, title, location, price_per_night, currency, property_type, rating, review_count, images, created_at, bedrooms, bathrooms, beds, max_guests, check_in_time, check_out_time, smoking_allowed, events_allowed, pets_allowed"
     )
     .eq("is_published", true)
-    .eq("is_featured", true)
-    .order("updated_at", { ascending: false })
+    // Some deployments may not have is_featured/updated_at columns.
+    .order("created_at", { ascending: false })
     .limit(12);
   if (error) return [];
   return data ?? [];
@@ -73,8 +73,8 @@ const fetchFeaturedTours = async () => {
       "id, title, location, price_per_person, currency, images, rating, review_count, category, duration_days"
     )
     .eq("is_published", true)
-    .eq("is_featured", true)
-    .order("updated_at", { ascending: false })
+    // Some deployments may not have is_featured/updated_at columns.
+    .order("created_at", { ascending: false })
     .limit(12);
   if (error) return [];
   return data ?? [];

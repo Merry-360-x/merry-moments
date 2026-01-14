@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import i18n from "@/i18n";
@@ -29,10 +29,24 @@ export const PreferencesProvider = ({ children }: { children: ReactNode }) => {
   const { user, isLoading: authLoading } = useAuth();
 
   // Default to light mode (user can still switch to dark/system).
-  const [theme, setThemeState] = useState<ThemePreference>("light");
+  // Persist theme locally since the DB schema may not include theme columns.
+  const [theme, setThemeState] = useState<ThemePreference>(() => {
+    if (typeof window === "undefined") return "light";
+    const raw = window.localStorage.getItem("merry360_theme");
+    return (raw as ThemePreference | null) ?? "light";
+  });
+  const themeRef = useRef(theme);
   const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
-  const [language, setLanguageState] = useState<AppLanguage>(detectNavigatorLanguage());
-  const [currency, setCurrencyState] = useState<AppCurrency>("RWF");
+  const [language, setLanguageState] = useState<AppLanguage>(() => {
+    if (typeof window === "undefined") return detectNavigatorLanguage();
+    const raw = window.localStorage.getItem("merry360_language");
+    return (raw as AppLanguage | null) ?? detectNavigatorLanguage();
+  });
+  const [currency, setCurrencyState] = useState<AppCurrency>(() => {
+    if (typeof window === "undefined") return "RWF";
+    const raw = window.localStorage.getItem("merry360_currency");
+    return (raw as AppCurrency | null) ?? "RWF";
+  });
   const [isReady, setIsReady] = useState(false);
 
   const applyTheme = useCallback((nextTheme: ThemePreference) => {
@@ -40,6 +54,10 @@ export const PreferencesProvider = ({ children }: { children: ReactNode }) => {
     setResolvedTheme(nextResolved);
     document.documentElement.classList.toggle("dark", nextResolved === "dark");
   }, []);
+
+  useEffect(() => {
+    themeRef.current = theme;
+  }, [theme]);
 
   useEffect(() => {
     if (theme !== "system") return;
@@ -57,8 +75,7 @@ export const PreferencesProvider = ({ children }: { children: ReactNode }) => {
     const run = async () => {
       if (!user) {
         const defaultLanguage = detectNavigatorLanguage();
-        setThemeState("light");
-        applyTheme("light");
+        applyTheme(themeRef.current);
         setLanguageState(defaultLanguage);
         setCurrencyState("RWF");
         await i18n.changeLanguage(defaultLanguage);
@@ -68,7 +85,8 @@ export const PreferencesProvider = ({ children }: { children: ReactNode }) => {
 
       const { data, error } = await supabase
         .from("user_preferences")
-        .select("theme, locale, currency")
+        // Schema uses language/currency by default.
+        .select("language, currency")
         .eq("user_id", user.id)
         .maybeSingle();
 
@@ -83,8 +101,8 @@ export const PreferencesProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
-      const nextTheme = (data?.theme as ThemePreference | undefined) ?? "light";
-      const nextLanguage = (data?.locale as AppLanguage | undefined) ?? detectNavigatorLanguage();
+      const nextTheme = themeRef.current;
+      const nextLanguage = (data?.language as AppLanguage | undefined) ?? detectNavigatorLanguage();
       const nextCurrency = (data?.currency as AppCurrency | undefined) ?? "RWF";
 
       setThemeState(nextTheme);
@@ -106,10 +124,12 @@ export const PreferencesProvider = ({ children }: { children: ReactNode }) => {
       setThemeState(next);
       applyTheme(next);
 
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("merry360_theme", next);
+      }
+
+      // Theme is persisted locally; DB schema may not include a theme column.
       if (!user) return;
-      await supabase
-        .from("user_preferences")
-        .upsert({ user_id: user.id, theme: next }, { onConflict: "user_id" });
     },
     [user, applyTheme]
   );
@@ -119,10 +139,14 @@ export const PreferencesProvider = ({ children }: { children: ReactNode }) => {
       setLanguageState(next);
       await i18n.changeLanguage(next);
 
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("merry360_language", next);
+      }
+
       if (!user) return;
       await supabase
         .from("user_preferences")
-        .upsert({ user_id: user.id, locale: next }, { onConflict: "user_id" });
+        .upsert({ user_id: user.id, language: next }, { onConflict: "user_id" });
     },
     [user]
   );
@@ -130,6 +154,10 @@ export const PreferencesProvider = ({ children }: { children: ReactNode }) => {
   const setCurrency = useCallback(
     async (next: AppCurrency) => {
       setCurrencyState(next);
+
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("merry360_currency", next);
+      }
 
       if (!user) return;
       await supabase

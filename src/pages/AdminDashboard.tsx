@@ -76,7 +76,6 @@ type PropertyRow = {
   price_per_night: number | null;
   currency: string | null;
   is_published: boolean | null;
-  is_featured: boolean | null;
   host_id: string | null;
   rating: number | null;
   images: string[] | null;
@@ -90,7 +89,6 @@ type TourRow = {
   price_per_person: number | null;
   currency: string | null;
   is_published: boolean | null;
-  is_featured: boolean | null;
   images: string[] | null;
   created_by: string | null;
   created_at: string;
@@ -426,7 +424,7 @@ export default function AdminDashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("properties")
-        .select("id, title, location, price_per_night, currency, is_published, is_featured, host_id, rating, images, created_at")
+        .select("id, title, location, price_per_night, currency, is_published, host_id, rating, images, created_at")
         .order("created_at", { ascending: false })
         .limit(200);
       if (error) throw error;
@@ -441,7 +439,7 @@ export default function AdminDashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tours")
-        .select("id, title, location, price_per_person, currency, is_published, is_featured, images, created_by, created_at")
+        .select("id, title, location, price_per_person, currency, is_published, images, created_by, created_at")
         .order("created_at", { ascending: false })
         .limit(200);
       if (error) throw error;
@@ -707,20 +705,6 @@ export default function AdminDashboard() {
       await refetchMetrics();
     } catch (e) {
       logError("admin.togglePublished", e);
-      toast({ variant: "destructive", title: "Failed", description: uiErrorMessage(e, "Please try again.") });
-    }
-  };
-
-  const toggleFeatured = async (table: string, id: string, next: boolean) => {
-    try {
-      const { error } = await supabase.from(table as never).update({ is_featured: next } as never).eq("id", id);
-      if (error) throw error;
-      toast({ title: next ? "Featured" : "Unfeatured" });
-      if (table === "properties") await refetchProperties();
-      if (table === "tours") await refetchTours();
-      await refetchMetrics();
-    } catch (e) {
-      logError("admin.toggleFeatured", e);
       toast({ variant: "destructive", title: "Failed", description: uiErrorMessage(e, "Please try again.") });
     }
   };
@@ -1483,7 +1467,6 @@ export default function AdminDashboard() {
                             ) : (
                               <Badge variant="outline">Draft</Badge>
                             )}
-                            {p.is_featured && <Badge className="bg-primary text-white">Featured</Badge>}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -1497,12 +1480,9 @@ export default function AdminDashboard() {
                             </Button>
                             <Button
                               size="sm"
-                              variant={p.is_featured ? "default" : "outline"}
-                              onClick={() => toggleFeatured("properties", p.id, !p.is_featured)}
+                              variant="destructive"
+                              onClick={() => deleteItem("properties", p.id)}
                             >
-                              <Star className="w-3 h-3" />
-                            </Button>
-                            <Button size="sm" variant="destructive" onClick={() => deleteItem("properties", p.id)}>
                               <Trash2 className="w-3 h-3" />
                             </Button>
                           </div>
@@ -1554,7 +1534,6 @@ export default function AdminDashboard() {
                             ) : (
                               <Badge variant="outline">Draft</Badge>
                             )}
-                            {t.is_featured && <Badge className="bg-primary text-white">Featured</Badge>}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -1568,12 +1547,9 @@ export default function AdminDashboard() {
                             </Button>
                             <Button
                               size="sm"
-                              variant={t.is_featured ? "default" : "outline"}
-                              onClick={() => toggleFeatured("tours", t.id, !t.is_featured)}
+                              variant="destructive"
+                              onClick={() => deleteItem("tours", t.id)}
                             >
-                              <Star className="w-3 h-3" />
-                            </Button>
-                            <Button size="sm" variant="destructive" onClick={() => deleteItem("tours", t.id)}>
                               <Trash2 className="w-3 h-3" />
                             </Button>
                           </div>

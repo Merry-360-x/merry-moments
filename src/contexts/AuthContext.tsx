@@ -160,7 +160,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             // Ignore auth events from a previous epoch.
             if (authEpochRef.current !== epoch) return;
             
-            console.log('[AuthContext] Auth event:', event);
+            if (import.meta.env.DEV) {
+              console.debug('[AuthContext] Auth event:', event);
+            }
             
             setSession(newSession);
             setUser(newSession?.user ?? null);
