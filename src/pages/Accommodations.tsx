@@ -455,6 +455,9 @@ const Accommodations = () => {
             </div>
           </div>
         )}
+
+        {/* Host preview section */}
+        {hostId && hostPreview ? (
           <div className="mb-8 bg-card rounded-xl shadow-card p-6">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="flex items-start gap-3">
@@ -498,11 +501,6 @@ const Accommodations = () => {
                   }}
                 >
                   View all listings
-                </Button>
-              </div>
-            </div>
-          </div>
-        ) : null}
                 </Button>
               </div>
             </div>
