@@ -115,6 +115,46 @@ const Stories = () => {
     enabled: !!activeStoryId && showComments,
   });
 
+  // Get engagement counts for all stories
+  const { data: engagementCounts = {} } = useQuery({
+    queryKey: ["story-engagement-counts", stories.map(s => s.id).join("|")],
+    queryFn: async () => {
+      if (stories.length === 0) return {};
+      
+      const storyIds = stories.map(s => s.id);
+      
+      // Get likes count for all stories
+      const { data: likesData, error: likesError } = await supabase
+        .from("story_likes")
+        .select("story_id")
+        .in("story_id", storyIds);
+      
+      // Get comments count for all stories
+      const { data: commentsData, error: commentsError } = await supabase
+        .from("story_comments")
+        .select("story_id")
+        .in("story_id", storyIds);
+      
+      if (likesError || commentsError) {
+        console.warn("Error fetching engagement:", { likesError, commentsError });
+        return {};
+      }
+      
+      // Count engagement for each story
+      const counts: Record<string, { likes: number; comments: number }> = {};
+      
+      storyIds.forEach(id => {
+        counts[id] = {
+          likes: (likesData || []).filter(like => like.story_id === id).length,
+          comments: (commentsData || []).filter(comment => comment.story_id === id).length
+        };
+      });
+      
+      return counts;
+    },
+    enabled: stories.length > 0,
+  });
+
   const reset = () => {
     setLocation("");
     setBody("");
@@ -147,6 +187,8 @@ const Stories = () => {
       }
       
       refetchLikes();
+      // Refresh engagement counts for all stories
+      await qc.invalidateQueries({ queryKey: ["story-engagement-counts"] });
     } catch (e) {
       logError("story.like", e);
       toast({ variant: "destructive", title: "Error", description: "Could not update like." });
@@ -173,6 +215,8 @@ const Stories = () => {
       
       setCommentText("");
       refetchComments();
+      // Refresh engagement counts for all stories
+      await qc.invalidateQueries({ queryKey: ["story-engagement-counts"] });
       toast({ title: "Comment added!" });
     } catch (e) {
       logError("story.comment", e);
@@ -417,11 +461,11 @@ const Stories = () => {
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-1">
                             <Heart className="w-4 h-4" />
-                            <span>0</span>
+                            <span>{engagementCounts[s.id]?.likes || 0}</span>
                           </div>
                           <div className="flex items-center gap-1">
                             <MessageCircle className="w-4 h-4" />
-                            <span>0</span>
+                            <span>{engagementCounts[s.id]?.comments || 0}</span>
                           </div>
                         </div>
                         <div className="text-white/60 text-xs">
