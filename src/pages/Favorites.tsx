@@ -9,7 +9,7 @@ import { Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import { useFavorites } from "@/hooks/useFavorites";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 interface FavoriteProperty {
   id: string;
@@ -31,8 +31,6 @@ const Favorites = () => {
   const { toggleFavorite } = useFavorites();
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const [favorites, setFavorites] = useState<FavoriteProperty[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -40,21 +38,19 @@ const Favorites = () => {
     }
   }, [user, authLoading, navigate]);
 
-  useEffect(() => {
-    if (user) {
-      fetchFavorites();
-    }
-  }, [user]);
-
-  const fetchFavorites = async () => {
-    const { data } = await supabase
-      .from("favorites")
-      .select("id, properties(id, title, location, price_per_night, property_type, rating, review_count, images)")
-      .eq("user_id", user!.id);
-
-    if (data) setFavorites(data as FavoriteProperty[]);
-    setIsLoading(false);
-  };
+  const { data: favorites = [], isLoading } = useQuery({
+    queryKey: ["favorites-full", user?.id],
+    enabled: Boolean(user?.id),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("favorites")
+        .select("id, properties(id, title, location, price_per_night, property_type, rating, review_count, images)")
+        .eq("user_id", user!.id);
+      if (error) throw error;
+      return (data as FavoriteProperty[]) ?? [];
+    },
+    placeholderData: [],
+  });
 
   if (authLoading) {
     return (

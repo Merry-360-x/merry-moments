@@ -49,14 +49,15 @@ const queryClient = new QueryClient({
         )) {
           return false;
         }
-        // Retry up to 1 time for other errors (faster failure)
-        return failureCount < 1;
+        // Retry up to 3 times for other errors with exponential backoff
+        return failureCount < 3;
       },
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff: 1s, 2s, 4s, max 30s
       staleTime: 1000 * 60 * 5, // 5 minutes - data stays fresh longer
       gcTime: 1000 * 60 * 30, // 30 minutes cache retention
       refetchOnWindowFocus: false,
-      refetchOnReconnect: false, // Don't refetch on reconnect
-      networkMode: 'offlineFirst', // Use cache first, then network
+      refetchOnReconnect: true, // Retry on reconnect for better resilience
+      networkMode: 'online', // Changed from offlineFirst to online for more reliable fetching
       // Don't throw errors to the UI for aborted requests
       throwOnError: (error) => {
         if (error instanceof Error && error.name === "AbortError") {

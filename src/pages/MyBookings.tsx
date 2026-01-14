@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { extractNeighborhood } from "@/lib/location";
 
 interface Booking {
@@ -38,9 +39,7 @@ const MyBookings = () => {
   const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [reviewedBookingIds, setReviewedBookingIds] = useState<Set<string>>(new Set());
+  const qc = useQueryClient();
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewBooking, setReviewBooking] = useState<Booking | null>(null);
   const [reviewRating, setReviewRating] = useState(5);
@@ -53,32 +52,34 @@ const MyBookings = () => {
     }
   }, [user, authLoading, navigate]);
 
-  useEffect(() => {
-    if (user) {
-      fetchBookings();
-    }
-  }, [user]);
+  const { data: bookings = [], isLoading } = useQuery({
+    queryKey: ["bookings", user?.id],
+    enabled: Boolean(user?.id),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("bookings")
+        .select("*, properties(title, location, property_type, address)")
+        .eq("guest_id", user!.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data as Booking[]) ?? [];
+    },
+    placeholderData: [],
+  });
 
-  const fetchBookings = async () => {
-    const { data, error } = await supabase
-      .from("bookings")
-      .select("*, properties(title, location, property_type, address)")
-      .eq("guest_id", user!.id)
-      .order("created_at", { ascending: false });
-
-    if (data) setBookings(data as Booking[]);
-    if (!error && data && data.length > 0) {
-      const ids = (data as Booking[]).map((b) => String(b.id));
+  const { data: reviewedBookingIds = new Set() } = useQuery({
+    queryKey: ["reviewed-bookings", user?.id],
+    enabled: Boolean(user?.id) && bookings.length > 0,
+    queryFn: async () => {
+      const ids = bookings.map((b) => String(b.id));
       const { data: reviewed } = await supabase
         .from("property_reviews")
         .select("booking_id")
         .in("booking_id", ids);
-      setReviewedBookingIds(new Set((reviewed ?? []).map((r) => String((r as { booking_id: string }).booking_id))));
-    } else {
-      setReviewedBookingIds(new Set());
-    }
-    setIsLoading(false);
-  };
+      return new Set((reviewed ?? []).map((r) => String((r as { booking_id: string }).booking_id)));
+    },
+    placeholderData: new Set(),
+  });
 
   const cancelBooking = async (id: string) => {
     if (!confirm(t("bookings.confirmCancel"))) return;
@@ -98,7 +99,7 @@ const MyBookings = () => {
       });
     } else {
       toast({ title: t("bookings.toast.cancelled") });
-      fetchBookings();
+      qc.invalidateQueries({ queryKey: ["bookings", user?.id] });
     }
   };
 
@@ -133,7 +134,8 @@ const MyBookings = () => {
       if (error) throw error;
       toast({ title: "Review submitted" });
       setReviewOpen(false);
-      await fetchBookings();
+      qc.invalidateQueries({ queryKey: ["bookings", user?.id] });
+      qc.invalidateQueries({ queryKey: ["reviewed-bookings", user?.id] });
     } catch (e) {
       logError("propertyReviews.insert", e);
       toast({

@@ -393,7 +393,10 @@ export default function HostDashboard() {
   }, [user, authLoading, navigate]);
 
   const fetchData = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     
     try {
@@ -414,28 +417,31 @@ export default function HostDashboard() {
       const propertyIds = (propsRes.data || []).map((p: { id: string }) => p.id);
       
       if (propertyIds.length > 0) {
-    const { data: bookingsData } = await supabase
-      .from("bookings")
+        const { data: bookingsData } = await supabase
+          .from("bookings")
           .select("*")
           .in("property_id", propertyIds)
-      .order("created_at", { ascending: false });
+          .order("created_at", { ascending: false });
 
-    if (bookingsData) setBookings(bookingsData as Booking[]);
+        if (bookingsData) setBookings(bookingsData as Booking[]);
       } else {
         setBookings([]);
       }
     } catch (e) {
       logError("host.fetchData", e);
     } finally {
-    setIsLoading(false);
+      setIsLoading(false);
     }
   }, [user]);
 
   useEffect(() => {
+    if (authLoading || rolesLoading) return;
     if (isHost && user) {
       fetchData();
+    } else if (!authLoading && !rolesLoading) {
+      setIsLoading(false);
     }
-  }, [isHost, user, fetchData]);
+  }, [isHost, user, fetchData, authLoading, rolesLoading]);
 
   // Property CRUD
   const updateProperty = async (id: string, updates: Partial<Property>) => {
