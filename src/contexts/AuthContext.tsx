@@ -167,10 +167,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setSession(null);
-    setRoles([]);
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('[AuthContext] Sign out error:', error);
+    } finally {
+      // Always clear state, even if API call fails
+      setUser(null);
+      setSession(null);
+      setRoles([]);
+      setRolesLoading(false);
+      setIsFetchingRoles(false);
+    }
   };
 
   return (
