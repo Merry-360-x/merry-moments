@@ -96,10 +96,6 @@ ON user_roles(role);
 CREATE INDEX IF NOT EXISTS idx_profiles_user_id 
 ON profiles(user_id);
 
-CREATE INDEX IF NOT EXISTS idx_profiles_suspended 
-ON profiles(is_suspended) 
-WHERE is_suspended = true;
-
 -- Favorites indexes (if table exists)
 DO $$ 
 BEGIN
