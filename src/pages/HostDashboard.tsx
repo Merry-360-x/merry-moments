@@ -842,6 +842,13 @@ export default function HostDashboard() {
             <>
               <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Title" />
               <Input value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} placeholder="Location" />
+              <Textarea 
+                value={form.description || ""} 
+                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} 
+                placeholder="Description" 
+                rows={3}
+                className="resize-none"
+              />
               <div className="grid grid-cols-2 gap-2">
                 <Input type="number" value={form.price_per_night} onChange={(e) => setForm((f) => ({ ...f, price_per_night: Number(e.target.value) }))} />
                 <Select value={form.currency || "RWF"} onValueChange={(v) => setForm((f) => ({ ...f, currency: v }))}>
@@ -850,22 +857,51 @@ export default function HostDashboard() {
                 </Select>
               </div>
               <div>
-                <Label className="text-xs">Images ({(form.images || []).length})</Label>
+                <Label className="text-xs">Images ({(form.images || []).length}) - First image is the cover</Label>
                 <div className="flex flex-wrap gap-2 mt-1">
                   {(form.images || []).map((img, i) => (
-                    <div key={i} className="relative w-14 h-14 rounded overflow-hidden">
+                    <div key={i} className="relative w-14 h-14 rounded overflow-hidden group">
                       {isVideoUrl(img) ? (
                         <video src={img} className="w-full h-full object-cover" muted />
                       ) : (
                         <img src={img} className="w-full h-full object-cover" />
                       )}
+                      {i === 0 && <span className="absolute bottom-0 left-0 right-0 bg-primary/80 text-white text-[10px] text-center py-0.5">Cover</span>}
                       <button
                         type="button"
                         onClick={() => setForm((f) => ({ ...f, images: (f.images || []).filter((_, j) => j !== i) }))}
-                        className="absolute top-0 right-0 w-4 h-4 bg-black/60 text-white text-xs flex items-center justify-center"
+                        className="absolute top-0 right-0 w-4 h-4 bg-black/60 text-white text-xs flex items-center justify-center hover:bg-red-600"
                       >
                         ×
                       </button>
+                      {i > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newImages = [...(form.images || [])];
+                            [newImages[i - 1], newImages[i]] = [newImages[i], newImages[i - 1]];
+                            setForm((f) => ({ ...f, images: newImages }));
+                          }}
+                          className="absolute top-0 left-0 w-4 h-4 bg-black/60 text-white text-xs flex items-center justify-center hover:bg-blue-600 opacity-0 group-hover:opacity-100"
+                          title="Move left"
+                        >
+                          ←
+                        </button>
+                      )}
+                      {i < (form.images || []).length - 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newImages = [...(form.images || [])];
+                            [newImages[i], newImages[i + 1]] = [newImages[i + 1], newImages[i]];
+                            setForm((f) => ({ ...f, images: newImages }));
+                          }}
+                          className="absolute bottom-0 left-0 w-4 h-4 bg-black/60 text-white text-xs flex items-center justify-center hover:bg-blue-600 opacity-0 group-hover:opacity-100"
+                          title="Move right"
+                        >
+                          →
+                        </button>
+                      )}
                     </div>
                   ))}
                   <button

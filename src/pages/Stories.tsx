@@ -21,6 +21,7 @@ const Stories = () => {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [location, setLocation] = useState("");
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const mediaType = useMemo(() => (mediaUrl ? (/\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i.test(mediaUrl) || /\/video\/upload\//i.test(mediaUrl) ? "video" : "image") : null), [mediaUrl]);
   const [saving, setSaving] = useState(false);
@@ -34,7 +35,7 @@ const Stories = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("stories")
-        .select("id, title, body, media_url, media_type, image_url, user_id, created_at")
+        .select("id, title, body, location, media_url, media_type, image_url, user_id, created_at")
         .order("created_at", { ascending: false })
         .limit(30);
       if (error) throw error;
@@ -42,6 +43,7 @@ const Stories = () => {
         id: string;
         title: string;
         body: string;
+        location: string | null;
         media_url: string | null;
         media_type: string | null;
         image_url: string | null;
@@ -74,6 +76,7 @@ const Stories = () => {
 
   const reset = () => {
     setTitle("");
+    setLocation("");
     setBody("");
     setMediaUrl(null);
   };
@@ -84,7 +87,11 @@ const Stories = () => {
       return;
     }
     if (!title.trim() || !body.trim()) {
-      toast({ variant: "destructive", title: "Missing info", description: "Please add a title and story text." });
+      toast({ variant: "destructive", title: "Missing info", description: "Please add a title and caption." });
+      return;
+    }
+    if (!mediaUrl) {
+      toast({ variant: "destructive", title: "Missing media", description: "Please upload an image or video." });
       return;
     }
 
@@ -93,6 +100,7 @@ const Stories = () => {
       const { error } = await supabase.from("stories").insert({
         user_id: user.id,
         title: title.trim(),
+        location: location.trim() || null,
         body: body.trim(),
         media_url: mediaUrl,
         media_type: mediaType,
@@ -264,6 +272,9 @@ const Stories = () => {
                         <div className="text-xs text-muted-foreground">
                           {author?.full_name ?? "Traveler"} · {new Date(s.created_at).toLocaleDateString()}
                         </div>
+                        {s.location && (
+                          <div className="text-xs text-primary mt-1">📍 {s.location}</div>
+                        )}
                       </div>
                       {author?.avatar_url ? (
                         <img
@@ -320,35 +331,66 @@ const Stories = () => {
       <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Post a story</DialogTitle>
+            <DialogTitle>Create Your Story</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="storyTitle">Title</Label>
-              <Input id="storyTitle" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="My trip to Lake Kivu…" />
+              <Label htmlFor="storyTitle">Title *</Label>
+              <Input 
+                id="storyTitle" 
+                value={title} 
+                onChange={(e) => setTitle(e.target.value)} 
+                placeholder="e.g., Amazing Safari in Akagera" 
+              />
             </div>
             <div>
-              <Label htmlFor="storyBody">Story</Label>
-              <Textarea id="storyBody" value={body} onChange={(e) => setBody(e.target.value)} placeholder="What happened? What did you love?" />
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <CloudinaryUploadDialog
-                title="Upload story media"
-                folder="stories"
-                multiple={false}
-                accept="image/*,video/*"
-                value={mediaUrl ? [mediaUrl] : []}
-                onChange={(urls) => setMediaUrl(urls[0] ?? null)}
-                buttonLabel={mediaUrl ? "Replace" : "Add image/video"}
+              <Label htmlFor="storyLocation">Location</Label>
+              <Input 
+                id="storyLocation" 
+                value={location} 
+                onChange={(e) => setLocation(e.target.value)} 
+                placeholder="e.g., Kigali, Rwanda" 
               />
-              {mediaUrl ? <span className="text-xs text-muted-foreground">{mediaType === "video" ? "Video attached" : "Image attached"}</span> : null}
             </div>
-            <div className="flex justify-end gap-2">
+            <div>
+              <Label htmlFor="storyBody">Caption *</Label>
+              <Textarea 
+                id="storyBody" 
+                value={body} 
+                onChange={(e) => setBody(e.target.value)} 
+                placeholder="Share your experience and what made it special..." 
+                rows={4}
+              />
+            </div>
+            <div>
+              <Label>Media (Image or Video) *</Label>
+              <div className="mt-2">
+                <CloudinaryUploadDialog
+                  title="Upload story media"
+                  folder="merry360/stories"
+                  multiple={false}
+                  accept="image/*,video/*"
+                  value={mediaUrl ? [mediaUrl] : []}
+                  onChange={(urls) => setMediaUrl(urls[0] ?? null)}
+                  buttonLabel={mediaUrl ? "Change media" : "Upload image/video"}
+                />
+                {mediaUrl && (
+                  <div className="mt-3">
+                    {mediaType === "video" ? (
+                      <video src={mediaUrl} className="w-full h-40 object-cover rounded-lg" controls />
+                    ) : (
+                      <img src={mediaUrl} className="w-full h-40 object-cover rounded-lg" alt="Preview" />
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>
                 Cancel
               </Button>
-              <Button onClick={submit} disabled={saving}>
-                {saving ? "Posting..." : "Post"}
+              <Button onClick={submit} disabled={saving || !mediaUrl}>
+                {saving ? "Posting..." : "Post Story"}
               </Button>
             </div>
           </div>
