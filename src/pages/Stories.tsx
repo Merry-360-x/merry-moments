@@ -1,4 +1,4 @@
-import { Plus } from "lucide-react";
+import { Plus, MapPin } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
@@ -265,28 +265,35 @@ const Stories = () => {
                     <div className="w-full h-56 bg-gradient-to-br from-muted via-muted/70 to-muted/40" />
                   )}
                   <div className="p-5">
-                    <div className="flex items-center justify-between gap-3 mb-2">
+                    {/* Caption first */}
+                    <p className="text-sm text-foreground mb-3 line-clamp-4">{s.body}</p>
+                    
+                    {/* Location with icon */}
+                    {s.location && (
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground mb-3">
+                        <MapPin className="w-3 h-3" />
+                        <span>{s.location}</span>
+                      </div>
+                    )}
+                    
+                    {/* Author info */}
+                    <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="font-semibold text-foreground line-clamp-1">{s.title}</div>
                         <div className="text-xs text-muted-foreground">
                           {author?.full_name ?? "Traveler"} · {new Date(s.created_at).toLocaleDateString()}
                         </div>
-                        {s.location && (
-                          <div className="text-xs text-primary mt-1">📍 {s.location}</div>
-                        )}
                       </div>
                       {author?.avatar_url ? (
                         <img
                           src={author.avatar_url}
                           alt={author.full_name ?? "Traveler"}
-                          className="w-9 h-9 rounded-full object-cover"
+                          className="w-8 h-8 rounded-full object-cover"
                           loading="lazy"
                         />
                       ) : (
-                        <div className="w-9 h-9 rounded-full bg-muted" />
+                        <div className="w-8 h-8 rounded-full bg-muted" />
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground line-clamp-4">{s.body}</p>
                   </div>
                 </div>
               );
