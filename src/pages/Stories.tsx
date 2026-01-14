@@ -75,7 +75,6 @@ const Stories = () => {
   });
 
   const reset = () => {
-    setTitle("");
     setLocation("");
     setBody("");
     setMediaUrl(null);
@@ -86,8 +85,8 @@ const Stories = () => {
       toast({ variant: "destructive", title: "Sign in required", description: "Please sign in to post a story." });
       return;
     }
-    if (!title.trim() || !body.trim()) {
-      toast({ variant: "destructive", title: "Missing info", description: "Please add a title and caption." });
+    if (!body.trim()) {
+      toast({ variant: "destructive", title: "Missing info", description: "Please add a caption." });
       return;
     }
     if (!mediaUrl) {
@@ -99,7 +98,7 @@ const Stories = () => {
     try {
       const { error } = await supabase.from("stories").insert({
         user_id: user.id,
-        title: title.trim(),
+        title: body.trim().substring(0, 100), // Use first part of caption as title
         location: location.trim() || null,
         body: body.trim(),
         media_url: mediaUrl,
@@ -335,15 +334,6 @@ const Stories = () => {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="storyTitle">Title *</Label>
-              <Input 
-                id="storyTitle" 
-                value={title} 
-                onChange={(e) => setTitle(e.target.value)} 
-                placeholder="e.g., Amazing Safari in Akagera" 
-              />
-            </div>
-            <div>
               <Label htmlFor="storyLocation">Location</Label>
               <Input 
                 id="storyLocation" 
@@ -389,7 +379,7 @@ const Stories = () => {
               <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>
                 Cancel
               </Button>
-              <Button onClick={submit} disabled={saving || !mediaUrl}>
+              <Button onClick={submit} disabled={saving || !mediaUrl || !body.trim()}>
                 {saving ? "Posting..." : "Post Story"}
               </Button>
             </div>
