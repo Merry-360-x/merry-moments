@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { recoverSessionFromUrl, verifyAndRefreshSession } from "@/lib/auth-recovery";
@@ -21,6 +22,7 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -236,19 +238,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = async () => {
     // Invalidate any in-flight auth initialization / role fetch.
     authEpochRef.current += 1;
+
+    // Optimistically clear local state so the UI updates immediately even if
+    // the network call to Supabase hangs or is slow.
+    setUser(null);
+    setSession(null);
+    setRoles([]);
+    setIsLoading(false);
+    setRolesLoading(false);
+    setIsFetchingRoles(false);
+    setInitialized(true);
+
+    // Clear cached server state (React Query) so user-specific data disappears instantly.
+    queryClient.clear();
+
     try {
-      await supabase.auth.signOut();
+      // Never let sign-out block UI; bail out quickly if it stalls.
+      await Promise.race([
+        supabase.auth.signOut(),
+        new Promise<void>((resolve) => setTimeout(resolve, 2000)),
+      ]);
     } catch (error) {
       console.error('[AuthContext] Sign out error:', error);
-    } finally {
-      // Always clear state, even if API call fails
-      setUser(null);
-      setSession(null);
-      setRoles([]);
-      setIsLoading(false); // Critical: reset loading state after sign out
-      setRolesLoading(false);
-      setIsFetchingRoles(false);
-      setInitialized(true);
     }
   };
 
