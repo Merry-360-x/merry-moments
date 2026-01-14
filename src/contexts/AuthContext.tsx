@@ -176,6 +176,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(null);
       setSession(null);
       setRoles([]);
+      setIsLoading(false); // Critical: reset loading state after sign out
       setRolesLoading(false);
       setIsFetchingRoles(false);
     }
