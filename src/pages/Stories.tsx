@@ -114,7 +114,7 @@ const Stories = () => {
       if (error) throw error;
       return data || [];
     },
-    enabled: !!activeStoryId && showComments,
+    enabled: !!activeStoryId,
   });
 
   // Get comments for floating comment section
@@ -246,6 +246,10 @@ const Stories = () => {
       
       setCommentText("");
       refetchComments();
+      // Refresh floating comments if viewing the same story
+      if (floatingCommentsStoryId === activeStoryId) {
+        refetchFloatingComments();
+      }
       // Refresh engagement counts for all stories
       await qc.invalidateQueries({ queryKey: ["story-engagement-counts"] });
       toast({ title: "Comment added!" });
