@@ -27,6 +27,8 @@ const Stories = () => {
   const [saving, setSaving] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [activeStoryId, setActiveStoryId] = useState<string | null>(null);
+  const [commentText, setCommentText] = useState("");
+  const [showComments, setShowComments] = useState(false);
 
   const canPost = Boolean(user?.id) && !authLoading;
 
@@ -78,6 +80,65 @@ const Stories = () => {
     setLocation("");
     setBody("");
     setMediaUrl(null);
+  };
+
+  const handleLike = async () => {
+    if (!user || !activeStoryId) {
+      toast({ variant: "destructive", title: "Sign in required", description: "Please sign in to like stories." });
+      return;
+    }
+
+    try {
+      const userLiked = likesData.some(like => like.user_id === user.id);
+      
+      if (userLiked) {
+        // Unlike
+        const { error } = await supabase
+          .from("story_likes")
+          .delete()
+          .eq("story_id", activeStoryId)
+          .eq("user_id", user.id);
+        if (error) throw error;
+      } else {
+        // Like
+        const { error } = await supabase
+          .from("story_likes")
+          .insert({ story_id: activeStoryId, user_id: user.id });
+        if (error) throw error;
+      }
+      
+      refetchLikes();
+    } catch (e) {
+      logError("story.like", e);
+      toast({ variant: "destructive", title: "Error", description: "Could not update like." });
+    }
+  };
+
+  const handleComment = async () => {
+    if (!user || !activeStoryId || !commentText.trim()) {
+      if (!user) {
+        toast({ variant: "destructive", title: "Sign in required", description: "Please sign in to comment." });
+      }
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("story_comments")
+        .insert({ 
+          story_id: activeStoryId, 
+          user_id: user.id,
+          comment_text: commentText.trim()
+        });
+      if (error) throw error;
+      
+      setCommentText("");
+      refetchComments();
+      toast({ title: "Comment added!" });
+    } catch (e) {
+      logError("story.comment", e);
+      toast({ variant: "destructive", title: "Error", description: "Could not add comment." });
+    }
   };
 
   const submit = async () => {
@@ -394,16 +455,70 @@ const Stories = () => {
                     {/* Interaction Section */}
                     <div className="absolute bottom-4 left-4 right-4 flex items-center justify-center">
                       <div className="flex items-center gap-6">
-                        <button className="flex flex-col items-center gap-1 text-white/90 hover:text-white transition-colors">
-                          <Heart className="w-6 h-6" />
-                          <span className="text-xs">24</span>
+                        <button 
+                          onClick={handleLike}
+                          className={`flex flex-col items-center gap-1 transition-colors ${
+                            likesData.some(like => like.user_id === user?.id) 
+                              ? 'text-red-500' 
+                              : 'text-white/90 hover:text-white'
+                          }`}
+                        >
+                          <Heart className={`w-6 h-6 ${
+                            likesData.some(like => like.user_id === user?.id) ? 'fill-current' : ''
+                          }`} />
+                          <span className="text-xs">{likesData.length}</span>
                         </button>
-                        <button className="flex flex-col items-center gap-1 text-white/90 hover:text-white transition-colors">
+                        <button 
+                          onClick={() => setShowComments(!showComments)}
+                          className="flex flex-col items-center gap-1 text-white/90 hover:text-white transition-colors"
+                        >
                           <MessageCircle className="w-6 h-6" />
-                          <span className="text-xs">12</span>
+                          <span className="text-xs">{commentsData.length}</span>
                         </button>
                       </div>
                     </div>
+                    
+                    {/* Comments Section */}
+                    {showComments && (
+                      <div className="absolute bottom-16 left-4 right-4 max-h-48 bg-black/60 backdrop-blur-sm rounded-lg">
+                        <div className="p-3 max-h-32 overflow-y-auto space-y-2">
+                          {commentsData.map((comment: any) => (
+                            <div key={comment.id} className="flex gap-2 text-white text-xs">
+                              <span className="font-medium text-white/90">
+                                {comment.profiles?.full_name || 'User'}:
+                              </span>
+                              <span>{comment.comment_text}</span>
+                            </div>
+                          ))}
+                          {commentsData.length === 0 && (
+                            <div className="text-white/60 text-xs text-center py-2">
+                              No comments yet. Be the first to comment!
+                            </div>
+                          )}
+                        </div>
+                        <div className="border-t border-white/20 p-2 flex gap-2">
+                          <input
+                            type="text"
+                            value={commentText}
+                            onChange={(e) => setCommentText(e.target.value)}
+                            placeholder="Add a comment..."
+                            className="flex-1 bg-transparent text-white text-xs placeholder-white/60 border-0 outline-0"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && commentText.trim()) {
+                                handleComment();
+                              }
+                            }}
+                          />
+                          <button
+                            onClick={handleComment}
+                            disabled={!commentText.trim()}
+                            className="text-blue-400 text-xs font-medium disabled:opacity-50"
+                          >
+                            Post
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })()
