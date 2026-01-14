@@ -884,7 +884,9 @@ export default function HostDashboard() {
                   {(form.images || []).map((img, i) => (
                     <div 
                       key={i} 
-                      className={`relative w-14 h-14 rounded overflow-hidden group cursor-move ${draggedIndex === i ? 'opacity-50' : ''}`}
+                      className={`relative rounded overflow-hidden group cursor-move ${
+                        i === 0 ? 'w-24 h-24' : 'w-14 h-14'
+                      } ${draggedIndex === i ? 'opacity-50' : ''}`}
                       draggable
                       onDragStart={() => handleDragStart(i)}
                       onDragOver={(e) => handleDragOver(e, i)}
@@ -895,14 +897,14 @@ export default function HostDashboard() {
                       ) : (
                         <img src={img} className="w-full h-full object-cover pointer-events-none" draggable={false} />
                       )}
-                      {i === 0 && <span className="absolute bottom-0 left-0 right-0 bg-primary/90 text-white text-[10px] text-center py-0.5 font-semibold">Cover</span>}
+                      {i === 0 && <span className="absolute bottom-0 left-0 right-0 bg-primary/90 text-white text-[11px] text-center py-1 font-semibold">Cover</span>}
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           setForm((f) => ({ ...f, images: (f.images || []).filter((_, j) => j !== i) }));
                         }}
-                        className="absolute top-0 right-0 w-5 h-5 bg-red-600 text-white text-xs flex items-center justify-center hover:bg-red-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className={`absolute top-0 right-0 ${i === 0 ? 'w-6 h-6' : 'w-5 h-5'} bg-red-600 text-white text-xs flex items-center justify-center hover:bg-red-700 opacity-0 group-hover:opacity-100 transition-opacity`}
                         title="Remove"
                       >
                         ×
