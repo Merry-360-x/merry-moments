@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { recoverSessionFromUrl, verifyAndRefreshSession } from "@/lib/auth-recovery";
@@ -29,7 +29,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isFetchingRoles, setIsFetchingRoles] = useState(false);
   const [initialized, setInitialized] = useState(false);
 
+  // Bump this to invalidate any in-flight async auth/roles work.
+  // This prevents stale initializeAuth/fetchRoles from repopulating state after sign-out.
+  const authEpochRef = useRef(0);
+
   const fetchRoles = async (userId: string) => {
+    const epoch = authEpochRef.current;
     // Prevent duplicate simultaneous fetches
     if (isFetchingRoles) return;
     
@@ -63,6 +68,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const uniq = Array.from(new Set(normalized)).filter((r) =>
         ["guest", "host", "staff", "admin"].includes(r)
       );
+
+      // If auth epoch changed (e.g., user signed out) while fetching, ignore results.
+      if (authEpochRef.current !== epoch) {
+        setRolesLoading(false);
+        setIsFetchingRoles(false);
+        return;
+      }
       setRoles(uniq);
       setRolesLoading(false);
       setIsFetchingRoles(false);
@@ -91,6 +103,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let mounted = true;
     let subscription: { unsubscribe: () => void } | null = null;
+    const epoch = ++authEpochRef.current;
     
     const initializeAuth = async () => {
       try {
@@ -102,6 +115,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (!mounted) return;
+        if (authEpochRef.current !== epoch) return;
         
         if (sessionError) {
           console.warn("[AuthContext] Session error:", sessionError);
@@ -118,6 +132,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (session) {
           await verifyAndRefreshSession();
         }
+
+        if (!mounted) return;
+        if (authEpochRef.current !== epoch) return;
         
         // 3. Set initial state from existing session
         setSession(session);
@@ -138,6 +155,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
           async (event, newSession) => {
             if (!mounted) return;
+            // Ignore auth events from a previous epoch.
+            if (authEpochRef.current !== epoch) return;
             
             console.log('[AuthContext] Auth event:', event);
             
@@ -163,6 +182,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
       } catch (err) {
         if (!mounted) return;
+        if (authEpochRef.current !== epoch) return;
         
         // Handle initialization errors
         if (err instanceof Error && (
@@ -214,6 +234,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
+    // Invalidate any in-flight auth initialization / role fetch.
+    authEpochRef.current += 1;
     try {
       await supabase.auth.signOut();
     } catch (error) {
@@ -226,6 +248,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsLoading(false); // Critical: reset loading state after sign out
       setRolesLoading(false);
       setIsFetchingRoles(false);
+      setInitialized(true);
     }
   };
 
