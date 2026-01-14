@@ -37,7 +37,6 @@ import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { useDataPersistence } from "@/hooks/useDataPersistence";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { RealtimeProvider } from "@/components/RealtimeProvider";
-import { DataSyncStatus } from "@/components/DataSyncStatus";
 import { DatabaseConnectivityTest } from "@/components/DatabaseConnectivityTest";
 
 const queryClient = new QueryClient({
@@ -123,7 +122,6 @@ const App = () => (
             <ScrollToTop />
             <GlobalLoadingIndicator />
             <SupportCenterLauncher />
-            <DataSyncStatus />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
