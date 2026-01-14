@@ -20,7 +20,7 @@ const fetchLatestProperties = async () => {
     const { data, error } = await supabase
       .from("properties")
       .select(
-        "id, name, title, location, price_per_night, currency, property_type, rating, review_count, images, created_at, bedrooms, bathrooms, beds, max_guests, check_in_time, check_out_time, smoking_allowed, events_allowed, pets_allowed"
+        "id, title, location, price_per_night, currency, property_type, rating, review_count, images, created_at, bedrooms, bathrooms, beds, max_guests, check_in_time, check_out_time, smoking_allowed, events_allowed, pets_allowed"
       )
       .eq("is_published", true)
       .order("created_at", { ascending: false })
@@ -41,7 +41,7 @@ const fetchFeaturedProperties = async () => {
   const { data, error } = await supabase
     .from("properties")
     .select(
-      "id, name, title, location, price_per_night, currency, property_type, rating, review_count, images, created_at, bedrooms, bathrooms, beds, max_guests, check_in_time, check_out_time, smoking_allowed, events_allowed, pets_allowed"
+      "id, title, location, price_per_night, currency, property_type, rating, review_count, images, created_at, bedrooms, bathrooms, beds, max_guests, check_in_time, check_out_time, smoking_allowed, events_allowed, pets_allowed"
     )
     .eq("is_published", true)
     .eq("is_featured", true)
@@ -55,7 +55,7 @@ const fetchTopRatedProperties = async () => {
   const { data, error } = await supabase
     .from("properties")
     .select(
-      "id, name, title, location, price_per_night, currency, property_type, rating, review_count, images, created_at, bedrooms, bathrooms, beds, max_guests, check_in_time, check_out_time, smoking_allowed, events_allowed, pets_allowed"
+      "id, title, location, price_per_night, currency, property_type, rating, review_count, images, created_at, bedrooms, bathrooms, beds, max_guests, check_in_time, check_out_time, smoking_allowed, events_allowed, pets_allowed"
     )
     .eq("is_published", true)
     .gte("rating", 4)
@@ -70,7 +70,7 @@ const fetchFeaturedTours = async () => {
   const { data, error } = await supabase
     .from("tours")
     .select(
-      "id, title, name, location, destination, price_per_person, price, currency, images, main_image, rating, review_count, category, duration_days"
+      "id, title, location, price_per_person, currency, images, rating, review_count, category, duration_days"
     )
     .eq("is_published", true)
     .eq("is_featured", true)
@@ -458,10 +458,10 @@ const Index = () => {
               className="grid grid-flow-col auto-cols-[70%] sm:auto-cols-[38%] lg:auto-cols-[24%] gap-6 overflow-x-auto pb-2 snap-x snap-mandatory"
             >
               {featuredTours.map((tour) => {
-                const title = (tour.title ?? tour.name ?? "Tour") as string;
-                const location = (tour.location ?? tour.destination ?? null) as string | null;
-                const price = Number((tour.price_per_person ?? tour.price ?? 0) as number);
-                const images = (tour.images ?? (tour.main_image ? [tour.main_image] : null)) as string[] | null;
+                const title = (tour.title ?? "Tour") as string;
+                const location = (tour.location ?? null) as string | null;
+                const price = Number((tour.price_per_person ?? 0) as number);
+                const images = (tour.images ?? null) as string[] | null;
                 return (
                   <div key={tour.id} className="snap-start">
                     <TourPromoCard

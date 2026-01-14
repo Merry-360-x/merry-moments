@@ -65,23 +65,11 @@ const Navbar = () => {
   const [adIndex, setAdIndex] = useState(0);
 
   useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      const { data } = await supabase
-        .from("ad_banners")
-        .select("id, message, cta_label, cta_url, bg_color, text_color")
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true });
-
-      if (!mounted) return;
-      setAdBanners((data ?? []) as any);
-      setAdIndex(0);
-    };
-
-    load();
-    return () => {
-      mounted = false;
-    };
+    // TODO: Re-enable when ad_banners table is created
+    // Ad banners feature disabled - table doesn't exist yet
+    setAdBanners([]);
+    setAdIndex(0);
+    return () => {};
   }, []);
 
   useEffect(() => {
