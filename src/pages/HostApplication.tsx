@@ -322,8 +322,8 @@ export default function HostApplication() {
           <Progress value={progress} className="h-2" />
           <div className="flex justify-between mt-2 text-xs text-muted-foreground">
             <span>Service Type</span>
+            <span>Listing Details</span>
             <span>Personal Info</span>
-            <span>Details</span>
             <span>Review</span>
           </div>
         </div>
@@ -474,20 +474,220 @@ export default function HostApplication() {
               </div>
             )}
 
-            {/* Step 2: Personal Information */}
+            {/* Step 2: Listing Details */}
             {currentStep === 2 && (
               <div className="space-y-6">
                 <div className="text-center mb-6">
-                  <h2 className="text-2xl font-bold mb-2">Personal Information</h2>
-                  <p className="text-muted-foreground">Tell us about yourself</p>
+                  <h2 className="text-2xl font-bold mb-2">List Your {formData.service_types[0] === 'accommodation' ? 'Property' : formData.service_types[0] === 'transport' ? 'Vehicle' : 'Tour'}</h2>
+                  <p className="text-muted-foreground">Provide details about what you're offering</p>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-2">
+                    <Label htmlFor="title">Property Title *</Label>
+                    <Input
+                      id="title"
+                      placeholder="e.g., Cozy Apartment in City Center"
+                      value={formData.title}
+                      onChange={(e) => updateField("title", e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="location">Location *</Label>
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="location"
+                        className="pl-10"
+                        placeholder="City, District"
+                        value={formData.location}
+                        onChange={(e) => updateField("location", e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="propertyType">Property Type *</Label>
+                    <Select value={formData.property_type} onValueChange={(val) => updateField("property_type", val)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {propertyTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="pricePerNight">Price per Night *</Label>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <DollarSign className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          id="pricePerNight"
+                          type="number"
+                          className="pl-10"
+                          value={formData.price_per_night}
+                          onChange={(e) => updateField("price_per_night", parseInt(e.target.value) || 0)}
+                        />
+                      </div>
+                      <Select value={formData.currency} onValueChange={(val) => updateField("currency", val)}>
+                        <SelectTrigger className="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {currencies.map((c) => <SelectItem key={c.value} value={c.value}>{c.symbol}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="maxGuests">Max Guests *</Label>
+                    <div className="relative">
+                      <Users className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="maxGuests"
+                        type="number"
+                        className="pl-10"
+                        min="1"
+                        value={formData.max_guests}
+                        onChange={(e) => updateField("max_guests", parseInt(e.target.value) || 1)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="bedrooms">Bedrooms *</Label>
+                    <div className="relative">
+                      <Bed className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="bedrooms"
+                        type="number"
+                        className="pl-10"
+                        min="0"
+                        value={formData.bedrooms}
+                        onChange={(e) => updateField("bedrooms", parseInt(e.target.value) || 0)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="bathrooms">Bathrooms *</Label>
+                    <div className="relative">
+                      <Bath className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="bathrooms"
+                        type="number"
+                        className="pl-10"
+                        min="0"
+                        value={formData.bathrooms}
+                        onChange={(e) => updateField("bathrooms", parseInt(e.target.value) || 0)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-2 space-y-2">
+                    <Label htmlFor="description">Description *</Label>
+                    <Textarea
+                      id="description"
+                      placeholder="Describe your property..."
+                      rows={3}
+                      value={formData.description}
+                      onChange={(e) => updateField("description", e.target.value)}
+                    />
+                  </div>
+
+                  <div className="md:col-span-2 space-y-2">
+                    <Label>Property Photos * (At least 1)</Label>
+                    <div className="flex flex-wrap gap-3">
+                      {formData.images.map((img, i) => (
+                        <div key={i} className="relative w-24 h-24 rounded-lg overflow-hidden border">
+                          <img src={img} alt="" className="w-full h-full object-cover" />
+                          <button
+                            onClick={() => updateField("images", formData.images.filter((_, j) => j !== i))}
+                            className="absolute top-1 right-1 w-6 h-6 bg-black/60 rounded-full text-white flex items-center justify-center hover:bg-black/80"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                      <Button
+                        variant="outline"
+                        className="w-24 h-24"
+                        onClick={() => setImageUploadOpen(true)}
+                      >
+                        <div className="flex flex-col items-center">
+                          <Upload className="w-6 h-6 mb-1" />
+                          <span className="text-xs">Add</span>
+                        </div>
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-2 space-y-2">
+                    <Label>Amenities (Select all that apply)</Label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {AMENITIES.slice(0, 8).map((amenity) => {
+                        const Icon = amenity.icon;
+                        const selected = formData.amenities.includes(amenity.value);
+                        return (
+                          <button
+                            key={amenity.value}
+                            type="button"
+                            onClick={() => {
+                              const newAmenities = selected
+                                ? formData.amenities.filter((a) => a !== amenity.value)
+                                : [...formData.amenities, amenity.value];
+                              updateField("amenities", newAmenities);
+                            }}
+                            className={`p-3 rounded-lg border-2 text-left transition-all ${
+                              selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Icon className="w-4 h-4" />
+                              <span className="text-sm">{amenity.label}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-between gap-3 mt-8 pt-6 border-t">
+                  <Button
+                    variant="outline"
+                    onClick={() => setCurrentStep(2)}
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    disabled={!formData.title || !formData.location || !formData.description || formData.images.length === 0}
+                    onClick={() => setCurrentStep(3)}
+                  >
+                    Continue <ArrowRight className="ml-2 w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Personal Information */}
+            {currentStep === 3 && (
+              <div className="space-y-6">
+                <div className="text-center mb-6">
+                  <h2 className="text-2xl font-bold mb-2">Personal Information</h2>
+                  <p className="text-muted-foreground">Tell us about yourself for verification</p>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="md:col-span-2 space-y-2">
                     <Label htmlFor="fullName">Full Name *</Label>
                     <Input
                       id="fullName"
-                      placeholder="Enter your full name"
+                      placeholder="Your full name"
                       value={formData.full_name}
                       onChange={(e) => updateField("full_name", e.target.value)}
                     />
@@ -514,7 +714,7 @@ export default function HostApplication() {
                     />
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="md:col-span-2 space-y-2">
                     <Label>ID Photo *</Label>
                     {formData.national_id_photo_url ? (
                       <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
@@ -554,50 +754,22 @@ export default function HostApplication() {
                 <div className="flex justify-between gap-3 mt-8 pt-6 border-t">
                   <Button
                     variant="outline"
-                    onClick={() => setCurrentStep(1)}
+                    onClick={() => setCurrentStep(2)}
                   >
                     Back
                   </Button>
                   <Button
                     disabled={!formData.full_name || !formData.phone || !formData.national_id_number || !formData.national_id_photo_url}
-                    onClick={() => setCurrentStep(3)}
+                    onClick={() => setCurrentStep(4)}
                   >
-                    Continue <ArrowRight className="ml-2 w-4 h-4" />
+                    Review Application <ArrowRight className="ml-2 w-4 h-4" />
                   </Button>
                 </div>
               </div>
             )}
 
-            {/* Step 3: Property Details */}
-            {currentStep === 3 && (
-              <div className="space-y-6">
-                <div className="text-center mb-6">
-                  <h2 className="text-2xl font-bold mb-2">Property Details</h2>
-                  <p className="text-muted-foreground">Tell us about your property</p>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="md:col-span-2 space-y-2">
-                    <Label htmlFor="title">Property Title *</Label>
-                    <Input
-                      id="title"
-                      placeholder="e.g., Cozy Apartment in City Center"
-                      value={formData.title}
-                      onChange={(e) => updateField("title", e.target.value)}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="location">Location *</Label>
-                    <div className="relative">
-                      <MapPin className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        id="location"
-                        className="pl-10"
-                        placeholder="City, District"
-                        value={formData.location}
-                        onChange={(e) => updateField("location", e.target.value)}
-                      />
+            {/* Step 4: Review & Submit */}
+            {currentStep === 4 && (
                     </div>
                   </div>
 
@@ -864,13 +1036,26 @@ export default function HostApplication() {
                   </Card>
                 </div>
 
-                <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
                   <div className="flex gap-3">
                     <Shield className="w-5 h-5 text-blue-600 shrink-0" />
                     <div className="text-sm">
                       <p className="font-medium text-blue-900 dark:text-blue-100 mb-1">Ready to Submit</p>
                       <p className="text-blue-800 dark:text-blue-200">
                         Your application will be reviewed within 1-3 business days. You'll be notified via email once approved.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                  <div className="flex gap-3">
+                    <Shield className="w-5 h-5 text-amber-600 shrink-0" />
+                    <div className="text-sm">
+                      <p className="font-medium text-amber-900 dark:text-amber-100 mb-1">⚠️ Important: Verification Required</p>
+                      <p className="text-amber-800 dark:text-amber-200">
+                        Your listings will <strong>NOT be published</strong> or visible to guests until your application is verified and approved. 
+                        After approval, you can manage and publish your listings from the Host Dashboard.
                       </p>
                     </div>
                   </div>
