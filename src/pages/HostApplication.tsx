@@ -86,7 +86,6 @@ export default function HostApplication() {
   const [imageUploadOpen, setImageUploadOpen] = useState(false);
   const [idPhotoUploadOpen, setIdPhotoUploadOpen] = useState(false);
   const [selfieUploadOpen, setSelfieUploadOpen] = useState(false);
-  const [selfieUploadOpen, setSelfieUploadOpen] = useState(false);
 
   const totalSteps = 4; // Added service type step
   const progress = (currentStep / totalSteps) * 100;
