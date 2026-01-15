@@ -25,41 +25,25 @@ const vehicleTypes = [
   "Motorcycle",
 ];
 
-const commonRoutes = [
-  { from: "Kigali", to: "Musanze" },
-  { from: "Kigali", to: "Rubavu (Gisenyi)" },
-  { from: "Kigali", to: "Rusizi (Cyangugu)" },
-  { from: "Kigali", to: "Huye (Butare)" },
-  { from: "Kigali", to: "Nyanza" },
-  { from: "Kigali", to: "Karongi (Kibuye)" },
-  { from: "Kigali", to: "Akagera National Park" },
-  { from: "Musanze", to: "Volcanoes National Park" },
-];
-
 export default function CreateTransport() {
   const { user, isHost } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
-    vehicle_name: "",
+    title: "",
     vehicle_type: "",
-    driver_name: "",
-    driver_phone: "",
-    route_from: "",
-    route_to: "",
-    address: "",
+    provider_name: "",
     description: "",
-    capacity: 4,
-    price_per_trip: 0,
-    price_per_hour: 0,
+    seats: 4,
+    price_per_day: 0,
     currency: "RWF",
+    driver_included: true,
   });
 
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [customRoute, setCustomRoute] = useState(false);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -79,15 +63,6 @@ export default function CreateTransport() {
     setImagePreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const selectRoute = (route: { from: string; to: string }) => {
-    setFormData({
-      ...formData,
-      route_from: route.from,
-      route_to: route.to,
-    });
-    setCustomRoute(false);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -100,7 +75,7 @@ export default function CreateTransport() {
       return;
     }
 
-    if (!formData.vehicle_name || !formData.driver_name || !formData.route_from || !formData.route_to) {
+    if (!formData.title || !formData.vehicle_type) {
       toast({
         title: "Missing Information",
         description: "Please fill in all required fields.",
@@ -125,22 +100,18 @@ export default function CreateTransport() {
 
       // Create transport service
       const { data, error } = await supabase
-        .from("transport")
+        .from("transport_vehicles")
         .insert({
-          vehicle_name: formData.vehicle_name,
+          title: formData.title,
           vehicle_type: formData.vehicle_type,
-          driver_name: formData.driver_name,
-          driver_phone: formData.driver_phone,
-          route_from: formData.route_from,
-          route_to: formData.route_to,
-          address: formData.address,
-          description: formData.description,
-          capacity: formData.capacity,
-          price_per_trip: formData.price_per_trip,
-          price_per_hour: formData.price_per_hour,
+          provider_name: formData.provider_name || null,
+          seats: formData.seats,
+          price_per_day: formData.price_per_day,
           currency: formData.currency,
-          images: uploadedImageUrls,
-          host_id: user.id,
+          driver_included: formData.driver_included,
+          media: uploadedImageUrls,
+          image_url: uploadedImageUrls[0] || null,
+          created_by: user.id,
           is_published: false,
         })
         .select()
@@ -196,12 +167,12 @@ export default function CreateTransport() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label htmlFor="vehicleName">Vehicle Name *</Label>
+                <Label htmlFor="title">Vehicle Title *</Label>
                 <Input
-                  id="vehicleName"
-                  value={formData.vehicle_name}
-                  onChange={(e) => setFormData({ ...formData, vehicle_name: e.target.value })}
-                  placeholder="Toyota Land Cruiser"
+                  id="title"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  placeholder="Toyota Land Cruiser - Airport Transfer"
                   required
                 />
               </div>
@@ -226,14 +197,14 @@ export default function CreateTransport() {
               </div>
 
               <div>
-                <Label htmlFor="capacity">Passenger Capacity</Label>
+                <Label htmlFor="seats">Number of Seats</Label>
                 <Input
-                  id="capacity"
+                  id="seats"
                   type="number"
                   min="1"
-                  value={formData.capacity}
+                  value={formData.seats}
                   onChange={(e) =>
-                    setFormData({ ...formData, capacity: parseInt(e.target.value) || 4 })
+                    setFormData({ ...formData, seats: parseInt(e.target.value) || 4 })
                   }
                 />
               </div>
@@ -251,113 +222,34 @@ export default function CreateTransport() {
             </CardContent>
           </Card>
 
-          {/* Driver Information */}
+          {/* Service Details */}
           <Card>
             <CardHeader>
-              <CardTitle>Driver Information</CardTitle>
+              <CardTitle>Service Details</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label htmlFor="driverName">Driver Name *</Label>
+                <Label htmlFor="providerName">Provider/Company Name</Label>
                 <Input
-                  id="driverName"
-                  value={formData.driver_name}
-                  onChange={(e) => setFormData({ ...formData, driver_name: e.target.value })}
-                  placeholder="John Doe"
-                  required
+                  id="providerName"
+                  value={formData.provider_name}
+                  onChange={(e) => setFormData({ ...formData, provider_name: e.target.value })}
+                  placeholder="Optional - Your company name"
                 />
               </div>
 
-              <div>
-                <Label htmlFor="driverPhone">Driver Phone</Label>
-                <Input
-                  id="driverPhone"
-                  type="tel"
-                  value={formData.driver_phone}
-                  onChange={(e) => setFormData({ ...formData, driver_phone: e.target.value })}
-                  placeholder="+250 XXX XXX XXX"
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="driverIncluded"
+                  checked={formData.driver_included}
+                  onChange={(e) => setFormData({ ...formData, driver_included: e.target.checked })}
+                  className="h-4 w-4"
                 />
+                <Label htmlFor="driverIncluded" className="cursor-pointer">
+                  Driver included (uncheck for self-drive)
+                </Label>
               </div>
-
-              <div>
-                <Label htmlFor="address">Pickup Address</Label>
-                <Input
-                  id="address"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  placeholder="Detailed pickup location address"
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Route Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Route Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Select a Popular Route</Label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {commonRoutes.map((route, index) => (
-                    <button
-                      key={index}
-                      type="button"
-                      onClick={() => selectRoute(route)}
-                      className="px-3 py-2 text-sm border border-border rounded-lg hover:bg-muted text-left"
-                    >
-                      {route.from} → {route.to}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <div className="h-px flex-1 bg-border" />
-                <button
-                  type="button"
-                  onClick={() => setCustomRoute(!customRoute)}
-                  className="text-sm text-muted-foreground hover:text-foreground"
-                >
-                  {customRoute ? "Use popular routes" : "Or enter custom route"}
-                </button>
-                <div className="h-px flex-1 bg-border" />
-              </div>
-
-              {customRoute && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="routeFrom">From *</Label>
-                    <Input
-                      id="routeFrom"
-                      value={formData.route_from}
-                      onChange={(e) => setFormData({ ...formData, route_from: e.target.value })}
-                      placeholder="Start location"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="routeTo">To *</Label>
-                    <Input
-                      id="routeTo"
-                      value={formData.route_to}
-                      onChange={(e) => setFormData({ ...formData, route_to: e.target.value })}
-                      placeholder="Destination"
-                      required
-                    />
-                  </div>
-                </div>
-              )}
-
-              {!customRoute && formData.route_from && formData.route_to && (
-                <div className="p-3 bg-muted rounded-lg">
-                  <p className="text-sm font-medium">
-                    Selected Route: {formData.route_from} → {formData.route_to}
-                  </p>
-                </div>
-              )}
             </CardContent>
           </Card>
 
@@ -369,47 +261,35 @@ export default function CreateTransport() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="pricePerTrip">Price per Trip</Label>
+                  <Label htmlFor="pricePerDay">Price per Day *</Label>
                   <Input
-                    id="pricePerTrip"
+                    id="pricePerDay"
                     type="number"
                     min="0"
-                    value={formData.price_per_trip}
+                    value={formData.price_per_day}
                     onChange={(e) =>
-                      setFormData({ ...formData, price_per_trip: parseFloat(e.target.value) || 0 })
+                      setFormData({ ...formData, price_per_day: parseFloat(e.target.value) || 0 })
                     }
+                    required
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="pricePerHour">Price per Hour (Optional)</Label>
-                  <Input
-                    id="pricePerHour"
-                    type="number"
-                    min="0"
-                    value={formData.price_per_hour}
-                    onChange={(e) =>
-                      setFormData({ ...formData, price_per_hour: parseFloat(e.target.value) || 0 })
-                    }
-                  />
+                  <Label htmlFor="currency">Currency</Label>
+                  <Select
+                    value={formData.currency}
+                    onValueChange={(value) => setFormData({ ...formData, currency: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="RWF">RWF</SelectItem>
+                      <SelectItem value="USD">USD</SelectItem>
+                      <SelectItem value="EUR">EUR</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              </div>
-
-              <div>
-                <Label htmlFor="currency">Currency</Label>
-                <Select
-                  value={formData.currency}
-                  onValueChange={(value) => setFormData({ ...formData, currency: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="RWF">RWF</SelectItem>
-                    <SelectItem value="USD">USD</SelectItem>
-                    <SelectItem value="EUR">EUR</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </CardContent>
           </Card>

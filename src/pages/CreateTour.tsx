@@ -121,16 +121,14 @@ export default function CreateTour() {
           title: formData.title,
           description: formData.description,
           location: formData.location,
-          address: formData.address,
           category: formData.category,
           difficulty: formData.difficulty,
           duration_days: formData.duration_days,
-          max_participants: formData.max_participants,
+          max_group_size: formData.max_participants,
           price_per_person: formData.price_per_person,
           currency: formData.currency,
-          amenities: formData.amenities,
           images: uploadedImageUrls,
-          host_id: user.id,
+          created_by: user.id,
           is_published: false,
         })
         .select()
