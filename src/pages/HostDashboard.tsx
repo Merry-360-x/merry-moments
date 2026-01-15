@@ -504,35 +504,41 @@ export default function HostDashboard() {
 
     console.log("[createProperty] Attempting insert with payload:", payload);
 
-    const { error, data: newProp } = await supabase
+    try {
+      const { error, data: newProp } = await supabase
         .from("properties")
-      .insert(payload as never)
-      .select()
-      .single();
-
-    setCreatingProperty(false);
+        .insert(payload as never)
+        .select()
+        .single();
 
       if (error) {
-      console.error("[createProperty] Full error:", JSON.stringify(error, null, 2));
-      logError("host.property.create", error);
-      if (error.code === "42501" || error.message?.includes("policy")) {
-        toast({
-          variant: "destructive",
-          title: "Permission denied",
-          description: "You need to be a verified host to create properties.",
-        });
-      } else {
-        toast({ variant: "destructive", title: "Create failed", description: uiErrorMessage(error) });
+        console.error("[createProperty] Full error:", JSON.stringify(error, null, 2));
+        logError("host.property.create", error);
+        if (error.code === "42501" || error.message?.includes("policy")) {
+          toast({
+            variant: "destructive",
+            title: "Permission denied",
+            description: "You need to be a verified host to create properties.",
+          });
+        } else {
+          toast({ variant: "destructive", title: "Create failed", description: uiErrorMessage(error) });
+        }
+        return null;
       }
-      return null;
-    }
 
-    setProperties((prev) => [newProp as Property, ...prev]);
-    toast({ title: "Property Created!", description: "Your property is now live on the homepage!" });
-    resetPropertyForm();
-    setShowPropertyWizard(false);
-    setWizardStep(1);
-    return newProp;
+      setProperties((prev) => [newProp as Property, ...prev]);
+      toast({ title: "Property Created!", description: "Your property is now live on the homepage!" });
+      resetPropertyForm();
+      setShowPropertyWizard(false);
+      setWizardStep(1);
+      return newProp;
+    } catch (err) {
+      console.error("[createProperty] Unexpected error:", err);
+      toast({ variant: "destructive", title: "Failed to create property", description: "An unexpected error occurred." });
+      return null;
+    } finally {
+      setCreatingProperty(false);
+    }
   };
 
   const resetPropertyForm = () => {

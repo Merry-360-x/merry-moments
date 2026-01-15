@@ -99,29 +99,37 @@ export function CloudinaryUploadDialog(props: {
     const newUrls: string[] = [];
     
     try {
-      // Upload sequentially to keep the progress UI stable.
-      for (const it of items) {
-        if (it.status !== "queued") continue;
-        setItems((prev) => prev.map((p) => (p.id === it.id ? { ...p, status: "uploading", percent: 1 } : p)));
+      // Upload in parallel for faster performance (limit to 3 concurrent uploads)
+      const queuedItems = items.filter(it => it.status === "queued");
+      const batchSize = 3;
+      
+      for (let i = 0; i < queuedItems.length; i += batchSize) {
+        const batch = queuedItems.slice(i, i + batchSize);
+        
+        await Promise.all(
+          batch.map(async (it) => {
+            setItems((prev) => prev.map((p) => (p.id === it.id ? { ...p, status: "uploading", percent: 1 } : p)));
 
-        try {
-          const res = await uploadFile(it.file, {
-            folder: props.folder,
-            onProgress: (percent) => {
-              setItems((prev) => prev.map((x) => (x.id === it.id ? { ...x, percent } : x)));
-            },
-          });
+            try {
+              const res = await uploadFile(it.file, {
+                folder: props.folder,
+                onProgress: (percent) => {
+                  setItems((prev) => prev.map((x) => (x.id === it.id ? { ...x, percent } : x)));
+                },
+              });
 
-          setItems((prev) =>
-            prev.map((p) =>
-              p.id === it.id ? { ...p, status: "done", percent: 100, url: res.url } : p
-            )
-          );
-          newUrls.push(res.url);
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : "Upload failed";
-          setItems((prev) => prev.map((p) => (p.id === it.id ? { ...p, status: "error", error: msg } : p)));
-        }
+              setItems((prev) =>
+                prev.map((p) =>
+                  p.id === it.id ? { ...p, status: "done", percent: 100, url: res.url } : p
+                )
+              );
+              newUrls.push(res.url);
+            } catch (e) {
+              const msg = e instanceof Error ? e.message : "Upload failed";
+              setItems((prev) => prev.map((p) => (p.id === it.id ? { ...p, status: "error", error: msg } : p)));
+            }
+          })
+        );
       }
       
       // Call onChange once at the end with ALL uploaded URLs

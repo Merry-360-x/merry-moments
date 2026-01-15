@@ -13,7 +13,12 @@ export async function uploadFile(
     let fileToUpload = file;
     try {
       if (file.type.startsWith('image/')) {
-        fileToUpload = await compressImage(file, { maxSizeMB: 1, maxWidthOrHeight: 1920, quality: 0.85 });
+        const startSize = file.size;
+        fileToUpload = await compressImage(file, { maxSizeMB: 0.8, maxWidthOrHeight: 1920, quality: 0.82 });
+        const savedKB = Math.round((startSize - fileToUpload.size) / 1024);
+        if (savedKB > 0) {
+          console.log(`[uploads] Compressed ${file.name}: saved ${savedKB}KB`);
+        }
       }
     } catch (compressError) {
       console.warn("[uploads] Image compression failed, using original:", compressError);
