@@ -196,6 +196,12 @@ const Index = () => {
       <section
         className="relative min-h-[70vh] flex items-center justify-center overflow-hidden"
       >
+        {/* Fallback background image */}
+        <div 
+          className="absolute inset-0 w-full h-full bg-cover bg-center"
+          style={{ backgroundImage: `url(${heroImage})` }}
+        />
+        
         {/* Video Background */}
         <video
           autoPlay
@@ -203,7 +209,7 @@ const Index = () => {
           loop
           playsInline
           preload="auto"
-          className="absolute inset-0 w-full h-full object-cover"
+          className="absolute inset-0 w-full h-full object-cover z-[1]"
           poster={heroImage}
           onError={(e) => {
             // Hide video and show fallback image on error
@@ -211,18 +217,10 @@ const Index = () => {
           }}
         >
           <source src={merryVideo} type="video/mp4" />
-          {/* Fallback for browsers that don't support video */}
-          Your browser does not support the video tag.
         </video>
-        
-        {/* Fallback background image if video fails */}
-        <div 
-          className="absolute inset-0 w-full h-full bg-cover bg-center"
-          style={{ backgroundImage: `url(${heroImage})` }}
-        />
 
         {/* Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-foreground/10 via-foreground/20 to-foreground/50" />
+        <div className="absolute inset-0 bg-gradient-to-b from-foreground/10 via-foreground/20 to-foreground/50 z-[2]" />
 
         {/* Content */}
         <div className="relative z-10 container mx-auto px-4 py-20 text-center">
