@@ -14,9 +14,7 @@ import { useRef } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import heroImage from "@/assets/hero-resort.jpg";
-
-// Video background - you can replace this with your actual video URL
-const heroVideoUrl = "https://videos.pexels.com/video-files/2169880/2169880-uhd_2560_1440_25fps.mp4";
+import merryVideo from "@/assets/Merry.mp4";
 
 const fetchLatestProperties = async () => {
   try {
@@ -212,7 +210,7 @@ const Index = () => {
             e.currentTarget.style.display = 'none';
           }}
         >
-          <source src={heroVideoUrl} type="video/mp4" />
+          <source src={merryVideo} type="video/mp4" />
           {/* Fallback for browsers that don't support video */}
           Your browser does not support the video tag.
         </video>
