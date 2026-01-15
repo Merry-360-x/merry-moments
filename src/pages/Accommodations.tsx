@@ -127,7 +127,7 @@ const Accommodations = () => {
   const [guestCount, setGuestCount] = useState(() => {
     const adults = Number(searchParams.get("adults")) || 0;
     const children = Number(searchParams.get("children")) || 0;
-    return adults + children || 1;
+    return adults + children || 0; // Changed from 1 to 0
   });
   const [startDate, setStartDate] = useState(() => searchParams.get("start") ?? "");
   const [endDate, setEndDate] = useState(() => searchParams.get("end") ?? "");
