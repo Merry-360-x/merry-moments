@@ -52,12 +52,28 @@ type HostApplicationRow = {
   id: string;
   user_id: string;
   status: HostApplicationStatus;
+  applicant_type: string | null;
+  service_types: string[] | null;
   full_name: string | null;
   phone: string | null;
+  about: string | null;
+  national_id_number: string | null;
+  national_id_photo_url: string | null;
   business_name: string | null;
+  business_tin: string | null;
   hosting_location: string | null;
-  review_notes: string | null;
+  listing_title: string | null;
+  listing_location: string | null;
+  listing_property_type: string | null;
+  listing_price_per_night: number | null;
+  listing_currency: string | null;
+  listing_max_guests: number | null;
+  listing_bedrooms: number | null;
+  listing_bathrooms: number | null;
+  listing_amenities: string[] | null;
+  listing_images: string[] | null;
   created_at: string;
+  updated_at: string | null;
 };
 
 type AdminUserRow = {
@@ -728,19 +744,59 @@ export default function AdminDashboard() {
   // Actions
   const approveApplication = async (app: HostApplicationRow) => {
     try {
+      // Update application status
       const { error: updateErr } = await supabase
         .from("host_applications")
         .update({ status: "approved" as never })
         .eq("id", app.id);
       if (updateErr) throw updateErr;
 
+      // Add host role
       const { error: roleErr } = await supabase.from("user_roles").upsert(
         { user_id: app.user_id, role: "host" },
         { onConflict: "user_id,role" }
       );
       if (roleErr) throw roleErr;
 
-      toast({ title: "Application approved", description: `${app.full_name} is now a host.` });
+      // Create property from application listing data if it exists
+      if (app.listing_title && app.listing_location) {
+        const propertyPayload = {
+          name: app.listing_title,
+          title: app.listing_title,
+          location: app.listing_location,
+          address: null,
+          property_type: app.listing_property_type || "Apartment",
+          description: app.about || null,
+          price_per_night: app.listing_price_per_night || 50000,
+          currency: app.listing_currency || "RWF",
+          max_guests: app.listing_max_guests || 2,
+          bedrooms: app.listing_bedrooms || 1,
+          bathrooms: app.listing_bathrooms || 1,
+          beds: app.listing_bedrooms || 1,
+          images: app.listing_images || [],
+          main_image: app.listing_images?.[0] || null,
+          amenities: app.listing_amenities || [],
+          host_id: app.user_id,
+          is_published: true,
+        };
+
+        const { error: propErr } = await supabase
+          .from("properties")
+          .insert(propertyPayload as never);
+
+        if (propErr) {
+          console.error("Failed to create property from application:", propErr);
+          // Don't fail the entire approval if property creation fails
+          toast({
+            title: "Application approved",
+            description: `${app.full_name} is now a host. Note: Property listing needs to be created manually.`,
+          });
+          await Promise.all([refetchApplications(), refetchRoles(), refetchMetrics()]);
+          return;
+        }
+      }
+
+      toast({ title: "Application approved", description: `${app.full_name} is now a host with their property listed!` });
       await Promise.all([refetchApplications(), refetchRoles(), refetchMetrics()]);
     } catch (e) {
       logError("admin.approveApplication", e);
