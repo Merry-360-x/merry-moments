@@ -1,11 +1,9 @@
-import { Search, Star, MapPin, Users, Calendar as CalendarIcon, Zap, TrendingUp } from "lucide-react";
+import { Search, Star } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
 import PropertyCard from "@/components/PropertyCard";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -21,7 +19,6 @@ import { Filter } from "lucide-react";
 import { AMENITIES } from "@/lib/amenities";
 import { formatMoney } from "@/lib/money";
 import { usePreferences } from "@/hooks/usePreferences";
-import type { DateRange } from "react-day-picker";
 
 const propertyTypes = ["Hotel", "Motel", "Resort", "Lodge", "Apartment", "Villa", "Guesthouse"];
 const amenities = AMENITIES;
@@ -34,6 +31,8 @@ const fetchProperties = async (args: {
   minRating: number;
   hostId?: string | null;
   nearby?: { lat: number; lng: number } | null;
+  location?: string; // Add location filter
+  guests?: number; // Add guest filter
 }) => {
   try {
     let query = supabase
@@ -63,6 +62,16 @@ const fetchProperties = async (args: {
 
     if (args.amenities.length) {
       query = query.contains("amenities", args.amenities);
+    }
+
+    // Location-based filtering
+    if (args.location && args.location.trim()) {
+      query = query.ilike("location", `%${args.location.trim()}%`);
+    }
+
+    // Guest count filtering
+    if (args.guests && args.guests > 0) {
+      query = query.gte("max_guests", args.guests);
     }
 
     const { data, error } = await query.lte("price_per_night", args.maxPrice);
@@ -112,18 +121,10 @@ const Accommodations = () => {
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [minRating, setMinRating] = useState(0);
+  const [locationFilter, setLocationFilter] = useState("");
+  const [guestCount, setGuestCount] = useState(1);
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [showRecommendations, setShowRecommendations] = useState(true);
-  const [guestCount, setGuestCount] = useState(1);
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
-  const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const [whenTab, setWhenTab] = useState<"dates" | "months" | "flexible">("dates");
-  const [dateFlexDays, setDateFlexDays] = useState(0);
-  
-  // Convert date range to individual dates for compatibility
-  const checkIn = dateRange?.from || null;
-  const checkOut = dateRange?.to || null;
   const hostId = searchParams.get("host");
   const nearbyLat = searchParams.get("lat");
   const nearbyLng = searchParams.get("lng");
@@ -167,6 +168,8 @@ const Accommodations = () => {
       minRating,
       hostId ?? "",
       nearby ? `${nearby.lat},${nearby.lng}` : "",
+      locationFilter,
+      guestCount,
     ],
     queryFn: () =>
       fetchProperties({
@@ -177,11 +180,80 @@ const Accommodations = () => {
         minRating,
         hostId,
         nearby,
+        location: locationFilter,
+        guests: guestCount,
       }),
     staleTime: 1000 * 60 * 2, // 2 minutes for search results
     gcTime: 1000 * 60 * 10, // 10 minutes cache
     refetchOnMount: true, // Fresh results on mount
     refetchOnWindowFocus: true,
+  });
+
+  // Smart place recommendations
+  const { data: recommendations = [] } = useQuery({
+    queryKey: ["smart-recommendations", user?.id],
+    queryFn: async () => {
+      // Get user's favorite locations and property types
+      let userPreferences = { locations: [], types: [], maxPrice: 500000 };
+      
+      if (user?.id) {
+        const { data: favs } = await supabase
+          .from("favorites")
+          .select(`
+            properties!inner (
+              location, property_type, price_per_night
+            )
+          `)
+          .eq("user_id", user.id)
+          .limit(10);
+        
+        if (favs && favs.length > 0) {
+          userPreferences.locations = [...new Set(favs.map((f: any) => f.properties.location).filter(Boolean))];
+          userPreferences.types = [...new Set(favs.map((f: any) => f.properties.property_type).filter(Boolean))];
+          userPreferences.maxPrice = Math.max(...favs.map((f: any) => f.properties.price_per_night || 0));
+        }
+      }
+      
+      // Get popular/highly-rated properties
+      const { data: popular, error } = await supabase
+        .from("properties")
+        .select("id, title, location, price_per_night, currency, property_type, rating, review_count, images, bedrooms, bathrooms, max_guests")
+        .eq("is_published", true)
+        .gte("rating", 4.0)
+        .gte("review_count", 3)
+        .order("rating", { ascending: false })
+        .order("review_count", { ascending: false })
+        .limit(20);
+      
+      if (error) return [];
+      
+      // Score recommendations based on user preferences
+      const scored = (popular || []).map((prop: any) => {
+        let score = prop.rating * 0.4 + (prop.review_count * 0.1);
+        
+        // Boost score for preferred locations
+        if (userPreferences.locations.includes(prop.location)) {
+          score += 2;
+        }
+        
+        // Boost score for preferred types
+        if (userPreferences.types.includes(prop.property_type)) {
+          score += 1.5;
+        }
+        
+        // Boost score for properties within price range
+        if (prop.price_per_night <= userPreferences.maxPrice) {
+          score += 1;
+        }
+        
+        return { ...prop, score };
+      });
+      
+      // Sort by score and return top 6
+      return scored.sort((a: any, b: any) => b.score - a.score).slice(0, 6);
+    },
+    staleTime: 1000 * 60 * 30, // 30 minutes
+    enabled: !searchParams.get("q") && !hostId && properties.length > 0, // Only show when not searching
   });
 
   const { data: hostPreview } = useQuery({
@@ -237,58 +309,14 @@ const Accommodations = () => {
     },
   });
 
-  // Smart recommendations based on user behavior and popular choices
-  const { data: recommendations = [] } = useQuery({
-    queryKey: ["smart-recommendations", user?.id, query],
-    queryFn: async () => {
-      // Get popular properties with high ratings
-      const { data: popular, error: popularError } = await supabase
-        .from("properties")
-        .select("id, title, location, price_per_night, currency, property_type, rating, review_count, images, max_guests")
-        .eq("is_published", true)
-        .gte("rating", 4.2)
-        .gte("review_count", 3)
-        .order("rating", { ascending: false })
-        .order("review_count", { ascending: false })
-        .limit(6);
-      
-      if (popularError) return [];
-      
-      // If user is searching, prioritize matching results
-      if (query.trim()) {
-        const searchMatches = (popular ?? []).filter(p => 
-          p.title.toLowerCase().includes(query.toLowerCase()) || 
-          p.location.toLowerCase().includes(query.toLowerCase())
-        );
-        if (searchMatches.length > 0) return searchMatches;
-      }
-      
-      // If user has favorites, recommend similar properties
-      if (user?.id && favoriteIds.length > 0) {
-        const { data: similarProps } = await supabase
-          .from("properties")
-          .select("id, title, location, price_per_night, currency, property_type, rating, review_count, images, max_guests")
-          .eq("is_published", true)
-          .not("id", "in", `(${favoriteIds.join(",")})`)
-          .gte("rating", 4.0)
-          .limit(6);
-        
-        if (similarProps && similarProps.length > 0) {
-          return [...(similarProps.slice(0, 3) ?? []), ...(popular?.slice(0, 3) ?? [])];
-        }
-      }
-      
-      return popular ?? [];
-    },
-    enabled: showRecommendations,
-  });
-
   const favoritesSet = new Set(favoriteIds);
   const activeFiltersCount =
     (maxPrice < 500000 ? 1 : 0) +
     (selectedTypes.length > 0 ? 1 : 0) +
     (selectedAmenities.length > 0 ? 1 : 0) +
-    (minRating > 0 ? 1 : 0);
+    (minRating > 0 ? 1 : 0) +
+    (locationFilter.trim() ? 1 : 0) +
+    (guestCount > 0 ? 1 : 0);
 
   return (
     <div className="min-h-screen bg-background">
@@ -335,252 +363,24 @@ const Accommodations = () => {
             </div>
           </div>
 
-          {/* Desktop/tablet: Enhanced search with Where, When, Who */}
-          <div className="hidden sm:block max-w-4xl mx-auto">
-            <div className="bg-card rounded-2xl shadow-search border border-border overflow-hidden">
-              <div className="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-border">
-                {/* Where */}
-                <div className="p-4 hover:bg-muted/50 transition-colors cursor-pointer">
-                  <div className="flex items-center gap-3">
-                    <MapPin className="w-5 h-5 text-muted-foreground" />
-                    <div className="flex-1">
-                      <label className="block text-xs font-medium text-muted-foreground mb-1">Where</label>
-                      <input
-                        type="text"
-                        placeholder="Search destinations"
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") runSearch();
-                        }}
-                        className="w-full bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none text-sm font-medium"
-                      />
-                    </div>
-                  </div>
-                </div>
-                
-                {/* When */}
-                <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-                  <PopoverTrigger asChild>
-                    <div className="p-4 hover:bg-muted/50 transition-colors cursor-pointer">
-                      <div className="flex items-center gap-3">
-                        <CalendarIcon className="w-5 h-5 text-muted-foreground" />
-                        <div className="flex-1">
-                          <label className="block text-xs font-medium text-muted-foreground mb-1">When</label>
-                          <div className="text-sm font-medium text-foreground">
-                            {checkIn && checkOut ? 
-                              `${checkIn.toLocaleDateString()} - ${checkOut.toLocaleDateString()}` : 
-                              "Add dates"
-                            }
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </PopoverTrigger>
-                  <PopoverContent 
-                    className="w-[95vw] max-w-[760px] p-0 rounded-2xl shadow-lg" 
-                    align="center"
-                    side="bottom"
-                    sideOffset={10}
-                  >
-                    <div className="p-4">
-                      <div className="flex items-center justify-between gap-3 mb-3">
-                        <Tabs value={whenTab} onValueChange={(v) => setWhenTab(v as typeof whenTab)}>
-                          <TabsList className="rounded-full">
-                            <TabsTrigger value="dates" className="rounded-full">
-                              Dates
-                            </TabsTrigger>
-                            <TabsTrigger value="months" className="rounded-full">
-                              Months
-                            </TabsTrigger>
-                            <TabsTrigger value="flexible" className="rounded-full">
-                              Flexible
-                            </TabsTrigger>
-                          </TabsList>
-                        </Tabs>
-
-                        <button
-                          type="button"
-                          className="text-sm text-muted-foreground hover:text-foreground underline shrink-0"
-                          onClick={() => {
-                            setDateRange(undefined);
-                            setDateFlexDays(0);
-                          }}
-                        >
-                          Clear dates
-                        </button>
-                      </div>
-
-                      {/* Content */}
-                      {whenTab === "dates" ? (
-                        <div>
-                          <Calendar
-                            mode="range"
-                            numberOfMonths={2}
-                            selected={dateRange}
-                            onSelect={setDateRange}
-                            disabled={{ before: new Date() }}
-                            initialFocus
-                            className="rounded-lg"
-                          />
-
-                          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                            <div className="flex flex-wrap gap-2">
-                              <button
-                                type="button"
-                                onClick={() => setDateFlexDays(0)}
-                                className={
-                                  "px-3 py-1.5 rounded-full border border-border text-sm " +
-                                  (dateFlexDays === 0 ? "bg-muted" : "hover:bg-muted")
-                                }
-                              >
-                                Exact dates
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setDateFlexDays(1)}
-                                className={
-                                  "px-3 py-1.5 rounded-full border border-border text-sm " +
-                                  (dateFlexDays === 1 ? "bg-muted" : "hover:bg-muted")
-                                }
-                              >
-                                ±1 day
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setDateFlexDays(2)}
-                                className={
-                                  "px-3 py-1.5 rounded-full border border-border text-sm " +
-                                  (dateFlexDays === 2 ? "bg-muted" : "hover:bg-muted")
-                                }
-                              >
-                                ±2 day
-                              </button>
-                            </div>
-
-                            <Button
-                              type="button"
-                              className="bg-primary text-primary-foreground rounded-full px-6"
-                              onClick={() => setDatePickerOpen(false)}
-                            >
-                              Next
-                            </Button>
-                          </div>
-                        </div>
-                      ) : whenTab === "months" ? (
-                        <div>
-                          <div className="text-sm font-semibold text-foreground mb-2">Choose a month</div>
-                          <Calendar
-                            mode="single"
-                            numberOfMonths={2}
-                            selected={dateRange?.from}
-                            onSelect={(d) => {
-                              if (!d) return;
-                              const start = new Date(d.getFullYear(), d.getMonth(), 1);
-                              const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-                              setDateRange({ from: start, to: end });
-                            }}
-                            disabled={{ before: new Date() }}
-                            initialFocus
-                            className="rounded-lg"
-                          />
-                          <div className="mt-3 flex justify-end">
-                            <Button
-                              type="button"
-                              className="bg-primary text-primary-foreground rounded-full px-6"
-                              onClick={() => setDatePickerOpen(false)}
-                            >
-                              Next
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div>
-                          <div className="text-sm font-semibold text-foreground mb-2">How flexible are your dates?</div>
-                          <Calendar
-                            mode="range"
-                            numberOfMonths={2}
-                            selected={dateRange}
-                            onSelect={setDateRange}
-                            disabled={{ before: new Date() }}
-                            initialFocus
-                            className="rounded-lg"
-                          />
-
-                          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                            <div className="flex flex-wrap gap-2">
-                              <button
-                                type="button"
-                                onClick={() => setDateFlexDays(0)}
-                                className={
-                                  "px-3 py-1.5 rounded-full border border-border text-sm " +
-                                  (dateFlexDays === 0 ? "bg-muted" : "hover:bg-muted")
-                                }
-                              >
-                                Exact dates
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setDateFlexDays(1)}
-                                className={
-                                  "px-3 py-1.5 rounded-full border border-border text-sm " +
-                                  (dateFlexDays === 1 ? "bg-muted" : "hover:bg-muted")
-                                }
-                              >
-                                ±1 day
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setDateFlexDays(2)}
-                                className={
-                                  "px-3 py-1.5 rounded-full border border-border text-sm " +
-                                  (dateFlexDays === 2 ? "bg-muted" : "hover:bg-muted")
-                                }
-                              >
-                                ±2 day
-                              </button>
-                            </div>
-
-                            <Button
-                              type="button"
-                              className="bg-primary text-primary-foreground rounded-full px-6"
-                              onClick={() => setDatePickerOpen(false)}
-                            >
-                              Next
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-                
-                {/* Who */}
-                <div className="p-4 hover:bg-muted/50 transition-colors cursor-pointer">
-                  <div className="flex items-center gap-3">
-                    <Users className="w-5 h-5 text-muted-foreground" />
-                    <div className="flex-1">
-                      <label className="block text-xs font-medium text-muted-foreground mb-1">Who</label>
-                      <div className="text-sm font-medium text-foreground">
-                        {guestCount === 1 ? "1 guest" : `${guestCount} guests`}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Search Button */}
-                <div className="p-2 md:p-4 flex items-center justify-center">
-                  <Button 
-                    onClick={runSearch}
-                    size="lg"
-                    className="w-full md:w-auto bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl px-6 py-3 font-semibold"
-                  >
-                    <Search className="w-4 h-4 mr-2" />
-                    Search
-                  </Button>
-                </div>
-              </div>
+          {/* Desktop/tablet: existing layout */}
+          <div className="hidden sm:flex bg-card rounded-xl shadow-card p-4 flex-col md:flex-row items-stretch md:items-center gap-4 max-w-3xl mx-auto">
+            <div className="flex-1">
+              <label className="block text-xs text-muted-foreground mb-1">{t("nav.accommodations")}</label>
+              <input
+                type="text"
+                placeholder={t("common.search")}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") runSearch();
+                }}
+                className="w-full bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none text-sm"
+              />
             </div>
+            <Button variant="search" size="icon-lg" type="button" onClick={runSearch}>
+              <Search className="w-5 h-5" />
+            </Button>
           </div>
         </div>
       </div>
@@ -592,61 +392,6 @@ const Accommodations = () => {
           <p className="text-muted-foreground">{t("accommodations.subtitle")}</p>
         </div>
 
-        {/* Smart Recommendations */}
-        {showRecommendations && recommendations.length > 0 && !query.trim() && (
-          <div className="mb-12">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-amber-500" />
-                  <h2 className="text-xl font-bold text-foreground">Smart Recommendations</h2>
-                </div>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground bg-amber-50 dark:bg-amber-950 px-2 py-1 rounded-full">
-                  <TrendingUp className="w-3 h-3" />
-                  Personalized for you
-                </div>
-              </div>
-              <button
-                onClick={() => setShowRecommendations(false)}
-                className="text-xs text-muted-foreground hover:text-foreground"
-              >
-                Hide
-              </button>
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {recommendations.slice(0, 6).map((property: any) => (
-                <div key={property.id} className="group">
-                  <PropertyCard
-                    id={property.id}
-                    title={property.title}
-                    location={property.location}
-                    pricePerNight={property.price_per_night}
-                    currency={property.currency || "RWF"}
-                    images={property.images}
-                    rating={property.rating}
-                    reviewCount={property.review_count}
-                    isFavorite={favoritesSet.has(String(property.id))}
-                    onToggleFavorite={() => toggleFavorite(String(property.id))}
-                    showWishlisted={false}
-                  />
-                </div>
-              ))}
-            </div>
-            
-            <div className="text-center mt-6">
-              <Button 
-                variant="outline"
-                onClick={() => setShowRecommendations(false)}
-                className="rounded-full"
-              >
-                Show all accommodations
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Host preview section */}
         {hostId && hostPreview ? (
           <div className="mb-8 bg-card rounded-xl shadow-card p-6">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -791,6 +536,31 @@ const Accommodations = () => {
                     </div>
                   </AccordionContent>
                 </AccordionItem>
+                <AccordionItem value="location">
+                  <AccordionTrigger>Location</AccordionTrigger>
+                  <AccordionContent>
+                    <Input
+                      placeholder="Filter by location..."
+                      value={locationFilter}
+                      onChange={(e) => setLocationFilter(e.target.value)}
+                      className="w-full"
+                    />
+                  </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="guests">
+                  <AccordionTrigger>Guest Count</AccordionTrigger>
+                  <AccordionContent>
+                    <Input
+                      type="number"
+                      placeholder="Minimum guests"
+                      value={guestCount || ''}
+                      onChange={(e) => setGuestCount(Number(e.target.value) || 0)}
+                      min="1"
+                      max="20"
+                      className="w-full"
+                    />
+                  </AccordionContent>
+                </AccordionItem>
                 <AccordionItem value="amenities">
                   <AccordionTrigger>{t("accommodations.amenities")}</AccordionTrigger>
                   <AccordionContent>
@@ -835,6 +605,8 @@ const Accommodations = () => {
                   setSelectedTypes([]);
                   setSelectedAmenities([]);
                   setMinRating(0);
+                  setLocationFilter("");
+                  setGuestCount(0);
                 }}
               >
                 Clear
@@ -861,6 +633,8 @@ const Accommodations = () => {
                     setSelectedTypes([]);
                     setSelectedAmenities([]);
                     setMinRating(0);
+                    setLocationFilter("");
+                    setGuestCount(0);
                   }}
                 >
                   Clear
@@ -968,6 +742,33 @@ const Accommodations = () => {
                   </AccordionContent>
                 </AccordionItem>
 
+                <AccordionItem value="location">
+                  <AccordionTrigger>Location</AccordionTrigger>
+                  <AccordionContent>
+                    <Input
+                      placeholder="Filter by location..."
+                      value={locationFilter}
+                      onChange={(e) => setLocationFilter(e.target.value)}
+                      className="w-full"
+                    />
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="guests">
+                  <AccordionTrigger>Guest Count</AccordionTrigger>
+                  <AccordionContent>
+                    <Input
+                      type="number"
+                      placeholder="Minimum guests"
+                      value={guestCount || ''}
+                      onChange={(e) => setGuestCount(Number(e.target.value) || 0)}
+                      min="1"
+                      max="20"
+                      className="w-full"
+                    />
+                  </AccordionContent>
+                </AccordionItem>
+
                 <AccordionItem value="amenities">
                   <AccordionTrigger>{t("accommodations.amenities")}</AccordionTrigger>
                   <AccordionContent>
@@ -1007,6 +808,94 @@ const Accommodations = () => {
 
           {/* Properties Grid */}
           <div className="flex-1">
+            {/* Smart Recommendations Section */}
+            {!searchParams.get("q") && !hostId && recommendations && recommendations.length > 0 && (
+              <div className="mb-8">
+                <h2 className="text-xl font-semibold mb-4 text-foreground">
+                  {user ? "Recommended for you" : "Popular picks"}
+                </h2>
+                
+                {/* Mobile recommendations */}
+                <div className="sm:hidden">
+                  <div className="grid grid-flow-col auto-cols-[46%] gap-4 overflow-x-auto pb-2 snap-x snap-mandatory">
+                    {recommendations.slice(0, 4).map((property) => (
+                      <div key={`rec-mobile-${property.id}`} className="snap-start">
+                        <PropertyCard
+                          id={property.id}
+                          image={property.images?.[0] ?? null}
+                          images={property.images ?? null}
+                          title={property.title}
+                          location={property.location}
+                          rating={Number(property.rating) || 0}
+                          reviews={property.review_count || 0}
+                          price={Number(property.price_per_night)}
+                          currency={property.currency}
+                          type={property.property_type}
+                          bedrooms={(property as any).bedrooms ?? null}
+                          bathrooms={(property as any).bathrooms ?? null}
+                          beds={null}
+                          maxGuests={(property as any).max_guests ?? null}
+                          checkInTime={null}
+                          checkOutTime={null}
+                          smokingAllowed={null}
+                          eventsAllowed={null}
+                          petsAllowed={null}
+                          isFavorited={favoritesSet.has(property.id)}
+                          onToggleFavorite={async () => {
+                            const isFav = favoritesSet.has(property.id);
+                            const changed = await toggleFavorite(String(property.id), isFav);
+                            if (changed) {
+                              await qc.invalidateQueries({ queryKey: ["favorites", "ids", user?.id] });
+                            }
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Desktop recommendations */}
+                <div className="hidden sm:grid grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
+                  {recommendations.slice(0, 6).map((property) => (
+                    <PropertyCard
+                      key={`rec-desktop-${property.id}`}
+                      id={property.id}
+                      image={property.images?.[0] ?? null}
+                      images={property.images ?? null}
+                      title={property.title}
+                      location={property.location}
+                      rating={Number(property.rating) || 0}
+                      reviews={property.review_count || 0}
+                      price={Number(property.price_per_night)}
+                      currency={property.currency}
+                      type={property.property_type}
+                      bedrooms={(property as any).bedrooms ?? null}
+                      bathrooms={(property as any).bathrooms ?? null}
+                      beds={null}
+                      maxGuests={(property as any).max_guests ?? null}
+                      checkInTime={null}
+                      checkOutTime={null}
+                      smokingAllowed={null}
+                      eventsAllowed={null}
+                      petsAllowed={null}
+                      isFavorited={favoritesSet.has(property.id)}
+                      onToggleFavorite={async () => {
+                        const isFav = favoritesSet.has(property.id);
+                        const changed = await toggleFavorite(String(property.id), isFav);
+                        if (changed) {
+                          await qc.invalidateQueries({ queryKey: ["favorites", "ids", user?.id] });
+                        }
+                      }}
+                    />
+                  ))}
+                </div>
+                
+                <div className="border-t border-border pt-8 mb-4">
+                  <h3 className="text-lg font-medium mb-4 text-foreground">All accommodations</h3>
+                </div>
+              </div>
+            )}
+            
             {/* Mobile: 2.5-column horizontal scroll */}
             <div className="sm:hidden">
               {isError ? (

@@ -532,7 +532,10 @@ const HeroSearch = () => {
             </PopoverTrigger>
             <PopoverContent
               align="start"
+              side="bottom"
               sideOffset={10}
+              avoidCollisions={false}
+              sticky="always"
               className="w-[360px] p-0 rounded-2xl overflow-hidden"
             >
               <div className="p-4">
@@ -609,7 +612,11 @@ const HeroSearch = () => {
             </PopoverTrigger>
             <PopoverContent
               align="center"
-              sideOffset={10}
+              side="bottom"
+              sideOffset={20}
+              avoidCollisions={false}
+              sticky="always"
+              collisionPadding={20}
               className="w-[95vw] max-w-[760px] p-0 rounded-2xl overflow-hidden"
             >
               <div className="p-4">
@@ -779,7 +786,10 @@ const HeroSearch = () => {
             </PopoverTrigger>
             <PopoverContent
               align="end"
+              side="bottom"
               sideOffset={10}
+              avoidCollisions={false}
+              sticky="always"
               className="w-[420px] p-0 rounded-2xl overflow-hidden"
             >
               <div className="p-4">
