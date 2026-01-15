@@ -149,8 +149,6 @@ export default function AdminRoles() {
     }
   };
 
-  const loading = profilesLoading || rolesLoading;
-  const isError = profilesError || rolesError;
   const loadingAll = usersLoading || rolesLoading;
   const isErrorAll = usersError || rolesError;
 
