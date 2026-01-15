@@ -261,7 +261,8 @@ export function CloudinaryUploadDialog(props: {
             ) : (
               <div className="space-y-4">
                 {/* Grid of all items being uploaded */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                <div className="max-h-[400px] overflow-y-auto pr-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                   {items.map((item) => (
                     <div key={item.id} className="relative aspect-square rounded-xl overflow-hidden bg-muted border border-border group">
                       {item.previewUrl ? (
@@ -320,6 +321,7 @@ export function CloudinaryUploadDialog(props: {
                       <Plus className="w-8 h-8 text-muted-foreground" />
                     </button>
                   )}
+                  </div>
                 </div>
               </div>
             )}
@@ -341,7 +343,8 @@ export function CloudinaryUploadDialog(props: {
           {props.value.length ? (
             <div className="space-y-2">
               <div className="text-sm font-semibold text-foreground">Uploaded</div>
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+              <div className="max-h-[300px] overflow-y-auto pr-2">
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                 {props.value.map((url) => (
                   <div key={url} className="relative rounded-xl overflow-hidden border border-border bg-muted">
                     {isImageUrl(url) ? (
@@ -362,8 +365,7 @@ export function CloudinaryUploadDialog(props: {
                       <X className="w-4 h-4" />
                     </button>
                   </div>
-                ))}
-              </div>
+                ))}                </div>              </div>
             </div>
           ) : null}
 

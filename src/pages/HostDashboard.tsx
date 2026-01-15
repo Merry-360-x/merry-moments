@@ -276,6 +276,36 @@ export default function HostDashboard() {
   const [creatingProperty, setCreatingProperty] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
 
+  // Auto-save keys for localStorage
+  const PROPERTY_FORM_KEY = 'host_property_draft';
+  const TOUR_FORM_KEY = 'host_tour_draft';
+  const VEHICLE_FORM_KEY = 'host_vehicle_draft';
+
+  // Load saved drafts on mount
+  useEffect(() => {
+    try {
+      const savedProperty = localStorage.getItem(PROPERTY_FORM_KEY);
+      if (savedProperty) {
+        const parsed = JSON.parse(savedProperty);
+        setPropertyForm(parsed.form);
+        setWizardStep(parsed.step || 1);
+      }
+    } catch (e) {
+      console.error('Failed to load property draft:', e);
+    }
+  }, []);
+
+  // Auto-save property form
+  useEffect(() => {
+    if (showPropertyWizard && propertyForm.title) {
+      try {
+        localStorage.setItem(PROPERTY_FORM_KEY, JSON.stringify({ form: propertyForm, step: wizardStep }));
+      } catch (e) {
+        console.error('Failed to save property draft:', e);
+      }
+    }
+  }, [propertyForm, wizardStep, showPropertyWizard]);
+
   // New Tour wizard (matches property wizard UX)
   const [showTourWizard, setShowTourWizard] = useState(false);
   const [tourWizardStep, setTourWizardStep] = useState(1);
@@ -293,6 +323,31 @@ export default function HostDashboard() {
     images: [] as string[],
     is_published: true,
   });
+
+  // Load saved tour draft on mount
+  useEffect(() => {
+    try {
+      const savedTour = localStorage.getItem(TOUR_FORM_KEY);
+      if (savedTour) {
+        const parsed = JSON.parse(savedTour);
+        setTourForm(parsed.form);
+        setTourWizardStep(parsed.step || 1);
+      }
+    } catch (e) {
+      console.error('Failed to load tour draft:', e);
+    }
+  }, []);
+
+  // Auto-save tour form
+  useEffect(() => {
+    if (showTourWizard && tourForm.title) {
+      try {
+        localStorage.setItem(TOUR_FORM_KEY, JSON.stringify({ form: tourForm, step: tourWizardStep }));
+      } catch (e) {
+        console.error('Failed to save tour draft:', e);
+      }
+    }
+  }, [tourForm, tourWizardStep, showTourWizard]);
 
   // New Vehicle wizard (matches property wizard UX)
   const [showVehicleWizard, setShowVehicleWizard] = useState(false);
@@ -319,6 +374,31 @@ export default function HostDashboard() {
     media: [] as string[],
     is_published: true,
   });
+
+  // Load saved vehicle draft on mount
+  useEffect(() => {
+    try {
+      const savedVehicle = localStorage.getItem(VEHICLE_FORM_KEY);
+      if (savedVehicle) {
+        const parsed = JSON.parse(savedVehicle);
+        setVehicleForm(parsed.form);
+        setVehicleWizardStep(parsed.step || 1);
+      }
+    } catch (e) {
+      console.error('Failed to load vehicle draft:', e);
+    }
+  }, []);
+
+  // Auto-save vehicle form
+  useEffect(() => {
+    if (showVehicleWizard && vehicleForm.title) {
+      try {
+        localStorage.setItem(VEHICLE_FORM_KEY, JSON.stringify({ form: vehicleForm, step: vehicleWizardStep }));
+      } catch (e) {
+        console.error('Failed to save vehicle draft:', e);
+      }
+    }
+  }, [vehicleForm, vehicleWizardStep, showVehicleWizard]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -462,6 +542,7 @@ export default function HostDashboard() {
 
       setProperties((prev) => [newProp as Property, ...prev]);
       toast({ title: "Property Created!", description: "Your property is now live on the homepage!" });
+      localStorage.removeItem(PROPERTY_FORM_KEY); // Clear draft
       resetPropertyForm();
       setShowPropertyWizard(false);
       setWizardStep(1);
@@ -476,6 +557,7 @@ export default function HostDashboard() {
   };
 
   const resetPropertyForm = () => {
+    localStorage.removeItem(PROPERTY_FORM_KEY); // Clear draft
     setPropertyForm({
       title: "",
       location: "",
@@ -558,6 +640,7 @@ export default function HostDashboard() {
       return null;
     }
     setTours((prev) => [newTour as Tour, ...prev]);
+    localStorage.removeItem(TOUR_FORM_KEY); // Clear draft
     toast({ title: "Tour created" });
     return newTour;
   };
@@ -613,6 +696,7 @@ export default function HostDashboard() {
       return null;
     }
     setVehicles((prev) => [newVehicle as Vehicle, ...prev]);
+    localStorage.removeItem(VEHICLE_FORM_KEY); // Clear draft
     toast({ title: "Vehicle created" });
     return newVehicle;
   };
@@ -706,6 +790,40 @@ export default function HostDashboard() {
   // Wizard steps
   const totalSteps = 5;
   const stepTitles = ["Basic Info", "Details", "Photos", "Amenities", "Review"];
+
+  // Helper functions to open wizards and notify about drafts
+  const openPropertyWizard = () => {
+    const hasDraft = localStorage.getItem(PROPERTY_FORM_KEY);
+    setShowPropertyWizard(true);
+    if (hasDraft) {
+      toast({
+        title: "Draft Restored",
+        description: "Your previous property listing progress has been restored.",
+      });
+    }
+  };
+
+  const openTourWizard = () => {
+    const hasDraft = localStorage.getItem(TOUR_FORM_KEY);
+    setShowTourWizard(true);
+    if (hasDraft) {
+      toast({
+        title: "Draft Restored",
+        description: "Your previous tour listing progress has been restored.",
+      });
+    }
+  };
+
+  const openVehicleWizard = () => {
+    const hasDraft = localStorage.getItem(VEHICLE_FORM_KEY);
+    setShowVehicleWizard(true);
+    if (hasDraft) {
+      toast({
+        title: "Draft Restored",
+        description: "Your previous vehicle listing progress has been restored.",
+      });
+    }
+  };
 
   const canProceed = () => {
     switch (wizardStep) {
@@ -2239,7 +2357,7 @@ export default function HostDashboard() {
             <Card className="p-6 mb-8">
               <h3 className="font-semibold mb-4">Quick Actions</h3>
               <div className="flex flex-wrap gap-3">
-                <Button onClick={() => setShowPropertyWizard(true)}>
+                <Button onClick={openPropertyWizard}>
                   <Plus className="w-4 h-4 mr-2" /> Add Property
                 </Button>
                 <Button variant="outline" onClick={() => navigate("/create-tour")}>
@@ -2282,7 +2400,7 @@ export default function HostDashboard() {
           {/* Properties */}
           <TabsContent value="properties">
             <div className="flex justify-end mb-4">
-              <Button onClick={() => setShowPropertyWizard(true)}>
+              <Button onClick={openPropertyWizard}>
                 <Plus className="w-4 h-4 mr-2" /> Add Property
               </Button>
           </div>
@@ -2292,7 +2410,7 @@ export default function HostDashboard() {
                 <div className="col-span-full text-center py-12">
                   <Building2 className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                   <p className="text-muted-foreground mb-4">No properties yet</p>
-                  <Button onClick={() => setShowPropertyWizard(true)}>
+                  <Button onClick={openPropertyWizard}>
                     <Plus className="w-4 h-4 mr-2" /> Add Your First Property
                   </Button>
             </div>
