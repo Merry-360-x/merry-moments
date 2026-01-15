@@ -99,8 +99,49 @@ export default function HostApplication() {
   const [idPhotoUploadOpen, setIdPhotoUploadOpen] = useState(false);
   const [selfieUploadOpen, setSelfieUploadOpen] = useState(false);
 
+  const STORAGE_KEY = 'host_application_progress';
+
   const totalSteps = 4; // Added service type step
   const progress = (currentStep / totalSteps) * 100;
+
+  // Load saved progress from localStorage on mount
+  useEffect(() => {
+    const savedData = localStorage.getItem(STORAGE_KEY);
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+        setFormData(parsed.formData || formData);
+        setCurrentStep(parsed.currentStep || 1);
+        console.log('[HostApplication] Restored saved progress');
+        
+        // Show notification that progress was restored
+        toast({
+          title: "Progress Restored",
+          description: "Your application progress has been restored. Continue where you left off!",
+          duration: 5000,
+        });
+      } catch (e) {
+        console.error('[HostApplication] Failed to restore progress:', e);
+      }
+    }
+  }, []);
+
+  // Save progress to localStorage whenever form data or step changes
+  useEffect(() => {
+    if (user && !hasExistingApp) {
+      const dataToSave = {
+        formData,
+        currentStep,
+        timestamp: new Date().toISOString(),
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+    }
+  }, [formData, currentStep, user, hasExistingApp]);
+
+  // Clear saved progress when application is submitted
+  const clearSavedProgress = () => {
+    localStorage.removeItem(STORAGE_KEY);
+  };
 
   // Check for existing application
   useEffect(() => {
@@ -131,6 +172,8 @@ export default function HostApplication() {
         if (data) {
           setHasExistingApp(true);
           setExistingStatus(data.status);
+          // Clear saved progress if they have an existing application
+          clearSavedProgress();
         }
       } catch (e) {
         logError("host-app.checkExisting", e);
@@ -197,6 +240,9 @@ export default function HostApplication() {
         title: "Application submitted!",
         description: "We'll review your application and get back to you soon.",
       });
+
+      // Clear saved progress after successful submission
+      clearSavedProgress();
 
       setHasExistingApp(true);
       setExistingStatus("pending");
