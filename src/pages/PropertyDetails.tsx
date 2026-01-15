@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useFavorites } from "@/hooks/useFavorites";
-import { ArrowLeft, ChevronLeft, ChevronRight, Heart } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Heart, User } from "lucide-react";
 import { amenityByValue } from "@/lib/amenities";
 import PropertyCard from "@/components/PropertyCard";
 import { formatMoney } from "@/lib/money";
@@ -790,15 +790,28 @@ export default function PropertyDetails() {
                         <img
                           src={hostProfile.avatar_url}
                           alt={hostProfile.full_name ?? "Host"}
-                          className="w-12 h-12 rounded-full object-cover"
+                          className="w-12 h-12 rounded-full object-cover border border-border"
                           loading="lazy"
                         />
+                      ) : hostProfile?.full_name ? (
+                        <div className="w-12 h-12 rounded-full bg-primary/10 border border-border flex items-center justify-center">
+                          <span className="text-primary font-semibold text-sm">
+                            {hostProfile.full_name
+                              .split(' ')
+                              .map(name => name[0])
+                              .join('')
+                              .toUpperCase()
+                              .slice(0, 2)}
+                          </span>
+                        </div>
                       ) : (
-                        <div className="w-12 h-12 rounded-full bg-muted" />
+                        <div className="w-12 h-12 rounded-full bg-muted border border-border flex items-center justify-center">
+                          <User className="w-6 h-6 text-muted-foreground" />
+                        </div>
                       )}
                       <div>
                         <div className="text-base font-semibold text-foreground">
-                          Hosted by {hostProfile?.full_name ?? "Host"}
+                          Hosted by {hostProfile?.full_name?.trim() || "Host"}
                         </div>
                         <div className="mt-1 text-sm text-muted-foreground">
                           <span>
