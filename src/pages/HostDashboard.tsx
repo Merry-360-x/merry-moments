@@ -2302,22 +2302,10 @@ export default function HostDashboard() {
                 <Button onClick={() => setShowPropertyWizard(true)}>
                   <Plus className="w-4 h-4 mr-2" /> Add Property
                 </Button>
-                <Button variant="outline" onClick={async () => {
-                  const result = await createTour({ title: "New Tour", price_per_person: 50000 });
-                  if (result) {
-                    setTab("tours");
-                    setEditingTourId(result.id);
-                  }
-                }}>
+                <Button variant="outline" onClick={() => navigate("/create-tour")}>
                   <MapPin className="w-4 h-4 mr-2" /> Add Tour
                 </Button>
-                <Button variant="outline" onClick={async () => {
-                  const result = await createVehicle({ title: "New Vehicle", vehicle_type: "Sedan", seats: 4, price_per_day: 50000 });
-                  if (result) {
-                    setTab("transport");
-                    setEditingVehicleId(result.id);
-                  }
-                }}>
+                <Button variant="outline" onClick={() => navigate("/create-transport")}>
                   <Car className="w-4 h-4 mr-2" /> Add Vehicle
                 </Button>
               </div>
