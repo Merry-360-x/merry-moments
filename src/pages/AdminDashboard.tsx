@@ -287,8 +287,110 @@ export default function AdminDashboard() {
   const [contactedHosts, setContactedHosts] = useState<Set<string>>(new Set());
   const [suspendingHost, setSuspendingHost] = useState<string | null>(null);
 
+  // Set up real-time subscriptions for instant updates
+  useEffect(() => {
+    if (!user) return;
+
+    const channels: ReturnType<typeof supabase.channel>[] = [];
+
+    // Subscribe to properties changes
+    const propertiesChannel = supabase
+      .channel('admin-properties-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'properties' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['admin-properties'] });
+        queryClient.invalidateQueries({ queryKey: ['admin_dashboard_metrics'] });
+      })
+      .subscribe();
+    channels.push(propertiesChannel);
+
+    // Subscribe to tours changes
+    const toursChannel = supabase
+      .channel('admin-tours-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tours' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['admin-tours'] });
+        queryClient.invalidateQueries({ queryKey: ['admin_dashboard_metrics'] });
+      })
+      .subscribe();
+    channels.push(toursChannel);
+
+    // Subscribe to transport_vehicles changes
+    const vehiclesChannel = supabase
+      .channel('admin-vehicles-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transport_vehicles' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['admin-transport-vehicles'] });
+        queryClient.invalidateQueries({ queryKey: ['admin_dashboard_metrics'] });
+      })
+      .subscribe();
+    channels.push(vehiclesChannel);
+
+    // Subscribe to bookings changes
+    const bookingsChannel = supabase
+      .channel('admin-bookings-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['admin-bookings'] });
+        queryClient.invalidateQueries({ queryKey: ['admin_dashboard_metrics'] });
+      })
+      .subscribe();
+    channels.push(bookingsChannel);
+
+    // Subscribe to host_applications changes
+    const applicationsChannel = supabase
+      .channel('admin-applications-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'host_applications' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['host_applications'] });
+        queryClient.invalidateQueries({ queryKey: ['admin_dashboard_metrics'] });
+      })
+      .subscribe();
+    channels.push(applicationsChannel);
+
+    // Subscribe to user_roles changes
+    const rolesChannel = supabase
+      .channel('admin-roles-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_roles' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['user_roles'] });
+      })
+      .subscribe();
+    channels.push(rolesChannel);
+
+    // Subscribe to profiles changes (for user management)
+    const profilesChannel = supabase
+      .channel('admin-profiles-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['admin_list_users'] });
+        queryClient.invalidateQueries({ queryKey: ['admin_dashboard_metrics'] });
+      })
+      .subscribe();
+    channels.push(profilesChannel);
+
+    // Subscribe to property_reviews changes
+    const reviewsChannel = supabase
+      .channel('admin-reviews-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'property_reviews' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['admin-reviews'] });
+        queryClient.invalidateQueries({ queryKey: ['admin_dashboard_metrics'] });
+      })
+      .subscribe();
+    channels.push(reviewsChannel);
+
+    // Subscribe to ad_banners changes
+    const bannersChannel = supabase
+      .channel('admin-banners-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ad_banners' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['admin_ad_banners'] });
+      })
+      .subscribe();
+    channels.push(bannersChannel);
+
+    // Cleanup subscriptions on unmount
+    return () => {
+      channels.forEach(channel => {
+        supabase.removeChannel(channel);
+      });
+    };
+  }, [user, queryClient]);
+
   // Metrics query - always enabled for overview data
-  const { data: metrics, refetch: refetchMetrics, isLoading: metricsLoading } = useQuery({
+  const { data: metrics, refetch: refetchMetrics } = useQuery({
     queryKey: ["admin_dashboard_metrics"],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("admin_dashboard_metrics");
@@ -298,11 +400,10 @@ export default function AdminDashboard() {
       }
       return data as unknown as Metrics;
     },
-    staleTime: 1000 * 60, // 1 minute
+    staleTime: 1000 * 30, // 30 seconds
     gcTime: 1000 * 60 * 10, // 10 minutes cache retention
-    refetchInterval: 1000 * 60, // Refetch every minute
-    refetchIntervalInBackground: true, // Keep updating in background
     refetchOnWindowFocus: true,
+    placeholderData: (previousData) => previousData, // Keep showing old data while refetching
   });
 
   const { data: adBanners = [], refetch: refetchAdBanners } = useQuery({
@@ -315,9 +416,10 @@ export default function AdminDashboard() {
       if (error) throw error;
       return (data ?? []) as AdBannerRow[];
     },
-    staleTime: 1000 * 60 * 2, // 2 minutes
+    staleTime: 1000 * 30, // 30 seconds
     gcTime: 1000 * 60 * 15, // 15 minutes
     refetchOnWindowFocus: true,
+    placeholderData: (previousData) => previousData, // Keep showing old data while refetching
   });
 
   const upsertBanner = async (payload: Partial<AdBannerRow> & { id?: string }) => {
@@ -397,7 +499,7 @@ export default function AdminDashboard() {
   };
 
   // Host applications - always enabled for overview metrics
-  const { data: applications = [], refetch: refetchApplications, isLoading: applicationsLoading } = useQuery({
+  const { data: applications = [], refetch: refetchApplications } = useQuery({
     queryKey: ["host_applications", "admin"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -408,22 +510,24 @@ export default function AdminDashboard() {
       if (error) throw error;
       return (data ?? []) as HostApplicationRow[];
     },
-    staleTime: 1000 * 60 * 2, // 2 minutes
+    staleTime: 1000 * 30, // 30 seconds
     gcTime: 1000 * 60 * 15, // 15 minutes cache retention
     refetchOnWindowFocus: true,
+    placeholderData: (previousData) => previousData,
   });
 
   // User roles - always enabled for user management
-  const { data: roleRows = [], refetch: refetchRoles, isLoading: rolesLoading } = useQuery({
+  const { data: roleRows = [], refetch: refetchRoles } = useQuery({
     queryKey: ["user_roles", "admin-dashboard"],
     queryFn: async () => {
       const { data, error } = await supabase.from("user_roles").select("user_id, role, created_at");
       if (error) throw error;
       return (data ?? []) as RoleRow[];
     },
-    staleTime: 1000 * 60 * 2, // 2 minutes
+    staleTime: 1000 * 30, // 30 seconds
     gcTime: 1000 * 60 * 15, // 15 minutes cache retention
     refetchOnWindowFocus: true,
+    placeholderData: (previousData) => previousData,
   });
 
   const rolesByUserId = useMemo(() => {
@@ -437,21 +541,22 @@ export default function AdminDashboard() {
   }, [roleRows]);
 
   // Users - always enabled for better performance
-  const { data: adminUsers = [], refetch: refetchUsers, isLoading: usersLoading } = useQuery({
+  const { data: adminUsers = [], refetch: refetchUsers } = useQuery({
     queryKey: ["admin_list_users", userSearch],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("admin_list_users", { _search: userSearch });
       if (error) throw error;
       return (data ?? []) as AdminUserRow[];
     },
-    staleTime: 1000 * 60 * 2, // 2 minutes
+    staleTime: 1000 * 30, // 30 seconds
     gcTime: 1000 * 60 * 15, // 15 minutes cache retention
     refetchOnWindowFocus: true,
+    placeholderData: (previousData) => previousData,
     // Always enabled for better dashboard responsiveness
   });
 
   // Properties with images - enhanced loading
-  const { data: properties = [], refetch: refetchProperties, isLoading: propertiesLoading } = useQuery({
+  const { data: properties = [], refetch: refetchProperties } = useQuery({
     queryKey: ["admin-properties"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -463,13 +568,14 @@ export default function AdminDashboard() {
       return (data ?? []) as PropertyRow[];
     },
     enabled: tab === "accommodations" || tab === "overview", // Also load for overview
-    staleTime: 1000 * 60 * 3, // 3 minutes
+    staleTime: 1000 * 30, // 30 seconds
     gcTime: 1000 * 60 * 20, // 20 minutes cache retention
     refetchOnWindowFocus: true,
+    placeholderData: (previousData) => previousData,
   });
 
   // Tours with images - enhanced loading
-  const { data: tours = [], refetch: refetchTours, isLoading: toursLoading } = useQuery({
+  const { data: tours = [], refetch: refetchTours } = useQuery({
     queryKey: ["admin-tours"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -481,13 +587,14 @@ export default function AdminDashboard() {
       return (data ?? []) as TourRow[];
     },
     enabled: tab === "tours" || tab === "overview", // Also load for overview
-    staleTime: 1000 * 60 * 3, // 3 minutes
+    staleTime: 1000 * 30, // 30 seconds
     gcTime: 1000 * 60 * 20, // 20 minutes cache retention
     refetchOnWindowFocus: true,
+    placeholderData: (previousData) => previousData,
   });
 
   // Transport vehicles with images - enhanced loading
-  const { data: vehicles = [], refetch: refetchVehicles, isLoading: vehiclesLoading } = useQuery({
+  const { data: vehicles = [], refetch: refetchVehicles } = useQuery({
     queryKey: ["admin-transport-vehicles"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -499,13 +606,14 @@ export default function AdminDashboard() {
       return (data ?? []) as TransportVehicleRow[];
     },
     enabled: tab === "transport" || tab === "overview", // Also load for overview
-    staleTime: 1000 * 60 * 3, // 3 minutes
+    staleTime: 1000 * 30, // 30 seconds
     gcTime: 1000 * 60 * 20, // 20 minutes cache retention
     refetchOnWindowFocus: true,
+    placeholderData: (previousData) => previousData,
   });
 
   // Bookings - direct query with enhanced loading
-  const { data: bookings = [], refetch: refetchBookings, isLoading: bookingsLoading } = useQuery({
+  const { data: bookings = [], refetch: refetchBookings } = useQuery({
     queryKey: ["admin-bookings-direct", bookingStatus],
     queryFn: async () => {
       let q = supabase
@@ -522,13 +630,13 @@ export default function AdminDashboard() {
       return (data ?? []) as BookingRow[];
     },
     enabled: tab === "bookings" || tab === "payments" || tab === "overview", // Also for overview
-    staleTime: 1000 * 30, // 30 seconds for booking data
+    staleTime: 1000 * 20, // 20 seconds for booking data
     gcTime: 1000 * 60 * 10, // 10 minutes cache retention
     refetchOnWindowFocus: true,
-    refetchInterval: 1000 * 60, // Refetch every minute for booking updates
+    placeholderData: (previousData) => previousData,
   });
   // Reviews - direct query with enhanced loading
-  const { data: reviews = [], refetch: refetchReviews, isLoading: reviewsLoading } = useQuery({
+  const { data: reviews = [], refetch: refetchReviews } = useQuery({
     queryKey: ["admin-reviews-direct"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -547,13 +655,14 @@ export default function AdminDashboard() {
       return (data ?? []) as ReviewRow[];
     },
     enabled: tab === "reviews" || tab === "overview", // Also for overview
-    staleTime: 1000 * 60 * 2, // 2 minutes
+    staleTime: 1000 * 30, // 30 seconds
     gcTime: 1000 * 60 * 15, // 15 minutes cache retention
     refetchOnWindowFocus: true,
+    placeholderData: (previousData) => previousData,
   });
 
   // Support tickets - enhanced loading
-  const { data: tickets = [], refetch: refetchTickets, isLoading: ticketsLoading } = useQuery({
+  const { data: tickets = [], refetch: refetchTickets } = useQuery({
     queryKey: ["admin-tickets", ticketStatus],
     queryFn: async () => {
       let q = supabase
@@ -574,9 +683,10 @@ export default function AdminDashboard() {
       return (data ?? []) as SupportTicketRow[];
     },
     enabled: tab === "support" || tab === "overview", // Also for overview
-    staleTime: 1000 * 60, // 1 minute for tickets
+    staleTime: 1000 * 30, // 30 seconds
     gcTime: 1000 * 60 * 10, // 10 minutes cache retention
     refetchOnWindowFocus: true,
+    placeholderData: (previousData) => previousData,
   });
 
   // Incidents
@@ -608,29 +718,7 @@ export default function AdminDashboard() {
     enabled: tab === "safety",
   });
 
-  // Realtime updates
-  useEffect(() => {
-    const channel = supabase
-      .channel("admin-dashboard-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "bookings" }, () => refetchMetrics())
-      .on("postgres_changes", { event: "*", schema: "public", table: "properties" }, () => {
-        refetchMetrics();
-        if (tab === "accommodations") refetchProperties();
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "tours" }, () => {
-        refetchMetrics();
-        if (tab === "tours") refetchTours();
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "support_tickets" }, () => {
-        refetchMetrics();
-        if (tab === "support") refetchTickets();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [tab, refetchMetrics, refetchProperties, refetchTours, refetchTickets]);
+  // Note: Real-time updates are handled by the comprehensive subscription setup above
 
   // Helper for status badge
   const StatusBadge = ({ status }: { status: string }) => (
@@ -962,12 +1050,6 @@ export default function AdminDashboard() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
           <div className="flex items-center gap-2">
-            {(metricsLoading || applicationsLoading || usersLoading || rolesLoading) && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                Loading data...
-              </div>
-            )}
             <Button variant="outline" size="sm" onClick={() => refetchMetrics()}>
               <RefreshCw className="w-4 h-4 mr-2" />
               Refresh
@@ -1410,15 +1492,10 @@ export default function AdminDashboard() {
                 </Button>
               </div>
 
-              {applicationsLoading ? (
-                <div className="text-center py-12">
-                  <Activity className="w-8 h-8 mx-auto mb-2 text-muted-foreground animate-spin" />
-                  <p className="text-sm text-muted-foreground">Loading applications...</p>
-                </div>
-              ) : applications.length === 0 ? (
-                <div className="text-center py-12">
-                  <UserPlus className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-muted-foreground">No host applications yet</p>
+              {applications.length === 0 ? (
+                <div className=\"text-center py-12\">
+                  <UserPlus className=\"w-12 h-12 mx-auto mb-4 text-muted-foreground\" />
+                  <p className=\"text-muted-foreground\">No host applications yet</p>
                 </div>
               ) : (
                 <div className="space-y-6">
