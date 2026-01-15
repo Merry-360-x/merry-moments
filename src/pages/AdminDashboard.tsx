@@ -1493,9 +1493,9 @@ export default function AdminDashboard() {
               </div>
 
               {applications.length === 0 ? (
-                <div className=\"text-center py-12\">
-                  <UserPlus className=\"w-12 h-12 mx-auto mb-4 text-muted-foreground\" />
-                  <p className=\"text-muted-foreground\">No host applications yet</p>
+                <div className="text-center py-12">
+                  <UserPlus className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-muted-foreground">No host applications yet</p>
                 </div>
               ) : (
                 <div className="space-y-6">
