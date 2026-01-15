@@ -52,25 +52,30 @@ const Navbar = () => {
   const { t } = useTranslation();
   const { language, setLanguage, currency, setCurrency, resolvedTheme, setTheme } = usePreferences();
 
-  const [adBanners, setAdBanners] = useState<
-    Array<{
-      id: string;
-      message: string;
-      cta_label: string | null;
-      cta_url: string | null;
-      bg_color: string | null;
-      text_color: string | null;
-    }>
-  >([]);
   const [adIndex, setAdIndex] = useState(0);
 
-  useEffect(() => {
-    // TODO: Re-enable when ad_banners table is created
-    // Ad banners feature disabled - table doesn't exist yet
-    setAdBanners([]);
-    setAdIndex(0);
-    return () => {};
-  }, []);
+  // Query active ad banners
+  const { data: adBanners = [] } = useQuery({
+    queryKey: ["ad_banners"],
+    queryFn: async () => {
+      const now = new Date().toISOString();
+      const { data, error } = await supabase
+        .from("ad_banners")
+        .select("id, message, cta_label, cta_url, bg_color, text_color")
+        .eq("is_active", true)
+        .or(`starts_at.is.null,starts_at.lte.${now}`)
+        .or(`ends_at.is.null,ends_at.gte.${now}`)
+        .order("sort_order", { ascending: true });
+      
+      if (error) {
+        console.warn("Failed to fetch ad banners:", error);
+        return [];
+      }
+      return data ?? [];
+    },
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    refetchOnWindowFocus: true,
+  });
 
   useEffect(() => {
     if (adBanners.length <= 1) return;
