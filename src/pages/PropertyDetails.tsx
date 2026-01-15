@@ -796,9 +796,25 @@ export default function PropertyDetails() {
                           alt={hostProfile.full_name ?? "Host"}
                           className="w-12 h-12 rounded-full object-cover border border-border"
                           loading="lazy"
+                          onError={(e) => {
+                            // If image fails to load, hide it and show fallback
+                            e.currentTarget.style.display = 'none';
+                            const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
                         />
-                      ) : hostProfile?.full_name ? (
-                        <div className="w-12 h-12 rounded-full bg-primary/10 border border-border flex items-center justify-center">
+                      ) : null}
+                      {/* Fallback avatar - always render but hidden if image loads successfully */}
+                      <div 
+                        className={`w-12 h-12 rounded-full border border-border flex items-center justify-center ${
+                          hostProfile?.avatar_url ? 'hidden' : 'flex'
+                        } ${
+                          hostProfile?.full_name 
+                            ? 'bg-primary/10' 
+                            : 'bg-muted'
+                        }`}
+                      >
+                        {hostProfile?.full_name ? (
                           <span className="text-primary font-semibold text-sm">
                             {hostProfile.full_name
                               .split(' ')
@@ -807,12 +823,10 @@ export default function PropertyDetails() {
                               .toUpperCase()
                               .slice(0, 2)}
                           </span>
-                        </div>
-                      ) : (
-                        <div className="w-12 h-12 rounded-full bg-muted border border-border flex items-center justify-center">
+                        ) : (
                           <User className="w-6 h-6 text-muted-foreground" />
-                        </div>
-                      )}
+                        )}
+                      </div>
                       <div>
                         <div className="text-base font-semibold text-foreground">
                           Hosted by {hostProfile?.full_name?.trim() || "Host"}
