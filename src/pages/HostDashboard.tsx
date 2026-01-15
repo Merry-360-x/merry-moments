@@ -2363,7 +2363,7 @@ export default function HostDashboard() {
           {/* Tours */}
           <TabsContent value="tours">
             <div className="flex justify-end mb-4">
-              <Button onClick={() => setShowTourWizard(true)}>
+              <Button onClick={() => navigate("/create-tour")}>
                 <Plus className="w-4 h-4 mr-2" /> Add Tour
               </Button>
                         </div>
@@ -2406,7 +2406,7 @@ export default function HostDashboard() {
                 <Button variant="outline" onClick={() => setShowRouteWizard(true)}>
                   <Plus className="w-4 h-4 mr-2" /> Add Route
                 </Button>
-                <Button onClick={() => setShowVehicleWizard(true)}>
+                <Button onClick={() => navigate("/create-transport")}>
                   <Plus className="w-4 h-4 mr-2" /> Add Vehicle
                 </Button>
             </div>
