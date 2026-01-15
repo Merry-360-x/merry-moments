@@ -16,7 +16,7 @@ import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
 import { isVideoUrl } from "@/lib/media";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { formatMoney } from "@/lib/money";
-import { AMENITIES } from "@/lib/amenities";
+import { AMENITIES, AMENITIES_BY_CATEGORY } from "@/lib/amenities";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
@@ -1509,34 +1509,43 @@ export default function HostDashboard() {
                   <p className="text-muted-foreground mt-2">Select all that apply</p>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {AMENITIES.map((amenity) => {
-                    const Icon = amenity.icon;
-                    const isSelected = propertyForm.amenities.includes(amenity.value);
-                    return (
+                <div className="space-y-8">
+                  {AMENITIES_BY_CATEGORY.map((category) => (
+                    <div key={category.name} className="space-y-3">
+                      <h3 className="text-sm font-semibold text-foreground/80 uppercase tracking-wide px-2">
+                        {category.name}
+                      </h3>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {category.items.map((amenity) => {
+                          const Icon = amenity.icon;
+                          const isSelected = propertyForm.amenities.includes(amenity.value);
+                          return (
                             <button
-                        key={amenity.value}
+                              key={amenity.value}
                               type="button"
-                        onClick={() => {
-                          setPropertyForm((f) => ({
-                            ...f,
-                            amenities: isSelected
-                              ? f.amenities.filter((a) => a !== amenity.value)
-                              : [...f.amenities, amenity.value],
-                          }));
-                        }}
-                        className={`p-4 rounded-xl border-2 flex items-center gap-3 transition-all ${
-                          isSelected
-                            ? "border-primary bg-primary/10 text-primary"
-                            : "border-border hover:border-primary/50"
-                        }`}
-                      >
-                        <Icon className="w-5 h-5" />
-                        <span className="font-medium">{amenity.label}</span>
+                              onClick={() => {
+                                setPropertyForm((f) => ({
+                                  ...f,
+                                  amenities: isSelected
+                                    ? f.amenities.filter((a) => a !== amenity.value)
+                                    : [...f.amenities, amenity.value],
+                                }));
+                              }}
+                              className={`p-3 rounded-xl border-2 flex items-center gap-2 transition-all text-left ${
+                                isSelected
+                                  ? "border-primary bg-primary/10 text-primary"
+                                  : "border-border hover:border-primary/50"
+                              }`}
+                            >
+                              <Icon className="w-4 h-4 shrink-0" />
+                              <span className="text-sm font-medium">{amenity.label}</span>
                             </button>
-                    );
-                  })}
-                          </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
