@@ -594,6 +594,20 @@ export default function HostApplication() {
                     </div>
                   </div>
 
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="address">Full Address</Label>
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="address"
+                        className="pl-10"
+                        placeholder="Street address, building number, etc."
+                        value={formData.address || ""}
+                        onChange={(e) => updateField("address", e.target.value)}
+                      />
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="propertyType">Property Type *</Label>
                     <Select value={formData.property_type} onValueChange={(val) => updateField("property_type", val)}>
