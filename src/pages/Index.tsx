@@ -15,6 +15,9 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import heroImage from "@/assets/hero-resort.jpg";
 
+// Video background - you can replace this with your actual video URL
+const heroVideoUrl = "https://videos.pexels.com/video-files/2169880/2169880-uhd_2560_1440_25fps.mp4";
+
 const fetchLatestProperties = async () => {
   try {
     const { data, error } = await supabase
@@ -193,9 +196,33 @@ const Index = () => {
 
       {/* Hero Section */}
       <section
-        className="relative min-h-[70vh] flex items-center justify-center bg-cover bg-center"
-        style={{ backgroundImage: `url(${heroImage})` }}
+        className="relative min-h-[70vh] flex items-center justify-center overflow-hidden"
       >
+        {/* Video Background */}
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          className="absolute inset-0 w-full h-full object-cover"
+          poster={heroImage}
+          onError={(e) => {
+            // Hide video and show fallback image on error
+            e.currentTarget.style.display = 'none';
+          }}
+        >
+          <source src={heroVideoUrl} type="video/mp4" />
+          {/* Fallback for browsers that don't support video */}
+          Your browser does not support the video tag.
+        </video>
+        
+        {/* Fallback background image if video fails */}
+        <div 
+          className="absolute inset-0 w-full h-full bg-cover bg-center"
+          style={{ backgroundImage: `url(${heroImage})` }}
+        />
+
         {/* Overlay */}
         <div className="absolute inset-0 bg-gradient-to-b from-foreground/10 via-foreground/20 to-foreground/50" />
 
