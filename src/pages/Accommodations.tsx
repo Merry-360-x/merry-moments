@@ -1,8 +1,10 @@
-import { Search, Star, MapPin, Users, Calendar, Zap, TrendingUp } from "lucide-react";
+import { Search, Star, MapPin, Users, Calendar as CalendarIcon, Zap, TrendingUp } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import PropertyCard from "@/components/PropertyCard";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -18,6 +20,7 @@ import { Filter } from "lucide-react";
 import { AMENITIES } from "@/lib/amenities";
 import { formatMoney } from "@/lib/money";
 import { usePreferences } from "@/hooks/usePreferences";
+import type { DateRange } from "react-day-picker";
 
 const propertyTypes = ["Hotel", "Motel", "Resort", "Lodge", "Apartment", "Villa", "Guesthouse"];
 const amenities = AMENITIES;
@@ -112,8 +115,12 @@ const Accommodations = () => {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showRecommendations, setShowRecommendations] = useState(true);
   const [guestCount, setGuestCount] = useState(1);
-  const [checkIn, setCheckIn] = useState<Date | null>(null);
-  const [checkOut, setCheckOut] = useState<Date | null>(null);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  
+  // Convert date range to individual dates for compatibility
+  const checkIn = dateRange?.from || null;
+  const checkOut = dateRange?.to || null;
   const hostId = searchParams.get("host");
   const nearbyLat = searchParams.get("lat");
   const nearbyLng = searchParams.get("lng");
@@ -350,20 +357,65 @@ const Accommodations = () => {
                 </div>
                 
                 {/* When */}
-                <div className="p-4 hover:bg-muted/50 transition-colors cursor-pointer">
-                  <div className="flex items-center gap-3">
-                    <Calendar className="w-5 h-5 text-muted-foreground" />
-                    <div className="flex-1">
-                      <label className="block text-xs font-medium text-muted-foreground mb-1">When</label>
-                      <div className="text-sm font-medium text-foreground">
-                        {checkIn && checkOut ? 
-                          `${checkIn.toLocaleDateString()} - ${checkOut.toLocaleDateString()}` : 
-                          "Add dates"
-                        }
+                <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                  <PopoverTrigger asChild>
+                    <div className="p-4 hover:bg-muted/50 transition-colors cursor-pointer">
+                      <div className="flex items-center gap-3">
+                        <CalendarIcon className="w-5 h-5 text-muted-foreground" />
+                        <div className="flex-1">
+                          <label className="block text-xs font-medium text-muted-foreground mb-1">When</label>
+                          <div className="text-sm font-medium text-foreground">
+                            {checkIn && checkOut ? 
+                              `${checkIn.toLocaleDateString()} - ${checkOut.toLocaleDateString()}` : 
+                              "Add dates"
+                            }
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
+                  </PopoverTrigger>
+                  <PopoverContent 
+                    className="w-auto p-0 rounded-2xl shadow-lg" 
+                    align="center"
+                    side="bottom"
+                    sideOffset={8}
+                  >
+                    <div className="p-4">
+                      <Calendar
+                        mode="range"
+                        numberOfMonths={2}
+                        selected={dateRange}
+                        onSelect={(range) => {
+                          setDateRange(range);
+                          if (range?.from && range?.to) {
+                            // Auto-close after selecting both dates
+                            setTimeout(() => setDatePickerOpen(false), 100);
+                          }
+                        }}
+                        disabled={{ before: new Date() }}
+                        initialFocus
+                        className="rounded-lg"
+                      />
+                      <div className="flex items-center justify-between mt-4 pt-3 border-t">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => {
+                            setDateRange(undefined);
+                          }}
+                        >
+                          Clear dates
+                        </Button>
+                        <Button 
+                          size="sm"
+                          onClick={() => setDatePickerOpen(false)}
+                        >
+                          Done
+                        </Button>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
                 
                 {/* Who */}
                 <div className="p-4 hover:bg-muted/50 transition-colors cursor-pointer">
