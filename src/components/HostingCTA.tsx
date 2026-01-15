@@ -1,5 +1,7 @@
 import { Button } from "@/components/ui/button";
 import hostingVilla from "@/assets/hosting-villa.jpg";
+import toursBackground from "@/assets/hero-resort.jpg";
+import transportBackground from "@/assets/property-1.jpg";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -32,7 +34,7 @@ const HostingCTA = () => {
         {/* Tours */}
         <div
           className="relative rounded-2xl overflow-hidden bg-cover bg-center min-h-[220px] flex items-center"
-          style={{ backgroundImage: `url(${hostingVilla})` }}
+          style={{ backgroundImage: `url(${toursBackground})` }}
         >
           <div className="absolute inset-0 bg-gradient-to-r from-foreground/70 to-foreground/20" />
           <div className="relative z-10 p-7">
@@ -49,7 +51,7 @@ const HostingCTA = () => {
         {/* Transport */}
         <div
           className="relative rounded-2xl overflow-hidden bg-cover bg-center min-h-[220px] flex items-center"
-          style={{ backgroundImage: `url(${hostingVilla})` }}
+          style={{ backgroundImage: `url(${transportBackground})` }}
         >
           <div className="absolute inset-0 bg-gradient-to-r from-foreground/70 to-foreground/20" />
           <div className="relative z-10 p-7">
