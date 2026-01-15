@@ -30,6 +30,8 @@ import AdminIntegrations from "./pages/AdminIntegrations";
 import HostReviews from "./pages/HostReviews";
 import HostAbout from "./pages/HostAbout";
 import ConnectionTest from "./pages/ConnectionTest";
+import CreateTour from "./pages/CreateTour";
+import CreateTransport from "./pages/CreateTransport";
 import ScrollToTop from "@/components/ScrollToTop";
 import GlobalLoadingIndicator from "@/components/GlobalLoadingIndicator";
 import SupportCenterLauncher from "@/components/SupportCenterLauncher";
@@ -142,6 +144,22 @@ const App = () => (
               />
               <Route path="/host" element={<Navigate to="/host-dashboard" replace />} />
               <Route path="/become-host" element={<HostApplication />} />
+              <Route
+                path="/create-tour"
+                element={
+                  <RequireAuth>
+                    <CreateTour />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/create-transport"
+                element={
+                  <RequireAuth>
+                    <CreateTransport />
+                  </RequireAuth>
+                }
+              />
               <Route
                 path="/admin"
                 element={
