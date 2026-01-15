@@ -219,6 +219,7 @@ type AdBannerRow = {
 type TabValue =
   | "overview"
   | "ads"
+  | "host-applications"
   | "users"
   | "accommodations"
   | "tours"
@@ -954,6 +955,14 @@ export default function AdminDashboard() {
             <TabsTrigger value="ads" className="gap-1">
               <Megaphone className="w-4 h-4" /> Ads
             </TabsTrigger>
+            <TabsTrigger value="host-applications" className="gap-1">
+              <UserPlus className="w-4 h-4" /> Host Applications
+              {applications.filter(a => a.status === 'pending').length > 0 && (
+                <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-xs">
+                  {applications.filter(a => a.status === 'pending').length}
+                </Badge>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="users" className="gap-1">
               <Users className="w-4 h-4" /> Users
             </TabsTrigger>
@@ -1355,6 +1364,256 @@ export default function AdminDashboard() {
                 </div>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* HOST APPLICATIONS TAB */}
+          <TabsContent value="host-applications">
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-lg font-semibold">Host Applications</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Review and approve host verification documents
+                  </p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => refetchApplications()}>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Refresh
+                </Button>
+              </div>
+
+              {applicationsLoading ? (
+                <div className="text-center py-12">
+                  <Activity className="w-8 h-8 mx-auto mb-2 text-muted-foreground animate-spin" />
+                  <p className="text-sm text-muted-foreground">Loading applications...</p>
+                </div>
+              ) : applications.length === 0 ? (
+                <div className="text-center py-12">
+                  <UserPlus className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-muted-foreground">No host applications yet</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Pending Applications */}
+                  {applications.filter(a => a.status === 'pending').length > 0 && (
+                    <div>
+                      <h3 className="text-md font-semibold mb-3 flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-yellow-600" />
+                        Pending Review ({applications.filter(a => a.status === 'pending').length})
+                      </h3>
+                      <div className="space-y-4">
+                        {applications.filter(a => a.status === 'pending').map((app: any) => (
+                          <Card key={app.id} className="p-5 border-l-4 border-l-yellow-500">
+                            <div className="grid lg:grid-cols-2 gap-6">
+                              {/* Left: Application Info */}
+                              <div className="space-y-4">
+                                <div>
+                                  <h4 className="font-semibold text-lg mb-2">{app.full_name || 'No name'}</h4>
+                                  <div className="space-y-1 text-sm">
+                                    <p><span className="text-muted-foreground">Phone:</span> {app.phone || '—'}</p>
+                                    <p><span className="text-muted-foreground">Type:</span> {app.applicant_type || 'individual'}</p>
+                                    {app.business_name && (
+                                      <p><span className="text-muted-foreground">Business:</span> {app.business_name}</p>
+                                    )}
+                                    {app.business_tin && (
+                                      <p><span className="text-muted-foreground">TIN:</span> {app.business_tin}</p>
+                                    )}
+                                    {app.national_id_number && (
+                                      <p><span className="text-muted-foreground">National ID:</span> {app.national_id_number}</p>
+                                    )}
+                                    <p><span className="text-muted-foreground">Location:</span> {app.hosting_location || '—'}</p>
+                                    <p className="text-xs text-muted-foreground mt-2">
+                                      Applied: {new Date(app.created_at).toLocaleString()}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                {app.about && (
+                                  <div>
+                                    <label className="text-sm font-medium text-muted-foreground">About</label>
+                                    <p className="text-sm mt-1">{app.about}</p>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Right: Documents */}
+                              <div className="space-y-4">
+                                <div>
+                                  <label className="text-sm font-medium mb-2 block">National ID Photo</label>
+                                  {app.national_id_photo_url ? (
+                                    <a 
+                                      href={app.national_id_photo_url} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="block border rounded-lg overflow-hidden hover:opacity-90 transition-opacity"
+                                    >
+                                      <img 
+                                        src={app.national_id_photo_url} 
+                                        alt="National ID" 
+                                        className="w-full h-48 object-cover"
+                                      />
+                                      <div className="bg-muted p-2 text-center text-xs">
+                                        Click to view full size
+                                      </div>
+                                    </a>
+                                  ) : (
+                                    <div className="border rounded-lg p-8 text-center text-muted-foreground">
+                                      <ImageIcon className="w-8 h-8 mx-auto mb-2" />
+                                      <p className="text-sm">No ID photo uploaded</p>
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div>
+                                  <label className="text-sm font-medium mb-2 block">Selfie Photo</label>
+                                  {app.selfie_photo_url ? (
+                                    <a 
+                                      href={app.selfie_photo_url} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="block border rounded-lg overflow-hidden hover:opacity-90 transition-opacity"
+                                    >
+                                      <img 
+                                        src={app.selfie_photo_url} 
+                                        alt="Selfie" 
+                                        className="w-full h-48 object-cover"
+                                      />
+                                      <div className="bg-muted p-2 text-center text-xs">
+                                        Click to view full size
+                                      </div>
+                                    </a>
+                                  ) : (
+                                    <div className="border rounded-lg p-8 text-center text-muted-foreground">
+                                      <ImageIcon className="w-8 h-8 mx-auto mb-2" />
+                                      <p className="text-sm">No selfie uploaded</p>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Review Actions */}
+                                <div className="flex gap-2 pt-2">
+                                  <Button 
+                                    size="sm" 
+                                    className="flex-1 bg-green-600 hover:bg-green-700"
+                                    onClick={async () => {
+                                      try {
+                                        const { error } = await supabase
+                                          .from('host_applications')
+                                          .update({ status: 'approved' })
+                                          .eq('id', app.id);
+                                        
+                                        if (error) throw error;
+
+                                        // Add host role
+                                        await supabase.from('user_roles').upsert({
+                                          user_id: app.user_id,
+                                          role: 'host',
+                                        });
+
+                                        toast({ title: 'Application Approved', description: 'Host role has been granted.' });
+                                        refetchApplications();
+                                      } catch (e) {
+                                        logError('admin.approve_host', e);
+                                        toast({ variant: 'destructive', title: 'Failed to approve', description: uiErrorMessage(e) });
+                                      }
+                                    }}
+                                  >
+                                    <CheckCircle className="w-4 h-4 mr-2" />
+                                    Approve
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="destructive" 
+                                    className="flex-1"
+                                    onClick={async () => {
+                                      try {
+                                        const { error } = await supabase
+                                          .from('host_applications')
+                                          .update({ status: 'rejected' })
+                                          .eq('id', app.id);
+                                        
+                                        if (error) throw error;
+                                        toast({ title: 'Application Rejected' });
+                                        refetchApplications();
+                                      } catch (e) {
+                                        logError('admin.reject_host', e);
+                                        toast({ variant: 'destructive', title: 'Failed to reject', description: uiErrorMessage(e) });
+                                      }
+                                    }}
+                                  >
+                                    <XCircle className="w-4 h-4 mr-2" />
+                                    Reject
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* All Applications Table */}
+                  <div>
+                    <h3 className="text-md font-semibold mb-3">All Applications</h3>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Applicant</TableHead>
+                            <TableHead>Phone</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Documents</TableHead>
+                            <TableHead>Applied</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {applications.map((app: any) => (
+                            <TableRow key={app.id}>
+                              <TableCell>
+                                <div>
+                                  <p className="font-medium">{app.full_name || '—'}</p>
+                                  {app.business_name && (
+                                    <p className="text-xs text-muted-foreground">{app.business_name}</p>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-sm">{app.phone || '—'}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline">{app.applicant_type || 'individual'}</Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge className={statusColors[app.status] || 'bg-gray-100'}>
+                                  {app.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-sm">
+                                <div className="flex gap-1">
+                                  {app.national_id_photo_url ? (
+                                    <Badge variant="outline" className="text-green-600">ID ✓</Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-gray-400">No ID</Badge>
+                                  )}
+                                  {app.selfie_photo_url ? (
+                                    <Badge variant="outline" className="text-green-600">Selfie ✓</Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-gray-400">No Selfie</Badge>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                {new Date(app.created_at).toLocaleDateString()}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </Card>
           </TabsContent>
 
           {/* USERS TAB */}
