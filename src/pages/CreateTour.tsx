@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Upload, X } from "lucide-react";
-import { uploadImage } from "@/lib/uploads";
+import { uploadFile } from "@/lib/uploads";
 
 const categories = ["Nature", "Adventure", "Cultural", "Wildlife", "Historical"];
 const difficultyLevels = ["Easy", "Moderate", "Challenging", "Difficult"];
@@ -106,8 +106,8 @@ export default function CreateTour() {
       const uploadedImageUrls: string[] = [];
       for (const image of images) {
         try {
-          const url = await uploadImage(image, "tours");
-          uploadedImageUrls.push(url);
+          const result = await uploadFile(image, { folder: "tours" });
+          uploadedImageUrls.push(result.url);
         } catch (err) {
           console.error("Image upload failed:", err);
         }

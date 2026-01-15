@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Upload, X } from "lucide-react";
-import { uploadImage } from "@/lib/uploads";
+import { uploadFile } from "@/lib/uploads";
 
 const vehicleTypes = [
   "Sedan",
@@ -115,8 +115,8 @@ export default function CreateTransport() {
       const uploadedImageUrls: string[] = [];
       for (const image of images) {
         try {
-          const url = await uploadImage(image, "transport");
-          uploadedImageUrls.push(url);
+          const result = await uploadFile(image, { folder: "transport" });
+          uploadedImageUrls.push(result.url);
         } catch (err) {
           console.error("Image upload failed:", err);
         }
