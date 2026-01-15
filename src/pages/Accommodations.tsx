@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PropertyCard from "@/components/PropertyCard";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -117,6 +118,8 @@ const Accommodations = () => {
   const [guestCount, setGuestCount] = useState(1);
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [whenTab, setWhenTab] = useState<"dates" | "months" | "flexible">("dates");
+  const [dateFlexDays, setDateFlexDays] = useState(0);
   
   // Convert date range to individual dates for compatibility
   const checkIn = dateRange?.from || null;
@@ -375,44 +378,179 @@ const Accommodations = () => {
                     </div>
                   </PopoverTrigger>
                   <PopoverContent 
-                    className="w-auto p-0 rounded-2xl shadow-lg" 
+                    className="w-[95vw] max-w-[760px] p-0 rounded-2xl shadow-lg" 
                     align="center"
                     side="bottom"
-                    sideOffset={8}
+                    sideOffset={10}
                   >
                     <div className="p-4">
-                      <Calendar
-                        mode="range"
-                        numberOfMonths={2}
-                        selected={dateRange}
-                        onSelect={(range) => {
-                          setDateRange(range);
-                          if (range?.from && range?.to) {
-                            // Auto-close after selecting both dates
-                            setTimeout(() => setDatePickerOpen(false), 100);
-                          }
-                        }}
-                        disabled={{ before: new Date() }}
-                        initialFocus
-                        className="rounded-lg"
-                      />
-                      <div className="flex items-center justify-between mt-4 pt-3 border-t">
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
+                      <div className="flex items-center justify-between gap-3 mb-3">
+                        <Tabs value={whenTab} onValueChange={(v) => setWhenTab(v as typeof whenTab)}>
+                          <TabsList className="rounded-full">
+                            <TabsTrigger value="dates" className="rounded-full">
+                              Dates
+                            </TabsTrigger>
+                            <TabsTrigger value="months" className="rounded-full">
+                              Months
+                            </TabsTrigger>
+                            <TabsTrigger value="flexible" className="rounded-full">
+                              Flexible
+                            </TabsTrigger>
+                          </TabsList>
+                        </Tabs>
+
+                        <button
+                          type="button"
+                          className="text-sm text-muted-foreground hover:text-foreground underline shrink-0"
                           onClick={() => {
                             setDateRange(undefined);
+                            setDateFlexDays(0);
                           }}
                         >
                           Clear dates
-                        </Button>
-                        <Button 
-                          size="sm"
-                          onClick={() => setDatePickerOpen(false)}
-                        >
-                          Done
-                        </Button>
+                        </button>
                       </div>
+
+                      {/* Content */}
+                      {whenTab === "dates" ? (
+                        <div>
+                          <Calendar
+                            mode="range"
+                            numberOfMonths={2}
+                            selected={dateRange}
+                            onSelect={setDateRange}
+                            disabled={{ before: new Date() }}
+                            initialFocus
+                            className="rounded-lg"
+                          />
+
+                          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setDateFlexDays(0)}
+                                className={
+                                  "px-3 py-1.5 rounded-full border border-border text-sm " +
+                                  (dateFlexDays === 0 ? "bg-muted" : "hover:bg-muted")
+                                }
+                              >
+                                Exact dates
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDateFlexDays(1)}
+                                className={
+                                  "px-3 py-1.5 rounded-full border border-border text-sm " +
+                                  (dateFlexDays === 1 ? "bg-muted" : "hover:bg-muted")
+                                }
+                              >
+                                ±1 day
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDateFlexDays(2)}
+                                className={
+                                  "px-3 py-1.5 rounded-full border border-border text-sm " +
+                                  (dateFlexDays === 2 ? "bg-muted" : "hover:bg-muted")
+                                }
+                              >
+                                ±2 day
+                              </button>
+                            </div>
+
+                            <Button
+                              type="button"
+                              className="bg-primary text-primary-foreground rounded-full px-6"
+                              onClick={() => setDatePickerOpen(false)}
+                            >
+                              Next
+                            </Button>
+                          </div>
+                        </div>
+                      ) : whenTab === "months" ? (
+                        <div>
+                          <div className="text-sm font-semibold text-foreground mb-2">Choose a month</div>
+                          <Calendar
+                            mode="single"
+                            numberOfMonths={2}
+                            selected={dateRange?.from}
+                            onSelect={(d) => {
+                              if (!d) return;
+                              const start = new Date(d.getFullYear(), d.getMonth(), 1);
+                              const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+                              setDateRange({ from: start, to: end });
+                            }}
+                            disabled={{ before: new Date() }}
+                            initialFocus
+                            className="rounded-lg"
+                          />
+                          <div className="mt-3 flex justify-end">
+                            <Button
+                              type="button"
+                              className="bg-primary text-primary-foreground rounded-full px-6"
+                              onClick={() => setDatePickerOpen(false)}
+                            >
+                              Next
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="text-sm font-semibold text-foreground mb-2">How flexible are your dates?</div>
+                          <Calendar
+                            mode="range"
+                            numberOfMonths={2}
+                            selected={dateRange}
+                            onSelect={setDateRange}
+                            disabled={{ before: new Date() }}
+                            initialFocus
+                            className="rounded-lg"
+                          />
+
+                          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setDateFlexDays(0)}
+                                className={
+                                  "px-3 py-1.5 rounded-full border border-border text-sm " +
+                                  (dateFlexDays === 0 ? "bg-muted" : "hover:bg-muted")
+                                }
+                              >
+                                Exact dates
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDateFlexDays(1)}
+                                className={
+                                  "px-3 py-1.5 rounded-full border border-border text-sm " +
+                                  (dateFlexDays === 1 ? "bg-muted" : "hover:bg-muted")
+                                }
+                              >
+                                ±1 day
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDateFlexDays(2)}
+                                className={
+                                  "px-3 py-1.5 rounded-full border border-border text-sm " +
+                                  (dateFlexDays === 2 ? "bg-muted" : "hover:bg-muted")
+                                }
+                              >
+                                ±2 day
+                              </button>
+                            </div>
+
+                            <Button
+                              type="button"
+                              className="bg-primary text-primary-foreground rounded-full px-6"
+                              onClick={() => setDatePickerOpen(false)}
+                            >
+                              Next
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </PopoverContent>
                 </Popover>
