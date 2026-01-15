@@ -14,9 +14,7 @@ import { useRef } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import heroImage from "@/assets/hero-resort.jpg";
-
-// Video hosted externally to reduce bundle size
-const merryVideo = "src/assets/Merry.mp4"; // Place video in public folder
+import merryVideo from "@/assets/Merry.mp4";
 
 const fetchLatestProperties = async () => {
   try {
