@@ -103,6 +103,25 @@ const Navbar = () => {
     return user.email.charAt(0).toUpperCase();
   };
 
+  // Query user profile for avatar
+  const { data: userProfile } = useQuery({
+    queryKey: ["user_profile", user?.id],
+    enabled: Boolean(user?.id),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name, avatar_url")
+        .eq("id", user!.id)
+        .single();
+      
+      if (error) {
+        console.warn("Failed to fetch user profile:", error);
+        return null;
+      }
+      return data;
+    },
+  });
+
   const { data: authedCartCount = 0 } = useQuery({
     queryKey: ["trip_cart_count", user?.id],
     enabled: Boolean(user?.id),
@@ -308,8 +327,25 @@ const Navbar = () => {
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-semibold">
-                    {getInitials()}
+                  <button className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-semibold overflow-hidden border-2 border-background shadow-sm">
+                    {userProfile?.avatar_url ? (
+                      <img
+                        src={userProfile.avatar_url}
+                        alt={userProfile.full_name || user.email || "Profile"}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          e.currentTarget.nextElementSibling!.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <div
+                      className={`w-full h-full flex items-center justify-center ${
+                        userProfile?.avatar_url ? 'hidden' : ''
+                      }`}
+                    >
+                      {getInitials()}
+                    </div>
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
@@ -449,7 +485,29 @@ const Navbar = () => {
               <div className="rounded-xl border border-border bg-card p-3">
                 {user ? (
                   <div className="space-y-2">
-                    <div className="text-xs text-muted-foreground px-1">{user.email}</div>
+                    <div className="flex items-center gap-3 px-1">
+                      <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-semibold overflow-hidden border border-border">
+                        {userProfile?.avatar_url ? (
+                          <img
+                            src={userProfile.avatar_url}
+                            alt={userProfile.full_name || user.email || "Profile"}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              e.currentTarget.nextElementSibling!.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div
+                          className={`w-full h-full flex items-center justify-center ${
+                            userProfile?.avatar_url ? 'hidden' : ''
+                          }`}
+                        >
+                          {getInitials()}
+                        </div>
+                      </div>
+                      <div className="text-xs text-muted-foreground">{user.email}</div>
+                    </div>
                     <div className="grid grid-cols-2 gap-2">
                       <Button
                         variant="outline"
