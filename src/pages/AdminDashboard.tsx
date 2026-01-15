@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import {
@@ -277,6 +278,9 @@ export default function AdminDashboard() {
     ends_at: null,
   });
   const [bannerEdits, setBannerEdits] = useState<Record<string, Partial<AdBannerRow>>>({});
+
+  // Document viewer state
+  const [viewingDocument, setViewingDocument] = useState<{ url: string; title: string } | null>(null);
 
   // Metrics query - always enabled for overview data
   const { data: metrics, refetch: refetchMetrics, isLoading: metricsLoading } = useQuery({
@@ -1441,21 +1445,31 @@ export default function AdminDashboard() {
                                 <div>
                                   <label className="text-sm font-medium mb-2 block">National ID Photo</label>
                                   {app.national_id_photo_url ? (
-                                    <a 
-                                      href={app.national_id_photo_url} 
-                                      target="_blank" 
-                                      rel="noopener noreferrer"
-                                      className="block border rounded-lg overflow-hidden hover:opacity-90 transition-opacity"
-                                    >
-                                      <img 
-                                        src={app.national_id_photo_url} 
-                                        alt="National ID" 
-                                        className="w-full h-48 object-cover"
-                                      />
-                                      <div className="bg-muted p-2 text-center text-xs">
-                                        Click to view full size
+                                    <div>
+                                      <div 
+                                        onClick={() => setViewingDocument({ url: app.national_id_photo_url, title: `National ID - ${app.full_name}` })}
+                                        className="block border rounded-lg overflow-hidden hover:ring-2 ring-primary cursor-pointer transition-all"
+                                      >
+                                        <img 
+                                          src={app.national_id_photo_url} 
+                                          alt="National ID" 
+                                          className="w-full h-48 object-cover"
+                                        />
+                                        <div className="bg-muted p-2 text-center text-xs flex items-center justify-center gap-2">
+                                          <Eye className="w-3 h-3" />
+                                          Click to view full size
+                                        </div>
                                       </div>
-                                    </a>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="w-full mt-2"
+                                        onClick={() => window.open(app.national_id_photo_url, '_blank')}
+                                      >
+                                        <Download className="w-3 h-3 mr-2" />
+                                        Download
+                                      </Button>
+                                    </div>
                                   ) : (
                                     <div className="border rounded-lg p-8 text-center text-muted-foreground">
                                       <ImageIcon className="w-8 h-8 mx-auto mb-2" />
@@ -1467,21 +1481,31 @@ export default function AdminDashboard() {
                                 <div>
                                   <label className="text-sm font-medium mb-2 block">Selfie Photo</label>
                                   {app.selfie_photo_url ? (
-                                    <a 
-                                      href={app.selfie_photo_url} 
-                                      target="_blank" 
-                                      rel="noopener noreferrer"
-                                      className="block border rounded-lg overflow-hidden hover:opacity-90 transition-opacity"
-                                    >
-                                      <img 
-                                        src={app.selfie_photo_url} 
-                                        alt="Selfie" 
-                                        className="w-full h-48 object-cover"
-                                      />
-                                      <div className="bg-muted p-2 text-center text-xs">
-                                        Click to view full size
+                                    <div>
+                                      <div 
+                                        onClick={() => setViewingDocument({ url: app.selfie_photo_url, title: `Selfie - ${app.full_name}` })}
+                                        className="block border rounded-lg overflow-hidden hover:ring-2 ring-primary cursor-pointer transition-all"
+                                      >
+                                        <img 
+                                          src={app.selfie_photo_url} 
+                                          alt="Selfie" 
+                                          className="w-full h-48 object-cover"
+                                        />
+                                        <div className="bg-muted p-2 text-center text-xs flex items-center justify-center gap-2">
+                                          <Eye className="w-3 h-3" />
+                                          Click to view full size
+                                        </div>
                                       </div>
-                                    </a>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="w-full mt-2"
+                                        onClick={() => window.open(app.selfie_photo_url, '_blank')}
+                                      >
+                                        <Download className="w-3 h-3 mr-2" />
+                                        Download
+                                      </Button>
+                                    </div>
                                   ) : (
                                     <div className="border rounded-lg p-8 text-center text-muted-foreground">
                                       <ImageIcon className="w-8 h-8 mx-auto mb-2" />
@@ -1566,6 +1590,7 @@ export default function AdminDashboard() {
                             <TableHead>Status</TableHead>
                             <TableHead>Documents</TableHead>
                             <TableHead>Applied</TableHead>
+                            <TableHead>Actions</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -1604,6 +1629,36 @@ export default function AdminDashboard() {
                               </TableCell>
                               <TableCell className="text-sm text-muted-foreground">
                                 {new Date(app.created_at).toLocaleDateString()}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex gap-1">
+                                  {app.national_id_photo_url && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => setViewingDocument({ 
+                                        url: app.national_id_photo_url, 
+                                        title: `National ID - ${app.full_name}` 
+                                      })}
+                                    >
+                                      <Eye className="w-3 h-3 mr-1" />
+                                      ID
+                                    </Button>
+                                  )}
+                                  {app.selfie_photo_url && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => setViewingDocument({ 
+                                        url: app.selfie_photo_url, 
+                                        title: `Selfie - ${app.full_name}` 
+                                      })}
+                                    >
+                                      <Eye className="w-3 h-3 mr-1" />
+                                      Selfie
+                                    </Button>
+                                  )}
+                                </div>
                               </TableCell>
                             </TableRow>
                           ))}
@@ -2460,6 +2515,42 @@ export default function AdminDashboard() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Document Viewer Modal */}
+        <Dialog open={!!viewingDocument} onOpenChange={(open) => !open && setViewingDocument(null)}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+            <DialogHeader>
+              <DialogTitle>{viewingDocument?.title || 'Document Viewer'}</DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 overflow-auto">
+              {viewingDocument && (
+                <div className="relative">
+                  <img 
+                    src={viewingDocument.url} 
+                    alt={viewingDocument.title}
+                    className="w-full h-auto rounded-lg"
+                  />
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2 pt-4 border-t">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => viewingDocument && window.open(viewingDocument.url, '_blank')}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Download / Open in New Tab
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setViewingDocument(null)}
+              >
+                Close
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </main>
 
       <Footer />
