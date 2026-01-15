@@ -154,6 +154,12 @@ const allAmenities: AmenityOption[] = [
   // Family & Kids
   { value: "family_friendly", label: "Family Friendly", icon: Baby, category: "Family" },
   { value: "crib", label: "Crib/Baby Bed", icon: Baby, category: "Family" },
+  { value: "high_chair", label: "High Chair", icon: Baby, category: "Family" },
+  
+  // Other Amenities
+  { value: "fireplace", label: "Fireplace", icon: Flame, category: "Climate Control" },
+  { value: "air_purifier", label: "Air Purifier", icon: Leaf, category: "Climate Control" },
+  { value: "soundproofing", label: "Soundproofing", icon: ShieldCheck, category: "Bedroom" },
 ];
 
 // Flat list for backward compatibility
@@ -230,12 +236,5 @@ export const AMENITIES_BY_CATEGORY: AmenityCategory[] = [
     items: allAmenities.filter(a => a.category === "Family"),
   },
 ].filter(cat => cat.items.length > 0); // Only include categories with items
-  { value: "high_chair", label: "High Chair", icon: Baby },
-  
-  // Other Amenities
-  { value: "fireplace", label: "Fireplace", icon: Flame },
-  { value: "air_purifier", label: "Air Purifier", icon: Leaf },
-  { value: "soundproofing", label: "Soundproofing", icon: ShieldCheck },
-];
 
 export const amenityByValue = new Map(AMENITIES.map((a) => [a.value, a]));
