@@ -125,12 +125,16 @@ export default function PropertyDetails() {
     gcTime: 1000 * 60 * 20,
     queryFn: async () => {
       const hostId = String(data?.host_id ?? "");
+      if (!hostId) return null;
+      
       const { data: prof, error } = await supabase
         .from("profiles")
         .select("user_id, full_name, avatar_url, bio, created_at")
-        .or(`user_id.eq.${hostId},id.eq.${hostId}`)
+        .eq("user_id", hostId)
         .maybeSingle();
+      
       if (error) throw error;
+      
       return prof as
         | {
             user_id: string;
