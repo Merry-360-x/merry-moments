@@ -42,6 +42,9 @@ import {
   Activity,
   Megaphone,
   Image as ImageIcon,
+  AlertCircle,
+  Mail,
+  UserX,
 } from "lucide-react";
 
 type HostApplicationStatus = "draft" | "pending" | "approved" | "rejected";
@@ -281,6 +284,8 @@ export default function AdminDashboard() {
 
   // Document viewer state
   const [viewingDocument, setViewingDocument] = useState<{ url: string; title: string } | null>(null);
+  const [contactedHosts, setContactedHosts] = useState<Set<string>>(new Set());
+  const [suspendingHost, setSuspendingHost] = useState<string | null>(null);
 
   // Metrics query - always enabled for overview data
   const { data: metrics, refetch: refetchMetrics, isLoading: metricsLoading } = useQuery({
@@ -702,8 +707,8 @@ export default function AdminDashboard() {
     }
   };
 
-  const suspendUser = async (userId: string) => {
-    const reason = window.prompt("Suspension reason:");
+  const suspendUser = async (userId: string, applicationId?: string, customReason?: string) => {
+    const reason = customReason || window.prompt("Suspension reason:");
     if (!reason) return;
     try {
       const { error } = await supabase
@@ -716,8 +721,27 @@ export default function AdminDashboard() {
         } as never)
         .or(`id.eq.${userId},user_id.eq.${userId}`);
       if (error) throw error;
+
+      // If applicationId provided, reject the application
+      if (applicationId) {
+        await supabase
+          .from('host_applications')
+          .update({ 
+            status: 'rejected' as 'pending' | 'approved' | 'rejected',
+            review_notes: reason
+          })
+          .eq('id', applicationId);
+
+        // Remove host role if they had it
+        await supabase
+          .from('user_roles')
+          .delete()
+          .eq('user_id', userId)
+          .eq('role', 'host');
+      }
+
       toast({ title: "User suspended" });
-      await Promise.all([refetchUsers(), refetchMetrics()]);
+      await Promise.all([refetchUsers(), refetchMetrics(), refetchApplications()]);
     } catch (e) {
       logError("admin.suspendUser", e);
       toast({ variant: "destructive", title: "Failed", description: uiErrorMessage(e, "Please try again.") });
@@ -1514,8 +1538,24 @@ export default function AdminDashboard() {
                                   )}
                                 </div>
 
+                                {/* ID/Selfie Verification Warning */}
+                                {app.national_id_photo_url && app.selfie_photo_url && (
+                                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                                    <div className="flex items-start gap-2">
+                                      <AlertCircle className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                                      <div className="flex-1">
+                                        <p className="text-sm font-medium text-yellow-800">Verify Identity Match</p>
+                                        <p className="text-xs text-yellow-700 mt-1">
+                                          Compare the National ID photo with the selfie photo to confirm they match the same person.
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+
                                 {/* Review Actions */}
-                                <div className="flex gap-2 pt-2">
+                                <div className="space-y-2 pt-2">
+                                  <div className="flex gap-2">
                                   <Button 
                                     size="sm" 
                                     className="flex-1 bg-green-600 hover:bg-green-700"
@@ -1547,7 +1587,7 @@ export default function AdminDashboard() {
                                   </Button>
                                   <Button 
                                     size="sm" 
-                                    variant="destructive" 
+                                    variant="outline"
                                     className="flex-1"
                                     onClick={async () => {
                                       try {
@@ -1568,6 +1608,61 @@ export default function AdminDashboard() {
                                     <XCircle className="w-4 h-4 mr-2" />
                                     Reject
                                   </Button>
+                                  </div>
+
+                                  {/* Contact & Suspend Workflow for ID Mismatch */}
+                                  {app.national_id_photo_url && app.selfie_photo_url && (
+                                    <div className="border-t pt-2 space-y-2">
+                                      <p className="text-xs font-medium text-muted-foreground">If ID & Selfie don't match:</p>
+                                      <div className="flex gap-2">
+                                        {!contactedHosts.has(app.id) ? (
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="flex-1 border-blue-200 text-blue-700 hover:bg-blue-50"
+                                            onClick={() => {
+                                              setContactedHosts(prev => new Set([...prev, app.id]));
+                                              toast({ 
+                                                title: 'Marked as Contacted', 
+                                                description: `Contact ${app.full_name} (${app.phone}) to verify their identity before taking action.` 
+                                              });
+                                            }}
+                                          >
+                                            <Mail className="w-3 h-3 mr-2" />
+                                            1. Contact Host First
+                                          </Button>
+                                        ) : (
+                                          <>
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="border-green-200 text-green-700"
+                                              onClick={() => {
+                                                setContactedHosts(prev => {
+                                                  const newSet = new Set(prev);
+                                                  newSet.delete(app.id);
+                                                  return newSet;
+                                                });
+                                                toast({ title: 'Cleared contact status' });
+                                              }}
+                                            >
+                                              <CheckCircle className="w-3 h-3 mr-2" />
+                                              Contacted ✓
+                                            </Button>
+                                            <Button
+                                              size="sm"
+                                              variant="destructive"
+                                              className="flex-1"
+                                              onClick={() => setSuspendingHost(app.id)}
+                                            >
+                                              <UserX className="w-3 h-3 mr-2" />
+                                              2. Suspend & Reject
+                                            </Button>
+                                          </>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -2547,6 +2642,66 @@ export default function AdminDashboard() {
                 onClick={() => setViewingDocument(null)}
               >
                 Close
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Suspend Host Confirmation Dialog */}
+        <Dialog open={!!suspendingHost} onOpenChange={(open) => !open && setSuspendingHost(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-destructive">
+                <UserX className="w-5 h-5" />
+                Suspend & Reject Host Application
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+                <p className="text-sm font-medium text-destructive">⚠️ Warning: This action will:</p>
+                <ul className="text-sm text-destructive/90 mt-2 ml-4 space-y-1 list-disc">
+                  <li>Suspend the user's account</li>
+                  <li>Reject their host application</li>
+                  <li>Remove any host privileges</li>
+                  <li>Prevent them from accessing the platform</li>
+                </ul>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                <strong>Reason:</strong> ID photo and selfie photo do not match the same person (identity verification failed).
+              </p>
+              <p className="text-sm">
+                Make sure you have contacted the applicant to confirm before proceeding with suspension.
+              </p>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setSuspendingHost(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={async () => {
+                  if (!suspendingHost) return;
+                  const app = applications.find((a: any) => a.id === suspendingHost);
+                  if (app) {
+                    await suspendUser(
+                      app.user_id, 
+                      app.id, 
+                      'Identity verification failed: National ID and selfie photos do not match the same person. Account suspended for security reasons.'
+                    );
+                    setSuspendingHost(null);
+                    setContactedHosts(prev => {
+                      const newSet = new Set(prev);
+                      newSet.delete(suspendingHost);
+                      return newSet;
+                    });
+                  }
+                }}
+              >
+                <Ban className="w-4 h-4 mr-2" />
+                Confirm Suspension
               </Button>
             </div>
           </DialogContent>

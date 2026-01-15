@@ -16,6 +16,7 @@ import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
 import { isVideoUrl } from "@/lib/media";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { formatMoney } from "@/lib/money";
+import { AMENITIES } from "@/lib/amenities";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
@@ -222,73 +223,6 @@ const cancellationPolicyDetails: Record<string, { title: string; lines: string[]
 const vehicleTypes = ["Sedan", "SUV", "Van", "Bus", "Minibus", "Motorcycle"];
 const tourCategories = ["Nature", "Adventure", "Cultural", "Wildlife", "Historical"];
 const tourDifficulties = ["Easy", "Moderate", "Hard"];
-
-const amenitiesList = [
-  // Connectivity & Entertainment
-  { id: "wifi", label: "Wi-Fi", icon: Wifi },
-  { id: "tv_smart", label: "TV (Smart)", icon: Monitor },
-  { id: "tv_basic", label: "TV (Basic)", icon: Tv },
-  // Parking
-  { id: "parking_free", label: "Parking (Free)", icon: ParkingCircle },
-  { id: "parking_paid", label: "Parking (Paid)", icon: ParkingCircle },
-  // Work & Storage
-  { id: "workspace", label: "Workspace", icon: Laptop },
-  { id: "wardrobe", label: "Wardrobe", icon: Shirt },
-  { id: "hangers", label: "Cloth Hangers", icon: Shirt },
-  { id: "safe", label: "Safe Box", icon: Lock },
-  // Climate
-  { id: "ac", label: "Air Conditioner", icon: Thermometer },
-  { id: "fans", label: "Fans", icon: Fan },
-  // Water & Bathroom
-  { id: "hot_water", label: "Hot Water", icon: Flame },
-  { id: "toiletries", label: "Toiletries", icon: SprayCan },
-  { id: "bathroom_essentials", label: "Bathroom Essentials (Towel, Shower Gel, Shampoo)", icon: ShowerHead },
-  { id: "cleaning_items", label: "Cleaning Items", icon: SprayCan },
-  // Bedding
-  { id: "bedsheets_pillows", label: "Bedsheets & Pillows", icon: Bed },
-  // Laundry
-  { id: "washing_machine", label: "Washing Machine", icon: WashingMachine },
-  { id: "nearby_laundry", label: "Nearby Laundry Place", icon: Sparkles },
-  { id: "iron", label: "Iron", icon: Zap },
-  // Kitchen & Dining
-  { id: "kitchen_items", label: "Kitchen Items", icon: UtensilsCrossed },
-  { id: "refrigerator", label: "Refrigerator", icon: Refrigerator },
-  { id: "microwave", label: "Microwave", icon: Microwave },
-  { id: "cooker", label: "Cooker", icon: Flame },
-  { id: "oven", label: "Oven", icon: ChefHat },
-  { id: "cooking_items", label: "Cooking Items (Pots, Pans, Spoons)", icon: CookingPot },
-  { id: "dining_items", label: "Dining Items (Plates, Cups, Glasses)", icon: GlassWater },
-  { id: "dining_table", label: "Dining Table", icon: UtensilsCrossed },
-  { id: "blender", label: "Blender", icon: Zap },
-  { id: "kettle", label: "Hot Water Kettle", icon: Coffee },
-  { id: "coffee_maker", label: "Coffee Maker", icon: Coffee },
-  // Meals
-  { id: "breakfast_free", label: "Breakfast (Free)", icon: UtensilsCrossed },
-  { id: "breakfast_paid", label: "Breakfast (Paid)", icon: UtensilsCrossed },
-  // Fitness & Wellness
-  { id: "gym_free", label: "Gym (Free)", icon: Dumbbell },
-  { id: "gym_paid", label: "Gym (Paid)", icon: Dumbbell },
-  { id: "pool", label: "Pool", icon: Waves },
-  { id: "spa", label: "Spa", icon: Sparkles },
-  // Safety
-  { id: "carbon_monoxide_alarm", label: "Carbon Monoxide Alarm", icon: CircleOff },
-  { id: "smoke_alarm", label: "Smoke Alarm", icon: CircleOff },
-  { id: "security_cameras", label: "Security Cameras (Exterior)", icon: Cctv },
-  { id: "fire_extinguisher", label: "Fire Extinguisher", icon: Flame },
-  { id: "first_aid", label: "First Aid Items", icon: Plus },
-  // Views & Outdoor
-  { id: "balcony", label: "Balcony", icon: Sunrise },
-  { id: "city_view", label: "City View", icon: Building2 },
-  { id: "landscape_view", label: "Landscape View", icon: TreePine },
-  { id: "sea_view", label: "Sea View", icon: Waves },
-  { id: "lake_view", label: "Lake View", icon: Waves },
-  { id: "mountain_view", label: "Mountain View", icon: Mountain },
-  // Accessibility & Facilities
-  { id: "elevator", label: "Elevator", icon: Building2 },
-  { id: "wheelchair_accessible", label: "Wheelchair Accessible", icon: Accessibility },
-  { id: "meeting_room", label: "Meeting Room", icon: Presentation },
-  { id: "reception", label: "Reception", icon: Phone },
-];
 
 export default function HostDashboard() {
   const { user, isHost, isLoading: authLoading, rolesLoading } = useAuth();
@@ -1458,19 +1392,19 @@ export default function HostDashboard() {
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {amenitiesList.map((amenity) => {
+                  {AMENITIES.map((amenity) => {
                     const Icon = amenity.icon;
-                    const isSelected = propertyForm.amenities.includes(amenity.id);
+                    const isSelected = propertyForm.amenities.includes(amenity.value);
                     return (
                             <button
-                        key={amenity.id}
+                        key={amenity.value}
                               type="button"
                         onClick={() => {
                           setPropertyForm((f) => ({
                             ...f,
                             amenities: isSelected
-                              ? f.amenities.filter((a) => a !== amenity.id)
-                              : [...f.amenities, amenity.id],
+                              ? f.amenities.filter((a) => a !== amenity.value)
+                              : [...f.amenities, amenity.value],
                           }));
                         }}
                         className={`p-4 rounded-xl border-2 flex items-center gap-3 transition-all ${

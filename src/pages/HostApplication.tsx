@@ -723,7 +723,7 @@ export default function HostApplication() {
                       <div>
                         <h4 className="font-medium text-sm text-muted-foreground mb-3">🏠 Essential</h4>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                          {AMENITIES.filter(a => ['wifi', 'WiFi', 'hot_water', 'Hot water', 'AC', 'ac', 'Air conditioning', 'parking_free', 'parking_paid', 'Parking'].includes(a.value)).map((amenity) => {
+                          {AMENITIES.filter(a => ['wifi', 'hot_water', 'ac', 'heating', 'parking_free', 'parking_paid'].includes(a.value)).map((amenity) => {
                             const Icon = amenity.icon;
                             const selected = formData.amenities.includes(amenity.value);
                             return (
@@ -754,7 +754,7 @@ export default function HostApplication() {
                       <div>
                         <h4 className="font-medium text-sm text-muted-foreground mb-3">🍳 Kitchen & Dining</h4>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                          {AMENITIES.filter(a => ['Kitchen', 'kitchen_items', 'refrigerator', 'microwave', 'cooker', 'oven', 'cooking_items', 'dining_items', 'dining_table', 'blender', 'kettle', 'coffee_maker', 'breakfast_free', 'breakfast_paid', 'Breakfast'].includes(a.value)).map((amenity) => {
+                          {AMENITIES.filter(a => ['kitchen', 'kitchenette', 'refrigerator', 'microwave', 'stove', 'oven', 'dishwasher', 'cookware', 'dishes', 'dining_table', 'blender', 'kettle', 'coffee_maker', 'breakfast_included', 'breakfast_available'].includes(a.value)).map((amenity) => {
                             const Icon = amenity.icon;
                             const selected = formData.amenities.includes(amenity.value);
                             return (
@@ -785,7 +785,7 @@ export default function HostApplication() {
                       <div>
                         <h4 className="font-medium text-sm text-muted-foreground mb-3">📺 Entertainment & Tech</h4>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                          {AMENITIES.filter(a => ['tv_smart', 'tv_basic', 'TV', 'workspace', 'wardrobe', 'hangers'].includes(a.value)).map((amenity) => {
+                          {AMENITIES.filter(a => ['tv_smart', 'tv_basic', 'workspace', 'wardrobe', 'hangers'].includes(a.value)).map((amenity) => {
                             const Icon = amenity.icon;
                             const selected = formData.amenities.includes(amenity.value);
                             return (
@@ -816,7 +816,7 @@ export default function HostApplication() {
                       <div>
                         <h4 className="font-medium text-sm text-muted-foreground mb-3">🚿 Bathroom & Laundry</h4>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                          {AMENITIES.filter(a => ['toiletries', 'bathroom_essentials', 'cleaning_items', 'bedsheets_pillows', 'washing_machine', 'Washer', 'nearby_laundry', 'iron'].includes(a.value)).map((amenity) => {
+                          {AMENITIES.filter(a => ['toiletries', 'bathroom_essentials', 'towels', 'bedsheets', 'washing_machine', 'dryer', 'iron'].includes(a.value)).map((amenity) => {
                             const Icon = amenity.icon;
                             const selected = formData.amenities.includes(amenity.value);
                             return (
@@ -847,7 +847,7 @@ export default function HostApplication() {
                       <div>
                         <h4 className="font-medium text-sm text-muted-foreground mb-3">💪 Recreation & Wellness</h4>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                          {AMENITIES.filter(a => ['gym_free', 'gym_paid', 'Gym', 'pool', 'Pool', 'spa', 'Spa', 'Restaurant'].includes(a.value)).map((amenity) => {
+                          {AMENITIES.filter(a => ['gym', 'pool', 'sauna', 'jacuzzi', 'spa', 'restaurant'].includes(a.value)).map((amenity) => {
                             const Icon = amenity.icon;
                             const selected = formData.amenities.includes(amenity.value);
                             return (
@@ -878,7 +878,7 @@ export default function HostApplication() {
                       <div>
                         <h4 className="font-medium text-sm text-muted-foreground mb-3">🛡️ Safety & Security</h4>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                          {AMENITIES.filter(a => ['carbon_monoxide_alarm', 'smoke_alarm', 'security_cameras', 'Security cameras', 'Security', 'fire_extinguisher', 'first_aid', 'safe', 'No smoking'].includes(a.value)).map((amenity) => {
+                          {AMENITIES.filter(a => ['carbon_monoxide_alarm', 'smoke_alarm', 'security_cameras', 'fire_extinguisher', 'first_aid', 'safe', 'no_smoking'].includes(a.value)).map((amenity) => {
                             const Icon = amenity.icon;
                             const selected = formData.amenities.includes(amenity.value);
                             return (
@@ -909,7 +909,7 @@ export default function HostApplication() {
                       <div>
                         <h4 className="font-medium text-sm text-muted-foreground mb-3">🌅 Views & Outdoor</h4>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                          {AMENITIES.filter(a => ['balcony', 'city_view', 'landscape_view', 'sea_view', 'lake_view', 'mountain_view', 'Garden'].includes(a.value)).map((amenity) => {
+                          {AMENITIES.filter(a => ['balcony', 'patio', 'terrace', 'garden', 'city_view', 'landscape_view', 'sea_view', 'lake_view', 'mountain_view'].includes(a.value)).map((amenity) => {
                             const Icon = amenity.icon;
                             const selected = formData.amenities.includes(amenity.value);
                             return (
@@ -940,7 +940,7 @@ export default function HostApplication() {
                       <div>
                         <h4 className="font-medium text-sm text-muted-foreground mb-3">♿ Accessibility & Other</h4>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                          {AMENITIES.filter(a => ['elevator', 'wheelchair_accessible', 'meeting_room', 'reception', 'Family friendly', 'Fireplace', 'fans'].includes(a.value)).map((amenity) => {
+                          {AMENITIES.filter(a => ['elevator', 'ground_floor', 'wheelchair_accessible', 'meeting_room', 'reception', 'concierge', 'room_service', 'family_friendly', 'crib', 'high_chair', 'fireplace', 'fan', 'air_purifier', 'soundproofing'].includes(a.value)).map((amenity) => {
                             const Icon = amenity.icon;
                             const selected = formData.amenities.includes(amenity.value);
                             return (
