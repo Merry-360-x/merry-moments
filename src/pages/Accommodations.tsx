@@ -33,6 +33,8 @@ const fetchProperties = async (args: {
   nearby?: { lat: number; lng: number } | null;
   location?: string; // Add location filter
   guests?: number; // Add guest filter
+  startDate?: string; // Add start date filter
+  endDate?: string; // Add end date filter
 }) => {
   try {
     let query = supabase
@@ -122,7 +124,13 @@ const Accommodations = () => {
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [minRating, setMinRating] = useState(0);
   const [locationFilter, setLocationFilter] = useState("");
-  const [guestCount, setGuestCount] = useState(1);
+  const [guestCount, setGuestCount] = useState(() => {
+    const adults = Number(searchParams.get("adults")) || 0;
+    const children = Number(searchParams.get("children")) || 0;
+    return adults + children || 1;
+  });
+  const [startDate, setStartDate] = useState(() => searchParams.get("start") ?? "");
+  const [endDate, setEndDate] = useState(() => searchParams.get("end") ?? "");
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const hostId = searchParams.get("host");
@@ -140,6 +148,18 @@ const Accommodations = () => {
 
   useEffect(() => {
     setQuery(searchParams.get("q") ?? "");
+    
+    // Update guest count from URL parameters
+    const adults = Number(searchParams.get("adults")) || 0;
+    const children = Number(searchParams.get("children")) || 0;
+    const totalGuests = adults + children;
+    if (totalGuests > 0) {
+      setGuestCount(totalGuests);
+    }
+    
+    // Update dates from URL parameters
+    setStartDate(searchParams.get("start") ?? "");
+    setEndDate(searchParams.get("end") ?? "");
   }, [searchParams]);
 
   const runSearch = () => {
@@ -170,6 +190,8 @@ const Accommodations = () => {
       nearby ? `${nearby.lat},${nearby.lng}` : "",
       locationFilter,
       guestCount,
+      startDate,
+      endDate,
     ],
     queryFn: () =>
       fetchProperties({
@@ -182,6 +204,8 @@ const Accommodations = () => {
         nearby,
         location: locationFilter,
         guests: guestCount,
+        startDate,
+        endDate,
       }),
     staleTime: 1000 * 60 * 2, // 2 minutes for search results
     gcTime: 1000 * 60 * 10, // 10 minutes cache

@@ -22,13 +22,31 @@ import { extractNeighborhood } from "@/lib/location";
 const NEARBY_LABEL = "Find what's nearby";
 const STATIC_DESTINATIONS = ["Rebero", "Gacuriro", "Nyarutarama"];
 
+const fetchAllAccommodationLocations = async () => {
+  const { data, error } = await supabase
+    .from("properties")
+    .select("location")
+    .eq("is_published", true)
+    .order("location", { ascending: true });
+
+  if (error) throw error;
+
+  // Get all unique locations
+  const locations = (data as DestinationSuggestion[] | null)
+    ?.map((d) => d.location)
+    .filter(Boolean) ?? [];
+  
+  const unique = Array.from(new Set(locations));
+  return [NEARBY_LABEL, ...STATIC_DESTINATIONS, ...unique].slice(0, 15);
+};
+
 const fetchDestinationSuggestions = async (search: string) => {
   let query = supabase
     .from("properties")
     .select("location")
     .eq("is_published", true)
     .order("created_at", { ascending: false })
-    .limit(50);
+    .limit(100);
 
   const trimmed = search.trim();
   if (trimmed) {
@@ -38,18 +56,26 @@ const fetchDestinationSuggestions = async (search: string) => {
   const { data, error } = await query;
   if (error) throw error;
 
-  // Extract neighborhoods from full locations and deduplicate
-  const neighborhoods = (data as DestinationSuggestion[] | null)
-    ?.map((d) => extractNeighborhood(d.location))
+  // Get all unique full locations from accommodations
+  const fullLocations = (data as DestinationSuggestion[] | null)
+    ?.map((d) => d.location)
     .filter(Boolean) ?? [];
-  const unique = Array.from(new Set(neighborhoods));
+  
+  // Extract neighborhoods from full locations for additional suggestions
+  const neighborhoods = fullLocations
+    .map((location) => extractNeighborhood(location))
+    .filter(Boolean);
+  
+  // Combine full locations, neighborhoods, and static destinations
+  const allSuggestions = [...fullLocations, ...neighborhoods];
+  const unique = Array.from(new Set(allSuggestions));
 
   const trimmed2 = search.trim().toLowerCase();
   const merged = [NEARBY_LABEL, ...STATIC_DESTINATIONS, ...unique];
   const filtered = trimmed2
     ? merged.filter((x) => String(x).toLowerCase().includes(trimmed2) || x === NEARBY_LABEL)
     : merged;
-  return Array.from(new Set(filtered)).slice(0, 8);
+  return Array.from(new Set(filtered)).slice(0, 12);
 };
 
 const HeroSearch = () => {
@@ -93,9 +119,14 @@ const HeroSearch = () => {
 
   const suggestionsEnabled = openWhere || mobileOpen;
   const { data: suggestions = [], isLoading: suggestionsLoading } = useQuery({
-    queryKey: ["destinations", where],
-    queryFn: () => fetchDestinationSuggestions(where),
+    queryKey: ["destinations", where.trim()],
+    queryFn: () => {
+      const trimmed = where.trim();
+      // Show all locations when no search term, filtered results when searching
+      return trimmed ? fetchDestinationSuggestions(where) : fetchAllAccommodationLocations();
+    },
     enabled: suggestionsEnabled,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   const geoToParams = async () => {
