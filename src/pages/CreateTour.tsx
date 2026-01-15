@@ -38,6 +38,7 @@ export default function CreateTour() {
     title: "",
     description: "",
     location: "",
+    address: "",
     category: "",
     difficulty: "",
     duration_days: 1,
@@ -120,6 +121,7 @@ export default function CreateTour() {
           title: formData.title,
           description: formData.description,
           location: formData.location,
+          address: formData.address,
           category: formData.category,
           difficulty: formData.difficulty,
           duration_days: formData.duration_days,
@@ -212,6 +214,16 @@ export default function CreateTour() {
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                   placeholder="Volcanoes National Park, Rwanda"
                   required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="address">Address</Label>
+                <Input
+                  id="address"
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  placeholder="Detailed meeting point or pickup address"
                 />
               </div>
 

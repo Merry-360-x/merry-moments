@@ -48,6 +48,7 @@ export default function CreateTransport() {
     driver_phone: "",
     route_from: "",
     route_to: "",
+    address: "",
     description: "",
     capacity: 4,
     price_per_trip: 0,
@@ -132,6 +133,7 @@ export default function CreateTransport() {
           driver_phone: formData.driver_phone,
           route_from: formData.route_from,
           route_to: formData.route_to,
+          address: formData.address,
           description: formData.description,
           capacity: formData.capacity,
           price_per_trip: formData.price_per_trip,
@@ -274,6 +276,16 @@ export default function CreateTransport() {
                   value={formData.driver_phone}
                   onChange={(e) => setFormData({ ...formData, driver_phone: e.target.value })}
                   placeholder="+250 XXX XXX XXX"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="address">Pickup Address</Label>
+                <Input
+                  id="address"
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  placeholder="Detailed pickup location address"
                 />
               </div>
             </CardContent>
