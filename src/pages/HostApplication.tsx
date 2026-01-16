@@ -116,8 +116,31 @@ export default function HostApplication() {
 
   const STORAGE_KEY = 'host_application_progress';
 
-  const totalSteps = 4; // Added service type step
+  // Calculate total steps dynamically based on selected service types
+  // Step 1: Service Type Selection
+  // Step 2+: One step for each selected service type (accommodation, tour, transport)
+  // Second to last: Personal Information
+  // Last: Review
+  const getServiceSteps = () => {
+    const steps = [];
+    if (formData.service_types.includes('accommodation')) steps.push('accommodation');
+    if (formData.service_types.includes('tour')) steps.push('tour');
+    if (formData.service_types.includes('transport')) steps.push('transport');
+    return steps;
+  };
+  
+  const serviceSteps = getServiceSteps();
+  const totalSteps = 1 + serviceSteps.length + 2; // 1 (service selection) + service steps + 1 (personal info) + 1 (review)
   const progress = (currentStep / totalSteps) * 100;
+  
+  // Get current service type being edited based on current step
+  const getCurrentServiceType = () => {
+    if (currentStep <= 1) return null;
+    const serviceIndex = currentStep - 2;
+    return serviceSteps[serviceIndex] || null;
+  };
+  
+  const currentServiceType = getCurrentServiceType();
 
   // Load saved progress from localStorage on mount
   useEffect(() => {
@@ -591,20 +614,32 @@ export default function HostApplication() {
               </div>
             )}
 
-            {/* Step 2: Listing Details */}
-            {currentStep === 2 && (
+            {/* Step 2+: Service-Specific Details (dynamic based on selected services) */}
+            {currentStep >= 2 && currentStep <= (1 + serviceSteps.length) && currentServiceType && (
               <div className="space-y-6">
                 <div className="text-center mb-6">
-                  <h2 className="text-2xl font-bold mb-2">List Your {formData.service_types[0] === 'accommodation' ? 'Property' : formData.service_types[0] === 'transport' ? 'Vehicle' : 'Tour'}</h2>
-                  <p className="text-muted-foreground">Provide details about what you're offering</p>
+                  <h2 className="text-2xl font-bold mb-2">
+                    List Your {currentServiceType === 'accommodation' ? 'Property' : currentServiceType === 'transport' ? 'Vehicle' : 'Tour'}
+                  </h2>
+                  <p className="text-muted-foreground">
+                    {currentServiceType === 'accommodation' && 'Provide details about your accommodation'}
+                    {currentServiceType === 'tour' && 'Provide details about your tour experience'}
+                    {currentServiceType === 'transport' && 'Provide details about your vehicle'}
+                  </p>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="title">Property Title *</Label>
+                    <Label htmlFor="title">
+                      {currentServiceType === 'accommodation' ? 'Property' : currentServiceType === 'transport' ? 'Vehicle' : 'Tour'} Title *
+                    </Label>
                     <Input
                       id="title"
-                      placeholder="e.g., Cozy Apartment in City Center"
+                      placeholder={
+                        currentServiceType === 'accommodation' ? 'e.g., Cozy Apartment in City Center' :
+                        currentServiceType === 'tour' ? 'e.g., Gorilla Trekking Adventure' :
+                        'e.g., Luxury SUV with Driver'
+                      }
                       value={formData.title}
                       onChange={(e) => updateField("title", e.target.value)}
                     />
@@ -624,121 +659,292 @@ export default function HostApplication() {
                     </div>
                   </div>
 
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="address">Full Address</Label>
-                    <div className="relative">
-                      <MapPin className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        id="address"
-                        className="pl-10"
-                        placeholder="Street address, building number, etc."
-                        value={formData.address || ""}
-                        onChange={(e) => updateField("address", e.target.value)}
-                      />
-                    </div>
-                  </div>
+                  {/* Accommodation-specific fields */}
+                  {currentServiceType === 'accommodation' && (
+                    <>
+                      <div className="space-y-2 md:col-span-2">
+                        <Label htmlFor="address">Full Address</Label>
+                        <div className="relative">
+                          <MapPin className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                          <Input
+                            id="address"
+                            className="pl-10"
+                            placeholder="Street address, building number, etc."
+                            value={formData.address || ""}
+                            onChange={(e) => updateField("address", e.target.value)}
+                          />
+                        </div>
+                      </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="propertyType">Property Type *</Label>
-                    <Select value={formData.property_type} onValueChange={(val) => updateField("property_type", val)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {propertyTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="propertyType">Property Type *</Label>
+                        <Select value={formData.property_type} onValueChange={(val) => updateField("property_type", val)}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {propertyTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="pricePerNight">Price per Night *</Label>
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <DollarSign className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                      <div className="space-y-2">
+                        <Label htmlFor="pricePerNight">Price per Night *</Label>
+                        <div className="flex gap-2">
+                          <div className="relative flex-1">
+                            <DollarSign className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                            <Input
+                              id="pricePerNight"
+                              type="number"
+                              className="pl-10"
+                              value={formData.price_per_night}
+                              onChange={(e) => updateField("price_per_night", parseInt(e.target.value) || 0)}
+                            />
+                          </div>
+                          <Select value={formData.currency} onValueChange={(val) => updateField("currency", val)}>
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {currencies.map((c) => <SelectItem key={c.value} value={c.value}>{c.symbol}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="maxGuests">Max Guests *</Label>
+                        <div className="relative">
+                          <Users className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                          <Input
+                            id="maxGuests"
+                            type="number"
+                            className="pl-10"
+                            min="1"
+                            value={formData.max_guests}
+                            onChange={(e) => updateField("max_guests", parseInt(e.target.value) || 1)}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="bedrooms">Bedrooms *</Label>
+                        <div className="relative">
+                          <Bed className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                          <Input
+                            id="bedrooms"
+                            type="number"
+                            className="pl-10"
+                            min="0"
+                            value={formData.bedrooms}
+                            onChange={(e) => updateField("bedrooms", parseInt(e.target.value) || 0)}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="bathrooms">Bathrooms *</Label>
+                        <div className="relative">
+                          <Bath className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                          <Input
+                            id="bathrooms"
+                            type="number"
+                            className="pl-10"
+                            min="0"
+                            value={formData.bathrooms}
+                            onChange={(e) => updateField("bathrooms", parseInt(e.target.value) || 0)}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="beds">Beds *</Label>
+                        <div className="relative">
+                          <Bed className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                          <Input
+                            id="beds"
+                            type="number"
+                            className="pl-10"
+                            min="1"
+                            value={formData.bedrooms}
+                            onChange={(e) => updateField("bedrooms", parseInt(e.target.value) || 1)}
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Tour-specific fields */}
+                  {currentServiceType === 'tour' && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="tourCategory">Tour Category *</Label>
+                        <Select value={formData.tour_category} onValueChange={(val) => updateField("tour_category", val)}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Adventure">Adventure</SelectItem>
+                            <SelectItem value="Cultural">Cultural</SelectItem>
+                            <SelectItem value="Wildlife">Wildlife</SelectItem>
+                            <SelectItem value="Historical">Historical</SelectItem>
+                            <SelectItem value="Nature">Nature</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="tourDuration">Duration (Days) *</Label>
                         <Input
-                          id="pricePerNight"
+                          id="tourDuration"
                           type="number"
-                          className="pl-10"
-                          value={formData.price_per_night}
-                          onChange={(e) => updateField("price_per_night", parseInt(e.target.value) || 0)}
+                          min="1"
+                          value={formData.tour_duration_days}
+                          onChange={(e) => updateField("tour_duration_days", parseInt(e.target.value) || 1)}
                         />
                       </div>
-                      <Select value={formData.currency} onValueChange={(val) => updateField("currency", val)}>
-                        <SelectTrigger className="w-32">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {currencies.map((c) => <SelectItem key={c.value} value={c.value}>{c.symbol}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="maxGuests">Max Guests *</Label>
-                    <div className="relative">
-                      <Users className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        id="maxGuests"
-                        type="number"
-                        className="pl-10"
-                        min="1"
-                        value={formData.max_guests}
-                        onChange={(e) => updateField("max_guests", parseInt(e.target.value) || 1)}
-                      />
-                    </div>
-                  </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="tourDifficulty">Difficulty Level *</Label>
+                        <Select value={formData.tour_difficulty} onValueChange={(val) => updateField("tour_difficulty", val)}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Easy">Easy</SelectItem>
+                            <SelectItem value="Moderate">Moderate</SelectItem>
+                            <SelectItem value="Challenging">Challenging</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="bedrooms">Bedrooms *</Label>
-                    <div className="relative">
-                      <Bed className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        id="bedrooms"
-                        type="number"
-                        className="pl-10"
-                        min="0"
-                        value={formData.bedrooms}
-                        onChange={(e) => updateField("bedrooms", parseInt(e.target.value) || 0)}
-                      />
-                    </div>
-                  </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="tourPrice">Price per Person *</Label>
+                        <div className="flex gap-2">
+                          <div className="relative flex-1">
+                            <DollarSign className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                            <Input
+                              id="tourPrice"
+                              type="number"
+                              className="pl-10"
+                              value={formData.tour_price_per_person}
+                              onChange={(e) => updateField("tour_price_per_person", parseInt(e.target.value) || 0)}
+                            />
+                          </div>
+                          <Select value={formData.currency} onValueChange={(val) => updateField("currency", val)}>
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {currencies.map((c) => <SelectItem key={c.value} value={c.value}>{c.symbol}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="bathrooms">Bathrooms *</Label>
-                    <div className="relative">
-                      <Bath className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        id="bathrooms"
-                        type="number"
-                        className="pl-10"
-                        min="0"
-                        value={formData.bathrooms}
-                        onChange={(e) => updateField("bathrooms", parseInt(e.target.value) || 0)}
-                      />
-                    </div>
-                  </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="maxGroupSize">Max Group Size *</Label>
+                        <div className="relative">
+                          <Users className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                          <Input
+                            id="maxGroupSize"
+                            type="number"
+                            className="pl-10"
+                            min="1"
+                            value={formData.tour_max_group_size}
+                            onChange={(e) => updateField("tour_max_group_size", parseInt(e.target.value) || 1)}
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
 
-                  <div className="space-y-2">
-                    <Label htmlFor="beds">Beds *</Label>
-                    <div className="relative">
-                      <Bed className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        id="beds"
-                        type="number"
-                        className="pl-10"
-                        min="1"
-                        value={formData.bedrooms}
-                        onChange={(e) => updateField("bedrooms", parseInt(e.target.value) || 1)}
-                      />
-                    </div>
-                  </div>
+                  {/* Transport-specific fields */}
+                  {currentServiceType === 'transport' && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="vehicleType">Vehicle Type *</Label>
+                        <Select value={formData.vehicle_type} onValueChange={(val) => updateField("vehicle_type", val)}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Car">Car</SelectItem>
+                            <SelectItem value="SUV">SUV</SelectItem>
+                            <SelectItem value="Van">Van</SelectItem>
+                            <SelectItem value="Bus">Bus</SelectItem>
+                            <SelectItem value="Motorcycle">Motorcycle</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="vehicleSeats">Number of Seats *</Label>
+                        <Input
+                          id="vehicleSeats"
+                          type="number"
+                          min="1"
+                          value={formData.vehicle_seats}
+                          onChange={(e) => updateField("vehicle_seats", parseInt(e.target.value) || 1)}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="vehiclePrice">Price per Day *</Label>
+                        <div className="flex gap-2">
+                          <div className="relative flex-1">
+                            <DollarSign className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                            <Input
+                              id="vehiclePrice"
+                              type="number"
+                              className="pl-10"
+                              value={formData.vehicle_price_per_day}
+                              onChange={(e) => updateField("vehicle_price_per_day", parseInt(e.target.value) || 0)}
+                            />
+                          </div>
+                          <Select value={formData.currency} onValueChange={(val) => updateField("currency", val)}>
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {currencies.map((c) => <SelectItem key={c.value} value={c.value}>{c.symbol}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="providerName">Provider/Company Name *</Label>
+                        <Input
+                          id="providerName"
+                          placeholder="e.g., ABC Transport Services"
+                          value={formData.vehicle_provider_name}
+                          onChange={(e) => updateField("vehicle_provider_name", e.target.value)}
+                        />
+                      </div>
+
+                      <div className="space-y-2 flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="driverIncluded"
+                          checked={formData.vehicle_driver_included}
+                          onChange={(e) => updateField("vehicle_driver_included", e.target.checked)}
+                          className="w-4 h-4"
+                        />
+                        <Label htmlFor="driverIncluded" className="cursor-pointer">Driver Included</Label>
+                      </div>
+                    </>
+                  )}
 
                   <div className="md:col-span-2 space-y-2">
                     <Label htmlFor="description">Description *</Label>
                     <Textarea
                       id="description"
-                      placeholder="Describe your property..."
+                      placeholder={
+                        currentServiceType === 'accommodation' ? 'Describe your property...' :
+                        currentServiceType === 'tour' ? 'Describe your tour experience...' :
+                        'Describe your vehicle and services...'
+                      }
                       rows={3}
                       value={formData.description}
                       onChange={(e) => updateField("description", e.target.value)}
@@ -746,7 +952,9 @@ export default function HostApplication() {
                   </div>
 
                   <div className="md:col-span-2 space-y-2">
-                    <Label>Property Photos * (At least 1)</Label>
+                    <Label>
+                      {currentServiceType === 'accommodation' ? 'Property' : currentServiceType === 'tour' ? 'Tour' : 'Vehicle'} Photos * (At least 1)
+                    </Label>
                     <div className="flex flex-wrap gap-3">
                       {formData.images.map((img, i) => (
                         <div key={i} className="relative w-24 h-24 rounded-lg overflow-hidden border">
@@ -772,9 +980,11 @@ export default function HostApplication() {
                     </div>
                   </div>
 
-                  <div className="md:col-span-2 space-y-4">
-                    <Label className="text-lg font-medium">Amenities (Select all that apply)</Label>
-                    <p className="text-sm text-muted-foreground">Choose all amenities available in your property to attract more guests</p>
+                  {/* Amenities section - Only for accommodation */}
+                  {currentServiceType === 'accommodation' && (
+                    <div className="md:col-span-2 space-y-4">
+                      <Label className="text-lg font-medium">Amenities (Select all that apply)</Label>
+                      <p className="text-sm text-muted-foreground">Choose all amenities available in your property to attract more guests</p>
                     
                     {/* Organize amenities by category */}
                     <div className="space-y-6">
@@ -1043,19 +1253,20 @@ export default function HostApplication() {
                         </div>
                       </div>
                     )}
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex justify-between gap-3 mt-8 pt-6 border-t">
                   <Button
                     variant="outline"
-                    onClick={() => setCurrentStep(1)}
+                    onClick={() => setCurrentStep(currentStep - 1)}
                   >
                     Back
                   </Button>
                   <Button
                     disabled={!formData.title || !formData.location || !formData.description || formData.images.length === 0}
-                    onClick={() => setCurrentStep(3)}
+                    onClick={() => setCurrentStep(currentStep + 1)}
                   >
                     Continue <ArrowRight className="ml-2 w-4 h-4" />
                   </Button>
@@ -1063,8 +1274,8 @@ export default function HostApplication() {
               </div>
             )}
 
-            {/* Step 3: Personal Information */}
-            {currentStep === 3 && (
+            {/* Personal Information Step */}
+            {currentStep === (1 + serviceSteps.length + 1) && (
               <div className="space-y-6">
                 <div className="text-center mb-6">
                   <h2 className="text-2xl font-bold mb-2">Personal Information</h2>
@@ -1171,13 +1382,13 @@ export default function HostApplication() {
                 <div className="flex justify-between gap-3 mt-8 pt-6 border-t">
                   <Button
                     variant="outline"
-                    onClick={() => setCurrentStep(2)}
+                    onClick={() => setCurrentStep(currentStep - 1)}
                   >
                     Back
                   </Button>
                   <Button
                     disabled={!formData.full_name || !formData.phone || !formData.national_id_number || !formData.national_id_photo_url || !formData.selfie_photo_url}
-                    onClick={() => setCurrentStep(4)}
+                    onClick={() => setCurrentStep(currentStep + 1)}
                   >
                     Review Application <ArrowRight className="ml-2 w-4 h-4" />
                   </Button>
@@ -1185,8 +1396,8 @@ export default function HostApplication() {
               </div>
             )}
 
-            {/* Step 4: Review & Submit */}
-            {currentStep === 4 && (
+            {/* Review & Submit Step */}
+            {currentStep === totalSteps && (
               <div className="space-y-6">
                 <div className="text-center mb-6">
                   <h2 className="text-2xl font-bold mb-2">Review Your Application</h2>
@@ -1304,7 +1515,7 @@ export default function HostApplication() {
                 </div>
 
                 <div className="flex justify-between gap-3 mt-8 pt-6 border-t">
-                  <Button variant="outline" onClick={() => setCurrentStep(3)}>
+                  <Button variant="outline" onClick={() => setCurrentStep(currentStep - 1)}>
                     Back
                   </Button>
                   <Button
