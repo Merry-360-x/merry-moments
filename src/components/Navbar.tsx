@@ -44,43 +44,11 @@ const navLinks = [
 ];
 
 const currencies = [
-  { code: "USD", symbol: "$", label: "US Dollar" },
-  { code: "EUR", symbol: "€", label: "Euro" },
-  { code: "GBP", symbol: "£", label: "British Pound" },
-  { code: "JPY", symbol: "¥", label: "Japanese Yen" },
-  { code: "CNY", symbol: "¥", label: "Chinese Yuan" },
-  { code: "CAD", symbol: "C$", label: "Canadian Dollar" },
-  { code: "AUD", symbol: "A$", label: "Australian Dollar" },
-  { code: "CHF", symbol: "CHF", label: "Swiss Franc" },
-  { code: "INR", symbol: "₹", label: "Indian Rupee" },
-  { code: "KRW", symbol: "₩", label: "South Korean Won" },
-  { code: "SGD", symbol: "S$", label: "Singapore Dollar" },
-  { code: "HKD", symbol: "HK$", label: "Hong Kong Dollar" },
-  { code: "NOK", symbol: "kr", label: "Norwegian Krone" },
-  { code: "SEK", symbol: "kr", label: "Swedish Krona" },
-  { code: "DKK", symbol: "kr", label: "Danish Krone" },
-  { code: "NZD", symbol: "NZ$", label: "New Zealand Dollar" },
-  { code: "MXN", symbol: "$", label: "Mexican Peso" },
-  { code: "BRL", symbol: "R$", label: "Brazilian Real" },
-  { code: "ZAR", symbol: "R", label: "South African Rand" },
-  { code: "THB", symbol: "฿", label: "Thai Baht" },
-  { code: "TRY", symbol: "₺", label: "Turkish Lira" },
-  { code: "RUB", symbol: "₽", label: "Russian Ruble" },
-  { code: "PLN", symbol: "zł", label: "Polish Złoty" },
-  { code: "CZK", symbol: "Kč", label: "Czech Koruna" },
-  { code: "HUF", symbol: "Ft", label: "Hungarian Forint" },
-  { code: "ILS", symbol: "₪", label: "Israeli Shekel" },
-  { code: "AED", symbol: "د.إ", label: "UAE Dirham" },
-  { code: "SAR", symbol: "﷼", label: "Saudi Riyal" },
-  { code: "EGP", symbol: "£", label: "Egyptian Pound" },
-  { code: "NGN", symbol: "₦", label: "Nigerian Naira" },
-  { code: "KES", symbol: "KSh", label: "Kenyan Shilling" },
-  { code: "UGX", symbol: "USh", label: "Ugandan Shilling" },
-  { code: "TZS", symbol: "TSh", label: "Tanzanian Shilling" },
-  { code: "RWF", symbol: "FRw", label: "Rwandan Franc" },
-  { code: "GHS", symbol: "₵", label: "Ghanaian Cedi" },
-  { code: "MAD", symbol: "د.م.", label: "Moroccan Dirham" },
-  { code: "ETB", symbol: "Br", label: "Ethiopian Birr" },
+  { code: "RWF", symbol: "FRw" },
+  { code: "USD", symbol: "$" },
+  { code: "EUR", symbol: "€" },
+  { code: "GBP", symbol: "£" },
+  { code: "CNY", symbol: "¥" },
 ];
 
 const getCurrencySymbol = (code: string) => {
@@ -325,16 +293,12 @@ const Navbar = () => {
                   <ChevronDown className="w-4 h-4" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 max-h-96 overflow-y-auto">
-                {currencies.map((curr) => (
-                  <DropdownMenuItem 
-                    key={curr.code} 
-                    onClick={() => setCurrency(curr.code)}
-                    className={currency === curr.code ? "bg-accent" : ""}
-                  >
-                    ({curr.symbol}) {curr.code} - {curr.label}
-                  </DropdownMenuItem>
-                ))}
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem onClick={() => setCurrency("RWF")}>(FRw) RWF</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCurrency("USD")}>($) USD</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCurrency("EUR")}>(€) EUR</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCurrency("GBP")}>(£) GBP</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCurrency("CNY")}>(¥) CNY</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
