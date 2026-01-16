@@ -103,6 +103,7 @@ const Stories = () => {
     queryKey: ["story-comments", activeStoryId],
     queryFn: async () => {
       if (!activeStoryId) return [];
+      console.log("[Stories] Fetching comments for story:", activeStoryId);
       const { data, error } = await supabase
         .from("story_comments")
         .select(`
@@ -111,7 +112,11 @@ const Stories = () => {
         `)
         .eq("story_id", activeStoryId)
         .order("created_at", { ascending: true });
-      if (error) throw error;
+      if (error) {
+        console.error("[Stories] Error fetching comments:", error);
+        throw error;
+      }
+      console.log("[Stories] Fetched comments:", data?.length || 0, "comments");
       return data || [];
     },
     enabled: !!activeStoryId,
@@ -235,34 +240,50 @@ const Stories = () => {
     }
 
     try {
-      const { error } = await supabase
+      console.log("[Stories] Posting comment to story:", activeStoryId);
+      
+      const { data: insertedComment, error } = await supabase
         .from("story_comments")
         .insert({ 
           story_id: activeStoryId, 
           user_id: user.id,
           comment_text: commentText.trim()
-        });
+        })
+        .select()
+        .single();
+      
       if (error) throw error;
+      
+      console.log("[Stories] Comment inserted successfully:", insertedComment);
       
       setCommentText("");
       
-      // Invalidate and refetch all comment-related queries
-      await qc.invalidateQueries({ queryKey: ["story-comments", activeStoryId] });
-      await qc.invalidateQueries({ queryKey: ["floating-story-comments", activeStoryId] });
-      await qc.invalidateQueries({ queryKey: ["story-engagement-counts"] });
+      // Wait a brief moment for database to propagate
+      await new Promise(resolve => setTimeout(resolve, 100));
       
-      // Force immediate refetch
-      await refetchComments();
+      // Invalidate all comment-related queries
+      qc.invalidateQueries({ queryKey: ["story-comments"] });
+      qc.invalidateQueries({ queryKey: ["floating-story-comments"] });
+      qc.invalidateQueries({ queryKey: ["story-engagement-counts"] });
       
-      // Refresh floating comments if viewing the same story
-      if (floatingCommentsStoryId === activeStoryId) {
-        await refetchFloatingComments();
-      }
+      // Force refetch with a slight delay
+      setTimeout(async () => {
+        console.log("[Stories] Refetching comments for story:", activeStoryId);
+        await refetchComments();
+        
+        if (floatingCommentsStoryId === activeStoryId) {
+          await refetchFloatingComments();
+        }
+        
+        console.log("[Stories] Comments refetched, count:", commentsData.length);
+      }, 150);
       
       toast({ title: "Comment added!" });
     } catch (e) {
       logError("story.comment", e);
       toast({ variant: "destructive", title: "Error", description: "Could not add comment." });
+    }
+  };
     }
   };
 
