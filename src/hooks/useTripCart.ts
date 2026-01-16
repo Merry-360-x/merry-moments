@@ -127,11 +127,9 @@ export function useTripCart() {
           
           toast({ title: "Added to Trip Cart" });
           
-          // Debounce invalidation to prevent excessive refetches
-          setTimeout(() => {
-            qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
-            qc.invalidateQueries({ queryKey: ["trip_cart_count", user.id] });
-          }, 100);
+          // Invalidate immediately for better UX
+          qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
+          qc.invalidateQueries({ queryKey: ["trip_cart_count", user.id] });
           
           return true;
         } catch (e) {
@@ -192,11 +190,9 @@ export function useTripCart() {
             };
           });
           
-          // Debounce invalidation
-          setTimeout(() => {
-            qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
-            qc.invalidateQueries({ queryKey: ["trip_cart_count", user.id] });
-          }, 100);
+          // Invalidate immediately for better UX
+          qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
+          qc.invalidateQueries({ queryKey: ["trip_cart_count", user.id] });
           
           return true;
         } catch (e) {

@@ -282,10 +282,10 @@ export default function TripCart() {
 
       return { rows, totals };
     },
-    staleTime: 60_000, // 1 minute
+    staleTime: 5_000, // 5 seconds - fetch fresh data more often
     gcTime: 300_000, // 5 minutes
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     refetchOnMount: true, // Ensure fresh data when navigating to cart
   });
 
@@ -341,10 +341,10 @@ export default function TripCart() {
 
       return { rows: detailed, totals };
     },
-    staleTime: 60_000, // 1 minute  
+    staleTime: 5_000, // 5 seconds - fetch fresh data more often
     gcTime: 300_000, // 5 minutes
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     refetchOnMount: true, // Ensure fresh data when navigating to cart
   });
 
@@ -370,11 +370,9 @@ export default function TripCart() {
       // Optimistically clear cache
       qc.setQueryData(["trip_cart_items", user.id], { rows: [], totals: { amount: 0, currency: preferredCurrency || "RWF" } });
       
-      // Debounce invalidation
-      setTimeout(() => {
-        qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
-        qc.invalidateQueries({ queryKey: ["trip_cart_count", user.id] });
-      }, 100);
+      // Invalidate immediately
+      qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
+      qc.invalidateQueries({ queryKey: ["trip_cart_count", user.id] });
     } else {
       // Clear guest cart without reload
       localStorage.removeItem("merry360_guest_cart");
@@ -417,12 +415,12 @@ export default function TripCart() {
           </div>
         )}
 
-        {/* {isLoading ? (
+        {isLoading ? (
           <div className="bg-card rounded-xl shadow-card p-8 text-center">
             <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
             <p className="text-muted-foreground">Loading your cart…</p>
           </div>
-        ) : */ !hasItems ? (
+        ) : !hasItems ? (
           <div className="bg-card rounded-xl shadow-card p-8 text-center">
             <p className="text-muted-foreground mb-6">{t("tripCart.empty")}</p>
             <Link to="/accommodations">
