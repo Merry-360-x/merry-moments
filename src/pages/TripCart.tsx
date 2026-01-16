@@ -286,7 +286,7 @@ export default function TripCart() {
     gcTime: 300_000, // 5 minutes
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    refetchOnMount: false,
+    refetchOnMount: true, // Ensure fresh data when navigating to cart
   });
 
   // Query for guest cart details
@@ -345,7 +345,7 @@ export default function TripCart() {
     gcTime: 300_000, // 5 minutes
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    refetchOnMount: false,
+    refetchOnMount: true, // Ensure fresh data when navigating to cart
   });
 
   // Use appropriate data based on auth state
@@ -373,6 +373,7 @@ export default function TripCart() {
       // Debounce invalidation
       setTimeout(() => {
         qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
+        qc.invalidateQueries({ queryKey: ["trip_cart_count", user.id] });
       }, 100);
     } else {
       // Clear guest cart without reload

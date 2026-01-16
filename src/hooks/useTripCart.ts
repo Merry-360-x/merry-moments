@@ -83,6 +83,7 @@ export function useTripCart() {
             if (!error) {
               clearGuestCart();
               qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
+              qc.invalidateQueries({ queryKey: ["trip_cart_count", user.id] });
               toast({
                 title: "Cart synced",
                 description: `${items.length} item(s) from your guest cart have been added.`,
@@ -129,6 +130,7 @@ export function useTripCart() {
           // Debounce invalidation to prevent excessive refetches
           setTimeout(() => {
             qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
+            qc.invalidateQueries({ queryKey: ["trip_cart_count", user.id] });
           }, 100);
           
           return true;
@@ -193,6 +195,7 @@ export function useTripCart() {
           // Debounce invalidation
           setTimeout(() => {
             qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
+            qc.invalidateQueries({ queryKey: ["trip_cart_count", user.id] });
           }, 100);
           
           return true;
@@ -225,6 +228,7 @@ export function useTripCart() {
         const { error } = await supabase.from("trip_cart_items").delete().eq("user_id", user.id);
         if (error) throw error;
         qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
+        qc.invalidateQueries({ queryKey: ["trip_cart_count", user.id] });
         toast({ title: "Cart cleared" });
         return true;
       } catch (e) {

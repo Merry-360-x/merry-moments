@@ -151,6 +151,8 @@ const Navbar = () => {
       if (error) return 0;
       return Number(count ?? 0);
     },
+    staleTime: 30_000, // 30 seconds
+    refetchOnMount: true,
   });
 
   const tripCartCount = user ? authedCartCount : guestCart.length;
