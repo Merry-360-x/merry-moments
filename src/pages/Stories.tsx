@@ -284,8 +284,6 @@ const Stories = () => {
       toast({ variant: "destructive", title: "Error", description: "Could not add comment." });
     }
   };
-    }
-  };
 
   const submit = async () => {
     if (!user) {
