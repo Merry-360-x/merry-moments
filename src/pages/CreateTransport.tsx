@@ -284,9 +284,43 @@ export default function CreateTransport() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="RWF">RWF</SelectItem>
-                      <SelectItem value="USD">USD</SelectItem>
-                      <SelectItem value="EUR">EUR</SelectItem>
+                      <SelectItem value="USD">$ - US Dollar</SelectItem>
+                      <SelectItem value="EUR">€ - Euro</SelectItem>
+                      <SelectItem value="GBP">£ - British Pound</SelectItem>
+                      <SelectItem value="JPY">¥ - Japanese Yen</SelectItem>
+                      <SelectItem value="CNY">¥ - Chinese Yuan</SelectItem>
+                      <SelectItem value="CAD">C$ - Canadian Dollar</SelectItem>
+                      <SelectItem value="AUD">A$ - Australian Dollar</SelectItem>
+                      <SelectItem value="CHF">CHF - Swiss Franc</SelectItem>
+                      <SelectItem value="INR">₹ - Indian Rupee</SelectItem>
+                      <SelectItem value="KRW">₩ - South Korean Won</SelectItem>
+                      <SelectItem value="SGD">S$ - Singapore Dollar</SelectItem>
+                      <SelectItem value="HKD">HK$ - Hong Kong Dollar</SelectItem>
+                      <SelectItem value="NOK">kr - Norwegian Krone</SelectItem>
+                      <SelectItem value="SEK">kr - Swedish Krona</SelectItem>
+                      <SelectItem value="DKK">kr - Danish Krone</SelectItem>
+                      <SelectItem value="NZD">NZ$ - New Zealand Dollar</SelectItem>
+                      <SelectItem value="MXN">$ - Mexican Peso</SelectItem>
+                      <SelectItem value="BRL">R$ - Brazilian Real</SelectItem>
+                      <SelectItem value="ZAR">R - South African Rand</SelectItem>
+                      <SelectItem value="THB">฿ - Thai Baht</SelectItem>
+                      <SelectItem value="TRY">₺ - Turkish Lira</SelectItem>
+                      <SelectItem value="RUB">₽ - Russian Ruble</SelectItem>
+                      <SelectItem value="PLN">zł - Polish Złoty</SelectItem>
+                      <SelectItem value="CZK">Kč - Czech Koruna</SelectItem>
+                      <SelectItem value="HUF">Ft - Hungarian Forint</SelectItem>
+                      <SelectItem value="ILS">₪ - Israeli Shekel</SelectItem>
+                      <SelectItem value="AED">د.إ - UAE Dirham</SelectItem>
+                      <SelectItem value="SAR">﷼ - Saudi Riyal</SelectItem>
+                      <SelectItem value="EGP">£ - Egyptian Pound</SelectItem>
+                      <SelectItem value="NGN">₦ - Nigerian Naira</SelectItem>
+                      <SelectItem value="KES">KSh - Kenyan Shilling</SelectItem>
+                      <SelectItem value="UGX">USh - Ugandan Shilling</SelectItem>
+                      <SelectItem value="TZS">TSh - Tanzanian Shilling</SelectItem>
+                      <SelectItem value="RWF">FRw - Rwandan Franc</SelectItem>
+                      <SelectItem value="GHS">₵ - Ghanaian Cedi</SelectItem>
+                      <SelectItem value="MAD">د.م. - Moroccan Dirham</SelectItem>
+                      <SelectItem value="ETB">Br - Ethiopian Birr</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
