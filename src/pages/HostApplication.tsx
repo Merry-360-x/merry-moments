@@ -719,6 +719,21 @@ export default function HostApplication() {
                     </div>
                   </div>
 
+                  <div className="space-y-2">
+                    <Label htmlFor="beds">Beds *</Label>
+                    <div className="relative">
+                      <Bed className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="beds"
+                        type="number"
+                        className="pl-10"
+                        min="1"
+                        value={formData.bedrooms}
+                        onChange={(e) => updateField("bedrooms", parseInt(e.target.value) || 1)}
+                      />
+                    </div>
+                  </div>
+
                   <div className="md:col-span-2 space-y-2">
                     <Label htmlFor="description">Description *</Label>
                     <Textarea
@@ -1034,7 +1049,7 @@ export default function HostApplication() {
                 <div className="flex justify-between gap-3 mt-8 pt-6 border-t">
                   <Button
                     variant="outline"
-                    onClick={() => setCurrentStep(2)}
+                    onClick={() => setCurrentStep(1)}
                   >
                     Back
                   </Button>
