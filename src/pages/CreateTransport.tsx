@@ -339,8 +339,8 @@ export default function CreateTransport() {
             <Button type="button" variant="outline" onClick={() => navigate(-1)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={uploading}>
-              {uploading ? "Creating..." : "Create Transport Service"}
+            <Button type="submit">
+              Create Transport Service
             </Button>
           </div>
         </form>

@@ -403,8 +403,8 @@ export default function CreateTour() {
             <Button type="button" variant="outline" onClick={() => navigate(-1)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={uploading}>
-              {uploading ? "Creating..." : "Create Tour"}
+            <Button type="submit">
+              Create Tour
             </Button>
           </div>
         </form>

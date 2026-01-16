@@ -239,10 +239,8 @@ const Auth = () => {
               </div>
             </div>
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading
-                ? t("common.loading")
-                : isLogin
+            <Button type="submit" className="w-full">
+              {isLogin
                 ? t("actions.signIn")
                 : t("auth.actions.createAccount")}
             </Button>

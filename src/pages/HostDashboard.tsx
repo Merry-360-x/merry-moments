@@ -1668,17 +1668,10 @@ export default function HostDashboard() {
                 Next <ChevronRight className="w-4 h-4 ml-2" />
               </Button>
             ) : (
-              <Button onClick={createProperty} disabled={creatingProperty || !canProceed()}>
-                {creatingProperty ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                    Creating...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="w-4 h-4 mr-2" /> Create Property
-                  </>
-                )}
+              <Button onClick={createProperty} disabled={!canProceed()}>
+                <>
+                  <CheckCircle className="w-4 h-4 mr-2" /> Create Property
+                </>
               </Button>
             )}
           </div>
@@ -1995,8 +1988,8 @@ export default function HostDashboard() {
                 Next <ChevronRight className="w-4 h-4 ml-2" />
               </Button>
             ) : (
-              <Button onClick={submitTour} disabled={creatingTour}>
-                {creatingTour ? "Creating..." : "Create Tour"}
+              <Button onClick={submitTour}>
+                Create Tour
               </Button>
             )}
           </div>
@@ -2280,8 +2273,8 @@ export default function HostDashboard() {
                 Next <ChevronRight className="w-4 h-4 ml-2" />
               </Button>
             ) : (
-              <Button onClick={submitVehicle} disabled={creatingVehicle}>
-                {creatingVehicle ? "Creating..." : "Create Vehicle"}
+              <Button onClick={submitVehicle}>
+                Create Vehicle
               </Button>
             )}
           </div>
