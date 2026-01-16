@@ -240,7 +240,7 @@ export default function HostApplication() {
   };
 
   const handleSubmit = async () => {
-    if (!user) return;
+    if (!user || submitting) return; // Prevent multiple submissions
     setSubmitting(true);
 
     try {
@@ -422,6 +422,17 @@ export default function HostApplication() {
                   </CardDescription>
                 </>
               )}
+              {existingStatus === "rejected" && (
+                <>
+                  <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mx-auto mb-4">
+                    <Shield className="w-8 h-8 text-red-600" />
+                  </div>
+                  <CardTitle className="text-3xl">Application Declined</CardTitle>
+                  <CardDescription className="text-lg">
+                    Unfortunately, your application was not approved
+                  </CardDescription>
+                </>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
               {existingStatus === "pending" && (
@@ -433,6 +444,26 @@ export default function HostApplication() {
                 <Button size="lg" onClick={() => navigate("/host-dashboard")}>
                   Go to Host Dashboard
                 </Button>
+              )}
+              {existingStatus === "rejected" && (
+                <>
+                  <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-4">
+                    <p className="text-sm text-red-800 dark:text-red-200 mb-2">
+                      Your host application has been reviewed and unfortunately does not meet our current requirements.
+                    </p>
+                    <p className="text-sm font-medium text-red-900 dark:text-red-100">
+                      Please contact our support team for more information or to discuss reapplying.
+                    </p>
+                  </div>
+                  <div className="flex gap-3 justify-center">
+                    <Button size="lg" onClick={() => navigate("/")}>
+                      Back to Home
+                    </Button>
+                    <Button variant="outline" size="lg" onClick={() => window.location.href = 'mailto:support@merry360x.com'}>
+                      Contact Support
+                    </Button>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
