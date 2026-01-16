@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback, memo } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,83 @@ type CartDetails =
   | { type: "transport_vehicle"; title: string; price: number; currency: string; image?: string | null; meta?: string }
   | { type: "transport_route"; title: string; price: number; currency: string; image?: string | null; meta?: string }
   | { type: "transport_service"; title: string; price: number; currency: string; image?: string | null; meta?: string };
+
+// Memoized cart item component to prevent unnecessary re-renders
+const CartItemCard = memo(({ 
+  item, 
+  details, 
+  preferredCurrency, 
+  usdRates, 
+  onRemove 
+}: {
+  item: CartItemRow;
+  details: CartDetails | null;
+  preferredCurrency: string;
+  usdRates: Record<string, number>;
+  onRemove: (id: string) => void;
+}) => {
+  const itemLink =
+    item.item_type === "property"
+      ? `/properties/${item.reference_id}`
+      : item.item_type === "tour"
+      ? `/tours`
+      : item.item_type === "transport_vehicle" || item.item_type === "transport_route"
+      ? `/transport`
+      : null;
+
+  const displayPrice = useMemo(() => {
+    const amount = Number(details?.price ?? 0);
+    const fromCurrency = String(details?.currency ?? preferredCurrency);
+    const to = String(preferredCurrency || fromCurrency || "RWF");
+    const from = String(fromCurrency || to || "RWF");
+    const converted = convertAmount(amount, from, to, usdRates);
+    return formatMoney(converted == null ? amount : converted, to);
+  }, [details?.price, details?.currency, preferredCurrency, usdRates]);
+
+  return (
+    <div className="bg-card rounded-xl shadow-card p-5 flex flex-col md:flex-row gap-4">
+      {itemLink ? (
+        <Link to={itemLink} className="block w-full md:w-40 h-36 rounded-lg overflow-hidden">
+          {details?.image ? (
+            <img src={details.image} alt={details.title} className="w-full h-full object-cover" loading="lazy" />
+          ) : (
+            <div className="w-full h-full bg-muted" />
+          )}
+        </Link>
+      ) : details?.image ? (
+        <img src={details.image} alt={details.title} className="w-full md:w-40 h-36 object-cover rounded-lg" loading="lazy" />
+      ) : (
+        <div className="w-full md:w-40 h-36 bg-muted rounded-lg" />
+      )}
+
+      <div className="flex-1">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            {itemLink ? (
+              <Link to={itemLink} className="font-semibold text-foreground hover:text-primary hover:underline">
+                {details?.title ?? "Item"}
+              </Link>
+            ) : (
+              <div className="font-semibold text-foreground">{details?.title ?? "Item"}</div>
+            )}
+            {details?.meta ? <div className="text-sm text-muted-foreground mt-1">{details.meta}</div> : null}
+            <div className="text-xs text-muted-foreground mt-2">Type: {item.item_type}</div>
+          </div>
+          <div className="text-right">
+            <div className="font-bold text-foreground">{displayPrice}</div>
+            <div className="text-sm text-muted-foreground">Qty: {item.quantity}</div>
+          </div>
+        </div>
+
+        <div className="mt-4 flex items-center justify-end">
+          <Button variant="outline" onClick={() => onRemove(item.id)}>
+            Remove
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+});
 
 // Helper to fetch details for cart items
 async function fetchCartItemDetails(items: Array<{ item_type: string; reference_id: string }>) {
@@ -146,6 +223,11 @@ export default function TripCart() {
   const { guestCart, removeFromCart } = useTripCart();
   const { usdRates } = useFxRates();
 
+  // Memoize removeItem to prevent re-renders
+  const removeItem = useCallback(async (id: string) => {
+    await removeFromCart(id);
+  }, [removeFromCart]);
+
   const displayMoney = (amount: number, fromCurrency: string) => {
     const to = String(preferredCurrency || fromCurrency || "RWF");
     const from = String(fromCurrency || to || "RWF");
@@ -200,9 +282,11 @@ export default function TripCart() {
 
       return { rows, totals };
     },
-    staleTime: 15_000,
+    staleTime: 60_000, // 1 minute
+    gcTime: 300_000, // 5 minutes
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
+    refetchOnMount: false,
   });
 
   // Query for guest cart details
@@ -245,10 +329,10 @@ export default function TripCart() {
           const converted = convertAmount(unit * qty, from, preferredCurrency, usdRates);
           if (converted == null) {
             acc.amount += unit * qty;
-            acc.currency = from || acc.currency;
+            acc.currency = (from || acc.currency) as any;
           } else {
             acc.amount += converted;
-            acc.currency = preferredCurrency;
+            acc.currency = preferredCurrency as any;
           }
           return acc;
         },
@@ -257,18 +341,16 @@ export default function TripCart() {
 
       return { rows: detailed, totals };
     },
-    staleTime: 15_000,
+    staleTime: 60_000, // 1 minute  
+    gcTime: 300_000, // 5 minutes
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
+    refetchOnMount: false,
   });
 
   // Use appropriate data based on auth state
   const data = user ? authData : guestData;
   const isLoading = user ? authCartLoading : guestCartLoading;
-
-  const removeItem = async (id: string) => {
-    await removeFromCart(id);
-  };
 
   const clearCart = async () => {
     if (user) {
@@ -282,12 +364,24 @@ export default function TripCart() {
         });
         return;
       }
+      
       toast({ title: "Trip Cart cleared" });
-      await qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
+      
+      // Optimistically clear cache
+      qc.setQueryData(["trip_cart_items", user.id], { rows: [], totals: { amount: 0, currency: preferredCurrency || "RWF" } });
+      
+      // Debounce invalidation
+      setTimeout(() => {
+        qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
+      }, 100);
     } else {
-      // Clear guest cart
+      // Clear guest cart without reload
       localStorage.removeItem("merry360_guest_cart");
-      window.location.reload(); // Simple refresh to update state
+      toast({ title: "Trip Cart cleared" });
+      
+      // Update query cache to trigger re-render
+      qc.setQueryData(["guest_cart_details"], { rows: [], totals: { amount: 0, currency: preferredCurrency || "RWF" } });
+      qc.invalidateQueries({ queryKey: ["guest_cart_details"] });
     }
   };
 
@@ -351,62 +445,16 @@ export default function TripCart() {
               </div>
             </div>
 
-            {data?.rows.map(({ item, details }) => {
-              const itemLink =
-                item.item_type === "property"
-                  ? `/properties/${item.reference_id}`
-                  : item.item_type === "tour"
-                  ? `/tours`
-                  : item.item_type === "transport_vehicle" || item.item_type === "transport_route"
-                  ? `/transport`
-                  : null;
-
-              return (
-                <div key={item.id} className="bg-card rounded-xl shadow-card p-5 flex flex-col md:flex-row gap-4">
-                  {itemLink ? (
-                    <Link to={itemLink} className="block w-full md:w-40 h-36 rounded-lg overflow-hidden">
-                      {details?.image ? (
-                        <img src={details.image} alt={details.title} className="w-full h-full object-cover" loading="lazy" />
-                      ) : (
-                        <div className="w-full h-full bg-muted" />
-                      )}
-                    </Link>
-                  ) : details?.image ? (
-                    <img src={details.image} alt={details.title} className="w-full md:w-40 h-36 object-cover rounded-lg" loading="lazy" />
-                  ) : (
-                    <div className="w-full md:w-40 h-36 bg-muted rounded-lg" />
-                  )}
-
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        {itemLink ? (
-                          <Link to={itemLink} className="font-semibold text-foreground hover:text-primary hover:underline">
-                            {details?.title ?? "Item"}
-                          </Link>
-                        ) : (
-                          <div className="font-semibold text-foreground">{details?.title ?? "Item"}</div>
-                        )}
-                        {details?.meta ? <div className="text-sm text-muted-foreground mt-1">{details.meta}</div> : null}
-                        <div className="text-xs text-muted-foreground mt-2">Type: {item.item_type}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-bold text-foreground">
-                          {displayMoney(Number(details?.price ?? 0), String(details?.currency ?? preferredCurrency))}
-                        </div>
-                        <div className="text-sm text-muted-foreground">Qty: {item.quantity}</div>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 flex items-center justify-end">
-                      <Button variant="outline" onClick={() => removeItem(item.id)}>
-                        Remove
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {data?.rows.map(({ item, details }) => (
+              <CartItemCard 
+                key={item.id}
+                item={item}
+                details={details}
+                preferredCurrency={preferredCurrency || "RWF"}
+                usdRates={usdRates}
+                onRemove={removeItem}
+              />
+            ))}
           </div>
         )}
       </div>

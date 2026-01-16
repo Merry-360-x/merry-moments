@@ -66,27 +66,31 @@ export function useTripCart() {
     if (user) {
       const items = getGuestCart();
       if (items.length > 0) {
-        // Migrate guest cart to database
+        // Migrate guest cart to database with bulk insert
         (async () => {
-          for (const item of items) {
-            try {
-              await supabase.from("trip_cart_items").insert({
-                user_id: user.id,
-                item_type: item.item_type,
-                reference_id: item.reference_id,
-                quantity: item.quantity,
+          try {
+            const cartItems = items.map(item => ({
+              user_id: user.id,
+              item_type: item.item_type,
+              reference_id: item.reference_id,
+              quantity: item.quantity,
+            }));
+            
+            const { error } = await supabase
+              .from("trip_cart_items")
+              .insert(cartItems);
+            
+            if (!error) {
+              clearGuestCart();
+              qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
+              toast({
+                title: "Cart synced",
+                description: `${items.length} item(s) from your guest cart have been added.`,
               });
-            } catch {
-              // Ignore duplicates or errors
             }
-          }
-          clearGuestCart();
-          qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
-          if (items.length > 0) {
-            toast({
-              title: "Cart synced",
-              description: `${items.length} item(s) from your guest cart have been added.`,
-            });
+          } catch (e) {
+            // Ignore errors - duplicates or other issues
+            clearGuestCart();
           }
         })();
       }
@@ -98,6 +102,20 @@ export function useTripCart() {
       if (user) {
         // Add to database for authenticated users
         try {
+          // Check if already exists to prevent duplicates
+          const { data: existing } = await supabase
+            .from("trip_cart_items")
+            .select("id")
+            .eq("user_id", user.id)
+            .eq("item_type", itemType)
+            .eq("reference_id", referenceId)
+            .maybeSingle();
+          
+          if (existing) {
+            toast({ title: "Already in Trip Cart" });
+            return true;
+          }
+
           const { error } = await supabase.from("trip_cart_items").insert({
             user_id: user.id,
             item_type: itemType,
@@ -105,8 +123,14 @@ export function useTripCart() {
             quantity,
           });
           if (error) throw error;
+          
           toast({ title: "Added to Trip Cart" });
-          qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
+          
+          // Debounce invalidation to prevent excessive refetches
+          setTimeout(() => {
+            qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
+          }, 100);
+          
           return true;
         } catch (e) {
           logError("tripCart.add", e);
@@ -154,8 +178,23 @@ export function useTripCart() {
         try {
           const { error } = await supabase.from("trip_cart_items").delete().eq("id", itemId);
           if (error) throw error;
+          
           toast({ title: "Removed from cart" });
-          qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
+          
+          // Optimistically update cache before refetch
+          qc.setQueryData(["trip_cart_items", user.id], (old: any) => {
+            if (!old) return old;
+            return {
+              ...old,
+              rows: old.rows?.filter((row: any) => row.item?.id !== itemId) || []
+            };
+          });
+          
+          // Debounce invalidation
+          setTimeout(() => {
+            qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
+          }, 100);
+          
           return true;
         } catch (e) {
           logError("tripCart.remove", e);
