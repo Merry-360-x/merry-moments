@@ -773,146 +773,144 @@ export default function AdminDashboard() {
       );
       if (roleErr) throw roleErr;
 
-      // Create listing from application data based on service type
+      // Create listings from application data for ALL selected service types
       if (app.listing_title && app.listing_location && app.service_types && app.service_types.length > 0) {
-        const serviceType = app.service_types[0]; // Use first selected service type
-        console.log("[AdminDashboard] Creating listing from application:", {
-          serviceType,
-          title: app.listing_title,
-          location: app.listing_location,
-          host_id: app.user_id,
-        });
-
-        try {
-          if (serviceType === "accommodation") {
-            // Create property
-            const propertyPayload = {
-              name: app.listing_title,
-              title: app.listing_title,
-              location: app.listing_location,
-              address: null,
-              property_type: app.listing_property_type || "Apartment",
-              description: app.listing_description || app.about || "",
-              price_per_night: app.listing_price_per_night || 50000,
-              currency: app.listing_currency || "RWF",
-              max_guests: app.listing_max_guests || 2,
-              bedrooms: app.listing_bedrooms || 1,
-              bathrooms: app.listing_bathrooms || 1,
-              beds: app.listing_bedrooms || 1,
-              images: app.listing_images || [],
-              main_image: app.listing_images?.[0] || null,
-              amenities: app.listing_amenities || [],
-              host_id: app.user_id,
-              is_published: true,
-              rating: 0,
-              review_count: 0,
-            };
-
-            console.log("[AdminDashboard] Creating property with payload:", propertyPayload);
-
-            const { data: createdProperty, error: propErr } = await supabase
-              .from("properties")
-              .insert(propertyPayload as never)
-              .select()
-              .single();
-
-            if (propErr) {
-              console.error("[AdminDashboard] Property creation error:", propErr);
-              throw propErr;
-            }
-            console.log("[AdminDashboard] ✅ Property created successfully:", createdProperty);
-            
-            toast({ 
-              title: "Application approved", 
-              description: `${app.full_name} is now a host! Property "${createdProperty.title}" has been published.` 
-            });
-            await Promise.all([refetchApplications(), refetchRoles(), refetchMetrics()]);
-            return;
-          } else if (serviceType === "tour") {
-            // Create tour
-            const tourPayload = {
-              title: app.listing_title,
-              location: app.listing_location,
-              description: app.listing_description || app.about || "",
-              category: app.listing_tour_category || "Adventure",
-              duration_days: app.listing_tour_duration_days || 1,
-              difficulty: app.listing_tour_difficulty || "Easy",
-              price_per_person: app.listing_tour_price_per_person || 100,
-              currency: app.listing_currency || "RWF",
-              max_group_size: app.listing_tour_max_group_size || 10,
-              images: app.listing_images || [],
-              created_by: app.user_id,
-              is_published: true,
-              rating: 0,
-              review_count: 0,
-            };
-
-            console.log("[AdminDashboard] Creating tour with payload:", tourPayload);
-
-            const { data: createdTour, error: tourErr } = await supabase
-              .from("tours")
-              .insert(tourPayload as never)
-              .select()
-              .single();
-
-            if (tourErr) {
-              console.error("[AdminDashboard] Tour creation error:", tourErr);
-              throw tourErr;
-            }
-            console.log("[AdminDashboard] ✅ Tour created successfully:", createdTour);
-            
-            toast({ 
-              title: "Application approved", 
-              description: `${app.full_name} is now a host! Tour "${createdTour.title}" has been published.` 
-            });
-            await Promise.all([refetchApplications(), refetchRoles(), refetchMetrics()]);
-            return;
-          } else if (serviceType === "transport") {
-            // Create transport vehicle
-            const vehiclePayload = {
-              title: app.listing_title,
-              provider_name: app.listing_vehicle_provider_name || app.full_name || "Provider",
-              vehicle_type: app.listing_vehicle_type || "Car",
-              seats: app.listing_vehicle_seats || 4,
-              price_per_day: app.listing_vehicle_price_per_day || 50,
-              currency: app.listing_currency || "RWF",
-              driver_included: app.listing_vehicle_driver_included || false,
-              image_url: app.listing_images?.[0] || null,
-              media: app.listing_images || [],
-              created_by: app.user_id,
-              is_published: true,
-            };
-
-            console.log("[AdminDashboard] Creating transport vehicle with payload:", vehiclePayload);
-
-            const { data: createdVehicle, error: vehicleErr } = await supabase
-              .from("transport_vehicles")
-              .insert(vehiclePayload as never)
-              .select()
-              .single();
-
-            if (vehicleErr) {
-              console.error("[AdminDashboard] Transport vehicle creation error:", vehicleErr);
-              throw vehicleErr;
-            }
-            console.log("[AdminDashboard] ✅ Transport vehicle created successfully:", createdVehicle);
-            
-            toast({ 
-              title: "Application approved", 
-              description: `${app.full_name} is now a host! Transport vehicle "${createdVehicle.title}" has been published.` 
-            });
-            await Promise.all([refetchApplications(), refetchRoles(), refetchMetrics()]);
-            return;
-          }
-        } catch (listingErr: any) {
-          console.error(`❌ Failed to create ${serviceType} from application:`, listingErr);
-          toast({
-            title: "Application approved",
-            description: `${app.full_name} is now a host. Note: ${serviceType} listing creation failed - ${listingErr.message}`,
+        const createdListings: string[] = [];
+        
+        for (const serviceType of app.service_types) {
+          console.log("[AdminDashboard] Creating listing from application:", {
+            serviceType,
+            title: app.listing_title,
+            location: app.listing_location,
+            host_id: app.user_id,
           });
-          await Promise.all([refetchApplications(), refetchRoles(), refetchMetrics()]);
-          return;
+
+          try {
+            if (serviceType === "accommodation") {
+              // Create property
+              const propertyPayload = {
+                name: app.listing_title,
+                title: app.listing_title,
+                location: app.listing_location,
+                address: null,
+                property_type: app.listing_property_type || "Apartment",
+                description: app.listing_description || app.about || "",
+                price_per_night: app.listing_price_per_night || 50000,
+                currency: app.listing_currency || "RWF",
+                max_guests: app.listing_max_guests || 2,
+                bedrooms: app.listing_bedrooms || 1,
+                bathrooms: app.listing_bathrooms || 1,
+                beds: app.listing_bedrooms || 1,
+                images: app.listing_images || [],
+                main_image: app.listing_images?.[0] || null,
+                amenities: app.listing_amenities || [],
+                host_id: app.user_id,
+                is_published: true,
+                rating: 0,
+                review_count: 0,
+              };
+
+              console.log("[AdminDashboard] Creating property with payload:", propertyPayload);
+
+              const { data: createdProperty, error: propErr } = await supabase
+                .from("properties")
+                .insert(propertyPayload as never)
+                .select()
+                .single();
+
+              if (propErr) {
+                console.error("[AdminDashboard] Property creation error:", propErr);
+                throw propErr;
+              }
+              console.log("[AdminDashboard] ✅ Property created successfully:", createdProperty);
+              createdListings.push(`Property "${createdProperty.title}"`);
+              
+            } else if (serviceType === "tour") {
+              // Create tour
+              const tourPayload = {
+                title: app.listing_title,
+                location: app.listing_location,
+                description: app.listing_description || app.about || "",
+                category: app.listing_tour_category || "Adventure",
+                duration_days: app.listing_tour_duration_days || 1,
+                difficulty: app.listing_tour_difficulty || "Easy",
+                price_per_person: app.listing_tour_price_per_person || 100,
+                currency: app.listing_currency || "RWF",
+                max_group_size: app.listing_tour_max_group_size || 10,
+                images: app.listing_images || [],
+                created_by: app.user_id,
+                is_published: true,
+                rating: 0,
+                review_count: 0,
+              };
+
+              console.log("[AdminDashboard] Creating tour with payload:", tourPayload);
+
+              const { data: createdTour, error: tourErr } = await supabase
+                .from("tours")
+                .insert(tourPayload as never)
+                .select()
+                .single();
+
+              if (tourErr) {
+                console.error("[AdminDashboard] Tour creation error:", tourErr);
+                throw tourErr;
+              }
+              console.log("[AdminDashboard] ✅ Tour created successfully:", createdTour);
+              createdListings.push(`Tour "${createdTour.title}"`);
+              
+            } else if (serviceType === "transport") {
+              // Create transport vehicle
+              const vehiclePayload = {
+                title: app.listing_title,
+                provider_name: app.listing_vehicle_provider_name || app.full_name || "Provider",
+                vehicle_type: app.listing_vehicle_type || "Car",
+                seats: app.listing_vehicle_seats || 4,
+                price_per_day: app.listing_vehicle_price_per_day || 50,
+                currency: app.listing_currency || "RWF",
+                driver_included: app.listing_vehicle_driver_included || false,
+                image_url: app.listing_images?.[0] || null,
+                media: app.listing_images || [],
+                created_by: app.user_id,
+                is_published: true,
+              };
+
+              console.log("[AdminDashboard] Creating transport vehicle with payload:", vehiclePayload);
+
+              const { data: createdVehicle, error: vehicleErr } = await supabase
+                .from("transport_vehicles")
+                .insert(vehiclePayload as never)
+                .select()
+                .single();
+
+              if (vehicleErr) {
+                console.error("[AdminDashboard] Transport vehicle creation error:", vehicleErr);
+                throw vehicleErr;
+              }
+              console.log("[AdminDashboard] ✅ Transport vehicle created successfully:", createdVehicle);
+              createdListings.push(`Transport "${createdVehicle.title}"`);
+            }
+          } catch (listingErr: any) {
+            console.error(`❌ Failed to create ${serviceType} from application:`, listingErr);
+            createdListings.push(`${serviceType} (failed: ${listingErr.message})`);
+          }
         }
+
+        // Show success message with all created listings
+        if (createdListings.length > 0) {
+          toast({ 
+            title: "Application approved", 
+            description: `${app.full_name} is now a host! Created: ${createdListings.join(", ")}` 
+          });
+        } else {
+          toast({ 
+            title: "Application approved", 
+            description: `${app.full_name} is now a host!` 
+          });
+        }
+        
+        await Promise.all([refetchApplications(), refetchRoles(), refetchMetrics()]);
+        return;
       }
 
       // If no listing data provided, just approve as host
