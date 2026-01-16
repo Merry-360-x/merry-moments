@@ -176,11 +176,11 @@ interface Booking {
 
 const propertyTypes = ["Hotel", "Apartment", "Villa", "Guesthouse", "Resort", "Lodge", "Motel", "House", "Cabin"];
 const currencies = [
-  { value: "RWF", label: "FRw - Rwandan Franc" },
-  { value: "USD", label: "$ - US Dollar" },
-  { value: "EUR", label: "€ - Euro" },
-  { value: "GBP", label: "£ - British Pound" },
-  { value: "CNY", label: "¥ - Chinese Yuan" },
+  { value: "RWF", label: "(FRw) RWF" },
+  { value: "USD", label: "($) USD" },
+  { value: "EUR", label: "(€) EUR" },
+  { value: "GBP", label: "(£) GBP" },
+  { value: "CNY", label: "(¥) CNY" },
 ];
 const cancellationPolicies = [
   { value: "strict", label: "Strict - Less refunds" },

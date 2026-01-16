@@ -38,11 +38,11 @@ type ApplicantType = "individual" | "business";
 
 const propertyTypes = ["Hotel", "Apartment", "Villa", "Guesthouse", "Resort", "Lodge", "House"];
 const currencies = [
-  { value: "RWF", label: "FRw - Rwandan Franc", symbol: "FRw" },
-  { value: "USD", label: "$ - US Dollar", symbol: "$" },
-  { value: "EUR", label: "€ - Euro", symbol: "€" },
-  { value: "GBP", label: "£ - British Pound", symbol: "£" },
-  { value: "CNY", label: "¥ - Chinese Yuan", symbol: "¥" },
+  { value: "RWF", label: "(FRw) RWF", symbol: "FRw" },
+  { value: "USD", label: "($) USD", symbol: "$" },
+  { value: "EUR", label: "(€) EUR", symbol: "€" },
+  { value: "GBP", label: "(£) GBP", symbol: "£" },
+  { value: "CNY", label: "(¥) CNY", symbol: "¥" },
 ];
 
 export default function HostApplication() {

@@ -284,11 +284,11 @@ export default function CreateTransport() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="RWF">FRw - Rwandan Franc</SelectItem>
-                      <SelectItem value="USD">$ - US Dollar</SelectItem>
-                      <SelectItem value="EUR">€ - Euro</SelectItem>
-                      <SelectItem value="GBP">£ - British Pound</SelectItem>
-                      <SelectItem value="CNY">¥ - Chinese Yuan</SelectItem>
+                      <SelectItem value="RWF">(FRw) RWF</SelectItem>
+                      <SelectItem value="USD">($) USD</SelectItem>
+                      <SelectItem value="EUR">(€) EUR</SelectItem>
+                      <SelectItem value="GBP">(£) GBP</SelectItem>
+                      <SelectItem value="CNY">(¥) CNY</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
