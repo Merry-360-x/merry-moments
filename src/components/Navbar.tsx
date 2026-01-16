@@ -141,7 +141,7 @@ const Navbar = () => {
   });
 
   const { data: authedCartCount = 0 } = useQuery({
-    queryKey: ["trip_cart_count", user?.id],
+    queryKey: ["trip_cart", user?.id],
     enabled: Boolean(user?.id),
     queryFn: async () => {
       const { count, error } = await supabase
@@ -151,8 +151,7 @@ const Navbar = () => {
       if (error) return 0;
       return Number(count ?? 0);
     },
-    staleTime: 30_000, // 30 seconds
-    refetchOnMount: true,
+    staleTime: 10_000, // 10 seconds
   });
 
   const tripCartCount = user ? authedCartCount : guestCart.length;

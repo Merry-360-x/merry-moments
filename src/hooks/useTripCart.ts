@@ -61,12 +61,11 @@ export function useTripCart() {
     }
   }, [user]);
 
-  // Sync guest cart to database when user logs in
+  // Sync guest cart to database when user logs in (bulk insert)
   useEffect(() => {
     if (user) {
       const items = getGuestCart();
       if (items.length > 0) {
-        // Migrate guest cart to database with bulk insert
         (async () => {
           try {
             const cartItems = items.map(item => ({
@@ -76,21 +75,14 @@ export function useTripCart() {
               quantity: item.quantity,
             }));
             
-            const { error } = await supabase
-              .from("trip_cart_items")
-              .insert(cartItems);
-            
-            if (!error) {
-              clearGuestCart();
-              qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
-              qc.invalidateQueries({ queryKey: ["trip_cart_count", user.id] });
-              toast({
-                title: "Cart synced",
-                description: `${items.length} item(s) from your guest cart have been added.`,
-              });
-            }
-          } catch (e) {
-            // Ignore errors - duplicates or other issues
+            await supabase.from("trip_cart_items").insert(cartItems);
+            clearGuestCart();
+            qc.invalidateQueries({ queryKey: ["trip_cart"] });
+            toast({
+              title: "Cart synced",
+              description: `${items.length} item(s) added to your cart.`,
+            });
+          } catch {
             clearGuestCart();
           }
         })();
@@ -101,9 +93,8 @@ export function useTripCart() {
   const addToCart = useCallback(
     async (itemType: CartItemType, referenceId: string, quantity = 1) => {
       if (user) {
-        // Add to database for authenticated users
         try {
-          // Check if already exists to prevent duplicates
+          // Check for duplicates
           const { data: existing } = await supabase
             .from("trip_cart_items")
             .select("id")
@@ -117,20 +108,15 @@ export function useTripCart() {
             return true;
           }
 
-          const { error } = await supabase.from("trip_cart_items").insert({
+          await supabase.from("trip_cart_items").insert({
             user_id: user.id,
             item_type: itemType,
             reference_id: referenceId,
             quantity,
           });
-          if (error) throw error;
           
           toast({ title: "Added to Trip Cart" });
-          
-          // Invalidate immediately for better UX
-          qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
-          qc.invalidateQueries({ queryKey: ["trip_cart_count", user.id] });
-          
+          qc.invalidateQueries({ queryKey: ["trip_cart"] });
           return true;
         } catch (e) {
           logError("tripCart.add", e);
@@ -142,7 +128,7 @@ export function useTripCart() {
           return false;
         }
       } else {
-        // Add to localStorage for guest users
+        // Guest cart
         const newItem: GuestCartItem = {
           id: `guest-${Date.now()}-${Math.random().toString(36).slice(2)}`,
           item_type: itemType,
@@ -152,11 +138,7 @@ export function useTripCart() {
         };
 
         setGuestCart((prev) => {
-          // Check if item already exists
-          const exists = prev.some(
-            (item) => item.item_type === itemType && item.reference_id === referenceId
-          );
-          if (exists) {
+          if (prev.some((item) => item.item_type === itemType && item.reference_id === referenceId)) {
             toast({ title: "Already in cart" });
             return prev;
           }
@@ -174,26 +156,10 @@ export function useTripCart() {
   const removeFromCart = useCallback(
     async (itemId: string) => {
       if (user) {
-        // Remove from database
         try {
-          const { error } = await supabase.from("trip_cart_items").delete().eq("id", itemId);
-          if (error) throw error;
-          
+          await supabase.from("trip_cart_items").delete().eq("id", itemId);
           toast({ title: "Removed from cart" });
-          
-          // Optimistically update cache before refetch
-          qc.setQueryData(["trip_cart_items", user.id], (old: any) => {
-            if (!old) return old;
-            return {
-              ...old,
-              rows: old.rows?.filter((row: any) => row.item?.id !== itemId) || []
-            };
-          });
-          
-          // Invalidate immediately for better UX
-          qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
-          qc.invalidateQueries({ queryKey: ["trip_cart_count", user.id] });
-          
+          qc.invalidateQueries({ queryKey: ["trip_cart"] });
           return true;
         } catch (e) {
           logError("tripCart.remove", e);
@@ -205,7 +171,6 @@ export function useTripCart() {
           return false;
         }
       } else {
-        // Remove from localStorage
         setGuestCart((prev) => {
           const updated = prev.filter((item) => item.id !== itemId);
           saveGuestCart(updated);
@@ -221,10 +186,8 @@ export function useTripCart() {
   const clearCart = useCallback(async () => {
     if (user) {
       try {
-        const { error } = await supabase.from("trip_cart_items").delete().eq("user_id", user.id);
-        if (error) throw error;
-        qc.invalidateQueries({ queryKey: ["trip_cart_items", user.id] });
-        qc.invalidateQueries({ queryKey: ["trip_cart_count", user.id] });
+        await supabase.from("trip_cart_items").delete().eq("user_id", user.id);
+        qc.invalidateQueries({ queryKey: ["trip_cart"] });
         toast({ title: "Cart cleared" });
         return true;
       } catch (e) {
@@ -234,25 +197,16 @@ export function useTripCart() {
       }
     }
     // Guest
-    try {
-      clearGuestCart();
-      setGuestCart([]);
-      toast({ title: "Cart cleared" });
-      return true;
-    } catch {
-      setGuestCart([]);
-      return true;
-    }
+    clearGuestCart();
+    setGuestCart([]);
+    toast({ title: "Cart cleared" });
+    return true;
   }, [user, qc, toast]);
-
-  const cartItemCount = user ? 0 : guestCart.length; // For guests, show count; for users, query handles it
 
   return {
     guestCart,
     addToCart,
     removeFromCart,
     clearCart,
-    cartItemCount,
-    isGuest: !user,
   };
 }
