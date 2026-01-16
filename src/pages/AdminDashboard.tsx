@@ -808,14 +808,26 @@ export default function AdminDashboard() {
               review_count: 0,
             };
 
+            console.log("[AdminDashboard] Creating property with payload:", propertyPayload);
+
             const { data: createdProperty, error: propErr } = await supabase
               .from("properties")
               .insert(propertyPayload as never)
               .select()
               .single();
 
-            if (propErr) throw propErr;
-            console.log("[AdminDashboard] Property created successfully:", createdProperty);
+            if (propErr) {
+              console.error("[AdminDashboard] Property creation error:", propErr);
+              throw propErr;
+            }
+            console.log("[AdminDashboard] ✅ Property created successfully:", createdProperty);
+            
+            toast({ 
+              title: "Application approved", 
+              description: `${app.full_name} is now a host! Property "${createdProperty.title}" has been published.` 
+            });
+            await Promise.all([refetchApplications(), refetchRoles(), refetchMetrics()]);
+            return;
           } else if (serviceType === "tour") {
             // Create tour
             const tourPayload = {
@@ -835,14 +847,26 @@ export default function AdminDashboard() {
               review_count: 0,
             };
 
+            console.log("[AdminDashboard] Creating tour with payload:", tourPayload);
+
             const { data: createdTour, error: tourErr } = await supabase
               .from("tours")
               .insert(tourPayload as never)
               .select()
               .single();
 
-            if (tourErr) throw tourErr;
-            console.log("[AdminDashboard] Tour created successfully:", createdTour);
+            if (tourErr) {
+              console.error("[AdminDashboard] Tour creation error:", tourErr);
+              throw tourErr;
+            }
+            console.log("[AdminDashboard] ✅ Tour created successfully:", createdTour);
+            
+            toast({ 
+              title: "Application approved", 
+              description: `${app.full_name} is now a host! Tour "${createdTour.title}" has been published.` 
+            });
+            await Promise.all([refetchApplications(), refetchRoles(), refetchMetrics()]);
+            return;
           } else if (serviceType === "transport") {
             // Create transport vehicle
             const vehiclePayload = {
@@ -859,17 +883,29 @@ export default function AdminDashboard() {
               is_published: true,
             };
 
+            console.log("[AdminDashboard] Creating transport vehicle with payload:", vehiclePayload);
+
             const { data: createdVehicle, error: vehicleErr } = await supabase
               .from("transport_vehicles")
               .insert(vehiclePayload as never)
               .select()
               .single();
 
-            if (vehicleErr) throw vehicleErr;
-            console.log("[AdminDashboard] Transport vehicle created successfully:", createdVehicle);
+            if (vehicleErr) {
+              console.error("[AdminDashboard] Transport vehicle creation error:", vehicleErr);
+              throw vehicleErr;
+            }
+            console.log("[AdminDashboard] ✅ Transport vehicle created successfully:", createdVehicle);
+            
+            toast({ 
+              title: "Application approved", 
+              description: `${app.full_name} is now a host! Transport vehicle "${createdVehicle.title}" has been published.` 
+            });
+            await Promise.all([refetchApplications(), refetchRoles(), refetchMetrics()]);
+            return;
           }
         } catch (listingErr: any) {
-          console.error(`Failed to create ${serviceType} from application:`, listingErr);
+          console.error(`❌ Failed to create ${serviceType} from application:`, listingErr);
           toast({
             title: "Application approved",
             description: `${app.full_name} is now a host. Note: ${serviceType} listing creation failed - ${listingErr.message}`,
@@ -879,7 +915,11 @@ export default function AdminDashboard() {
         }
       }
 
-      toast({ title: "Application approved", description: `${app.full_name} is now a host with their property listed!` });
+      // If no listing data provided, just approve as host
+      toast({ 
+        title: "Application approved", 
+        description: `${app.full_name} is now a host!` 
+      });
       await Promise.all([refetchApplications(), refetchRoles(), refetchMetrics()]);
     } catch (e) {
       logError("admin.approveApplication", e);
