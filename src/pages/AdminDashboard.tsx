@@ -760,13 +760,19 @@ export default function AdminDashboard() {
 
       // Create property from application listing data if it exists
       if (app.listing_title && app.listing_location) {
+        console.log("[AdminDashboard] Creating property from application:", {
+          title: app.listing_title,
+          location: app.listing_location,
+          host_id: app.user_id,
+        });
+
         const propertyPayload = {
           name: app.listing_title,
           title: app.listing_title,
           location: app.listing_location,
           address: null,
           property_type: app.listing_property_type || "Apartment",
-          description: app.about || null,
+          description: app.about || "",
           price_per_night: app.listing_price_per_night || 50000,
           currency: app.listing_currency || "RWF",
           max_guests: app.listing_max_guests || 2,
@@ -778,22 +784,28 @@ export default function AdminDashboard() {
           amenities: app.listing_amenities || [],
           host_id: app.user_id,
           is_published: true,
+          rating: 0,
+          review_count: 0,
         };
 
-        const { error: propErr } = await supabase
+        const { data: createdProperty, error: propErr } = await supabase
           .from("properties")
-          .insert(propertyPayload as never);
+          .insert(propertyPayload as never)
+          .select()
+          .single();
 
         if (propErr) {
           console.error("Failed to create property from application:", propErr);
           // Don't fail the entire approval if property creation fails
           toast({
             title: "Application approved",
-            description: `${app.full_name} is now a host. Note: Property listing needs to be created manually.`,
+            description: `${app.full_name} is now a host. Note: Property listing creation failed - ${propErr.message}`,
           });
           await Promise.all([refetchApplications(), refetchRoles(), refetchMetrics()]);
           return;
         }
+
+        console.log("[AdminDashboard] Property created successfully:", createdProperty);
       }
 
       toast({ title: "Application approved", description: `${app.full_name} is now a host with their property listed!` });
