@@ -245,13 +245,20 @@ const Stories = () => {
       if (error) throw error;
       
       setCommentText("");
-      refetchComments();
+      
+      // Invalidate and refetch all comment-related queries
+      await qc.invalidateQueries({ queryKey: ["story-comments", activeStoryId] });
+      await qc.invalidateQueries({ queryKey: ["floating-story-comments", activeStoryId] });
+      await qc.invalidateQueries({ queryKey: ["story-engagement-counts"] });
+      
+      // Force immediate refetch
+      await refetchComments();
+      
       // Refresh floating comments if viewing the same story
       if (floatingCommentsStoryId === activeStoryId) {
-        refetchFloatingComments();
+        await refetchFloatingComments();
       }
-      // Refresh engagement counts for all stories
-      await qc.invalidateQueries({ queryKey: ["story-engagement-counts"] });
+      
       toast({ title: "Comment added!" });
     } catch (e) {
       logError("story.comment", e);
