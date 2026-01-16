@@ -22,4 +22,11 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
       'X-Client-Info': 'merry360-web',
     },
   },
+  realtime: {
+    params: {
+      eventsPerSecond: 10,
+    },
+    timeout: 10000,
+    heartbeatIntervalMs: 30000,
+  },
 });
