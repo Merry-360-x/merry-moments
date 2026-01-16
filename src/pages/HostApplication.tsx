@@ -83,18 +83,31 @@ export default function HostApplication() {
     // Business (if applicable)
     business_name: "",
     business_tin: "",
-    // Property
+    // Common listing fields
     title: "",
     location: "",
     description: "",
+    currency: "RWF",
+    images: [] as string[],
+    // Property-specific
     property_type: "Apartment",
     price_per_night: 50000,
-    currency: "USD",
     max_guests: 2,
     bedrooms: 1,
     bathrooms: 1,
     amenities: [] as string[],
-    images: [] as string[],
+    // Tour-specific
+    tour_category: "Adventure",
+    tour_duration_days: 1,
+    tour_difficulty: "Easy",
+    tour_price_per_person: 100,
+    tour_max_group_size: 10,
+    // Transport-specific
+    vehicle_type: "Car",
+    vehicle_seats: 4,
+    vehicle_price_per_day: 50,
+    vehicle_driver_included: false,
+    vehicle_provider_name: "",
   });
 
   const [imageUploadOpen, setImageUploadOpen] = useState(false);
@@ -222,16 +235,31 @@ export default function HostApplication() {
         business_name: null,
         business_tin: null,
         hosting_location: formData.location,
+        // Common listing fields
         listing_title: formData.title,
         listing_location: formData.location,
+        listing_description: formData.description,
+        listing_currency: formData.currency,
+        listing_images: formData.images,
+        // Property fields
         listing_property_type: formData.property_type,
         listing_price_per_night: formData.price_per_night,
-        listing_currency: formData.currency,
         listing_max_guests: formData.max_guests,
         listing_bedrooms: formData.bedrooms,
         listing_bathrooms: formData.bathrooms,
         listing_amenities: formData.amenities,
-        listing_images: formData.images,
+        // Tour fields
+        listing_tour_category: formData.tour_category,
+        listing_tour_duration_days: formData.tour_duration_days,
+        listing_tour_difficulty: formData.tour_difficulty,
+        listing_tour_price_per_person: formData.tour_price_per_person,
+        listing_tour_max_group_size: formData.tour_max_group_size,
+        // Transport fields
+        listing_vehicle_type: formData.vehicle_type,
+        listing_vehicle_seats: formData.vehicle_seats,
+        listing_vehicle_price_per_day: formData.vehicle_price_per_day,
+        listing_vehicle_driver_included: formData.vehicle_driver_included,
+        listing_vehicle_provider_name: formData.vehicle_provider_name,
       };
 
       const { error } = await supabase.from("host_applications").insert(payload);
