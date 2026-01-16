@@ -33,7 +33,6 @@ import ConnectionTest from "./pages/ConnectionTest";
 import CreateTour from "./pages/CreateTour";
 import CreateTransport from "./pages/CreateTransport";
 import ScrollToTop from "@/components/ScrollToTop";
-import GlobalLoadingIndicator from "@/components/GlobalLoadingIndicator";
 import SupportCenterLauncher from "@/components/SupportCenterLauncher";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { useDataPersistence } from "@/hooks/useDataPersistence";
@@ -122,7 +121,6 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <ScrollToTop />
-            <GlobalLoadingIndicator />
             <SupportCenterLauncher />
             <Routes>
               <Route path="/" element={<Index />} />
