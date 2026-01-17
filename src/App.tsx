@@ -32,6 +32,8 @@ import HostAbout from "./pages/HostAbout";
 import ConnectionTest from "./pages/ConnectionTest";
 import CreateTour from "./pages/CreateTour";
 import CreateTransport from "./pages/CreateTransport";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import ScrollToTop from "@/components/ScrollToTop";
 import SupportCenterLauncher from "@/components/SupportCenterLauncher";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
