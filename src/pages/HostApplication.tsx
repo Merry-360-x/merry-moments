@@ -144,14 +144,15 @@ export default function HostApplication() {
   // Last: Review
   const getServiceSteps = () => {
     const steps = [];
-    if (formData.service_types.includes('accommodation')) steps.push('accommodation');
-    if (formData.service_types.includes('tour')) steps.push('tour');
-    if (formData.service_types.includes('transport')) steps.push('transport');
+    const serviceTypes = formData?.service_types || [];
+    if (serviceTypes.includes('accommodation')) steps.push('accommodation');
+    if (serviceTypes.includes('tour')) steps.push('tour');
+    if (serviceTypes.includes('transport')) steps.push('transport');
     return steps;
   };
   
   const serviceSteps = getServiceSteps();
-  const totalSteps = 1 + serviceSteps.length + 2; // 1 (service selection) + service steps + 1 (personal info) + 1 (review)
+  const totalSteps = 1 + (serviceSteps?.length || 0) + 2; // 1 (service selection) + service steps + 1 (personal info) + 1 (review)
   const progress = (currentStep / totalSteps) * 100;
   
   // Get current service type being edited based on current step
