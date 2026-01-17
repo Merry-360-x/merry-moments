@@ -82,8 +82,16 @@ const Auth = () => {
       if (isLogin) {
         const { error } = await signIn(email, password);
         if (error) throw error;
-        toast({ title: t("auth.toast.welcomeBack"), description: t("auth.toast.loggedIn") });
-        navigate(redirectTo ?? "/");
+        
+        // Show toast and navigate immediately - don't wait
+        toast({ 
+          title: t("auth.toast.welcomeBack"), 
+          description: t("auth.toast.loggedIn"),
+          duration: 2000
+        });
+        
+        // Navigate immediately for instant feedback
+        navigate(redirectTo ?? "/", { replace: true });
       } else {
         if (!fullName.trim()) {
           throw new Error(t("auth.errors.fullNameRequired"));

@@ -163,19 +163,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Fetch roles if we have a user
+        // Set loading to false immediately for fast initial render
+        setIsLoading(false);
+        setInitialized(true);
+        clearTimeout(failsafeTimeout);
+        
+        // Fetch roles in background without blocking
         if (session?.user && !initialized) {
-          await fetchRoles(session.user.id);
+          void fetchRoles(session.user.id);
         } else {
           setRoles([]);
           setRolesLoading(false);
         }
-        
-        setIsLoading(false);
-        setInitialized(true);
-        
-        // Clear the failsafe timeout since initialization completed
-        clearTimeout(failsafeTimeout);
         
         // 4. Set up listener for auth changes (after initial load)
         const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
@@ -191,18 +190,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setSession(newSession);
             setUser(newSession?.user ?? null);
             
+            // Immediately update loading state for fast UI
+            setIsLoading(false);
+            
             if (newSession?.user) {
-              // Only fetch roles if user changed or signed in
+              // Fetch roles in background without blocking UI
               if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
-                await fetchRoles(newSession.user.id);
+                // Don't await - let it happen in background
+                void fetchRoles(newSession.user.id);
               }
             } else {
               // User signed out
               setRoles([]);
               setRolesLoading(false);
             }
-            
-            setIsLoading(false);
           }
         );
         
