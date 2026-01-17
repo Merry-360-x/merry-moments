@@ -125,6 +125,8 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/login" element={<AuthModeRedirect mode="login" />} />
               <Route path="/signup" element={<AuthModeRedirect mode="signup" />} />
               <Route path="/accommodations" element={<Accommodations />} />
