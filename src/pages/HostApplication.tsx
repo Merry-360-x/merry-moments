@@ -181,7 +181,30 @@ export default function HostApplication() {
     if (savedData) {
       try {
         const parsed = JSON.parse(savedData);
-        setFormData(parsed.formData || formData);
+        
+        // Merge saved data with defaults to ensure all fields exist
+        const mergedFormData = {
+          ...formData,
+          ...parsed.formData,
+          // Ensure nested objects are properly merged
+          accommodation: {
+            ...formData.accommodation,
+            ...(parsed.formData?.accommodation || {}),
+            amenities: parsed.formData?.accommodation?.amenities || [],
+          },
+          tour: {
+            ...formData.tour,
+            ...(parsed.formData?.tour || {}),
+          },
+          transport: {
+            ...formData.transport,
+            ...(parsed.formData?.transport || {}),
+          },
+          // Ensure arrays exist
+          service_types: parsed.formData?.service_types || [],
+        };
+        
+        setFormData(mergedFormData);
         setCurrentStep(parsed.currentStep || 1);
         console.log('[HostApplication] Restored saved progress');
         
