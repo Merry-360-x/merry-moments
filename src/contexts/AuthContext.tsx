@@ -127,12 +127,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     const initializeAuth = async () => {
       try {
-        // 0. Try to recover session from URL first (OAuth callback)
-        const recoveredFromUrl = await recoverSessionFromUrl();
-        if (recoveredFromUrl && !mounted) return;
+        // Add timeout to getSession to prevent hanging
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Session check timeout')), 3000)
+        );
         
-        // 1. Get existing session first (critical for refresh/navigation)
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        const { data: { session }, error: sessionError } = await Promise.race([
+          sessionPromise,
+          timeoutPromise
+        ]) as any;
         
         if (!mounted) return;
         if (authEpochRef.current !== epoch) return;
@@ -145,22 +149,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setIsLoading(false);
           setRolesLoading(false);
           setInitialized(true);
+          clearTimeout(failsafeTimeout);
           return;
         }
         
-        // 2. Verify and refresh session if needed
-        if (session) {
-          await verifyAndRefreshSession();
-        }
+        // Verify and refresh session if needed (skip this as it's slow)
+        // Session will auto-refresh via onAuthStateChange if needed
 
         if (!mounted) return;
         if (authEpochRef.current !== epoch) return;
         
-        // 3. Set initial state from existing session
+        // Set initial state from existing session
         setSession(session);
         setUser(session?.user ?? null);
         
-        // 3. Fetch roles if we have a user
+        // Fetch roles if we have a user
         if (session?.user && !initialized) {
           await fetchRoles(session.user.id);
         } else {
@@ -226,6 +229,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsLoading(false);
         setRolesLoading(false);
         setInitialized(true);
+        clearTimeout(failsafeTimeout);
       }
     };
     
