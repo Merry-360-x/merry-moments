@@ -28,5 +28,25 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
     },
     timeout: 10000,
     heartbeatIntervalMs: 30000,
+    log: () => {}, // Suppress all realtime logs including WebSocket errors
   },
 });
+
+// Suppress WebSocket errors globally
+if (typeof window !== 'undefined') {
+  const originalConsoleError = console.error;
+  console.error = (...args: any[]) => {
+    // Filter out WebSocket and Realtime errors
+    const message = args[0]?.toString() || '';
+    if (
+      message.includes('WebSocket') ||
+      message.includes('realtime') ||
+      message.includes('websocket') ||
+      message.includes('%0A') ||
+      message.includes('Connection aborted')
+    ) {
+      return; // Suppress these errors
+    }
+    originalConsoleError.apply(console, args);
+  };
+}

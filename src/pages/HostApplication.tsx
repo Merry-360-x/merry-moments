@@ -1124,7 +1124,7 @@ export default function HostApplication() {
                                 onClick={() => {
                                   const newAmenities = selected
                                     ? (serviceData.amenities || []).filter((a) => a !== amenity.value)
-                                    : [...formData.amenities, amenity.value];
+                                    : [...(serviceData.amenities || []), amenity.value];
                                   updateField("amenities", newAmenities);
                                 }}
                                 className={`p-3 rounded-lg border-2 text-left transition-all ${
@@ -1156,7 +1156,7 @@ export default function HostApplication() {
                                 onClick={() => {
                                   const newAmenities = selected
                                     ? (serviceData.amenities || []).filter((a) => a !== amenity.value)
-                                    : [...formData.amenities, amenity.value];
+                                    : [...(serviceData.amenities || []), amenity.value];
                                   updateField("amenities", newAmenities);
                                 }}
                                 className={`p-3 rounded-lg border-2 text-left transition-all ${
@@ -1188,7 +1188,7 @@ export default function HostApplication() {
                                 onClick={() => {
                                   const newAmenities = selected
                                     ? (serviceData.amenities || []).filter((a) => a !== amenity.value)
-                                    : [...formData.amenities, amenity.value];
+                                    : [...(serviceData.amenities || []), amenity.value];
                                   updateField("amenities", newAmenities);
                                 }}
                                 className={`p-3 rounded-lg border-2 text-left transition-all ${
@@ -1220,7 +1220,7 @@ export default function HostApplication() {
                                 onClick={() => {
                                   const newAmenities = selected
                                     ? (serviceData.amenities || []).filter((a) => a !== amenity.value)
-                                    : [...formData.amenities, amenity.value];
+                                    : [...(serviceData.amenities || []), amenity.value];
                                   updateField("amenities", newAmenities);
                                 }}
                                 className={`p-3 rounded-lg border-2 text-left transition-all ${
@@ -1252,7 +1252,7 @@ export default function HostApplication() {
                                 onClick={() => {
                                   const newAmenities = selected
                                     ? (serviceData.amenities || []).filter((a) => a !== amenity.value)
-                                    : [...formData.amenities, amenity.value];
+                                    : [...(serviceData.amenities || []), amenity.value];
                                   updateField("amenities", newAmenities);
                                 }}
                                 className={`p-3 rounded-lg border-2 text-left transition-all ${
