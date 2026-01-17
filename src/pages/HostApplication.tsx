@@ -657,7 +657,7 @@ export default function HostApplication() {
                   </div>
                 </div>
 
-                {formData.service_types.length === 0 && (
+                {(!formData.service_types || formData.service_types.length === 0) && (
                   <p className="text-center text-sm text-muted-foreground mt-4">
                     Please select at least one service type to continue
                   </p>
@@ -672,7 +672,7 @@ export default function HostApplication() {
                   </Button>
                   <Button
                     onClick={() => setCurrentStep(2)}
-                    disabled={formData.service_types.length === 0}
+                    disabled={!formData.service_types || formData.service_types.length === 0}
                   >
                     Continue <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
@@ -681,7 +681,7 @@ export default function HostApplication() {
             )}
 
             {/* Step 2+: Service-Specific Details (dynamic based on selected services) */}
-            {currentStep >= 2 && currentStep <= (1 + serviceSteps.length) && currentServiceType && (
+            {currentStep >= 2 && currentStep <= (1 + (serviceSteps?.length || 0)) && currentServiceType && (
               <div className="space-y-6">
                 <div className="text-center mb-6">
                   <h2 className="text-2xl font-bold mb-2">
@@ -1311,7 +1311,7 @@ export default function HostApplication() {
                       </div>
                     </div>
                     
-                    {formData.amenities.length > 0 && (
+                    {formData.amenities && formData.amenities.length > 0 && (
                       <div className="mt-4 p-3 bg-muted/50 rounded-lg">
                         <p className="text-sm font-medium mb-2">Selected amenities ({formData.amenities.length}):</p>
                         <div className="flex flex-wrap gap-1">
@@ -1349,7 +1349,7 @@ export default function HostApplication() {
             )}
 
             {/* Personal Information Step */}
-            {currentStep === (1 + serviceSteps.length + 1) && (
+            {currentStep === (1 + (serviceSteps?.length || 0) + 1) && (
               <div className="space-y-6">
                 <div className="text-center mb-6">
                   <h2 className="text-2xl font-bold mb-2">Personal Information</h2>
