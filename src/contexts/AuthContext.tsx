@@ -123,7 +123,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsFetchingRoles(false);
         setInitialized(true);
       }
-    }, 8000); // Reduced to 8 second timeout for faster resolution
+    }, 5000); // 5 second timeout for faster resolution
     
     const initializeAuth = async () => {
       try {

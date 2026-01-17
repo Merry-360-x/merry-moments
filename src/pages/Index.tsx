@@ -33,7 +33,10 @@ const fetchLatestProperties = async () => {
     }
     return data ?? [];
   } catch (err) {
-    console.error("[Index] fetchLatestProperties exception:", err);
+    // Don't log AbortError - expected during navigation/unmount
+    if (!(err instanceof Error && err.name === "AbortError")) {
+      console.error("[Index] fetchLatestProperties exception:", err);
+    }
     throw err; // Re-throw to trigger React Query retry logic
   }
 };
@@ -55,7 +58,9 @@ const fetchFeaturedProperties = async () => {
     }
     return data ?? [];
   } catch (err) {
-    console.error("[Index] fetchFeaturedProperties exception:", err);
+    if (!(err instanceof Error && err.name === "AbortError")) {
+      console.error("[Index] fetchFeaturedProperties exception:", err);
+    }
     throw err;
   }
 };
@@ -79,7 +84,9 @@ const fetchTopRatedProperties = async () => {
     }
     return data ?? [];
   } catch (err) {
-    console.error("[Index] fetchTopRatedProperties exception:", err);
+    if (!(err instanceof Error && err.name === "AbortError")) {
+      console.error("[Index] fetchTopRatedProperties exception:", err);
+    }
     throw err;
   }
 };
@@ -101,7 +108,9 @@ const fetchFeaturedTours = async () => {
     }
     return data ?? [];
   } catch (err) {
-    console.error("[Index] fetchFeaturedTours exception:", err);
+    if (!(err instanceof Error && err.name === "AbortError")) {
+      console.error("[Index] fetchFeaturedTours exception:", err);
+    }
     throw err;
   }
 };
@@ -121,7 +130,9 @@ const fetchLatestVehicles = async () => {
     }
     return data ?? [];
   } catch (err) {
-    console.error("[Index] fetchLatestVehicles exception:", err);
+    if (!(err instanceof Error && err.name === "AbortError")) {
+      console.error("[Index] fetchLatestVehicles exception:", err);
+    }
     throw err;
   }
 };
