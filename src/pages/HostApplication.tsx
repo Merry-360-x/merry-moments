@@ -30,6 +30,8 @@ import {
   Bath,
   Star,
   Check,
+  Car,
+  Compass,
 } from "lucide-react";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { formatMoney } from "@/lib/money";
@@ -69,7 +71,7 @@ export default function HostApplication() {
     return () => clearTimeout(failsafeTimeout);
   }, []);
 
-  // Simplified form state
+  // Simplified form state - SEPARATE data for each service type
   const [formData, setFormData] = useState({
     // Service Types
     service_types: [] as string[], // accommodation, transport, tour
@@ -83,31 +85,50 @@ export default function HostApplication() {
     // Business (if applicable)
     business_name: "",
     business_tin: "",
-    // Common listing fields
-    title: "",
-    location: "",
-    description: "",
-    currency: "RWF",
-    images: [] as string[],
-    // Property-specific
-    property_type: "Apartment",
-    price_per_night: 50000,
-    max_guests: 2,
-    bedrooms: 1,
-    bathrooms: 1,
-    amenities: [] as string[],
-    // Tour-specific
-    tour_category: "Adventure",
-    tour_duration_days: 1,
-    tour_difficulty: "Easy",
-    tour_price_per_person: 100,
-    tour_max_group_size: 10,
-    // Transport-specific
-    vehicle_type: "Car",
-    vehicle_seats: 4,
-    vehicle_price_per_day: 50,
-    vehicle_driver_included: false,
-    vehicle_provider_name: "",
+    
+    // ACCOMMODATION data (separate object)
+    accommodation: {
+      title: "",
+      location: "",
+      description: "",
+      currency: "RWF",
+      images: [] as string[],
+      property_type: "Apartment",
+      price_per_night: 50000,
+      max_guests: 2,
+      bedrooms: 1,
+      bathrooms: 1,
+      beds: 1,
+      amenities: [] as string[],
+    },
+    
+    // TOUR data (separate object)
+    tour: {
+      title: "",
+      location: "",
+      description: "",
+      currency: "RWF",
+      images: [] as string[],
+      category: "Adventure",
+      duration_days: 1,
+      difficulty: "Easy",
+      price_per_person: 100,
+      max_group_size: 10,
+    },
+    
+    // TRANSPORT data (separate object)
+    transport: {
+      title: "",
+      location: "",
+      description: "",
+      currency: "RWF",
+      images: [] as string[],
+      vehicle_type: "Car",
+      seats: 4,
+      price_per_day: 50,
+      driver_included: false,
+      provider_name: "",
+    },
   });
 
   const [imageUploadOpen, setImageUploadOpen] = useState(false);
@@ -141,6 +162,17 @@ export default function HostApplication() {
   };
   
   const currentServiceType = getCurrentServiceType();
+  
+  // Helper to get current service data
+  const getCurrentServiceData = () => {
+    if (currentServiceType === 'accommodation') return formData.accommodation;
+    if (currentServiceType === 'tour') return formData.tour;
+    if (currentServiceType === 'transport') return formData.transport;
+    return formData.accommodation; // fallback
+  };
+  
+  // Use 'as any' to bypass TypeScript union type checking - each field is service-specific
+  const serviceData = getCurrentServiceData() as any;
 
   // Load saved progress from localStorage on mount
   useEffect(() => {
@@ -236,7 +268,21 @@ export default function HostApplication() {
   }, [user, authLoading, rolesLoading]);
 
   const updateField = (field: string, value: any) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    const currentService = getCurrentServiceType();
+    
+    // If we're on a service-specific step, update that service's data
+    if (currentService && ['accommodation', 'tour', 'transport'].includes(currentService)) {
+      setFormData((prev) => ({
+        ...prev,
+        [currentService]: {
+          ...prev[currentService as 'accommodation' | 'tour' | 'transport'],
+          [field]: value
+        }
+      }));
+    } else {
+      // Otherwise update the main form data
+      setFormData((prev) => ({ ...prev, [field]: value }));
+    }
   };
 
   const handleSubmit = async () => {
@@ -244,7 +290,7 @@ export default function HostApplication() {
     setSubmitting(true);
 
     try {
-      const payload = {
+      const payload: any = {
         user_id: user.id,
         status: "pending",
         applicant_type: applicantType,
@@ -257,33 +303,21 @@ export default function HostApplication() {
         selfie_photo_url: formData.selfie_photo_url,
         business_name: null,
         business_tin: null,
-        hosting_location: formData.location,
-        // Common listing fields
-        listing_title: formData.title,
-        listing_location: formData.location,
-        listing_description: formData.description,
-        listing_currency: formData.currency,
-        listing_images: formData.images,
-        // Property fields
-        listing_property_type: formData.property_type,
-        listing_price_per_night: formData.price_per_night,
-        listing_max_guests: formData.max_guests,
-        listing_bedrooms: formData.bedrooms,
-        listing_bathrooms: formData.bathrooms,
-        listing_amenities: formData.amenities,
-        // Tour fields
-        listing_tour_category: formData.tour_category,
-        listing_tour_duration_days: formData.tour_duration_days,
-        listing_tour_difficulty: formData.tour_difficulty,
-        listing_tour_price_per_person: formData.tour_price_per_person,
-        listing_tour_max_group_size: formData.tour_max_group_size,
-        // Transport fields
-        listing_vehicle_type: formData.vehicle_type,
-        listing_vehicle_seats: formData.vehicle_seats,
-        listing_vehicle_price_per_day: formData.vehicle_price_per_day,
-        listing_vehicle_driver_included: formData.vehicle_driver_included,
-        listing_vehicle_provider_name: formData.vehicle_provider_name,
       };
+
+      // Add service-specific data as JSON
+      if (formData.service_types.includes('accommodation')) {
+        payload.accommodation_data = formData.accommodation;
+        payload.hosting_location = formData.accommodation.location;
+      }
+      
+      if (formData.service_types.includes('tour')) {
+        payload.tour_data = formData.tour;
+      }
+      
+      if (formData.service_types.includes('transport')) {
+        payload.transport_data = formData.transport;
+      }
 
       const { error } = await supabase.from("host_applications").insert(payload);
 
@@ -671,7 +705,7 @@ export default function HostApplication() {
                         currentServiceType === 'tour' ? 'e.g., Gorilla Trekking Adventure' :
                         'e.g., Luxury SUV with Driver'
                       }
-                      value={formData.title}
+                      value={serviceData.title || ""}
                       onChange={(e) => updateField("title", e.target.value)}
                     />
                   </div>
@@ -684,7 +718,7 @@ export default function HostApplication() {
                         id="location"
                         className="pl-10"
                         placeholder="City, District"
-                        value={formData.location}
+                        value={serviceData.location || ""}
                         onChange={(e) => updateField("location", e.target.value)}
                       />
                     </div>
@@ -709,7 +743,7 @@ export default function HostApplication() {
 
                       <div className="space-y-2">
                         <Label htmlFor="propertyType">Property Type *</Label>
-                        <Select value={formData.property_type} onValueChange={(val) => updateField("property_type", val)}>
+                        <Select value={serviceData.property_type || "Apartment"} onValueChange={(val) => updateField("property_type", val)}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
@@ -728,11 +762,11 @@ export default function HostApplication() {
                               id="pricePerNight"
                               type="number"
                               className="pl-10"
-                              value={formData.price_per_night}
+                              value={serviceData.price_per_night || 50000}
                               onChange={(e) => updateField("price_per_night", parseInt(e.target.value) || 0)}
                             />
                           </div>
-                          <Select value={formData.currency} onValueChange={(val) => updateField("currency", val)}>
+                          <Select value={serviceData.currency || "RWF"} onValueChange={(val) => updateField("currency", val)}>
                             <SelectTrigger className="w-32">
                               <SelectValue />
                             </SelectTrigger>
@@ -752,7 +786,7 @@ export default function HostApplication() {
                             type="number"
                             className="pl-10"
                             min="1"
-                            value={formData.max_guests}
+                            value={serviceData.max_guests || 2}
                             onChange={(e) => updateField("max_guests", parseInt(e.target.value) || 1)}
                           />
                         </div>
@@ -767,7 +801,7 @@ export default function HostApplication() {
                             type="number"
                             className="pl-10"
                             min="0"
-                            value={formData.bedrooms}
+                            value={serviceData.bedrooms || 1}
                             onChange={(e) => updateField("bedrooms", parseInt(e.target.value) || 0)}
                           />
                         </div>
@@ -782,7 +816,7 @@ export default function HostApplication() {
                             type="number"
                             className="pl-10"
                             min="0"
-                            value={formData.bathrooms}
+                            value={serviceData.bathrooms || 1}
                             onChange={(e) => updateField("bathrooms", parseInt(e.target.value) || 0)}
                           />
                         </div>
@@ -797,8 +831,8 @@ export default function HostApplication() {
                             type="number"
                             className="pl-10"
                             min="1"
-                            value={formData.bedrooms}
-                            onChange={(e) => updateField("bedrooms", parseInt(e.target.value) || 1)}
+                            value={serviceData.beds || serviceData.bedrooms || 1}
+                            onChange={(e) => updateField("beds", parseInt(e.target.value) || 1)}
                           />
                         </div>
                       </div>
@@ -810,7 +844,7 @@ export default function HostApplication() {
                     <>
                       <div className="space-y-2">
                         <Label htmlFor="tourCategory">Tour Category *</Label>
-                        <Select value={formData.tour_category} onValueChange={(val) => updateField("tour_category", val)}>
+                        <Select value={serviceData.category || "Adventure"} onValueChange={(val) => updateField("category", val)}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
@@ -830,14 +864,14 @@ export default function HostApplication() {
                           id="tourDuration"
                           type="number"
                           min="1"
-                          value={formData.tour_duration_days}
-                          onChange={(e) => updateField("tour_duration_days", parseInt(e.target.value) || 1)}
+                          value={serviceData.duration_days || 1}
+                          onChange={(e) => updateField("duration_days", parseInt(e.target.value) || 1)}
                         />
                       </div>
 
                       <div className="space-y-2">
                         <Label htmlFor="tourDifficulty">Difficulty Level *</Label>
-                        <Select value={formData.tour_difficulty} onValueChange={(val) => updateField("tour_difficulty", val)}>
+                        <Select value={serviceData.difficulty || "Easy"} onValueChange={(val) => updateField("difficulty", val)}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
@@ -858,11 +892,11 @@ export default function HostApplication() {
                               id="tourPrice"
                               type="number"
                               className="pl-10"
-                              value={formData.tour_price_per_person}
-                              onChange={(e) => updateField("tour_price_per_person", parseInt(e.target.value) || 0)}
+                              value={serviceData.price_per_person || 100}
+                              onChange={(e) => updateField("price_per_person", parseInt(e.target.value) || 0)}
                             />
                           </div>
-                          <Select value={formData.currency} onValueChange={(val) => updateField("currency", val)}>
+                          <Select value={serviceData.currency || "RWF"} onValueChange={(val) => updateField("currency", val)}>
                             <SelectTrigger className="w-32">
                               <SelectValue />
                             </SelectTrigger>
@@ -882,8 +916,8 @@ export default function HostApplication() {
                             type="number"
                             className="pl-10"
                             min="1"
-                            value={formData.tour_max_group_size}
-                            onChange={(e) => updateField("tour_max_group_size", parseInt(e.target.value) || 1)}
+                            value={serviceData.max_group_size || 10}
+                            onChange={(e) => updateField("max_group_size", parseInt(e.target.value) || 1)}
                           />
                         </div>
                       </div>
@@ -895,7 +929,7 @@ export default function HostApplication() {
                     <>
                       <div className="space-y-2">
                         <Label htmlFor="vehicleType">Vehicle Type *</Label>
-                        <Select value={formData.vehicle_type} onValueChange={(val) => updateField("vehicle_type", val)}>
+                        <Select value={serviceData.vehicle_type || "Car"} onValueChange={(val) => updateField("vehicle_type", val)}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
@@ -915,8 +949,8 @@ export default function HostApplication() {
                           id="vehicleSeats"
                           type="number"
                           min="1"
-                          value={formData.vehicle_seats}
-                          onChange={(e) => updateField("vehicle_seats", parseInt(e.target.value) || 1)}
+                          value={serviceData.seats || 4}
+                          onChange={(e) => updateField("seats", parseInt(e.target.value) || 1)}
                         />
                       </div>
 
@@ -929,11 +963,11 @@ export default function HostApplication() {
                               id="vehiclePrice"
                               type="number"
                               className="pl-10"
-                              value={formData.vehicle_price_per_day}
-                              onChange={(e) => updateField("vehicle_price_per_day", parseInt(e.target.value) || 0)}
+                              value={serviceData.price_per_day || 50}
+                              onChange={(e) => updateField("price_per_day", parseInt(e.target.value) || 0)}
                             />
                           </div>
-                          <Select value={formData.currency} onValueChange={(val) => updateField("currency", val)}>
+                          <Select value={serviceData.currency || "RWF"} onValueChange={(val) => updateField("currency", val)}>
                             <SelectTrigger className="w-32">
                               <SelectValue />
                             </SelectTrigger>
@@ -949,8 +983,8 @@ export default function HostApplication() {
                         <Input
                           id="providerName"
                           placeholder="e.g., ABC Transport Services"
-                          value={formData.vehicle_provider_name}
-                          onChange={(e) => updateField("vehicle_provider_name", e.target.value)}
+                          value={serviceData.provider_name || ""}
+                          onChange={(e) => updateField("provider_name", e.target.value)}
                         />
                       </div>
 
@@ -958,8 +992,8 @@ export default function HostApplication() {
                         <input
                           type="checkbox"
                           id="driverIncluded"
-                          checked={formData.vehicle_driver_included}
-                          onChange={(e) => updateField("vehicle_driver_included", e.target.checked)}
+                          checked={serviceData.driver_included || false}
+                          onChange={(e) => updateField("driver_included", e.target.checked)}
                           className="w-4 h-4"
                         />
                         <Label htmlFor="driverIncluded" className="cursor-pointer">Driver Included</Label>
@@ -977,7 +1011,7 @@ export default function HostApplication() {
                         'Describe your vehicle and services...'
                       }
                       rows={3}
-                      value={formData.description}
+                      value={serviceData.description || ""}
                       onChange={(e) => updateField("description", e.target.value)}
                     />
                   </div>
@@ -987,11 +1021,11 @@ export default function HostApplication() {
                       {currentServiceType === 'accommodation' ? 'Property' : currentServiceType === 'tour' ? 'Tour' : 'Vehicle'} Photos * (At least 1)
                     </Label>
                     <div className="flex flex-wrap gap-3">
-                      {formData.images.map((img, i) => (
+                      {(serviceData.images || []).map((img, i) => (
                         <div key={i} className="relative w-24 h-24 rounded-lg overflow-hidden border">
                           <img src={img} alt="" className="w-full h-full object-cover" />
                           <button
-                            onClick={() => updateField("images", formData.images.filter((_, j) => j !== i))}
+                            onClick={() => updateField("images", (serviceData.images || []).filter((_, j) => j !== i))}
                             className="absolute top-1 right-1 w-6 h-6 bg-black/60 rounded-full text-white flex items-center justify-center hover:bg-black/80"
                           >
                             ×
@@ -1025,15 +1059,16 @@ export default function HostApplication() {
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                           {AMENITIES.filter(a => ['wifi', 'hot_water', 'ac', 'heating', 'parking_free', 'parking_paid'].includes(a.value)).map((amenity) => {
                             const Icon = amenity.icon;
-                            const selected = formData.amenities.includes(amenity.value);
+                            // @ts-expect-error - serviceData is a union type
+                            const selected = (serviceData.amenities || []).includes(amenity.value);
                             return (
                               <button
                                 key={amenity.value}
                                 type="button"
                                 onClick={() => {
                                   const newAmenities = selected
-                                    ? formData.amenities.filter((a) => a !== amenity.value)
-                                    : [...formData.amenities, amenity.value];
+                                    ? (serviceData.amenities || []).filter((a) => a !== amenity.value)
+                                    : [...(serviceData.amenities || []), amenity.value];
                                   updateField("amenities", newAmenities);
                                 }}
                                 className={`p-3 rounded-lg border-2 text-left transition-all ${
@@ -1056,14 +1091,15 @@ export default function HostApplication() {
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                           {AMENITIES.filter(a => ['kitchen', 'kitchenette', 'refrigerator', 'microwave', 'stove', 'oven', 'dishwasher', 'cookware', 'dishes', 'dining_table', 'blender', 'kettle', 'coffee_maker', 'breakfast_included', 'breakfast_available'].includes(a.value)).map((amenity) => {
                             const Icon = amenity.icon;
-                            const selected = formData.amenities.includes(amenity.value);
+                            // @ts-expect-error - serviceData is a union type
+                            const selected = (serviceData.amenities || []).includes(amenity.value);
                             return (
                               <button
                                 key={amenity.value}
                                 type="button"
                                 onClick={() => {
                                   const newAmenities = selected
-                                    ? formData.amenities.filter((a) => a !== amenity.value)
+                                    ? (serviceData.amenities || []).filter((a) => a !== amenity.value)
                                     : [...formData.amenities, amenity.value];
                                   updateField("amenities", newAmenities);
                                 }}
@@ -1087,14 +1123,15 @@ export default function HostApplication() {
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                           {AMENITIES.filter(a => ['tv_smart', 'tv_basic', 'workspace', 'wardrobe', 'hangers'].includes(a.value)).map((amenity) => {
                             const Icon = amenity.icon;
-                            const selected = formData.amenities.includes(amenity.value);
+                            // @ts-expect-error - serviceData is a union type
+                            const selected = (serviceData.amenities || []).includes(amenity.value);
                             return (
                               <button
                                 key={amenity.value}
                                 type="button"
                                 onClick={() => {
                                   const newAmenities = selected
-                                    ? formData.amenities.filter((a) => a !== amenity.value)
+                                    ? (serviceData.amenities || []).filter((a) => a !== amenity.value)
                                     : [...formData.amenities, amenity.value];
                                   updateField("amenities", newAmenities);
                                 }}
@@ -1118,14 +1155,15 @@ export default function HostApplication() {
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                           {AMENITIES.filter(a => ['toiletries', 'bathroom_essentials', 'towels', 'bedsheets', 'washing_machine', 'dryer', 'iron'].includes(a.value)).map((amenity) => {
                             const Icon = amenity.icon;
-                            const selected = formData.amenities.includes(amenity.value);
+                            // @ts-expect-error - serviceData is a union type
+                            const selected = (serviceData.amenities || []).includes(amenity.value);
                             return (
                               <button
                                 key={amenity.value}
                                 type="button"
                                 onClick={() => {
                                   const newAmenities = selected
-                                    ? formData.amenities.filter((a) => a !== amenity.value)
+                                    ? (serviceData.amenities || []).filter((a) => a !== amenity.value)
                                     : [...formData.amenities, amenity.value];
                                   updateField("amenities", newAmenities);
                                 }}
@@ -1149,14 +1187,15 @@ export default function HostApplication() {
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                           {AMENITIES.filter(a => ['gym', 'pool', 'sauna', 'jacuzzi', 'spa', 'restaurant'].includes(a.value)).map((amenity) => {
                             const Icon = amenity.icon;
-                            const selected = formData.amenities.includes(amenity.value);
+                            // @ts-expect-error - serviceData is a union type
+                            const selected = (serviceData.amenities || []).includes(amenity.value);
                             return (
                               <button
                                 key={amenity.value}
                                 type="button"
                                 onClick={() => {
                                   const newAmenities = selected
-                                    ? formData.amenities.filter((a) => a !== amenity.value)
+                                    ? (serviceData.amenities || []).filter((a) => a !== amenity.value)
                                     : [...formData.amenities, amenity.value];
                                   updateField("amenities", newAmenities);
                                 }}
@@ -1180,14 +1219,15 @@ export default function HostApplication() {
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                           {AMENITIES.filter(a => ['carbon_monoxide_alarm', 'smoke_alarm', 'security_cameras', 'fire_extinguisher', 'first_aid', 'safe', 'no_smoking'].includes(a.value)).map((amenity) => {
                             const Icon = amenity.icon;
-                            const selected = formData.amenities.includes(amenity.value);
+                            // @ts-expect-error - serviceData is a union type
+                            const selected = (serviceData.amenities || []).includes(amenity.value);
                             return (
                               <button
                                 key={amenity.value}
                                 type="button"
                                 onClick={() => {
                                   const newAmenities = selected
-                                    ? formData.amenities.filter((a) => a !== amenity.value)
+                                    ? (serviceData.amenities || []).filter((a) => a !== amenity.value)
                                     : [...formData.amenities, amenity.value];
                                   updateField("amenities", newAmenities);
                                 }}
@@ -1211,14 +1251,15 @@ export default function HostApplication() {
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                           {AMENITIES.filter(a => ['balcony', 'patio', 'terrace', 'garden', 'city_view', 'landscape_view', 'sea_view', 'lake_view', 'mountain_view'].includes(a.value)).map((amenity) => {
                             const Icon = amenity.icon;
-                            const selected = formData.amenities.includes(amenity.value);
+                            // @ts-expect-error - serviceData is a union type
+                            const selected = (serviceData.amenities || []).includes(amenity.value);
                             return (
                               <button
                                 key={amenity.value}
                                 type="button"
                                 onClick={() => {
                                   const newAmenities = selected
-                                    ? formData.amenities.filter((a) => a !== amenity.value)
+                                    ? (serviceData.amenities || []).filter((a) => a !== amenity.value)
                                     : [...formData.amenities, amenity.value];
                                   updateField("amenities", newAmenities);
                                 }}
@@ -1242,14 +1283,15 @@ export default function HostApplication() {
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                           {AMENITIES.filter(a => ['elevator', 'ground_floor', 'wheelchair_accessible', 'meeting_room', 'reception', 'concierge', 'room_service', 'family_friendly', 'crib', 'high_chair', 'fireplace', 'fan', 'air_purifier', 'soundproofing'].includes(a.value)).map((amenity) => {
                             const Icon = amenity.icon;
-                            const selected = formData.amenities.includes(amenity.value);
+                            // @ts-expect-error - serviceData is a union type
+                            const selected = (serviceData.amenities || []).includes(amenity.value);
                             return (
                               <button
                                 key={amenity.value}
                                 type="button"
                                 onClick={() => {
                                   const newAmenities = selected
-                                    ? formData.amenities.filter((a) => a !== amenity.value)
+                                    ? (serviceData.amenities || []).filter((a) => a !== amenity.value)
                                     : [...formData.amenities, amenity.value];
                                   updateField("amenities", newAmenities);
                                 }}
@@ -1296,7 +1338,7 @@ export default function HostApplication() {
                     Back
                   </Button>
                   <Button
-                    disabled={!formData.title || !formData.location || !formData.description || formData.images.length === 0}
+                    disabled={!serviceData.title || !serviceData.location || !serviceData.description || (serviceData.images || []).length === 0}
                     onClick={() => setCurrentStep(currentStep + 1)}
                   >
                     Continue <ArrowRight className="ml-2 w-4 h-4" />
@@ -1478,46 +1520,132 @@ export default function HostApplication() {
                     </CardContent>
                   </Card>
 
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2 text-lg">
-                        <Home className="w-5 h-5" />
-                        Property Details
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div>
-                        <h4 className="font-semibold text-lg">{formData.title}</h4>
-                        <p className="text-sm text-muted-foreground flex items-center gap-1">
-                          <MapPin className="w-3 h-3" />
-                          {formData.location}
-                        </p>
-                      </div>
-                      {formData.images[0] && (
-                        <div className="rounded-lg overflow-hidden border">
-                          <img src={formData.images[0]} alt="" className="w-full h-48 object-cover" />
-                        </div>
-                      )}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                  {/* Show details for each selected service type */}
+                  {formData.service_types.includes('accommodation') && formData.accommodation.title && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-lg">
+                          <Home className="w-5 h-5" />
+                          Accommodation Details
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
                         <div>
-                          <span className="text-muted-foreground">Price:</span>
-                          <p className="font-medium">{formatMoney(formData.price_per_night, formData.currency)}/night</p>
+                          <h4 className="font-semibold text-lg">{formData.accommodation.title}</h4>
+                          <p className="text-sm text-muted-foreground flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />
+                            {formData.accommodation.location}
+                          </p>
                         </div>
+                        {formData.accommodation.images?.[0] && (
+                          <div className="rounded-lg overflow-hidden border">
+                            <img src={formData.accommodation.images[0]} alt="" className="w-full h-48 object-cover" />
+                          </div>
+                        )}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Price:</span>
+                            <p className="font-medium">{formatMoney(formData.accommodation.price_per_night || 0, formData.accommodation.currency || 'RWF')}/night</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Guests:</span>
+                            <p className="font-medium">{formData.accommodation.max_guests || 0}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Bedrooms:</span>
+                            <p className="font-medium">{formData.accommodation.bedrooms || 0}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Bathrooms:</span>
+                            <p className="font-medium">{formData.accommodation.bathrooms || 0}</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {formData.service_types.includes('tour') && formData.tour.title && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-lg">
+                          <Compass className="w-5 h-5" />
+                          Tour Details
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
                         <div>
-                          <span className="text-muted-foreground">Guests:</span>
-                          <p className="font-medium">{formData.max_guests}</p>
+                          <h4 className="font-semibold text-lg">{formData.tour.title}</h4>
+                          <p className="text-sm text-muted-foreground flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />
+                            {formData.tour.location}
+                          </p>
                         </div>
+                        {formData.tour.images?.[0] && (
+                          <div className="rounded-lg overflow-hidden border">
+                            <img src={formData.tour.images[0]} alt="" className="w-full h-48 object-cover" />
+                          </div>
+                        )}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Price:</span>
+                            <p className="font-medium">{formatMoney(formData.tour.price_per_person || 0, formData.tour.currency || 'RWF')}/person</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Duration:</span>
+                            <p className="font-medium">{formData.tour.duration_days || 0} days</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Difficulty:</span>
+                            <p className="font-medium">{formData.tour.difficulty || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Group Size:</span>
+                            <p className="font-medium">{formData.tour.max_group_size || 0} people</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {formData.service_types.includes('transport') && formData.transport.title && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-lg">
+                          <Car className="w-5 h-5" />
+                          Transport Details
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
                         <div>
-                          <span className="text-muted-foreground">Bedrooms:</span>
-                          <p className="font-medium">{formData.bedrooms}</p>
+                          <h4 className="font-semibold text-lg">{formData.transport.title}</h4>
+                          <p className="text-sm text-muted-foreground">{formData.transport.vehicle_type || 'N/A'}</p>
                         </div>
-                        <div>
-                          <span className="text-muted-foreground">Bathrooms:</span>
-                          <p className="font-medium">{formData.bathrooms}</p>
+                        {formData.transport.images?.[0] && (
+                          <div className="rounded-lg overflow-hidden border">
+                            <img src={formData.transport.images[0]} alt="" className="w-full h-48 object-cover" />
+                          </div>
+                        )}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Price:</span>
+                            <p className="font-medium">{formatMoney(formData.transport.price_per_day || 0, formData.transport.currency || 'RWF')}/day</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Seats:</span>
+                            <p className="font-medium">{formData.transport.seats || 0}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Driver:</span>
+                            <p className="font-medium">{formData.transport.driver_included ? 'Included' : 'Not included'}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Provider:</span>
+                            <p className="font-medium">{formData.transport.provider_name || 'N/A'}</p>
+                          </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
 
                 <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
@@ -1579,11 +1707,11 @@ export default function HostApplication() {
       <CloudinaryUploadDialog
         open={imageUploadOpen}
         onOpenChange={setImageUploadOpen}
-        title="Upload Property Photos"
+        title={`Upload ${currentServiceType === 'accommodation' ? 'Property' : currentServiceType === 'tour' ? 'Tour' : 'Vehicle'} Photos`}
         folder="host_applications/property_photos"
         accept="image/*"
         multiple
-        value={formData.images}
+        value={getCurrentServiceData().images || []}
         onChange={(urls) => updateField("images", urls)}
       />
 

@@ -774,36 +774,31 @@ export default function AdminDashboard() {
       if (roleErr) throw roleErr;
 
       // Create listings from application data for ALL selected service types
-      if (app.listing_title && app.listing_location && app.service_types && app.service_types.length > 0) {
+      if (app.service_types && app.service_types.length > 0) {
         const createdListings: string[] = [];
         
         for (const serviceType of app.service_types) {
-          console.log("[AdminDashboard] Creating listing from application:", {
-            serviceType,
-            title: app.listing_title,
-            location: app.listing_location,
-            host_id: app.user_id,
-          });
-
           try {
             if (serviceType === "accommodation") {
-              // Create property
+              // Get data from new JSON field or fall back to old flat fields
+              const accommodationData = app.accommodation_data || {};
+              
               const propertyPayload = {
-                name: app.listing_title,
-                title: app.listing_title,
-                location: app.listing_location,
+                name: accommodationData.title || app.listing_title,
+                title: accommodationData.title || app.listing_title,
+                location: accommodationData.location || app.listing_location,
                 address: null,
-                property_type: app.listing_property_type || "Apartment",
-                description: app.listing_description || app.about || "",
-                price_per_night: app.listing_price_per_night || 50000,
-                currency: app.listing_currency || "RWF",
-                max_guests: app.listing_max_guests || 2,
-                bedrooms: app.listing_bedrooms || 1,
-                bathrooms: app.listing_bathrooms || 1,
-                beds: app.listing_bedrooms || 1,
-                images: app.listing_images || [],
-                main_image: app.listing_images?.[0] || null,
-                amenities: app.listing_amenities || [],
+                property_type: accommodationData.property_type || app.listing_property_type || "Apartment",
+                description: accommodationData.description || app.listing_description || app.about || "",
+                price_per_night: accommodationData.price_per_night || app.listing_price_per_night || 50000,
+                currency: accommodationData.currency || app.listing_currency || "RWF",
+                max_guests: accommodationData.max_guests || app.listing_max_guests || 2,
+                bedrooms: accommodationData.bedrooms || app.listing_bedrooms || 1,
+                bathrooms: accommodationData.bathrooms || app.listing_bathrooms || 1,
+                beds: accommodationData.beds || app.listing_beds || accommodationData.bedrooms || app.listing_bedrooms || 1,
+                images: accommodationData.images || app.listing_images || [],
+                main_image: (accommodationData.images || app.listing_images)?.[0] || null,
+                amenities: accommodationData.amenities || app.listing_amenities || [],
                 host_id: app.user_id,
                 is_published: true,
                 rating: 0,
@@ -826,18 +821,20 @@ export default function AdminDashboard() {
               createdListings.push(`Property "${createdProperty.title}"`);
               
             } else if (serviceType === "tour") {
-              // Create tour
+              // Get data from new JSON field or fall back to old flat fields
+              const tourData = app.tour_data || {};
+              
               const tourPayload = {
-                title: app.listing_title,
-                location: app.listing_location,
-                description: app.listing_description || app.about || "",
-                category: app.listing_tour_category || "Adventure",
-                duration_days: app.listing_tour_duration_days || 1,
-                difficulty: app.listing_tour_difficulty || "Easy",
-                price_per_person: app.listing_tour_price_per_person || 100,
-                currency: app.listing_currency || "RWF",
-                max_group_size: app.listing_tour_max_group_size || 10,
-                images: app.listing_images || [],
+                title: tourData.title || app.listing_title,
+                location: tourData.location || app.listing_location,
+                description: tourData.description || app.listing_description || app.about || "",
+                category: tourData.category || app.listing_tour_category || "Adventure",
+                duration_days: tourData.duration_days || app.listing_tour_duration_days || 1,
+                difficulty: tourData.difficulty || app.listing_tour_difficulty || "Easy",
+                price_per_person: tourData.price_per_person || app.listing_tour_price_per_person || 100,
+                currency: tourData.currency || app.listing_currency || "RWF",
+                max_group_size: tourData.max_group_size || app.listing_tour_max_group_size || 10,
+                images: tourData.images || app.listing_images || [],
                 created_by: app.user_id,
                 is_published: true,
                 rating: 0,
@@ -860,17 +857,19 @@ export default function AdminDashboard() {
               createdListings.push(`Tour "${createdTour.title}"`);
               
             } else if (serviceType === "transport") {
-              // Create transport vehicle
+              // Get data from new JSON field or fall back to old flat fields
+              const transportData = app.transport_data || {};
+              
               const vehiclePayload = {
-                title: app.listing_title,
-                provider_name: app.listing_vehicle_provider_name || app.full_name || "Provider",
-                vehicle_type: app.listing_vehicle_type || "Car",
-                seats: app.listing_vehicle_seats || 4,
-                price_per_day: app.listing_vehicle_price_per_day || 50,
-                currency: app.listing_currency || "RWF",
-                driver_included: app.listing_vehicle_driver_included || false,
-                image_url: app.listing_images?.[0] || null,
-                media: app.listing_images || [],
+                title: transportData.title || app.listing_title,
+                provider_name: transportData.provider_name || app.listing_vehicle_provider_name || app.full_name || "Provider",
+                vehicle_type: transportData.vehicle_type || app.listing_vehicle_type || "Car",
+                seats: transportData.seats || app.listing_vehicle_seats || 4,
+                price_per_day: transportData.price_per_day || app.listing_vehicle_price_per_day || 50,
+                currency: transportData.currency || app.listing_currency || "RWF",
+                driver_included: transportData.driver_included ?? app.listing_vehicle_driver_included ?? false,
+                image_url: (transportData.images || app.listing_images)?.[0] || null,
+                media: transportData.images || app.listing_images || [],
                 created_by: app.user_id,
                 is_published: true,
               };
