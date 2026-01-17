@@ -218,6 +218,9 @@ export default function Dashboard() {
         throw error;
       }
 
+      // Invalidate and refetch the profile
+      await queryClient.invalidateQueries({ queryKey: ["profile", user.id] });
+
       toast({ title: "Profile updated", description: "Your changes were saved." });
     } catch (e) {
       // Ignore AbortError exceptions
