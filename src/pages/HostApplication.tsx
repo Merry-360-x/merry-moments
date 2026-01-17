@@ -86,6 +86,15 @@ export default function HostApplication() {
     business_name: "",
     business_tin: "",
     
+    // Tour Guide specific fields
+    nationality: "",
+    languages_spoken: [] as string[],
+    years_of_experience: "",
+    areas_of_operation: "",
+    tour_specialties: [] as string[],
+    tour_guide_bio: "",
+    tour_guide_license_url: "",
+    
     // ACCOMMODATION data (separate object)
     accommodation: {
       title: "",
@@ -134,6 +143,7 @@ export default function HostApplication() {
   const [imageUploadOpen, setImageUploadOpen] = useState(false);
   const [idPhotoUploadOpen, setIdPhotoUploadOpen] = useState(false);
   const [selfieUploadOpen, setSelfieUploadOpen] = useState(false);
+  const [licenseUploadOpen, setLicenseUploadOpen] = useState(false);
 
   const STORAGE_KEY = 'host_application_progress';
 
@@ -328,6 +338,17 @@ export default function HostApplication() {
         business_name: null,
         business_tin: null,
       };
+      
+      // Add tour guide specific fields if applying for tours
+      if (formData.service_types.includes('tour')) {
+        payload.nationality = formData.nationality;
+        payload.languages_spoken = formData.languages_spoken;
+        payload.years_of_experience = parseInt(formData.years_of_experience) || 0;
+        payload.areas_of_operation = formData.areas_of_operation;
+        payload.tour_specialties = formData.tour_specialties;
+        payload.tour_guide_bio = formData.tour_guide_bio;
+        payload.tour_guide_license_url = formData.tour_guide_license_url;
+      }
 
       // Add service-specific data as JSON
       if (formData.service_types.includes('accommodation')) {
@@ -1474,6 +1495,143 @@ export default function HostApplication() {
                       onChange={(e) => updateField("about", e.target.value)}
                     />
                   </div>
+                  
+                  {/* Tour Guide Specific Fields */}
+                  {formData.service_types.includes('tour') && (
+                    <>
+                      <div className="md:col-span-2 mt-6 pt-6 border-t">
+                        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                          <Compass className="w-5 h-5" />
+                          Tour Guide Professional Information
+                        </h3>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="nationality">Nationality *</Label>
+                        <Input
+                          id="nationality"
+                          placeholder="e.g., Rwandan"
+                          value={formData.nationality}
+                          onChange={(e) => updateField("nationality", e.target.value)}
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="yearsExperience">Years of Experience *</Label>
+                        <Input
+                          id="yearsExperience"
+                          type="number"
+                          min="0"
+                          placeholder="e.g., 5"
+                          value={formData.years_of_experience}
+                          onChange={(e) => updateField("years_of_experience", e.target.value)}
+                        />
+                      </div>
+                      
+                      <div className="md:col-span-2 space-y-2">
+                        <Label htmlFor="areasOfOperation">Areas of Operation (City/Region) *</Label>
+                        <Input
+                          id="areasOfOperation"
+                          placeholder="e.g., Kigali, Musanze, Rubavu"
+                          value={formData.areas_of_operation}
+                          onChange={(e) => updateField("areas_of_operation", e.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground">Enter cities or regions where you operate, separated by commas</p>
+                      </div>
+                      
+                      <div className="md:col-span-2 space-y-2">
+                        <Label>Languages Spoken * (Select all that apply)</Label>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                          {['English', 'French', 'Kinyarwanda', 'Swahili', 'German', 'Spanish', 'Chinese', 'Other'].map((lang) => (
+                            <button
+                              key={lang}
+                              type="button"
+                              onClick={() => {
+                                const current = formData.languages_spoken || [];
+                                const newLangs = current.includes(lang)
+                                  ? current.filter(l => l !== lang)
+                                  : [...current, lang];
+                                updateField("languages_spoken", newLangs);
+                              }}
+                              className={`p-2 rounded-lg border-2 text-sm transition-all ${
+                                (formData.languages_spoken || []).includes(lang)
+                                  ? "border-primary bg-primary/5"
+                                  : "border-border hover:border-primary/50"
+                              }`}
+                            >
+                              {lang}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      <div className="md:col-span-2 space-y-2">
+                        <Label>Tour Specialties * (Select all that apply)</Label>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                          {['Cultural', 'Adventure', 'Wildlife', 'City Tours', 'Hiking', 'Photography', 'Historical', 'Eco-Tourism'].map((specialty) => (
+                            <button
+                              key={specialty}
+                              type="button"
+                              onClick={() => {
+                                const current = formData.tour_specialties || [];
+                                const newSpecs = current.includes(specialty)
+                                  ? current.filter(s => s !== specialty)
+                                  : [...current, specialty];
+                                updateField("tour_specialties", newSpecs);
+                              }}
+                              className={`p-2 rounded-lg border-2 text-sm transition-all ${
+                                (formData.tour_specialties || []).includes(specialty)
+                                  ? "border-primary bg-primary/5"
+                                  : "border-border hover:border-primary/50"
+                              }`}
+                            >
+                              {specialty}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      <div className="md:col-span-2 space-y-2">
+                        <Label htmlFor="tourGuideBio">Professional Bio / Introduction *</Label>
+                        <Textarea
+                          id="tourGuideBio"
+                          placeholder="Tell us about your experience as a tour guide, your passion for tourism, and what makes you unique..."
+                          rows={4}
+                          value={formData.tour_guide_bio}
+                          onChange={(e) => updateField("tour_guide_bio", e.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground">Minimum 100 characters</p>
+                      </div>
+                      
+                      <div className="md:col-span-2 space-y-2">
+                        <Label>Tour Guide License / Certificate *</Label>
+                        <p className="text-xs text-muted-foreground mb-2">
+                          Upload your official tour guide license or certification (PDF or image)
+                        </p>
+                        {formData.tour_guide_license_url ? (
+                          <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                            <CheckCircle2 className="w-5 h-5 text-green-600" />
+                            <span className="text-sm flex-1">License uploaded</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => updateField("tour_guide_license_url", "")}
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => setLicenseUploadOpen(true)}
+                          >
+                            <Upload className="w-4 h-4 mr-2" /> Upload License/Certificate
+                          </Button>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <div className="flex justify-between gap-3 mt-8 pt-6 border-t">
@@ -1484,7 +1642,24 @@ export default function HostApplication() {
                     Back
                   </Button>
                   <Button
-                    disabled={!formData.full_name || !formData.phone || !formData.national_id_number || !formData.national_id_photo_url || !formData.selfie_photo_url}
+                    disabled={
+                      !formData.full_name || 
+                      !formData.phone || 
+                      !formData.national_id_number || 
+                      !formData.national_id_photo_url || 
+                      !formData.selfie_photo_url ||
+                      // Tour guide specific validation
+                      (formData.service_types.includes('tour') && (
+                        !formData.nationality ||
+                        !formData.years_of_experience ||
+                        !formData.areas_of_operation ||
+                        (formData.languages_spoken || []).length === 0 ||
+                        (formData.tour_specialties || []).length === 0 ||
+                        !formData.tour_guide_bio ||
+                        formData.tour_guide_bio.length < 100 ||
+                        !formData.tour_guide_license_url
+                      ))
+                    }
                     onClick={() => setCurrentStep(currentStep + 1)}
                   >
                     Review Application <ArrowRight className="ml-2 w-4 h-4" />
@@ -1759,6 +1934,17 @@ export default function HostApplication() {
         multiple={false}
         value={formData.selfie_photo_url ? [formData.selfie_photo_url] : []}
         onChange={(urls) => updateField("selfie_photo_url", urls[0] || "")}
+      />
+
+      <CloudinaryUploadDialog
+        open={licenseUploadOpen}
+        onOpenChange={setLicenseUploadOpen}
+        title="Upload Tour Guide License/Certificate"
+        folder="host_applications/tour_licenses"
+        accept="image/*,application/pdf"
+        multiple={false}
+        value={formData.tour_guide_license_url ? [formData.tour_guide_license_url] : []}
+        onChange={(urls) => updateField("tour_guide_license_url", urls[0] || "")}
       />
     </div>
   );

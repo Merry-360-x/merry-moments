@@ -18,6 +18,7 @@ import NotFound from "./pages/NotFound";
 import RequireAuth from "@/components/RequireAuth";
 import RequireRole from "@/components/RequireRole";
 import HostApplication from "./pages/HostApplication";
+import CreateTourPackage from "./pages/CreateTourPackage";
 import AdminDashboard from "./pages/AdminDashboard";
 import StaffDashboard from "./pages/StaffDashboard";
 import AdminRoles from "./pages/AdminRoles";
@@ -151,6 +152,16 @@ const App = () => (
                 element={
                   <RequireAuth>
                     <CreateTour />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/create-tour-package"
+                element={
+                  <RequireAuth>
+                    <RequireRole allowed={["host"]}>
+                      <CreateTourPackage />
+                    </RequireRole>
                   </RequireAuth>
                 }
               />
