@@ -31,17 +31,19 @@ export async function getUsdRates(): Promise<FxRates | null> {
   const cached = readCache();
   if (cached && Date.now() - cached.at < FX_CACHE_TTL_MS) return cached.rates;
 
-  // Real-time free FX endpoint (no API key). If it fails, we fall back to cached or null.
+  // Use exchangerate-api.com with API key for reliable currency conversion
+  const API_KEY = "16ba11c2ac6ae36d12e51479";
+  
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 4500);
-    const res = await fetch("https://open.er-api.com/v6/latest/USD", { signal: ctrl.signal });
+    const res = await fetch(`https://v6.exchangerate-api.com/v6/${API_KEY}/latest/USD`, { signal: ctrl.signal });
     clearTimeout(t);
     if (!res.ok) return cached?.rates ?? null;
     const json: unknown = await res.json();
     const rates =
-      json && typeof json === "object" && "rates" in json
-        ? (((json as Record<string, unknown>).rates ?? null) as FxRates | null)
+      json && typeof json === "object" && "conversion_rates" in json
+        ? (((json as Record<string, unknown>).conversion_rates ?? null) as FxRates | null)
         : null;
     if (!rates || typeof rates !== "object") return cached?.rates ?? null;
     // Ensure USD base exists
