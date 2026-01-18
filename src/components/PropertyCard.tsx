@@ -65,7 +65,7 @@ const PropertyCard = ({
   const [fav, setFav] = useState(Boolean(isFavorited));
 
   const gallery = images?.length ? images : image ? [image] : [];
-  const displayCurrency = currency ?? preferredCurrency;
+  const originalCurrency = currency ?? "RWF"; // The currency the property price is stored in
   const hasRules =
     typeof smokingAllowed === "boolean" ||
     typeof eventsAllowed === "boolean" ||
@@ -209,7 +209,7 @@ const PropertyCard = ({
         ) : null}
         <div className="flex items-baseline gap-1">
           <span className="text-lg font-bold text-foreground">
-            {formatMoneyWithConversion(price, displayCurrency, preferredCurrency, usdRates)}
+            {formatMoneyWithConversion(price, originalCurrency, preferredCurrency, usdRates)}
           </span>
           <span className="text-sm text-muted-foreground">{t("common.perNight")}</span>
         </div>
