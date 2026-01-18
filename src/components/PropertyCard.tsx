@@ -6,8 +6,9 @@ import ListingImageCarousel from "@/components/ListingImageCarousel";
 import { OptimizedImage } from "@/components/OptimizedImage";
 import { useFavorites } from "@/hooks/useFavorites";
 import { usePreferences } from "@/hooks/usePreferences";
+import { useFxRates } from "@/hooks/useFxRates";
 import { extractNeighborhood } from "@/lib/location";
-import { formatMoney } from "@/lib/money";
+import { formatMoneyWithConversion } from "@/lib/money";
 
 export interface PropertyCardProps {
   id?: string;
@@ -59,6 +60,7 @@ const PropertyCard = ({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { currency: preferredCurrency } = usePreferences();
+  const { usdRates } = useFxRates();
   const { toggleFavorite, checkFavorite } = useFavorites();
   const [fav, setFav] = useState(Boolean(isFavorited));
 
@@ -206,7 +208,9 @@ const PropertyCard = ({
           </div>
         ) : null}
         <div className="flex items-baseline gap-1">
-          <span className="text-lg font-bold text-foreground">{formatMoney(price, displayCurrency)}</span>
+          <span className="text-lg font-bold text-foreground">
+            {formatMoneyWithConversion(price, displayCurrency, preferredCurrency, usdRates)}
+          </span>
           <span className="text-sm text-muted-foreground">{t("common.perNight")}</span>
         </div>
       </div>

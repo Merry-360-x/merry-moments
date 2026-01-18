@@ -1,3 +1,6 @@
+import type { FxRates } from "./fx";
+import { convertAmount } from "./fx";
+
 export function formatMoney(amount: number, currency: string) {
   const value = Number.isFinite(amount) ? amount : 0;
   const code = (currency || "USD").toUpperCase();
@@ -40,4 +43,38 @@ export function formatMoney(amount: number, currency: string) {
     return `${symbol} ${Math.round(value).toLocaleString()}`;
   }
 }
+
+/**
+ * Format money with automatic currency conversion
+ * @param amount Original amount
+ * @param fromCurrency Original currency
+ * @param toCurrency Target currency to display
+ * @param rates Exchange rates (USD-based)
+ * @returns Formatted money string in target currency
+ */
+export function formatMoneyWithConversion(
+  amount: number,
+  fromCurrency: string,
+  toCurrency: string,
+  rates: FxRates | null
+): string {
+  if (fromCurrency === toCurrency) {
+    return formatMoney(amount, toCurrency);
+  }
+  
+  if (!rates) {
+    // No rates available, show original
+    return formatMoney(amount, fromCurrency);
+  }
+  
+  const converted = convertAmount(amount, fromCurrency, toCurrency, rates);
+  
+  if (converted === null) {
+    // Conversion failed, show original
+    return formatMoney(amount, fromCurrency);
+  }
+  
+  return formatMoney(converted, toCurrency);
+}
+
 

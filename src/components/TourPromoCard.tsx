@@ -2,12 +2,11 @@ import { Link } from "react-router-dom";
 import { MapPin, Star } from "lucide-react";
 import ListingImageCarousel from "@/components/ListingImageCarousel";
 import { extractNeighborhood } from "@/lib/location";
-import { formatMoney } from "@/lib/money";
+import { formatMoneyWithConversion } from "@/lib/money";
 import { Button } from "@/components/ui/button";
 import { useTripCart } from "@/hooks/useTripCart";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useFxRates } from "@/hooks/useFxRates";
-import { convertAmount } from "@/lib/fx";
 
 export type TourPromoCardProps = {
   id: string;
@@ -28,9 +27,7 @@ export default function TourPromoCard(props: TourPromoCardProps) {
   const { usdRates } = useFxRates();
   const gallery = (props.images ?? []).filter(Boolean);
   const from = String(props.currency ?? preferredCurrency ?? "RWF");
-  const to = String(preferredCurrency ?? from);
-  const converted = convertAmount(Number(props.price ?? 0), from, to, usdRates);
-  const displayPrice = formatMoney(converted == null ? Number(props.price ?? 0) : converted, to);
+  const displayPrice = formatMoneyWithConversion(Number(props.price ?? 0), from, preferredCurrency, usdRates);
   return (
     <Link to="/tours" className="block" aria-label={props.title}>
       <div className="group rounded-xl overflow-hidden bg-card shadow-card hover:shadow-lg transition-all duration-300">

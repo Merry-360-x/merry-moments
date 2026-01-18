@@ -1,12 +1,11 @@
 import { Link } from "react-router-dom";
 import { Car } from "lucide-react";
 import ListingImageCarousel from "@/components/ListingImageCarousel";
-import { formatMoney } from "@/lib/money";
+import { formatMoneyWithConversion } from "@/lib/money";
 import { Button } from "@/components/ui/button";
 import { useTripCart } from "@/hooks/useTripCart";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useFxRates } from "@/hooks/useFxRates";
-import { convertAmount } from "@/lib/fx";
 
 export type TransportPromoCardProps = {
   id: string;
@@ -26,9 +25,7 @@ export default function TransportPromoCard(props: TransportPromoCardProps) {
   const gallery = (props.media ?? []).filter(Boolean);
   const imgs = gallery.length ? gallery : props.imageUrl ? [props.imageUrl] : [];
   const from = String(props.currency ?? preferredCurrency ?? "RWF");
-  const to = String(preferredCurrency ?? from);
-  const converted = convertAmount(Number(props.pricePerDay ?? 0), from, to, usdRates);
-  const displayPrice = formatMoney(converted == null ? Number(props.pricePerDay ?? 0) : converted, to);
+  const displayPrice = formatMoneyWithConversion(Number(props.pricePerDay ?? 0), from, preferredCurrency, usdRates);
   return (
     <Link to="/transport" className="block" aria-label={props.title}>
       <div className="group rounded-xl overflow-hidden bg-card shadow-card hover:shadow-lg transition-all duration-300">
