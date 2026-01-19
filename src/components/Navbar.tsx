@@ -239,7 +239,7 @@ const Navbar = () => {
           </div>
 
           {/* Right Actions - Desktop */}
-          <div className="hidden lg:flex items-center gap-1 xl:gap-2">
+          <div className="hidden lg:flex items-center gap-0.5 xl:gap-1.5">
             {/* Become host / Host dashboard (primary) */}
             <Button
               size="sm"
@@ -285,13 +285,16 @@ const Navbar = () => {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-full border border-border text-sm"
+                  className="flex items-center gap-1 px-2 xl:px-2.5 py-1.5 rounded-full border border-border text-sm"
                   aria-label={t("labels.currency")}
                 >
-                  <span>
+                  <span className="hidden xl:inline">
                     ({getCurrencySymbol(currency)}) {currency}
                   </span>
-                  <ChevronDown className="w-4 h-4" />
+                  <span className="xl:hidden">
+                    {getCurrencySymbol(currency)}
+                  </span>
+                  <ChevronDown className="w-3 h-3 xl:w-4 xl:h-4" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-40">
@@ -305,9 +308,9 @@ const Navbar = () => {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-1 px-2.5 py-1.5 rounded-full border border-border text-sm">
+                <button className="flex items-center gap-1 px-2 xl:px-2.5 py-1.5 rounded-full border border-border text-sm">
                   <span>{language.toUpperCase()}</span>
-                  <ChevronDown className="w-4 h-4" />
+                  <ChevronDown className="w-3 h-3 xl:w-4 xl:h-4" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
@@ -321,9 +324,9 @@ const Navbar = () => {
             </DropdownMenu>
 
             <Link to="/trip-cart">
-              <Button variant="outline" size="sm" className="gap-2 relative px-3">
+              <Button variant="outline" size="sm" className="gap-1 xl:gap-2 relative px-2 xl:px-3">
+                <CalendarDays className="w-4 h-4 xl:hidden" />
                 <span className="hidden xl:inline">{t("actions.tripCart")}</span>
-                <span className="xl:hidden">Cart</span>
                 {tripCartCount > 0 ? (
                   <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold">
                     {tripCartCount > 99 ? "99+" : tripCartCount}
