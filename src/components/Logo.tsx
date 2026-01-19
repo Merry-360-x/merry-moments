@@ -5,7 +5,7 @@ const Logo = ({ className = "" }: { className?: string }) => {
 
   return (
     <div className={`flex items-center gap-2 ${className}`}>
-      <div className="relative w-10 h-10">
+      <div className="relative w-14 h-14">
         {!useFallback ? (
           <img
             src="/brand/logo.png"
