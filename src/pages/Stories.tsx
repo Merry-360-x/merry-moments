@@ -1,4 +1,4 @@
-import { Plus, MapPin, Heart, MessageCircle } from "lucide-react";
+import { Plus, MapPin, Heart, MessageCircle, Clock } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,6 +13,24 @@ import { Textarea } from "@/components/ui/textarea";
 import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
 import { useMemo, useState } from "react";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
+
+// Helper function to get time remaining for a story (24-hour limit)
+const getTimeRemaining = (createdAt: string) => {
+  const created = new Date(createdAt).getTime();
+  const now = Date.now();
+  const expiresAt = created + (24 * 60 * 60 * 1000); // 24 hours in milliseconds
+  const remaining = expiresAt - now;
+  
+  if (remaining <= 0) return "Expired";
+  
+  const hours = Math.floor(remaining / (60 * 60 * 1000));
+  const minutes = Math.floor((remaining % (60 * 60 * 1000)) / (60 * 1000));
+  
+  if (hours > 0) {
+    return `${hours}h ${minutes}m left`;
+  }
+  return `${minutes}m left`;
+};
 
 const Stories = () => {
   const { user, isLoading: authLoading } = useAuth();
@@ -37,9 +55,13 @@ const Stories = () => {
   const { data: stories = [], isLoading } = useQuery({
     queryKey: ["stories"],
     queryFn: async () => {
+      // Only fetch stories from the last 24 hours
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      
       const { data, error } = await supabase
         .from("stories")
         .select("id, title, body, location, media_url, media_type, image_url, user_id, created_at")
+        .gte("created_at", twentyFourHoursAgo)
         .order("created_at", { ascending: false })
         .limit(30);
       if (error) throw error;
@@ -494,8 +516,9 @@ const Stories = () => {
                         <div className="text-white text-sm font-medium drop-shadow-sm">
                           {author?.full_name ?? "Traveler"}
                         </div>
-                        <div className="text-white/80 text-xs drop-shadow-sm">
-                          {new Date(s.created_at).toLocaleDateString()}
+                        <div className="text-white/80 text-xs drop-shadow-sm flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {getTimeRemaining(s.created_at)}
                         </div>
                       </div>
                     </div>
@@ -603,8 +626,9 @@ const Stories = () => {
                           <div className="text-white text-sm font-medium">
                             {author?.full_name ?? "Traveler"}
                           </div>
-                          <div className="text-white/80 text-xs">
-                            {new Date(activeStory.created_at).toLocaleDateString()}
+                          <div className="text-white/80 text-xs flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {getTimeRemaining(activeStory.created_at)}
                           </div>
                         </div>
                       </div>
