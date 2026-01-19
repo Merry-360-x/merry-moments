@@ -11,10 +11,12 @@ import { useTranslation } from "react-i18next";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { formatMoney } from "@/lib/money";
+import { formatMoneyWithConversion } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { extractNeighborhood } from "@/lib/location";
+import { useFxRates } from "@/hooks/useFxRates";
+import { usePreferences } from "@/hooks/usePreferences";
 
 interface Booking {
   id: string;
@@ -40,6 +42,8 @@ const MyBookings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { currency } = usePreferences();
+  const { usdRates } = useFxRates();
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewBooking, setReviewBooking] = useState<Booking | null>(null);
   const [reviewRating, setReviewRating] = useState(5);
@@ -243,7 +247,12 @@ const MyBookings = () => {
                     <div>
                       <p className="text-xs text-muted-foreground">{t("bookings.labels.total")}</p>
                       <p className="font-semibold text-primary">
-                        {formatMoney(Number(booking.total_price), String(booking.currency ?? "USD"))}
+                        {formatMoneyWithConversion(
+                          Number(booking.total_price),
+                          String(booking.currency ?? "USD"),
+                          currency,
+                          usdRates
+                        )}
                       </p>
                     </div>
                   </div>

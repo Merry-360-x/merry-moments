@@ -725,7 +725,7 @@ export default function PropertyDetails() {
                 </div>
                 <div className="text-right">
                   <div className="text-lg font-bold text-primary">
-                    {formatMoney(Number(data.price_per_night), String(data.currency ?? "RWF"))}
+                    {displayMoney(Number(data.price_per_night), String(data.currency ?? "RWF"))}
                     <span className="text-sm text-muted-foreground"> {t("common.perNight")}</span>
                   </div>
                   {data.description ? (
@@ -1005,11 +1005,11 @@ export default function PropertyDetails() {
                       <>
                         {nights} night{nights === 1 ? "" : "s"} • Total:{" "}
                         <span className="font-semibold text-foreground">
-                          {formatMoney(Number(finalTotal), String(data.currency ?? "RWF"))}
+                          {displayMoney(Number(finalTotal), String(data.currency ?? "RWF"))}
                         </span>
                         {stayDiscount.amount > 0 && stayDiscount.label ? (
                           <span className="ml-2 text-green-600 font-medium">
-                            • You save {formatMoney(Number(stayDiscount.amount), String(data.currency ?? "RWF"))}
+                            • You save {displayMoney(Number(stayDiscount.amount), String(data.currency ?? "RWF"))}
                           </span>
                         ) : null}
                       </>
@@ -1084,7 +1084,7 @@ export default function PropertyDetails() {
                       <div className="mt-2 text-xs text-muted-foreground">
                         Discount applied:{" "}
                         <span className="font-semibold text-foreground">
-                          {formatMoney(Number(loyaltyDiscountAmount), String(data.currency ?? "RWF"))}
+                          {displayMoney(Number(loyaltyDiscountAmount), String(data.currency ?? "RWF"))}
                         </span>
                       </div>
                     ) : null}

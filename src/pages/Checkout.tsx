@@ -10,8 +10,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { formatMoney } from "@/lib/money";
+import { formatMoneyWithConversion } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
+import { useFxRates } from "@/hooks/useFxRates";
+import { usePreferences } from "@/hooks/usePreferences";
 import { useTripCart } from "@/hooks/useTripCart";
 import { useQuery } from "@tanstack/react-query";
 import { Separator } from "@/components/ui/separator";
@@ -32,6 +34,8 @@ export default function Checkout() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const { guestCart, clearCart } = useTripCart();
+  const { currency: preferredCurrency } = usePreferences();
+  const { usdRates } = useFxRates();
 
   const mode = (params.get("mode") ?? "cart") as "cart" | "booking";
   const propertyId = params.get("propertyId") ?? "";
@@ -368,7 +372,9 @@ export default function Checkout() {
                 </div>
                 <div className="text-right">
                   <div className="text-sm text-muted-foreground">Total</div>
-                  <div className="text-xl font-bold text-foreground">{formatMoney(bookingTotal, currency)}</div>
+                  <div className="text-xl font-bold text-foreground">
+                    {formatMoneyWithConversion(bookingTotal, currency, preferredCurrency, usdRates)}
+                  </div>
                 </div>
               </div>
             </Card>
@@ -450,7 +456,7 @@ export default function Checkout() {
                   </div>
                 </div>
                 <div className="text-sm font-semibold text-foreground">
-                  {mode === "booking" ? formatMoney(bookingTotal, currency) : null}
+                  {mode === "booking" ? formatMoneyWithConversion(bookingTotal, currency, preferredCurrency, usdRates) : null}
                 </div>
               </div>
             </div>
