@@ -202,8 +202,8 @@ const Navbar = () => {
           </button>
 
           {/* Desktop logo (left) */}
-          <Link to="/" className="hidden lg:flex items-center shrink-0 -ml-1 pr-2">
-            <Logo className="scale-90 origin-left" />
+          <Link to="/" className="hidden lg:flex items-center shrink-0 pr-4">
+            <Logo />
           </Link>
 
           {/* Mobile logo (center) */}
@@ -225,7 +225,7 @@ const Navbar = () => {
                   <Link
                     key={link.path}
                     to={link.path}
-                    className={`px-3 xl:px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    className={`px-2.5 xl:px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
                       isActive
                         ? "bg-primary/10 text-primary border border-primary"
                         : "text-foreground hover:text-primary"
