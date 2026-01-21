@@ -728,7 +728,17 @@ export default function HostApplication() {
                     Cancel
                   </Button>
                   <Button
-                    onClick={() => setCurrentStep(2)}
+                    onClick={() => {
+                      if (!formData.service_types || formData.service_types.length === 0) {
+                        toast({
+                          variant: "destructive",
+                          title: "Service type required",
+                          description: "Please select at least one service type to continue.",
+                        });
+                        return;
+                      }
+                      setCurrentStep(2);
+                    }}
                     disabled={!formData.service_types || formData.service_types.length === 0}
                   >
                     Continue <ArrowRight className="w-4 h-4 ml-2" />
@@ -1397,7 +1407,23 @@ export default function HostApplication() {
                   </Button>
                   <Button
                     disabled={!serviceData.title || !serviceData.location || !serviceData.description || (serviceData.images || []).length === 0}
-                    onClick={() => setCurrentStep(currentStep + 1)}
+                    onClick={() => {
+                      const missingFields = [];
+                      if (!serviceData.title) missingFields.push('Title');
+                      if (!serviceData.location) missingFields.push('Location');
+                      if (!serviceData.description) missingFields.push('Description');
+                      if ((serviceData.images || []).length === 0) missingFields.push('At least one image');
+                      
+                      if (missingFields.length > 0) {
+                        toast({
+                          variant: "destructive",
+                          title: "Missing required fields",
+                          description: `Please provide: ${missingFields.join(', ')}.`,
+                        });
+                        return;
+                      }
+                      setCurrentStep(currentStep + 1);
+                    }}
                   >
                     Continue <ArrowRight className="ml-2 w-4 h-4" />
                   </Button>
@@ -1675,23 +1701,43 @@ export default function HostApplication() {
                       ))
                     }
                     onClick={() => {
-                      // Debug logging
+                      // Validate basic personal information
+                      const missingFields = [];
+                      if (!formData.full_name || formData.full_name.trim() === '') missingFields.push('Full Name');
+                      if (!formData.phone || formData.phone.trim() === '') missingFields.push('Phone Number');
+                      if (!formData.national_id_number || formData.national_id_number.trim() === '') missingFields.push('National ID Number');
+                      if (!formData.national_id_photo_url) missingFields.push('National ID Photo');
+                      if (!formData.selfie_photo_url) missingFields.push('Selfie Photo');
+
+                      // Tour guide specific validation
                       if (formData.service_types.includes('tour')) {
-                        console.log('[Tour Host Validation]', {
-                          full_name: formData.full_name,
-                          phone: formData.phone,
-                          national_id_number: formData.national_id_number,
-                          national_id_photo_url: formData.national_id_photo_url ? 'uploaded' : 'MISSING',
-                          selfie_photo_url: formData.selfie_photo_url ? 'uploaded' : 'MISSING',
-                          nationality: formData.nationality,
-                          years_of_experience: formData.years_of_experience,
-                          areas_of_operation: formData.areas_of_operation,
-                          languages_spoken: formData.languages_spoken,
-                          tour_specialties: formData.tour_specialties,
-                          tour_guide_bio_length: formData.tour_guide_bio?.length || 0,
-                          tour_guide_license_url: formData.tour_guide_license_url ? 'uploaded' : 'MISSING',
-                        });
+                        if (!formData.nationality) missingFields.push('Nationality');
+                        if (!formData.years_of_experience) missingFields.push('Years of Experience');
+                        if (!formData.areas_of_operation) missingFields.push('Areas of Operation');
+                        if ((formData.languages_spoken || []).length === 0) missingFields.push('Languages Spoken');
+                        if ((formData.tour_specialties || []).length === 0) missingFields.push('Tour Specialties');
+                        if (!formData.tour_guide_bio) {
+                          missingFields.push('Tour Guide Bio');
+                        } else if (formData.tour_guide_bio.length < 100) {
+                          toast({
+                            variant: "destructive",
+                            title: "Bio too short",
+                            description: `Your tour guide bio must be at least 100 characters. Current: ${formData.tour_guide_bio.length}/100.`,
+                          });
+                          return;
+                        }
+                        if (!formData.tour_guide_license_url) missingFields.push('Tour Guide License/Certificate');
                       }
+
+                      if (missingFields.length > 0) {
+                        toast({
+                          variant: "destructive",
+                          title: "Missing required information",
+                          description: `Please provide: ${missingFields.join(', ')}.`,
+                        });
+                        return;
+                      }
+
                       setCurrentStep(currentStep + 1);
                     }}
                   >
@@ -1955,7 +2001,16 @@ export default function HostApplication() {
         accept="image/*"
         multiple={false}
         value={formData.national_id_photo_url ? [formData.national_id_photo_url] : []}
-        onChange={(urls) => updateField("national_id_photo_url", urls[0] || "")}
+        onChange={(urls) => {
+          updateField("national_id_photo_url", urls[0] || "");
+          if (urls[0]) {
+            setIdPhotoUploadOpen(false);
+            toast({
+              title: "Upload successful",
+              description: "Your National ID photo has been uploaded.",
+            });
+          }
+        }}
       />
 
       <CloudinaryUploadDialog
@@ -1966,7 +2021,16 @@ export default function HostApplication() {
         accept="image/*"
         multiple={false}
         value={formData.selfie_photo_url ? [formData.selfie_photo_url] : []}
-        onChange={(urls) => updateField("selfie_photo_url", urls[0] || "")}
+        onChange={(urls) => {
+          updateField("selfie_photo_url", urls[0] || "");
+          if (urls[0]) {
+            setSelfieUploadOpen(false);
+            toast({
+              title: "Upload successful",
+              description: "Your selfie photo has been uploaded.",
+            });
+          }
+        }}
       />
 
       <CloudinaryUploadDialog
@@ -1981,6 +2045,10 @@ export default function HostApplication() {
           updateField("tour_guide_license_url", urls[0] || "");
           if (urls[0]) {
             setLicenseUploadOpen(false);
+            toast({
+              title: "Upload successful",
+              description: "Your tour guide license/certificate has been uploaded.",
+            });
           }
         }}
       />

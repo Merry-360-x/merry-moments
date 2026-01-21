@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { uploadFile } from "@/lib/uploads";
 import { Plus, Trash2, UploadCloud, X } from "lucide-react";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
+import { useToast } from "@/hooks/use-toast";
 
 type UploadItem = {
   id: string;
@@ -36,6 +37,7 @@ export function CloudinaryUploadDialog(props: {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
+  const { toast } = useToast();
   const { onOpenChange, open: controlledOpen } = props;
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [internalOpen, setInternalOpen] = useState(props.open ?? false);
@@ -64,10 +66,42 @@ export function CloudinaryUploadDialog(props: {
   const enqueue = (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const max = props.maxFiles ?? (props.multiple ? 20 : 1);
+    
+    // File size validation (10MB limit)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
+    const oversizedFiles: string[] = [];
+    const invalidTypeFiles: string[] = [];
 
     const next: UploadItem[] = [];
     for (const f of Array.from(files)) {
       if (props.value.length + next.length >= max) break;
+      
+      // Check file size
+      if (f.size > MAX_FILE_SIZE) {
+        oversizedFiles.push(f.name);
+        continue;
+      }
+      
+      // Check file type if accept is specified
+      if (props.accept) {
+        const acceptedTypes = props.accept.split(',').map(t => t.trim());
+        const isAccepted = acceptedTypes.some(type => {
+          if (type.startsWith('.')) {
+            return f.name.toLowerCase().endsWith(type.toLowerCase());
+          }
+          if (type.includes('/*')) {
+            const category = type.split('/')[0];
+            return f.type.startsWith(category + '/');
+          }
+          return f.type === type;
+        });
+        
+        if (!isAccepted) {
+          invalidTypeFiles.push(f.name);
+          continue;
+        }
+      }
+      
       const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
       next.push({
         id,
@@ -77,6 +111,26 @@ export function CloudinaryUploadDialog(props: {
         status: "queued",
       });
     }
+    
+    // Show error toast for oversized files
+    if (oversizedFiles.length > 0) {
+      toast({
+        variant: "destructive",
+        title: "File size limit exceeded",
+        description: `The following file(s) exceed the 10MB limit: ${oversizedFiles.join(', ')}. Please compress or resize your files.`,
+      });
+    }
+    
+    // Show error toast for invalid file types
+    if (invalidTypeFiles.length > 0) {
+      const acceptedFormats = props.accept || 'any file type';
+      toast({
+        variant: "destructive",
+        title: "Invalid file type",
+        description: `The following file(s) are not supported: ${invalidTypeFiles.join(', ')}. Accepted formats: ${acceptedFormats}.`,
+      });
+    }
+    
     setItems((prev) => [...prev, ...next]);
   };
 

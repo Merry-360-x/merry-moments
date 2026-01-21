@@ -291,6 +291,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // Clear cached server state (React Query) so user-specific data disappears instantly.
     queryClient.clear();
+    
+    // Clear host application progress from localStorage
+    localStorage.removeItem('host_application_progress');
 
     try {
       // Never let sign-out block UI; bail out quickly if it stalls.
