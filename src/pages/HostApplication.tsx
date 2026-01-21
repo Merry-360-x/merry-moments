@@ -1642,6 +1642,7 @@ export default function HostApplication() {
                     Back
                   </Button>
                   <Button
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground"
                     disabled={
                       !formData.full_name || 
                       !formData.phone || 
