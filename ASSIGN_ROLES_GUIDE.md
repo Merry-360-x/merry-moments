@@ -2,7 +2,33 @@
 
 ## 🚀 How to Assign Staff Roles Using Supabase
 
-### Method 1: Using Supabase Dashboard (Recommended)
+### Method 1: Interactive CLI Script (Easiest) ⭐
+
+1. **Get your Supabase Service Role Key:**
+   - Go to: https://supabase.com/dashboard/project/uwgiostcetoxotfnulfm/settings/api
+   - Copy the `service_role` key (keep it secret!)
+
+2. **Set environment variable:**
+   ```bash
+   export SUPABASE_SERVICE_ROLE_KEY='your-service-role-key-here'
+   ```
+
+3. **Run the interactive script:**
+   ```bash
+   node assign-staff-role.mjs
+   ```
+
+4. **Follow the prompts:**
+   - Select a user from the list
+   - Choose which staff role to assign:
+     - 1 = Financial Staff (💵)
+     - 2 = Operations Staff (⚙️)
+     - 3 = Customer Support (💬)
+     - 4 = All Staff Roles
+
+5. **Done!** User must sign out and back in to see the dashboard.
+
+### Method 2: Using Supabase Dashboard
 
 1. **Open Supabase SQL Editor**
    - Go to: https://supabase.com/dashboard/project/uwgiostcetoxotfnulfm/sql/new
