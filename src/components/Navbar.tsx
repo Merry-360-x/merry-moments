@@ -395,11 +395,6 @@ const Navbar = () => {
                       {t("actions.manageRoles")}
                     </DropdownMenuItem>
                   )}
-                  {(isStaff || isAdmin) && (
-                    <DropdownMenuItem onClick={() => navigate("/staff")}>
-                      {t("actions.staffDashboard")}
-                    </DropdownMenuItem>
-                  )}
                   {isFinancialStaff && (
                     <DropdownMenuItem onClick={() => navigate("/financial-dashboard")}>
                       <DollarSign className="w-4 h-4 mr-2" />
@@ -616,19 +611,6 @@ const Navbar = () => {
                         }}
                       >
                         Admin dashboard
-                      </Button>
-                    ) : null}
-                    {(isStaff || isAdmin) ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full justify-start gap-2"
-                        onClick={() => {
-                          setMobileMenuOpen(false);
-                          navigate("/staff");
-                        }}
-                      >
-                        Staff dashboard
                       </Button>
                     ) : null}
                     {isFinancialStaff ? (
