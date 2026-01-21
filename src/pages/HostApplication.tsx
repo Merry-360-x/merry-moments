@@ -156,7 +156,9 @@ export default function HostApplication() {
   const currentServiceType = useMemo(() => {
     if (currentStep <= 1) return null;
     const serviceIndex = currentStep - 2;
-    return serviceSteps[serviceIndex] || null;
+    const service = serviceSteps[serviceIndex] || null;
+    console.log('[HostApplication] Current service type:', service, 'Step:', currentStep, 'Service steps:', serviceSteps);
+    return service;
   }, [currentStep, serviceSteps]);
   
   // Helper to get current service data
@@ -164,7 +166,8 @@ export default function HostApplication() {
     if (currentServiceType === 'accommodation') return formData.accommodation;
     if (currentServiceType === 'tour') return formData.tour;
     if (currentServiceType === 'transport') return formData.transport;
-    return formData.accommodation; // fallback
+    // Default to an empty accommodation object if no service type is active
+    return formData.accommodation;
   };
   
   // Use 'as any' to bypass TypeScript union type checking - each field is service-specific
