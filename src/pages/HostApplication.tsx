@@ -292,8 +292,36 @@ export default function HostApplication() {
   const updateField = (field: string, value: any) => {
     const currentService = getCurrentServiceType();
     
+    // Tour guide specific fields are always at root level, not nested
+    const tourGuideFields = [
+      'nationality',
+      'languages_spoken', 
+      'years_of_experience',
+      'areas_of_operation',
+      'tour_specialties',
+      'tour_guide_bio',
+      'tour_guide_license_url'
+    ];
+    
+    // Personal info fields are always at root level
+    const personalFields = [
+      'full_name',
+      'phone',
+      'about',
+      'national_id_number',
+      'national_id_photo_url',
+      'selfie_photo_url',
+      'business_name',
+      'business_tin',
+      'service_types'
+    ];
+    
+    // If it's a tour guide field or personal field, always update at root
+    if (tourGuideFields.includes(field) || personalFields.includes(field)) {
+      setFormData((prev) => ({ ...prev, [field]: value }));
+    }
     // If we're on a service-specific step, update that service's data
-    if (currentService && ['accommodation', 'tour', 'transport'].includes(currentService)) {
+    else if (currentService && ['accommodation', 'tour', 'transport'].includes(currentService)) {
       setFormData((prev) => ({
         ...prev,
         [currentService]: {
