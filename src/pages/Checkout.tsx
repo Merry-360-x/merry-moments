@@ -54,7 +54,7 @@ export default function Checkout() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [message, setMessage] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<string>("mobile_money");
+  const [paymentMethod, setPaymentMethod] = useState<string>("mtn_momo");
 
   const steps = [
     { id: 1, name: "Contact Info", description: "Your details" },
@@ -289,22 +289,22 @@ export default function Checkout() {
 
   const paymentMethods = [
     {
-      id: "mobile_money",
-      name: "Mobile Money",
-      description: "MTN MoMo, Airtel Money",
-      iconPath: "/payment-icons/mobile-money.png",
+      id: "mtn_momo",
+      name: "MTN MoMo",
+      description: "MTN Mobile Money",
+      iconPath: "/payment-icons/mtn-momo.png",
+    },
+    {
+      id: "airtel_money",
+      name: "Airtel Money",
+      description: "Airtel Mobile Money",
+      iconPath: "/payment-icons/airtel-money.png",
     },
     {
       id: "bank_transfer",
       name: "Bank Transfer",
       description: "Direct bank deposit",
       iconPath: "/payment-icons/bank-transfer.png",
-    },
-    {
-      id: "cash",
-      name: "Cash Payment",
-      description: "Pay in person",
-      iconPath: "/payment-icons/cash.png",
     },
     {
       id: "card",

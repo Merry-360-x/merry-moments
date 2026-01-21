@@ -2,9 +2,9 @@
 
 Please add the following PNG images to this folder:
 
-1. **mobile-money.png** - Icon for Mobile Money (MTN MoMo, Airtel Money)
-2. **bank-transfer.png** - Icon for Bank Transfer
-3. **cash.png** - Icon for Cash Payment
+1. **mtn-momo.png** - Icon for MTN Mobile Money
+2. **airtel-money.png** - Icon for Airtel Money
+3. **bank-transfer.png** - Icon for Bank Transfer
 4. **card.png** - Icon for Credit/Debit Card
 
 ## Recommended specifications:
