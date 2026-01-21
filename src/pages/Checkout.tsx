@@ -287,12 +287,49 @@ export default function Checkout() {
   const nightly = Number(property?.price_per_night ?? 0);
   const bookingTotal = nights > 0 ? nights * nightly : 0;
 
+  const MobileMoneyIcon = () => (
+    <svg className="h-8 w-8" viewBox="0 0 48 48" fill="none">
+      <rect x="4" y="6" width="40" height="36" rx="4" fill="#FFCC00"/>
+      <path d="M12 16h24M12 24h24M12 32h16" stroke="#000" strokeWidth="2" strokeLinecap="round"/>
+      <circle cx="36" cy="32" r="3" fill="#000"/>
+    </svg>
+  );
+
+  const BankIcon = () => (
+    <svg className="h-8 w-8" viewBox="0 0 48 48" fill="none">
+      <path d="M24 8L4 18v4h40v-4L24 8z" fill="#1E40AF"/>
+      <rect x="8" y="22" width="6" height="16" fill="#1E40AF"/>
+      <rect x="18" y="22" width="6" height="16" fill="#1E40AF"/>
+      <rect x="28" y="22" width="6" height="16" fill="#1E40AF"/>
+      <rect x="38" y="22" width="6" height="16" fill="#1E40AF"/>
+      <rect x="4" y="38" width="40" height="4" fill="#1E40AF"/>
+    </svg>
+  );
+
+  const CashIcon = () => (
+    <svg className="h-8 w-8" viewBox="0 0 48 48" fill="none">
+      <rect x="6" y="14" width="36" height="20" rx="2" fill="#22C55E" stroke="#16A34A" strokeWidth="2"/>
+      <circle cx="24" cy="24" r="6" fill="#16A34A"/>
+      <circle cx="12" cy="24" r="2" fill="#16A34A"/>
+      <circle cx="36" cy="24" r="2" fill="#16A34A"/>
+    </svg>
+  );
+
+  const CardIcon = () => (
+    <svg className="h-8 w-8" viewBox="0 0 48 48" fill="none">
+      <rect x="4" y="12" width="40" height="24" rx="3" fill="#7C3AED" stroke="#6D28D9" strokeWidth="2"/>
+      <rect x="4" y="20" width="40" height="6" fill="#6D28D9"/>
+      <rect x="8" y="30" width="12" height="2" rx="1" fill="#E9D5FF"/>
+      <rect x="8" y="34" width="8" height="2" rx="1" fill="#E9D5FF"/>
+    </svg>
+  );
+
   const paymentMethods = [
     {
       id: "mobile_money",
       name: "Mobile Money",
       description: "MTN MoMo, Airtel Money",
-      icon: Smartphone,
+      icon: MobileMoneyIcon,
       color: "bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800",
       activeColor: "border-yellow-500 bg-yellow-100 dark:bg-yellow-900/40",
     },
@@ -300,7 +337,7 @@ export default function Checkout() {
       id: "bank_transfer",
       name: "Bank Transfer",
       description: "Direct bank deposit",
-      icon: Building2,
+      icon: BankIcon,
       color: "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800",
       activeColor: "border-blue-500 bg-blue-100 dark:bg-blue-900/40",
     },
@@ -308,7 +345,7 @@ export default function Checkout() {
       id: "cash",
       name: "Cash Payment",
       description: "Pay in person",
-      icon: Wallet,
+      icon: CashIcon,
       color: "bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800",
       activeColor: "border-green-500 bg-green-100 dark:bg-green-900/40",
     },
@@ -316,7 +353,7 @@ export default function Checkout() {
       id: "card",
       name: "Credit/Debit Card",
       description: "Visa, Mastercard",
-      icon: CreditCard,
+      icon: CardIcon,
       color: "bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800",
       activeColor: "border-purple-500 bg-purple-100 dark:bg-purple-900/40",
     },
@@ -509,8 +546,8 @@ export default function Checkout() {
                         )}
                       >
                         <div className="flex items-start gap-3">
-                          <div className={cn("p-2 rounded-lg", isSelected ? "bg-white/50" : "bg-white/30")}>
-                            <Icon className="h-6 w-6" />
+                          <div className={cn("p-2 rounded-lg", isSelected ? "bg-white" : "bg-white/50")}>
+                            <Icon />
                           </div>
                           <div className="flex-1">
                             <div className="font-semibold text-foreground">{method.name}</div>
@@ -528,11 +565,11 @@ export default function Checkout() {
                     );
                   })}
                 </div>
-                <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <div className="bg-white dark:bg-gray-900 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-4 shadow-sm">
                   <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2 flex items-center gap-2">
                     💡 Payment Information
                   </h4>
-                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="text-sm text-blue-900 dark:text-blue-200">
                     You won't be charged now. Our team will contact you with payment instructions after reviewing your request.
                   </p>
                 </div>
@@ -581,8 +618,8 @@ export default function Checkout() {
                         const Icon = selectedMethod.icon;
                         return (
                           <>
-                            <div className="p-2 bg-background rounded-lg">
-                              <Icon className="h-5 w-5" />
+                            <div className="p-2 bg-background rounded-lg border">
+                              <Icon />
                             </div>
                             <div>
                               <div className="font-medium">{selectedMethod.name}</div>
@@ -595,11 +632,11 @@ export default function Checkout() {
                   </div>
                 </div>
 
-                <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                <div className="bg-white dark:bg-gray-900 border-2 border-green-200 dark:border-green-800 rounded-lg p-4 shadow-sm">
                   <h4 className="font-semibold text-green-900 dark:text-green-100 mb-2 flex items-center gap-2">
                     📞 What happens next?
                   </h4>
-                  <ul className="text-sm text-green-800 dark:text-green-200 space-y-1.5 ml-4 list-disc">
+                  <ul className="text-sm text-green-900 dark:text-green-200 space-y-1.5 ml-4 list-disc">
                     <li>Our team will review your request within 24 hours</li>
                     <li>We'll call you at <strong>{phone}</strong> to confirm the details</li>
                     <li>Payment instructions will be provided based on your selected method</li>
