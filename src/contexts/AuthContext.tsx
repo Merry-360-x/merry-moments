@@ -74,8 +74,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .map((r) => String(r.role ?? "").trim().toLowerCase())
         .filter(Boolean);
       // Deduplicate and keep only known roles.
+      // Note: 'staff' is deprecated, use specific roles instead
       const uniq = Array.from(new Set(normalized)).filter((r) =>
-        ["guest", "host", "staff", "admin", "financial_staff", "operations_staff", "customer_support"].includes(r)
+        ["guest", "host", "admin", "financial_staff", "operations_staff", "customer_support"].includes(r)
       );
 
       // If auth epoch changed (e.g., user signed out) while fetching, ignore results.
@@ -109,7 +110,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const isHost = useMemo(() => roles.includes("host"), [roles]);
-  const isStaff = useMemo(() => roles.includes("staff"), [roles]);
+  const isStaff = useMemo(() => 
+    roles.includes("financial_staff") || 
+    roles.includes("operations_staff") || 
+    roles.includes("customer_support"), 
+  [roles]);
   const isAdmin = useMemo(() => roles.includes("admin"), [roles]);
   const isFinancialStaff = useMemo(() => roles.includes("financial_staff"), [roles]);
   const isOperationsStaff = useMemo(() => roles.includes("operations_staff"), [roles]);
