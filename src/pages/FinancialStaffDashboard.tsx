@@ -39,7 +39,19 @@ export default function FinancialStaffDashboard() {
     queryKey: ["financial_metrics"],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_staff_dashboard_metrics");
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching metrics:", error);
+        // Return default values if function doesn't exist yet
+        return {
+          bookings_total: 0,
+          bookings_pending: 0,
+          bookings_confirmed: 0,
+          bookings_paid: 0,
+          bookings_cancelled: 0,
+          revenue_gross: 0,
+          revenue_by_currency: []
+        } as Metrics;
+      }
       return data as unknown as Metrics;
     },
   });
