@@ -287,75 +287,30 @@ export default function Checkout() {
   const nightly = Number(property?.price_per_night ?? 0);
   const bookingTotal = nights > 0 ? nights * nightly : 0;
 
-  const MobileMoneyIcon = () => (
-    <svg className="h-8 w-8" viewBox="0 0 48 48" fill="none">
-      <rect x="4" y="6" width="40" height="36" rx="4" fill="#FFCC00"/>
-      <path d="M12 16h24M12 24h24M12 32h16" stroke="#000" strokeWidth="2" strokeLinecap="round"/>
-      <circle cx="36" cy="32" r="3" fill="#000"/>
-    </svg>
-  );
-
-  const BankIcon = () => (
-    <svg className="h-8 w-8" viewBox="0 0 48 48" fill="none">
-      <path d="M24 8L4 18v4h40v-4L24 8z" fill="#1E40AF"/>
-      <rect x="8" y="22" width="6" height="16" fill="#1E40AF"/>
-      <rect x="18" y="22" width="6" height="16" fill="#1E40AF"/>
-      <rect x="28" y="22" width="6" height="16" fill="#1E40AF"/>
-      <rect x="38" y="22" width="6" height="16" fill="#1E40AF"/>
-      <rect x="4" y="38" width="40" height="4" fill="#1E40AF"/>
-    </svg>
-  );
-
-  const CashIcon = () => (
-    <svg className="h-8 w-8" viewBox="0 0 48 48" fill="none">
-      <rect x="6" y="14" width="36" height="20" rx="2" fill="#22C55E" stroke="#16A34A" strokeWidth="2"/>
-      <circle cx="24" cy="24" r="6" fill="#16A34A"/>
-      <circle cx="12" cy="24" r="2" fill="#16A34A"/>
-      <circle cx="36" cy="24" r="2" fill="#16A34A"/>
-    </svg>
-  );
-
-  const CardIcon = () => (
-    <svg className="h-8 w-8" viewBox="0 0 48 48" fill="none">
-      <rect x="4" y="12" width="40" height="24" rx="3" fill="#7C3AED" stroke="#6D28D9" strokeWidth="2"/>
-      <rect x="4" y="20" width="40" height="6" fill="#6D28D9"/>
-      <rect x="8" y="30" width="12" height="2" rx="1" fill="#E9D5FF"/>
-      <rect x="8" y="34" width="8" height="2" rx="1" fill="#E9D5FF"/>
-    </svg>
-  );
-
   const paymentMethods = [
     {
       id: "mobile_money",
       name: "Mobile Money",
       description: "MTN MoMo, Airtel Money",
-      icon: MobileMoneyIcon,
-      color: "bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800",
-      activeColor: "border-yellow-500 bg-yellow-100 dark:bg-yellow-900/40",
+      iconPath: "/payment-icons/mobile-money.png",
     },
     {
       id: "bank_transfer",
       name: "Bank Transfer",
       description: "Direct bank deposit",
-      icon: BankIcon,
-      color: "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800",
-      activeColor: "border-blue-500 bg-blue-100 dark:bg-blue-900/40",
+      iconPath: "/payment-icons/bank-transfer.png",
     },
     {
       id: "cash",
       name: "Cash Payment",
       description: "Pay in person",
-      icon: CashIcon,
-      color: "bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800",
-      activeColor: "border-green-500 bg-green-100 dark:bg-green-900/40",
+      iconPath: "/payment-icons/cash.png",
     },
     {
       id: "card",
       name: "Credit/Debit Card",
       description: "Visa, Mastercard",
-      icon: CardIcon,
-      color: "bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800",
-      activeColor: "border-purple-500 bg-purple-100 dark:bg-purple-900/40",
+      iconPath: "/payment-icons/card.png",
     },
   ];
 
@@ -533,7 +488,6 @@ export default function Checkout() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {paymentMethods.map((method) => {
-                    const Icon = method.icon;
                     const isSelected = paymentMethod === method.id;
                     return (
                       <button
@@ -541,13 +495,13 @@ export default function Checkout() {
                         type="button"
                         onClick={() => setPaymentMethod(method.id)}
                         className={cn(
-                          "relative p-4 border-2 rounded-lg text-left transition-all hover:shadow-md",
-                          isSelected ? method.activeColor : method.color
+                          "relative p-4 border-2 rounded-lg text-left transition-all hover:shadow-md bg-white dark:bg-gray-950",
+                          isSelected ? "border-primary shadow-lg" : "border-gray-200 dark:border-gray-800"
                         )}
                       >
                         <div className="flex items-start gap-3">
-                          <div className={cn("p-2 rounded-lg", isSelected ? "bg-white" : "bg-white/50")}>
-                            <Icon />
+                          <div className="p-2 rounded-lg">
+                            <img src={method.iconPath} alt={method.name} className="h-10 w-10 object-contain" />
                           </div>
                           <div className="flex-1">
                             <div className="font-semibold text-foreground">{method.name}</div>
@@ -615,11 +569,10 @@ export default function Checkout() {
                       {(() => {
                         const selectedMethod = paymentMethods.find((m) => m.id === paymentMethod);
                         if (!selectedMethod) return null;
-                        const Icon = selectedMethod.icon;
                         return (
                           <>
                             <div className="p-2 bg-background rounded-lg border">
-                              <Icon />
+                              <img src={selectedMethod.iconPath} alt={selectedMethod.name} className="h-10 w-10 object-contain" />
                             </div>
                             <div>
                               <div className="font-medium">{selectedMethod.name}</div>
