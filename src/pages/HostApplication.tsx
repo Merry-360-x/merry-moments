@@ -1933,7 +1933,12 @@ export default function HostApplication() {
         accept="image/*,application/pdf"
         multiple={false}
         value={formData.tour_guide_license_url ? [formData.tour_guide_license_url] : []}
-        onChange={(urls) => updateField("tour_guide_license_url", urls[0] || "")}
+        onChange={(urls) => {
+          updateField("tour_guide_license_url", urls[0] || "");
+          if (urls[0]) {
+            setLicenseUploadOpen(false);
+          }
+        }}
       />
     </div>
   );
