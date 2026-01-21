@@ -7,7 +7,7 @@ ADD COLUMN IF NOT EXISTS special_requests TEXT;
 ALTER TABLE checkout_requests
 ADD COLUMN IF NOT EXISTS payment_method TEXT;
 
--- Update status column to include pending_confirmation
--- Note: This will only work if status is not an enum. If it is, we need to alter the enum type.
-COMMENT ON COLUMN bookings.status IS 'Booking status: pending, pending_confirmation, confirmed, cancelled, completed';
-COMMENT ON COLUMN checkout_requests.status IS 'Request status: pending, pending_confirmation, confirmed, cancelled, completed';
+-- Add comments for documentation
+COMMENT ON COLUMN bookings.payment_method IS 'Preferred payment method: mobile_money, bank_transfer, cash, card';
+COMMENT ON COLUMN bookings.special_requests IS 'Guest special requests or notes';
+COMMENT ON COLUMN checkout_requests.payment_method IS 'Preferred payment method: mobile_money, bank_transfer, cash, card';

@@ -17,7 +17,8 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { useTripCart } from "@/hooks/useTripCart";
 import { useQuery } from "@tanstack/react-query";
 import { Separator } from "@/components/ui/separator";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Check, Smartphone, Building2, Wallet, CreditCard, ChevronRight, ChevronLeft } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const isoToday = () => new Date().toISOString().slice(0, 10);
 
@@ -48,11 +49,18 @@ export default function Checkout() {
   const nights = useMemo(() => calcNights(checkIn, checkOut), [checkIn, checkOut]);
 
   const [loading, setLoading] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [message, setMessage] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<string>("mobile_money");
+
+  const steps = [
+    { id: 1, name: "Contact Info", description: "Your details" },
+    { id: 2, name: "Payment Method", description: "How you'll pay" },
+    { id: 3, name: "Review", description: "Confirm & submit" },
+  ];
 
   const [property, setProperty] = useState<null | {
     id: string;
@@ -279,6 +287,85 @@ export default function Checkout() {
   const nightly = Number(property?.price_per_night ?? 0);
   const bookingTotal = nights > 0 ? nights * nightly : 0;
 
+  const paymentMethods = [
+    {
+      id: "mobile_money",
+      name: "Mobile Money",
+      description: "MTN MoMo, Airtel Money",
+      icon: Smartphone,
+      color: "bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800",
+      activeColor: "border-yellow-500 bg-yellow-100 dark:bg-yellow-900/40",
+    },
+    {
+      id: "bank_transfer",
+      name: "Bank Transfer",
+      description: "Direct bank deposit",
+      icon: Building2,
+      color: "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800",
+      activeColor: "border-blue-500 bg-blue-100 dark:bg-blue-900/40",
+    },
+    {
+      id: "cash",
+      name: "Cash Payment",
+      description: "Pay in person",
+      icon: Wallet,
+      color: "bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800",
+      activeColor: "border-green-500 bg-green-100 dark:bg-green-900/40",
+    },
+    {
+      id: "card",
+      name: "Credit/Debit Card",
+      description: "Visa, Mastercard",
+      icon: CreditCard,
+      color: "bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800",
+      activeColor: "border-purple-500 bg-purple-100 dark:bg-purple-900/40",
+    },
+  ];
+
+  const validateStep = (step: number): boolean => {
+    if (step === 1) {
+      if (!name.trim()) {
+        toast({ variant: "destructive", title: "Name required", description: "Please enter your full name." });
+        return false;
+      }
+      if (!email.trim() || !email.includes("@")) {
+        toast({ variant: "destructive", title: "Email required", description: "Please enter a valid email address." });
+        return false;
+      }
+      if (!phone.trim()) {
+        toast({ variant: "destructive", title: "Phone required", description: "Please enter your phone number." });
+        return false;
+      }
+    }
+    if (step === 2) {
+      if (!paymentMethod) {
+        toast({ variant: "destructive", title: "Payment method required", description: "Please select a payment method." });
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const handleNext = () => {
+    if (validateStep(currentStep)) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const handlePrevious = () => {
+    setCurrentStep(currentStep - 1);
+  };
+
+  const handleSubmit = () => {
+    if (validateStep(currentStep)) {
+      if (mode === "booking") {
+        submitBooking();
+      } else {
+        submitCartCheckout();
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -312,81 +399,245 @@ export default function Checkout() {
             </Card>
           ) : null}
 
-          <Card className="p-5">
-            <h3 className="text-lg font-semibold mb-4">Contact Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="name">Full name *</Label>
-                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="John Doe" />
-              </div>
-              <div>
-                <Label htmlFor="email">Email *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="john@example.com"
-                />
-              </div>
-              <div>
-                <Label htmlFor="phone">Phone Number *</Label>
-                <Input
-                  id="phone"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+250 788 123 456"
-                />
-              </div>
-              <div>
-                <Label htmlFor="paymentMethod">Preferred Payment Method *</Label>
-                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                  <SelectTrigger id="paymentMethod">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="mobile_money">Mobile Money (MTN/Airtel)</SelectItem>
-                    <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                    <SelectItem value="cash">Cash Payment</SelectItem>
-                    <SelectItem value="card">Credit/Debit Card</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="md:col-span-2">
-                <Label htmlFor="message">Special Requests or Notes (Optional)</Label>
-                <Textarea
-                  id="message"
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Any special requests or additional information..."
-                  rows={3}
-                />
-              </div>
+          {/* Progress Steps */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between">
+              {steps.map((step, index) => (
+                <div key={step.id} className="flex items-center flex-1">
+                  <div className="flex flex-col items-center">
+                    <div
+                      className={cn(
+                        "w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all",
+                        currentStep > step.id
+                          ? "bg-green-500 text-white"
+                          : currentStep === step.id
+                          ? "bg-primary text-primary-foreground ring-4 ring-primary/20"
+                          : "bg-muted text-muted-foreground"
+                      )}
+                    >
+                      {currentStep > step.id ? <Check className="h-5 w-5" /> : step.id}
+                    </div>
+                    <div className="mt-2 text-center">
+                      <div className={cn("text-sm font-medium", currentStep >= step.id ? "text-foreground" : "text-muted-foreground")}>
+                        {step.name}
+                      </div>
+                      <div className="text-xs text-muted-foreground hidden sm:block">{step.description}</div>
+                    </div>
+                  </div>
+                  {index < steps.length - 1 && (
+                    <div className={cn("flex-1 h-1 mx-4 rounded transition-all", currentStep > step.id ? "bg-green-500" : "bg-muted")} />
+                  )}
+                </div>
+              ))}
             </div>
+          </div>
+
+          <Card className="p-6">
+            {/* Step 1: Contact Information */}
+            {currentStep === 1 && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-xl font-semibold mb-2">Contact Information</h3>
+                  <p className="text-sm text-muted-foreground">We'll use this to contact you about your request</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <Label htmlFor="name">Full name *</Label>
+                    <Input
+                      id="name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="John Doe"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="email">Email *</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="john@example.com"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="phone">Phone Number *</Label>
+                    <Input
+                      id="phone"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="+250 788 123 456"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label htmlFor="message">Special Requests or Notes (Optional)</Label>
+                    <Textarea
+                      id="message"
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      placeholder="Any special requests or additional information..."
+                      rows={3}
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: Payment Method */}
+            {currentStep === 2 && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-xl font-semibold mb-2">Payment Method</h3>
+                  <p className="text-sm text-muted-foreground">Choose how you'd like to pay</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {paymentMethods.map((method) => {
+                    const Icon = method.icon;
+                    const isSelected = paymentMethod === method.id;
+                    return (
+                      <button
+                        key={method.id}
+                        type="button"
+                        onClick={() => setPaymentMethod(method.id)}
+                        className={cn(
+                          "relative p-4 border-2 rounded-lg text-left transition-all hover:shadow-md",
+                          isSelected ? method.activeColor : method.color
+                        )}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={cn("p-2 rounded-lg", isSelected ? "bg-white/50" : "bg-white/30")}>
+                            <Icon className="h-6 w-6" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-semibold text-foreground">{method.name}</div>
+                            <div className="text-sm text-muted-foreground mt-1">{method.description}</div>
+                          </div>
+                          {isSelected && (
+                            <div className="absolute top-3 right-3">
+                              <div className="bg-primary text-primary-foreground rounded-full p-1">
+                                <Check className="h-4 w-4" />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2 flex items-center gap-2">
+                    💡 Payment Information
+                  </h4>
+                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                    You won't be charged now. Our team will contact you with payment instructions after reviewing your request.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Review */}
+            {currentStep === 3 && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-xl font-semibold mb-2">Review Your Request</h3>
+                  <p className="text-sm text-muted-foreground">Please verify your information before submitting</p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <h4 className="font-semibold mb-3">Contact Details</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Name:</span>
+                        <span className="font-medium">{name}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Email:</span>
+                        <span className="font-medium">{email}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Phone:</span>
+                        <span className="font-medium">{phone}</span>
+                      </div>
+                      {message && (
+                        <div className="pt-2 border-t">
+                          <span className="text-muted-foreground">Notes:</span>
+                          <p className="mt-1 text-foreground">{message}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <h4 className="font-semibold mb-3">Payment Method</h4>
+                    <div className="flex items-center gap-3">
+                      {(() => {
+                        const selectedMethod = paymentMethods.find((m) => m.id === paymentMethod);
+                        if (!selectedMethod) return null;
+                        const Icon = selectedMethod.icon;
+                        return (
+                          <>
+                            <div className="p-2 bg-background rounded-lg">
+                              <Icon className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <div className="font-medium">{selectedMethod.name}</div>
+                              <div className="text-sm text-muted-foreground">{selectedMethod.description}</div>
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                  <h4 className="font-semibold text-green-900 dark:text-green-100 mb-2 flex items-center gap-2">
+                    📞 What happens next?
+                  </h4>
+                  <ul className="text-sm text-green-800 dark:text-green-200 space-y-1.5 ml-4 list-disc">
+                    <li>Our team will review your request within 24 hours</li>
+                    <li>We'll call you at <strong>{phone}</strong> to confirm the details</li>
+                    <li>Payment instructions will be provided based on your selected method</li>
+                    <li>Once payment is confirmed, your booking will be finalized</li>
+                  </ul>
+                </div>
+              </div>
+            )}
 
             <Separator className="my-6" />
 
-            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-              <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">📞 What happens next?</h4>
-              <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1 ml-4 list-disc">
-                <li>Our team will review your request within 24 hours</li>
-                <li>We'll call you to confirm the booking details</li>
-                <li>Payment instructions will be provided based on your preferred method</li>
-                <li>Once payment is confirmed, your booking will be finalized</li>
-              </ul>
-            </div>
-
-            <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-end">
-              <Button variant="outline" type="button" onClick={() => navigate(-1)} disabled={loading}>
-                Back
-              </Button>
+            {/* Navigation Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3 justify-between">
               <Button
+                variant="outline"
                 type="button"
-                onClick={mode === "booking" ? submitBooking : submitCartCheckout}
-                disabled={loading || (mode === "booking" && !isPropertyInCart)}
+                onClick={currentStep === 1 ? () => navigate(-1) : handlePrevious}
+                disabled={loading}
               >
-                {loading ? "Submitting..." : "Submit Request"}
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                {currentStep === 1 ? "Cancel" : "Previous"}
               </Button>
+              {currentStep < 3 ? (
+                <Button type="button" onClick={handleNext} disabled={loading}>
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={loading || (mode === "booking" && !isPropertyInCart)}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  {loading ? "Submitting..." : "Submit Request"}
+                  <Check className="h-4 w-4 ml-1" />
+                </Button>
+              )}
             </div>
           </Card>
         </div>
