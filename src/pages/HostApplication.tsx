@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -140,30 +140,24 @@ export default function HostApplication() {
   // Step 2+: One step for each selected service type (accommodation, tour, transport)
   // Second to last: Personal Information
   // Last: Review
-  const getServiceSteps = () => {
+  const serviceSteps = useMemo(() => {
     const steps = [];
     const serviceTypes = formData?.service_types || [];
     if (serviceTypes.includes('accommodation')) steps.push('accommodation');
     if (serviceTypes.includes('tour')) steps.push('tour');
     if (serviceTypes.includes('transport')) steps.push('transport');
-    console.log('[HostApplication] Service steps:', steps, 'from types:', serviceTypes);
     return steps;
-  };
+  }, [formData?.service_types]);
   
-  const serviceSteps = getServiceSteps();
-  const totalSteps = 1 + (serviceSteps?.length || 0) + 2; // 1 (service selection) + service steps + 1 (personal info) + 1 (review)
-  const progress = (currentStep / totalSteps) * 100;
+  const totalSteps = useMemo(() => 1 + (serviceSteps?.length || 0) + 2, [serviceSteps]);
+  const progress = useMemo(() => (currentStep / totalSteps) * 100, [currentStep, totalSteps]);
   
   // Get current service type being edited based on current step
-  const getCurrentServiceType = () => {
+  const currentServiceType = useMemo(() => {
     if (currentStep <= 1) return null;
     const serviceIndex = currentStep - 2;
-    const serviceType = serviceSteps[serviceIndex] || null;
-    console.log('[HostApplication] Current step:', currentStep, 'Service index:', serviceIndex, 'Type:', serviceType, 'Total steps:', totalSteps);
-    return serviceType;
-  };
-  
-  const currentServiceType = getCurrentServiceType();
+    return serviceSteps[serviceIndex] || null;
+  }, [currentStep, serviceSteps]);
   
   // Helper to get current service data
   const getCurrentServiceData = () => {
