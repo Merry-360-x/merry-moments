@@ -1674,7 +1674,26 @@ export default function HostApplication() {
                         !formData.tour_guide_license_url
                       ))
                     }
-                    onClick={() => setCurrentStep(currentStep + 1)}
+                    onClick={() => {
+                      // Debug logging
+                      if (formData.service_types.includes('tour')) {
+                        console.log('[Tour Host Validation]', {
+                          full_name: formData.full_name,
+                          phone: formData.phone,
+                          national_id_number: formData.national_id_number,
+                          national_id_photo_url: formData.national_id_photo_url ? 'uploaded' : 'MISSING',
+                          selfie_photo_url: formData.selfie_photo_url ? 'uploaded' : 'MISSING',
+                          nationality: formData.nationality,
+                          years_of_experience: formData.years_of_experience,
+                          areas_of_operation: formData.areas_of_operation,
+                          languages_spoken: formData.languages_spoken,
+                          tour_specialties: formData.tour_specialties,
+                          tour_guide_bio_length: formData.tour_guide_bio?.length || 0,
+                          tour_guide_license_url: formData.tour_guide_license_url ? 'uploaded' : 'MISSING',
+                        });
+                      }
+                      setCurrentStep(currentStep + 1);
+                    }}
                   >
                     Review Application <ArrowRight className="ml-2 w-4 h-4" />
                   </Button>
