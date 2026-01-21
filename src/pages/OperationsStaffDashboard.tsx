@@ -1,0 +1,528 @@
+import { useState } from "react";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { FileText, Home, Plane, MapPin, CheckCircle, XCircle, Clock } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+
+type HostApplication = {
+  id: string;
+  user_id: string;
+  service_types: string[];
+  status: string;
+  created_at: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+};
+
+type Property = {
+  id: string;
+  title: string;
+  status: string;
+  host_id: string;
+  created_at: string;
+};
+
+type TourPackage = {
+  id: string;
+  title: string;
+  status: string;
+  guide_id: string;
+  created_at: string;
+};
+
+type Transport = {
+  id: string;
+  title: string;
+  status: string;
+  host_id: string;
+  created_at: string;
+};
+
+export default function OperationsStaffDashboard() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [tab, setTab] = useState<"overview" | "applications" | "accommodations" | "tours" | "transport">("overview");
+
+  const { data: applications = [] } = useQuery({
+    queryKey: ["operations_applications"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("host_applications")
+        .select("id, user_id, service_types, status, created_at, first_name, last_name, email")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as HostApplication[];
+    },
+  });
+
+  const { data: properties = [] } = useQuery({
+    queryKey: ["operations_properties"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("properties")
+        .select("id, title, status, host_id, created_at")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return (data ?? []) as Property[];
+    },
+  });
+
+  const { data: tours = [] } = useQuery({
+    queryKey: ["operations_tours"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tour_packages")
+        .select("id, title, status, guide_id, created_at")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return (data ?? []) as TourPackage[];
+    },
+  });
+
+  const { data: transport = [] } = useQuery({
+    queryKey: ["operations_transport"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transport")
+        .select("id, title, status, host_id, created_at")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return (data ?? []) as Transport[];
+    },
+  });
+
+  const approveApplicationMutation = useMutation({
+    mutationFn: async (id: string) => {
+      // @ts-ignore - Supabase type issue with host_applications update
+      const { error } = await supabase
+        .from("host_applications")
+        .update({ status: "approved" })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["operations_applications"] });
+      toast({ title: "Application approved successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to approve application", variant: "destructive" });
+    },
+  });
+
+  const rejectApplicationMutation = useMutation({
+    mutationFn: async (id: string) => {
+      // @ts-ignore - Supabase type issue with host_applications update
+      const { error } = await supabase
+        .from("host_applications")
+        .update({ status: "rejected" })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["operations_applications"] });
+      toast({ title: "Application rejected" });
+    },
+    onError: () => {
+      toast({ title: "Failed to reject application", variant: "destructive" });
+    },
+  });
+
+  const pendingApplications = applications.filter(a => a.status === 'pending');
+  const approvedApplications = applications.filter(a => a.status === 'approved');
+
+  const pendingProperties = properties.filter(p => p.status === 'pending');
+  const activeProperties = properties.filter(p => p.status === 'active');
+
+  const pendingTours = tours.filter(t => t.status === 'pending');
+  const activeTours = tours.filter(t => t.status === 'approved');
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex flex-col">
+      <Navbar />
+      <main className="flex-1 container max-w-7xl mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2">Operations Dashboard</h1>
+          <p className="text-muted-foreground">Manage applications, approvals, and listings</p>
+        </div>
+
+        {/* Metrics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pending Applications</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{pendingApplications.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">Awaiting review</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Properties</CardTitle>
+              <Home className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{activeProperties.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">Listed accommodations</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Tours</CardTitle>
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{activeTours.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">Available tour packages</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Transport Listings</CardTitle>
+              <Plane className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{transport.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">All transport options</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Tabs */}
+        <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="applications">
+              Applications
+              {pendingApplications.length > 0 && (
+                <Badge className="ml-2" variant="destructive">{pendingApplications.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="accommodations">Accommodations</TabsTrigger>
+            <TabsTrigger value="tours">Tours</TabsTrigger>
+            <TabsTrigger value="transport">Transport</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-6">
+            <div className="grid gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Pending Applications</CardTitle>
+                  <CardDescription>Host applications requiring review</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Service Types</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {pendingApplications.slice(0, 5).map((app) => (
+                        <TableRow key={app.id}>
+                          <TableCell className="font-medium">{app.first_name} {app.last_name}</TableCell>
+                          <TableCell>{app.email}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-1 flex-wrap">
+                              {(app.service_types || []).map((type) => (
+                                <Badge key={type} variant="outline" className="text-xs">
+                                  {type}
+                                </Badge>
+                              ))}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {new Date(app.created_at).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={() => approveApplicationMutation.mutate(app.id)}
+                              >
+                                <CheckCircle className="h-4 w-4 mr-1" />
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => rejectApplicationMutation.mutate(app.id)}
+                              >
+                                <XCircle className="h-4 w-4 mr-1" />
+                                Reject
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {pendingApplications.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center text-muted-foreground">
+                            No pending applications
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="applications">
+            <Card>
+              <CardHeader>
+                <CardTitle>All Applications</CardTitle>
+                <CardDescription>Complete application history</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Service Types</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {applications.map((app) => (
+                      <TableRow key={app.id}>
+                        <TableCell className="font-medium">{app.first_name} {app.last_name}</TableCell>
+                        <TableCell>{app.email}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1 flex-wrap">
+                            {(app.service_types || []).map((type) => (
+                              <Badge key={type} variant="outline" className="text-xs">
+                                {type}
+                              </Badge>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              app.status === "approved"
+                                ? "default"
+                                : app.status === "pending"
+                                ? "secondary"
+                                : "destructive"
+                            }
+                          >
+                            {app.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {new Date(app.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          {app.status === "pending" && (
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={() => approveApplicationMutation.mutate(app.id)}
+                              >
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => rejectApplicationMutation.mutate(app.id)}
+                              >
+                                Reject
+                              </Button>
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="accommodations">
+            <Card>
+              <CardHeader>
+                <CardTitle>Accommodation Listings</CardTitle>
+                <CardDescription>Manage property listings</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Title</TableHead>
+                      <TableHead>ID</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Created</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {properties.map((property) => (
+                      <TableRow key={property.id}>
+                        <TableCell className="font-medium">{property.title}</TableCell>
+                        <TableCell className="font-mono text-xs">{property.id.slice(0, 8)}...</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              property.status === "active"
+                                ? "default"
+                                : property.status === "pending"
+                                ? "secondary"
+                                : "outline"
+                            }
+                          >
+                            {property.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {new Date(property.created_at).toLocaleDateString()}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {properties.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-muted-foreground">
+                          No properties found
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="tours">
+            <Card>
+              <CardHeader>
+                <CardTitle>Tour Packages</CardTitle>
+                <CardDescription>Manage tour listings</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Title</TableHead>
+                      <TableHead>ID</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Created</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {tours.map((tour) => (
+                      <TableRow key={tour.id}>
+                        <TableCell className="font-medium">{tour.title}</TableCell>
+                        <TableCell className="font-mono text-xs">{tour.id.slice(0, 8)}...</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              tour.status === "approved"
+                                ? "default"
+                                : tour.status === "pending"
+                                ? "secondary"
+                                : "outline"
+                            }
+                          >
+                            {tour.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {new Date(tour.created_at).toLocaleDateString()}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {tours.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-muted-foreground">
+                          No tours found
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="transport">
+            <Card>
+              <CardHeader>
+                <CardTitle>Transport Listings</CardTitle>
+                <CardDescription>Manage transport options</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Title</TableHead>
+                      <TableHead>ID</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Created</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {transport.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-medium">{item.title}</TableCell>
+                        <TableCell className="font-mono text-xs">{item.id.slice(0, 8)}...</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              item.status === "active"
+                                ? "default"
+                                : item.status === "pending"
+                                ? "secondary"
+                                : "outline"
+                            }
+                          >
+                            {item.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {new Date(item.created_at).toLocaleDateString()}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {transport.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-muted-foreground">
+                          No transport options found
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </main>
+      <Footer />
+    </div>
+  );
+}

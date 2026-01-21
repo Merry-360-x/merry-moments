@@ -17,6 +17,9 @@ import {
   LayoutDashboard,
   Shield,
   Megaphone,
+  DollarSign,
+  Settings,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -59,7 +62,7 @@ const getCurrencySymbol = (code: string) => {
 const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, signOut, isHost, isAdmin, isStaff } = useAuth();
+  const { user, signOut, isHost, isAdmin, isStaff, isFinancialStaff, isOperationsStaff, isCustomerSupport } = useAuth();
   const { guestCart } = useTripCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { t } = useTranslation();
@@ -397,6 +400,24 @@ const Navbar = () => {
                       {t("actions.staffDashboard")}
                     </DropdownMenuItem>
                   )}
+                  {isFinancialStaff && (
+                    <DropdownMenuItem onClick={() => navigate("/financial-dashboard")}>
+                      <DollarSign className="w-4 h-4 mr-2" />
+                      Financial Dashboard
+                    </DropdownMenuItem>
+                  )}
+                  {isOperationsStaff && (
+                    <DropdownMenuItem onClick={() => navigate("/operations-dashboard")}>
+                      <Settings className="w-4 h-4 mr-2" />
+                      Operations Dashboard
+                    </DropdownMenuItem>
+                  )}
+                  {isCustomerSupport && (
+                    <DropdownMenuItem onClick={() => navigate("/support-dashboard")}>
+                      <MessageSquare className="w-4 h-4 mr-2" />
+                      Support Dashboard
+                    </DropdownMenuItem>
+                  )}
                   {isHost && (
                     <DropdownMenuItem onClick={() => navigate("/host-dashboard")}>
                       {t("actions.hostDashboard")}
@@ -608,6 +629,45 @@ const Navbar = () => {
                         }}
                       >
                         Staff dashboard
+                      </Button>
+                    ) : null}
+                    {isFinancialStaff ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start gap-2"
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          navigate("/financial-dashboard");
+                        }}
+                      >
+                        <DollarSign className="w-4 h-4" /> Financial Dashboard
+                      </Button>
+                    ) : null}
+                    {isOperationsStaff ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start gap-2"
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          navigate("/operations-dashboard");
+                        }}
+                      >
+                        <Settings className="w-4 h-4" /> Operations Dashboard
+                      </Button>
+                    ) : null}
+                    {isCustomerSupport ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start gap-2"
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          navigate("/support-dashboard");
+                        }}
+                      >
+                        <MessageSquare className="w-4 h-4" /> Support Dashboard
                       </Button>
                     ) : null}
                   </div>

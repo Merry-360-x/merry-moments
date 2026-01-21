@@ -21,6 +21,9 @@ import HostApplication from "./pages/HostApplication";
 import CreateTourPackage from "./pages/CreateTourPackage";
 import AdminDashboard from "./pages/AdminDashboard";
 import StaffDashboard from "./pages/StaffDashboard";
+import FinancialStaffDashboard from "./pages/FinancialStaffDashboard";
+import OperationsStaffDashboard from "./pages/OperationsStaffDashboard";
+import CustomerSupportDashboard from "./pages/CustomerSupportDashboard";
 import AdminRoles from "./pages/AdminRoles";
 import PropertyDetails from "./pages/PropertyDetails";
 import TripCart from "./pages/TripCart";
@@ -204,6 +207,30 @@ const App = () => (
                 element={
                   <RequireRole allowed={["staff", "admin"]}>
                     <StaffDashboard />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/financial-dashboard"
+                element={
+                  <RequireRole allowed={["financial_staff", "admin"]}>
+                    <FinancialStaffDashboard />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/operations-dashboard"
+                element={
+                  <RequireRole allowed={["operations_staff", "admin"]}>
+                    <OperationsStaffDashboard />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/support-dashboard"
+                element={
+                  <RequireRole allowed={["customer_support", "admin"]}>
+                    <CustomerSupportDashboard />
                   </RequireRole>
                 }
               />

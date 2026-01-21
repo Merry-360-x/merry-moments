@@ -13,6 +13,9 @@ type AuthContextType = {
   isHost: boolean;
   isStaff: boolean;
   isAdmin: boolean;
+  isFinancialStaff: boolean;
+  isOperationsStaff: boolean;
+  isCustomerSupport: boolean;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -72,7 +75,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .filter(Boolean);
       // Deduplicate and keep only known roles.
       const uniq = Array.from(new Set(normalized)).filter((r) =>
-        ["guest", "host", "staff", "admin"].includes(r)
+        ["guest", "host", "staff", "admin", "financial_staff", "operations_staff", "customer_support"].includes(r)
       );
 
       // If auth epoch changed (e.g., user signed out) while fetching, ignore results.
@@ -108,6 +111,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const isHost = useMemo(() => roles.includes("host"), [roles]);
   const isStaff = useMemo(() => roles.includes("staff"), [roles]);
   const isAdmin = useMemo(() => roles.includes("admin"), [roles]);
+  const isFinancialStaff = useMemo(() => roles.includes("financial_staff"), [roles]);
+  const isOperationsStaff = useMemo(() => roles.includes("operations_staff"), [roles]);
+  const isCustomerSupport = useMemo(() => roles.includes("customer_support"), [roles]);
 
   useEffect(() => {
     let mounted = true;
@@ -303,6 +309,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isHost,
         isStaff,
         isAdmin,
+        isFinancialStaff,
+        isOperationsStaff,
+        isCustomerSupport,
         signUp,
         signIn,
         signOut,
