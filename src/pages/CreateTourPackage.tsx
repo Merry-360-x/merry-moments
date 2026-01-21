@@ -89,6 +89,13 @@ export default function CreateTourPackage() {
     maxGuests: "10",
     availableDates: [] as string[],
     
+    // New fields
+    cancellationPolicyType: "day" as "day" | "multiday",
+    groupDiscountPercentage: "",
+    groupDiscountMinSize: "",
+    rdbCertificateUrl: "",
+    rdbCertificateValidUntil: "",
+    
     // Images
     coverImage: "",
     galleryImages: [] as string[],
@@ -98,6 +105,7 @@ export default function CreateTourPackage() {
   const [imageUploadOpen, setImageUploadOpen] = useState(false);
   const [galleryUploadOpen, setGalleryUploadOpen] = useState(false);
   const [pdfUploadOpen, setPdfUploadOpen] = useState(false);
+  const [rdbCertUploadOpen, setRdbCertUploadOpen] = useState(false);
 
   const updateField = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -178,6 +186,11 @@ export default function CreateTourPackage() {
         min_guests: parseInt(formData.minGuests) || 1,
         max_guests: parseInt(formData.maxGuests) || 10,
         available_dates: formData.availableDates,
+        cancellation_policy_type: formData.cancellationPolicyType,
+        group_discount_percentage: formData.groupDiscountPercentage ? parseInt(formData.groupDiscountPercentage) : null,
+        group_discount_min_size: formData.groupDiscountMinSize ? parseInt(formData.groupDiscountMinSize) : null,
+        rdb_certificate_url: formData.rdbCertificateUrl || null,
+        rdb_certificate_valid_until: formData.rdbCertificateValidUntil || null,
         cover_image: formData.coverImage,
         gallery_images: formData.galleryImages,
         itinerary_pdf_url: pdfUrl,
@@ -231,6 +244,11 @@ export default function CreateTourPackage() {
         min_guests: parseInt(formData.minGuests) || 1,
         max_guests: parseInt(formData.maxGuests) || 10,
         available_dates: formData.availableDates,
+        cancellation_policy_type: formData.cancellationPolicyType,
+        group_discount_percentage: formData.groupDiscountPercentage ? parseInt(formData.groupDiscountPercentage) : null,
+        group_discount_min_size: formData.groupDiscountMinSize ? parseInt(formData.groupDiscountMinSize) : null,
+        rdb_certificate_url: formData.rdbCertificateUrl || null,
+        rdb_certificate_valid_until: formData.rdbCertificateValidUntil || null,
         cover_image: formData.coverImage,
         gallery_images: formData.galleryImages,
         itinerary_pdf_url: pdfUrl,
@@ -534,9 +552,132 @@ export default function CreateTourPackage() {
                       onChange={(e) => updateField("cancellationPolicy", e.target.value)}
                     />
                   </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="cancellationPolicyType">Cancellation Policy Type</Label>
+                    <Select 
+                      value={formData.cancellationPolicyType} 
+                      onValueChange={(val) => updateField("cancellationPolicyType", val)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="day">Day Tour (24-48 hours notice)</SelectItem>
+                        <SelectItem value="multiday">Multi-day Tour (3-7 days notice)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
             )}
+
+            {/* Group Discounts */}
+            <div className="space-y-6 border-t pt-6">
+              <h3 className="text-lg font-semibold">Group Discounts (Optional)</h3>
+              <p className="text-sm text-muted-foreground">
+                Offer discounts for larger groups to attract more bookings
+              </p>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="groupDiscountPercentage">Discount Percentage</Label>
+                  <div className="flex gap-2 items-center">
+                    <Input
+                      id="groupDiscountPercentage"
+                      type="number"
+                      min="0"
+                      max="100"
+                      placeholder="0"
+                      value={formData.groupDiscountPercentage}
+                      onChange={(e) => updateField("groupDiscountPercentage", e.target.value)}
+                    />
+                    <span className="text-sm text-muted-foreground">%</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">e.g., 10% off for groups</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="groupDiscountMinSize">Minimum Group Size</Label>
+                  <Input
+                    id="groupDiscountMinSize"
+                    type="number"
+                    min="2"
+                    placeholder="5"
+                    value={formData.groupDiscountMinSize}
+                    onChange={(e) => updateField("groupDiscountMinSize", e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">Minimum guests to qualify</p>
+                </div>
+              </div>
+            </div>
+
+            {/* RDB Certificate */}
+            <div className="space-y-6 border-t pt-6">
+              <h3 className="text-lg font-semibold">RDB Tourism Certificate *</h3>
+              <p className="text-sm text-muted-foreground">
+                Upload your valid Rwanda Development Board (RDB) tourism certificate
+              </p>
+
+              <div className="space-y-4">
+                {formData.rdbCertificateUrl ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-4 border rounded-lg bg-green-50 dark:bg-green-950/20">
+                      <div className="flex items-center gap-3">
+                        <FileText className="w-5 h-5 text-green-600" />
+                        <div>
+                          <p className="text-sm font-medium">RDB Certificate Uploaded</p>
+                          <p className="text-xs text-muted-foreground">Click to view or replace</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => window.open(formData.rdbCertificateUrl, '_blank')}
+                        >
+                          <Eye className="w-4 h-4 mr-1" />
+                          View
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => updateField("rdbCertificateUrl", "")}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="rdbCertificateValidUntil">Certificate Valid Until *</Label>
+                      <Input
+                        id="rdbCertificateValidUntil"
+                        type="date"
+                        value={formData.rdbCertificateValidUntil}
+                        onChange={(e) => updateField("rdbCertificateValidUntil", e.target.value)}
+                        min={new Date().toISOString().split('T')[0]}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Your certificate must be valid for at least 30 days from today
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    className="w-full h-24"
+                    onClick={() => setRdbCertUploadOpen(true)}
+                  >
+                    <div className="flex flex-col items-center gap-2">
+                      <Upload className="w-8 h-8" />
+                      <span>Upload RDB Certificate</span>
+                      <span className="text-xs text-muted-foreground">PDF or image files</span>
+                    </div>
+                  </Button>
+                )}
+              </div>
+            </div>
 
             {/* Pricing & Availability */}
             <div className="space-y-6 border-t pt-6">
@@ -731,6 +872,20 @@ export default function CreateTourPackage() {
         multiple
         value={formData.galleryImages}
         onChange={(urls) => updateField("galleryImages", urls)}
+      />
+
+      <CloudinaryUploadDialog
+        open={rdbCertUploadOpen}
+        onOpenChange={setRdbCertUploadOpen}
+        title="Upload RDB Tourism Certificate"
+        folder="tour_packages/rdb_certificates"
+        accept="application/pdf,image/*"
+        multiple={false}
+        value={formData.rdbCertificateUrl ? [formData.rdbCertificateUrl] : []}
+        onChange={(urls) => {
+          updateField("rdbCertificateUrl", urls[0] || "");
+          setRdbCertUploadOpen(false);
+        }}
       />
     </div>
   );
