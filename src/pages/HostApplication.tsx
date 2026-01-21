@@ -290,7 +290,7 @@ export default function HostApplication() {
   }, [user, authLoading, rolesLoading]);
 
   const updateField = (field: string, value: any) => {
-    const currentService = getCurrentServiceType();
+    const currentService = currentServiceType;
     
     // Tour guide specific fields are always at root level, not nested
     const tourGuideFields = [
