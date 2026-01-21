@@ -146,6 +146,7 @@ export default function HostApplication() {
     if (serviceTypes.includes('accommodation')) steps.push('accommodation');
     if (serviceTypes.includes('tour')) steps.push('tour');
     if (serviceTypes.includes('transport')) steps.push('transport');
+    console.log('[HostApplication] Service steps:', steps, 'from types:', serviceTypes);
     return steps;
   };
   
@@ -157,7 +158,9 @@ export default function HostApplication() {
   const getCurrentServiceType = () => {
     if (currentStep <= 1) return null;
     const serviceIndex = currentStep - 2;
-    return serviceSteps[serviceIndex] || null;
+    const serviceType = serviceSteps[serviceIndex] || null;
+    console.log('[HostApplication] Current step:', currentStep, 'Service index:', serviceIndex, 'Type:', serviceType, 'Total steps:', totalSteps);
+    return serviceType;
   };
   
   const currentServiceType = getCurrentServiceType();
