@@ -59,18 +59,6 @@ export default function HostApplication() {
   const applicantType = "individual"; // Always individual
   const [submitting, setSubmitting] = useState(false);
 
-  // Failsafe: Force loading completion after 6 seconds to prevent infinite loading
-  useEffect(() => {
-    const failsafeTimeout = setTimeout(() => {
-      if (isLoading || authLoading || rolesLoading) {
-        console.warn("[HostApplication] Failsafe triggered - forcing loading completion");
-        setIsLoading(false);
-      }
-    }, 6000);
-
-    return () => clearTimeout(failsafeTimeout);
-  }, []);
-
   // Simplified form state - SEPARATE data for each service type
   const [formData, setFormData] = useState({
     // Service Types
@@ -258,6 +246,9 @@ export default function HostApplication() {
       return;
     }
 
+    let isMounted = true;
+    const controller = new AbortController();
+
     const checkExisting = async () => {
       setIsLoading(true);
       try {
@@ -267,37 +258,34 @@ export default function HostApplication() {
           .eq("user_id", user.id)
           .order("created_at", { ascending: false })
           .limit(1)
-          .maybeSingle();
+          .maybeSingle()
+          .abortSignal(controller.signal);
 
         if (error && error.code !== "PGRST116") {
           console.error("Error checking application:", error);
         }
 
-        if (data) {
+        if (isMounted && data) {
           setHasExistingApp(true);
           setExistingStatus(data.status);
-          // Clear saved progress if they have an existing application
           clearSavedProgress();
         }
-      } catch (e) {
-        logError("host-app.checkExisting", e);
+      } catch (e: any) {
+        if (e.name !== 'AbortError') {
+          logError("host-app.checkExisting", e);
+        }
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
-    // Add a timeout to prevent infinite loading
-    const timeout = setTimeout(() => {
-      console.warn("[HostApplication] Loading timeout reached, forcing completion");
-      setIsLoading(false);
-    }, 3000);
-
-    checkExisting().finally(() => {
-      clearTimeout(timeout);
-    });
+    checkExisting();
 
     return () => {
-      clearTimeout(timeout);
+      isMounted = false;
+      controller.abort();
     };
   }, [user, authLoading, rolesLoading]);
 
