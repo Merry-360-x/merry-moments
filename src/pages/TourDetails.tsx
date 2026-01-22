@@ -62,10 +62,10 @@ export default function TourDetails() {
         .single();
 
       if (!tourError && tour) {
-        if (tour.created_by) {, email, phone, created_at
+        if (tour.created_by) {
           const { data: profile } = await supabase
             .from("profiles")
-            .select("full_name, years_of_experience, languages_spoken, tour_guide_bio, avatar_url")
+            .select("full_name, years_of_experience, languages_spoken, tour_guide_bio, avatar_url, email, phone, created_at")
             .eq("user_id", tour.created_by)
             .single();
           return { source: "tours", tour, host: profile } as TourDetailsData;
@@ -386,7 +386,37 @@ export default function TourDetails() {
                     </div>
                   )}
                   {hostProfile.languages_spoken && hostProfile.languages_spoken.length > 0 && (
-                 div className="flex items-center gap-2 mb-3">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Globe className="w-4 h-4 text-primary" />
+                      <span className="text-foreground">
+                        Speaks <span className="font-medium">{hostProfile.languages_spoken.join(", ")}</span>
+                      </span>
+                    </div>
+                  )}
+                  {hostProfile.email && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Mail className="w-4 h-4 text-primary" />
+                      <a href={`mailto:${hostProfile.email}`} className="text-primary hover:underline">
+                        {hostProfile.email}
+                      </a>
+                    </div>
+                  )}
+                  {hostProfile.phone && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Phone className="w-4 h-4 text-primary" />
+                      <a href={`tel:${hostProfile.phone}`} className="text-foreground hover:text-primary">
+                        {hostProfile.phone}
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Cancellation Policy */}
+            {isPackage && (tour?.cancellation_policy || tour?.custom_cancellation_policy || nonRefundableItems.length > 0) && (
+              <div className="bg-card rounded-xl shadow-card p-5">
+                <div className="flex items-center gap-2 mb-3">
                   <h2 className="text-lg font-semibold text-foreground">Cancellation & Refund Policy</h2>
                   <TooltipProvider>
                     <Tooltip>
@@ -432,37 +462,7 @@ export default function TourDetails() {
                         Non-refundable Items
                       </div>
                     </div>
-                    <ul className="text-sm text-amber-800 dark:text-amber-200
-                  {hostProfile.phone && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <Phone className="w-4 h-4 text-primary" />
-                      <a href={`tel:${hostProfile.phone}`} className="text-foreground hover:text-primary">
-                        {hostProfile.phone}
-                      </a>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Cancellation Policy */}
-            {isPackage && (tour?.cancellation_policy || tour?.custom_cancellation_policy || nonRefundableItems.length > 0) && (
-              <div className="bg-card rounded-xl shadow-card p-5">
-                <h2 className="text-lg font-semibold text-foreground mb-2">Cancellation & Refund Policy</h2>
-                {tour?.cancellation_policy && (
-                  <p className="text-sm text-muted-foreground leading-relaxed mb-2">
-                    {tour.cancellation_policy}
-                  </p>
-                )}
-                {tour?.custom_cancellation_policy && (
-                  <p className="text-sm text-muted-foreground leading-relaxed mb-2">
-                    {tour.custom_cancellation_policy}
-                  </p>
-                )}
-                {nonRefundableItems.length > 0 && (
-                  <div className="mt-3">
-                    <div className="text-sm font-medium text-foreground mb-2">Non-refundable items:</div>
-                    <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
+                    <ul className="text-sm text-amber-800 dark:text-amber-200 list-disc pl-5 space-y-1">
                       {nonRefundableItems.map((item: string) => (
                         <li key={item}>{item}</li>
                       ))}
