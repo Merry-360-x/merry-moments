@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -44,6 +44,36 @@ export default function CreateTransport() {
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+
+  const STORAGE_KEY = 'create_transport_progress';
+
+  // Load saved progress from localStorage on mount
+  useEffect(() => {
+    const savedData = localStorage.getItem(STORAGE_KEY);
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+        setFormData(parsed.formData || formData);
+        
+        toast({
+          title: "Progress Restored",
+          description: "Your transport listing draft has been restored.",
+          duration: 3000,
+        });
+      } catch (e) {
+        console.error("Failed to restore transport progress:", e);
+      }
+    }
+  }, []);
+
+  // Save progress to localStorage whenever form data changes
+  useEffect(() => {
+    const dataToSave = {
+      formData,
+      timestamp: new Date().toISOString(),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+  }, [formData]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -124,6 +154,7 @@ export default function CreateTransport() {
         description: "Your transport service has been created successfully.",
       });
 
+      localStorage.removeItem(STORAGE_KEY);
       navigate("/host-dashboard");
     } catch (error) {
       console.error("Failed to create transport service:", error);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -107,6 +107,42 @@ export default function CreateTourPackage() {
   const [pdfUploadOpen, setPdfUploadOpen] = useState(false);
   const [rdbCertUploadOpen, setRdbCertUploadOpen] = useState(false);
 
+  const STORAGE_KEY = 'create_tour_progress';
+
+  // Load saved progress from localStorage on mount
+  useEffect(() => {
+    const savedData = localStorage.getItem(STORAGE_KEY);
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+        setFormData(parsed.formData || formData);
+        setPdfUrl(parsed.pdfUrl || "");
+        setExtractedData(parsed.extractedData || null);
+        setDisclaimerAccepted(parsed.disclaimerAccepted || false);
+        
+        toast({
+          title: "Progress Restored",
+          description: "Your tour draft has been restored.",
+          duration: 3000,
+        });
+      } catch (e) {
+        console.error("Failed to restore tour progress:", e);
+      }
+    }
+  }, []);
+
+  // Save progress to localStorage whenever form data changes
+  useEffect(() => {
+    const dataToSave = {
+      formData,
+      pdfUrl,
+      extractedData,
+      disclaimerAccepted,
+      timestamp: new Date().toISOString(),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+  }, [formData, pdfUrl, extractedData, disclaimerAccepted]);
+
   const updateField = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -206,6 +242,7 @@ export default function CreateTourPackage() {
         description: "Your tour package has been saved as a draft.",
       });
 
+      localStorage.removeItem(STORAGE_KEY);
       navigate("/host-dashboard");
     } catch (error) {
       console.error('[CreateTourPackage] Save draft error:', error);
@@ -264,6 +301,7 @@ export default function CreateTourPackage() {
         description: "Your tour package will be reviewed by our team. We'll notify you once it's approved.",
       });
 
+      localStorage.removeItem(STORAGE_KEY);
       navigate("/host-dashboard");
     } catch (error) {
       console.error('[CreateTourPackage] Submit error:', error);
