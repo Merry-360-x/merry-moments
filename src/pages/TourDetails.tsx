@@ -6,6 +6,12 @@ import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import ListingImageCarousel from "@/components/ListingImageCarousel";
 import { formatMoney } from "@/lib/money";
 import { useTripCart } from "@/hooks/useTripCart";
@@ -18,7 +24,10 @@ import {
   Globe,
   Award,
   FileText,
-  ArrowLeft
+  ArrowLeft,
+  Info,
+  Mail,
+  Phone
 } from "lucide-react";
 import { extractNeighborhood } from "@/lib/location";
 
@@ -31,6 +40,9 @@ type TourDetailsData = {
     languages_spoken?: string[] | null;
     tour_guide_bio?: string | null;
     avatar_url?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    created_at?: string | null;
   } | null;
 };
 
@@ -50,7 +62,7 @@ export default function TourDetails() {
         .single();
 
       if (!tourError && tour) {
-        if (tour.created_by) {
+        if (tour.created_by) {, email, phone, created_at
           const { data: profile } = await supabase
             .from("profiles")
             .select("full_name, years_of_experience, languages_spoken, tour_guide_bio, avatar_url")
@@ -77,7 +89,7 @@ export default function TourDetails() {
       if (pkg?.host_id) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("full_name, years_of_experience, languages_spoken, tour_guide_bio, avatar_url")
+          .select("full_name, years_of_experience, languages_spoken, tour_guide_bio, avatar_url, email, phone, created_at")
           .eq("user_id", pkg.host_id)
           .single();
         return { source: "tour_packages", tour: pkg, host: profile } as TourDetailsData;
@@ -336,8 +348,8 @@ export default function TourDetails() {
             {/* Host info */}
             {hostProfile && (
               <div className="bg-card rounded-xl shadow-card p-5">
-                <div className="flex items-start gap-3">
-                  <Avatar className="w-12 h-12">
+                <div className="flex items-start gap-3 mb-4">
+                  <Avatar className="w-14 h-14">
                     <AvatarImage src={hostProfile.avatar_url || undefined} />
                     <AvatarFallback className="text-sm">
                       {hostProfile.full_name?.charAt(0) || "?"}
@@ -347,26 +359,88 @@ export default function TourDetails() {
                     <div className="text-base font-semibold text-foreground">
                       Hosted by {hostProfile.full_name || "Tour Guide"}
                     </div>
-                    <div className="flex flex-wrap gap-3 text-xs text-muted-foreground mt-1">
-                      {hostProfile.years_of_experience && (
-                        <span className="inline-flex items-center gap-1">
-                          <Award className="w-3 h-3" />
-                          {hostProfile.years_of_experience} years
-                        </span>
-                      )}
-                      {hostProfile.languages_spoken && hostProfile.languages_spoken.length > 0 && (
-                        <span className="inline-flex items-center gap-1">
-                          <Globe className="w-3 h-3" />
-                          {hostProfile.languages_spoken.join(", ")}
-                        </span>
-                      )}
-                    </div>
-                    {hostProfile.tour_guide_bio && (
-                      <p className="text-sm text-foreground/90 leading-relaxed mt-3">
-                        {hostProfile.tour_guide_bio}
-                      </p>
+                    {hostProfile.created_at && (
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        Member since {new Date(hostProfile.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                      </div>
                     )}
                   </div>
+                </div>
+
+                {hostProfile.tour_guide_bio && (
+                  <div className="mb-4">
+                    <div className="text-sm font-semibold text-foreground mb-1.5">About Your Guide</div>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {hostProfile.tour_guide_bio}
+                    </p>
+                  </div>
+                )}
+
+                <div className="space-y-2.5">
+                  {hostProfile.years_of_experience && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Award className="w-4 h-4 text-primary" />
+                      <span className="text-foreground">
+                        <span className="font-medium">{hostProfile.years_of_experience}</span> years of experience
+                      </span>
+                    </div>
+                  )}
+                  {hostProfile.languages_spoken && hostProfile.languages_spoken.length > 0 && (
+                 div className="flex items-center gap-2 mb-3">
+                  <h2 className="text-lg font-semibold text-foreground">Cancellation & Refund Policy</h2>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button className="text-muted-foreground hover:text-foreground transition-colors">
+                          <Info className="w-4 h-4" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p className="text-xs">
+                          Please review the cancellation policy carefully before booking. 
+                          Refunds are subject to the terms specified below. Some items may be non-refundable 
+                          due to advance bookings or permits.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+
+                {tour?.cancellation_policy && (
+                  <div className="mb-3">
+                    <div className="text-sm font-medium text-foreground mb-1.5">Policy Type</div>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {tour.cancellation_policy}
+                    </p>
+                  </div>
+                )}
+                
+                {tour?.custom_cancellation_policy && (
+                  <div className="mb-3">
+                    <div className="text-sm font-medium text-foreground mb-1.5">Terms & Conditions</div>
+                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                      {tour.custom_cancellation_policy}
+                    </p>
+                  </div>
+                )}
+                
+                {nonRefundableItems.length > 0 && (
+                  <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Info className="w-4 h-4 text-amber-600 dark:text-amber-500" />
+                      <div className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                        Non-refundable Items
+                      </div>
+                    </div>
+                    <ul className="text-sm text-amber-800 dark:text-amber-200
+                  {hostProfile.phone && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Phone className="w-4 h-4 text-primary" />
+                      <a href={`tel:${hostProfile.phone}`} className="text-foreground hover:text-primary">
+                        {hostProfile.phone}
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
