@@ -140,22 +140,13 @@ export default function CreateTourPackage() {
   const handleSaveDraft = async () => {
     if (!user) return;
     
-    // Validate minimum required fields for draft
-    if (!formData.title || !formData.category || !formData.city) {
-      toast({
-        variant: "destructive",
-        title: "Missing Required Fields",
-        description: "Please provide at least a title, category, and city to save as draft.",
-      });
-      return;
-    }
-    
     setSubmitting(true);
 
     try {
+      // Accept any input, fill required fields with defaults
       const payload = {
         host_id: user.id,
-        title: formData.title,
+        title: formData.title || 'Draft Tour',
         category: formData.category,
         tour_type: formData.tourType,
         description: formData.description || '',
@@ -163,10 +154,10 @@ export default function CreateTourPackage() {
         city: formData.city,
         duration: formData.duration || 'TBD',
         daily_itinerary: formData.dailyItinerary || '',
-        included_services: formData.includedServices,
-        excluded_services: formData.excludedServices,
+        included_services: formData.includedServices || null,
+        excluded_services: formData.excludedServices || null,
         meeting_point: formData.meetingPoint || 'TBD',
-        what_to_bring: formData.whatToBring,
+        what_to_bring: formData.whatToBring || null,
         cancellation_policy: formData.cancellationPolicy || 'Standard cancellation policy applies',
         price_per_adult: parseFloat(formData.pricePerAdult) || 0,
         currency: formData.currency,
@@ -209,47 +200,38 @@ export default function CreateTourPackage() {
   };
 
   const handleSubmitForReview = async () => {
-    if (!user || !disclaimerAccepted) return;    
-    // Validate required fields
-    if (!formData.title || !formData.description || !formData.duration || 
-        !formData.dailyItinerary || !formData.cancellationPolicy || 
-        !formData.meetingPoint || !formData.coverImage) {
-      toast({
-        variant: "destructive",
-        title: "Missing Required Fields",
-        description: "Please fill in all required fields including cover image, duration, itinerary, meeting point, and cancellation policy.",
-      });
-      return;
-    }
-        setSubmitting(true);
+    if (!user || !disclaimerAccepted) return;
+    
+    setSubmitting(true);
 
     try {
+      // Auto-fill required fields with defaults if empty
       const payload = {
         host_id: user.id,
-        title: formData.title,
+        title: formData.title || 'Untitled Tour',
         category: formData.category,
         tour_type: formData.tourType,
-        description: formData.description,
+        description: formData.description || 'Tour description coming soon',
         country: formData.country,
         city: formData.city,
-        duration: formData.duration,
-        daily_itinerary: formData.dailyItinerary,
-        included_services: formData.includedServices,
-        excluded_services: formData.excludedServices,
-        meeting_point: formData.meetingPoint,
-        what_to_bring: formData.whatToBring,
-        cancellation_policy: formData.cancellationPolicy,
+        duration: formData.duration || '1 day',
+        daily_itinerary: formData.dailyItinerary || 'Itinerary details to be provided',
+        included_services: formData.includedServices || null,
+        excluded_services: formData.excludedServices || null,
+        meeting_point: formData.meetingPoint || 'Meeting point TBD',
+        what_to_bring: formData.whatToBring || null,
+        cancellation_policy: formData.cancellationPolicy || 'Standard cancellation policy applies. Please contact us for details.',
         price_per_adult: parseFloat(formData.pricePerAdult) || 0,
         currency: formData.currency,
         min_guests: parseInt(formData.minGuests) || 1,
         max_guests: parseInt(formData.maxGuests) || 10,
         available_dates: formData.availableDates,
         cancellation_policy_type: formData.cancellationPolicyType,
-        group_discount_percentage: formData.groupDiscountPercentage ? parseInt(formData.groupDiscountPercentage) : null,
+        group_discount_percentage: formData.groupDiscountPercentage ? parseFloat(formData.groupDiscountPercentage) : null,
         group_discount_min_size: formData.groupDiscountMinSize ? parseInt(formData.groupDiscountMinSize) : null,
         rdb_certificate_url: formData.rdbCertificateUrl || null,
         rdb_certificate_valid_until: formData.rdbCertificateValidUntil || null,
-        cover_image: formData.coverImage,
+        cover_image: formData.coverImage || 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800',
         gallery_images: formData.galleryImages,
         itinerary_pdf_url: pdfUrl || '',
         status: 'published',
