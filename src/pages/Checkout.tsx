@@ -253,6 +253,7 @@ export default function Checkout() {
         total_price: total,
         currency,
         status: "pending_confirmation",
+        payment_status: "pending", // Payment status defaults to pending
         payment_method: paymentMethod,
         special_requests: message.trim() || null,
         guest_phone: phone.trim(), // Always include phone for all users

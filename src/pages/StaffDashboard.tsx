@@ -103,6 +103,7 @@ type BookingRow = {
   total_price: number;
   currency: string;
   status: string;
+  payment_status: string | null;
   payment_method: string | null;
   special_requests: string | null;
   host_id: string | null;
@@ -280,7 +281,7 @@ export default function StaffDashboard() {
         .select(`
           id, property_id, guest_id, guest_name, guest_email, guest_phone,
           is_guest_booking, check_in, check_out, guests, total_price,
-          currency, status, payment_method, special_requests, host_id, created_at,
+          currency, status, payment_status, payment_method, special_requests, host_id, created_at,
           properties(title, images),
           profiles:guest_id(full_name, email, phone),
           host_profile:host_id(full_name)
@@ -421,6 +422,22 @@ For support, contact: support@merry360x.com
   const StatusBadge = ({ status }: { status: string }) => (
     <Badge className={statusColors[status] ?? "bg-gray-100 text-gray-800"}>{status}</Badge>
   );
+
+  // Helper for payment status badge
+  const PaymentStatusBadge = ({ status }: { status: string | null }) => {
+    if (!status) return null;
+    const colors: Record<string, string> = {
+      pending: "bg-yellow-100 text-yellow-800",
+      paid: "bg-green-100 text-green-800",
+      failed: "bg-red-100 text-red-800",
+      refunded: "bg-blue-100 text-blue-800",
+    };
+    return (
+      <Badge className={colors[status] ?? "bg-gray-100 text-gray-800"}>
+        {status}
+      </Badge>
+    );
+  };
 
   useEffect(() => {
     const channel = supabase
@@ -639,11 +656,68 @@ For support, contact: support@merry360x.com
           </TabsList>
 
           <TabsContent value="overview" className="mt-6">
-            <Card className="p-6">
+            <Card className="p-6 mb-6">
               <h2 className="text-lg font-semibold text-foreground mb-2">What you can manage</h2>
               <p className="text-muted-foreground">
                 Staff can manage transport, tours, accommodations publishing, and stories. User emails are view-only.
               </p>
+            </Card>
+
+            {/* Pending Payments Section */}
+            <Card className="p-4">
+              <h3 className="font-semibold mb-4 flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-yellow-600" /> 
+                Pending Payments ({recentBookings.filter(b => b.payment_status === 'pending').length})
+              </h3>
+              {recentBookings.filter(b => b.payment_status === 'pending').length === 0 ? (
+                <p className="text-sm text-muted-foreground">No pending payments</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Booking ID</TableHead>
+                        <TableHead>Guest</TableHead>
+                        <TableHead>Property</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {recentBookings.filter(b => b.payment_status === 'pending').slice(0, 10).map((b) => (
+                        <TableRow key={b.id}>
+                          <TableCell className="font-mono text-xs">{b.id.slice(0, 8)}...</TableCell>
+                          <TableCell className="text-sm">
+                            {b.is_guest_booking ? b.guest_name || "Guest" : b.profiles?.full_name || b.guest_id?.slice(0, 8)}
+                          </TableCell>
+                          <TableCell className="text-sm">{b.properties?.title || "—"}</TableCell>
+                          <TableCell className="font-medium">{formatMoney(b.total_price, b.currency)}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              <StatusBadge status={b.status} />
+                              <PaymentStatusBadge status={b.payment_status} />
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              onClick={() => {
+                                setSelectedBooking(b);
+                                setBookingDetailsOpen(true);
+                              }}
+                            >
+                              <Eye className="w-3 h-3 mr-1" />
+                              View
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </Card>
           </TabsContent>
 
