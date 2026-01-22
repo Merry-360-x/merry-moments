@@ -101,10 +101,10 @@ export default function CreateTour() {
       return;
     }
 
-    if (!formData.title || !formData.description || !formData.location || formData.categories.length === 0) {
+    if (!formData.title || !formData.location) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all required fields and select at least one category.",
+        description: "Please fill in the tour title and location.",
         variant: "destructive",
       });
       return;
@@ -142,13 +142,13 @@ export default function CreateTour() {
           title: formData.title,
           description: formData.description,
           location: formData.location,
-          categories: formData.categories,
-          difficulty: formData.difficulty,
-          duration_days: formData.duration_days,
-          max_group_size: formData.max_participants,
-          price_per_person: formData.price_per_person,
-          currency: formData.currency,
-          images: uploadedImageUrls,
+          categories: formData.categories.length > 0 ? formData.categories : null,
+          difficulty: formData.difficulty || null,
+          duration_days: formData.duration_days || null,
+          max_group_size: formData.max_participants || null,
+          price_per_person: formData.price_per_person || 0,
+          currency: formData.currency || "RWF",
+          images: uploadedImageUrls.length > 0 ? uploadedImageUrls : null,
           itinerary_pdf_url: pdfUrl,
           created_by: user.id,
           is_published: true,
@@ -166,9 +166,10 @@ export default function CreateTour() {
       navigate("/host-dashboard");
     } catch (error) {
       console.error("Failed to create tour:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
       toast({
         title: "Error",
-        description: "Failed to create tour. Please try again.",
+        description: `Failed to create tour: ${errorMessage}`,
         variant: "destructive",
       });
     } finally {
