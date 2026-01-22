@@ -30,23 +30,29 @@ export default function TourDetails() {
   const { data, isLoading } = useQuery({
     queryKey: ["tour-with-host", id],
     queryFn: async () => {
-      // Fetch tour and host in parallel
-      const { data: tour, error } = await supabase
+      // Fetch tour first
+      const { data: tour, error: tourError } = await supabase
         .from("tours")
-        .select(`
-          *,
-          host:created_by(
-            full_name,
-            years_of_experience,
-            languages_spoken,
-            tour_guide_bio,
-            avatar_url
-          )
-        `)
+        .select("*")
         .eq("id", id)
         .single();
       
-      if (error) throw error;
+      if (tourError) throw tourError;
+      
+      // If tour has created_by, fetch the host profile
+      if (tour.created_by) {
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("full_name, years_of_experience, languages_spoken, tour_guide_bio, avatar_url")
+          .eq("user_id", tour.created_by)
+          .single();
+        
+        // Don't throw error if profile not found, just return tour without host
+        if (!profileError && profile) {
+          return { ...tour, host: profile };
+        }
+      }
+      
       return tour;
     },
     enabled: !!id,
