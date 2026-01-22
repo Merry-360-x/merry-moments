@@ -203,10 +203,61 @@ export function useTripCart() {
     return true;
   }, [user, qc, toast]);
 
+  // Auto-cleanup invalid items from guest cart
+  const cleanupInvalidItems = useCallback(async (validIds: string[]) => {
+    if (user) {
+      // For authenticated users, remove invalid items from database
+      try {
+        const { data: allItems } = await supabase
+          .from("trip_cart_items")
+          .select("id")
+          .eq("user_id", user.id);
+        
+        if (allItems && allItems.length > 0) {
+          const validItemIds = new Set(validIds);
+          const invalidItems = allItems.filter(item => !validItemIds.has(item.id));
+          
+          if (invalidItems.length > 0) {
+            const invalidIds = invalidItems.map(item => item.id);
+            await supabase
+              .from("trip_cart_items")
+              .delete()
+              .in("id", invalidIds);
+            
+            qc.invalidateQueries({ queryKey: ["trip_cart"] });
+            toast({
+              title: "Cart cleaned",
+              description: `Removed ${invalidItems.length} unavailable item${invalidItems.length > 1 ? 's' : ''}`,
+            });
+          }
+        }
+      } catch (e) {
+        logError("tripCart.cleanup", e);
+      }
+    } else {
+      // For guest users, clean localStorage
+      const currentCart = getGuestCart();
+      const validItemIds = new Set(validIds);
+      const validItems = currentCart.filter(item => validItemIds.has(item.id));
+      
+      if (validItems.length < currentCart.length) {
+        saveGuestCart(validItems);
+        setGuestCart(validItems);
+        const removed = currentCart.length - validItems.length;
+        toast({
+          title: "Cart cleaned",
+          description: `Removed ${removed} unavailable item${removed > 1 ? 's' : ''}`,
+        });
+      }
+    }
+  }, [user, qc, toast]);
+
   return {
     guestCart,
     addToCart,
     removeFromCart,
     clearCart,
+    cleanupInvalidItems,
+    isGuest: !user,
   };
 }

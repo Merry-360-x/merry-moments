@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,7 @@ export default function TripCart() {
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const { currency: preferredCurrency } = usePreferences();
-  const { guestCart, removeFromCart, clearCart } = useTripCart();
+  const { guestCart, removeFromCart, clearCart, cleanupInvalidItems } = useTripCart();
   const { usdRates } = useFxRates();
 
   // Single optimized query for cart data
@@ -215,6 +215,28 @@ export default function TripCart() {
     staleTime: 10_000, // 10 seconds
     enabled: !authLoading,
   });
+
+  // Auto-cleanup invalid items
+  useEffect(() => {
+    if (!isLoading && cleanupInvalidItems) {
+      const totalExpected = user 
+        ? undefined // Will be checked against database
+        : guestCart.length;
+      
+      const actualLoaded = cartItems?.length || 0;
+      
+      if (!user && totalExpected && actualLoaded < totalExpected) {
+        // Guest user: localStorage has more items than loaded
+        const validIds = (cartItems || []).map(item => item.id);
+        cleanupInvalidItems(validIds);
+      } else if (user && actualLoaded === 0 && guestCart.length === 0) {
+        // Authenticated user: check if database has items that failed to load
+        // This will be handled by the cleanupInvalidItems function
+        const validIds = (cartItems || []).map(item => item.id);
+        cleanupInvalidItems(validIds);
+      }
+    }
+  }, [isLoading, cartItems, guestCart.length, user, cleanupInvalidItems]);
 
   // Calculate totals
   const { total, totalCurrency } = useMemo(() => {
