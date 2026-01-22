@@ -161,25 +161,24 @@ export default function TourDetails() {
           Back
         </button>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left column - 7 cols */}
-          <div className="lg:col-span-7 space-y-6">
-            {/* Image carousel */}
-            <div className="bg-card rounded-xl shadow-card overflow-hidden">
-              {normalizedImages?.length ? (
-                <ListingImageCarousel
-                  images={normalizedImages}
-                  alt={tour.title}
-                  className="w-full h-[400px]"
-                />
-              ) : (
-                <div className="w-full h-[400px] bg-gradient-to-br from-muted via-muted/70 to-muted/40" />
-              )}
-            </div>
-
-            {/* About this tour */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left column - Tour Details */}
+          <div className="space-y-6">
+            {/* Title and pricing header */}
             <div className="bg-card rounded-xl shadow-card p-5">
-              <div className="text-sm font-semibold text-foreground mb-3">About this tour</div>
+              <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">{tour.title}</h1>
+              <div className="flex items-center justify-between gap-4 mb-3">
+                <p className="text-muted-foreground flex items-center gap-1">
+                  <MapPin className="w-4 h-4" />
+                  {extractNeighborhood(normalizedLocation || "")}
+                </p>
+                <div className="text-right">
+                  <div className="text-lg font-bold text-primary">
+                    {formatMoney(Number(normalizedPrice ?? 0), String(normalizedCurrency ?? "RWF"))}
+                    <span className="text-sm text-muted-foreground"> / person</span>
+                  </div>
+                </div>
+              </div>
               
               <div className="flex flex-wrap items-center gap-2 mb-3">
                 {normalizedCategories.map((category: string) => (
@@ -194,7 +193,7 @@ export default function TourDetails() {
                 )}
               </div>
 
-              <div className="text-sm text-muted-foreground mb-4">
+              <div className="text-sm text-muted-foreground">
                 {[
                   `${normalizedDurationDays} day${normalizedDurationDays === 1 ? "" : "s"}`,
                   normalizedMaxGroup ? `Up to ${normalizedMaxGroup} guests` : null,
@@ -203,12 +202,29 @@ export default function TourDetails() {
                   .filter(Boolean)
                   .join(" · ")}
               </div>
+            </div>
 
-              {tour.description && (
-                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-                  {tour.description}
-                </p>
-              )}
+            {/* Booking actions */}
+            <div className="bg-card rounded-xl shadow-card p-5">
+              <div className="space-y-3">
+                <Button
+                  className="w-full"
+                  onClick={() => {
+                    addToCart("tour", String(tour.id), 1);
+                    navigate("/trip-cart");
+                  }}
+                >
+                  <Calendar className="w-4 h-4 mr-2" />
+                  Book Now
+                </Button>
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => addToCart("tour", String(tour.id), 1)}
+                >
+                  Add to Trip Cart
+                </Button>
+              </div>
             </div>
 
             {/* Daily Itinerary */}
@@ -249,7 +265,7 @@ export default function TourDetails() {
             {isPackage && (tour?.meeting_point || tour?.what_to_bring) && (
               <div className="bg-card rounded-xl shadow-card p-5">
                 {tour?.meeting_point && (
-                  <div className="mb-4">
+                  <div className={tour?.what_to_bring ? "mb-4" : ""}>
                     <div className="text-sm font-semibold text-foreground mb-2">Meeting Point</div>
                     <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
                       {tour.meeting_point}
@@ -356,44 +372,30 @@ export default function TourDetails() {
             )}
           </div>
 
-          {/* Right column - 5 cols */}
-          <div className="lg:col-span-5">
-            <div className="flex items-start justify-between gap-4 mb-6">
-              <div>
-                <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">{tour.title}</h1>
-                <p className="text-muted-foreground flex items-center gap-1">
-                  <MapPin className="w-4 h-4" />
-                  {extractNeighborhood(normalizedLocation || "")}
-                </p>
-              </div>
-              <div className="text-right">
-                <div className="text-lg font-bold text-primary">
-                  {formatMoney(Number(normalizedPrice ?? 0), String(normalizedCurrency ?? "RWF"))}
-                  <span className="text-sm text-muted-foreground"> / person</span>
-                </div>
-              </div>
+          {/* Right column - Image and Description */}
+          <div className="space-y-6 lg:sticky lg:top-4 lg:self-start">
+            {/* Image carousel */}
+            <div className="bg-card rounded-xl shadow-card overflow-hidden">
+              {normalizedImages?.length ? (
+                <ListingImageCarousel
+                  images={normalizedImages}
+                  alt={tour.title}
+                  className="w-full h-[400px]"
+                />
+              ) : (
+                <div className="w-full h-[400px] bg-gradient-to-br from-muted via-muted/70 to-muted/40" />
+              )}
             </div>
 
-            <div className="bg-card rounded-xl shadow-card p-5 sticky top-4">
-              <div className="space-y-3">
-                <Button
-                  className="w-full"
-                  onClick={() => {
-                    addToCart("tour", String(tour.id), 1);
-                    navigate("/trip-cart");
-                  }}
-                >
-                  <Calendar className="w-4 h-4 mr-2" />
-                  Book Now
-                </Button>
-                <Button
-                  className="w-full"
-                  variant="outline"
-                  onClick={() => addToCart("tour", String(tour.id), 1)}
-                >
-                  Add to Trip Cart
-                </Button>
-              </div>
+            {/* About this tour */}
+            <div className="bg-card rounded-xl shadow-card p-5">
+              <div className="text-sm font-semibold text-foreground mb-3">About this tour</div>
+              
+              {tour.description && (
+                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                  {tour.description}
+                </p>
+              )}
             </div>
           </div>
         </div>
