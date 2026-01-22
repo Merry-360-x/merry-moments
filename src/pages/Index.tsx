@@ -93,20 +93,50 @@ const fetchTopRatedProperties = async () => {
 
 const fetchFeaturedTours = async () => {
   try {
-    const { data, error } = await supabase
-      .from("tours")
-      .select(
-        "id, title, location, price_per_person, currency, images, rating, review_count, category, duration_days"
-      )
-      .eq("is_published", true)
-      .order("created_at", { ascending: false })
-      .limit(16); // Increase limit
+    // Fetch from both tours and tour_packages
+    const [toursRes, packagesRes] = await Promise.all([
+      supabase
+        .from("tours")
+        .select(
+          "id, title, location, price_per_person, currency, images, rating, review_count, category, duration_days"
+        )
+        .eq("is_published", true)
+        .order("created_at", { ascending: false })
+        .limit(12),
+      supabase
+        .from("tour_packages")
+        .select("*")
+        .eq("status", "approved")
+        .order("created_at", { ascending: false })
+        .limit(12),
+    ]);
       
-    if (error) {
-      console.error("[Index] fetchFeaturedTours error:", error.message);
-      throw error;
+    if (toursRes.error) {
+      console.error("[Index] fetchFeaturedTours error:", toursRes.error.message);
+      throw toursRes.error;
     }
-    return data ?? [];
+    
+    const tours = toursRes.data ?? [];
+    
+    // Convert tour_packages to tour format
+    if (packagesRes.data && !packagesRes.error) {
+      const packagesAsTours = packagesRes.data.map(pkg => ({
+        id: pkg.id,
+        title: pkg.title,
+        location: `${pkg.city}, ${pkg.country}`,
+        price_per_person: pkg.price_per_adult,
+        currency: pkg.currency,
+        images: [pkg.cover_image, ...(Array.isArray(pkg.gallery_images) ? pkg.gallery_images : [])].filter(Boolean) as string[],
+        rating: null,
+        review_count: null,
+        category: pkg.category,
+        duration_days: parseInt(pkg.duration) || 1,
+      }));
+      
+      return [...tours, ...packagesAsTours].slice(0, 16);
+    }
+    
+    return tours;
   } catch (err) {
     if (!(err instanceof Error && err.name === "AbortError")) {
       console.error("[Index] fetchFeaturedTours exception:", err);

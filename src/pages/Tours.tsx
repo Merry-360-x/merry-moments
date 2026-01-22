@@ -49,7 +49,8 @@ const fetchTours = async ({
   category: string;
   duration: string;
 }): Promise<TourRow[]> => {
-  let query = supabase
+  // Fetch from both tours and tour_packages tables
+  let toursQuery = supabase
     .from("tours")
     .select(
       "id, title, description, category, difficulty, duration_days, price_per_person, currency, images, rating, review_count, location"
@@ -59,21 +60,59 @@ const fetchTours = async ({
 
   const trimmed = q.trim();
   if (trimmed) {
-    query = query.or(`title.ilike.%${trimmed}%,location.ilike.%${trimmed}%`);
+    toursQuery = toursQuery.or(`title.ilike.%${trimmed}%,location.ilike.%${trimmed}%`);
   }
 
   if (category && category !== "All") {
-    query = query.eq("category", category);
+    toursQuery = toursQuery.eq("category", category);
   }
 
   const dur = durationToFilter(duration);
-  if (dur?.kind === "eq") query = query.eq("duration_days", dur.value);
-  if (dur?.kind === "lte") query = query.lte("duration_days", dur.value);
-  if (dur?.kind === "gte") query = query.gte("duration_days", dur.value);
+  if (dur?.kind === "eq") toursQuery = toursQuery.eq("duration_days", dur.value);
+  if (dur?.kind === "lte") toursQuery = toursQuery.lte("duration_days", dur.value);
+  if (dur?.kind === "gte") toursQuery = toursQuery.gte("duration_days", dur.value);
 
-  const { data, error } = await query;
-  if (error) throw error;
-  return (data as TourRow[] | null) ?? [];
+  // Fetch tour_packages
+  let packagesQuery = supabase
+    .from("tour_packages")
+    .select("*")
+    .eq("status", "approved")
+    .order("created_at", { ascending: false });
+
+  if (trimmed) {
+    packagesQuery = packagesQuery.or(`title.ilike.%${trimmed}%,city.ilike.%${trimmed}%`);
+  }
+
+  const [toursRes, packagesRes] = await Promise.all([
+    toursQuery,
+    packagesQuery,
+  ]);
+
+  if (toursRes.error) throw toursRes.error;
+  
+  const tours = (toursRes.data as TourRow[] | null) ?? [];
+  
+  // Convert tour_packages to TourRow format
+  if (packagesRes.data && !packagesRes.error) {
+    const packagesAsTours: TourRow[] = packagesRes.data.map(pkg => ({
+      id: pkg.id,
+      title: pkg.title,
+      description: pkg.description,
+      category: pkg.category as any,
+      difficulty: null,
+      duration_days: parseInt(pkg.duration) || 1,
+      price_per_person: pkg.price_per_adult,
+      currency: pkg.currency,
+      images: [pkg.cover_image, ...(Array.isArray(pkg.gallery_images) ? pkg.gallery_images : [])].filter(Boolean) as string[],
+      rating: null,
+      review_count: null,
+      location: `${pkg.city}, ${pkg.country}`,
+    }));
+    
+    return [...tours, ...packagesAsTours];
+  }
+  
+  return tours;
 };
 
 const Tours = () => {
