@@ -109,8 +109,7 @@ type BookingRow = {
   created_at: string;
   properties?: {
     title: string;
-    media: string[] | null;
-    image_url: string | null;
+    images: string[] | null;
   };
 };
 
@@ -274,7 +273,7 @@ export default function StaffDashboard() {
           id, property_id, guest_id, guest_name, guest_email, guest_phone,
           is_guest_booking, check_in, check_out, guests, total_price,
           currency, status, payment_method, special_requests, host_id, created_at,
-          properties(title, media, image_url)
+          properties(title, images)
         `)
         .order("created_at", { ascending: false })
         .limit(8);
@@ -893,9 +892,9 @@ For support, contact: support@merry360x.com
                   <div className="border-b pb-4">
                     <h3 className="font-semibold mb-3">Property</h3>
                     <div className="flex items-start gap-4">
-                      {(selectedBooking.properties.media?.[0] || selectedBooking.properties.image_url) && (
+                      {selectedBooking.properties.images?.[0] && (
                         <img
-                          src={selectedBooking.properties.media?.[0] || selectedBooking.properties.image_url || ''}
+                          src={selectedBooking.properties.images[0]}
                           alt={selectedBooking.properties.title}
                           className="w-24 h-24 rounded-lg object-cover"
                         />
