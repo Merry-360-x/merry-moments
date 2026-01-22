@@ -111,6 +111,14 @@ type BookingRow = {
     title: string;
     images: string[] | null;
   };
+  profiles?: {
+    full_name: string | null;
+    email: string | null;
+    phone: string | null;
+  };
+  host_profile?: {
+    full_name: string | null;
+  };
 };
 
 type Metrics = {
@@ -273,7 +281,9 @@ export default function StaffDashboard() {
           id, property_id, guest_id, guest_name, guest_email, guest_phone,
           is_guest_booking, check_in, check_out, guests, total_price,
           currency, status, payment_method, special_requests, host_id, created_at,
-          properties(title, images)
+          properties(title, images),
+          profiles:guest_id(full_name, email, phone),
+          host_profile:host_id(full_name)
         `)
         .order("created_at", { ascending: false })
         .limit(8);
@@ -901,7 +911,7 @@ For support, contact: support@merry360x.com
                       )}
                       <div>
                         <p className="font-medium">{selectedBooking.properties.title}</p>
-                        <p className="text-sm text-muted-foreground font-mono">{selectedBooking.property_id.slice(0, 8)}...</p>
+                        <p className="text-sm text-muted-foreground font-mono break-all">{selectedBooking.property_id}</p>
                       </div>
                     </div>
                   </div>
@@ -909,7 +919,7 @@ For support, contact: support@merry360x.com
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Booking ID</p>
-                    <p className="font-mono text-sm">{selectedBooking.id}</p>
+                    <p className="font-mono text-xs break-all">{selectedBooking.id}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Status</p>
@@ -925,27 +935,37 @@ For support, contact: support@merry360x.com
                       <p className="text-sm">
                         {selectedBooking.is_guest_booking 
                           ? selectedBooking.guest_name || "Guest"
-                          : selectedBooking.guest_id?.slice(0, 8) + "..."}
+                          : selectedBooking.profiles?.full_name || selectedBooking.guest_id || "N/A"}
                       </p>
                     </div>
-                    {selectedBooking.guest_email && (
-                      <div>
-                        <p className="text-sm text-muted-foreground">Email</p>
-                        <p className="text-sm">{selectedBooking.guest_email}</p>
-                      </div>
-                    )}
-                    {selectedBooking.guest_phone && (
-                      <div>
-                        <p className="text-sm text-muted-foreground">Phone</p>
-                        <p className="text-sm">{selectedBooking.guest_phone}</p>
-                      </div>
-                    )}
+                    <div>
+                      <p className="text-sm text-muted-foreground">Email</p>
+                      <p className="text-sm break-all">
+                        {selectedBooking.is_guest_booking
+                          ? selectedBooking.guest_email || "N/A"
+                          : selectedBooking.profiles?.email || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Phone</p>
+                      <p className="text-sm">
+                        {selectedBooking.is_guest_booking
+                          ? selectedBooking.guest_phone || "N/A"
+                          : selectedBooking.profiles?.phone || "N/A"}
+                      </p>
+                    </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Guest Type</p>
                       <p className="text-sm">
                         {selectedBooking.is_guest_booking ? "Guest Booking" : "Registered User"}
                       </p>
                     </div>
+                    {!selectedBooking.is_guest_booking && selectedBooking.guest_id && (
+                      <div className="col-span-2">
+                        <p className="text-sm text-muted-foreground">User ID</p>
+                        <p className="font-mono text-xs break-all">{selectedBooking.guest_id}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -963,10 +983,6 @@ For support, contact: support@merry360x.com
                     <div>
                       <p className="text-sm text-muted-foreground">Number of Guests</p>
                       <p className="text-sm">{selectedBooking.guests}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Property ID</p>
-                      <p className="font-mono text-xs">{selectedBooking.property_id.slice(0, 8)}...</p>
                     </div>
                   </div>
                 </div>
@@ -1000,8 +1016,9 @@ For support, contact: support@merry360x.com
                     </div>
                     {selectedBooking.host_id && (
                       <div>
-                        <p className="text-sm text-muted-foreground">Host ID</p>
-                        <p className="font-mono text-xs">{selectedBooking.host_id.slice(0, 8)}...</p>
+                        <p className="text-sm text-muted-foreground">Host</p>
+                        <p className="text-sm">{selectedBooking.host_profile?.full_name || "N/A"}</p>
+                        <p className="font-mono text-xs text-muted-foreground break-all">{selectedBooking.host_id}</p>
                       </div>
                     )}
                   </div>
