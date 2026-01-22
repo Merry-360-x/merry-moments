@@ -90,9 +90,18 @@ export type Database = {
           check_out: string
           created_at: string | null
           currency: string | null
+          guest_email: string | null
           guest_id: string | null
+          guest_name: string | null
+          guest_phone: string | null
           guests: number | null
+          host_id: string | null
           id: string
+          is_guest_booking: boolean | null
+          payment_method: string | null
+          payment_status:
+            | Database["public"]["Enums"]["payment_status_enum"]
+            | null
           property_id: string | null
           special_requests: string | null
           status: Database["public"]["Enums"]["booking_status"] | null
@@ -104,9 +113,18 @@ export type Database = {
           check_out: string
           created_at?: string | null
           currency?: string | null
+          guest_email?: string | null
           guest_id?: string | null
+          guest_name?: string | null
+          guest_phone?: string | null
           guests?: number | null
+          host_id?: string | null
           id?: string
+          is_guest_booking?: boolean | null
+          payment_method?: string | null
+          payment_status?:
+            | Database["public"]["Enums"]["payment_status_enum"]
+            | null
           property_id?: string | null
           special_requests?: string | null
           status?: Database["public"]["Enums"]["booking_status"] | null
@@ -118,9 +136,18 @@ export type Database = {
           check_out?: string
           created_at?: string | null
           currency?: string | null
+          guest_email?: string | null
           guest_id?: string | null
+          guest_name?: string | null
+          guest_phone?: string | null
           guests?: number | null
+          host_id?: string | null
           id?: string
+          is_guest_booking?: boolean | null
+          payment_method?: string | null
+          payment_status?:
+            | Database["public"]["Enums"]["payment_status_enum"]
+            | null
           property_id?: string | null
           special_requests?: string | null
           status?: Database["public"]["Enums"]["booking_status"] | null
@@ -145,6 +172,7 @@ export type Database = {
           dpo_transaction_id: string | null
           id: string
           metadata: Json | null
+          payment_method: string | null
           payment_status: Database["public"]["Enums"]["payment_status"] | null
           total_amount: number
           updated_at: string | null
@@ -157,6 +185,7 @@ export type Database = {
           dpo_transaction_id?: string | null
           id?: string
           metadata?: Json | null
+          payment_method?: string | null
           payment_status?: Database["public"]["Enums"]["payment_status"] | null
           total_amount: number
           updated_at?: string | null
@@ -169,6 +198,7 @@ export type Database = {
           dpo_transaction_id?: string | null
           id?: string
           metadata?: Json | null
+          payment_method?: string | null
           payment_status?: Database["public"]["Enums"]["payment_status"] | null
           total_amount?: number
           updated_at?: string | null
@@ -208,87 +238,150 @@ export type Database = {
       host_applications: {
         Row: {
           about: string | null
+          accommodation_data: Json | null
           applicant_type: string | null
+          areas_of_operation: string | null
           business_name: string | null
           business_tin: string | null
           created_at: string | null
           full_name: string
           hosting_location: string | null
           id: string
+          languages_spoken: string[] | null
           listing_amenities: string[] | null
           listing_bathrooms: number | null
           listing_bedrooms: number | null
           listing_currency: string | null
+          listing_description: string | null
           listing_images: string[] | null
           listing_location: string | null
           listing_max_guests: number | null
           listing_price_per_night: number | null
           listing_property_type: string | null
           listing_title: string | null
+          listing_tour_category: string | null
+          listing_tour_difficulty: string | null
+          listing_tour_duration_days: number | null
+          listing_tour_max_group_size: number | null
+          listing_tour_price_per_person: number | null
+          listing_vehicle_driver_included: boolean | null
+          listing_vehicle_price_per_day: number | null
+          listing_vehicle_provider_name: string | null
+          listing_vehicle_seats: number | null
+          listing_vehicle_type: string | null
           national_id_number: string | null
           national_id_photo_url: string | null
+          nationality: string | null
           phone: string
           selfie_photo_url: string | null
           service_types: string[] | null
           status: Database["public"]["Enums"]["application_status"] | null
+          tour_data: Json | null
+          tour_guide_bio: string | null
+          tour_guide_license_url: string | null
+          tour_specialties: string[] | null
+          transport_data: Json | null
           updated_at: string | null
           user_id: string | null
+          years_of_experience: number | null
         }
         Insert: {
           about?: string | null
+          accommodation_data?: Json | null
           applicant_type?: string | null
+          areas_of_operation?: string | null
           business_name?: string | null
           business_tin?: string | null
           created_at?: string | null
           full_name: string
           hosting_location?: string | null
           id?: string
+          languages_spoken?: string[] | null
           listing_amenities?: string[] | null
           listing_bathrooms?: number | null
           listing_bedrooms?: number | null
           listing_currency?: string | null
+          listing_description?: string | null
           listing_images?: string[] | null
           listing_location?: string | null
           listing_max_guests?: number | null
           listing_price_per_night?: number | null
           listing_property_type?: string | null
           listing_title?: string | null
+          listing_tour_category?: string | null
+          listing_tour_difficulty?: string | null
+          listing_tour_duration_days?: number | null
+          listing_tour_max_group_size?: number | null
+          listing_tour_price_per_person?: number | null
+          listing_vehicle_driver_included?: boolean | null
+          listing_vehicle_price_per_day?: number | null
+          listing_vehicle_provider_name?: string | null
+          listing_vehicle_seats?: number | null
+          listing_vehicle_type?: string | null
           national_id_number?: string | null
           national_id_photo_url?: string | null
+          nationality?: string | null
           phone: string
           selfie_photo_url?: string | null
           service_types?: string[] | null
           status?: Database["public"]["Enums"]["application_status"] | null
+          tour_data?: Json | null
+          tour_guide_bio?: string | null
+          tour_guide_license_url?: string | null
+          tour_specialties?: string[] | null
+          transport_data?: Json | null
           updated_at?: string | null
           user_id?: string | null
+          years_of_experience?: number | null
         }
         Update: {
           about?: string | null
+          accommodation_data?: Json | null
           applicant_type?: string | null
+          areas_of_operation?: string | null
           business_name?: string | null
           business_tin?: string | null
           created_at?: string | null
           full_name?: string
           hosting_location?: string | null
           id?: string
+          languages_spoken?: string[] | null
           listing_amenities?: string[] | null
           listing_bathrooms?: number | null
           listing_bedrooms?: number | null
           listing_currency?: string | null
+          listing_description?: string | null
           listing_images?: string[] | null
           listing_location?: string | null
           listing_max_guests?: number | null
           listing_price_per_night?: number | null
           listing_property_type?: string | null
           listing_title?: string | null
+          listing_tour_category?: string | null
+          listing_tour_difficulty?: string | null
+          listing_tour_duration_days?: number | null
+          listing_tour_max_group_size?: number | null
+          listing_tour_price_per_person?: number | null
+          listing_vehicle_driver_included?: boolean | null
+          listing_vehicle_price_per_day?: number | null
+          listing_vehicle_provider_name?: string | null
+          listing_vehicle_seats?: number | null
+          listing_vehicle_type?: string | null
           national_id_number?: string | null
           national_id_photo_url?: string | null
+          nationality?: string | null
           phone?: string
           selfie_photo_url?: string | null
           service_types?: string[] | null
           status?: Database["public"]["Enums"]["application_status"] | null
+          tour_data?: Json | null
+          tour_guide_bio?: string | null
+          tour_guide_license_url?: string | null
+          tour_specialties?: string[] | null
+          transport_data?: Json | null
           updated_at?: string | null
           user_id?: string | null
+          years_of_experience?: number | null
         }
         Relationships: []
       }
@@ -297,31 +390,43 @@ export type Database = {
           avatar_url: string | null
           bio: string | null
           created_at: string | null
+          date_of_birth: string | null
           full_name: string | null
+          languages_spoken: string[] | null
           loyalty_points: number | null
           phone: string | null
+          tour_guide_bio: string | null
           updated_at: string | null
           user_id: string
+          years_of_experience: number | null
         }
         Insert: {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string | null
+          date_of_birth?: string | null
           full_name?: string | null
+          languages_spoken?: string[] | null
           loyalty_points?: number | null
           phone?: string | null
+          tour_guide_bio?: string | null
           updated_at?: string | null
           user_id: string
+          years_of_experience?: number | null
         }
         Update: {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string | null
+          date_of_birth?: string | null
           full_name?: string | null
+          languages_spoken?: string[] | null
           loyalty_points?: number | null
           phone?: string | null
+          tour_guide_bio?: string | null
           updated_at?: string | null
           user_id?: string
+          years_of_experience?: number | null
         }
         Relationships: []
       }
@@ -601,8 +706,120 @@ export type Database = {
         }
         Relationships: []
       }
+      tour_packages: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          available_dates: Json | null
+          cancellation_policy: string
+          cancellation_policy_type: string | null
+          category: string
+          city: string
+          country: string
+          cover_image: string
+          created_at: string
+          currency: string
+          daily_itinerary: string
+          description: string
+          duration: string
+          excluded_services: string | null
+          gallery_images: Json | null
+          group_discount_min_size: number | null
+          group_discount_percentage: number | null
+          host_id: string
+          id: string
+          included_services: string | null
+          itinerary_pdf_url: string
+          max_guests: number
+          meeting_point: string
+          min_guests: number
+          price_per_adult: number
+          rdb_certificate_url: string | null
+          rdb_certificate_valid_until: string | null
+          rejection_reason: string | null
+          status: string
+          title: string
+          tour_type: string
+          updated_at: string
+          what_to_bring: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          available_dates?: Json | null
+          cancellation_policy: string
+          cancellation_policy_type?: string | null
+          category: string
+          city: string
+          country?: string
+          cover_image: string
+          created_at?: string
+          currency?: string
+          daily_itinerary: string
+          description: string
+          duration: string
+          excluded_services?: string | null
+          gallery_images?: Json | null
+          group_discount_min_size?: number | null
+          group_discount_percentage?: number | null
+          host_id: string
+          id?: string
+          included_services?: string | null
+          itinerary_pdf_url: string
+          max_guests?: number
+          meeting_point: string
+          min_guests?: number
+          price_per_adult: number
+          rdb_certificate_url?: string | null
+          rdb_certificate_valid_until?: string | null
+          rejection_reason?: string | null
+          status?: string
+          title: string
+          tour_type: string
+          updated_at?: string
+          what_to_bring?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          available_dates?: Json | null
+          cancellation_policy?: string
+          cancellation_policy_type?: string | null
+          category?: string
+          city?: string
+          country?: string
+          cover_image?: string
+          created_at?: string
+          currency?: string
+          daily_itinerary?: string
+          description?: string
+          duration?: string
+          excluded_services?: string | null
+          gallery_images?: Json | null
+          group_discount_min_size?: number | null
+          group_discount_percentage?: number | null
+          host_id?: string
+          id?: string
+          included_services?: string | null
+          itinerary_pdf_url?: string
+          max_guests?: number
+          meeting_point?: string
+          min_guests?: number
+          price_per_adult?: number
+          rdb_certificate_url?: string | null
+          rdb_certificate_valid_until?: string | null
+          rejection_reason?: string | null
+          status?: string
+          title?: string
+          tour_type?: string
+          updated_at?: string
+          what_to_bring?: string | null
+        }
+        Relationships: []
+      }
       tours: {
         Row: {
+          categories: string[] | null
           category: string | null
           created_at: string | null
           created_by: string | null
@@ -613,6 +830,7 @@ export type Database = {
           id: string
           images: string[] | null
           is_published: boolean | null
+          itinerary_pdf_url: string | null
           location: string
           max_group_size: number | null
           price_per_person: number
@@ -622,6 +840,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          categories?: string[] | null
           category?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -632,6 +851,7 @@ export type Database = {
           id?: string
           images?: string[] | null
           is_published?: boolean | null
+          itinerary_pdf_url?: string | null
           location: string
           max_group_size?: number | null
           price_per_person: number
@@ -641,6 +861,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          categories?: string[] | null
           category?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -651,6 +872,7 @@ export type Database = {
           id?: string
           images?: string[] | null
           is_published?: boolean | null
+          itinerary_pdf_url?: string | null
           location?: string
           max_group_size?: number | null
           price_per_person?: number
@@ -854,6 +1076,8 @@ export type Database = {
           user_id: string
         }[]
       }
+      delete_old_stories: { Args: never; Returns: undefined }
+      get_staff_dashboard_metrics: { Args: never; Returns: Json }
       has_role: {
         Args: {
           check_role: Database["public"]["Enums"]["app_role"]
@@ -865,10 +1089,24 @@ export type Database = {
       is_staff_or_admin: { Args: never; Returns: boolean }
     }
     Enums: {
-      app_role: "guest" | "user" | "host" | "staff" | "admin"
+      app_role:
+        | "guest"
+        | "user"
+        | "host"
+        | "staff"
+        | "admin"
+        | "financial_staff"
+        | "operations_staff"
+        | "customer_support"
       application_status: "pending" | "approved" | "rejected"
-      booking_status: "pending" | "confirmed" | "cancelled" | "completed"
+      booking_status:
+        | "pending"
+        | "confirmed"
+        | "cancelled"
+        | "completed"
+        | "pending_confirmation"
       payment_status: "pending" | "paid" | "failed" | "refunded"
+      payment_status_enum: "pending" | "paid" | "failed" | "refunded"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -999,10 +1237,26 @@ export const Constants = {
   },
   public: {
     Enums: {
-      app_role: ["guest", "user", "host", "staff", "admin"],
+      app_role: [
+        "guest",
+        "user",
+        "host",
+        "staff",
+        "admin",
+        "financial_staff",
+        "operations_staff",
+        "customer_support",
+      ],
       application_status: ["pending", "approved", "rejected"],
-      booking_status: ["pending", "confirmed", "cancelled", "completed"],
+      booking_status: [
+        "pending",
+        "confirmed",
+        "cancelled",
+        "completed",
+        "pending_confirmation",
+      ],
       payment_status: ["pending", "paid", "failed", "refunded"],
+      payment_status_enum: ["pending", "paid", "failed", "refunded"],
     },
   },
 } as const
