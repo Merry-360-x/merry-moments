@@ -129,11 +129,40 @@ export default function Checkout() {
     return guestCart.some((i) => i.item_type === "property" && String(i.reference_id) === String(propertyId));
   }, [guestCart, inCartRow?.id, mode, propertyId, requireTripCart, user]);
 
-  // Prefill payer info for signed-in users
+  // Prefill payer info for signed-in users (only if not already filled from localStorage)
   useEffect(() => {
     let alive = true;
     (async () => {
       if (!user) return;
+      
+      // Check if we already have saved progress - if so, don't overwrite
+      const savedProgress = localStorage.getItem("checkout_progress");
+      if (savedProgress) {
+        try {
+          const data = JSON.parse(savedProgress);
+          // Only prefill if localStorage doesn't have these values yet
+          if (!data.name || !data.phone || !data.email) {
+            // Fetch profile to prefill empty fields only
+            const { data: prof, error } = await supabase
+              .from("profiles")
+              .select("full_name, phone")
+              .eq("user_id", user.id)
+              .maybeSingle();
+            if (!alive) return;
+            if (error) throw error;
+            
+            // Only set if the field is currently empty in saved data
+            if (!data.name && prof?.full_name) setName(String(prof.full_name).trim());
+            if (!data.phone && prof?.phone) setPhone(String(prof.phone).trim());
+            if (!data.email) setEmail(String((user as any)?.email ?? "").trim().toLowerCase());
+          }
+          return;
+        } catch (e) {
+          // If parsing fails, fall through to regular prefill
+        }
+      }
+      
+      // No saved progress, do regular prefill
       try {
         const { data: prof, error } = await supabase
           .from("profiles")

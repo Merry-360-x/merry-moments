@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { FileText, Home, Plane, MapPin, CheckCircle, XCircle, Clock } from "lucide-react";
+import { FileText, Home, Plane, MapPin, CheckCircle, XCircle, Clock, CalendarCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type HostApplication = {
@@ -46,10 +46,30 @@ type Transport = {
   created_at: string;
 };
 
+type Booking = {
+  id: string;
+  property_id: string;
+  guest_id: string | null;
+  guest_name: string | null;
+  guest_email: string | null;
+  guest_phone: string | null;
+  is_guest_booking: boolean;
+  check_in: string;
+  check_out: string;
+  guests: number;
+  total_price: number;
+  currency: string;
+  status: string;
+  payment_method: string | null;
+  special_requests: string | null;
+  host_id: string | null;
+  created_at: string;
+};
+
 export default function OperationsStaffDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<"overview" | "applications" | "accommodations" | "tours" | "transport">("overview");
+  const [tab, setTab] = useState<"overview" | "applications" | "accommodations" | "tours" | "transport" | "bookings">("overview");
 
   const { data: applications = [] } = useQuery({
     queryKey: ["operations_applications"],
@@ -102,6 +122,19 @@ export default function OperationsStaffDashboard() {
     },
   });
 
+  const { data: bookings = [] } = useQuery({
+    queryKey: ["operations_bookings"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("bookings")
+        .select("id, property_id, guest_id, guest_name, guest_email, guest_phone, is_guest_booking, check_in, check_out, guests, total_price, currency, status, payment_method, special_requests, host_id, created_at")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return (data ?? []) as Booking[];
+    },
+  });
+
   const approveApplicationMutation = useMutation({
     mutationFn: async (id: string) => {
       // @ts-ignore - Supabase type issue with host_applications update
@@ -147,6 +180,9 @@ export default function OperationsStaffDashboard() {
   const pendingTours = tours.filter(t => t.status === 'pending');
   const activeTours = tours.filter(t => t.status === 'approved');
 
+  const pendingBookings = bookings.filter(b => b.status === 'pending_confirmation');
+  const confirmedBookings = bookings.filter(b => b.status === 'confirmed');
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex flex-col">
       <Navbar />
@@ -157,7 +193,7 @@ export default function OperationsStaffDashboard() {
         </div>
 
         {/* Metrics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Pending Applications</CardTitle>
@@ -166,6 +202,17 @@ export default function OperationsStaffDashboard() {
             <CardContent>
               <div className="text-2xl font-bold">{pendingApplications.length}</div>
               <p className="text-xs text-muted-foreground mt-1">Awaiting review</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pending Bookings</CardTitle>
+              <CalendarCheck className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{pendingBookings.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">Need confirmation</p>
             </CardContent>
           </Card>
 
@@ -211,6 +258,12 @@ export default function OperationsStaffDashboard() {
               Applications
               {pendingApplications.length > 0 && (
                 <Badge className="ml-2" variant="destructive">{pendingApplications.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="bookings">
+              Bookings
+              {pendingBookings.length > 0 && (
+                <Badge className="ml-2" variant="destructive">{pendingBookings.length}</Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="accommodations">Accommodations</TabsTrigger>
@@ -512,6 +565,86 @@ export default function OperationsStaffDashboard() {
                       <TableRow>
                         <TableCell colSpan={4} className="text-center text-muted-foreground">
                           No transport options found
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="bookings">
+            <Card>
+              <CardHeader>
+                <CardTitle>Bookings</CardTitle>
+                <CardDescription>Manage property bookings and reservations</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Guest</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>Check-In</TableHead>
+                      <TableHead>Check-Out</TableHead>
+                      <TableHead>Guests</TableHead>
+                      <TableHead>Payment Method</TableHead>
+                      <TableHead>Total</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Created</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {bookings.map((booking) => (
+                      <TableRow key={booking.id}>
+                        <TableCell className="font-medium">
+                          {booking.guest_name || 'N/A'}
+                          <br />
+                          <span className="text-xs text-muted-foreground">{booking.guest_email}</span>
+                        </TableCell>
+                        <TableCell>{booking.guest_phone || 'N/A'}</TableCell>
+                        <TableCell className="text-sm">
+                          {new Date(booking.check_in).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {new Date(booking.check_out).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>{booking.guests}</TableCell>
+                        <TableCell>
+                          {booking.payment_method ? (
+                            <Badge variant="outline" className="text-xs">
+                              {booking.payment_method.replace('_', ' ').toUpperCase()}
+                            </Badge>
+                          ) : 'N/A'}
+                        </TableCell>
+                        <TableCell className="font-mono">
+                          {booking.currency} {booking.total_price.toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              booking.status === "confirmed"
+                                ? "default"
+                                : booking.status === "pending_confirmation"
+                                ? "secondary"
+                                : booking.status === "completed"
+                                ? "outline"
+                                : "destructive"
+                            }
+                          >
+                            {booking.status.replace('_', ' ')}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {new Date(booking.created_at).toLocaleDateString()}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {bookings.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={9} className="text-center text-muted-foreground">
+                          No bookings found
                         </TableCell>
                       </TableRow>
                     )}

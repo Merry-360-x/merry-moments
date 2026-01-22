@@ -147,13 +147,20 @@ type TransportVehicleRow = {
 type BookingRow = {
   id: string;
   property_id: string;
-  guest_id: string;
+  guest_id: string | null;
+  guest_name: string | null;
+  guest_email: string | null;
+  guest_phone: string | null;
+  is_guest_booking: boolean;
   check_in: string;
   check_out: string;
   guests: number;
   total_price: number;
   currency: string;
   status: string;
+  payment_method: string | null;
+  special_requests: string | null;
+  host_id: string | null;
   created_at: string;
 };
 
@@ -651,7 +658,7 @@ export default function AdminDashboard() {
         .from("bookings")
         // guest_* fields support guest checkout (guest_id can be NULL)
         .select(
-          "id, property_id, guest_id, guest_name, guest_email, is_guest_booking, check_in, check_out, guests, total_price, currency, status, created_at"
+          "id, property_id, guest_id, guest_name, guest_email, guest_phone, is_guest_booking, check_in, check_out, guests, total_price, currency, status, payment_method, special_requests, host_id, created_at"
         )
         .order("created_at", { ascending: false })
         .limit(500); // Increase limit for comprehensive booking data
