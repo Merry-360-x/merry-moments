@@ -12,8 +12,10 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
+import { Eye, Download, FileText } from "lucide-react";
 
 type HostApplicationStatus = "draft" | "pending" | "approved" | "rejected";
 
@@ -89,9 +91,21 @@ type StoryRow = {
 
 type BookingRow = {
   id: string;
-  status: string;
+  property_id: string;
+  guest_id: string | null;
+  guest_name: string | null;
+  guest_email: string | null;
+  guest_phone: string | null;
+  is_guest_booking: boolean;
+  check_in: string;
+  check_out: string;
+  guests: number;
   total_price: number;
   currency: string;
+  status: string;
+  payment_method: string | null;
+  special_requests: string | null;
+  host_id: string | null;
   created_at: string;
 };
 
@@ -128,6 +142,15 @@ const fetchPending = async () => {
   return (data ?? []) as HostApplicationRow[];
 };
 
+const statusColors: Record<string, string> = {
+  pending: "bg-yellow-100 text-yellow-800",
+  approved: "bg-green-100 text-green-800",
+  rejected: "bg-red-100 text-red-800",
+  confirmed: "bg-green-100 text-green-800",
+  completed: "bg-blue-100 text-blue-800",
+  cancelled: "bg-gray-100 text-gray-800",
+};
+
 export default function StaffDashboard() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -135,6 +158,8 @@ export default function StaffDashboard() {
     "overview" | "applications" | "users" | "accommodations" | "tours" | "transport" | "stories"
   >("overview");
   const [userSearch, setUserSearch] = useState("");
+  const [selectedBooking, setSelectedBooking] = useState<BookingRow | null>(null);
+  const [bookingDetailsOpen, setBookingDetailsOpen] = useState(false);
 
   const {
     data: applications = [],
@@ -240,7 +265,11 @@ export default function StaffDashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("bookings")
-        .select("id, status, total_price, currency, created_at")
+        .select(`
+          id, property_id, guest_id, guest_name, guest_email, guest_phone,
+          is_guest_booking, check_in, check_out, guests, total_price,
+          currency, status, payment_method, special_requests, host_id, created_at
+        `)
         .order("created_at", { ascending: false })
         .limit(8);
       if (error) throw error;
@@ -295,6 +324,88 @@ export default function StaffDashboard() {
       });
     }
   };
+
+  // Export booking details
+  const exportBooking = (booking: BookingRow) => {
+    const bookingData = {
+      'Booking ID': booking.id,
+      'Guest Name': booking.is_guest_booking ? booking.guest_name : booking.guest_id,
+      'Guest Email': booking.guest_email || 'N/A',
+      'Guest Phone': booking.guest_phone || 'N/A',
+      'Check In': booking.check_in,
+      'Check Out': booking.check_out,
+      'Number of Guests': booking.guests,
+      'Total Price': `${booking.currency} ${booking.total_price}`,
+      'Payment Method': booking.payment_method || 'N/A',
+      'Status': booking.status,
+      'Special Requests': booking.special_requests || 'None',
+      'Created At': new Date(booking.created_at).toLocaleString(),
+    };
+    
+    const content = Object.entries(bookingData)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join('\n');
+    
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `booking-${booking.id.slice(0, 8)}-${new Date().toISOString().split('T')[0]}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "Booking exported successfully" });
+  };
+
+  // Export payment receipt
+  const exportReceipt = (booking: BookingRow) => {
+    const receiptContent = `
+PAYMENT RECEIPT
+================
+Receipt Date: ${new Date().toLocaleString()}
+
+BOOKING INFORMATION
+-------------------
+Booking ID: ${booking.id}
+Guest Name: ${booking.is_guest_booking ? booking.guest_name : booking.guest_id}
+Guest Email: ${booking.guest_email || 'N/A'}
+Guest Phone: ${booking.guest_phone || 'N/A'}
+
+STAY DETAILS
+------------
+Check-in Date: ${booking.check_in}
+Check-out Date: ${booking.check_out}
+Number of Guests: ${booking.guests}
+
+PAYMENT DETAILS
+---------------
+Total Amount: ${booking.currency} ${booking.total_price}
+Payment Method: ${booking.payment_method || 'Pending'}
+Payment Status: ${booking.status}
+Transaction Date: ${new Date(booking.created_at).toLocaleString()}
+
+ADDITIONAL INFORMATION
+----------------------
+Special Requests: ${booking.special_requests || 'None'}
+
+---
+Thank you for booking with Merry360x
+For support, contact: support@merry360x.com
+    `.trim();
+    
+    const blob = new Blob([receiptContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `receipt-${booking.id.slice(0, 8)}-${new Date().toISOString().split('T')[0]}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "Receipt exported successfully" });
+  };
+
+  // Helper for status badge
+  const StatusBadge = ({ status }: { status: string }) => (
+    <Badge className={statusColors[status] ?? "bg-gray-100 text-gray-800"}>{status}</Badge>
+  );
 
   useEffect(() => {
     const channel = supabase
@@ -439,20 +550,61 @@ export default function StaffDashboard() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Guest</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Amount</TableHead>
-                <TableHead className="text-right">Created</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {recentBookings.map((b) => (
                 <TableRow key={b.id}>
+                  <TableCell className="text-sm">
+                    {b.is_guest_booking ? (
+                      <div className="min-w-0">
+                        <div className="font-medium truncate">{b.guest_name || "Guest"}</div>
+                        <div className="text-xs text-muted-foreground truncate">{b.guest_email || "—"}</div>
+                      </div>
+                    ) : (
+                      <span className="font-mono text-xs">{(b.guest_id ?? "").slice(0, 8)}...</span>
+                    )}
+                  </TableCell>
                   <TableCell className="font-medium">{b.status}</TableCell>
                   <TableCell>
                     {formatMoney(Number(b.total_price), String(b.currency ?? "USD"))}
                   </TableCell>
-                  <TableCell className="text-right text-muted-foreground">
-                    {new Date(b.created_at).toLocaleDateString()}
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        onClick={() => {
+                          setSelectedBooking(b);
+                          setBookingDetailsOpen(true);
+                        }}
+                      >
+                        <Eye className="w-3 h-3 mr-1" />
+                        Details
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        onClick={() => exportBooking(b)}
+                      >
+                        <Download className="w-3 h-3 mr-1" />
+                        Export
+                      </Button>
+                      {(b.status === "completed" || b.status === "confirmed") && (
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => exportReceipt(b)}
+                        >
+                          <FileText className="w-3 h-3 mr-1" />
+                          Receipt
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -722,6 +874,140 @@ export default function StaffDashboard() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* BOOKING DETAILS DIALOG */}
+        <Dialog open={bookingDetailsOpen} onOpenChange={setBookingDetailsOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Booking Details</DialogTitle>
+            </DialogHeader>
+            {selectedBooking && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Booking ID</p>
+                    <p className="font-mono text-sm">{selectedBooking.id}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Status</p>
+                    <Badge>{selectedBooking.status}</Badge>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold mb-3">Guest Information</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Name</p>
+                      <p className="text-sm">
+                        {selectedBooking.is_guest_booking 
+                          ? selectedBooking.guest_name || "Guest"
+                          : selectedBooking.guest_id?.slice(0, 8) + "..."}
+                      </p>
+                    </div>
+                    {selectedBooking.guest_email && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">Email</p>
+                        <p className="text-sm">{selectedBooking.guest_email}</p>
+                      </div>
+                    )}
+                    {selectedBooking.guest_phone && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">Phone</p>
+                        <p className="text-sm">{selectedBooking.guest_phone}</p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm text-muted-foreground">Guest Type</p>
+                      <p className="text-sm">
+                        {selectedBooking.is_guest_booking ? "Guest Booking" : "Registered User"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold mb-3">Stay Details</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Check-in</p>
+                      <p className="text-sm font-medium">{selectedBooking.check_in}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Check-out</p>
+                      <p className="text-sm font-medium">{selectedBooking.check_out}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Number of Guests</p>
+                      <p className="text-sm">{selectedBooking.guests}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Property ID</p>
+                      <p className="font-mono text-xs">{selectedBooking.property_id.slice(0, 8)}...</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold mb-3">Payment Information</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Total Amount</p>
+                      <p className="text-lg font-bold">{formatMoney(selectedBooking.total_price, selectedBooking.currency)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Payment Method</p>
+                      <p className="text-sm">{selectedBooking.payment_method || "Not specified"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {selectedBooking.special_requests && (
+                  <div className="border-t pt-4">
+                    <h3 className="font-semibold mb-2">Special Requests</h3>
+                    <p className="text-sm text-muted-foreground">{selectedBooking.special_requests}</p>
+                  </div>
+                )}
+
+                <div className="border-t pt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Created</p>
+                      <p className="text-sm">{new Date(selectedBooking.created_at).toLocaleString()}</p>
+                    </div>
+                    {selectedBooking.host_id && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">Host ID</p>
+                        <p className="font-mono text-xs">{selectedBooking.host_id.slice(0, 8)}...</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-4">
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => exportBooking(selectedBooking)}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Export Booking
+                  </Button>
+                  {(selectedBooking.status === "completed" || selectedBooking.status === "confirmed") && (
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => exportReceipt(selectedBooking)}
+                    >
+                      <FileText className="w-4 h-4 mr-2" />
+                      Export Receipt
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Footer />

@@ -1,14 +1,18 @@
 import { useState } from "react";
+import { usePreferences } from "@/hooks/usePreferences";
 
 const Logo = ({ className = "" }: { className?: string }) => {
   const [useFallback, setUseFallback] = useState(false);
+  const { resolvedTheme } = usePreferences();
+
+  const logoSrc = resolvedTheme === "dark" ? "/brand/logo_dark.png" : "/brand/logo.png";
 
   return (
     <div className={`flex items-center gap-2 ${className}`}>
       <div className="relative w-14 h-14">
         {!useFallback ? (
           <img
-            src="/brand/logo.png"
+            src={logoSrc}
             alt="Merry 360 X"
             className="w-full h-full object-contain"
             loading="eager"
