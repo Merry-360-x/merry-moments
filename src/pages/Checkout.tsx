@@ -56,6 +56,37 @@ export default function Checkout() {
   const [message, setMessage] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<string>("mtn_momo");
 
+  // Load saved progress from localStorage on mount
+  useEffect(() => {
+    const savedProgress = localStorage.getItem("checkout_progress");
+    if (savedProgress) {
+      try {
+        const data = JSON.parse(savedProgress);
+        if (data.name) setName(data.name);
+        if (data.email) setEmail(data.email);
+        if (data.phone) setPhone(data.phone);
+        if (data.message) setMessage(data.message);
+        if (data.paymentMethod) setPaymentMethod(data.paymentMethod);
+        if (data.currentStep) setCurrentStep(data.currentStep);
+      } catch (e) {
+        console.error("Failed to load checkout progress:", e);
+      }
+    }
+  }, []);
+
+  // Save progress to localStorage whenever form data changes
+  useEffect(() => {
+    const progressData = {
+      name,
+      email,
+      phone,
+      message,
+      paymentMethod,
+      currentStep,
+    };
+    localStorage.setItem("checkout_progress", JSON.stringify(progressData));
+  }, [name, email, phone, message, paymentMethod, currentStep]);
+
   const steps = [
     { id: 1, name: "Contact Info", description: "Your details" },
     { id: 2, name: "Payment Method", description: "How you'll pay" },
@@ -209,6 +240,8 @@ export default function Checkout() {
       const { error } = await supabase.from("bookings").insert(basePayload as never);
       if (error) throw error;
 
+      // Clear saved progress after successful submission
+      localStorage.removeItem("checkout_progress");
       navigate("/booking-success?mode=booking");
     } catch (e) {
       logError("checkout.booking.insert", e);
@@ -264,6 +297,8 @@ export default function Checkout() {
       if (error) throw error;
 
       await clearCart();
+      // Clear saved progress after successful submission
+      localStorage.removeItem("checkout_progress");
       navigate("/booking-success?mode=cart");
     } catch (e) {
       logError("checkout.cart.submit", e);
