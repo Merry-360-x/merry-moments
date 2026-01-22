@@ -74,7 +74,9 @@ export default function CreateTourPackage() {
     availableDates: [] as string[],
     
     // New fields
-    cancellationPolicyType: "day" as "day" | "multiday",
+    cancellationPolicyType: "standard_day" as "standard_day" | "multiday_private" | "non_refundable" | "custom",
+    customCancellationPolicy: "",
+    nonRefundableItems: [] as string[],
     groupDiscountPercentage: "",
     groupDiscountMinSize: "",
     rdbCertificateUrl: "",
@@ -227,6 +229,10 @@ export default function CreateTourPackage() {
         max_guests: parseInt(formData.maxGuests) || 10,
         available_dates: formData.availableDates,
         cancellation_policy_type: formData.cancellationPolicyType,
+        custom_cancellation_policy: formData.cancellationPolicyType === 'custom' ? formData.customCancellationPolicy : null,
+        non_refundable_items: formData.nonRefundableItems.length > 0 ? JSON.stringify(formData.nonRefundableItems) : null,
+        custom_cancellation_policy: formData.cancellationPolicyType === 'custom' ? formData.customCancellationPolicy : null,
+        non_refundable_items: formData.nonRefundableItems.length > 0 ? JSON.stringify(formData.nonRefundableItems) : null,
         group_discount_percentage: formData.groupDiscountPercentage ? parseFloat(formData.groupDiscountPercentage) : null,
         group_discount_min_size: formData.groupDiscountMinSize ? parseInt(formData.groupDiscountMinSize) : null,
         rdb_certificate_url: formData.rdbCertificateUrl || null,
@@ -540,10 +546,122 @@ export default function CreateTourPackage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="day">Day Tour (24-48 hours notice)</SelectItem>
-                        <SelectItem value="multiday">Multi-day Tour (3-7 days notice)</SelectItem>
+                        <SelectItem value="standard_day">
+                          <div>
+                            <div className="font-medium">Standard Experiences (Day Tours)</div>
+                            <div className="text-xs text-muted-foreground">72-48 hours refund policy</div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="multiday_private">
+                          <div>
+                            <div className="font-medium">Multi-Day, Private & Custom</div>
+                            <div className="text-xs text-muted-foreground">14-7 days refund policy</div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="non_refundable">
+                          <div>
+                            <div className="font-medium">Non-Refundable</div>
+                            <div className="text-xs text-muted-foreground">No refunds allowed</div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="custom">
+                          <div>
+                            <div className="font-medium">Custom Policy</div>
+                            <div className="text-xs text-muted-foreground">Define your own terms</div>
+                          </div>
+                        </SelectItem>
                       </SelectContent>
                     </Select>
+                    
+                    {/* Policy Details */}
+                    {formData.cancellationPolicyType === 'standard_day' && (
+                      <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg text-xs space-y-1">
+                        <div className="font-medium text-blue-900 dark:text-blue-100">Standard Day Tour Policy:</div>
+                        <div className="text-blue-700 dark:text-blue-300">• 72+ hours: Full refund (minus platform & processing fees)</div>
+                        <div className="text-blue-700 dark:text-blue-300">• 48-72 hours: 50% refund (minus platform fees)</div>
+                        <div className="text-blue-700 dark:text-blue-300">• Less than 48 hours: No refund</div>
+                        <div className="text-blue-700 dark:text-blue-300">• No-shows: No refund</div>
+                      </div>
+                    )}
+                    
+                    {formData.cancellationPolicyType === 'multiday_private' && (
+                      <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg text-xs space-y-1">
+                        <div className="font-medium text-blue-900 dark:text-blue-100">Multi-Day/Private Tour Policy:</div>
+                        <div className="text-blue-700 dark:text-blue-300">• 14+ days: Full refund (minus deposits & third-party costs)</div>
+                        <div className="text-blue-700 dark:text-blue-300">• 7-14 days: 50% refund</div>
+                        <div className="text-blue-700 dark:text-blue-300">• Less than 7 days: No refund</div>
+                        <div className="text-blue-700 dark:text-blue-300 mt-2">Custom/tailor-made itineraries may require non-refundable deposits</div>
+                      </div>
+                    )}
+                    
+                    {formData.cancellationPolicyType === 'non_refundable' && (
+                      <div className="mt-3 p-3 bg-red-50 dark:bg-red-950/20 rounded-lg text-xs">
+                        <div className="font-medium text-red-900 dark:text-red-100">Non-Refundable Policy:</div>
+                        <div className="text-red-700 dark:text-red-300">No refunds will be provided for cancellations at any time</div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Custom Policy Input */}
+                  {formData.cancellationPolicyType === 'custom' && (
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="customCancellationPolicy">Custom Cancellation Policy</Label>
+                      <Textarea
+                        id="customCancellationPolicy"
+                        rows={5}
+                        placeholder="Describe your cancellation policy in detail, including refund timeframes, percentages, and any special conditions..."
+                        value={formData.customCancellationPolicy}
+                        onChange={(e) => updateField("customCancellationPolicy", e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Be clear and specific about refund conditions to avoid disputes
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* Non-Refundable Items */}
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>Non-Refundable Components (Optional)</Label>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Select any items that are non-refundable once booked
+                    </p>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      {[
+                        "National park permits",
+                        "Gorilla trekking permits",
+                        "Conservation permits",
+                        "Special access permits",
+                        "Third-party accommodation",
+                        "Third-party transport",
+                        "Flight tickets",
+                        "Activity tickets",
+                        "Other permits"
+                      ].map((item) => (
+                        <div key={item} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={item}
+                            checked={formData.nonRefundableItems.includes(item)}
+                            onCheckedChange={(checked) => {
+                              const items = checked
+                                ? [...formData.nonRefundableItems, item]
+                                : formData.nonRefundableItems.filter((i) => i !== item);
+                              updateField("nonRefundableItems", items);
+                            }}
+                          />
+                          <label
+                            htmlFor={item}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          >
+                            {item}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                    {formData.nonRefundableItems.length > 0 && (
+                      <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-950/20 rounded text-xs text-amber-700 dark:text-amber-300">
+                        <strong>Selected non-refundable items:</strong> {formData.nonRefundableItems.join(", ")}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
