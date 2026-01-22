@@ -33,20 +33,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 type TourType = "Private" | "Group";
 type TourCategory = "Cultural" | "Adventure" | "Wildlife" | "City Tours" | "Hiking" | "Photography" | "Historical" | "Eco-Tourism";
 
-interface ExtractedData {
-  duration?: string;
-  dailyItinerary?: string[];
-  includedServices?: string[];
-  excludedServices?: string[];
-  meetingPoint?: string;
-  whatToBring?: string[];
-  cancellationPolicy?: string;
-  price?: number;
-  confidence?: {
-    [key: string]: 'high' | 'medium' | 'low';
-  };
-}
-
 const currencies = [
   { value: "RWF", label: "(FRw) RWF", symbol: "FRw" },
   { value: "USD", label: "($) USD", symbol: "$" },
@@ -61,8 +47,6 @@ export default function CreateTourPackage() {
 
   const [pdfUrl, setPdfUrl] = useState("");
   const [pdfUploading, setPdfUploading] = useState(false);
-  const [extracting, setExtracting] = useState(false);
-  const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -117,7 +101,6 @@ export default function CreateTourPackage() {
         const parsed = JSON.parse(savedData);
         setFormData(parsed.formData || formData);
         setPdfUrl(parsed.pdfUrl || "");
-        setExtractedData(parsed.extractedData || null);
         setDisclaimerAccepted(parsed.disclaimerAccepted || false);
         
         toast({
@@ -136,12 +119,11 @@ export default function CreateTourPackage() {
     const dataToSave = {
       formData,
       pdfUrl,
-      extractedData,
       disclaimerAccepted,
-      timestamp: new Date().toISOString(),
+      lastSaved: new Date().toISOString(),
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
-  }, [formData, pdfUrl, extractedData, disclaimerAccepted]);
+  }, [formData, pdfUrl, disclaimerAccepted]);
 
   const updateField = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -152,48 +134,6 @@ export default function CreateTourPackage() {
       setPdfUrl(urls[0]);
       setPdfUploadOpen(false);
       // Trigger extraction
-      await extractDataFromPdf(urls[0]);
-    }
-  };
-
-  const extractDataFromPdf = async (url: string) => {
-    setExtracting(true);
-    try {
-      // Call API endpoint to extract data from PDF
-      const response = await fetch('/api/extract-tour-itinerary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pdfUrl: url }),
-      });
-
-      if (!response.ok) throw new Error('Extraction failed');
-
-      const data = await response.json();
-      setExtractedData(data);
-
-      // Populate form with extracted data
-      if (data.duration) updateField("duration", data.duration);
-      if (data.dailyItinerary) updateField("dailyItinerary", data.dailyItinerary.join('\n\n'));
-      if (data.includedServices) updateField("includedServices", data.includedServices.join('\n'));
-      if (data.excludedServices) updateField("excludedServices", data.excludedServices.join('\n'));
-      if (data.meetingPoint) updateField("meetingPoint", data.meetingPoint);
-      if (data.whatToBring) updateField("whatToBring", data.whatToBring.join('\n'));
-      if (data.cancellationPolicy) updateField("cancellationPolicy", data.cancellationPolicy);
-      if (data.price) updateField("pricePerAdult", data.price.toString());
-
-      toast({
-        title: "Extraction complete!",
-        description: "Review the extracted information and edit as needed.",
-      });
-    } catch (error) {
-      console.error('[CreateTourPackage] Extraction error:', error);
-      toast({
-        variant: "destructive",
-        title: "Extraction failed",
-        description: "Please fill in the information manually.",
-      });
-    } finally {
-      setExtracting(false);
     }
   };
 
@@ -470,16 +410,6 @@ export default function CreateTourPackage() {
                       title="PDF Preview"
                     />
                   </div>
-
-                  {extracting && (
-                    <div className="flex items-center gap-3 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                      <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
-                      <div>
-                        <p className="text-sm font-medium">Extracting information from PDF...</p>
-                        <p className="text-xs text-muted-foreground">This may take a few moments</p>
-                      </div>
-                    </div>
-                  )}
                 </div>
               ) : (
                 <Button
@@ -496,35 +426,27 @@ export default function CreateTourPackage() {
               )}
             </div>
 
-            {/* Auto-Extracted Data Section */}
-            {extractedData && (
-              <div className="space-y-6 border-t pt-6">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">Extracted Information</h3>
-                  <Badge variant="secondary">
-                    <Edit className="w-3 h-3 mr-1" />
-                    Editable
-                  </Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Review and edit the information extracted from your PDF
-                </p>
+            {/* Tour Details Section */}
+            <div className="space-y-6 border-t pt-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">Tour Details</h3>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Provide detailed information about your tour package
+              </p>
 
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="duration" className="flex items-center gap-2">
-                      Duration (days/nights) *
-                      {extractedData.confidence?.duration === 'low' && (
-                        <Badge variant="destructive" className="text-xs">Low confidence</Badge>
-                      )}
-                    </Label>
-                    <Input
-                      id="duration"
-                      placeholder="e.g., 3 days / 2 nights"
-                      value={formData.duration}
-                      onChange={(e) => updateField("duration", e.target.value)}
-                    />
-                  </div>
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="duration">
+                    Duration (days/nights) *
+                  </Label>
+                  <Input
+                    id="duration"
+                    placeholder="e.g., 3 days / 2 nights"
+                    value={formData.duration}
+                    onChange={(e) => updateField("duration", e.target.value)}
+                  />
+                </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="meetingPoint">Meeting Point *</Label>
