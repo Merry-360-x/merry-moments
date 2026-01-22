@@ -62,12 +62,13 @@ export default function Checkout() {
     if (savedProgress) {
       try {
         const data = JSON.parse(savedProgress);
+        // Only restore if values exist (don't overwrite with empty strings)
         if (data.name) setName(data.name);
         if (data.email) setEmail(data.email);
         if (data.phone) setPhone(data.phone);
         if (data.message) setMessage(data.message);
         if (data.paymentMethod) setPaymentMethod(data.paymentMethod);
-        if (data.currentStep) setCurrentStep(data.currentStep);
+        if (data.currentStep && data.currentStep > 1) setCurrentStep(data.currentStep);
       } catch (e) {
         console.error("Failed to load checkout progress:", e);
       }
@@ -607,15 +608,15 @@ export default function Checkout() {
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Name:</span>
-                        <span className="font-medium">{name}</span>
+                        <span className="font-medium">{name || <span className="text-red-500">Not provided</span>}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Email:</span>
-                        <span className="font-medium">{email}</span>
+                        <span className="font-medium">{email || <span className="text-red-500">Not provided</span>}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Phone:</span>
-                        <span className="font-medium">{phone}</span>
+                        <span className="font-medium">{phone || <span className="text-red-500">Not provided</span>}</span>
                       </div>
                       {message && (
                         <div className="pt-2 border-t">
@@ -624,6 +625,13 @@ export default function Checkout() {
                         </div>
                       )}
                     </div>
+                    {(!name || !email || !phone) && (
+                      <div className="mt-3 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg">
+                        <p className="text-sm text-red-800 dark:text-red-200">
+                          ⚠️ Please go back and fill in all required contact information
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="bg-muted/50 rounded-lg p-4">
