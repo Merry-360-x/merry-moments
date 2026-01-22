@@ -638,9 +638,9 @@ export default function Checkout() {
                   type="button"
                   onClick={handleSubmit}
                   disabled={loading || (mode === "booking" && !isPropertyInCart)}
-                  className="bg-green-600 hover:bg-green-700"
+                  className="bg-red-600 hover:bg-red-700"
                 >
-                  {loading ? "Submitting..." : "Submit Request"}
+                  {loading ? "Booking..." : "Book"}
                   <Check className="h-4 w-4 ml-1" />
                 </Button>
               )}
