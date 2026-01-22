@@ -231,8 +231,6 @@ export default function CreateTourPackage() {
         cancellation_policy_type: formData.cancellationPolicyType,
         custom_cancellation_policy: formData.cancellationPolicyType === 'custom' ? formData.customCancellationPolicy : null,
         non_refundable_items: formData.nonRefundableItems.length > 0 ? JSON.stringify(formData.nonRefundableItems) : null,
-        custom_cancellation_policy: formData.cancellationPolicyType === 'custom' ? formData.customCancellationPolicy : null,
-        non_refundable_items: formData.nonRefundableItems.length > 0 ? JSON.stringify(formData.nonRefundableItems) : null,
         group_discount_percentage: formData.groupDiscountPercentage ? parseFloat(formData.groupDiscountPercentage) : null,
         group_discount_min_size: formData.groupDiscountMinSize ? parseInt(formData.groupDiscountMinSize) : null,
         rdb_certificate_url: formData.rdbCertificateUrl || null,
@@ -260,8 +258,7 @@ export default function CreateTourPackage() {
       toast({
         variant: "destructive",
         title: "Submission failed",
-        description: errorMessage,
-        description: "Please try again.",
+        description: `${errorMessage}. Please try again.`,
       });
     } finally {
       setSubmitting(false);

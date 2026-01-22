@@ -258,8 +258,7 @@ export default function HostApplication() {
           .eq("user_id", user.id)
           .order("created_at", { ascending: false })
           .limit(1)
-          .maybeSingle()
-          .abortSignal(controller.signal);
+          .maybeSingle();
 
         if (error && error.code !== "PGRST116") {
           console.error("Error checking application:", error);
@@ -798,20 +797,6 @@ export default function HostApplication() {
                   {/* Accommodation-specific fields */}
                   {currentServiceType === 'accommodation' && (
                     <>
-                      <div className="space-y-2 md:col-span-2">
-                        <Label htmlFor="address">Full Address</Label>
-                        <div className="relative">
-                          <MapPin className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-                          <Input
-                            id="address"
-                            className="pl-10"
-                            placeholder="Street address, building number, etc."
-                            value={formData.address || ""}
-                            onChange={(e) => updateField("address", e.target.value)}
-                          />
-                        </div>
-                      </div>
-
                       <div className="space-y-2">
                         <Label htmlFor="propertyType">Property Type *</Label>
                         <Select value={serviceData.property_type || "Apartment"} onValueChange={(val) => updateField("property_type", val)}>
@@ -1130,7 +1115,6 @@ export default function HostApplication() {
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                           {AMENITIES.filter(a => ['wifi', 'hot_water', 'ac', 'heating', 'parking_free', 'parking_paid'].includes(a.value)).map((amenity) => {
                             const Icon = amenity.icon;
-                            // @ts-expect-error - serviceData is a union type
                             const selected = (serviceData.amenities || []).includes(amenity.value);
                             return (
                               <button
@@ -1162,7 +1146,6 @@ export default function HostApplication() {
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                           {AMENITIES.filter(a => ['kitchen', 'kitchenette', 'refrigerator', 'microwave', 'stove', 'oven', 'dishwasher', 'cookware', 'dishes', 'dining_table', 'blender', 'kettle', 'coffee_maker', 'breakfast_included', 'breakfast_available'].includes(a.value)).map((amenity) => {
                             const Icon = amenity.icon;
-                            // @ts-expect-error - serviceData is a union type
                             const selected = (serviceData.amenities || []).includes(amenity.value);
                             return (
                               <button
@@ -1194,7 +1177,6 @@ export default function HostApplication() {
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                           {AMENITIES.filter(a => ['tv_smart', 'tv_basic', 'workspace', 'wardrobe', 'hangers'].includes(a.value)).map((amenity) => {
                             const Icon = amenity.icon;
-                            // @ts-expect-error - serviceData is a union type
                             const selected = (serviceData.amenities || []).includes(amenity.value);
                             return (
                               <button
@@ -1226,7 +1208,6 @@ export default function HostApplication() {
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                           {AMENITIES.filter(a => ['toiletries', 'bathroom_essentials', 'towels', 'bedsheets', 'washing_machine', 'dryer', 'iron'].includes(a.value)).map((amenity) => {
                             const Icon = amenity.icon;
-                            // @ts-expect-error - serviceData is a union type
                             const selected = (serviceData.amenities || []).includes(amenity.value);
                             return (
                               <button
@@ -1258,7 +1239,6 @@ export default function HostApplication() {
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                           {AMENITIES.filter(a => ['gym', 'pool', 'sauna', 'jacuzzi', 'spa', 'restaurant'].includes(a.value)).map((amenity) => {
                             const Icon = amenity.icon;
-                            // @ts-expect-error - serviceData is a union type
                             const selected = (serviceData.amenities || []).includes(amenity.value);
                             return (
                               <button
@@ -1290,7 +1270,6 @@ export default function HostApplication() {
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                           {AMENITIES.filter(a => ['carbon_monoxide_alarm', 'smoke_alarm', 'security_cameras', 'fire_extinguisher', 'first_aid', 'safe', 'no_smoking'].includes(a.value)).map((amenity) => {
                             const Icon = amenity.icon;
-                            // @ts-expect-error - serviceData is a union type
                             const selected = (serviceData.amenities || []).includes(amenity.value);
                             return (
                               <button
@@ -1322,7 +1301,6 @@ export default function HostApplication() {
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                           {AMENITIES.filter(a => ['balcony', 'patio', 'terrace', 'garden', 'city_view', 'landscape_view', 'sea_view', 'lake_view', 'mountain_view'].includes(a.value)).map((amenity) => {
                             const Icon = amenity.icon;
-                            // @ts-expect-error - serviceData is a union type
                             const selected = (serviceData.amenities || []).includes(amenity.value);
                             return (
                               <button
@@ -1354,7 +1332,6 @@ export default function HostApplication() {
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                           {AMENITIES.filter(a => ['elevator', 'ground_floor', 'wheelchair_accessible', 'meeting_room', 'reception', 'concierge', 'room_service', 'family_friendly', 'crib', 'high_chair', 'fireplace', 'fan', 'air_purifier', 'soundproofing'].includes(a.value)).map((amenity) => {
                             const Icon = amenity.icon;
-                            // @ts-expect-error - serviceData is a union type
                             const selected = (serviceData.amenities || []).includes(amenity.value);
                             return (
                               <button
@@ -1381,11 +1358,11 @@ export default function HostApplication() {
                       </div>
                     </div>
                     
-                    {formData.amenities && formData.amenities.length > 0 && (
+                    {serviceData.amenities && serviceData.amenities.length > 0 && (
                       <div className="mt-4 p-3 bg-muted/50 rounded-lg">
-                        <p className="text-sm font-medium mb-2">Selected amenities ({formData.amenities.length}):</p>
+                        <p className="text-sm font-medium mb-2">Selected amenities ({serviceData.amenities.length}):</p>
                         <div className="flex flex-wrap gap-1">
-                          {formData.amenities.map((amenityValue) => {
+                          {serviceData.amenities.map((amenityValue: string) => {
                             const amenity = AMENITIES.find(a => a.value === amenityValue);
                             return amenity ? (
                               <span key={amenityValue} className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary rounded-full text-xs">
