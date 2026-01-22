@@ -229,7 +229,7 @@ export default function CreateTourPackage() {
         cover_image: formData.coverImage,
         gallery_images: formData.galleryImages,
         itinerary_pdf_url: pdfUrl,
-        status: 'pending_approval',
+        status: 'published',
       };
 
       const { error } = await supabase.from("tour_packages").insert(payload);
@@ -237,8 +237,8 @@ export default function CreateTourPackage() {
       if (error) throw error;
 
       toast({
-        title: "Submitted for review!",
-        description: "Your tour package will be reviewed by our team. We'll notify you once it's approved.",
+        title: "Tour Published!",
+        description: "Your tour package is now live and available for bookings.",
       });
 
       localStorage.removeItem(STORAGE_KEY);

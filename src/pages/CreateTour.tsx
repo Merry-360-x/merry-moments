@@ -151,7 +151,7 @@ export default function CreateTour() {
           images: uploadedImageUrls,
           itinerary_pdf_url: pdfUrl,
           created_by: user.id,
-          is_published: false,
+          is_published: true,
         })
         .select()
         .single();
@@ -160,7 +160,7 @@ export default function CreateTour() {
 
       toast({
         title: "Tour Created!",
-        description: "Your tour has been created successfully.",
+        description: "Your tour has been published successfully and is now live.",
       });
 
       navigate("/host-dashboard");
