@@ -225,6 +225,7 @@ export default function Checkout() {
         status: "pending_confirmation",
         payment_method: paymentMethod,
         special_requests: message.trim() || null,
+        guest_phone: phone.trim(), // Always include phone for all users
       };
 
       if (user) {
@@ -234,7 +235,6 @@ export default function Checkout() {
         basePayload.is_guest_booking = true;
         basePayload.guest_name = name.trim();
         basePayload.guest_email = email.trim().toLowerCase();
-        basePayload.guest_phone = phone.trim();
       }
 
       const { error } = await supabase.from("bookings").insert(basePayload as never);
