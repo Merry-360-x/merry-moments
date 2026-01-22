@@ -219,7 +219,7 @@ export default function Checkout() {
         host_id: property?.host_id ?? null,
         check_in: checkIn,
         check_out: checkOut,
-        guests_count: Math.max(1, Number(guests || 1)),
+        guests: Math.max(1, Number(guests || 1)),
         total_price: total,
         currency,
         status: "pending_confirmation",
