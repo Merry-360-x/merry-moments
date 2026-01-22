@@ -419,7 +419,7 @@ export default function HostDashboard() {
         supabase.from("properties").select("*").eq("host_id", user.id).order("created_at", { ascending: false }),
         supabase.from("tours").select("*").eq("created_by", user.id).order("created_at", { ascending: false }),
         supabase.from("transport_vehicles").select("*").eq("created_by", user.id).order("created_at", { ascending: false }),
-        supabase.from("transport_routes").select("*").eq("created_by", user.id).order("created_at", { ascending: false }),
+        supabase.from("transport_routes").select("*").order("created_at", { ascending: false }),
       ]);
 
       if (propsRes.data) setProperties(propsRes.data as Property[]);
