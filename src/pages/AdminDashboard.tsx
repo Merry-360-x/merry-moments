@@ -673,7 +673,7 @@ export default function AdminDashboard() {
         .from("bookings")
         // guest_* fields support guest checkout (guest_id can be NULL)
         .select(
-          "id, property_id, guest_id, guest_name, guest_email, guest_phone, is_guest_booking, check_in, check_out, guests, total_price, currency, status, payment_status, payment_method, special_requests, host_id, created_at, properties(title, images), profiles:guest_id(full_name, email, phone), host_profile:host_id(full_name)"
+          "id, property_id, guest_id, guest_name, guest_email, guest_phone, is_guest_booking, check_in, check_out, guests, total_price, currency, status, payment_status, payment_method, special_requests, host_id, created_at, properties(title, images)"
         )
         .order("created_at", { ascending: false })
         .limit(500); // Increase limit for comprehensive booking data
