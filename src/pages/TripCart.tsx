@@ -288,11 +288,51 @@ export default function TripCart() {
             <p className="text-muted-foreground">Loading your cart…</p>
           </div>
         ) : cartItems.length === 0 ? (
-          <div className="bg-card rounded-xl shadow-card p-8 text-center">
-            <p className="text-muted-foreground mb-6">{t("tripCart.empty")}</p>
-            <Link to="/accommodations">
-              <Button>{t("tripCart.browse")}</Button>
-            </Link>
+          <div className="space-y-4">
+            {/* Show warning if guest cart has items but none loaded */}
+            {!user && guestCart.length > 0 && (
+              <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-5">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-semibold text-amber-900 dark:text-amber-100 mb-1">
+                      Cart items couldn't be loaded
+                    </h3>
+                    <p className="text-sm text-amber-800 dark:text-amber-200 mb-3">
+                      You have {guestCart.length} item{guestCart.length > 1 ? 's' : ''} in your cart, but they couldn't be loaded. 
+                      This usually means the items no longer exist or aren't published.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={handleClearCart}
+                        className="border-amber-300 text-amber-900 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-100 dark:hover:bg-amber-900"
+                      >
+                        <Trash2 className="w-3 h-3 mr-1" />
+                        Clear cart
+                      </Button>
+                      <Link to="/accommodations">
+                        <Button size="sm" variant="default">
+                          Browse properties
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <div className="bg-card rounded-xl shadow-card p-8 text-center">
+              <p className="text-muted-foreground mb-6">{t("tripCart.empty")}</p>
+              <Link to="/accommodations">
+                <Button>{t("tripCart.browse")}</Button>
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="space-y-4">
