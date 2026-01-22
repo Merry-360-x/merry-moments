@@ -234,7 +234,7 @@ export default function CreateTourPackage() {
         cover_image: formData.coverImage || 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800',
         gallery_images: formData.galleryImages,
         itinerary_pdf_url: pdfUrl || '',
-        status: 'published',
+        status: 'approved',
       };
 
       const { error } = await supabase.from("tour_packages").insert(payload);
@@ -415,7 +415,17 @@ export default function CreateTourPackage() {
                       src={pdfUrl}
                       className="w-full h-96"
                       title="PDF Preview"
+                      onError={(e) => {
+                        console.warn('PDF preview failed to load:', pdfUrl);
+                        // Hide broken iframe on error
+                        (e.target as HTMLIFrameElement).style.display = 'none';
+                      }}
                     />
+                    <div className="p-4 text-sm text-muted-foreground">
+                      <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                        Open PDF in new tab
+                      </a>
+                    </div>
                   </div>
                 </div>
               ) : (
