@@ -5,11 +5,17 @@
 -- TRANSPORT VEHICLES POLICIES
 -- ==========================================
 
--- Drop existing policies
-DROP POLICY IF EXISTS "Anyone can view published vehicles" ON transport_vehicles;
-DROP POLICY IF EXISTS "Creators can view own vehicles" ON transport_vehicles;
-DROP POLICY IF EXISTS "Admins can view all vehicles" ON transport_vehicles;
-DROP POLICY IF EXISTS "Admins can manage all vehicles" ON transport_vehicles;
+-- Drop ALL existing policies on transport_vehicles
+DO $$ 
+BEGIN
+  DROP POLICY IF EXISTS "Anyone can view published vehicles" ON transport_vehicles;
+  DROP POLICY IF EXISTS "Creators can view own vehicles" ON transport_vehicles;
+  DROP POLICY IF EXISTS "Admins can view all vehicles" ON transport_vehicles;
+  DROP POLICY IF EXISTS "Admins can manage all vehicles" ON transport_vehicles;
+  DROP POLICY IF EXISTS "Hosts can create vehicles" ON transport_vehicles;
+  DROP POLICY IF EXISTS "Creators can update own vehicles" ON transport_vehicles;
+  DROP POLICY IF EXISTS "Creators can delete own vehicles" ON transport_vehicles;
+END $$;
 
 -- Public can view published vehicles
 CREATE POLICY "Anyone can view published vehicles"
@@ -90,11 +96,17 @@ WITH CHECK (
 -- TRANSPORT ROUTES POLICIES
 -- ==========================================
 
--- Drop existing policies
-DROP POLICY IF EXISTS "Anyone can view published routes" ON transport_routes;
-DROP POLICY IF EXISTS "Creators can view own routes" ON transport_routes;
-DROP POLICY IF EXISTS "Admins can view all routes" ON transport_routes;
-DROP POLICY IF EXISTS "Admins can manage all routes" ON transport_routes;
+-- Drop ALL existing policies on transport_routes
+DO $$ 
+BEGIN
+  DROP POLICY IF EXISTS "Anyone can view published routes" ON transport_routes;
+  DROP POLICY IF EXISTS "Creators can view own routes" ON transport_routes;
+  DROP POLICY IF EXISTS "Admins can view all routes" ON transport_routes;
+  DROP POLICY IF EXISTS "Admins can manage all routes" ON transport_routes;
+  DROP POLICY IF EXISTS "Hosts can create routes" ON transport_routes;
+  DROP POLICY IF EXISTS "Creators can update own routes" ON transport_routes;
+  DROP POLICY IF EXISTS "Creators can delete own routes" ON transport_routes;
+END $$;
 
 -- Public can view published routes
 CREATE POLICY "Anyone can view published routes"

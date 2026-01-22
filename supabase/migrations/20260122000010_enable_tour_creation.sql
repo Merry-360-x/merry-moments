@@ -1,13 +1,20 @@
 -- Enable hosts to create and manage their own tours
 -- Migration: 20260122000010_enable_tour_creation.sql
 
--- Drop existing conflicting policies
-DROP POLICY IF EXISTS "Creators can view own tours" ON tours;
-DROP POLICY IF EXISTS "Admins can manage all tours" ON tours;
-DROP POLICY IF EXISTS "Admins can view all tours" ON tours;
-DROP POLICY IF EXISTS "Admins can insert any tour" ON tours;
-DROP POLICY IF EXISTS "Admins can update any tour" ON tours;
-DROP POLICY IF EXISTS "Admins can delete any tour" ON tours;
+-- Drop ALL existing policies on tours table
+DO $$ 
+BEGIN
+  DROP POLICY IF EXISTS "Anyone can view published tours" ON tours;
+  DROP POLICY IF EXISTS "Creators can view own tours" ON tours;
+  DROP POLICY IF EXISTS "Admins can manage all tours" ON tours;
+  DROP POLICY IF EXISTS "Admins can view all tours" ON tours;
+  DROP POLICY IF EXISTS "Admins can insert any tour" ON tours;
+  DROP POLICY IF EXISTS "Admins can update any tour" ON tours;
+  DROP POLICY IF EXISTS "Admins can delete any tour" ON tours;
+  DROP POLICY IF EXISTS "Hosts can create tours" ON tours;
+  DROP POLICY IF EXISTS "Creators can update own tours" ON tours;
+  DROP POLICY IF EXISTS "Creators can delete own tours" ON tours;
+END $$;
 
 -- Public can view published tours
 CREATE POLICY "Anyone can view published tours"
