@@ -209,11 +209,7 @@ export default function Checkout() {
       const { error } = await supabase.from("bookings").insert(basePayload as never);
       if (error) throw error;
 
-      toast({ 
-        title: "Booking request submitted!", 
-        description: "Our team will contact you shortly to confirm your booking and arrange payment." 
-      });
-      navigate(user ? "/my-bookings" : "/");
+      navigate("/booking-success?mode=booking");
     } catch (e) {
       logError("checkout.booking.insert", e);
       toast({ variant: "destructive", title: "Could not submit booking request", description: uiErrorMessage(e, "Please try again.") });
@@ -268,11 +264,7 @@ export default function Checkout() {
       if (error) throw error;
 
       await clearCart();
-      toast({ 
-        title: "Request submitted successfully!", 
-        description: "Our team will contact you shortly to confirm your order and arrange payment." 
-      });
-      navigate("/");
+      navigate("/booking-success?mode=cart");
     } catch (e) {
       logError("checkout.cart.submit", e);
       toast({ variant: "destructive", title: "Could not submit request", description: uiErrorMessage(e, "Please try again.") });
@@ -535,10 +527,46 @@ export default function Checkout() {
               <div className="space-y-6">
                 <div>
                   <h3 className="text-xl font-semibold mb-2">Review Your Request</h3>
-                  <p className="text-sm text-muted-foreground">Please verify your information before submitting</p>
+                  <p className="text-sm text-muted-foreground">Please verify all information before submitting</p>
                 </div>
 
                 <div className="space-y-4">
+                  {mode === "booking" && property && (
+                    <div className="bg-primary/5 rounded-lg p-4 border-2 border-primary/20">
+                      <h4 className="font-semibold mb-3 text-primary">Booking Details</h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Property:</span>
+                          <span className="font-medium">{property.title || property.name}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Check-in:</span>
+                          <span className="font-medium">{checkIn}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Check-out:</span>
+                          <span className="font-medium">{checkOut}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Nights:</span>
+                          <span className="font-medium">{nights} night{nights === 1 ? "" : "s"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Guests:</span>
+                          <span className="font-medium">{Math.max(1, guests)} guest{Math.max(1, guests) === 1 ? "" : "s"}</span>
+                        </div>
+                        <div className="flex justify-between pt-2 border-t">
+                          <span className="text-muted-foreground">Price per night:</span>
+                          <span className="font-medium">{formatMoneyWithConversion(Number(property.price_per_night ?? 0), currency, preferredCurrency, usdRates)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="font-semibold">Total Price:</span>
+                          <span className="font-bold text-lg text-primary">{formatMoneyWithConversion(bookingTotal, currency, preferredCurrency, usdRates)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="bg-muted/50 rounded-lg p-4">
                     <h4 className="font-semibold mb-3">Contact Details</h4>
                     <div className="space-y-2 text-sm">
@@ -556,7 +584,7 @@ export default function Checkout() {
                       </div>
                       {message && (
                         <div className="pt-2 border-t">
-                          <span className="text-muted-foreground">Notes:</span>
+                          <span className="text-muted-foreground">Special Requests:</span>
                           <p className="mt-1 text-foreground">{message}</p>
                         </div>
                       )}

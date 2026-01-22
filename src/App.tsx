@@ -28,6 +28,7 @@ import AdminRoles from "./pages/AdminRoles";
 import PropertyDetails from "./pages/PropertyDetails";
 import TripCart from "./pages/TripCart";
 import Checkout from "./pages/Checkout";
+import BookingSuccess from "./pages/BookingSuccess";
 import InfoPage from "./pages/InfoPage";
 import Dashboard from "./pages/Dashboard";
 import AdminIntegrations from "./pages/AdminIntegrations";
@@ -238,6 +239,7 @@ const App = () => (
               <Route path="/favorites" element={<Favorites />} />
               <Route path="/trip-cart" element={<TripCart />} />
               <Route path="/checkout" element={<Checkout />} />
+              <Route path="/booking-success" element={<BookingSuccess />} />
               <Route
                 path="/dashboard"
                 element={
