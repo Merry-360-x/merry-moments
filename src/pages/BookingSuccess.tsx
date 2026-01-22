@@ -19,45 +19,44 @@ export default function BookingSuccess() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <div className="container mx-auto px-4 lg:px-8 py-20">
-        <div className="max-w-2xl mx-auto">
-          <Card className="p-8 text-center">
-            <div className="flex justify-center mb-6">
-              <div className="bg-green-100 dark:bg-green-900/30 rounded-full p-6">
-                <CheckCircle className="h-20 w-20 text-green-600 dark:text-green-400" />
+      <div className="container mx-auto px-4 py-16">
+        <div className="max-w-md mx-auto">
+          <Card className="p-6 text-center">
+            <div className="flex justify-center mb-4">
+              <div className="bg-green-100 dark:bg-green-900/30 rounded-full p-3">
+                <CheckCircle className="h-12 w-12 text-green-600 dark:text-green-400" />
               </div>
             </div>
 
-            <h1 className="text-3xl font-bold text-foreground mb-4">
-              {mode === "booking" ? "Booking Request Submitted!" : "Order Submitted Successfully!"}
+            <h1 className="text-xl font-semibold text-foreground mb-2">
+              {mode === "booking" ? "Request Submitted" : "Order Submitted"}
             </h1>
 
-            <p className="text-lg text-muted-foreground mb-8">
-              Thank you for your request. We've received all your details.
+            <p className="text-sm text-muted-foreground mb-6">
+              We've received your details
             </p>
 
-            <div className="bg-blue-50 dark:bg-blue-950/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-6 mb-8">
-              <div className="flex items-center justify-center gap-3 mb-3">
-                <Phone className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                <h2 className="text-xl font-semibold text-blue-900 dark:text-blue-100">
-                  Expect a Call Soon!
-                </h2>
+            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <Phone className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                  Expect a call in 5 minutes
+                </p>
               </div>
-              <p className="text-blue-800 dark:text-blue-200 text-lg font-medium">
-                Our booking team will contact you in less than 5 minutes to confirm your request and arrange payment.
+              <p className="text-xs text-blue-700 dark:text-blue-300">
+                We'll confirm and arrange payment
               </p>
             </div>
 
-            <div className="space-y-3">
-              <Button
-                onClick={() => navigate("/")}
-                className="w-full sm:w-auto"
-                size="lg"
-              >
-                <Home className="h-4 w-4 mr-2" />
-                Back to Home
-              </Button>
-            </div>
+            <Button
+              onClick={() => navigate("/")}
+              variant="outline"
+              size="sm"
+              className="w-full"
+            >
+              <Home className="h-3 w-3 mr-2" />
+              Back to Home
+            </Button>
           </Card>
         </div>
       </div>
