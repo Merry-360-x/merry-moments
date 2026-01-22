@@ -22,6 +22,18 @@ import {
 } from "lucide-react";
 import { extractNeighborhood } from "@/lib/location";
 
+type TourDetailsData = {
+  source: "tours" | "tour_packages";
+  tour: any;
+  host?: {
+    full_name?: string | null;
+    years_of_experience?: string | number | null;
+    languages_spoken?: string[] | null;
+    tour_guide_bio?: string | null;
+    avatar_url?: string | null;
+  } | null;
+};
+
 export default function TourDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -30,37 +42,76 @@ export default function TourDetails() {
   const { data, isLoading } = useQuery({
     queryKey: ["tour-with-host", id],
     queryFn: async () => {
-      // Fetch tour first
+      // Try tours table first
       const { data: tour, error: tourError } = await supabase
         .from("tours")
         .select("*")
         .eq("id", id)
         .single();
-      
-      if (tourError) throw tourError;
-      
-      // If tour has created_by, fetch the host profile
-      if (tour.created_by) {
-        const { data: profile, error: profileError } = await supabase
+
+      if (!tourError && tour) {
+        if (tour.created_by) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("full_name, years_of_experience, languages_spoken, tour_guide_bio, avatar_url")
+            .eq("user_id", tour.created_by)
+            .single();
+          return { source: "tours", tour, host: profile } as TourDetailsData;
+        }
+        return { source: "tours", tour, host: null } as TourDetailsData;
+      }
+
+      // If not found in tours, try tour_packages
+      if (tourError && tourError.code !== "PGRST116") {
+        throw tourError;
+      }
+
+      const { data: pkg, error: pkgError } = await supabase
+        .from("tour_packages")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (pkgError) throw pkgError;
+
+      if (pkg?.host_id) {
+        const { data: profile } = await supabase
           .from("profiles")
           .select("full_name, years_of_experience, languages_spoken, tour_guide_bio, avatar_url")
-          .eq("user_id", tour.created_by)
+          .eq("user_id", pkg.host_id)
           .single();
-        
-        // Don't throw error if profile not found, just return tour without host
-        if (!profileError && profile) {
-          return { ...tour, host: profile };
-        }
+        return { source: "tour_packages", tour: pkg, host: profile } as TourDetailsData;
       }
-      
-      return tour;
+
+      return { source: "tour_packages", tour: pkg, host: null } as TourDetailsData;
     },
     enabled: !!id,
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
-  const tour = data;
-  const hostProfile = data?.host;
+  const tour = data?.tour;
+  const hostProfile = data?.host ?? null;
+
+  const isPackage = data?.source === "tour_packages";
+  const normalizedImages = isPackage
+    ? [tour?.cover_image, ...(Array.isArray(tour?.gallery_images) ? tour?.gallery_images : [])].filter(Boolean)
+    : tour?.images ?? [];
+  const normalizedDurationDays = isPackage
+    ? Number.parseInt(tour?.duration ?? "1", 10) || 1
+    : tour?.duration_days ?? 1;
+  const normalizedPrice = isPackage ? tour?.price_per_adult : tour?.price_per_person;
+  const normalizedCurrency = tour?.currency ?? "RWF";
+  const normalizedMaxGroup = isPackage ? tour?.max_guests : tour?.max_group_size;
+  const normalizedDifficulty = tour?.difficulty ?? null;
+  const normalizedLocation = isPackage
+    ? [tour?.city, tour?.country].filter(Boolean).join(", ")
+    : tour?.location;
+  const normalizedCategories = isPackage
+    ? [tour?.category].filter(Boolean)
+    : (tour?.categories ?? (tour?.category ? [tour.category] : []));
+  const nonRefundableItems = Array.isArray(tour?.non_refundable_items)
+    ? tour?.non_refundable_items
+    : [];
 
   if (isLoading) {
     return (
@@ -113,7 +164,7 @@ export default function TourDetails() {
           <h1 className="text-3xl md:text-4xl font-bold mb-3">{tour.title}</h1>
           
           <div className="flex flex-wrap items-center gap-3 mb-4">
-            {tour.categories?.map((category: string) => (
+            {normalizedCategories.map((category: string) => (
               <Badge key={category} variant="secondary">{category}</Badge>
             ))}
           </div>
@@ -128,16 +179,16 @@ export default function TourDetails() {
             )}
             <div className="flex items-center gap-1">
               <MapPin className="w-4 h-4" />
-              <span>{extractNeighborhood(tour.location)}</span>
+              <span>{extractNeighborhood(normalizedLocation || "")}</span>
             </div>
           </div>
         </div>
 
         {/* Images */}
-        {tour.images && tour.images.length > 0 && (
+        {normalizedImages && normalizedImages.length > 0 && (
           <div className="mb-8 rounded-xl overflow-hidden">
             <ListingImageCarousel 
-              images={tour.images} 
+              images={normalizedImages} 
               alt={tour.title} 
               className="w-full aspect-[16/9]"
             />
@@ -156,26 +207,26 @@ export default function TourDetails() {
                   <Clock className="w-5 h-5 text-muted-foreground" />
                   <div>
                     <p className="text-sm text-muted-foreground">Duration</p>
-                    <p className="font-medium">{tour.duration_days} day{tour.duration_days === 1 ? "" : "s"}</p>
+                    <p className="font-medium">{normalizedDurationDays} day{normalizedDurationDays === 1 ? "" : "s"}</p>
                   </div>
                 </div>
 
-                {tour.max_group_size && (
+                {normalizedMaxGroup && (
                   <div className="flex items-center gap-2">
                     <Users className="w-5 h-5 text-muted-foreground" />
                     <div>
                       <p className="text-sm text-muted-foreground">Max Group</p>
-                      <p className="font-medium">{tour.max_group_size} people</p>
+                      <p className="font-medium">{normalizedMaxGroup} people</p>
                     </div>
                   </div>
                 )}
 
-                {tour.difficulty && (
+                {normalizedDifficulty && (
                   <div className="flex items-center gap-2">
                     <Award className="w-5 h-5 text-muted-foreground" />
                     <div>
                       <p className="text-sm text-muted-foreground">Difficulty</p>
-                      <p className="font-medium">{tour.difficulty}</p>
+                      <p className="font-medium">{normalizedDifficulty}</p>
                     </div>
                   </div>
                 )}
@@ -185,6 +236,66 @@ export default function TourDetails() {
                 <div>
                   <h3 className="font-semibold mb-2">Description</h3>
                   <p className="text-muted-foreground whitespace-pre-line">{tour.description}</p>
+                </div>
+              )}
+
+              {isPackage && tour?.daily_itinerary && (
+                <div className="mt-6">
+                  <h3 className="font-semibold mb-2">Daily Itinerary</h3>
+                  <p className="text-muted-foreground whitespace-pre-line">{tour.daily_itinerary}</p>
+                </div>
+              )}
+
+              {isPackage && (tour?.included_services || tour?.excluded_services) && (
+                <div className="mt-6 grid md:grid-cols-2 gap-4">
+                  {tour?.included_services && (
+                    <div>
+                      <h4 className="font-semibold mb-2">Included</h4>
+                      <p className="text-muted-foreground whitespace-pre-line">{tour.included_services}</p>
+                    </div>
+                  )}
+                  {tour?.excluded_services && (
+                    <div>
+                      <h4 className="font-semibold mb-2">Excluded</h4>
+                      <p className="text-muted-foreground whitespace-pre-line">{tour.excluded_services}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {isPackage && tour?.meeting_point && (
+                <div className="mt-6">
+                  <h4 className="font-semibold mb-2">Meeting Point</h4>
+                  <p className="text-muted-foreground whitespace-pre-line">{tour.meeting_point}</p>
+                </div>
+              )}
+
+              {isPackage && tour?.what_to_bring && (
+                <div className="mt-6">
+                  <h4 className="font-semibold mb-2">What to Bring</h4>
+                  <p className="text-muted-foreground whitespace-pre-line">{tour.what_to_bring}</p>
+                </div>
+              )}
+
+              {isPackage && (tour?.cancellation_policy || tour?.custom_cancellation_policy || nonRefundableItems.length > 0) && (
+                <div className="mt-6">
+                  <h4 className="font-semibold mb-2">Cancellation Policy</h4>
+                  {tour?.cancellation_policy && (
+                    <p className="text-muted-foreground whitespace-pre-line mb-3">{tour.cancellation_policy}</p>
+                  )}
+                  {tour?.custom_cancellation_policy && (
+                    <p className="text-muted-foreground whitespace-pre-line mb-3">{tour.custom_cancellation_policy}</p>
+                  )}
+                  {nonRefundableItems.length > 0 && (
+                    <div className="text-sm text-muted-foreground">
+                      <div className="font-medium text-foreground mb-1">Non-Refundable Items</div>
+                      <ul className="list-disc list-inside space-y-1">
+                        {nonRefundableItems.map((item: string) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               )}
             </Card>
@@ -255,7 +366,7 @@ export default function TourDetails() {
             <Card className="p-6 sticky top-4">
               <div className="mb-6">
                 <div className="text-3xl font-bold mb-1">
-                  {formatMoney(tour.price_per_person, tour.currency || "RWF")}
+                  {formatMoney(Number(normalizedPrice ?? 0), String(normalizedCurrency ?? "RWF"))}
                 </div>
                 <div className="text-sm text-muted-foreground">per person</div>
               </div>
@@ -265,7 +376,7 @@ export default function TourDetails() {
                   className="w-full" 
                   size="lg"
                   onClick={() => {
-                    addToCart(tour);
+                    addToCart("tour", String(tour.id), 1);
                     navigate("/trip-cart");
                   }}
                 >
@@ -276,7 +387,7 @@ export default function TourDetails() {
                 <Button 
                   className="w-full" 
                   variant="outline"
-                  onClick={() => addToCart(tour)}
+                  onClick={() => addToCart("tour", String(tour.id), 1)}
                 >
                   Add to Trip Cart
                 </Button>
@@ -285,19 +396,19 @@ export default function TourDetails() {
               <div className="mt-6 pt-6 border-t space-y-3 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Duration</span>
-                  <span className="font-medium">{tour.duration_days} day{tour.duration_days === 1 ? "" : "s"}</span>
+                  <span className="font-medium">{normalizedDurationDays} day{normalizedDurationDays === 1 ? "" : "s"}</span>
                 </div>
                 
-                {tour.max_group_size && (
+                {normalizedMaxGroup && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Group Size</span>
-                    <span className="font-medium">Up to {tour.max_group_size}</span>
+                    <span className="font-medium">Up to {normalizedMaxGroup}</span>
                   </div>
                 )}
 
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Location</span>
-                  <span className="font-medium">{extractNeighborhood(tour.location)}</span>
+                  <span className="font-medium">{extractNeighborhood(normalizedLocation || "")}</span>
                 </div>
               </div>
             </Card>
