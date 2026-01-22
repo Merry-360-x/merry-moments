@@ -20,7 +20,18 @@ type DestinationSuggestion = {
 import { extractNeighborhood } from "@/lib/location";
 
 const NEARBY_LABEL = "Find what's nearby";
-const STATIC_DESTINATIONS = ["Rebero", "Gacuriro", "Nyarutarama"];
+const STATIC_DESTINATIONS = [
+  "Kagugu",
+  "Norvège (Norway)", 
+  "Rebero", 
+  "Gacuriro", 
+  "Nyarutarama",
+  "Kimihurura",
+  "Kacyiru",
+  "Remera",
+  "Kigali City Center",
+  "Nyamirambo"
+];
 
 const fetchAllAccommodationLocations = async () => {
   const { data, error } = await supabase
@@ -37,7 +48,7 @@ const fetchAllAccommodationLocations = async () => {
     .filter(Boolean) ?? [];
   
   const unique = Array.from(new Set(locations));
-  return [NEARBY_LABEL, ...STATIC_DESTINATIONS, ...unique].slice(0, 15);
+  return [NEARBY_LABEL, ...STATIC_DESTINATIONS, ...unique].slice(0, 20);
 };
 
 const fetchDestinationSuggestions = async (search: string) => {
@@ -75,7 +86,7 @@ const fetchDestinationSuggestions = async (search: string) => {
   const filtered = trimmed2
     ? merged.filter((x) => String(x).toLowerCase().includes(trimmed2) || x === NEARBY_LABEL)
     : merged;
-  return Array.from(new Set(filtered)).slice(0, 12);
+  return Array.from(new Set(filtered)).slice(0, 18);
 };
 
 const HeroSearch = () => {
