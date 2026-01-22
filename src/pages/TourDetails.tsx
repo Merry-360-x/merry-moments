@@ -27,44 +27,50 @@ export default function TourDetails() {
   const navigate = useNavigate();
   const { addToCart } = useTripCart();
 
-  const { data: tour, isLoading } = useQuery({
-    queryKey: ["tour", id],
+  const { data, isLoading } = useQuery({
+    queryKey: ["tour-with-host", id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Fetch tour and host in parallel
+      const { data: tour, error } = await supabase
         .from("tours")
-        .select("*")
+        .select(`
+          *,
+          host:created_by(
+            full_name,
+            years_of_experience,
+            languages_spoken,
+            tour_guide_bio,
+            avatar_url
+          )
+        `)
         .eq("id", id)
         .single();
       
       if (error) throw error;
-      return data;
+      return tour;
     },
     enabled: !!id,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
-  const { data: hostProfile } = useQuery({
-    queryKey: ["tour-host", tour?.created_by],
-    queryFn: async () => {
-      if (!tour?.created_by) return null;
-      
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("full_name, years_of_experience, languages_spoken, tour_guide_bio, avatar_url")
-        .eq("id", tour.created_by)
-        .single();
-      
-      if (error) return null;
-      return data;
-    },
-    enabled: !!tour?.created_by,
-  });
+  const tour = data;
+  const hostProfile = data?.host;
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
-        <div className="container mx-auto px-4 py-20 text-center">
-          <div className="animate-pulse">Loading tour details...</div>
+        <div className="container mx-auto px-4 py-8 max-w-6xl">
+          <div className="animate-pulse space-y-4">
+            <div className="h-8 bg-gray-200 rounded w-32"></div>
+            <div className="h-64 bg-gray-200 rounded"></div>
+            <div className="h-12 bg-gray-200 rounded w-3/4"></div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="h-24 bg-gray-200 rounded"></div>
+              <div className="h-24 bg-gray-200 rounded"></div>
+              <div className="h-24 bg-gray-200 rounded"></div>
+            </div>
+          </div>
         </div>
         <Footer />
       </div>

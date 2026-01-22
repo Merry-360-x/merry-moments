@@ -54,7 +54,7 @@ export default function ListingImageCarousel({
         className="h-full w-full flex transition-transform duration-500 ease-out"
         style={{ transform: `translateX(-${idx * 100}%)` }}
       >
-        {clean.map((src) => (
+        {clean.map((src, i) => (
           isVideoUrl(src) ? (
             <video
               key={src}
@@ -70,7 +70,7 @@ export default function ListingImageCarousel({
               src={optimizeCloudinaryImage(src, { width: 800, height: 600, quality: 'auto', format: 'auto' })}
               alt={alt}
               className="w-full h-full object-cover shrink-0"
-              loading="lazy"
+              loading={i === 0 ? "eager" : "lazy"}
               decoding="async"
             />
           )
