@@ -584,18 +584,6 @@ export default function Checkout() {
                     </div>
                   </div>
                 </div>
-
-                <div className="bg-white dark:bg-gray-900 border-2 border-green-200 dark:border-green-800 rounded-lg p-4 shadow-sm">
-                  <h4 className="font-semibold text-green-900 dark:text-green-100 mb-2 flex items-center gap-2">
-                    📞 What happens next?
-                  </h4>
-                  <ul className="text-sm text-green-900 dark:text-green-200 space-y-1.5 ml-4 list-disc">
-                    <li>Our team will review your request within 24 hours</li>
-                    <li>We'll call you at <strong>{phone}</strong> to confirm the details</li>
-                    <li>Payment instructions will be provided based on your selected method</li>
-                    <li>Once payment is confirmed, your booking will be finalized</li>
-                  </ul>
-                </div>
               </div>
             )}
 
