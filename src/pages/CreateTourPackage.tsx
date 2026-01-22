@@ -530,7 +530,6 @@ export default function CreateTourPackage() {
                   </div>
                 </div>
               </div>
-            )}
 
             {/* Group Discounts */}
             <div className="space-y-6 border-t pt-6">
