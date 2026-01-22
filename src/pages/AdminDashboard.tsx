@@ -162,6 +162,11 @@ type BookingRow = {
   special_requests: string | null;
   host_id: string | null;
   created_at: string;
+  properties?: {
+    title: string;
+    media: string[] | null;
+    image_url: string | null;
+  };
 };
 
 type ReviewRow = {
@@ -660,7 +665,7 @@ export default function AdminDashboard() {
         .from("bookings")
         // guest_* fields support guest checkout (guest_id can be NULL)
         .select(
-          "id, property_id, guest_id, guest_name, guest_email, guest_phone, is_guest_booking, check_in, check_out, guests, total_price, currency, status, payment_method, special_requests, host_id, created_at"
+          "id, property_id, guest_id, guest_name, guest_email, guest_phone, is_guest_booking, check_in, check_out, guests, total_price, currency, status, payment_method, special_requests, host_id, created_at, properties(title, media, image_url)"
         )
         .order("created_at", { ascending: false })
         .limit(500); // Increase limit for comprehensive booking data
@@ -3083,6 +3088,24 @@ For support, contact: support@merry360x.com
             </DialogHeader>
             {selectedBooking && (
               <div className="space-y-4">
+                {selectedBooking.properties && (
+                  <div className="border-b pb-4">
+                    <h3 className="font-semibold mb-3">Property</h3>
+                    <div className="flex items-start gap-4">
+                      {(selectedBooking.properties.media?.[0] || selectedBooking.properties.image_url) && (
+                        <img
+                          src={selectedBooking.properties.media?.[0] || selectedBooking.properties.image_url || ''}
+                          alt={selectedBooking.properties.title}
+                          className="w-24 h-24 rounded-lg object-cover"
+                        />
+                      )}
+                      <div>
+                        <p className="font-medium">{selectedBooking.properties.title}</p>
+                        <p className="text-sm text-muted-foreground font-mono">{selectedBooking.property_id.slice(0, 8)}...</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Booking ID</p>
