@@ -110,14 +110,14 @@ GRANT SELECT ON tours TO authenticated;
 -- Also ensure tour_packages has similar policies
 ALTER TABLE tour_packages ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Anyone can view published tour packages" ON tour_packages;
+DROP POLICY IF EXISTS "Anyone can view tour packages" ON tour_packages;
 DROP POLICY IF EXISTS "Hosts can view own packages" ON tour_packages;
 DROP POLICY IF EXISTS "Admins can view all packages" ON tour_packages;
 
--- Anyone can view published tour packages
-CREATE POLICY "Anyone can view published tour packages"
+-- Anyone can view all tour packages (no is_published column in tour_packages)
+CREATE POLICY "Anyone can view tour packages"
 ON tour_packages FOR SELECT
-USING (is_published = true);
+USING (true);
 
 -- Hosts can view their own packages
 CREATE POLICY "Hosts can view own packages"
