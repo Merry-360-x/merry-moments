@@ -32,15 +32,15 @@ export default function TripCart() {
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const { currency: preferredCurrency } = usePreferences();
-  const { guestCart, removeFromCart, clearCart, cleanupInvalidItems } = useTripCart();
+  const { guestCart, removeFromCart, clearCart } = useTripCart();
   const { usdRates } = useFxRates();
 
-  // Single optimized query for cart data
+  // Optimized query with parallel fetching and caching
   const { data: cartItems = [], isLoading } = useQuery({
     queryKey: ["trip_cart", user?.id, guestCart.map(i => i.id).join(",")],
     queryFn: async () => {
       if (user) {
-        // Authenticated user - fetch from database with all details in one query
+        // Authenticated user - fetch from database
         const { data, error } = await supabase
           .from("trip_cart_items")
           .select(`
@@ -57,186 +57,198 @@ export default function TripCart() {
         
         if (!data || data.length === 0) return [];
 
-        // Fetch all item details in parallel
-        const items = await Promise.all(
-          data.map(async (item) => {
-            let details: any = null;
+        // Batch fetch all items by type for better performance
+        const tourIds = data.filter(d => d.item_type === 'tour').map(d => d.reference_id);
+        const propertyIds = data.filter(d => d.item_type === 'property').map(d => d.reference_id);
+        const vehicleIds = data.filter(d => d.item_type === 'transport_vehicle').map(d => d.reference_id);
+        const routeIds = data.filter(d => d.item_type === 'transport_route').map(d => d.reference_id);
 
-            try {
-              if (item.item_type === "tour") {
-                const { data: tour } = await supabase
-                  .from("tours")
-                  .select("id, title, price_per_person, currency, images, duration_days")
-                  .eq("id", item.reference_id)
-                  .single();
-                details = tour ? {
-                  title: tour.title,
-                  price: tour.price_per_person,
-                  currency: tour.currency || "RWF",
-                  image: tour.images?.[0],
-                  meta: `${tour.duration_days} day${tour.duration_days === 1 ? "" : "s"}`,
-                } : null;
-              } else if (item.item_type === "property") {
-                const { data: property } = await supabase
-                  .from("properties")
-                  .select("id, title, price_per_night, currency, images, location")
-                  .eq("id", item.reference_id)
-                  .single();
-                details = property ? {
-                  title: property.title,
-                  price: property.price_per_night,
-                  currency: property.currency || "RWF",
-                  image: property.images?.[0],
-                  meta: property.location,
-                } : null;
-              } else if (item.item_type === "transport_vehicle") {
-                const { data: vehicle } = await supabase
-                  .from("transport_vehicles")
-                  .select("id, title, price_per_day, currency, image_url, vehicle_type, seats")
-                  .eq("id", item.reference_id)
-                  .single();
-                details = vehicle ? {
-                  title: vehicle.title,
-                  price: vehicle.price_per_day,
-                  currency: vehicle.currency || "RWF",
-                  image: vehicle.image_url,
-                  meta: `${vehicle.vehicle_type} • ${vehicle.seats} seats`,
-                } : null;
-              } else if (item.item_type === "transport_route") {
-                const { data: route } = await supabase
-                  .from("transport_routes")
-                  .select("id, from_location, to_location, base_price, currency")
-                  .eq("id", item.reference_id)
-                  .single();
-                details = route ? {
-                  title: `${route.from_location} → ${route.to_location}`,
-                  price: route.base_price,
-                  currency: route.currency || "RWF",
-                  meta: "Route",
-                } : null;
-              }
-            } catch (err) {
-              console.warn(`Failed to fetch details for ${item.item_type} ${item.reference_id}:`, err);
+        // Fetch all data in parallel batches
+        const [tours, properties, vehicles, routes] = await Promise.all([
+          tourIds.length > 0 
+            ? supabase.from('tours').select('id, title, price_per_person, currency, images, duration_days').in('id', tourIds).then(r => r.data || [])
+            : Promise.resolve([]),
+          propertyIds.length > 0
+            ? supabase.from('properties').select('id, title, price_per_night, currency, images, location').in('id', propertyIds).then(r => r.data || [])
+            : Promise.resolve([]),
+          vehicleIds.length > 0
+            ? supabase.from('transport_vehicles').select('id, title, price_per_day, currency, image_url, vehicle_type, seats').in('id', vehicleIds).then(r => r.data || [])
+            : Promise.resolve([]),
+          routeIds.length > 0
+            ? supabase.from('transport_routes').select('id, from_location, to_location, base_price, currency').in('id', routeIds).then(r => r.data || [])
+            : Promise.resolve([])
+        ]);
+
+        // Create lookup maps for O(1) access
+        const tourMap = new Map(tours.map(t => [t.id, t]));
+        const propertyMap = new Map(properties.map(p => [p.id, p]));
+        const vehicleMap = new Map(vehicles.map(v => [v.id, v]));
+        const routeMap = new Map(routes.map(r => [r.id, r]));
+
+        // Map cart items to their details using lookup maps for O(1) access
+        const items = data.map((item) => {
+          let details: any = null;
+
+          if (item.item_type === "tour") {
+            const tour = tourMap.get(item.reference_id);
+            if (tour) {
+              details = {
+                title: tour.title,
+                price: tour.price_per_person,
+                currency: tour.currency || "RWF",
+                image: tour.images?.[0],
+                meta: `${tour.duration_days} day${tour.duration_days === 1 ? "" : "s"}`,
+              };
             }
+          } else if (item.item_type === "property") {
+            const property = propertyMap.get(item.reference_id);
+            if (property) {
+              details = {
+                title: property.title,
+                price: property.price_per_night,
+                currency: property.currency || "RWF",
+                image: property.images?.[0],
+                meta: property.location,
+              };
+            }
+          } else if (item.item_type === "transport_vehicle") {
+            const vehicle = vehicleMap.get(item.reference_id);
+            if (vehicle) {
+              details = {
+                title: vehicle.title,
+                price: vehicle.price_per_day,
+                currency: vehicle.currency || "RWF",
+                image: vehicle.image_url,
+                meta: `${vehicle.vehicle_type} • ${vehicle.seats} seats`,
+              };
+            }
+          } else if (item.item_type === "transport_route") {
+            const route = routeMap.get(item.reference_id);
+            if (route) {
+              details = {
+                title: `${route.from_location} → ${route.to_location}`,
+                price: route.base_price,
+                currency: route.currency || "RWF",
+                meta: "Route",
+              };
+            }
+          }
 
-            if (!details) return null;
+          if (!details) return null;
 
-            return {
-              id: item.id,
-              item_type: item.item_type,
-              reference_id: item.reference_id,
-              quantity: item.quantity,
-              ...details,
-            } as CartItem;
-          })
-        );
+          return {
+            id: item.id,
+            item_type: item.item_type,
+            reference_id: item.reference_id,
+            quantity: item.quantity,
+            ...details,
+          } as CartItem;
+        });
 
         return items.filter(Boolean) as CartItem[];
       } else {
-        // Guest user - fetch from localStorage references
+        // Guest user - batch fetch from localStorage references
         if (guestCart.length === 0) return [];
 
-        const items = await Promise.all(
-          guestCart.map(async (item) => {
-            let details: any = null;
+        // Batch fetch all items by type for better performance
+        const tourIds = guestCart.filter(i => i.item_type === 'tour').map(i => i.reference_id);
+        const propertyIds = guestCart.filter(i => i.item_type === 'property').map(i => i.reference_id);
+        const vehicleIds = guestCart.filter(i => i.item_type === 'transport_vehicle').map(i => i.reference_id);
+        const routeIds = guestCart.filter(i => i.item_type === 'transport_route').map(i => i.reference_id);
 
-            try {
-              if (item.item_type === "tour") {
-                const { data: tour } = await supabase
-                  .from("tours")
-                  .select("id, title, price_per_person, currency, images, duration_days")
-                  .eq("id", item.reference_id)
-                  .single();
-                details = tour ? {
-                  title: tour.title,
-                  price: tour.price_per_person,
-                  currency: tour.currency || "RWF",
-                  image: tour.images?.[0],
-                  meta: `${tour.duration_days} day${tour.duration_days === 1 ? "" : "s"}`,
-                } : null;
-              } else if (item.item_type === "property") {
-                const { data: property } = await supabase
-                  .from("properties")
-                  .select("id, title, price_per_night, currency, images, location")
-                  .eq("id", item.reference_id)
-                  .single();
-                details = property ? {
-                  title: property.title,
-                  price: property.price_per_night,
-                  currency: property.currency || "RWF",
-                  image: property.images?.[0],
-                  meta: property.location,
-                } : null;
-              } else if (item.item_type === "transport_vehicle") {
-                const { data: vehicle } = await supabase
-                  .from("transport_vehicles")
-                  .select("id, title, price_per_day, currency, image_url, vehicle_type, seats")
-                  .eq("id", item.reference_id)
-                  .single();
-                details = vehicle ? {
-                  title: vehicle.title,
-                  price: vehicle.price_per_day,
-                  currency: vehicle.currency || "RWF",
-                  image: vehicle.image_url,
-                  meta: `${vehicle.vehicle_type} • ${vehicle.seats} seats`,
-                } : null;
-              } else if (item.item_type === "transport_route") {
-                const { data: route } = await supabase
-                  .from("transport_routes")
-                  .select("id, from_location, to_location, base_price, currency")
-                  .eq("id", item.reference_id)
-                  .single();
-                details = route ? {
-                  title: `${route.from_location} → ${route.to_location}`,
-                  price: route.base_price,
-                  currency: route.currency || "RWF",
-                  meta: "Route",
-                } : null;
-              }
-            } catch (err) {
-              console.warn(`Failed to fetch details for ${item.item_type} ${item.reference_id}:`, err);
+        // Fetch all data in parallel batches
+        const [tours, properties, vehicles, routes] = await Promise.all([
+          tourIds.length > 0 
+            ? supabase.from('tours').select('id, title, price_per_person, currency, images, duration_days').in('id', tourIds).then(r => r.data || [])
+            : Promise.resolve([]),
+          propertyIds.length > 0
+            ? supabase.from('properties').select('id, title, price_per_night, currency, images, location').in('id', propertyIds).then(r => r.data || [])
+            : Promise.resolve([]),
+          vehicleIds.length > 0
+            ? supabase.from('transport_vehicles').select('id, title, price_per_day, currency, image_url, vehicle_type, seats').in('id', vehicleIds).then(r => r.data || [])
+            : Promise.resolve([]),
+          routeIds.length > 0
+            ? supabase.from('transport_routes').select('id, from_location, to_location, base_price, currency').in('id', routeIds).then(r => r.data || [])
+            : Promise.resolve([])
+        ]);
+
+        // Create lookup maps for O(1) access
+        const tourMap = new Map(tours.map(t => [t.id, t]));
+        const propertyMap = new Map(properties.map(p => [p.id, p]));
+        const vehicleMap = new Map(vehicles.map(v => [v.id, v]));
+        const routeMap = new Map(routes.map(r => [r.id, r]));
+
+        const items = guestCart.map((item) => {
+          let details: any = null;
+
+          if (item.item_type === "tour") {
+            const tour = tourMap.get(item.reference_id);
+            if (tour) {
+              details = {
+                title: tour.title,
+                price: tour.price_per_person,
+                currency: tour.currency || "RWF",
+                image: tour.images?.[0],
+                meta: `${tour.duration_days} day${tour.duration_days === 1 ? "" : "s"}`,
+              };
             }
+          } else if (item.item_type === "property") {
+            const property = propertyMap.get(item.reference_id);
+            if (property) {
+              details = {
+                title: property.title,
+                price: property.price_per_night,
+                currency: property.currency || "RWF",
+                image: property.images?.[0],
+                meta: property.location,
+              };
+            }
+          } else if (item.item_type === "transport_vehicle") {
+            const vehicle = vehicleMap.get(item.reference_id);
+            if (vehicle) {
+              details = {
+                title: vehicle.title,
+                price: vehicle.price_per_day,
+                currency: vehicle.currency || "RWF",
+                image: vehicle.image_url,
+                meta: `${vehicle.vehicle_type} • ${vehicle.seats} seats`,
+              };
+            }
+          } else if (item.item_type === "transport_route") {
+            const route = routeMap.get(item.reference_id);
+            if (route) {
+              details = {
+                title: `${route.from_location} → ${route.to_location}`,
+                price: route.base_price,
+                currency: route.currency || "RWF",
+                meta: "Route",
+              };
+            }
+          }
 
-            if (!details) return null;
+          if (!details) return null;
 
-            return {
-              id: item.id,
-              item_type: item.item_type,
-              reference_id: item.reference_id,
-              quantity: item.quantity,
-              ...details,
-            } as CartItem;
-          })
-        );
+          return {
+            id: item.id,
+            item_type: item.item_type,
+            reference_id: item.reference_id,
+            quantity: item.quantity,
+            ...details,
+          } as CartItem;
+        });
 
         return items.filter(Boolean) as CartItem[];
       }
     },
-    staleTime: 10_000, // 10 seconds
+    staleTime: 60_000, // 60 seconds - keep data fresh longer
+    gcTime: 5 * 60 * 1000, // 5 minutes cache
     enabled: !authLoading,
+    refetchOnMount: false, // Don't refetch if data is fresh
+    refetchOnWindowFocus: false, // Don't refetch on window focus
   });
 
-  // Auto-cleanup invalid items
-  useEffect(() => {
-    if (!isLoading && cleanupInvalidItems) {
-      const totalExpected = user 
-        ? undefined // Will be checked against database
-        : guestCart.length;
-      
-      const actualLoaded = cartItems?.length || 0;
-      
-      if (!user && totalExpected && actualLoaded < totalExpected) {
-        // Guest user: localStorage has more items than loaded
-        const validIds = (cartItems || []).map(item => item.id);
-        cleanupInvalidItems(validIds);
-      } else if (user && actualLoaded === 0 && guestCart.length === 0) {
-        // Authenticated user: check if database has items that failed to load
-        // This will be handled by the cleanupInvalidItems function
-        const validIds = (cartItems || []).map(item => item.id);
-        cleanupInvalidItems(validIds);
-      }
-    }
-  }, [isLoading, cartItems, guestCart.length, user, cleanupInvalidItems]);
+  // Manual cleanup only - no auto-cleanup to prevent accidental data loss
+  // Items can be manually removed using the remove button
 
   // Calculate totals
   const { total, totalCurrency } = useMemo(() => {
