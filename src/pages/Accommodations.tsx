@@ -218,7 +218,7 @@ const Accommodations = () => {
     queryKey: ["smart-recommendations", user?.id],
     queryFn: async () => {
       // Get user's favorite locations and property types
-      let userPreferences = { locations: [], types: [], maxPrice: 500000 };
+      const userPreferences = { locations: [], types: [], maxPrice: 500000 };
       
       if (user?.id) {
         const { data: favs } = await supabase

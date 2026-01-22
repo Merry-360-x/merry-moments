@@ -8,7 +8,7 @@ export const useBackgroundSync = () => {
   const { user } = useAuth();
 
   // Sync user bookings in background
-  const { } = useQuery({
+  useQuery({
     queryKey: ['user-bookings-sync', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -26,7 +26,7 @@ export const useBackgroundSync = () => {
   });
 
   // Sync favorites in background
-  const { } = useQuery({
+  useQuery({
     queryKey: ['user-favorites-sync', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -43,7 +43,7 @@ export const useBackgroundSync = () => {
   });
 
   // Sync trip cart in background
-  const { } = useQuery({
+  useQuery({
     queryKey: ['user-cart-sync', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -67,7 +67,7 @@ export const useAdminBackgroundSync = () => {
   const { user } = useAuth();
 
   // Only sync if user might be admin/staff
-  const { } = useQuery({
+  useQuery({
     queryKey: ['admin-metrics-sync'],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('admin_dashboard_metrics');

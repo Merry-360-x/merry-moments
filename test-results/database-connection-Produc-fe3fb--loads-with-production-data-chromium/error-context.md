@@ -1,0 +1,1722 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications alt+T"
+  - button "Help" [ref=e3] [cursor=pointer]:
+    - img [ref=e4]
+  - generic [ref=e6]:
+    - banner [ref=e7]:
+      - generic [ref=e11]:
+        - img [ref=e13]
+        - generic [ref=e16]: 10% off on tour for students.
+      - navigation [ref=e18]:
+        - link "Merry 360 X" [ref=e19] [cursor=pointer]:
+          - /url: /
+          - img "Merry 360 X" [ref=e22]
+        - generic [ref=e24]:
+          - link "Home" [ref=e25] [cursor=pointer]:
+            - /url: /
+          - link "Accommodations" [ref=e26] [cursor=pointer]:
+            - /url: /accommodations
+          - link "Tours" [ref=e27] [cursor=pointer]:
+            - /url: /tours
+          - link "Transport" [ref=e28] [cursor=pointer]:
+            - /url: /transport
+          - link "Stories" [ref=e29] [cursor=pointer]:
+            - /url: /stories
+        - generic [ref=e30]:
+          - button "Become a Host" [ref=e31] [cursor=pointer]:
+            - img
+            - generic [ref=e32]: Become a Host
+          - button "Theme" [ref=e33] [cursor=pointer]:
+            - img [ref=e34]
+          - button "Currency" [ref=e36] [cursor=pointer]:
+            - generic [ref=e37]: (FRw) RWF
+            - img [ref=e38]
+          - button "EN" [ref=e40] [cursor=pointer]:
+            - generic [ref=e41]: EN
+            - img [ref=e42]
+          - link "Trip Cart" [ref=e44] [cursor=pointer]:
+            - /url: /trip-cart
+            - button "Trip Cart" [ref=e45]:
+              - generic [ref=e46]: Trip Cart
+          - link [ref=e47] [cursor=pointer]:
+            - /url: /favorites
+            - button [ref=e48]:
+              - img [ref=e49]
+          - link "Sign In" [ref=e51] [cursor=pointer]:
+            - /url: /auth
+            - button "Sign In" [ref=e52]
+    - generic [ref=e57]:
+      - heading "Find A Property" [level=1] [ref=e58]
+      - generic [ref=e62]:
+        - button "Where Search destinations" [ref=e63] [cursor=pointer]:
+          - generic [ref=e64]: Where
+          - generic [ref=e65]: Search destinations
+        - button "When Add dates" [ref=e67] [cursor=pointer]:
+          - generic [ref=e68]: When
+          - generic [ref=e69]:
+            - img [ref=e70]
+            - text: Add dates
+        - button "Who 1 guest" [ref=e73] [cursor=pointer]:
+          - generic [ref=e74]: Who
+          - generic [ref=e75]:
+            - img [ref=e76]
+            - text: 1 guest
+        - button "Search" [ref=e82] [cursor=pointer]:
+          - img
+    - generic [ref=e83]:
+      - generic [ref=e84]:
+        - generic [ref=e85]:
+          - heading "Latest on the Property Listing" [level=2] [ref=e86]
+          - paragraph [ref=e87]: Explore properties by their categories/types...
+        - link "Browse For More Properties" [ref=e88] [cursor=pointer]:
+          - /url: /accommodations
+      - generic [ref=e90]:
+        - button "Scroll left" [ref=e91] [cursor=pointer]:
+          - img [ref=e92]
+        - button "Scroll right" [ref=e94] [cursor=pointer]:
+          - img [ref=e95]
+        - generic [ref=e97]:
+          - link "Modern spacious" [ref=e99] [cursor=pointer]:
+            - /url: /properties/d98cb173-9d56-41d5-aa68-271d2f6901b3
+            - generic [ref=e100]:
+              - generic [ref=e101]:
+                - generic [ref=e103]:
+                  - img "Modern spacious" [ref=e104]
+                  - img "Modern spacious" [ref=e105]
+                  - img "Modern spacious" [ref=e106]
+                  - img "Modern spacious" [ref=e107]
+                  - img "Modern spacious" [ref=e108]
+                  - img "Modern spacious" [ref=e109]
+                  - img "Modern spacious" [ref=e110]
+                  - img "Modern spacious" [ref=e111]
+                  - img "Modern spacious" [ref=e112]
+                  - img "Modern spacious" [ref=e113]
+                  - img "Modern spacious" [ref=e114]
+                  - img "Modern spacious" [ref=e115]
+                  - img "Modern spacious" [ref=e116]
+                  - img "Modern spacious" [ref=e117]
+                  - img "Modern spacious" [ref=e118]
+                  - img "Modern spacious" [ref=e119]
+                  - img "Modern spacious" [ref=e120]
+                  - img "Modern spacious" [ref=e121]
+                  - img "Modern spacious" [ref=e122]
+                  - img "Modern spacious" [ref=e123]
+                  - img "Modern spacious" [ref=e124]
+                  - img "Modern spacious" [ref=e125]
+                  - img "Modern spacious" [ref=e126]
+                  - img "Modern spacious" [ref=e127]
+                  - img "Modern spacious" [ref=e128]
+                  - img "Modern spacious" [ref=e129]
+                - button "Favorites" [ref=e130]:
+                  - img [ref=e131]
+                - generic [ref=e133]: Apartment
+              - generic [ref=e134]:
+                - generic [ref=e135]:
+                  - heading "Modern spacious" [level=3] [ref=e136]
+                  - generic [ref=e137]:
+                    - img [ref=e138]
+                    - generic [ref=e140]: "0"
+                    - generic [ref=e141]: (0)
+                - paragraph [ref=e142]: Norvege
+                - paragraph [ref=e143]: 3 bd · 3 beds · 3 bath
+                - generic [ref=e145]:
+                  - generic [ref=e146]:
+                    - generic [ref=e147]: Check-in
+                    - generic [ref=e148]: 14:00
+                  - generic [ref=e149]:
+                    - generic [ref=e150]: Check-out
+                    - generic [ref=e151]: 11:00
+                  - generic [ref=e152]:
+                    - generic [ref=e153]:
+                      - img [ref=e154]
+                      - text: Guests
+                    - generic [ref=e159]: "6"
+                  - generic [ref=e160]:
+                    - generic [ref=e161]: Smoking
+                    - generic [ref=e162]: "No"
+                  - generic [ref=e163]:
+                    - generic [ref=e164]: Events
+                    - generic [ref=e165]: "No"
+                  - generic [ref=e166]:
+                    - generic [ref=e167]: Pets
+                    - generic [ref=e168]: "No"
+                - generic [ref=e169]:
+                  - generic [ref=e170]: $40
+                  - generic [ref=e171]: / night
+          - link "Cityscape Apartment" [ref=e173] [cursor=pointer]:
+            - /url: /properties/2e61c713-35f4-46c7-9837-1cc91312a102
+            - generic [ref=e174]:
+              - generic [ref=e175]:
+                - generic [ref=e177]:
+                  - img "Cityscape Apartment" [ref=e178]
+                  - img "Cityscape Apartment" [ref=e179]
+                  - img "Cityscape Apartment" [ref=e180]
+                  - img "Cityscape Apartment" [ref=e181]
+                  - img "Cityscape Apartment" [ref=e182]
+                  - img "Cityscape Apartment" [ref=e183]
+                  - img "Cityscape Apartment" [ref=e184]
+                  - img "Cityscape Apartment" [ref=e185]
+                  - img "Cityscape Apartment" [ref=e186]
+                  - img "Cityscape Apartment" [ref=e187]
+                  - img "Cityscape Apartment" [ref=e188]
+                  - img "Cityscape Apartment" [ref=e189]
+                  - img "Cityscape Apartment" [ref=e190]
+                  - img "Cityscape Apartment" [ref=e191]
+                  - img "Cityscape Apartment" [ref=e192]
+                  - img "Cityscape Apartment" [ref=e193]
+                  - img "Cityscape Apartment" [ref=e194]
+                  - img "Cityscape Apartment" [ref=e195]
+                  - img "Cityscape Apartment" [ref=e196]
+                  - img "Cityscape Apartment" [ref=e197]
+                  - img "Cityscape Apartment" [ref=e198]
+                  - img "Cityscape Apartment" [ref=e199]
+                  - img "Cityscape Apartment" [ref=e200]
+                  - img "Cityscape Apartment" [ref=e201]
+                  - img "Cityscape Apartment" [ref=e202]
+                  - img "Cityscape Apartment" [ref=e203]
+                - button "Favorites" [ref=e204]:
+                  - img [ref=e205]
+                - generic [ref=e207]: Apartment
+              - generic [ref=e208]:
+                - generic [ref=e209]:
+                  - heading "Cityscape Apartment" [level=3] [ref=e210]
+                  - generic [ref=e211]:
+                    - img [ref=e212]
+                    - generic [ref=e214]: "0"
+                    - generic [ref=e215]: (0)
+                - paragraph [ref=e216]: Norvege
+                - paragraph [ref=e217]: 3 bd · 3 beds · 3 bath
+                - generic [ref=e219]:
+                  - generic [ref=e220]:
+                    - generic [ref=e221]: Check-in
+                    - generic [ref=e222]: 14:00
+                  - generic [ref=e223]:
+                    - generic [ref=e224]: Check-out
+                    - generic [ref=e225]: 11:00
+                  - generic [ref=e226]:
+                    - generic [ref=e227]:
+                      - img [ref=e228]
+                      - text: Guests
+                    - generic [ref=e233]: "6"
+                  - generic [ref=e234]:
+                    - generic [ref=e235]: Smoking
+                    - generic [ref=e236]: "No"
+                  - generic [ref=e237]:
+                    - generic [ref=e238]: Events
+                    - generic [ref=e239]: "No"
+                  - generic [ref=e240]:
+                    - generic [ref=e241]: Pets
+                    - generic [ref=e242]: "No"
+                - generic [ref=e243]:
+                  - generic [ref=e244]: $40
+                  - generic [ref=e245]: / night
+          - link "Grand view" [ref=e247] [cursor=pointer]:
+            - /url: /properties/6f58a553-c3eb-4854-84ef-e300446bc693
+            - generic [ref=e248]:
+              - generic [ref=e249]:
+                - generic [ref=e251]:
+                  - img "Grand view" [ref=e252]
+                  - img "Grand view" [ref=e253]
+                  - img "Grand view" [ref=e254]
+                  - img "Grand view" [ref=e255]
+                  - img "Grand view" [ref=e256]
+                  - img "Grand view" [ref=e257]
+                  - img "Grand view" [ref=e258]
+                  - img "Grand view" [ref=e259]
+                  - img "Grand view" [ref=e260]
+                  - img "Grand view" [ref=e261]
+                  - img "Grand view" [ref=e262]
+                  - img "Grand view" [ref=e263]
+                  - img "Grand view" [ref=e264]
+                  - img "Grand view" [ref=e265]
+                  - img "Grand view" [ref=e266]
+                  - img "Grand view" [ref=e267]
+                  - img "Grand view" [ref=e268]
+                  - img "Grand view" [ref=e269]
+                  - img "Grand view" [ref=e270]
+                  - img "Grand view" [ref=e271]
+                  - img "Grand view" [ref=e272]
+                  - img "Grand view" [ref=e273]
+                  - img "Grand view" [ref=e274]
+                  - img "Grand view" [ref=e275]
+                  - img "Grand view" [ref=e276]
+                  - img "Grand view" [ref=e277]
+                - button "Favorites" [ref=e278]:
+                  - img [ref=e279]
+                - generic [ref=e281]: Apartment
+              - generic [ref=e282]:
+                - generic [ref=e283]:
+                  - heading "Grand view" [level=3] [ref=e284]
+                  - generic [ref=e285]:
+                    - img [ref=e286]
+                    - generic [ref=e288]: "0"
+                    - generic [ref=e289]: (0)
+                - paragraph [ref=e290]: Norvege
+                - paragraph [ref=e291]: 3 bd · 3 beds · 3 bath
+                - generic [ref=e293]:
+                  - generic [ref=e294]:
+                    - generic [ref=e295]: Check-in
+                    - generic [ref=e296]: 14:00
+                  - generic [ref=e297]:
+                    - generic [ref=e298]: Check-out
+                    - generic [ref=e299]: 11:00
+                  - generic [ref=e300]:
+                    - generic [ref=e301]:
+                      - img [ref=e302]
+                      - text: Guests
+                    - generic [ref=e307]: "6"
+                  - generic [ref=e308]:
+                    - generic [ref=e309]: Smoking
+                    - generic [ref=e310]: "No"
+                  - generic [ref=e311]:
+                    - generic [ref=e312]: Events
+                    - generic [ref=e313]: "No"
+                  - generic [ref=e314]:
+                    - generic [ref=e315]: Pets
+                    - generic [ref=e316]: "No"
+                - generic [ref=e317]:
+                  - generic [ref=e318]: $40
+                  - generic [ref=e319]: / night
+          - link "Signature Lodge" [ref=e321] [cursor=pointer]:
+            - /url: /properties/8f8bfb15-482e-40f5-af6f-64acbe6aff1b
+            - generic [ref=e322]:
+              - generic [ref=e323]:
+                - generic [ref=e325]:
+                  - img "Signature Lodge" [ref=e326]
+                  - img "Signature Lodge" [ref=e327]
+                  - img "Signature Lodge" [ref=e328]
+                  - img "Signature Lodge" [ref=e329]
+                  - img "Signature Lodge" [ref=e330]
+                  - img "Signature Lodge" [ref=e331]
+                  - img "Signature Lodge" [ref=e332]
+                  - img "Signature Lodge" [ref=e333]
+                  - img "Signature Lodge" [ref=e334]
+                  - img "Signature Lodge" [ref=e335]
+                  - img "Signature Lodge" [ref=e336]
+                  - img "Signature Lodge" [ref=e337]
+                  - img "Signature Lodge" [ref=e338]
+                  - img "Signature Lodge" [ref=e339]
+                  - img "Signature Lodge" [ref=e340]
+                - button "Favorites" [ref=e341]:
+                  - img [ref=e342]
+                - generic [ref=e344]: Lodge
+              - generic [ref=e345]:
+                - generic [ref=e346]:
+                  - heading "Signature Lodge" [level=3] [ref=e347]
+                  - generic [ref=e348]:
+                    - img [ref=e349]
+                    - generic [ref=e351]: "0"
+                    - generic [ref=e352]: (0)
+                - paragraph [ref=e353]: Kacyiru
+                - paragraph [ref=e354]: 1 bd · 2 beds · 1 bath
+                - generic [ref=e356]:
+                  - generic [ref=e357]:
+                    - generic [ref=e358]: Check-in
+                    - generic [ref=e359]: 14:00
+                  - generic [ref=e360]:
+                    - generic [ref=e361]: Check-out
+                    - generic [ref=e362]: 11:00
+                  - generic [ref=e363]:
+                    - generic [ref=e364]:
+                      - img [ref=e365]
+                      - text: Guests
+                    - generic [ref=e370]: "2"
+                  - generic [ref=e371]:
+                    - generic [ref=e372]: Smoking
+                    - generic [ref=e373]: "No"
+                  - generic [ref=e374]:
+                    - generic [ref=e375]: Events
+                    - generic [ref=e376]: "No"
+                  - generic [ref=e377]:
+                    - generic [ref=e378]: Pets
+                    - generic [ref=e379]: "No"
+                - generic [ref=e380]:
+                  - generic [ref=e381]: $80
+                  - generic [ref=e382]: / night
+          - link "Tranquil Haven Lodge" [ref=e384] [cursor=pointer]:
+            - /url: /properties/489d733a-1384-468c-b566-41cc8584e557
+            - generic [ref=e385]:
+              - generic [ref=e386]:
+                - generic [ref=e388]:
+                  - img "Tranquil Haven Lodge" [ref=e389]
+                  - img "Tranquil Haven Lodge" [ref=e390]
+                  - img "Tranquil Haven Lodge" [ref=e391]
+                  - img "Tranquil Haven Lodge" [ref=e392]
+                  - img "Tranquil Haven Lodge" [ref=e393]
+                  - img "Tranquil Haven Lodge" [ref=e394]
+                  - img "Tranquil Haven Lodge" [ref=e395]
+                  - img "Tranquil Haven Lodge" [ref=e396]
+                  - img "Tranquil Haven Lodge" [ref=e397]
+                  - img "Tranquil Haven Lodge" [ref=e398]
+                  - img "Tranquil Haven Lodge" [ref=e399]
+                  - img "Tranquil Haven Lodge" [ref=e400]
+                  - img "Tranquil Haven Lodge" [ref=e401]
+                  - img "Tranquil Haven Lodge" [ref=e402]
+                  - img "Tranquil Haven Lodge" [ref=e403]
+                - button "Favorites" [ref=e404]:
+                  - img [ref=e405]
+                - generic [ref=e407]: Lodge
+              - generic [ref=e408]:
+                - generic [ref=e409]:
+                  - heading "Tranquil Haven Lodge" [level=3] [ref=e410]
+                  - generic [ref=e411]:
+                    - img [ref=e412]
+                    - generic [ref=e414]: "0"
+                    - generic [ref=e415]: (0)
+                - paragraph [ref=e416]: Kacyiru
+                - paragraph [ref=e417]: 1 bd · 1 beds · 1 bath
+                - generic [ref=e419]:
+                  - generic [ref=e420]:
+                    - generic [ref=e421]: Check-in
+                    - generic [ref=e422]: 14:00
+                  - generic [ref=e423]:
+                    - generic [ref=e424]: Check-out
+                    - generic [ref=e425]: 11:00
+                  - generic [ref=e426]:
+                    - generic [ref=e427]:
+                      - img [ref=e428]
+                      - text: Guests
+                    - generic [ref=e433]: "2"
+                  - generic [ref=e434]:
+                    - generic [ref=e435]: Smoking
+                    - generic [ref=e436]: "No"
+                  - generic [ref=e437]:
+                    - generic [ref=e438]: Events
+                    - generic [ref=e439]: "No"
+                  - generic [ref=e440]:
+                    - generic [ref=e441]: Pets
+                    - generic [ref=e442]: "No"
+                - generic [ref=e443]:
+                  - generic [ref=e444]: $60
+                  - generic [ref=e445]: / night
+          - link "Elite lodge peaceful stay" [ref=e447] [cursor=pointer]:
+            - /url: /properties/7bf0a77a-be30-4b7a-8d07-14b157c8e15b
+            - generic [ref=e448]:
+              - generic [ref=e449]:
+                - generic [ref=e451]:
+                  - img "Elite lodge peaceful stay" [ref=e452]
+                  - img "Elite lodge peaceful stay" [ref=e453]
+                  - img "Elite lodge peaceful stay" [ref=e454]
+                  - img "Elite lodge peaceful stay" [ref=e455]
+                  - img "Elite lodge peaceful stay" [ref=e456]
+                  - img "Elite lodge peaceful stay" [ref=e457]
+                  - img "Elite lodge peaceful stay" [ref=e458]
+                  - img "Elite lodge peaceful stay" [ref=e459]
+                  - img "Elite lodge peaceful stay" [ref=e460]
+                  - img "Elite lodge peaceful stay" [ref=e461]
+                  - img "Elite lodge peaceful stay" [ref=e462]
+                  - img "Elite lodge peaceful stay" [ref=e463]
+                  - img "Elite lodge peaceful stay" [ref=e464]
+                  - img "Elite lodge peaceful stay" [ref=e465]
+                  - img "Elite lodge peaceful stay" [ref=e466]
+                  - img "Elite lodge peaceful stay" [ref=e467]
+                - button "Favorites" [ref=e468]:
+                  - img [ref=e469]
+                - generic [ref=e471]: Lodge
+              - generic [ref=e472]:
+                - generic [ref=e473]:
+                  - heading "Elite lodge peaceful stay" [level=3] [ref=e474]
+                  - generic [ref=e475]:
+                    - img [ref=e476]
+                    - generic [ref=e478]: "0"
+                    - generic [ref=e479]: (0)
+                - paragraph [ref=e480]: Kacyiru
+                - paragraph [ref=e481]: 1 bd · 2 beds · 1 bath
+                - generic [ref=e483]:
+                  - generic [ref=e484]:
+                    - generic [ref=e485]: Check-in
+                    - generic [ref=e486]: 14:00
+                  - generic [ref=e487]:
+                    - generic [ref=e488]: Check-out
+                    - generic [ref=e489]: 11:00
+                  - generic [ref=e490]:
+                    - generic [ref=e491]:
+                      - img [ref=e492]
+                      - text: Guests
+                    - generic [ref=e497]: "4"
+                  - generic [ref=e498]:
+                    - generic [ref=e499]: Smoking
+                    - generic [ref=e500]: "No"
+                  - generic [ref=e501]:
+                    - generic [ref=e502]: Events
+                    - generic [ref=e503]: "No"
+                  - generic [ref=e504]:
+                    - generic [ref=e505]: Pets
+                    - generic [ref=e506]: "No"
+                - generic [ref=e507]:
+                  - generic [ref=e508]: $120
+                  - generic [ref=e509]: / night
+          - link "Serenity Lodge" [ref=e511] [cursor=pointer]:
+            - /url: /properties/9eaea4fb-10ca-4738-aad9-564729dcf529
+            - generic [ref=e512]:
+              - generic [ref=e513]:
+                - generic [ref=e515]:
+                  - img "Serenity Lodge" [ref=e516]
+                  - img "Serenity Lodge" [ref=e517]
+                  - img "Serenity Lodge" [ref=e518]
+                  - img "Serenity Lodge" [ref=e519]
+                  - img "Serenity Lodge" [ref=e520]
+                  - img "Serenity Lodge" [ref=e521]
+                  - img "Serenity Lodge" [ref=e522]
+                  - img "Serenity Lodge" [ref=e523]
+                  - img "Serenity Lodge" [ref=e524]
+                  - img "Serenity Lodge" [ref=e525]
+                  - img "Serenity Lodge" [ref=e526]
+                  - img "Serenity Lodge" [ref=e527]
+                  - img "Serenity Lodge" [ref=e528]
+                  - img "Serenity Lodge" [ref=e529]
+                  - img "Serenity Lodge" [ref=e530]
+                  - img "Serenity Lodge" [ref=e531]
+                - button "Favorites" [ref=e532]:
+                  - img [ref=e533]
+                - generic [ref=e535]: Lodge
+              - generic [ref=e536]:
+                - generic [ref=e537]:
+                  - heading "Serenity Lodge" [level=3] [ref=e538]
+                  - generic [ref=e539]:
+                    - img [ref=e540]
+                    - generic [ref=e542]: "0"
+                    - generic [ref=e543]: (0)
+                - paragraph [ref=e544]: Kacyiru
+                - paragraph [ref=e545]: 1 bd · 1 beds · 1 bath
+                - generic [ref=e547]:
+                  - generic [ref=e548]:
+                    - generic [ref=e549]: Check-in
+                    - generic [ref=e550]: 14:00
+                  - generic [ref=e551]:
+                    - generic [ref=e552]: Check-out
+                    - generic [ref=e553]: 11:00
+                  - generic [ref=e554]:
+                    - generic [ref=e555]:
+                      - img [ref=e556]
+                      - text: Guests
+                    - generic [ref=e561]: "2"
+                  - generic [ref=e562]:
+                    - generic [ref=e563]: Smoking
+                    - generic [ref=e564]: "No"
+                  - generic [ref=e565]:
+                    - generic [ref=e566]: Events
+                    - generic [ref=e567]: "No"
+                  - generic [ref=e568]:
+                    - generic [ref=e569]: Pets
+                    - generic [ref=e570]: "No"
+                - generic [ref=e571]:
+                  - generic [ref=e572]: $100
+                  - generic [ref=e573]: / night
+          - link "Cozy Lodge with city view" [ref=e575] [cursor=pointer]:
+            - /url: /properties/d33b8acf-57f3-4897-b5f0-68a4b1643b8c
+            - generic [ref=e576]:
+              - generic [ref=e577]:
+                - generic [ref=e579]:
+                  - img "Cozy Lodge with city view" [ref=e580]
+                  - img "Cozy Lodge with city view" [ref=e581]
+                  - img "Cozy Lodge with city view" [ref=e582]
+                  - img "Cozy Lodge with city view" [ref=e583]
+                  - img "Cozy Lodge with city view" [ref=e584]
+                  - img "Cozy Lodge with city view" [ref=e585]
+                  - img "Cozy Lodge with city view" [ref=e586]
+                  - img "Cozy Lodge with city view" [ref=e587]
+                  - img "Cozy Lodge with city view" [ref=e588]
+                  - img "Cozy Lodge with city view" [ref=e589]
+                  - img "Cozy Lodge with city view" [ref=e590]
+                  - img "Cozy Lodge with city view" [ref=e591]
+                  - img "Cozy Lodge with city view" [ref=e592]
+                  - img "Cozy Lodge with city view" [ref=e593]
+                - button "Favorites" [ref=e594]:
+                  - img [ref=e595]
+                - generic [ref=e597]: Lodge
+              - generic [ref=e598]:
+                - generic [ref=e599]:
+                  - heading "Cozy Lodge with city view" [level=3] [ref=e600]
+                  - generic [ref=e601]:
+                    - img [ref=e602]
+                    - generic [ref=e604]: "0"
+                    - generic [ref=e605]: (0)
+                - paragraph [ref=e606]: Kacyiru
+                - paragraph [ref=e607]: 1 bd · 2 beds · 1 bath
+                - generic [ref=e609]:
+                  - generic [ref=e610]:
+                    - generic [ref=e611]: Check-in
+                    - generic [ref=e612]: 14:00
+                  - generic [ref=e613]:
+                    - generic [ref=e614]: Check-out
+                    - generic [ref=e615]: 11:00
+                  - generic [ref=e616]:
+                    - generic [ref=e617]:
+                      - img [ref=e618]
+                      - text: Guests
+                    - generic [ref=e623]: "2"
+                  - generic [ref=e624]:
+                    - generic [ref=e625]: Smoking
+                    - generic [ref=e626]: "No"
+                  - generic [ref=e627]:
+                    - generic [ref=e628]: Events
+                    - generic [ref=e629]: "No"
+                  - generic [ref=e630]:
+                    - generic [ref=e631]: Pets
+                    - generic [ref=e632]: "No"
+                - generic [ref=e633]:
+                  - generic [ref=e634]: $100
+                  - generic [ref=e635]: / night
+    - generic [ref=e636]:
+      - generic [ref=e637]:
+        - generic [ref=e638]:
+          - heading "Featured Accommodations" [level=2] [ref=e639]
+          - paragraph [ref=e640]: Hand-picked stays we recommend
+        - link "View all" [ref=e641] [cursor=pointer]:
+          - /url: /accommodations
+      - generic [ref=e642]:
+        - button "Scroll left" [ref=e643] [cursor=pointer]:
+          - img [ref=e644]
+        - button "Scroll right" [ref=e646] [cursor=pointer]:
+          - img [ref=e647]
+        - generic [ref=e649]:
+          - link "Modern spacious" [ref=e651] [cursor=pointer]:
+            - /url: /properties/d98cb173-9d56-41d5-aa68-271d2f6901b3
+            - generic [ref=e652]:
+              - generic [ref=e653]:
+                - generic [ref=e655]:
+                  - img "Modern spacious" [ref=e656]
+                  - img "Modern spacious" [ref=e657]
+                  - img "Modern spacious" [ref=e658]
+                  - img "Modern spacious" [ref=e659]
+                  - img "Modern spacious" [ref=e660]
+                  - img "Modern spacious" [ref=e661]
+                  - img "Modern spacious" [ref=e662]
+                  - img "Modern spacious" [ref=e663]
+                  - img "Modern spacious" [ref=e664]
+                  - img "Modern spacious" [ref=e665]
+                  - img "Modern spacious" [ref=e666]
+                  - img "Modern spacious" [ref=e667]
+                  - img "Modern spacious" [ref=e668]
+                  - img "Modern spacious" [ref=e669]
+                  - img "Modern spacious" [ref=e670]
+                  - img "Modern spacious" [ref=e671]
+                  - img "Modern spacious" [ref=e672]
+                  - img "Modern spacious" [ref=e673]
+                  - img "Modern spacious" [ref=e674]
+                  - img "Modern spacious" [ref=e675]
+                  - img "Modern spacious" [ref=e676]
+                  - img "Modern spacious" [ref=e677]
+                  - img "Modern spacious" [ref=e678]
+                  - img "Modern spacious" [ref=e679]
+                  - img "Modern spacious" [ref=e680]
+                  - img "Modern spacious" [ref=e681]
+                - button "Favorites" [ref=e682]:
+                  - img [ref=e683]
+                - generic [ref=e685]: Apartment
+              - generic [ref=e686]:
+                - generic [ref=e687]:
+                  - heading "Modern spacious" [level=3] [ref=e688]
+                  - generic [ref=e689]:
+                    - img [ref=e690]
+                    - generic [ref=e692]: "0"
+                    - generic [ref=e693]: (0)
+                - paragraph [ref=e694]: Norvege
+                - paragraph [ref=e695]: 3 bd · 3 beds · 3 bath
+                - generic [ref=e697]:
+                  - generic [ref=e698]:
+                    - generic [ref=e699]: Check-in
+                    - generic [ref=e700]: 14:00
+                  - generic [ref=e701]:
+                    - generic [ref=e702]: Check-out
+                    - generic [ref=e703]: 11:00
+                  - generic [ref=e704]:
+                    - generic [ref=e705]:
+                      - img [ref=e706]
+                      - text: Guests
+                    - generic [ref=e711]: "6"
+                  - generic [ref=e712]:
+                    - generic [ref=e713]: Smoking
+                    - generic [ref=e714]: "No"
+                  - generic [ref=e715]:
+                    - generic [ref=e716]: Events
+                    - generic [ref=e717]: "No"
+                  - generic [ref=e718]:
+                    - generic [ref=e719]: Pets
+                    - generic [ref=e720]: "No"
+                - generic [ref=e721]:
+                  - generic [ref=e722]: 58,364 FRw
+                  - generic [ref=e723]: / night
+          - link "Cityscape Apartment" [ref=e725] [cursor=pointer]:
+            - /url: /properties/2e61c713-35f4-46c7-9837-1cc91312a102
+            - generic [ref=e726]:
+              - generic [ref=e727]:
+                - generic [ref=e729]:
+                  - img "Cityscape Apartment" [ref=e730]
+                  - img "Cityscape Apartment" [ref=e731]
+                  - img "Cityscape Apartment" [ref=e732]
+                  - img "Cityscape Apartment" [ref=e733]
+                  - img "Cityscape Apartment" [ref=e734]
+                  - img "Cityscape Apartment" [ref=e735]
+                  - img "Cityscape Apartment" [ref=e736]
+                  - img "Cityscape Apartment" [ref=e737]
+                  - img "Cityscape Apartment" [ref=e738]
+                  - img "Cityscape Apartment" [ref=e739]
+                  - img "Cityscape Apartment" [ref=e740]
+                  - img "Cityscape Apartment" [ref=e741]
+                  - img "Cityscape Apartment" [ref=e742]
+                  - img "Cityscape Apartment" [ref=e743]
+                  - img "Cityscape Apartment" [ref=e744]
+                  - img "Cityscape Apartment" [ref=e745]
+                  - img "Cityscape Apartment" [ref=e746]
+                  - img "Cityscape Apartment" [ref=e747]
+                  - img "Cityscape Apartment" [ref=e748]
+                  - img "Cityscape Apartment" [ref=e749]
+                  - img "Cityscape Apartment" [ref=e750]
+                  - img "Cityscape Apartment" [ref=e751]
+                  - img "Cityscape Apartment" [ref=e752]
+                  - img "Cityscape Apartment" [ref=e753]
+                  - img "Cityscape Apartment" [ref=e754]
+                  - img "Cityscape Apartment" [ref=e755]
+                - button "Favorites" [ref=e756]:
+                  - img [ref=e757]
+                - generic [ref=e759]: Apartment
+              - generic [ref=e760]:
+                - generic [ref=e761]:
+                  - heading "Cityscape Apartment" [level=3] [ref=e762]
+                  - generic [ref=e763]:
+                    - img [ref=e764]
+                    - generic [ref=e766]: "0"
+                    - generic [ref=e767]: (0)
+                - paragraph [ref=e768]: Norvege
+                - paragraph [ref=e769]: 3 bd · 3 beds · 3 bath
+                - generic [ref=e771]:
+                  - generic [ref=e772]:
+                    - generic [ref=e773]: Check-in
+                    - generic [ref=e774]: 14:00
+                  - generic [ref=e775]:
+                    - generic [ref=e776]: Check-out
+                    - generic [ref=e777]: 11:00
+                  - generic [ref=e778]:
+                    - generic [ref=e779]:
+                      - img [ref=e780]
+                      - text: Guests
+                    - generic [ref=e785]: "6"
+                  - generic [ref=e786]:
+                    - generic [ref=e787]: Smoking
+                    - generic [ref=e788]: "No"
+                  - generic [ref=e789]:
+                    - generic [ref=e790]: Events
+                    - generic [ref=e791]: "No"
+                  - generic [ref=e792]:
+                    - generic [ref=e793]: Pets
+                    - generic [ref=e794]: "No"
+                - generic [ref=e795]:
+                  - generic [ref=e796]: 58,364 FRw
+                  - generic [ref=e797]: / night
+          - link "Grand view" [ref=e799] [cursor=pointer]:
+            - /url: /properties/6f58a553-c3eb-4854-84ef-e300446bc693
+            - generic [ref=e800]:
+              - generic [ref=e801]:
+                - generic [ref=e803]:
+                  - img "Grand view" [ref=e804]
+                  - img "Grand view" [ref=e805]
+                  - img "Grand view" [ref=e806]
+                  - img "Grand view" [ref=e807]
+                  - img "Grand view" [ref=e808]
+                  - img "Grand view" [ref=e809]
+                  - img "Grand view" [ref=e810]
+                  - img "Grand view" [ref=e811]
+                  - img "Grand view" [ref=e812]
+                  - img "Grand view" [ref=e813]
+                  - img "Grand view" [ref=e814]
+                  - img "Grand view" [ref=e815]
+                  - img "Grand view" [ref=e816]
+                  - img "Grand view" [ref=e817]
+                  - img "Grand view" [ref=e818]
+                  - img "Grand view" [ref=e819]
+                  - img "Grand view" [ref=e820]
+                  - img "Grand view" [ref=e821]
+                  - img "Grand view" [ref=e822]
+                  - img "Grand view" [ref=e823]
+                  - img "Grand view" [ref=e824]
+                  - img "Grand view" [ref=e825]
+                  - img "Grand view" [ref=e826]
+                  - img "Grand view" [ref=e827]
+                  - img "Grand view" [ref=e828]
+                  - img "Grand view" [ref=e829]
+                - button "Favorites" [ref=e830]:
+                  - img [ref=e831]
+                - generic [ref=e833]: Apartment
+              - generic [ref=e834]:
+                - generic [ref=e835]:
+                  - heading "Grand view" [level=3] [ref=e836]
+                  - generic [ref=e837]:
+                    - img [ref=e838]
+                    - generic [ref=e840]: "0"
+                    - generic [ref=e841]: (0)
+                - paragraph [ref=e842]: Norvege
+                - paragraph [ref=e843]: 3 bd · 3 beds · 3 bath
+                - generic [ref=e845]:
+                  - generic [ref=e846]:
+                    - generic [ref=e847]: Check-in
+                    - generic [ref=e848]: 14:00
+                  - generic [ref=e849]:
+                    - generic [ref=e850]: Check-out
+                    - generic [ref=e851]: 11:00
+                  - generic [ref=e852]:
+                    - generic [ref=e853]:
+                      - img [ref=e854]
+                      - text: Guests
+                    - generic [ref=e859]: "6"
+                  - generic [ref=e860]:
+                    - generic [ref=e861]: Smoking
+                    - generic [ref=e862]: "No"
+                  - generic [ref=e863]:
+                    - generic [ref=e864]: Events
+                    - generic [ref=e865]: "No"
+                  - generic [ref=e866]:
+                    - generic [ref=e867]: Pets
+                    - generic [ref=e868]: "No"
+                - generic [ref=e869]:
+                  - generic [ref=e870]: 58,364 FRw
+                  - generic [ref=e871]: / night
+          - link "Signature Lodge" [ref=e873] [cursor=pointer]:
+            - /url: /properties/8f8bfb15-482e-40f5-af6f-64acbe6aff1b
+            - generic [ref=e874]:
+              - generic [ref=e875]:
+                - generic [ref=e877]:
+                  - img "Signature Lodge" [ref=e878]
+                  - img "Signature Lodge" [ref=e879]
+                  - img "Signature Lodge" [ref=e880]
+                  - img "Signature Lodge" [ref=e881]
+                  - img "Signature Lodge" [ref=e882]
+                  - img "Signature Lodge" [ref=e883]
+                  - img "Signature Lodge" [ref=e884]
+                  - img "Signature Lodge" [ref=e885]
+                  - img "Signature Lodge" [ref=e886]
+                  - img "Signature Lodge" [ref=e887]
+                  - img "Signature Lodge" [ref=e888]
+                  - img "Signature Lodge" [ref=e889]
+                  - img "Signature Lodge" [ref=e890]
+                  - img "Signature Lodge" [ref=e891]
+                  - img "Signature Lodge" [ref=e892]
+                - button "Favorites" [ref=e893]:
+                  - img [ref=e894]
+                - generic [ref=e896]: Lodge
+              - generic [ref=e897]:
+                - generic [ref=e898]:
+                  - heading "Signature Lodge" [level=3] [ref=e899]
+                  - generic [ref=e900]:
+                    - img [ref=e901]
+                    - generic [ref=e903]: "0"
+                    - generic [ref=e904]: (0)
+                - paragraph [ref=e905]: Kacyiru
+                - paragraph [ref=e906]: 1 bd · 2 beds · 1 bath
+                - generic [ref=e908]:
+                  - generic [ref=e909]:
+                    - generic [ref=e910]: Check-in
+                    - generic [ref=e911]: 14:00
+                  - generic [ref=e912]:
+                    - generic [ref=e913]: Check-out
+                    - generic [ref=e914]: 11:00
+                  - generic [ref=e915]:
+                    - generic [ref=e916]:
+                      - img [ref=e917]
+                      - text: Guests
+                    - generic [ref=e922]: "2"
+                  - generic [ref=e923]:
+                    - generic [ref=e924]: Smoking
+                    - generic [ref=e925]: "No"
+                  - generic [ref=e926]:
+                    - generic [ref=e927]: Events
+                    - generic [ref=e928]: "No"
+                  - generic [ref=e929]:
+                    - generic [ref=e930]: Pets
+                    - generic [ref=e931]: "No"
+                - generic [ref=e932]:
+                  - generic [ref=e933]: 116,729 FRw
+                  - generic [ref=e934]: / night
+          - link "Tranquil Haven Lodge" [ref=e936] [cursor=pointer]:
+            - /url: /properties/489d733a-1384-468c-b566-41cc8584e557
+            - generic [ref=e937]:
+              - generic [ref=e938]:
+                - generic [ref=e940]:
+                  - img "Tranquil Haven Lodge" [ref=e941]
+                  - img "Tranquil Haven Lodge" [ref=e942]
+                  - img "Tranquil Haven Lodge" [ref=e943]
+                  - img "Tranquil Haven Lodge" [ref=e944]
+                  - img "Tranquil Haven Lodge" [ref=e945]
+                  - img "Tranquil Haven Lodge" [ref=e946]
+                  - img "Tranquil Haven Lodge" [ref=e947]
+                  - img "Tranquil Haven Lodge" [ref=e948]
+                  - img "Tranquil Haven Lodge" [ref=e949]
+                  - img "Tranquil Haven Lodge" [ref=e950]
+                  - img "Tranquil Haven Lodge" [ref=e951]
+                  - img "Tranquil Haven Lodge" [ref=e952]
+                  - img "Tranquil Haven Lodge" [ref=e953]
+                  - img "Tranquil Haven Lodge" [ref=e954]
+                  - img "Tranquil Haven Lodge" [ref=e955]
+                - button "Favorites" [ref=e956]:
+                  - img [ref=e957]
+                - generic [ref=e959]: Lodge
+              - generic [ref=e960]:
+                - generic [ref=e961]:
+                  - heading "Tranquil Haven Lodge" [level=3] [ref=e962]
+                  - generic [ref=e963]:
+                    - img [ref=e964]
+                    - generic [ref=e966]: "0"
+                    - generic [ref=e967]: (0)
+                - paragraph [ref=e968]: Kacyiru
+                - paragraph [ref=e969]: 1 bd · 1 beds · 1 bath
+                - generic [ref=e971]:
+                  - generic [ref=e972]:
+                    - generic [ref=e973]: Check-in
+                    - generic [ref=e974]: 14:00
+                  - generic [ref=e975]:
+                    - generic [ref=e976]: Check-out
+                    - generic [ref=e977]: 11:00
+                  - generic [ref=e978]:
+                    - generic [ref=e979]:
+                      - img [ref=e980]
+                      - text: Guests
+                    - generic [ref=e985]: "2"
+                  - generic [ref=e986]:
+                    - generic [ref=e987]: Smoking
+                    - generic [ref=e988]: "No"
+                  - generic [ref=e989]:
+                    - generic [ref=e990]: Events
+                    - generic [ref=e991]: "No"
+                  - generic [ref=e992]:
+                    - generic [ref=e993]: Pets
+                    - generic [ref=e994]: "No"
+                - generic [ref=e995]:
+                  - generic [ref=e996]: 87,546 FRw
+                  - generic [ref=e997]: / night
+          - link "Elite lodge peaceful stay" [ref=e999] [cursor=pointer]:
+            - /url: /properties/7bf0a77a-be30-4b7a-8d07-14b157c8e15b
+            - generic [ref=e1000]:
+              - generic [ref=e1001]:
+                - generic [ref=e1003]:
+                  - img "Elite lodge peaceful stay" [ref=e1004]
+                  - img "Elite lodge peaceful stay" [ref=e1005]
+                  - img "Elite lodge peaceful stay" [ref=e1006]
+                  - img "Elite lodge peaceful stay" [ref=e1007]
+                  - img "Elite lodge peaceful stay" [ref=e1008]
+                  - img "Elite lodge peaceful stay" [ref=e1009]
+                  - img "Elite lodge peaceful stay" [ref=e1010]
+                  - img "Elite lodge peaceful stay" [ref=e1011]
+                  - img "Elite lodge peaceful stay" [ref=e1012]
+                  - img "Elite lodge peaceful stay" [ref=e1013]
+                  - img "Elite lodge peaceful stay" [ref=e1014]
+                  - img "Elite lodge peaceful stay" [ref=e1015]
+                  - img "Elite lodge peaceful stay" [ref=e1016]
+                  - img "Elite lodge peaceful stay" [ref=e1017]
+                  - img "Elite lodge peaceful stay" [ref=e1018]
+                  - img "Elite lodge peaceful stay" [ref=e1019]
+                - button "Favorites" [ref=e1020]:
+                  - img [ref=e1021]
+                - generic [ref=e1023]: Lodge
+              - generic [ref=e1024]:
+                - generic [ref=e1025]:
+                  - heading "Elite lodge peaceful stay" [level=3] [ref=e1026]
+                  - generic [ref=e1027]:
+                    - img [ref=e1028]
+                    - generic [ref=e1030]: "0"
+                    - generic [ref=e1031]: (0)
+                - paragraph [ref=e1032]: Kacyiru
+                - paragraph [ref=e1033]: 1 bd · 2 beds · 1 bath
+                - generic [ref=e1035]:
+                  - generic [ref=e1036]:
+                    - generic [ref=e1037]: Check-in
+                    - generic [ref=e1038]: 14:00
+                  - generic [ref=e1039]:
+                    - generic [ref=e1040]: Check-out
+                    - generic [ref=e1041]: 11:00
+                  - generic [ref=e1042]:
+                    - generic [ref=e1043]:
+                      - img [ref=e1044]
+                      - text: Guests
+                    - generic [ref=e1049]: "4"
+                  - generic [ref=e1050]:
+                    - generic [ref=e1051]: Smoking
+                    - generic [ref=e1052]: "No"
+                  - generic [ref=e1053]:
+                    - generic [ref=e1054]: Events
+                    - generic [ref=e1055]: "No"
+                  - generic [ref=e1056]:
+                    - generic [ref=e1057]: Pets
+                    - generic [ref=e1058]: "No"
+                - generic [ref=e1059]:
+                  - generic [ref=e1060]: 175,093 FRw
+                  - generic [ref=e1061]: / night
+          - link "Serenity Lodge" [ref=e1063] [cursor=pointer]:
+            - /url: /properties/9eaea4fb-10ca-4738-aad9-564729dcf529
+            - generic [ref=e1064]:
+              - generic [ref=e1065]:
+                - generic [ref=e1067]:
+                  - img "Serenity Lodge" [ref=e1068]
+                  - img "Serenity Lodge" [ref=e1069]
+                  - img "Serenity Lodge" [ref=e1070]
+                  - img "Serenity Lodge" [ref=e1071]
+                  - img "Serenity Lodge" [ref=e1072]
+                  - img "Serenity Lodge" [ref=e1073]
+                  - img "Serenity Lodge" [ref=e1074]
+                  - img "Serenity Lodge" [ref=e1075]
+                  - img "Serenity Lodge" [ref=e1076]
+                  - img "Serenity Lodge" [ref=e1077]
+                  - img "Serenity Lodge" [ref=e1078]
+                  - img "Serenity Lodge" [ref=e1079]
+                  - img "Serenity Lodge" [ref=e1080]
+                  - img "Serenity Lodge" [ref=e1081]
+                  - img "Serenity Lodge" [ref=e1082]
+                  - img "Serenity Lodge" [ref=e1083]
+                - button "Favorites" [ref=e1084]:
+                  - img [ref=e1085]
+                - generic [ref=e1087]: Lodge
+              - generic [ref=e1088]:
+                - generic [ref=e1089]:
+                  - heading "Serenity Lodge" [level=3] [ref=e1090]
+                  - generic [ref=e1091]:
+                    - img [ref=e1092]
+                    - generic [ref=e1094]: "0"
+                    - generic [ref=e1095]: (0)
+                - paragraph [ref=e1096]: Kacyiru
+                - paragraph [ref=e1097]: 1 bd · 1 beds · 1 bath
+                - generic [ref=e1099]:
+                  - generic [ref=e1100]:
+                    - generic [ref=e1101]: Check-in
+                    - generic [ref=e1102]: 14:00
+                  - generic [ref=e1103]:
+                    - generic [ref=e1104]: Check-out
+                    - generic [ref=e1105]: 11:00
+                  - generic [ref=e1106]:
+                    - generic [ref=e1107]:
+                      - img [ref=e1108]
+                      - text: Guests
+                    - generic [ref=e1113]: "2"
+                  - generic [ref=e1114]:
+                    - generic [ref=e1115]: Smoking
+                    - generic [ref=e1116]: "No"
+                  - generic [ref=e1117]:
+                    - generic [ref=e1118]: Events
+                    - generic [ref=e1119]: "No"
+                  - generic [ref=e1120]:
+                    - generic [ref=e1121]: Pets
+                    - generic [ref=e1122]: "No"
+                - generic [ref=e1123]:
+                  - generic [ref=e1124]: 145,911 FRw
+                  - generic [ref=e1125]: / night
+          - link "Cozy Lodge with city view" [ref=e1127] [cursor=pointer]:
+            - /url: /properties/d33b8acf-57f3-4897-b5f0-68a4b1643b8c
+            - generic [ref=e1128]:
+              - generic [ref=e1129]:
+                - generic [ref=e1131]:
+                  - img "Cozy Lodge with city view" [ref=e1132]
+                  - img "Cozy Lodge with city view" [ref=e1133]
+                  - img "Cozy Lodge with city view" [ref=e1134]
+                  - img "Cozy Lodge with city view" [ref=e1135]
+                  - img "Cozy Lodge with city view" [ref=e1136]
+                  - img "Cozy Lodge with city view" [ref=e1137]
+                  - img "Cozy Lodge with city view" [ref=e1138]
+                  - img "Cozy Lodge with city view" [ref=e1139]
+                  - img "Cozy Lodge with city view" [ref=e1140]
+                  - img "Cozy Lodge with city view" [ref=e1141]
+                  - img "Cozy Lodge with city view" [ref=e1142]
+                  - img "Cozy Lodge with city view" [ref=e1143]
+                  - img "Cozy Lodge with city view" [ref=e1144]
+                  - img "Cozy Lodge with city view" [ref=e1145]
+                - button "Favorites" [ref=e1146]:
+                  - img [ref=e1147]
+                - generic [ref=e1149]: Lodge
+              - generic [ref=e1150]:
+                - generic [ref=e1151]:
+                  - heading "Cozy Lodge with city view" [level=3] [ref=e1152]
+                  - generic [ref=e1153]:
+                    - img [ref=e1154]
+                    - generic [ref=e1156]: "0"
+                    - generic [ref=e1157]: (0)
+                - paragraph [ref=e1158]: Kacyiru
+                - paragraph [ref=e1159]: 1 bd · 2 beds · 1 bath
+                - generic [ref=e1161]:
+                  - generic [ref=e1162]:
+                    - generic [ref=e1163]: Check-in
+                    - generic [ref=e1164]: 14:00
+                  - generic [ref=e1165]:
+                    - generic [ref=e1166]: Check-out
+                    - generic [ref=e1167]: 11:00
+                  - generic [ref=e1168]:
+                    - generic [ref=e1169]:
+                      - img [ref=e1170]
+                      - text: Guests
+                    - generic [ref=e1175]: "2"
+                  - generic [ref=e1176]:
+                    - generic [ref=e1177]: Smoking
+                    - generic [ref=e1178]: "No"
+                  - generic [ref=e1179]:
+                    - generic [ref=e1180]: Events
+                    - generic [ref=e1181]: "No"
+                  - generic [ref=e1182]:
+                    - generic [ref=e1183]: Pets
+                    - generic [ref=e1184]: "No"
+                - generic [ref=e1185]:
+                  - generic [ref=e1186]: 145,911 FRw
+                  - generic [ref=e1187]: / night
+          - link "Elite Retreat Lodge" [ref=e1189] [cursor=pointer]:
+            - /url: /properties/44500114-4e3b-4aea-b512-35adaa7c4b80
+            - generic [ref=e1190]:
+              - generic [ref=e1191]:
+                - generic [ref=e1193]:
+                  - img "Elite Retreat Lodge" [ref=e1194]
+                  - img "Elite Retreat Lodge" [ref=e1195]
+                  - img "Elite Retreat Lodge" [ref=e1196]
+                  - img "Elite Retreat Lodge" [ref=e1197]
+                  - img "Elite Retreat Lodge" [ref=e1198]
+                  - img "Elite Retreat Lodge" [ref=e1199]
+                  - img "Elite Retreat Lodge" [ref=e1200]
+                  - img "Elite Retreat Lodge" [ref=e1201]
+                - button "Favorites" [ref=e1202]:
+                  - img [ref=e1203]
+                - generic [ref=e1205]: Lodge
+              - generic [ref=e1206]:
+                - generic [ref=e1207]:
+                  - heading "Elite Retreat Lodge" [level=3] [ref=e1208]
+                  - generic [ref=e1209]:
+                    - img [ref=e1210]
+                    - generic [ref=e1212]: "0"
+                    - generic [ref=e1213]: (0)
+                - paragraph [ref=e1214]: Kacyiru
+                - paragraph [ref=e1215]: 1 bd · 1 beds · 1 bath
+                - generic [ref=e1217]:
+                  - generic [ref=e1218]:
+                    - generic [ref=e1219]: Check-in
+                    - generic [ref=e1220]: 14:00
+                  - generic [ref=e1221]:
+                    - generic [ref=e1222]: Check-out
+                    - generic [ref=e1223]: 11:00
+                  - generic [ref=e1224]:
+                    - generic [ref=e1225]:
+                      - img [ref=e1226]
+                      - text: Guests
+                    - generic [ref=e1231]: "2"
+                  - generic [ref=e1232]:
+                    - generic [ref=e1233]: Smoking
+                    - generic [ref=e1234]: "No"
+                  - generic [ref=e1235]:
+                    - generic [ref=e1236]: Events
+                    - generic [ref=e1237]: "No"
+                  - generic [ref=e1238]:
+                    - generic [ref=e1239]: Pets
+                    - generic [ref=e1240]: "No"
+                - generic [ref=e1241]:
+                  - generic [ref=e1242]: 116,729 FRw
+                  - generic [ref=e1243]: / night
+          - link "Prestige Lodge" [ref=e1245] [cursor=pointer]:
+            - /url: /properties/8b91d5f5-e8a3-4a04-aafe-e65c22750788
+            - generic [ref=e1246]:
+              - generic [ref=e1247]:
+                - generic [ref=e1249]:
+                  - img "Prestige Lodge" [ref=e1250]
+                  - img "Prestige Lodge" [ref=e1251]
+                  - img "Prestige Lodge" [ref=e1252]
+                  - img "Prestige Lodge" [ref=e1253]
+                  - img "Prestige Lodge" [ref=e1254]
+                  - img "Prestige Lodge" [ref=e1255]
+                  - img "Prestige Lodge" [ref=e1256]
+                  - img "Prestige Lodge" [ref=e1257]
+                  - img "Prestige Lodge" [ref=e1258]
+                  - img "Prestige Lodge" [ref=e1259]
+                  - img "Prestige Lodge" [ref=e1260]
+                  - img "Prestige Lodge" [ref=e1261]
+                - button "Favorites" [ref=e1262]:
+                  - img [ref=e1263]
+                - generic [ref=e1265]: Lodge
+              - generic [ref=e1266]:
+                - generic [ref=e1267]:
+                  - heading "Prestige Lodge" [level=3] [ref=e1268]
+                  - generic [ref=e1269]:
+                    - img [ref=e1270]
+                    - generic [ref=e1272]: "0"
+                    - generic [ref=e1273]: (0)
+                - paragraph [ref=e1274]: Kacyiru
+                - paragraph [ref=e1275]: 1 bd · 1 beds · 1 bath
+                - generic [ref=e1277]:
+                  - generic [ref=e1278]:
+                    - generic [ref=e1279]: Check-in
+                    - generic [ref=e1280]: 14:00
+                  - generic [ref=e1281]:
+                    - generic [ref=e1282]: Check-out
+                    - generic [ref=e1283]: 11:00
+                  - generic [ref=e1284]:
+                    - generic [ref=e1285]:
+                      - img [ref=e1286]
+                      - text: Guests
+                    - generic [ref=e1291]: "2"
+                  - generic [ref=e1292]:
+                    - generic [ref=e1293]: Smoking
+                    - generic [ref=e1294]: "No"
+                  - generic [ref=e1295]:
+                    - generic [ref=e1296]: Events
+                    - generic [ref=e1297]: "No"
+                  - generic [ref=e1298]:
+                    - generic [ref=e1299]: Pets
+                    - generic [ref=e1300]: "No"
+                - generic [ref=e1301]:
+                  - generic [ref=e1302]: 58,364 FRw
+                  - generic [ref=e1303]: / night
+          - link "Elite Lodge Retreat" [ref=e1305] [cursor=pointer]:
+            - /url: /properties/7a258640-9111-4be6-88bc-9d1ec6204894
+            - generic [ref=e1306]:
+              - generic [ref=e1307]:
+                - generic [ref=e1309]:
+                  - img "Elite Lodge Retreat" [ref=e1310]
+                  - img "Elite Lodge Retreat" [ref=e1311]
+                  - img "Elite Lodge Retreat" [ref=e1312]
+                  - img "Elite Lodge Retreat" [ref=e1313]
+                  - img "Elite Lodge Retreat" [ref=e1314]
+                  - img "Elite Lodge Retreat" [ref=e1315]
+                  - img "Elite Lodge Retreat" [ref=e1316]
+                  - img "Elite Lodge Retreat" [ref=e1317]
+                  - img "Elite Lodge Retreat" [ref=e1318]
+                  - img "Elite Lodge Retreat" [ref=e1319]
+                  - img "Elite Lodge Retreat" [ref=e1320]
+                  - img "Elite Lodge Retreat" [ref=e1321]
+                  - img "Elite Lodge Retreat" [ref=e1322]
+                - button "Favorites" [ref=e1323]:
+                  - img [ref=e1324]
+                - generic [ref=e1326]: Lodge
+              - generic [ref=e1327]:
+                - generic [ref=e1328]:
+                  - heading "Elite Lodge Retreat" [level=3] [ref=e1329]
+                  - generic [ref=e1330]:
+                    - img [ref=e1331]
+                    - generic [ref=e1333]: "0"
+                    - generic [ref=e1334]: (0)
+                - paragraph [ref=e1335]: Kacyiru
+                - paragraph [ref=e1336]: 1 bd · 1 beds · 1 bath
+                - generic [ref=e1338]:
+                  - generic [ref=e1339]:
+                    - generic [ref=e1340]: Check-in
+                    - generic [ref=e1341]: 14:00
+                  - generic [ref=e1342]:
+                    - generic [ref=e1343]: Check-out
+                    - generic [ref=e1344]: 11:00
+                  - generic [ref=e1345]:
+                    - generic [ref=e1346]:
+                      - img [ref=e1347]
+                      - text: Guests
+                    - generic [ref=e1352]: "2"
+                  - generic [ref=e1353]:
+                    - generic [ref=e1354]: Smoking
+                    - generic [ref=e1355]: "No"
+                  - generic [ref=e1356]:
+                    - generic [ref=e1357]: Events
+                    - generic [ref=e1358]: "No"
+                  - generic [ref=e1359]:
+                    - generic [ref=e1360]: Pets
+                    - generic [ref=e1361]: "No"
+                - generic [ref=e1362]:
+                  - generic [ref=e1363]: 87,546 FRw
+                  - generic [ref=e1364]: / night
+          - link "Experience True Tranquility" [ref=e1366] [cursor=pointer]:
+            - /url: /properties/350253c6-2553-4f86-980c-de97d47b7a2b
+            - generic [ref=e1367]:
+              - generic [ref=e1368]:
+                - generic [ref=e1370]:
+                  - img "Experience True Tranquility" [ref=e1371]
+                  - img "Experience True Tranquility" [ref=e1372]
+                  - img "Experience True Tranquility" [ref=e1373]
+                  - img "Experience True Tranquility" [ref=e1374]
+                  - img "Experience True Tranquility" [ref=e1375]
+                  - img "Experience True Tranquility" [ref=e1376]
+                  - img "Experience True Tranquility" [ref=e1377]
+                  - img "Experience True Tranquility" [ref=e1378]
+                  - img "Experience True Tranquility" [ref=e1379]
+                  - img "Experience True Tranquility" [ref=e1380]
+                  - img "Experience True Tranquility" [ref=e1381]
+                  - img "Experience True Tranquility" [ref=e1382]
+                  - img "Experience True Tranquility" [ref=e1383]
+                  - img "Experience True Tranquility" [ref=e1384]
+                  - img "Experience True Tranquility" [ref=e1385]
+                  - img "Experience True Tranquility" [ref=e1386]
+                  - img "Experience True Tranquility" [ref=e1387]
+                  - img "Experience True Tranquility" [ref=e1388]
+                  - img "Experience True Tranquility" [ref=e1389]
+                  - img "Experience True Tranquility" [ref=e1390]
+                  - img "Experience True Tranquility" [ref=e1391]
+                  - img "Experience True Tranquility" [ref=e1392]
+                  - img "Experience True Tranquility" [ref=e1393]
+                  - img "Experience True Tranquility" [ref=e1394]
+                  - img "Experience True Tranquility" [ref=e1395]
+                  - img "Experience True Tranquility" [ref=e1396]
+                  - img "Experience True Tranquility" [ref=e1397]
+                  - img "Experience True Tranquility" [ref=e1398]
+                  - img "Experience True Tranquility" [ref=e1399]
+                  - img "Experience True Tranquility" [ref=e1400]
+                  - img "Experience True Tranquility" [ref=e1401]
+                - button "Favorites" [ref=e1402]:
+                  - img [ref=e1403]
+                - generic [ref=e1405]: Lodge
+              - generic [ref=e1406]:
+                - generic [ref=e1407]:
+                  - heading "Experience True Tranquility" [level=3] [ref=e1408]
+                  - generic [ref=e1409]:
+                    - img [ref=e1410]
+                    - generic [ref=e1412]: "0"
+                    - generic [ref=e1413]: (0)
+                - paragraph [ref=e1414]: Rebero
+                - paragraph [ref=e1415]: 1 bd · 1 beds · 1 bath
+                - generic [ref=e1417]:
+                  - generic [ref=e1418]:
+                    - generic [ref=e1419]: Check-in
+                    - generic [ref=e1420]: 14:00
+                  - generic [ref=e1421]:
+                    - generic [ref=e1422]: Check-out
+                    - generic [ref=e1423]: 00:00
+                  - generic [ref=e1424]:
+                    - generic [ref=e1425]:
+                      - img [ref=e1426]
+                      - text: Guests
+                    - generic [ref=e1431]: "2"
+                  - generic [ref=e1432]:
+                    - generic [ref=e1433]: Smoking
+                    - generic [ref=e1434]: "No"
+                  - generic [ref=e1435]:
+                    - generic [ref=e1436]: Events
+                    - generic [ref=e1437]: "No"
+                  - generic [ref=e1438]:
+                    - generic [ref=e1439]: Pets
+                    - generic [ref=e1440]: "No"
+                - generic [ref=e1441]:
+                  - generic [ref=e1442]: 145,911 FRw
+                  - generic [ref=e1443]: / night
+          - link "Where Comfort meets nature" [ref=e1445] [cursor=pointer]:
+            - /url: /properties/6cbaab61-3e5b-461b-8748-8536d586805e
+            - generic [ref=e1446]:
+              - generic [ref=e1447]:
+                - generic [ref=e1449]:
+                  - img "Where Comfort meets nature" [ref=e1450]
+                  - img "Where Comfort meets nature" [ref=e1451]
+                  - img "Where Comfort meets nature" [ref=e1452]
+                  - img "Where Comfort meets nature" [ref=e1453]
+                  - img "Where Comfort meets nature" [ref=e1454]
+                  - img "Where Comfort meets nature" [ref=e1455]
+                  - img "Where Comfort meets nature" [ref=e1456]
+                  - img "Where Comfort meets nature" [ref=e1457]
+                  - img "Where Comfort meets nature" [ref=e1458]
+                  - img "Where Comfort meets nature" [ref=e1459]
+                  - img "Where Comfort meets nature" [ref=e1460]
+                  - img "Where Comfort meets nature" [ref=e1461]
+                  - img "Where Comfort meets nature" [ref=e1462]
+                  - img "Where Comfort meets nature" [ref=e1463]
+                  - img "Where Comfort meets nature" [ref=e1464]
+                  - img "Where Comfort meets nature" [ref=e1465]
+                  - img "Where Comfort meets nature" [ref=e1466]
+                  - img "Where Comfort meets nature" [ref=e1467]
+                  - img "Where Comfort meets nature" [ref=e1468]
+                  - img "Where Comfort meets nature" [ref=e1469]
+                  - img "Where Comfort meets nature" [ref=e1470]
+                  - img "Where Comfort meets nature" [ref=e1471]
+                  - img "Where Comfort meets nature" [ref=e1472]
+                  - img "Where Comfort meets nature" [ref=e1473]
+                  - img "Where Comfort meets nature" [ref=e1474]
+                  - img "Where Comfort meets nature" [ref=e1475]
+                  - img "Where Comfort meets nature" [ref=e1476]
+                  - img "Where Comfort meets nature" [ref=e1477]
+                  - img "Where Comfort meets nature" [ref=e1478]
+                - button "Favorites" [ref=e1479]:
+                  - img [ref=e1480]
+                - generic [ref=e1482]: Lodge
+              - generic [ref=e1483]:
+                - generic [ref=e1484]:
+                  - heading "Where Comfort meets nature" [level=3] [ref=e1485]
+                  - generic [ref=e1486]:
+                    - img [ref=e1487]
+                    - generic [ref=e1489]: "0"
+                    - generic [ref=e1490]: (0)
+                - paragraph [ref=e1491]: Rebero
+                - paragraph [ref=e1492]: 1 bd · 2 beds · 1 bath
+                - generic [ref=e1494]:
+                  - generic [ref=e1495]:
+                    - generic [ref=e1496]: Check-in
+                    - generic [ref=e1497]: 14:00
+                  - generic [ref=e1498]:
+                    - generic [ref=e1499]: Check-out
+                    - generic [ref=e1500]: 11:00
+                  - generic [ref=e1501]:
+                    - generic [ref=e1502]:
+                      - img [ref=e1503]
+                      - text: Guests
+                    - generic [ref=e1508]: "2"
+                  - generic [ref=e1509]:
+                    - generic [ref=e1510]: Smoking
+                    - generic [ref=e1511]: "No"
+                  - generic [ref=e1512]:
+                    - generic [ref=e1513]: Events
+                    - generic [ref=e1514]: "No"
+                  - generic [ref=e1515]:
+                    - generic [ref=e1516]: Pets
+                    - generic [ref=e1517]: "No"
+                - generic [ref=e1518]:
+                  - generic [ref=e1519]: 175,093 FRw
+                  - generic [ref=e1520]: / night
+          - link "Serenity Lodge" [ref=e1522] [cursor=pointer]:
+            - /url: /properties/06e758bb-f1ea-41a5-8d38-82745786e148
+            - generic [ref=e1523]:
+              - generic [ref=e1524]:
+                - generic [ref=e1526]:
+                  - img "Serenity Lodge" [ref=e1527]
+                  - img "Serenity Lodge" [ref=e1528]
+                  - img "Serenity Lodge" [ref=e1529]
+                  - img "Serenity Lodge" [ref=e1530]
+                  - img "Serenity Lodge" [ref=e1531]
+                  - img "Serenity Lodge" [ref=e1532]
+                  - img "Serenity Lodge" [ref=e1533]
+                  - img "Serenity Lodge" [ref=e1534]
+                  - img "Serenity Lodge" [ref=e1535]
+                  - img "Serenity Lodge" [ref=e1536]
+                  - img "Serenity Lodge" [ref=e1537]
+                  - img "Serenity Lodge" [ref=e1538]
+                  - img "Serenity Lodge" [ref=e1539]
+                  - img "Serenity Lodge" [ref=e1540]
+                  - img "Serenity Lodge" [ref=e1541]
+                  - img "Serenity Lodge" [ref=e1542]
+                  - img "Serenity Lodge" [ref=e1543]
+                  - img "Serenity Lodge" [ref=e1544]
+                  - img "Serenity Lodge" [ref=e1545]
+                  - img "Serenity Lodge" [ref=e1546]
+                  - img "Serenity Lodge" [ref=e1547]
+                  - img "Serenity Lodge" [ref=e1548]
+                  - img "Serenity Lodge" [ref=e1549]
+                  - img "Serenity Lodge" [ref=e1550]
+                  - img "Serenity Lodge" [ref=e1551]
+                  - img "Serenity Lodge" [ref=e1552]
+                  - img "Serenity Lodge" [ref=e1553]
+                  - img "Serenity Lodge" [ref=e1554]
+                  - img "Serenity Lodge" [ref=e1555]
+                  - img "Serenity Lodge" [ref=e1556]
+                  - img "Serenity Lodge" [ref=e1557]
+                  - img "Serenity Lodge" [ref=e1558]
+                  - img "Serenity Lodge" [ref=e1559]
+                  - img "Serenity Lodge" [ref=e1560]
+                  - img "Serenity Lodge" [ref=e1561]
+                  - img "Serenity Lodge" [ref=e1562]
+                - button "Favorites" [ref=e1563]:
+                  - img [ref=e1564]
+                - generic [ref=e1566]: Lodge
+              - generic [ref=e1567]:
+                - generic [ref=e1568]:
+                  - heading "Serenity Lodge" [level=3] [ref=e1569]
+                  - generic [ref=e1570]:
+                    - img [ref=e1571]
+                    - generic [ref=e1573]: "0"
+                    - generic [ref=e1574]: (0)
+                - paragraph [ref=e1575]: Rebero
+                - paragraph [ref=e1576]: 1 bd · 1 beds · 1 bath
+                - generic [ref=e1578]:
+                  - generic [ref=e1579]:
+                    - generic [ref=e1580]: Check-in
+                    - generic [ref=e1581]: 14:00
+                  - generic [ref=e1582]:
+                    - generic [ref=e1583]: Check-out
+                    - generic [ref=e1584]: 11:00
+                  - generic [ref=e1585]:
+                    - generic [ref=e1586]:
+                      - img [ref=e1587]
+                      - text: Guests
+                    - generic [ref=e1592]: "2"
+                  - generic [ref=e1593]:
+                    - generic [ref=e1594]: Smoking
+                    - generic [ref=e1595]: "No"
+                  - generic [ref=e1596]:
+                    - generic [ref=e1597]: Events
+                    - generic [ref=e1598]: "No"
+                  - generic [ref=e1599]:
+                    - generic [ref=e1600]: Pets
+                    - generic [ref=e1601]: "No"
+                - generic [ref=e1602]:
+                  - generic [ref=e1603]: 204,275 FRw
+                  - generic [ref=e1604]: / night
+          - link "Prime Urban Residence" [ref=e1606] [cursor=pointer]:
+            - /url: /properties/3a44cc43-5a2c-43ed-b60c-1cdc203a3ab7
+            - generic [ref=e1607]:
+              - generic [ref=e1608]:
+                - generic [ref=e1610]:
+                  - img "Prime Urban Residence" [ref=e1611]
+                  - img "Prime Urban Residence" [ref=e1612]
+                  - img "Prime Urban Residence" [ref=e1613]
+                  - img "Prime Urban Residence" [ref=e1614]
+                  - img "Prime Urban Residence" [ref=e1615]
+                  - img "Prime Urban Residence" [ref=e1616]
+                  - img "Prime Urban Residence" [ref=e1617]
+                  - img "Prime Urban Residence" [ref=e1618]
+                  - img "Prime Urban Residence" [ref=e1619]
+                  - img "Prime Urban Residence" [ref=e1620]
+                  - img "Prime Urban Residence" [ref=e1621]
+                  - img "Prime Urban Residence" [ref=e1622]
+                  - img "Prime Urban Residence" [ref=e1623]
+                  - img "Prime Urban Residence" [ref=e1624]
+                  - img "Prime Urban Residence" [ref=e1625]
+                  - img "Prime Urban Residence" [ref=e1626]
+                  - img "Prime Urban Residence" [ref=e1627]
+                  - img "Prime Urban Residence" [ref=e1628]
+                  - img "Prime Urban Residence" [ref=e1629]
+                  - img "Prime Urban Residence" [ref=e1630]
+                  - img "Prime Urban Residence" [ref=e1631]
+                  - img "Prime Urban Residence" [ref=e1632]
+                  - img "Prime Urban Residence" [ref=e1633]
+                  - img "Prime Urban Residence" [ref=e1634]
+                  - img "Prime Urban Residence" [ref=e1635]
+                  - img "Prime Urban Residence" [ref=e1636]
+                  - img "Prime Urban Residence" [ref=e1637]
+                  - img "Prime Urban Residence" [ref=e1638]
+                  - img "Prime Urban Residence" [ref=e1639]
+                  - img "Prime Urban Residence" [ref=e1640]
+                - button "Favorites" [ref=e1641]:
+                  - img [ref=e1642]
+                - generic [ref=e1644]: Apartment
+              - generic [ref=e1645]:
+                - generic [ref=e1646]:
+                  - heading "Prime Urban Residence" [level=3] [ref=e1647]
+                  - generic [ref=e1648]:
+                    - img [ref=e1649]
+                    - generic [ref=e1651]: "0"
+                    - generic [ref=e1652]: (0)
+                - paragraph [ref=e1653]: Kimihurura
+                - paragraph [ref=e1654]: 2 bd · 2 beds · 2 bath
+                - generic [ref=e1656]:
+                  - generic [ref=e1657]:
+                    - generic [ref=e1658]: Check-in
+                    - generic [ref=e1659]: 14:00
+                  - generic [ref=e1660]:
+                    - generic [ref=e1661]: Check-out
+                    - generic [ref=e1662]: 11:00
+                  - generic [ref=e1663]:
+                    - generic [ref=e1664]:
+                      - img [ref=e1665]
+                      - text: Guests
+                    - generic [ref=e1670]: "4"
+                  - generic [ref=e1671]:
+                    - generic [ref=e1672]: Smoking
+                    - generic [ref=e1673]: "No"
+                  - generic [ref=e1674]:
+                    - generic [ref=e1675]: Events
+                    - generic [ref=e1676]: "No"
+                  - generic [ref=e1677]:
+                    - generic [ref=e1678]: Pets
+                    - generic [ref=e1679]: "No"
+                - generic [ref=e1680]:
+                  - generic [ref=e1681]: $150
+                  - generic [ref=e1682]: / night
+          - link "The Ultimate Luxury Residence" [ref=e1684] [cursor=pointer]:
+            - /url: /properties/84a0eee0-eaa1-4387-bd7b-9d4bb7f176f5
+            - generic [ref=e1685]:
+              - generic [ref=e1686]:
+                - generic [ref=e1688]:
+                  - img "The Ultimate Luxury Residence" [ref=e1689]
+                  - img "The Ultimate Luxury Residence" [ref=e1690]
+                  - img "The Ultimate Luxury Residence" [ref=e1691]
+                  - img "The Ultimate Luxury Residence" [ref=e1692]
+                  - img "The Ultimate Luxury Residence" [ref=e1693]
+                  - img "The Ultimate Luxury Residence" [ref=e1694]
+                  - img "The Ultimate Luxury Residence" [ref=e1695]
+                  - img "The Ultimate Luxury Residence" [ref=e1696]
+                  - img "The Ultimate Luxury Residence" [ref=e1697]
+                  - img "The Ultimate Luxury Residence" [ref=e1698]
+                  - img "The Ultimate Luxury Residence" [ref=e1699]
+                  - img "The Ultimate Luxury Residence" [ref=e1700]
+                  - img "The Ultimate Luxury Residence" [ref=e1701]
+                  - img "The Ultimate Luxury Residence" [ref=e1702]
+                  - img "The Ultimate Luxury Residence" [ref=e1703]
+                  - img "The Ultimate Luxury Residence" [ref=e1704]
+                  - img "The Ultimate Luxury Residence" [ref=e1705]
+                  - img "The Ultimate Luxury Residence" [ref=e1706]
+                  - img "The Ultimate Luxury Residence" [ref=e1707]
+                  - img "The Ultimate Luxury Residence" [ref=e1708]
+                  - img "The Ultimate Luxury Residence" [ref=e1709]
+                  - img "The Ultimate Luxury Residence" [ref=e1710]
+                  - img "The Ultimate Luxury Residence" [ref=e1711]
+                  - img "The Ultimate Luxury Residence" [ref=e1712]
+                  - img "The Ultimate Luxury Residence" [ref=e1713]
+                - button "Favorites" [ref=e1714]:
+                  - img [ref=e1715]
+                - generic [ref=e1717]: Apartment
+              - generic [ref=e1718]:
+                - generic [ref=e1719]:
+                  - heading "The Ultimate Luxury Residence" [level=3] [ref=e1720]
+                  - generic [ref=e1721]:
+                    - img [ref=e1722]
+                    - generic [ref=e1724]: "0"
+                    - generic [ref=e1725]: (0)
+                - paragraph [ref=e1726]: Kimuhurura
+                - paragraph [ref=e1727]: 1 bd · 1 beds · 1 bath
+                - generic [ref=e1729]:
+                  - generic [ref=e1730]:
+                    - generic [ref=e1731]: Check-in
+                    - generic [ref=e1732]: 14:00
+                  - generic [ref=e1733]:
+                    - generic [ref=e1734]: Check-out
+                    - generic [ref=e1735]: 11:00
+                  - generic [ref=e1736]:
+                    - generic [ref=e1737]:
+                      - img [ref=e1738]
+                      - text: Guests
+                    - generic [ref=e1743]: "2"
+                  - generic [ref=e1744]:
+                    - generic [ref=e1745]: Smoking
+                    - generic [ref=e1746]: "No"
+                  - generic [ref=e1747]:
+                    - generic [ref=e1748]: Events
+                    - generic [ref=e1749]: "No"
+                  - generic [ref=e1750]:
+                    - generic [ref=e1751]: Pets
+                    - generic [ref=e1752]: "No"
+                - generic [ref=e1753]:
+                  - generic [ref=e1754]: $110
+                  - generic [ref=e1755]: / night
+    - generic [ref=e1756]:
+      - generic [ref=e1757]:
+        - generic [ref=e1758]:
+          - heading "Featured Tours" [level=2] [ref=e1759]
+          - paragraph [ref=e1760]: Popular experiences right now
+        - link "View all" [ref=e1761] [cursor=pointer]:
+          - /url: /tours
+      - generic [ref=e1762]:
+        - button "Scroll left" [ref=e1763] [cursor=pointer]:
+          - img [ref=e1764]
+        - button "Scroll right" [ref=e1766] [cursor=pointer]:
+          - img [ref=e1767]
+        - link "Grfbtvh" [ref=e1771] [cursor=pointer]:
+          - /url: /tours
+          - generic [ref=e1772]:
+            - generic [ref=e1773]:
+              - generic [ref=e1775]:
+                - img "Grfbtvh" [ref=e1776]
+                - img "Grfbtvh" [ref=e1777]
+                - img "Grfbtvh" [ref=e1778]
+                - img "Grfbtvh" [ref=e1779]
+                - img "Grfbtvh" [ref=e1780]
+                - img "Grfbtvh" [ref=e1781]
+                - img "Grfbtvh" [ref=e1782]
+                - img "Grfbtvh" [ref=e1783]
+                - img "Grfbtvh" [ref=e1784]
+              - button "Add to Trip" [ref=e1785]
+              - generic [ref=e1786]: Adventure
+            - generic [ref=e1787]:
+              - heading "Grfbtvh" [level=3] [ref=e1789]
+              - paragraph [ref=e1790]:
+                - img [ref=e1791]
+                - text: Rwanda
+              - generic [ref=e1794]:
+                - generic [ref=e1795]: $1,200
+                - generic [ref=e1796]: / person
+                - generic [ref=e1797]: 3 day(s)
+    - generic [ref=e1798]:
+      - generic [ref=e1799]:
+        - generic [ref=e1802]:
+          - heading "Accommodations" [level=3] [ref=e1803]
+          - paragraph [ref=e1804]: Browse hotels, villas, apartments, and guesthouses.
+          - button "View accommodations" [ref=e1805] [cursor=pointer]
+        - generic [ref=e1808]:
+          - heading "Tours" [level=3] [ref=e1809]
+          - paragraph [ref=e1810]: Discover experiences and day trips curated by local hosts.
+          - button "View tours" [ref=e1811] [cursor=pointer]
+        - generic [ref=e1814]:
+          - heading "Transport" [level=3] [ref=e1815]
+          - paragraph [ref=e1816]: Find rides, transfers, and vehicles for rent.
+          - button "View transport" [ref=e1817] [cursor=pointer]
+      - generic [ref=e1819]:
+        - generic [ref=e1820]:
+          - heading "Become a host in 3 steps" [level=3] [ref=e1821]
+          - paragraph [ref=e1822]: Apply, add your property, and verify your identity. Your listing stays private until our team approves it.
+          - generic [ref=e1823]:
+            - generic [ref=e1824]:
+              - generic [ref=e1825]: "1"
+              - generic [ref=e1826]:
+                - generic [ref=e1827]: Create your host application
+                - generic [ref=e1828]: Choose Individual or Business.
+            - generic [ref=e1829]:
+              - generic [ref=e1830]: "2"
+              - generic [ref=e1831]:
+                - generic [ref=e1832]: Add your property
+                - generic [ref=e1833]: Use the same “Add property” wizard hosts use.
+            - generic [ref=e1834]:
+              - generic [ref=e1835]: "3"
+              - generic [ref=e1836]:
+                - generic [ref=e1837]: Verify identity
+                - generic [ref=e1838]: Upload ID (and business info if needed).
+        - button "Become a Host" [ref=e1840] [cursor=pointer]:
+          - img
+          - text: Become a Host
+    - contentinfo [ref=e1841]:
+      - generic [ref=e1842]:
+        - generic [ref=e1843]:
+          - generic [ref=e1844]:
+            - img "Merry 360 X" [ref=e1847]
+            - paragraph [ref=e1848]: Discover the warmth of African hospitality with modern travel solutions.
+          - generic [ref=e1849]:
+            - heading "Explore" [level=4] [ref=e1850]
+            - list [ref=e1851]:
+              - listitem [ref=e1852]:
+                - link "Accommodations" [ref=e1853] [cursor=pointer]:
+                  - /url: /accommodations
+              - listitem [ref=e1854]:
+                - link "Tours" [ref=e1855] [cursor=pointer]:
+                  - /url: /tours
+              - listitem [ref=e1856]:
+                - link "Transport" [ref=e1857] [cursor=pointer]:
+                  - /url: /transport
+          - generic [ref=e1858]:
+            - heading "Company" [level=4] [ref=e1859]
+            - list [ref=e1860]:
+              - listitem [ref=e1861]:
+                - link "About Us" [ref=e1862] [cursor=pointer]:
+                  - /url: /about
+              - listitem [ref=e1863]:
+                - link "Contact" [ref=e1864] [cursor=pointer]:
+                  - /url: /contact
+              - listitem [ref=e1865]:
+                - link "Become a Host" [ref=e1866] [cursor=pointer]:
+                  - /url: /become-host
+          - generic [ref=e1867]:
+            - heading "Support" [level=4] [ref=e1868]
+            - list [ref=e1869]:
+              - listitem [ref=e1870]:
+                - link "Help Center" [ref=e1871] [cursor=pointer]:
+                  - /url: /help
+              - listitem [ref=e1872]:
+                - link "Safety" [ref=e1873] [cursor=pointer]:
+                  - /url: /safety
+              - listitem [ref=e1874]:
+                - link "Terms" [ref=e1875] [cursor=pointer]:
+                  - /url: /terms
+        - generic [ref=e1876]:
+          - paragraph [ref=e1877]: © 2026 Merry360X. All rights reserved.
+          - generic [ref=e1878]:
+            - link "Privacy" [ref=e1879] [cursor=pointer]:
+              - /url: /privacy
+            - link "Terms" [ref=e1880] [cursor=pointer]:
+              - /url: /terms
+            - link "Cookies" [ref=e1881] [cursor=pointer]:
+              - /url: /cookies
+  - generic [ref=e1882]:
+    - generic [ref=e1883]:
+      - img [ref=e1884]
+      - generic [ref=e1888]: DB Status
+      - button [ref=e1889] [cursor=pointer]:
+        - img
+    - generic [ref=e1890]:
+      - generic [ref=e1891]: "Last tested: 1:11:39 AM"
+      - generic [ref=e1892]:
+        - img [ref=e1893]
+        - generic [ref=e1896]: "Properties:"
+        - generic [ref=e1897]: 50 records
+      - generic [ref=e1898]:
+        - img [ref=e1899]
+        - generic [ref=e1902]: "Tours:"
+        - generic [ref=e1903]: 0 records
+      - generic [ref=e1904]:
+        - img [ref=e1905]
+        - generic [ref=e1908]: "Vehicles:"
+        - generic [ref=e1909]: 0 records
+      - generic [ref=e1910]:
+        - img [ref=e1911]
+        - generic [ref=e1914]: "Admin RPC:"
+        - generic [ref=e1915]: 11 records
+```

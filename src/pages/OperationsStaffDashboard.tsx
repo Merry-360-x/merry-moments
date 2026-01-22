@@ -137,7 +137,7 @@ export default function OperationsStaffDashboard() {
 
   const approveApplicationMutation = useMutation({
     mutationFn: async (id: string) => {
-      // @ts-ignore - Supabase type issue with host_applications update
+      // @ts-expect-error - Supabase type issue with host_applications update
       const { error } = await supabase
         .from("host_applications")
         .update({ status: "approved" })
@@ -155,7 +155,7 @@ export default function OperationsStaffDashboard() {
 
   const rejectApplicationMutation = useMutation({
     mutationFn: async (id: string) => {
-      // @ts-ignore - Supabase type issue with host_applications update
+      // @ts-expect-error - Supabase type issue with host_applications update
       const { error } = await supabase
         .from("host_applications")
         .update({ status: "rejected" })

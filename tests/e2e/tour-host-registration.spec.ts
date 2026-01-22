@@ -92,7 +92,7 @@ test.describe('Tour Host Registration E2E', () => {
     console.log('✓ Navigated to host application page');
     
     // Step 2: Select "Tours" service type
-    const toursCard = page.locator('text=Tours').locator('..');
+    const toursCard = page.getByRole('button', { name: /tours/i }).or(page.locator('[data-testid="service-tours"]')).first();
     await expect(toursCard).toBeVisible({ timeout: 5000 });
     await toursCard.click();
     
@@ -271,7 +271,7 @@ test.describe('Tour Host Registration E2E', () => {
     await page.goto('/become-host');
     
     // Select Tours
-    await page.locator('text=Tours').locator('..').click();
+    await page.getByRole('button', { name: /tours/i }).or(page.locator('[data-testid="service-tours"]')).first().click();
     await page.getByRole('button', { name: /continue/i }).click();
     await page.waitForTimeout(1000);
     
@@ -334,7 +334,7 @@ test.describe('Tour Host Registration E2E', () => {
     await page.goto('/become-host');
     
     // Select Tours
-    await page.locator('text=Tours').locator('..').click();
+    await page.getByRole('button', { name: /tours/i }).or(page.locator('[data-testid="service-tours"]')).first().click();
     await page.getByRole('button', { name: /continue/i }).click();
     await page.waitForTimeout(1000);
     
@@ -374,7 +374,7 @@ test.describe('Tour Host Registration E2E', () => {
     await page.goto('/become-host');
     
     // Select Tours
-    await page.locator('text=Tours').locator('..').click();
+    await page.getByRole('button', { name: /tours/i }).or(page.locator('[data-testid="service-tours"]')).first().click();
     await page.getByRole('button', { name: /continue/i }).click();
     await page.waitForTimeout(1000);
     
@@ -417,7 +417,7 @@ test.describe('Tour Host Registration - Field Validation', () => {
     await page.goto('/become-host');
     
     // Navigate to personal info
-    await page.locator('text=Tours').locator('..').click();
+    await page.getByRole('button', { name: /tours/i }).or(page.locator('[data-testid="service-tours"]')).first().click();
     await page.getByRole('button', { name: /continue/i }).click();
     await page.waitForTimeout(1000);
     
@@ -442,7 +442,7 @@ test.describe('Tour Host Registration - Field Validation', () => {
     await setupAuth(page);
     await page.goto('/become-host');
     
-    await page.locator('text=Tours').locator('..').click();
+    await page.getByRole('button', { name: /tours/i }).or(page.locator('[data-testid="service-tours"]')).first().click();
     await page.getByRole('button', { name: /continue/i }).click();
     await page.waitForTimeout(1000);
     

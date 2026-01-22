@@ -1,0 +1,187 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications alt+T"
+  - button "Help" [ref=e3] [cursor=pointer]:
+    - img [ref=e4]
+  - generic [ref=e6]:
+    - banner [ref=e7]:
+      - generic [ref=e11]:
+        - img [ref=e13]
+        - generic [ref=e16]: 10% off on tour for students.
+      - navigation [ref=e18]:
+        - link "Merry 360 X" [ref=e19] [cursor=pointer]:
+          - /url: /
+          - img "Merry 360 X" [ref=e22]
+        - generic [ref=e24]:
+          - link "Home" [ref=e25] [cursor=pointer]:
+            - /url: /
+          - link "Accommodations" [ref=e26] [cursor=pointer]:
+            - /url: /accommodations
+          - link "Tours" [ref=e27] [cursor=pointer]:
+            - /url: /tours
+          - link "Transport" [ref=e28] [cursor=pointer]:
+            - /url: /transport
+          - link "Stories" [ref=e29] [cursor=pointer]:
+            - /url: /stories
+        - generic [ref=e30]:
+          - button "Become a Host" [ref=e31] [cursor=pointer]:
+            - img
+            - generic [ref=e32]: Become a Host
+          - button "Theme" [ref=e33] [cursor=pointer]:
+            - img [ref=e34]
+          - button "Currency" [ref=e36] [cursor=pointer]:
+            - generic [ref=e37]: (FRw) RWF
+            - img [ref=e38]
+          - button "EN" [ref=e40] [cursor=pointer]:
+            - generic [ref=e41]: EN
+            - img [ref=e42]
+          - link "Trip Cart" [ref=e44] [cursor=pointer]:
+            - /url: /trip-cart
+            - button "Trip Cart" [ref=e45]:
+              - generic [ref=e46]: Trip Cart
+          - link [ref=e47] [cursor=pointer]:
+            - /url: /favorites
+            - button [ref=e48]:
+              - img [ref=e49]
+          - link "Sign In" [ref=e51] [cursor=pointer]:
+            - /url: /auth
+            - button "Sign In" [ref=e52]
+    - main [ref=e53]:
+      - generic [ref=e54]:
+        - generic [ref=e55]:
+          - heading "Connection Test" [level=1] [ref=e56]
+          - paragraph [ref=e57]: Verify your app is connected to production Supabase
+        - generic [ref=e58]:
+          - generic [ref=e59]:
+            - heading "Production Connection Test" [level=3] [ref=e60]
+            - paragraph [ref=e61]: Verifying connection to production Supabase database and services
+          - generic [ref=e62]:
+            - alert [ref=e64]:
+              - img [ref=e65]
+              - generic [ref=e68]: 6 Passed
+            - generic [ref=e69]:
+              - alert [ref=e70]:
+                - generic [ref=e71]:
+                  - img [ref=e72]
+                  - generic [ref=e75]:
+                    - generic [ref=e76]: Environment Variables
+                    - generic [ref=e77]: Production Supabase configured
+                    - generic [ref=e78]: "URL: https://uwgiostcetoxotfnulfm.supabase.co Cloudinary: ✓ Configured"
+              - alert [ref=e79]:
+                - generic [ref=e80]:
+                  - img [ref=e81]
+                  - generic [ref=e84]:
+                    - generic [ref=e85]: Database Connection
+                    - generic [ref=e86]: Database accessible
+                    - generic [ref=e87]: Successfully queried properties table. Found 1 records.
+              - alert [ref=e88]:
+                - generic [ref=e89]:
+                  - img [ref=e90]
+                  - generic [ref=e93]:
+                    - generic [ref=e94]: Authentication
+                    - generic [ref=e95]: Auth service working (not signed in)
+                    - generic [ref=e96]: Authentication is configured correctly. Sign in to test further.
+              - alert [ref=e97]:
+                - generic [ref=e98]:
+                  - img [ref=e99]
+                  - generic [ref=e102]:
+                    - generic [ref=e103]: Storage
+                    - generic [ref=e104]: Storage accessible
+                    - generic [ref=e105]: "Found 0 storage bucket(s): None"
+              - alert [ref=e106]:
+                - generic [ref=e107]:
+                  - img [ref=e108]
+                  - generic [ref=e111]:
+                    - generic [ref=e112]: RPC Functions
+                    - generic [ref=e113]: RPC functions working
+                    - generic [ref=e114]: Admin metrics function executed successfully
+              - alert [ref=e115]:
+                - generic [ref=e116]:
+                  - img [ref=e117]
+                  - generic [ref=e120]:
+                    - generic [ref=e121]: Cloudinary
+                    - generic [ref=e122]: Cloudinary configured
+                    - generic [ref=e123]: "Cloud: dxdblhmbm Preset: default"
+            - alert [ref=e124]:
+              - img [ref=e125]
+              - generic [ref=e128]: ✅ All critical tests passed! Your app is connected to the production Supabase database.
+    - contentinfo [ref=e129]:
+      - generic [ref=e130]:
+        - generic [ref=e131]:
+          - generic [ref=e132]:
+            - img "Merry 360 X" [ref=e135]
+            - paragraph [ref=e136]: Discover the warmth of African hospitality with modern travel solutions.
+          - generic [ref=e137]:
+            - heading "Explore" [level=4] [ref=e138]
+            - list [ref=e139]:
+              - listitem [ref=e140]:
+                - link "Accommodations" [ref=e141] [cursor=pointer]:
+                  - /url: /accommodations
+              - listitem [ref=e142]:
+                - link "Tours" [ref=e143] [cursor=pointer]:
+                  - /url: /tours
+              - listitem [ref=e144]:
+                - link "Transport" [ref=e145] [cursor=pointer]:
+                  - /url: /transport
+          - generic [ref=e146]:
+            - heading "Company" [level=4] [ref=e147]
+            - list [ref=e148]:
+              - listitem [ref=e149]:
+                - link "About Us" [ref=e150] [cursor=pointer]:
+                  - /url: /about
+              - listitem [ref=e151]:
+                - link "Contact" [ref=e152] [cursor=pointer]:
+                  - /url: /contact
+              - listitem [ref=e153]:
+                - link "Become a Host" [ref=e154] [cursor=pointer]:
+                  - /url: /become-host
+          - generic [ref=e155]:
+            - heading "Support" [level=4] [ref=e156]
+            - list [ref=e157]:
+              - listitem [ref=e158]:
+                - link "Help Center" [ref=e159] [cursor=pointer]:
+                  - /url: /help
+              - listitem [ref=e160]:
+                - link "Safety" [ref=e161] [cursor=pointer]:
+                  - /url: /safety
+              - listitem [ref=e162]:
+                - link "Terms" [ref=e163] [cursor=pointer]:
+                  - /url: /terms
+        - generic [ref=e164]:
+          - paragraph [ref=e165]: © 2026 Merry360X. All rights reserved.
+          - generic [ref=e166]:
+            - link "Privacy" [ref=e167] [cursor=pointer]:
+              - /url: /privacy
+            - link "Terms" [ref=e168] [cursor=pointer]:
+              - /url: /terms
+            - link "Cookies" [ref=e169] [cursor=pointer]:
+              - /url: /cookies
+  - generic [ref=e170]:
+    - generic [ref=e171]:
+      - img [ref=e172]
+      - generic [ref=e176]: DB Status
+      - button [ref=e177] [cursor=pointer]:
+        - img
+    - generic [ref=e178]:
+      - generic [ref=e179]: "Last tested: 1:11:39 AM"
+      - generic [ref=e180]:
+        - img [ref=e181]
+        - generic [ref=e184]: "Properties:"
+        - generic [ref=e185]: 50 records
+      - generic [ref=e186]:
+        - img [ref=e187]
+        - generic [ref=e190]: "Tours:"
+        - generic [ref=e191]: 0 records
+      - generic [ref=e192]:
+        - img [ref=e193]
+        - generic [ref=e196]: "Vehicles:"
+        - generic [ref=e197]: 0 records
+      - generic [ref=e198]:
+        - img [ref=e199]
+        - generic [ref=e202]: "Admin RPC:"
+        - generic [ref=e203]: 11 records
+```

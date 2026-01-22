@@ -106,7 +106,7 @@ export default function TourDetails() {
 
   const isPackage = data?.source === "tour_packages";
   const normalizedImages = isPackage
-    ? [tour?.cover_image, ...(Array.isArray(tour?.gallery_images) ? tour?.gallery_images : [])].filter(Boolean)
+    ? [tour?.cover_image, ...(Array.isArray(tour?.gallery_images) ? tour.gallery_images : [])].filter(Boolean)
     : tour?.images ?? [];
   const normalizedDurationDays = isPackage
     ? Number.parseInt(tour?.duration ?? "1", 10) || 1
