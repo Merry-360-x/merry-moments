@@ -211,7 +211,8 @@ const Tours = () => {
             {tours.map((tour) => (
               <div
                 key={tour.id}
-                className="group rounded-xl overflow-hidden bg-card shadow-card hover:shadow-lg transition-all duration-300 animate-fade-in"
+                className="group rounded-xl overflow-hidden bg-card shadow-card hover:shadow-lg transition-all duration-300 animate-fade-in cursor-pointer"
+                onClick={() => navigate(`/tours/${tour.id}`)}
               >
                 <div className="relative aspect-[4/3] overflow-hidden">
                   {tour.images?.length ? (
@@ -219,9 +220,20 @@ const Tours = () => {
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-muted via-muted/70 to-muted/40" />
                   )}
-                  <span className="absolute bottom-3 left-3 px-3 py-1 rounded-full bg-background/90 backdrop-blur-sm text-xs font-medium">
-                    {tour.category}
-                  </span>
+                  {tour.categories && tour.categories.length > 0 && (
+                    <div className="absolute bottom-3 left-3 flex gap-1 flex-wrap">
+                      {tour.categories.slice(0, 2).map((cat: string) => (
+                        <span key={cat} className="px-2 py-1 rounded-full bg-background/90 backdrop-blur-sm text-xs font-medium">
+                          {cat}
+                        </span>
+                      ))}
+                      {tour.categories.length > 2 && (
+                        <span className="px-2 py-1 rounded-full bg-background/90 backdrop-blur-sm text-xs font-medium">
+                          +{tour.categories.length - 2}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-4">
@@ -246,8 +258,15 @@ const Tours = () => {
                       </span>
                       <span className="text-sm text-muted-foreground"> / person</span>
                     </div>
-                    <Button variant="outline" onClick={() => addToCart(tour)}>
-                      Add to Trip Cart
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        addToCart(tour);
+                      }}
+                    >
+                      Add to Cart
                     </Button>
                   </div>
                 </div>

@@ -39,7 +39,7 @@ export default function CreateTour() {
     description: "",
     location: "",
     address: "",
-    category: "",
+    categories: [] as string[],
     difficulty: "",
     duration_days: 1,
     max_participants: 10,
@@ -50,6 +50,7 @@ export default function CreateTour() {
 
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -79,6 +80,15 @@ export default function CreateTour() {
     }));
   };
 
+  const toggleCategory = (category: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      categories: prev.categories.includes(category)
+        ? prev.categories.filter((c) => c !== category)
+        : [...prev.categories, category],
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -91,10 +101,10 @@ export default function CreateTour() {
       return;
     }
 
-    if (!formData.title || !formData.description || !formData.location || !formData.category) {
+    if (!formData.title || !formData.description || !formData.location || formData.categories.length === 0) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all required fields.",
+        description: "Please fill in all required fields and select at least one category.",
         variant: "destructive",
       });
       return;
@@ -114,6 +124,17 @@ export default function CreateTour() {
         }
       }
 
+      // Upload PDF if provided
+      let pdfUrl: string | null = null;
+      if (pdfFile) {
+        try {
+          const result = await uploadFile(pdfFile, { folder: "tour-pdfs" });
+          pdfUrl = result.url;
+        } catch (err) {
+          console.error("PDF upload failed:", err);
+        }
+      }
+
       // Create tour
       const { data, error } = await supabase
         .from("tours")
@@ -121,13 +142,14 @@ export default function CreateTour() {
           title: formData.title,
           description: formData.description,
           location: formData.location,
-          category: formData.category,
+          categories: formData.categories,
           difficulty: formData.difficulty,
           duration_days: formData.duration_days,
           max_group_size: formData.max_participants,
           price_per_person: formData.price_per_person,
           currency: formData.currency,
           images: uploadedImageUrls,
+          itinerary_pdf_url: pdfUrl,
           created_by: user.id,
           is_published: false,
         })
@@ -225,24 +247,23 @@ export default function CreateTour() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div>
-                  <Label htmlFor="category">Category *</Label>
-                  <Select
-                    value={formData.category}
-                    onValueChange={(value) => setFormData({ ...formData, category: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat} value={cat}>
+                  <Label>Categories * (Select at least one)</Label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-2">
+                    {categories.map((cat) => (
+                      <div key={cat} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`category-${cat}`}
+                          checked={formData.categories.includes(cat)}
+                          onCheckedChange={() => toggleCategory(cat)}
+                        />
+                        <Label htmlFor={`category-${cat}`} className="cursor-pointer">
                           {cat}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <div>
@@ -400,13 +421,39 @@ export default function CreateTour() {
             </CardContent>
           </Card>
 
+          {/* Tour Itinerary PDF */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Tour Itinerary (Optional)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="pdf-upload">Upload PDF Itinerary</Label>
+                  <Input
+                    id="pdf-upload"
+                    type="file"
+                    accept=".pdf"
+                    onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
+                    className="mt-2"
+                  />
+                  {pdfFile && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Selected: {pdfFile.name}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Submit */}
           <div className="flex gap-4">
             <Button type="button" variant="outline" onClick={() => navigate(-1)}>
               Cancel
             </Button>
-            <Button type="submit">
-              Create Tour
+            <Button type="submit" disabled={uploading}>
+              {uploading ? "Creating..." : "Create Tour"}
             </Button>
           </div>
         </form>

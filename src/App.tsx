@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Accommodations from "./pages/Accommodations";
 import Tours from "./pages/Tours";
+import TourDetails from "./pages/TourDetails";
 import Transport from "./pages/Transport";
 import Stories from "./pages/Stories";
 import HostDashboard from "./pages/HostDashboard";
@@ -138,6 +139,7 @@ const App = () => (
               <Route path="/signup" element={<AuthModeRedirect mode="signup" />} />
               <Route path="/accommodations" element={<Accommodations />} />
               <Route path="/tours" element={<Tours />} />
+              <Route path="/tours/:id" element={<TourDetails />} />
               <Route path="/transport" element={<Transport />} />
               <Route path="/services" element={<Navigate to="/" replace />} />
               <Route path="/stories" element={<Stories />} />
