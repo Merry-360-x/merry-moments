@@ -151,7 +151,7 @@ export default function TourDetails() {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <div className="container mx-auto px-4 lg:px-8 py-10">
+      <div className="container mx-auto px-4 lg:px-8 py-8">
         <button
           type="button"
           onClick={() => navigate(-1)}
@@ -161,129 +161,118 @@ export default function TourDetails() {
           Back
         </button>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left column - 7 cols */}
           <div className="lg:col-span-7 space-y-6">
+            {/* Image carousel */}
             <div className="bg-card rounded-xl shadow-card overflow-hidden">
               {normalizedImages?.length ? (
                 <ListingImageCarousel
                   images={normalizedImages}
                   alt={tour.title}
-                  className="w-full h-[320px]"
+                  className="w-full h-[400px]"
                 />
               ) : (
-                <div className="w-full h-[320px] bg-gradient-to-br from-muted via-muted/70 to-muted/40" />
+                <div className="w-full h-[400px] bg-gradient-to-br from-muted via-muted/70 to-muted/40" />
               )}
             </div>
 
-            <div className="bg-card rounded-xl shadow-card p-6 space-y-4">
-              <div>
-                <h1 className="text-2xl font-semibold text-foreground mb-2">{tour.title}</h1>
-                <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                  {normalizedCategories.map((category: string) => (
-                    <Badge key={category} variant="secondary">{category}</Badge>
-                  ))}
-                  {tour.rating && (
-                    <div className="flex items-center gap-1">
-                      <Star className="w-4 h-4 fill-primary text-primary" />
-                      <span>{tour.rating.toFixed(1)}</span>
-                      <span>({tour.review_count || 0})</span>
-                    </div>
-                  )}
-                  <span className="inline-flex items-center gap-1">
-                    <MapPin className="w-4 h-4" />
-                    {extractNeighborhood(normalizedLocation || "")}
-                  </span>
-                </div>
+            {/* About this tour */}
+            <div className="bg-card rounded-xl shadow-card p-5">
+              <div className="text-sm font-semibold text-foreground mb-3">About this tour</div>
+              
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                {normalizedCategories.map((category: string) => (
+                  <Badge key={category} variant="secondary" className="text-xs">{category}</Badge>
+                ))}
+                {tour.rating && (
+                  <div className="flex items-center gap-1 text-xs">
+                    <Star className="w-3.5 h-3.5 fill-primary text-primary" />
+                    <span>{tour.rating.toFixed(1)}</span>
+                    <span className="text-muted-foreground">({tour.review_count || 0})</span>
+                  </div>
+                )}
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-muted-foreground" />
-                  <span>{normalizedDurationDays} day{normalizedDurationDays === 1 ? "" : "s"}</span>
-                </div>
-                {normalizedMaxGroup && (
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-muted-foreground" />
-                    <span>Up to {normalizedMaxGroup} guests</span>
-                  </div>
-                )}
-                {normalizedDifficulty && (
-                  <div className="flex items-center gap-2">
-                    <Award className="w-4 h-4 text-muted-foreground" />
-                    <span>{normalizedDifficulty}</span>
-                  </div>
-                )}
+              <div className="text-sm text-muted-foreground mb-4">
+                {[
+                  `${normalizedDurationDays} day${normalizedDurationDays === 1 ? "" : "s"}`,
+                  normalizedMaxGroup ? `Up to ${normalizedMaxGroup} guests` : null,
+                  normalizedDifficulty || null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               </div>
 
               {tour.description && (
-                <p className="text-sm text-muted-foreground whitespace-pre-line">
+                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
                   {tour.description}
                 </p>
               )}
+            </div>
 
-              {isPackage && tour?.daily_itinerary && (
-                <div className="pt-2">
-                  <h3 className="text-sm font-semibold mb-2">Daily Itinerary</h3>
-                  <p className="text-sm text-muted-foreground whitespace-pre-line">{tour.daily_itinerary}</p>
-                </div>
-              )}
+            {/* Daily Itinerary */}
+            {isPackage && tour?.daily_itinerary && (
+              <div className="bg-card rounded-xl shadow-card p-5">
+                <div className="text-sm font-semibold text-foreground mb-2">Daily Itinerary</div>
+                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                  {tour.daily_itinerary}
+                </p>
+              </div>
+            )}
 
-              {isPackage && (tour?.included_services || tour?.excluded_services) && (
-                <div className="grid md:grid-cols-2 gap-4">
+            {/* What's included/excluded */}
+            {isPackage && (tour?.included_services || tour?.excluded_services) && (
+              <div className="bg-card rounded-xl shadow-card p-5">
+                <div className="grid md:grid-cols-2 gap-6">
                   {tour?.included_services && (
                     <div>
-                      <h4 className="text-sm font-semibold mb-2">Included</h4>
-                      <p className="text-sm text-muted-foreground whitespace-pre-line">{tour.included_services}</p>
+                      <div className="text-sm font-semibold text-foreground mb-2">What's Included</div>
+                      <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                        {tour.included_services}
+                      </p>
                     </div>
                   )}
                   {tour?.excluded_services && (
                     <div>
-                      <h4 className="text-sm font-semibold mb-2">Excluded</h4>
-                      <p className="text-sm text-muted-foreground whitespace-pre-line">{tour.excluded_services}</p>
+                      <div className="text-sm font-semibold text-foreground mb-2">What's Excluded</div>
+                      <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                        {tour.excluded_services}
+                      </p>
                     </div>
                   )}
                 </div>
-              )}
+              </div>
+            )}
 
-              {isPackage && tour?.meeting_point && (
-                <div>
-                  <h4 className="text-sm font-semibold mb-2">Meeting Point</h4>
-                  <p className="text-sm text-muted-foreground whitespace-pre-line">{tour.meeting_point}</p>
-                </div>
-              )}
+            {/* Meeting point & What to bring */}
+            {isPackage && (tour?.meeting_point || tour?.what_to_bring) && (
+              <div className="bg-card rounded-xl shadow-card p-5">
+                {tour?.meeting_point && (
+                  <div className="mb-4">
+                    <div className="text-sm font-semibold text-foreground mb-2">Meeting Point</div>
+                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                      {tour.meeting_point}
+                    </p>
+                  </div>
+                )}
+                {tour?.what_to_bring && (
+                  <div>
+                    <div className="text-sm font-semibold text-foreground mb-2">What to Bring</div>
+                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                      {tour.what_to_bring}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
 
-              {isPackage && tour?.what_to_bring && (
-                <div>
-                  <h4 className="text-sm font-semibold mb-2">What to Bring</h4>
-                  <p className="text-sm text-muted-foreground whitespace-pre-line">{tour.what_to_bring}</p>
-                </div>
-              )}
-
-              {isPackage && (tour?.cancellation_policy || tour?.custom_cancellation_policy || nonRefundableItems.length > 0) && (
-                <div>
-                  <h4 className="text-sm font-semibold mb-2">Cancellation Policy</h4>
-                  {tour?.cancellation_policy && (
-                    <p className="text-sm text-muted-foreground whitespace-pre-line mb-2">{tour.cancellation_policy}</p>
-                  )}
-                  {tour?.custom_cancellation_policy && (
-                    <p className="text-sm text-muted-foreground whitespace-pre-line mb-2">{tour.custom_cancellation_policy}</p>
-                  )}
-                  {nonRefundableItems.length > 0 && (
-                    <ul className="text-sm text-muted-foreground list-disc list-inside">
-                      {nonRefundableItems.map((item: string) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
-            </div>
-
+            {/* PDF Itinerary */}
             {tour.itinerary_pdf_url && (
-              <div className="bg-card rounded-xl shadow-card p-6">
+              <div className="bg-card rounded-xl shadow-card p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <FileText className="w-4 h-4" />
-                  <h2 className="text-sm font-semibold">Tour Itinerary</h2>
+                  <div className="text-sm font-semibold text-foreground">Tour Itinerary</div>
                 </div>
                 <iframe
                   src={tour.itinerary_pdf_url}
@@ -301,22 +290,25 @@ export default function TourDetails() {
               </div>
             )}
 
+            {/* Host info */}
             {hostProfile && (
-              <div className="bg-card rounded-xl shadow-card p-6">
-                <div className="flex items-center gap-3">
+              <div className="bg-card rounded-xl shadow-card p-5">
+                <div className="flex items-start gap-3">
                   <Avatar className="w-12 h-12">
                     <AvatarImage src={hostProfile.avatar_url || undefined} />
                     <AvatarFallback className="text-sm">
                       {hostProfile.full_name?.charAt(0) || "?"}
                     </AvatarFallback>
                   </Avatar>
-                  <div>
-                    <h3 className="text-sm font-semibold">{hostProfile.full_name || "Tour Guide"}</h3>
+                  <div className="flex-1">
+                    <div className="text-base font-semibold text-foreground">
+                      Hosted by {hostProfile.full_name || "Tour Guide"}
+                    </div>
                     <div className="flex flex-wrap gap-3 text-xs text-muted-foreground mt-1">
                       {hostProfile.years_of_experience && (
                         <span className="inline-flex items-center gap-1">
                           <Award className="w-3 h-3" />
-                          {hostProfile.years_of_experience} yrs
+                          {hostProfile.years_of_experience} years
                         </span>
                       )}
                       {hostProfile.languages_spoken && hostProfile.languages_spoken.length > 0 && (
@@ -326,25 +318,64 @@ export default function TourDetails() {
                         </span>
                       )}
                     </div>
+                    {hostProfile.tour_guide_bio && (
+                      <p className="text-sm text-foreground/90 leading-relaxed mt-3">
+                        {hostProfile.tour_guide_bio}
+                      </p>
+                    )}
                   </div>
                 </div>
-                {hostProfile.tour_guide_bio && (
-                  <p className="text-sm text-muted-foreground mt-3">{hostProfile.tour_guide_bio}</p>
+              </div>
+            )}
+
+            {/* Cancellation Policy */}
+            {isPackage && (tour?.cancellation_policy || tour?.custom_cancellation_policy || nonRefundableItems.length > 0) && (
+              <div className="bg-card rounded-xl shadow-card p-5">
+                <h2 className="text-lg font-semibold text-foreground mb-2">Cancellation & Refund Policy</h2>
+                {tour?.cancellation_policy && (
+                  <p className="text-sm text-muted-foreground leading-relaxed mb-2">
+                    {tour.cancellation_policy}
+                  </p>
+                )}
+                {tour?.custom_cancellation_policy && (
+                  <p className="text-sm text-muted-foreground leading-relaxed mb-2">
+                    {tour.custom_cancellation_policy}
+                  </p>
+                )}
+                {nonRefundableItems.length > 0 && (
+                  <div className="mt-3">
+                    <div className="text-sm font-medium text-foreground mb-2">Non-refundable items:</div>
+                    <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
+                      {nonRefundableItems.map((item: string) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
               </div>
             )}
           </div>
 
+          {/* Right column - 5 cols */}
           <div className="lg:col-span-5">
-            <div className="bg-card rounded-xl shadow-card p-6 sticky top-4">
-              <div className="mb-4">
-                <div className="text-2xl font-semibold">
-                  {formatMoney(Number(normalizedPrice ?? 0), String(normalizedCurrency ?? "RWF"))}
-                </div>
-                <div className="text-xs text-muted-foreground">per person</div>
+            <div className="flex items-start justify-between gap-4 mb-6">
+              <div>
+                <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">{tour.title}</h1>
+                <p className="text-muted-foreground flex items-center gap-1">
+                  <MapPin className="w-4 h-4" />
+                  {extractNeighborhood(normalizedLocation || "")}
+                </p>
               </div>
+              <div className="text-right">
+                <div className="text-lg font-bold text-primary">
+                  {formatMoney(Number(normalizedPrice ?? 0), String(normalizedCurrency ?? "RWF"))}
+                  <span className="text-sm text-muted-foreground"> / person</span>
+                </div>
+              </div>
+            </div>
 
-              <div className="space-y-2">
+            <div className="bg-card rounded-xl shadow-card p-5 sticky top-4">
+              <div className="space-y-3">
                 <Button
                   className="w-full"
                   onClick={() => {
@@ -362,23 +393,6 @@ export default function TourDetails() {
                 >
                   Add to Trip Cart
                 </Button>
-              </div>
-
-              <div className="mt-4 pt-4 border-t text-sm space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Duration</span>
-                  <span>{normalizedDurationDays} day{normalizedDurationDays === 1 ? "" : "s"}</span>
-                </div>
-                {normalizedMaxGroup && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Group Size</span>
-                    <span>Up to {normalizedMaxGroup}</span>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Location</span>
-                  <span>{extractNeighborhood(normalizedLocation || "")}</span>
-                </div>
               </div>
             </div>
           </div>
