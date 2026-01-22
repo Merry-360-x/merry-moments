@@ -32,3 +32,6 @@ supabase/.temp/
 *.sw?
 .vercel
 .env*.local
+
+# Archived development files
+archive/
