@@ -282,6 +282,33 @@ export default function TourDetails() {
                 )}
               </div>
             )}
+          </div>
+
+          {/* Right column - Image and Description */}
+          <div className="space-y-6 lg:sticky lg:top-4 lg:self-start">
+            {/* Image carousel */}
+            <div className="bg-card rounded-xl shadow-card overflow-hidden">
+              {normalizedImages?.length ? (
+                <ListingImageCarousel
+                  images={normalizedImages}
+                  alt={tour.title}
+                  className="w-full h-[400px]"
+                />
+              ) : (
+                <div className="w-full h-[400px] bg-gradient-to-br from-muted via-muted/70 to-muted/40" />
+              )}
+            </div>
+
+            {/* About this tour */}
+            <div className="bg-card rounded-xl shadow-card p-5">
+              <div className="text-sm font-semibold text-foreground mb-3">About this tour</div>
+              
+              {tour.description && (
+                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                  {tour.description}
+                </p>
+              )}
+            </div>
 
             {/* PDF Itinerary */}
             {tour.itinerary_pdf_url && (
@@ -292,7 +319,7 @@ export default function TourDetails() {
                 </div>
                 <iframe
                   src={tour.itinerary_pdf_url}
-                  className="w-full h-[520px] border rounded-lg"
+                  className="w-full h-[420px] border rounded-lg"
                   title="Tour Itinerary PDF"
                 />
                 <a
@@ -370,33 +397,6 @@ export default function TourDetails() {
                 )}
               </div>
             )}
-          </div>
-
-          {/* Right column - Image and Description */}
-          <div className="space-y-6 lg:sticky lg:top-4 lg:self-start">
-            {/* Image carousel */}
-            <div className="bg-card rounded-xl shadow-card overflow-hidden">
-              {normalizedImages?.length ? (
-                <ListingImageCarousel
-                  images={normalizedImages}
-                  alt={tour.title}
-                  className="w-full h-[400px]"
-                />
-              ) : (
-                <div className="w-full h-[400px] bg-gradient-to-br from-muted via-muted/70 to-muted/40" />
-              )}
-            </div>
-
-            {/* About this tour */}
-            <div className="bg-card rounded-xl shadow-card p-5">
-              <div className="text-sm font-semibold text-foreground mb-3">About this tour</div>
-              
-              {tour.description && (
-                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-                  {tour.description}
-                </p>
-              )}
-            </div>
           </div>
         </div>
       </div>
