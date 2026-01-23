@@ -234,9 +234,25 @@ export default function PropertyDetails() {
       
       // Check if dates overlap
       if (selectedStart <= blockedEnd && selectedEnd >= blockedStart) {
-        const reason = blocked.reason || "unavailable";
+        const startDate = blockedStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const endDate = blockedEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        
+        let message = `This property is not available from ${startDate} to ${endDate}`;
+        
+        if (blocked.reason) {
+          if (blocked.reason === 'booked') {
+            message += '. Already booked for these dates';
+          } else if (blocked.reason === 'maintenance') {
+            message += ' due to scheduled maintenance';
+          } else if (blocked.reason === 'personal use') {
+            message += '. Host will be using the property';
+          } else {
+            message += `. ${blocked.reason}`;
+          }
+        }
+        
         toast({
-          description: `Selected dates are ${reason}`,
+          description: message,
         });
         break; // Only show one toast
       }
