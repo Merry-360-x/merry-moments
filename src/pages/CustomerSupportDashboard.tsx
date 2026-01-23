@@ -36,8 +36,23 @@ type SupportTicket = {
   user_email?: string;
 };
 
+type Booking = {
+  id: string;
+  property_id: string;
+  guest_id?: string;
+  guest_name: string;
+  guest_email: string;
+  guest_phone: string;
+  check_in: string;
+  check_out: string;
+  guests: number;
+  total_price: number;
+  status: string;
+  created_at: string;
+};
+
 export default function CustomerSupportDashboard() {
-  const [tab, setTab] = useState<"overview" | "users" | "tickets">("overview");
+  const [tab, setTab] = useState<"overview" | "users" | "tickets" | "bookings">("overview");
   const [searchQuery, setSearchQuery] = useState("");
 
   const { data: users = [] } = useQuery({
@@ -55,6 +70,24 @@ export default function CustomerSupportDashboard() {
       }
       console.log('[CustomerSupport] Profiles fetched:', data?.length || 0);
       return (data ?? []) as Profile[];
+    },
+  });
+
+  const { data: bookings = [] } = useQuery({
+    queryKey: ["support_bookings"],
+    queryFn: async () => {
+      console.log('[CustomerSupport] Fetching bookings...');
+      const { data, error } = await supabase
+        .from("bookings")
+        .select("id, property_id, guest_id, guest_name, guest_email, guest_phone, check_in, check_out, guests, total_price, status, created_at")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (error) {
+        console.error('[CustomerSupport] Bookings error:', error);
+        throw error;
+      }
+      console.log('[CustomerSupport] Bookings fetched:', data?.length || 0);
+      return (data ?? []) as Booking[];
     },
   });
 
@@ -81,6 +114,8 @@ export default function CustomerSupportDashboard() {
   const recentUsers = users.slice(0, 10);
   const openTickets = tickets.filter(t => t.status === 'open');
   const highPriorityTickets = tickets.filter(t => t.priority === 'high');
+  const pendingBookings = bookings.filter(b => b.status === 'pending_confirmation');
+  const recentBookings = bookings.slice(0, 10);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex flex-col">
@@ -149,6 +184,12 @@ export default function CustomerSupportDashboard() {
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
+            <TabsTrigger value="bookings">
+              Bookings
+              {pendingBookings.length > 0 && (
+                <Badge className="ml-2" variant="destructive">{pendingBookings.length}</Badge>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="tickets">
               Support Tickets
               {openTickets.length > 0 && (
@@ -301,6 +342,72 @@ export default function CustomerSupportDashboard() {
                       <TableRow>
                         <TableCell colSpan={4} className="text-center text-muted-foreground">
                           No users match your search
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="bookings">
+            <Card>
+              <CardHeader>
+                <CardTitle>Bookings</CardTitle>
+                <CardDescription>View and assist with customer bookings</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>ID</TableHead>
+                      <TableHead>Guest Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>Check In</TableHead>
+                      <TableHead>Check Out</TableHead>
+                      <TableHead>Guests</TableHead>
+                      <TableHead>Total</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {recentBookings.map((booking) => (
+                      <TableRow key={booking.id}>
+                        <TableCell className="font-mono text-xs">{booking.id.slice(0, 8)}...</TableCell>
+                        <TableCell className="font-medium">{booking.guest_name}</TableCell>
+                        <TableCell>{booking.guest_email}</TableCell>
+                        <TableCell>{booking.guest_phone}</TableCell>
+                        <TableCell className="text-sm">
+                          {new Date(booking.check_in).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {new Date(booking.check_out).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>{booking.guests}</TableCell>
+                        <TableCell>${booking.total_price}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              booking.status === "confirmed"
+                                ? "default"
+                                : booking.status === "pending_confirmation"
+                                ? "secondary"
+                                : booking.status === "cancelled"
+                                ? "destructive"
+                                : "outline"
+                            }
+                          >
+                            {booking.status}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {recentBookings.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={9} className="text-center text-muted-foreground">
+                          No bookings found
                         </TableCell>
                       </TableRow>
                     )}
