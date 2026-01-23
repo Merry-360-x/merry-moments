@@ -13,12 +13,11 @@ import { DollarSign, TrendingUp, CreditCard, Wallet } from "lucide-react";
 
 type BookingRow = {
   id: string;
-  user_id: string;
+  guest_id: string;
   status: string;
   total_price: number;
   currency: string;
   created_at: string;
-  user_email?: string;
 };
 
 type Metrics = {
@@ -59,12 +58,17 @@ export default function FinancialStaffDashboard() {
   const { data: bookings = [] } = useQuery({
     queryKey: ["financial_bookings"],
     queryFn: async () => {
+      console.log('[FinancialStaff] Fetching bookings...');
       const { data, error } = await supabase
         .from("bookings")
-        .select("id, user_id, status, total_price, currency, created_at")
+        .select("id, guest_id, status, total_price, currency, created_at")
         .order("created_at", { ascending: false })
         .limit(100);
-      if (error) throw error;
+      if (error) {
+        console.error('[FinancialStaff] Bookings error:', error);
+        throw error;
+      }
+      console.log('[FinancialStaff] Bookings fetched:', data?.length || 0);
       return (data ?? []) as BookingRow[];
     },
   });
