@@ -236,9 +236,7 @@ export default function PropertyDetails() {
       if (selectedStart <= blockedEnd && selectedEnd >= blockedStart) {
         const reason = blocked.reason || "unavailable";
         toast({
-          title: "Dates Not Available",
-          description: `These dates are ${reason}. Please select different dates.`,
-          variant: "destructive",
+          description: `Selected dates are ${reason}`,
         });
         break; // Only show one toast
       }
