@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
+import AvailabilityCalendar from "@/components/AvailabilityCalendar";
 import { isVideoUrl } from "@/lib/media";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { formatMoney } from "@/lib/money";
@@ -972,6 +973,10 @@ export default function HostDashboard() {
                     <Plus className="w-4 h-4" />
                   </button>
                 </div>
+              </div>
+              <div>
+                <Label className="text-xs font-medium mb-2 block">Availability Calendar</Label>
+                <AvailabilityCalendar propertyId={property.id} />
               </div>
               <div className="flex items-center justify-between pt-2">
                 <div className="flex items-center gap-2">
