@@ -2012,7 +2012,6 @@ export default function HostDashboard() {
           <TabsList className="mb-6">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="properties">Properties ({(properties || []).length})</TabsTrigger>
-            <TabsTrigger value="tours">Tours ({(tours || []).length})</TabsTrigger>
             <TabsTrigger value="transport">Transport ({(vehicles || []).length})</TabsTrigger>
             <TabsTrigger value="bookings">Bookings ({(bookings || []).length})</TabsTrigger>
             <TabsTrigger value="financial">Financial Reports</TabsTrigger>
@@ -2074,12 +2073,6 @@ export default function HostDashboard() {
                 <Button onClick={openPropertyWizard}>
                   <Plus className="w-4 h-4 mr-2" /> Add Property
                 </Button>
-                <Button variant="outline" onClick={() => navigate("/create-tour")}>
-                  <Plus className="w-4 h-4 mr-2" /> Create Tour
-                </Button>
-                <Button variant="outline" onClick={() => navigate("/create-tour-package")}>
-                  <Plus className="w-4 h-4 mr-2" /> Create Tour Package
-                </Button>
                 <Button variant="outline" onClick={() => navigate("/create-transport")}>
                   <Car className="w-4 h-4 mr-2" /> Add Vehicle
                 </Button>
@@ -2135,54 +2128,7 @@ export default function HostDashboard() {
             </div>
           </TabsContent>
 
-          {/* Tours */}
-          <TabsContent value="tours">
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {(tours || []).map((t) => (
-                <Card key={t.id} className="overflow-hidden">
-                  <div className="h-32 bg-muted flex items-center justify-center">
-                    {t.images?.[0] ? (
-                      <img src={t.images[0]} alt={t.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <MapPin className="w-8 h-8 text-muted-foreground" />
-                    )}
-                        </div>
-                  <div className="p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="font-semibold flex-1">{t.title}</h3>
-                      {t.source === "tour_packages" ? (
-                        <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800">
-                          Package
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
-                          Tour
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground">{t.location}</p>
-                    <div className="flex items-center justify-between mt-3">
-                      <span className="text-primary font-bold">{formatMoney(t.price_per_person, t.currency || "RWF")}</span>
-                      <div className="flex gap-1">
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
-                          onClick={() => navigate(`/tours/${t.id}`)}
-                          title="View tour details"
-                        >
-                          <Eye className="w-3 h-3" />
-                        </Button>
-                        <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteTour(t.id, t.source)}><Trash2 className="w-3 h-3" /></Button>
-            </div>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-              {(tours || []).length === 0 && (
-                <p className="text-muted-foreground col-span-full text-center py-8">No tours yet</p>
-          )}
-        </div>
-          </TabsContent>
+
 
           {/* Transport */}
           <TabsContent value="transport">
