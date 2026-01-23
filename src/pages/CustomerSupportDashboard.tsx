@@ -43,12 +43,17 @@ export default function CustomerSupportDashboard() {
   const { data: users = [] } = useQuery({
     queryKey: ["support_users"],
     queryFn: async () => {
+      console.log('[CustomerSupport] Fetching profiles...');
       const { data, error } = await supabase
         .from("profiles")
         .select("id, first_name, last_name, email, created_at")
         .order("created_at", { ascending: false })
         .limit(100);
-      if (error) throw error;
+      if (error) {
+        console.error('[CustomerSupport] Profiles error:', error);
+        throw error;
+      }
+      console.log('[CustomerSupport] Profiles fetched:', data?.length || 0);
       return (data ?? []) as Profile[];
     },
   });
