@@ -105,7 +105,12 @@ export default function OperationsStaffDashboard() {
       console.log('[OperationsStaff] Properties fetched:', data?.length || 0);
       return (data ?? []) as Property[];
     },
-  });ole.log('[OperationsStaff] Fetching tours...');
+  });
+
+  const { data: tours = [] } = useQuery({
+    queryKey: ["operations_tours"],
+    queryFn: async () => {
+      console.log('[OperationsStaff] Fetching tours...');
       const { data, error } = await supabase
         .from("tour_packages")
         .select("id, title, status, guide_id, created_at")
@@ -115,12 +120,7 @@ export default function OperationsStaffDashboard() {
         console.error('[OperationsStaff] Tours error:', error);
         throw error;
       }
-      console.log('[OperationsStaff] Tours fetched:', data?.length || 0)= await supabase
-        .from("tour_packages")
-        .select("id, title, status, guide_id, created_at")
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) throw error;
+      console.log('[OperationsStaff] Tours fetched:', data?.length || 0);
       return (data ?? []) as TourPackage[];
     },
   });
@@ -128,15 +128,25 @@ export default function OperationsStaffDashboard() {
   const { data: transport = [] } = useQuery({
     queryKey: ["operations_transport"],
     queryFn: async () => {
+      console.log('[OperationsStaff] Fetching transport...');
       const { data, error } = await supabase
         .from("transport_vehicles")
         .select("id, title, is_published, created_by, created_at, vehicle_type")
         .order("created_at", { ascending: false })
         .limit(50);
-      if (error) throw error;
+      if (error) {
+        console.error('[OperationsStaff] Transport error:', error);
+        throw error;
+      }
+      console.log('[OperationsStaff] Transport fetched:', data?.length || 0);
       return (data ?? []) as Transport[];
     },
-  });ole.log('[OperationsStaff] Fetching bookings...');
+  });
+
+  const { data: bookings = [] } = useQuery({
+    queryKey: ["operations_bookings"],
+    queryFn: async () => {
+      console.log('[OperationsStaff] Fetching bookings...');
       const { data, error } = await supabase
         .from("bookings")
         .select("id, property_id, guest_id, guest_name, guest_email, guest_phone, is_guest_booking, check_in, check_out, guests, total_price, currency, status, payment_method, special_requests, host_id, created_at")
@@ -146,12 +156,7 @@ export default function OperationsStaffDashboard() {
         console.error('[OperationsStaff] Bookings error:', error);
         throw error;
       }
-      console.log('[OperationsStaff] Bookings fetched:', data?.length || 0)= await supabase
-        .from("bookings")
-        .select("id, property_id, guest_id, guest_name, guest_email, guest_phone, is_guest_booking, check_in, check_out, guests, total_price, currency, status, payment_method, special_requests, host_id, created_at")
-        .order("created_at", { ascending: false })
-        .limit(100);
-      if (error) throw error;
+      console.log('[OperationsStaff] Bookings fetched:', data?.length || 0);
       return (data ?? []) as Booking[];
     },
   });
