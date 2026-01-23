@@ -41,9 +41,10 @@ type TourPackage = {
 type Transport = {
   id: string;
   title: string;
-  status: string;
-  host_id: string;
+  is_published: boolean;
+  created_by: string;
   created_at: string;
+  vehicle_type?: string;
 };
 
 type Booking = {
@@ -113,8 +114,8 @@ export default function OperationsStaffDashboard() {
     queryKey: ["operations_transport"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("transport")
-        .select("id, title, status, host_id, created_at")
+        .from("transport_vehicles")
+        .select("id, title, is_published, created_by, created_at, vehicle_type")
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) throw error;
@@ -526,13 +527,14 @@ export default function OperationsStaffDashboard() {
             <Card>
               <CardHeader>
                 <CardTitle>Transport Listings</CardTitle>
-                <CardDescription>Manage transport options</CardDescription>
+                <CardDescription>Manage transport vehicles</CardDescription>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Title</TableHead>
+                      <TableHead>Type</TableHead>
                       <TableHead>ID</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Created</TableHead>
@@ -542,18 +544,17 @@ export default function OperationsStaffDashboard() {
                     {transport.map((item) => (
                       <TableRow key={item.id}>
                         <TableCell className="font-medium">{item.title}</TableCell>
+                        <TableCell>{item.vehicle_type || 'N/A'}</TableCell>
                         <TableCell className="font-mono text-xs">{item.id.slice(0, 8)}...</TableCell>
                         <TableCell>
                           <Badge
                             variant={
-                              item.status === "active"
+                              item.is_published
                                 ? "default"
-                                : item.status === "pending"
-                                ? "secondary"
-                                : "outline"
+                                : "secondary"
                             }
                           >
-                            {item.status}
+                            {item.is_published ? 'Published' : 'Draft'}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-sm">
@@ -563,8 +564,8 @@ export default function OperationsStaffDashboard() {
                     ))}
                     {transport.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center text-muted-foreground">
-                          No transport options found
+                        <TableCell colSpan={5} className="text-center text-muted-foreground">
+                          No transport vehicles found
                         </TableCell>
                       </TableRow>
                     )}
