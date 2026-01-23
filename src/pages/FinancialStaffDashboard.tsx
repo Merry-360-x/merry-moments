@@ -80,7 +80,7 @@ export default function FinancialStaffDashboard() {
     return `${formatMoney(Number(list[0].amount), String(list[0].currency ?? "USD"))} (+${list.length - 1} currencies)`;
   }, [metrics?.revenue_by_currency]);
 
-  const paidBookings = bookings.filter(b => b.status === 'paid');
+  const completedBookings = bookings.filter(b => b.status === 'completed' || b.status === 'confirmed');
   const pendingBookings = bookings.filter(b => b.status === 'pending');
 
   return (
@@ -165,7 +165,7 @@ export default function FinancialStaffDashboard() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {paidBookings.slice(0, 5).map((booking) => (
+                      {completedBookings.slice(0, 5).map((booking) => (
                         <TableRow key={booking.id}>
                           <TableCell className="text-sm">
                             {new Date(booking.created_at).toLocaleDateString()}
@@ -174,14 +174,14 @@ export default function FinancialStaffDashboard() {
                             {formatMoney(Number(booking.total_price), String(booking.currency ?? "USD"))}
                           </TableCell>
                           <TableCell>
-                            <Badge variant="default">Paid</Badge>
+                            <Badge variant="default">{booking.status === 'completed' ? 'Completed' : 'Confirmed'}</Badge>
                           </TableCell>
                         </TableRow>
                       ))}
-                      {paidBookings.length === 0 && (
+                      {completedBookings.length === 0 && (
                         <TableRow>
                           <TableCell colSpan={3} className="text-center text-muted-foreground">
-                            No paid bookings yet
+                            No completed bookings yet
                           </TableCell>
                         </TableRow>
                       )}
