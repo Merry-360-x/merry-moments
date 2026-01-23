@@ -127,6 +127,7 @@ type TourRow = {
   images: string[] | null;
   created_by: string | null;
   created_at: string;
+  source?: "tours" | "tour_packages";
 };
 
 type TransportVehicleRow = {
@@ -169,6 +170,7 @@ type BookingRow = {
   };
   profiles?: {
     full_name: string | null;
+    nickname: string | null;
     email: string | null;
     phone: string | null;
   };
@@ -627,17 +629,45 @@ export default function AdminDashboard() {
     placeholderData: (previousData) => previousData,
   });
 
-  // Tours with images - enhanced loading
+  // Tours with images - enhanced loading - includes tour_packages
   const { data: tours = [], refetch: refetchTours } = useQuery({
     queryKey: ["admin-tours"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("tours")
-        .select("id, title, location, price_per_person, currency, is_published, images, created_by, created_at")
-        .order("created_at", { ascending: false })
-        .limit(300); // Increase limit
-      if (error) throw error;
-      return (data ?? []) as TourRow[];
+      // Fetch both tours and tour_packages
+      const [toursRes, packagesRes] = await Promise.all([
+        supabase
+          .from("tours")
+          .select("id, title, location, price_per_person, currency, is_published, images, created_by, created_at")
+          .order("created_at", { ascending: false })
+          .limit(300),
+        supabase
+          .from("tour_packages")
+          .select("id, title, city, country, price_per_adult, currency, status, cover_image, gallery_images, host_id, created_at")
+          .order("created_at", { ascending: false })
+          .limit(300)
+      ]);
+      
+      if (toursRes.error) throw toursRes.error;
+      if (packagesRes.error) throw packagesRes.error;
+      
+      // Mark tours with source
+      const toursWithSource = (toursRes.data ?? []).map(t => ({ ...t, source: "tours" as const }));
+      
+      // Convert packages to tour format and mark with source
+      const packagesAsTours = (packagesRes.data ?? []).map(pkg => ({
+        id: pkg.id,
+        title: pkg.title,
+        location: `${pkg.city}, ${pkg.country}`,
+        price_per_person: pkg.price_per_adult,
+        currency: pkg.currency,
+        is_published: pkg.status === 'approved',
+        images: [pkg.cover_image, ...(Array.isArray(pkg.gallery_images) ? pkg.gallery_images : [])].filter(Boolean) as string[],
+        created_by: pkg.host_id,
+        created_at: pkg.created_at,
+        source: "tour_packages" as const
+      }));
+      
+      return [...toursWithSource, ...packagesAsTours] as TourRow[];
     },
     enabled: tab === "tours" || tab === "overview", // Also load for overview
     staleTime: 1000 * 30, // 30 seconds
@@ -1080,12 +1110,17 @@ export default function AdminDashboard() {
     }
   };
 
-  const deleteItem = async (table: string, id: string) => {
+  const deleteItem = async (table: string, id: string, source?: string) => {
     if (!window.confirm("Delete this item permanently?")) return;
     try {
-      const { error } = await supabase.from(table as never).delete().eq("id", id);
+      // For tours, use the source to determine which table to delete from
+      const targetTable = source || table;
+      console.log('[AdminDashboard] Deep deleting from table:', targetTable, 'ID:', id);
+      
+      const { error } = await supabase.from(targetTable as never).delete().eq("id", id);
       if (error) throw error;
-      toast({ title: "Deleted" });
+      
+      toast({ title: "Deleted successfully" });
       queryClient.invalidateQueries();
       await refetchMetrics();
     } catch (e) {
@@ -2411,6 +2446,7 @@ For support, contact: support@merry360x.com
                     <TableRow>
                       <TableHead className="w-16">Image</TableHead>
                       <TableHead>Tour</TableHead>
+                      <TableHead>Type</TableHead>
                       <TableHead>Location</TableHead>
                       <TableHead>Price</TableHead>
                       <TableHead>Status</TableHead>
@@ -2424,6 +2460,17 @@ For support, contact: support@merry360x.com
                           <Thumb src={t.images?.[0]} alt={t.title} />
                         </TableCell>
                         <TableCell className="font-medium">{t.title}</TableCell>
+                        <TableCell>
+                          {t.source === "tour_packages" ? (
+                            <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800">
+                              Package
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+                              Tour
+                            </Badge>
+                          )}
+                        </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{t.location || "—"}</TableCell>
                         <TableCell>{formatMoney(t.price_per_person ?? 0, t.currency ?? "RWF")}</TableCell>
                         <TableCell>
@@ -2447,7 +2494,7 @@ For support, contact: support@merry360x.com
                             <Button
                               size="sm"
                               variant="destructive"
-                              onClick={() => deleteItem("tours", t.id)}
+                              onClick={() => deleteItem("tours", t.id, t.source)}
                             >
                               <Trash2 className="w-3 h-3" />
                             </Button>
@@ -2575,12 +2622,27 @@ For support, contact: support@merry360x.com
                         <TableCell className="font-mono text-xs">{b.id.slice(0, 8)}...</TableCell>
                         <TableCell className="text-sm">
                           {b.is_guest_booking ? (
-                  <div className="min-w-0">
+                            <div className="min-w-0">
                               <div className="font-medium truncate">{b.guest_name || "Guest"}</div>
                               <div className="text-xs text-muted-foreground truncate">{b.guest_email || "—"}</div>
-                  </div>
+                              {b.guest_phone && (
+                                <div className="text-xs text-muted-foreground">{b.guest_phone}</div>
+                              )}
+                            </div>
+                          ) : b.profiles ? (
+                            <div className="min-w-0">
+                              <div className="font-medium truncate">
+                                {b.profiles.nickname || b.profiles.full_name || "User"}
+                              </div>
+                              {b.profiles.email && (
+                                <div className="text-xs text-muted-foreground truncate">{b.profiles.email}</div>
+                              )}
+                              {b.profiles.phone && (
+                                <div className="text-xs text-muted-foreground">{b.profiles.phone}</div>
+                              )}
+                            </div>
                           ) : (
-                            <span className="font-mono text-xs">{(b.guest_id ?? "").slice(0, 8)}...</span>
+                            <span className="font-mono text-xs text-muted-foreground">{(b.guest_id ?? "").slice(0, 8)}...</span>
                           )}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
@@ -3208,25 +3270,19 @@ For support, contact: support@merry360x.com
                     <div>
                       <p className="text-sm text-muted-foreground">Name</p>
                       <p className="text-sm">
-                        {selectedBooking.is_guest_booking 
-                          ? selectedBooking.guest_name || "Guest"
-                          : selectedBooking.profiles?.full_name || selectedBooking.guest_id || "N/A"}
+                        {selectedBooking.guest_name || "N/A"}
                       </p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Email</p>
                       <p className="text-sm break-all">
-                        {selectedBooking.is_guest_booking
-                          ? selectedBooking.guest_email || "N/A"
-                          : selectedBooking.profiles?.email || "N/A"}
+                        {selectedBooking.guest_email || "N/A"}
                       </p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Phone</p>
                       <p className="text-sm">
-                        {selectedBooking.is_guest_booking
-                          ? selectedBooking.guest_phone || "N/A"
-                          : selectedBooking.profiles?.phone || "N/A"}
+                        {selectedBooking.guest_phone || "N/A"}
                       </p>
                     </div>
                     <div>

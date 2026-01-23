@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import PropertyCard from "@/components/PropertyCard";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -922,7 +923,9 @@ const Accommodations = () => {
             
             {/* Mobile: 2.5-column horizontal scroll */}
             <div className="sm:hidden">
-              {isError ? (
+              {propertiesLoading ? (
+                <LoadingSpinner message={t("common.loading")} />
+              ) : isError ? (
                 <div className="py-16 text-center">
                   <p className="text-muted-foreground">{t("common.couldNotLoadProperties")}</p>
                 </div>
@@ -971,7 +974,11 @@ const Accommodations = () => {
 
             {/* Tablet/Desktop */}
             <div className="hidden sm:grid grid-cols-2 xl:grid-cols-3 gap-6">
-              {isError ? (
+              {propertiesLoading ? (
+                <div className="col-span-full">
+                  <LoadingSpinner message={t("common.loading")} />
+                </div>
+              ) : isError ? (
                 <div className="col-span-full py-16 text-center">
                   <p className="text-muted-foreground">{t("common.couldNotLoadProperties")}</p>
                 </div>

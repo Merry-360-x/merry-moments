@@ -2,6 +2,8 @@ import { Search, Star } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -31,7 +33,9 @@ type TourRow = Pick<
   | "rating"
   | "review_count"
   | "location"
->;
+> & {
+  source?: "tours" | "tour_packages"; // Track which table this item came from
+};
 
 const durationToFilter = (duration: string) => {
   if (duration === "Half Day") return { kind: "lte" as const, value: 1 };
@@ -91,6 +95,8 @@ const fetchTours = async ({
   if (toursRes.error) throw toursRes.error;
   
   const tours = (toursRes.data as TourRow[] | null) ?? [];
+  // Mark tours with source
+  tours.forEach(t => t.source = "tours");
   
   // Convert tour_packages to TourRow format
   if (packagesRes.data && !packagesRes.error) {
@@ -107,6 +113,7 @@ const fetchTours = async ({
       rating: null,
       review_count: null,
       location: `${pkg.city}, ${pkg.country}`,
+      source: "tour_packages",
     }));
     
     return [...tours, ...packagesAsTours];
@@ -161,9 +168,10 @@ const Tours = () => {
   });
 
   const addToCart = async (tour: TourRow) => {
-    const ok = await addCartItem("tour", tour.id, 1);
+    const itemType = tour.source === "tour_packages" ? "tour_package" : "tour";
+    const ok = await addCartItem(itemType, tour.id, 1);
     if (!ok) return;
-    toast({ title: "Added to Trip Cart", description: "Tour added to your cart." });
+    toast({ title: "Added to Trip Cart", description: `${tour.source === "tour_packages" ? "Package" : "Tour"} added to your cart.` });
   };
 
   return (
@@ -237,7 +245,9 @@ const Tours = () => {
 
       {/* Tours */}
       <div className="container mx-auto px-4 lg:px-8 py-10">
-        {isError ? (
+        {toursLoading ? (
+          <LoadingSpinner message="Loading tours..." />
+        ) : isError ? (
           <div className="py-20 text-center">
             <p className="text-muted-foreground">Could not load tours right now.</p>
           </div>
@@ -277,7 +287,18 @@ const Tours = () => {
 
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-2 mb-2">
-                    <h3 className="font-semibold text-foreground line-clamp-1">{tour.title}</h3>
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <h3 className="font-semibold text-foreground line-clamp-1">{tour.title}</h3>
+                      {tour.source === "tour_packages" ? (
+                        <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800 shrink-0">
+                          Package
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800 shrink-0">
+                          Tour
+                        </Badge>
+                      )}
+                    </div>
                     <div className="flex items-center gap-1 shrink-0">
                       <Star className="w-4 h-4 fill-primary text-primary" />
                       <span className="text-sm font-medium">{Number(tour.rating ?? 0).toFixed(1)}</span>

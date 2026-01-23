@@ -2,6 +2,7 @@ import { Car, Search, MapPin, Frown, ArrowLeftRight } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -176,7 +177,11 @@ const Transport = () => {
       {/* Service Cards */}
       <div className="container mx-auto px-4 lg:px-8 mb-10">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {services.length === 0 && routes.length === 0 && vehicles.length === 0 ? (
+          {vehiclesLoading ? (
+            <div className="md:col-span-3">
+              <LoadingSpinner message="Loading transport services..." />
+            </div>
+          ) : services.length === 0 && routes.length === 0 && vehicles.length === 0 ? (
             <div className="md:col-span-3 bg-card rounded-xl p-10 shadow-card text-center">
               <div className="w-16 h-16 rounded-full bg-primary/10 mx-auto mb-6 flex items-center justify-center">
                 <Car className="w-7 h-7 text-primary" />

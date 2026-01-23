@@ -2,6 +2,7 @@ import { useMemo, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
@@ -59,14 +60,18 @@ export default function TripCart() {
 
         // Batch fetch all items by type for better performance
         const tourIds = data.filter(d => d.item_type === 'tour').map(d => d.reference_id);
+        const packageIds = data.filter(d => d.item_type === 'tour_package').map(d => d.reference_id);
         const propertyIds = data.filter(d => d.item_type === 'property').map(d => d.reference_id);
         const vehicleIds = data.filter(d => d.item_type === 'transport_vehicle').map(d => d.reference_id);
         const routeIds = data.filter(d => d.item_type === 'transport_route').map(d => d.reference_id);
 
         // Fetch all data in parallel batches
-        const [tours, properties, vehicles, routes] = await Promise.all([
+        const [tours, packages, properties, vehicles, routes] = await Promise.all([
           tourIds.length > 0 
             ? supabase.from('tours').select('id, title, price_per_person, currency, images, duration_days').in('id', tourIds).then(r => r.data || [])
+            : Promise.resolve([]),
+          packageIds.length > 0
+            ? supabase.from('tour_packages').select('id, title, price_per_adult, currency, cover_image, gallery_images, duration').in('id', packageIds).then(r => r.data || [])
             : Promise.resolve([]),
           propertyIds.length > 0
             ? supabase.from('properties').select('id, title, price_per_night, currency, images, location').in('id', propertyIds).then(r => r.data || [])
@@ -81,6 +86,7 @@ export default function TripCart() {
 
         // Create lookup maps for O(1) access
         const tourMap = new Map(tours.map(t => [t.id, t]));
+        const packageMap = new Map(packages.map(p => [p.id, p]));
         const propertyMap = new Map(properties.map(p => [p.id, p]));
         const vehicleMap = new Map(vehicles.map(v => [v.id, v]));
         const routeMap = new Map(routes.map(r => [r.id, r]));
@@ -98,6 +104,18 @@ export default function TripCart() {
                 currency: tour.currency || "RWF",
                 image: tour.images?.[0],
                 meta: `${tour.duration_days} day${tour.duration_days === 1 ? "" : "s"}`,
+              };
+            }
+          } else if (item.item_type === "tour_package") {
+            const pkg = packageMap.get(item.reference_id);
+            if (pkg) {
+              const durationDays = parseInt(pkg.duration) || 1;
+              details = {
+                title: pkg.title,
+                price: pkg.price_per_adult,
+                currency: pkg.currency || "RWF",
+                image: pkg.cover_image || (Array.isArray(pkg.gallery_images) && pkg.gallery_images[0]) || null,
+                meta: `Tour Package • ${durationDays} day${durationDays === 1 ? "" : "s"}`,
               };
             }
           } else if (item.item_type === "property") {
@@ -152,14 +170,18 @@ export default function TripCart() {
 
         // Batch fetch all items by type for better performance
         const tourIds = guestCart.filter(i => i.item_type === 'tour').map(i => i.reference_id);
+        const packageIds = guestCart.filter(i => i.item_type === 'tour_package').map(i => i.reference_id);
         const propertyIds = guestCart.filter(i => i.item_type === 'property').map(i => i.reference_id);
         const vehicleIds = guestCart.filter(i => i.item_type === 'transport_vehicle').map(i => i.reference_id);
         const routeIds = guestCart.filter(i => i.item_type === 'transport_route').map(i => i.reference_id);
 
         // Fetch all data in parallel batches
-        const [tours, properties, vehicles, routes] = await Promise.all([
+        const [tours, packages, properties, vehicles, routes] = await Promise.all([
           tourIds.length > 0 
             ? supabase.from('tours').select('id, title, price_per_person, currency, images, duration_days').in('id', tourIds).then(r => r.data || [])
+            : Promise.resolve([]),
+          packageIds.length > 0
+            ? supabase.from('tour_packages').select('id, title, price_per_adult, currency, cover_image, gallery_images, duration').in('id', packageIds).then(r => r.data || [])
             : Promise.resolve([]),
           propertyIds.length > 0
             ? supabase.from('properties').select('id, title, price_per_night, currency, images, location').in('id', propertyIds).then(r => r.data || [])
@@ -174,6 +196,7 @@ export default function TripCart() {
 
         // Create lookup maps for O(1) access
         const tourMap = new Map(tours.map(t => [t.id, t]));
+        const packageMap = new Map(packages.map(p => [p.id, p]));
         const propertyMap = new Map(properties.map(p => [p.id, p]));
         const vehicleMap = new Map(vehicles.map(v => [v.id, v]));
         const routeMap = new Map(routes.map(r => [r.id, r]));
@@ -190,6 +213,18 @@ export default function TripCart() {
                 currency: tour.currency || "RWF",
                 image: tour.images?.[0],
                 meta: `${tour.duration_days} day${tour.duration_days === 1 ? "" : "s"}`,
+              };
+            }
+          } else if (item.item_type === "tour_package") {
+            const pkg = packageMap.get(item.reference_id);
+            if (pkg) {
+              const durationDays = parseInt(pkg.duration) || 1;
+              details = {
+                title: pkg.title,
+                price: pkg.price_per_adult,
+                currency: pkg.currency || "RWF",
+                image: pkg.cover_image || (Array.isArray(pkg.gallery_images) && pkg.gallery_images[0]) || null,
+                meta: `Tour Package • ${durationDays} day${durationDays === 1 ? "" : "s"}`,
               };
             }
           } else if (item.item_type === "property") {
@@ -240,10 +275,10 @@ export default function TripCart() {
         return items.filter(Boolean) as CartItem[];
       }
     },
-    staleTime: 60_000, // 60 seconds - keep data fresh longer
+    staleTime: 30_000, // 30 seconds - keep data reasonably fresh
     gcTime: 5 * 60 * 1000, // 5 minutes cache
     enabled: !authLoading,
-    refetchOnMount: false, // Don't refetch if data is fresh
+    refetchOnMount: true, // Always refetch on mount to show latest cart
     refetchOnWindowFocus: false, // Don't refetch on window focus
   });
 
@@ -275,6 +310,7 @@ export default function TripCart() {
       case "property":
         return `/properties/${item.reference_id}`;
       case "tour":
+      case "tour_package":
         return "/tours";
       case "transport_vehicle":
       case "transport_route":
@@ -419,13 +455,25 @@ export default function TripCart() {
                   {/* Details */}
                   <div className="flex-1 flex flex-col justify-between">
                     <div>
-                      {itemLink ? (
-                        <Link to={itemLink} className="font-semibold text-lg text-foreground hover:text-primary hover:underline">
-                          {item.title}
-                        </Link>
-                      ) : (
-                        <h3 className="font-semibold text-lg text-foreground">{item.title}</h3>
-                      )}
+                      <div className="flex items-center gap-2 mb-1">
+                        {itemLink ? (
+                          <Link to={itemLink} className="font-semibold text-lg text-foreground hover:text-primary hover:underline">
+                            {item.title}
+                          </Link>
+                        ) : (
+                          <h3 className="font-semibold text-lg text-foreground">{item.title}</h3>
+                        )}
+                        {item.item_type === "tour" && (
+                          <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+                            Tour
+                          </Badge>
+                        )}
+                        {item.item_type === "tour_package" && (
+                          <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800">
+                            Package
+                          </Badge>
+                        )}
+                      </div>
                       {item.meta && (
                         <p className="text-sm text-muted-foreground mt-1">{item.meta}</p>
                       )}

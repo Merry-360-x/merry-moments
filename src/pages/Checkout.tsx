@@ -257,6 +257,8 @@ export default function Checkout() {
         payment_method: paymentMethod,
         special_requests: message.trim() || null,
         guest_phone: phone.trim(), // Always include phone for all users
+        guest_name: name.trim(), // Always include name for all users
+        guest_email: email.trim().toLowerCase(), // Always include email for all users
       };
 
       if (user) {
@@ -264,8 +266,6 @@ export default function Checkout() {
         basePayload.is_guest_booking = false;
       } else {
         basePayload.is_guest_booking = true;
-        basePayload.guest_name = name.trim();
-        basePayload.guest_email = email.trim().toLowerCase();
       }
 
       const { error } = await supabase.from("bookings").insert(basePayload as never);

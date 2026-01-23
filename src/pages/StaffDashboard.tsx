@@ -58,6 +58,7 @@ type TourRow = {
   currency: string | null;
   is_published: boolean | null;
   created_at: string;
+  source?: "tours" | "tour_packages";
 };
 
 type TransportVehicleRow = {
@@ -114,6 +115,7 @@ type BookingRow = {
   };
   profiles?: {
     full_name: string | null;
+    nickname: string | null;
     email: string | null;
     phone: string | null;
   };
@@ -220,13 +222,39 @@ export default function StaffDashboard() {
   const { data: tours = [], refetch: refetchTours } = useQuery({
     queryKey: ["staff-tours"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("tours")
-        .select("id, title, location, price_per_person, currency, is_published, created_at")
-        .order("created_at", { ascending: false })
-        .limit(200);
-      if (error) throw error;
-      return (data ?? []) as TourRow[];
+      // Fetch both tours and tour_packages
+      const [toursRes, packagesRes] = await Promise.all([
+        supabase
+          .from("tours")
+          .select("id, title, location, price_per_person, currency, is_published, created_at")
+          .order("created_at", { ascending: false })
+          .limit(200),
+        supabase
+          .from("tour_packages")
+          .select("id, title, city, country, price_per_adult, currency, status, created_at")
+          .order("created_at", { ascending: false })
+          .limit(200)
+      ]);
+      
+      if (toursRes.error) throw toursRes.error;
+      if (packagesRes.error) throw packagesRes.error;
+      
+      // Mark tours with source
+      const toursWithSource = (toursRes.data ?? []).map(t => ({ ...t, source: "tours" as const }));
+      
+      // Convert packages to tour format and mark with source
+      const packagesAsTours = (packagesRes.data ?? []).map(pkg => ({
+        id: pkg.id,
+        title: pkg.title,
+        location: `${pkg.city}, ${pkg.country}`,
+        price_per_person: pkg.price_per_adult,
+        currency: pkg.currency,
+        is_published: pkg.status === 'approved',
+        created_at: pkg.created_at,
+        source: "tour_packages" as const
+      }));
+      
+      return [...toursWithSource, ...packagesAsTours] as TourRow[];
     },
     enabled: tab === "tours",
   });
@@ -282,7 +310,8 @@ export default function StaffDashboard() {
           id, property_id, guest_id, guest_name, guest_email, guest_phone,
           is_guest_booking, check_in, check_out, guests, total_price,
           currency, status, payment_status, payment_method, special_requests, host_id, created_at,
-          properties(title, images)
+          properties(title, images),
+          profiles:guest_id(full_name, phone, email, nickname)
         `)
         .order("created_at", { ascending: false })
         .limit(8);
@@ -341,11 +370,23 @@ export default function StaffDashboard() {
 
   // Export booking details
   const exportBooking = (booking: BookingRow) => {
+    const guestName = booking.is_guest_booking 
+      ? booking.guest_name || 'Guest'
+      : (booking.profiles?.nickname || booking.profiles?.full_name || 'User');
+    
+    const guestEmail = booking.is_guest_booking 
+      ? booking.guest_email 
+      : booking.profiles?.email;
+    
+    const guestPhone = booking.is_guest_booking 
+      ? booking.guest_phone 
+      : booking.profiles?.phone;
+
     const bookingData = {
       'Booking ID': booking.id,
-      'Guest Name': booking.is_guest_booking ? booking.guest_name : booking.guest_id,
-      'Guest Email': booking.guest_email || 'N/A',
-      'Guest Phone': booking.guest_phone || 'N/A',
+      'Guest Name': guestName,
+      'Guest Email': guestEmail || 'N/A',
+      'Guest Phone': guestPhone || 'N/A',
       'Check In': booking.check_in,
       'Check Out': booking.check_out,
       'Number of Guests': booking.guests,
@@ -372,6 +413,18 @@ export default function StaffDashboard() {
 
   // Export payment receipt
   const exportReceipt = (booking: BookingRow) => {
+    const guestName = booking.is_guest_booking 
+      ? booking.guest_name || 'Guest'
+      : (booking.profiles?.nickname || booking.profiles?.full_name || 'User');
+    
+    const guestEmail = booking.is_guest_booking 
+      ? booking.guest_email 
+      : booking.profiles?.email;
+    
+    const guestPhone = booking.is_guest_booking 
+      ? booking.guest_phone 
+      : booking.profiles?.phone;
+
     const receiptContent = `
 PAYMENT RECEIPT
 ================
@@ -380,9 +433,9 @@ Receipt Date: ${new Date().toLocaleString()}
 BOOKING INFORMATION
 -------------------
 Booking ID: ${booking.id}
-Guest Name: ${booking.is_guest_booking ? booking.guest_name : booking.guest_id}
-Guest Email: ${booking.guest_email || 'N/A'}
-Guest Phone: ${booking.guest_phone || 'N/A'}
+Guest Name: ${guestName}
+Guest Email: ${guestEmail || 'N/A'}
+Guest Phone: ${guestPhone || 'N/A'}
 
 STAY DETAILS
 ------------
@@ -596,7 +649,10 @@ For support, contact: support@merry360x.com
                         <div className="text-xs text-muted-foreground truncate">{b.guest_email || "—"}</div>
                       </div>
                     ) : (
-                      <span className="font-mono text-xs">{(b.guest_id ?? "").slice(0, 8)}...</span>
+                      <div className="min-w-0">
+                        <div className="font-medium truncate">{b.profiles?.nickname || b.profiles?.full_name || "User"}</div>
+                        <div className="text-xs text-muted-foreground truncate">{b.profiles?.email || "—"}</div>
+                      </div>
                     )}
                   </TableCell>
                   <TableCell className="font-medium">{b.status}</TableCell>
@@ -687,7 +743,7 @@ For support, contact: support@merry360x.com
                         <TableRow key={b.id}>
                           <TableCell className="font-mono text-xs">{b.id.slice(0, 8)}...</TableCell>
                           <TableCell className="text-sm">
-                            {b.is_guest_booking ? b.guest_name || "Guest" : b.profiles?.full_name || b.guest_id?.slice(0, 8)}
+                            {b.is_guest_booking ? b.guest_name || "Guest" : (b.profiles?.nickname || b.profiles?.full_name || "User")}
                           </TableCell>
                           <TableCell className="text-sm">{b.properties?.title || "—"}</TableCell>
                           <TableCell className="font-medium">{formatMoney(b.total_price, b.currency)}</TableCell>
@@ -835,7 +891,18 @@ For support, contact: support@merry360x.com
                     className="rounded-lg border border-border p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
                   >
                     <div className="min-w-0">
-                      <div className="font-medium text-foreground">{t.title}</div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="font-medium text-foreground flex-1">{t.title}</div>
+                        {t.source === "tour_packages" ? (
+                          <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800">
+                            Package
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+                            Tour
+                          </Badge>
+                        )}
+                      </div>
                       <div className="text-sm text-muted-foreground">
                         {t.location ?? "(no location)"} · {formatMoney(t.price_per_person ?? 0, t.currency ?? "USD")}
                       </div>
@@ -1007,7 +1074,7 @@ For support, contact: support@merry360x.com
                       <p className="text-sm">
                         {selectedBooking.is_guest_booking 
                           ? selectedBooking.guest_name || "Guest"
-                          : selectedBooking.profiles?.full_name || selectedBooking.guest_id || "N/A"}
+                          : (selectedBooking.profiles?.nickname || selectedBooking.profiles?.full_name || "User")}
                       </p>
                     </div>
                     <div>

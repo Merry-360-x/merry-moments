@@ -142,7 +142,7 @@ export default function CreateTransport() {
           media: uploadedImageUrls,
           image_url: uploadedImageUrls[0] || null,
           created_by: user.id,
-          is_published: false,
+          is_published: true, // Changed to true so vehicles are immediately visible
         })
         .select()
         .single();

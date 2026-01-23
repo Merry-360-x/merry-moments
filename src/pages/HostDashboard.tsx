@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -84,6 +85,9 @@ import {
   CircleOff,
   Percent,
   Info,
+  Download,
+  FileText,
+  Calendar as CalendarIcon,
 } from "lucide-react";
 
 // Types
@@ -129,6 +133,7 @@ interface Tour {
   images: string[] | null;
   is_published: boolean | null;
   created_at: string;
+  source?: "tours" | "tour_packages"; // Track where this came from
 }
 
 interface Vehicle {
@@ -231,6 +236,14 @@ export default function HostDashboard() {
 
   const [tab, setTab] = useState("overview");
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Financial reports date range
+  const [reportStartDate, setReportStartDate] = useState(() => {
+    const date = new Date();
+    date.setMonth(date.getMonth() - 1);
+    return date.toISOString().split('T')[0];
+  });
+  const [reportEndDate, setReportEndDate] = useState(() => new Date().toISOString().split('T')[0]);
 
   // Data
   const [properties, setProperties] = useState<Property[]>([]);
@@ -241,7 +254,6 @@ export default function HostDashboard() {
 
   // Editing states
   const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null);
-  const [editingTourId, setEditingTourId] = useState<string | null>(null);
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
   const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
 
@@ -278,7 +290,6 @@ export default function HostDashboard() {
 
   // Auto-save keys for localStorage
   const PROPERTY_FORM_KEY = 'host_property_draft';
-  const TOUR_FORM_KEY = 'host_tour_draft';
   const VEHICLE_FORM_KEY = 'host_vehicle_draft';
 
   // Load saved drafts on mount
@@ -306,48 +317,7 @@ export default function HostDashboard() {
     }
   }, [propertyForm, wizardStep, showPropertyWizard]);
 
-  // New Tour wizard (matches property wizard UX)
-  const [showTourWizard, setShowTourWizard] = useState(false);
-  const [tourWizardStep, setTourWizardStep] = useState(1);
-  const [creatingTour, setCreatingTour] = useState(false);
-  const [tourUploadDialogOpen, setTourUploadDialogOpen] = useState(false);
-  const [tourForm, setTourForm] = useState({
-    title: "",
-    location: "",
-    description: "",
-    category: "",
-    difficulty: "",
-    duration_days: 1,
-    price_per_person: 50000,
-    currency: "RWF",
-    images: [] as string[],
-    is_published: true,
-  });
 
-  // Load saved tour draft on mount
-  useEffect(() => {
-    try {
-      const savedTour = localStorage.getItem(TOUR_FORM_KEY);
-      if (savedTour) {
-        const parsed = JSON.parse(savedTour);
-        setTourForm(parsed.form);
-        setTourWizardStep(parsed.step || 1);
-      }
-    } catch (e) {
-      console.error('Failed to load tour draft:', e);
-    }
-  }, []);
-
-  // Auto-save tour form
-  useEffect(() => {
-    if (showTourWizard && tourForm.title) {
-      try {
-        localStorage.setItem(TOUR_FORM_KEY, JSON.stringify({ form: tourForm, step: tourWizardStep }));
-      } catch (e) {
-        console.error('Failed to save tour draft:', e);
-      }
-    }
-  }, [tourForm, tourWizardStep, showTourWizard]);
 
   // New Vehicle wizard (matches property wizard UX)
   const [showVehicleWizard, setShowVehicleWizard] = useState(false);
@@ -424,7 +394,10 @@ export default function HostDashboard() {
       ]);
 
       if (propsRes.data) setProperties(propsRes.data as Property[]);
-      if (toursRes.data) setTours(toursRes.data as Tour[]);
+      if (toursRes.data) {
+        const toursWithSource = (toursRes.data as Tour[]).map(t => ({ ...t, source: "tours" as const }));
+        setTours(toursWithSource);
+      }
       // Merge tour_packages into tours array for display
       if (tourPackagesRes.data) {
         const packagesAsTours = tourPackagesRes.data.map(pkg => ({
@@ -438,6 +411,7 @@ export default function HostDashboard() {
           duration_days: parseInt(pkg.duration) || 1,
           created_at: pkg.created_at,
           is_published: pkg.status === 'approved',
+          source: "tour_packages" as const, // Mark as package
         }));
         setTours(prev => [...prev, ...packagesAsTours as any]);
       }
@@ -625,53 +599,71 @@ export default function HostDashboard() {
     return true;
   };
 
-  const createTour = async (data: Partial<Tour>) => {
-    const title = String(data.title ?? "").trim() || "New Tour";
-    const location = String((data as any).location ?? "").trim() || "Kigali";
-    const images = ((data as any).images as string[] | null | undefined) ?? null;
-    const pricePerPerson = Number((data as any).price_per_person ?? 0);
-    const currency = String((data as any).currency ?? "RWF") || "RWF";
 
-    const payload: Record<string, unknown> = {
-      title,
-      location,
-      price_per_person: pricePerPerson,
-      currency,
-      difficulty: (data as any).difficulty ?? null,
-      duration_days: (data as any).duration_days ?? null,
-      category: String((data as any).category ?? "").trim() || null,
-      description: (data as any).description ?? null,
-      images: images && images.length > 0 ? images : null,
-      created_by: user!.id,
-      is_published: typeof (data as any).is_published === "boolean" ? (data as any).is_published : true,
-    };
-    
-    const { error, data: newTour } = await supabase
-      .from("tours")
-      .insert(payload as never)
-      .select()
-      .single();
-    if (error) {
-      logError("host.tour.create", error);
-      toast({ variant: "destructive", title: "Create failed", description: uiErrorMessage(error) });
-      return null;
-    }
-    setTours((prev) => [newTour as Tour, ...prev]);
-    localStorage.removeItem(TOUR_FORM_KEY); // Clear draft
-    toast({ title: "Tour created" });
-    return newTour;
-  };
+
+  const queryClient = useQueryClient();
 
   const deleteTour = async (id: string) => {
-    if (!confirm("Delete this tour?")) return;
-    const { error } = await supabase.from("tours").delete().eq("id", id);
-    if (error) {
-      logError("host.tour.delete", error);
-      toast({ variant: "destructive", title: "Delete failed", description: uiErrorMessage(error) });
-      return;
+    if (!confirm("Are you sure you want to permanently delete this tour? This cannot be undone.")) return;
+    
+    try {
+      console.log('[HostDashboard] Deleting tour:', id);
+      
+      // Delete the tour directly (RLS ensures user can only delete their own)
+      const { error: deleteError, count } = await supabase
+        .from("tours")
+        .delete({ count: 'exact' })
+        .eq("id", id)
+        .eq("created_by", user!.id); // Security: only delete if user owns it
+      
+      if (deleteError) {
+        console.error('[HostDashboard] Delete failed:', deleteError);
+        logError("host.tour.delete", deleteError);
+        toast({ 
+          variant: "destructive", 
+          title: "Delete failed", 
+          description: deleteError.message || uiErrorMessage(deleteError) 
+        });
+        return;
+      }
+      
+      // Check if anything was deleted
+      if (count === 0) {
+        console.warn('[HostDashboard] No tour was deleted - may not exist or not owned by user');
+        toast({ 
+          variant: "destructive", 
+          title: "Cannot delete", 
+          description: "Tour not found or you don't have permission to delete it." 
+        });
+        return;
+      }
+      
+      console.log('[HostDashboard] Tour deleted successfully, count:', count);
+      
+      // Update local state
+      setTours((prev) => prev.filter((t) => t.id !== id));
+      
+      // Invalidate all tour-related caches
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["tours"] }),
+        queryClient.invalidateQueries({ queryKey: ["staff-tours"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-tours"] }),
+        queryClient.invalidateQueries({ queryKey: ["operations_tours"] }),
+      ]);
+      
+      toast({ 
+        title: "Tour deleted", 
+        description: "Tour has been permanently deleted from all pages." 
+      });
+      
+    } catch (error) {
+      console.error('[HostDashboard] Unexpected error during deletion:', error);
+      toast({ 
+        variant: "destructive", 
+        title: "Error", 
+        description: error instanceof Error ? error.message : "An unexpected error occurred" 
+      });
     }
-    setTours((prev) => prev.filter((t) => t.id !== id));
-    toast({ title: "Deleted" });
   };
 
   // Vehicle CRUD
@@ -820,16 +812,7 @@ export default function HostDashboard() {
     }
   };
 
-  const openTourWizard = () => {
-    const hasDraft = localStorage.getItem(TOUR_FORM_KEY);
-    setShowTourWizard(true);
-    if (hasDraft) {
-      toast({
-        title: "Draft Restored",
-        description: "Your previous tour listing progress has been restored.",
-      });
-    }
-  };
+
 
   const openVehicleWizard = () => {
     const hasDraft = localStorage.getItem(VEHICLE_FORM_KEY);
@@ -1725,297 +1708,6 @@ export default function HostDashboard() {
     );
   }
 
-  // Tour Creation Wizard
-  if (showTourWizard) {
-    const totalSteps = 4;
-    const stepTitles = ["Basics", "Media", "Pricing", "Review"];
-
-    const canProceedTour = () => {
-      switch (tourWizardStep) {
-        case 1:
-          return tourForm.title.trim().length >= 3 && tourForm.location.trim().length >= 2;
-        case 2:
-          return true;
-        case 3:
-          return Number(tourForm.price_per_person) > 0;
-        default:
-          return true;
-      }
-    };
-
-    const submitTour = async () => {
-      if (!user) return;
-      setCreatingTour(true);
-      const payload: Partial<Tour> = {
-        title: tourForm.title.trim(),
-        location: tourForm.location.trim(),
-        description: tourForm.description.trim() || null,
-        category: tourForm.category.trim() || null,
-        difficulty: tourForm.difficulty.trim() || null,
-        duration_days: Number(tourForm.duration_days) || null,
-        price_per_person: Number(tourForm.price_per_person) || 0,
-        currency: tourForm.currency,
-        images: tourForm.images.length > 0 ? tourForm.images : null,
-        is_published: tourForm.is_published,
-      };
-      const created = await createTour(payload);
-      setCreatingTour(false);
-      if (created) {
-        setShowTourWizard(false);
-        setTourForm({
-          title: "",
-          location: "",
-          description: "",
-          category: "",
-          difficulty: "",
-          duration_days: 1,
-          price_per_person: 50000,
-          currency: "RWF",
-          images: [],
-          is_published: true,
-        });
-        setTourWizardStep(1);
-        setTab("tours");
-        setEditingTourId((created as any).id);
-      }
-    };
-
-    return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="container mx-auto px-4 py-8 max-w-3xl">
-          <div className="flex items-center justify-between mb-8">
-            <button
-              type="button"
-              onClick={() => {
-                if (tourWizardStep > 1) setTourWizardStep((s) => s - 1);
-                else {
-                  setShowTourWizard(false);
-                  setTourWizardStep(1);
-                }
-              }}
-              className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <ChevronLeft className="w-5 h-5" />
-              {tourWizardStep > 1 ? "Back" : "Cancel"}
-            </button>
-            <div className="text-center">
-              <h1 className="text-xl font-bold text-foreground">Create a Tour</h1>
-                      <p className="text-sm text-muted-foreground">
-                Step {tourWizardStep} of {totalSteps}: {stepTitles[tourWizardStep - 1]}
-                      </p>
-                  </div>
-            <div className="w-20" />
-          </div>
-
-          <Progress value={(tourWizardStep / totalSteps) * 100} className="mb-8 h-2" />
-
-          <Card className="p-6 md:p-8">
-            {tourWizardStep === 1 && (
-              <div className="space-y-6">
-                <div className="text-center mb-8">
-                  <MapPin className="w-12 h-12 mx-auto text-primary mb-4" />
-                  <h2 className="text-2xl font-bold text-foreground">Tell guests about your tour</h2>
-                  <p className="text-muted-foreground mt-2">Basics first—title and location</p>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <Label className="text-base font-medium">Tour Title *</Label>
-                    <Input
-                      value={tourForm.title}
-                      onChange={(e) => setTourForm((f) => ({ ...f, title: e.target.value }))}
-                      placeholder="e.g., Kigali City Highlights Tour"
-                      className="mt-2 text-lg py-6"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-base font-medium">Location *</Label>
-                    <Input
-                      value={tourForm.location}
-                      onChange={(e) => setTourForm((f) => ({ ...f, location: e.target.value }))}
-                      placeholder="e.g., Kigali, Remera"
-                      className="mt-2 text-lg py-6"
-                    />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                      <Label className="text-base font-medium">Category</Label>
-                      <Input
-                        value={tourForm.category}
-                        onChange={(e) => setTourForm((f) => ({ ...f, category: e.target.value }))}
-                        placeholder="e.g., Culture"
-                        className="mt-2 text-lg py-6"
-                      />
-                  </div>
-                  <div>
-                      <Label className="text-base font-medium">Difficulty</Label>
-                    <Input
-                        value={tourForm.difficulty}
-                        onChange={(e) => setTourForm((f) => ({ ...f, difficulty: e.target.value }))}
-                        placeholder="e.g., Easy"
-                        className="mt-2 text-lg py-6"
-                    />
-                  </div>
-                </div>
-                  <div>
-                    <Label className="text-base font-medium">Description</Label>
-                    <Textarea
-                      value={tourForm.description}
-                      onChange={(e) => setTourForm((f) => ({ ...f, description: e.target.value }))}
-                      placeholder="What will guests do on this tour?"
-                      className="mt-2 min-h-[120px]"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {tourWizardStep === 2 && (
-              <div className="space-y-6">
-                <div className="text-center mb-8">
-                  <ImageIcon className="w-12 h-12 mx-auto text-primary mb-4" />
-                  <h2 className="text-2xl font-bold text-foreground">Add tour photos or video</h2>
-                  <p className="text-muted-foreground mt-2">Media helps guests decide faster</p>
-                </div>
-
-                <div
-                  onClick={() => setTourUploadDialogOpen(true)}
-                  className="border-2 border-dashed border-border rounded-2xl p-12 text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-all"
-                >
-                  <Upload className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                  <p className="text-lg font-medium text-foreground">Click to upload media</p>
-                  <p className="text-sm text-muted-foreground mt-2">or drag and drop</p>
-                  <p className="text-xs text-muted-foreground mt-4">PNG, JPG, or Video up to 10MB each</p>
-                </div>
-
-                {tourForm.images.length > 0 && (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {tourForm.images.map((url, idx) => (
-                      <div key={idx} className="relative aspect-square rounded-xl overflow-hidden group">
-                        {isVideoUrl(url) ? (
-                          <video src={url} className="w-full h-full object-cover" muted playsInline />
-                        ) : (
-                          <img src={url} alt={`Media ${idx + 1}`} className="w-full h-full object-cover" />
-                        )}
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <button
-                            type="button"
-                            onClick={() => setTourForm((f) => ({ ...f, images: f.images.filter((_, i) => i !== idx) }))}
-                            className="p-2 bg-white rounded-full text-destructive hover:bg-destructive hover:text-white transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <CloudinaryUploadDialog
-                  title="Upload Tour Media"
-                  folder="merry360x/tours"
-                  accept="image/*,video/*"
-                  multiple
-                  maxFiles={20}
-                  value={tourForm.images}
-                  onChange={(urls) => setTourForm((f) => ({ ...f, images: urls }))}
-                  open={tourUploadDialogOpen}
-                  onOpenChange={setTourUploadDialogOpen}
-                />
-              </div>
-            )}
-
-            {tourWizardStep === 3 && (
-              <div className="space-y-6">
-                <div className="text-center mb-8">
-                  <DollarSign className="w-12 h-12 mx-auto text-primary mb-4" />
-                  <h2 className="text-2xl font-bold text-foreground">Set pricing</h2>
-                  <p className="text-muted-foreground mt-2">Price per guest</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-base font-medium">Price per Person *</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={tourForm.price_per_person}
-                      onChange={(e) => setTourForm((f) => ({ ...f, price_per_person: Number(e.target.value) }))}
-                      className="mt-2 text-lg py-6"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-base font-medium">Currency</Label>
-                    <Select value={tourForm.currency} onValueChange={(v) => setTourForm((f) => ({ ...f, currency: v }))}>
-                      <SelectTrigger className="mt-2 h-14 text-lg"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {currencies.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div>
-                  <Label className="text-base font-medium">Duration (days)</Label>
-                    <Input
-                      type="number"
-                    min={1}
-                    value={tourForm.duration_days}
-                    onChange={(e) => setTourForm((f) => ({ ...f, duration_days: Number(e.target.value) }))}
-                    className="mt-2 text-lg py-6"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between border rounded-xl p-4">
-                  <div>
-                    <p className="font-medium text-foreground">Publish now</p>
-                    <p className="text-sm text-muted-foreground">Turn off to save as draft</p>
-                  </div>
-                  <Switch checked={tourForm.is_published} onCheckedChange={(v) => setTourForm((f) => ({ ...f, is_published: v }))} />
-                </div>
-              </div>
-            )}
-
-            {tourWizardStep === 4 && (
-              <div className="space-y-6">
-                <div className="text-center mb-8">
-                  <CheckCircle className="w-12 h-12 mx-auto text-primary mb-4" />
-                  <h2 className="text-2xl font-bold text-foreground">Review your tour</h2>
-                  <p className="text-muted-foreground mt-2">Confirm before saving</p>
-                </div>
-
-                <div className="bg-muted/50 rounded-xl p-4 space-y-2 text-sm">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Title</span><span className="font-medium">{tourForm.title || "—"}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Location</span><span className="font-medium">{tourForm.location || "—"}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Price</span><span className="font-medium">{formatMoney(tourForm.price_per_person, tourForm.currency)}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Media</span><span className="font-medium">{tourForm.images.length} file(s)</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Status</span><span className="font-medium">{tourForm.is_published ? "Live" : "Draft"}</span></div>
-                </div>
-              </div>
-            )}
-          </Card>
-
-          <div className="flex items-center justify-between mt-6">
-            <Button variant="outline" onClick={() => setTourWizardStep((s) => Math.max(1, s - 1))} disabled={tourWizardStep === 1}>
-              <ChevronLeft className="w-4 h-4 mr-2" /> Previous
-            </Button>
-            {tourWizardStep < totalSteps ? (
-              <Button onClick={() => setTourWizardStep((s) => s + 1)} disabled={!canProceedTour()}>
-                Next <ChevronRight className="w-4 h-4 ml-2" />
-              </Button>
-            ) : (
-              <Button onClick={submitTour}>
-                Create Tour
-              </Button>
-            )}
-          </div>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
-
   // Vehicle Creation Wizard
   if (showVehicleWizard) {
     const totalSteps = 4;
@@ -2321,6 +2013,7 @@ export default function HostDashboard() {
             <TabsTrigger value="tours">Tours ({(tours || []).length})</TabsTrigger>
             <TabsTrigger value="transport">Transport ({(vehicles || []).length})</TabsTrigger>
             <TabsTrigger value="bookings">Bookings ({(bookings || []).length})</TabsTrigger>
+            <TabsTrigger value="financial">Financial Reports</TabsTrigger>
           </TabsList>
 
           {/* Overview */}
@@ -2380,7 +2073,10 @@ export default function HostDashboard() {
                   <Plus className="w-4 h-4 mr-2" /> Add Property
                 </Button>
                 <Button variant="outline" onClick={() => navigate("/create-tour")}>
-                  <MapPin className="w-4 h-4 mr-2" /> Add Tour
+                  <Plus className="w-4 h-4 mr-2" /> Create Tour
+                </Button>
+                <Button variant="outline" onClick={() => navigate("/create-tour-package")}>
+                  <Plus className="w-4 h-4 mr-2" /> Create Tour Package
                 </Button>
                 <Button variant="outline" onClick={() => navigate("/create-transport")}>
                   <Car className="w-4 h-4 mr-2" /> Add Vehicle
@@ -2439,11 +2135,6 @@ export default function HostDashboard() {
 
           {/* Tours */}
           <TabsContent value="tours">
-            <div className="flex justify-end mb-4">
-              <Button onClick={() => navigate("/create-tour")}>
-                <Plus className="w-4 h-4 mr-2" /> Add Tour
-              </Button>
-                        </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {(tours || []).map((t) => (
                 <Card key={t.id} className="overflow-hidden">
@@ -2455,12 +2146,30 @@ export default function HostDashboard() {
                     )}
                         </div>
                   <div className="p-4">
-                    <h3 className="font-semibold">{t.title}</h3>
+                    <div className="flex items-center gap-2 mb-2">
+                      <h3 className="font-semibold flex-1">{t.title}</h3>
+                      {t.source === "tour_packages" ? (
+                        <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800">
+                          Package
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+                          Tour
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-sm text-muted-foreground">{t.location}</p>
                     <div className="flex items-center justify-between mt-3">
                       <span className="text-primary font-bold">{formatMoney(t.price_per_person, t.currency || "RWF")}</span>
                       <div className="flex gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => setEditingTourId(t.id)}><Edit className="w-3 h-3" /></Button>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          onClick={() => navigate(`/tours/${t.id}`)}
+                          title="View tour details"
+                        >
+                          <Eye className="w-3 h-3" />
+                        </Button>
                         <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteTour(t.id)}><Trash2 className="w-3 h-3" /></Button>
             </div>
                     </div>
@@ -2690,6 +2399,220 @@ export default function HostDashboard() {
                 ))
               )}
             </div>
+          </TabsContent>
+
+          {/* Financial Reports */}
+          <TabsContent value="financial">
+            <Card className="p-6">
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold mb-2">Financial Reports</h2>
+                <p className="text-muted-foreground">Export detailed revenue and booking reports for your business records</p>
+              </div>
+
+              {/* Date Range Picker */}
+              <div className="bg-muted/50 rounded-lg p-4 mb-6">
+                <Label className="block mb-3 font-semibold">Report Period</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="start-date" className="text-sm text-muted-foreground mb-1 block">Start Date</Label>
+                    <Input
+                      id="start-date"
+                      type="date"
+                      value={reportStartDate}
+                      onChange={(e) => setReportStartDate(e.target.value)}
+                      className="bg-background"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="end-date" className="text-sm text-muted-foreground mb-1 block">End Date</Label>
+                    <Input
+                      id="end-date"
+                      type="date"
+                      value={reportEndDate}
+                      onChange={(e) => setReportEndDate(e.target.value)}
+                      className="bg-background"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <Card className="p-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <DollarSign className="w-5 h-5 text-green-600" />
+                    <span className="text-sm font-medium text-muted-foreground">Total Revenue</span>
+                  </div>
+                  <p className="text-2xl font-bold">
+                    {formatMoney(
+                      bookings
+                        .filter(b => {
+                          const bookingDate = new Date(b.created_at);
+                          return bookingDate >= new Date(reportStartDate) && bookingDate <= new Date(reportEndDate);
+                        })
+                        .reduce((sum, b) => sum + Number(b.total_price), 0),
+                      bookings[0]?.currency || "USD"
+                    )}
+                  </p>
+                </Card>
+
+                <Card className="p-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <CalendarIcon className="w-5 h-5 text-blue-600" />
+                    <span className="text-sm font-medium text-muted-foreground">Bookings</span>
+                  </div>
+                  <p className="text-2xl font-bold">
+                    {bookings.filter(b => {
+                      const bookingDate = new Date(b.created_at);
+                      return bookingDate >= new Date(reportStartDate) && bookingDate <= new Date(reportEndDate);
+                    }).length}
+                  </p>
+                </Card>
+
+                <Card className="p-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <CheckCircle className="w-5 h-5 text-purple-600" />
+                    <span className="text-sm font-medium text-muted-foreground">Completed</span>
+                  </div>
+                  <p className="text-2xl font-bold">
+                    {bookings.filter(b => {
+                      const bookingDate = new Date(b.created_at);
+                      return b.status === 'completed' && bookingDate >= new Date(reportStartDate) && bookingDate <= new Date(reportEndDate);
+                    }).length}
+                  </p>
+                </Card>
+              </div>
+
+              {/* Export Buttons */}
+              <div className="flex flex-wrap gap-3">
+                <Button 
+                  onClick={() => {
+                    const filteredBookings = bookings.filter(b => {
+                      const bookingDate = new Date(b.created_at);
+                      return bookingDate >= new Date(reportStartDate) && bookingDate <= new Date(reportEndDate);
+                    });
+                    
+                    // CSV Export
+                    const csvData = filteredBookings.map(b => ({
+                      'Booking ID': b.id.slice(0, 8),
+                      'Property': properties.find(p => p.id === b.property_id)?.title || 'N/A',
+                      'Guest': b.guest_name || 'Guest',
+                      'Check In': b.check_in,
+                      'Check Out': b.check_out,
+                      'Guests': b.guests,
+                      'Total Price': b.total_price,
+                      'Currency': b.currency,
+                      'Status': b.status,
+                      'Payment Status': b.payment_status || 'N/A',
+                      'Payment Method': b.payment_method || 'N/A',
+                      'Created': new Date(b.created_at).toLocaleDateString(),
+                    }));
+
+                    const headers = Object.keys(csvData[0] || {}).join(',');
+                    const rows = csvData.map(row => Object.values(row).map(v => `"${v}"`).join(',')).join('\\n');
+                    const csv = `${headers}\\n${rows}`;
+                    
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `financial-report-${reportStartDate}-to-${reportEndDate}.csv`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    
+                    toast({ title: "CSV exported successfully" });
+                  }}
+                  className="gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Export CSV
+                </Button>
+
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    const filteredBookings = bookings.filter(b => {
+                      const bookingDate = new Date(b.created_at);
+                      return bookingDate >= new Date(reportStartDate) && bookingDate <= new Date(reportEndDate);
+                    });
+
+                    const totalRevenue = filteredBookings.reduce((sum, b) => sum + Number(b.total_price), 0);
+                    const currency = filteredBookings[0]?.currency || 'USD';
+                    
+                    const pdfContent = `
+FINANCIAL REPORT
+================
+Host Dashboard - Merry360x Platform
+Report Period: ${reportStartDate} to ${reportEndDate}
+Generated: ${new Date().toLocaleString()}
+
+SUMMARY
+-------
+Total Bookings: ${filteredBookings.length}
+Total Revenue: ${formatMoney(totalRevenue, currency)}
+Completed Bookings: ${filteredBookings.filter(b => b.status === 'completed').length}
+Pending Bookings: ${filteredBookings.filter(b => b.status === 'pending').length}
+Cancelled Bookings: ${filteredBookings.filter(b => b.status === 'cancelled').length}
+
+PAYMENT METHODS BREAKDOWN
+-------------------------
+${[...new Set(filteredBookings.map(b => b.payment_method || 'Not specified'))].map(method => {
+  const count = filteredBookings.filter(b => (b.payment_method || 'Not specified') === method).length;
+  const amount = filteredBookings
+    .filter(b => (b.payment_method || 'Not specified') === method)
+    .reduce((sum, b) => sum + Number(b.total_price), 0);
+  return `${method}: ${count} bookings, ${formatMoney(amount, currency)}`;
+}).join('\\n')}
+
+DETAILED BOOKINGS
+-----------------
+${filteredBookings.map(b => `
+Booking ID: ${b.id.slice(0, 8)}
+Property: ${properties.find(p => p.id === b.property_id)?.title || 'N/A'}
+Guest: ${b.guest_name || 'Guest'}
+Check-in: ${b.check_in}
+Check-out: ${b.check_out}
+Guests: ${b.guests}
+Amount: ${formatMoney(Number(b.total_price), b.currency)}
+Status: ${b.status}
+Payment: ${b.payment_method || 'N/A'} (${b.payment_status || 'N/A'})
+Created: ${new Date(b.created_at).toLocaleString()}
+${'='.repeat(50)}`).join('\\n')}
+
+END OF REPORT
+                    `;
+
+                    const blob = new Blob([pdfContent], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `financial-report-${reportStartDate}-to-${reportEndDate}.txt`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    
+                    toast({ title: "Report exported successfully" });
+                  }}
+                  className="gap-2"
+                >
+                  <FileText className="w-4 h-4" />
+                  Export PDF/Text Report
+                </Button>
+              </div>
+
+              {/* Info Notice */}
+              <div className="mt-6 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <div className="flex gap-3">
+                  <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-medium text-blue-900 dark:text-blue-100 mb-1">About Financial Reports</p>
+                    <p className="text-blue-800 dark:text-blue-200">
+                      Reports include all bookings within the selected date range. CSV format is ideal for spreadsheet analysis, 
+                      while text reports provide a comprehensive overview for record-keeping. All amounts are shown in their original currency.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

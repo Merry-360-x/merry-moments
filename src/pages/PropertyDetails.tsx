@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
@@ -425,12 +426,9 @@ export default function PropertyDetails() {
           </button>
         </div>
 
-        {/* {isLoading ? (
-          <div className="py-20 text-center">
-            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-muted-foreground">{t("common.loadingProperties")}</p>
-          </div>
-        ) : */ isError ? (
+        {isLoading ? (
+          <LoadingSpinner message={t("common.loadingProperties")} />
+        ) : isError ? (
           <div className="py-20 text-center">
             <p className="text-muted-foreground">{t("common.couldNotLoadProperties")}</p>
           </div>

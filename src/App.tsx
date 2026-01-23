@@ -19,7 +19,6 @@ import NotFound from "./pages/NotFound";
 import RequireAuth from "@/components/RequireAuth";
 import RequireRole from "@/components/RequireRole";
 import HostApplication from "./pages/HostApplication";
-import CreateTourPackage from "./pages/CreateTourPackage";
 import AdminDashboard from "./pages/AdminDashboard";
 import StaffDashboard from "./pages/StaffDashboard";
 import FinancialStaffDashboard from "./pages/FinancialStaffDashboard";
@@ -37,6 +36,7 @@ import HostReviews from "./pages/HostReviews";
 import HostAbout from "./pages/HostAbout";
 import ConnectionTest from "./pages/ConnectionTest";
 import CreateTour from "./pages/CreateTour";
+import CreateTourPackage from "./pages/CreateTourPackage";
 import CreateTransport from "./pages/CreateTransport";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
@@ -153,16 +153,18 @@ const App = () => (
               />
               <Route path="/host" element={<Navigate to="/host-dashboard" replace />} />
               <Route path="/become-host" element={<HostApplication />} />
+
               <Route
                 path="/create-tour"
                 element={
                   <RequireAuth>
                     <RequireRole allowed={["host"]}>
-                      <CreateTourPackage />
+                      <CreateTour />
                     </RequireRole>
                   </RequireAuth>
                 }
               />
+
               <Route
                 path="/create-tour-package"
                 element={
@@ -173,6 +175,7 @@ const App = () => (
                   </RequireAuth>
                 }
               />
+
               <Route
                 path="/create-transport"
                 element={

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -8,183 +8,178 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { Database } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Upload, X } from "lucide-react";
+import { Upload, X, AlertCircle, Loader2 } from "lucide-react";
+import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
+import { extractPDFMetadata, validatePDF } from "@/lib/pdf-extractor";
 import { uploadFile } from "@/lib/uploads";
+import { useQueryClient } from "@tanstack/react-query";
+import { cn } from "@/lib/utils";
 
-const categories = ["Nature", "Adventure", "Cultural", "Wildlife", "Historical"];
+const categories = ["Nature", "Adventure", "Cultural", "Wildlife", "Historical", "City Tours", "Eco-Tourism", "Photography"];
 const difficultyLevels = ["Easy", "Moderate", "Challenging", "Difficult"];
 
-const tourAmenities = [
-  "Accommodation",
-  "Food & Drinks",
-  "Tour Guide",
-  "Transportation",
-  "Equipment Rental",
-  "Photography",
-  "Insurance",
-  "Entry Fees",
-];
+interface FormErrors {
+  title?: string;
+  description?: string;
+  location?: string;
+  price_per_person?: string;
+  duration_days?: string;
+  max_participants?: string;
+  images?: string;
+  categories?: string;
+}
 
 export default function CreateTour() {
   const { user, isHost } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     location: "",
-    address: "",
     categories: [] as string[],
     difficulty: "",
     duration_days: 1,
     max_participants: 10,
     price_per_person: 0,
     currency: "RWF",
-    amenities: [] as string[],
   });
 
-  const [images, setImages] = useState<File[]>([]);
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [images, setImages] = useState<string[]>([]);
+  const [cloudinaryDialogOpen, setCloudinaryDialogOpen] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pdfMetadata, setPdfMetadata] = useState<any>(null);
   const [uploading, setUploading] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [touched, setTouched] = useState<Set<string>>(new Set());
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    setImages((prev) => [...prev, ...files]);
+  useEffect(() => {
+    if (pdfFile) {
+      extractPDFMetadata(pdfFile).then((metadata) => {
+        setPdfMetadata(metadata);
+        if (metadata.title && !formData.title) {
+          setFormData(prev => ({ ...prev, title: metadata.title! }));
+        }
+        if (metadata.duration && formData.duration_days === 1) {
+          const days = parseInt(metadata.duration) || 1;
+          setFormData(prev => ({ ...prev, duration_days: days }));
+        }
+      });
+    }
+  }, [pdfFile, formData.title, formData.duration_days]);
 
-    files.forEach((file) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreviews((prev) => [...prev, reader.result as string]);
-      };
-      reader.readAsDataURL(file);
-    });
+  useEffect(() => {
+    const newErrors: FormErrors = {};
+    if (touched.has('title') && !formData.title.trim()) newErrors.title = "Required";
+    if (touched.has('description') && formData.description.trim().length < 20) newErrors.description = "Minimum 20 characters";
+    if (touched.has('location') && !formData.location.trim()) newErrors.location = "Required";
+    if (touched.has('price_per_person') && formData.price_per_person <= 0) newErrors.price_per_person = "Must be greater than 0";
+    if (touched.has('duration_days') && formData.duration_days < 1) newErrors.duration_days = "Must be at least 1";
+    if (touched.has('max_participants') && formData.max_participants < 1) newErrors.max_participants = "Must be at least 1";
+    if (touched.has('categories') && formData.categories.length === 0) newErrors.categories = "Select at least one";
+    if (touched.has('images') && images.length === 0) newErrors.images = "Upload at least one image";
+    setErrors(newErrors);
+  }, [formData, images, touched]);
+
+  const handleBlur = (field: string) => setTouched(prev => new Set([...prev, field]));
+
+  const isFormValid = () => {
+    return formData.title.trim() && formData.description.trim().length >= 20 &&
+      formData.location.trim() && formData.price_per_person > 0 &&
+      formData.duration_days >= 1 && formData.max_participants >= 1 &&
+      formData.categories.length > 0 && images.length > 0;
   };
 
-  const removeImage = (index: number) => {
-    setImages((prev) => prev.filter((_, i) => i !== index));
-    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const toggleAmenity = (amenity: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      amenities: prev.amenities.includes(amenity)
-        ? prev.amenities.filter((a) => a !== amenity)
-        : [...prev.amenities, amenity],
-    }));
-  };
-
-  const toggleCategory = (category: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      categories: prev.categories.includes(category)
-        ? prev.categories.filter((c) => c !== category)
-        : [...prev.categories, category],
-    }));
+  const handlePdfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const validation = validatePDF(file);
+      if (!validation.valid) {
+        toast({ title: "Invalid PDF", description: validation.error, variant: "destructive" });
+        return;
+      }
+      setPdfFile(file);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!user || !isHost) {
-      toast({
-        title: "Authorization Required",
-        description: "You must be a host to create tours.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!formData.title || !formData.location) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in the tour title and location.",
-        variant: "destructive",
-      });
-      return;
-    }
-
+    if (!user || !isFormValid()) return;
     setUploading(true);
 
     try {
-      // Upload images
-      const uploadedImageUrls: string[] = [];
-      for (const image of images) {
-        try {
-          const result = await uploadFile(image, { folder: "tours" });
-          uploadedImageUrls.push(result.url);
-        } catch (err) {
-          console.error("Image upload failed:", err);
-        }
-      }
-
-      // Upload PDF if provided
-      let pdfUrl: string | null = null;
+      let pdfUrl = null;
       if (pdfFile) {
         try {
-          const result = await uploadFile(pdfFile, { folder: "tour-pdfs" });
-          pdfUrl = result.url;
-        } catch (err) {
-          console.error("PDF upload failed:", err);
+          const { url } = await uploadFile(pdfFile, { folder: "tour-itineraries" });
+          pdfUrl = url;
+        } catch {
+          toast({ title: "PDF upload failed", description: "Continuing without PDF", variant: "default" });
         }
       }
 
-      // Create tour
-      const { data, error } = await supabase
-        .from("tours")
-        .insert({
-          title: formData.title,
-          description: formData.description,
-          location: formData.location,
-          categories: formData.categories.length > 0 ? formData.categories : null,
-          difficulty: formData.difficulty || null,
-          duration_days: formData.duration_days || null,
-          max_group_size: formData.max_participants || null,
-          price_per_person: formData.price_per_person || 0,
-          currency: formData.currency || "RWF",
-          images: uploadedImageUrls.length > 0 ? uploadedImageUrls : null,
-          itinerary_pdf_url: pdfUrl,
-          created_by: user.id,
-          is_published: true,
-        })
-        .select()
-        .single();
+      const tourData: Database['public']['Tables']['tours']['Insert'] = {
+        title: formData.title.trim(),
+        description: formData.description.trim() || null,
+        location: formData.location.trim(),
+        category: formData.categories[0] || null,
+        categories: formData.categories.length > 1 ? formData.categories.slice(1) : null,
+        difficulty: formData.difficulty || null,
+        duration_days: formData.duration_days || null,
+        max_group_size: formData.max_participants || null,
+        price_per_person: formData.price_per_person,
+        currency: formData.currency || null,
+        images: images.length > 0 ? images : null,
+        itinerary_pdf_url: pdfUrl || null,
+        created_by: user.id || null,
+        is_published: true,
+      };
 
+      const { error } = await supabase.from("tours").insert(tourData as any).select().single();
       if (error) throw error;
 
-      toast({
-        title: "Tour Created!",
-        description: "Your tour has been published successfully and is now live.",
-      });
+      await queryClient.invalidateQueries({ queryKey: ["tours"] });
+      await queryClient.invalidateQueries({ queryKey: ["featured-tours"] });
 
+      toast({ title: "Success!", description: "Tour created successfully" });
       navigate("/host-dashboard");
-    } catch (error) {
-      console.error("Failed to create tour:", error);
-      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-      toast({
-        title: "Error",
-        description: `Failed to create tour: ${errorMessage}`,
-        variant: "destructive",
-      });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "Failed to create tour", variant: "destructive" });
     } finally {
       setUploading(false);
     }
   };
 
-  if (!user || !isHost) {
+  if (!user) {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
         <div className="container mx-auto px-4 py-20 text-center">
-          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
-          <p className="text-muted-foreground mb-6">You must be a host to create tours.</p>
-          <Button onClick={() => navigate("/become-host")}>Become a Host</Button>
+          <AlertCircle className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+          <h1 className="text-xl font-medium mb-2">Sign In Required</h1>
+          <p className="text-sm text-muted-foreground mb-6">Please sign in to create tours</p>
+          <Button onClick={() => navigate("/auth")}>Sign In</Button>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!isHost) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-20 text-center">
+          <AlertCircle className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+          <h1 className="text-xl font-medium mb-2">Host Access Required</h1>
+          <p className="text-sm text-muted-foreground mb-6">You must be an approved host</p>
+          <Button onClick={() => navigate("/host-application")}>Become a Host</Button>
         </div>
         <Footer />
       </div>
@@ -194,267 +189,208 @@ export default function CreateTour() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <h1 className="text-3xl font-bold mb-8">Create a New Tour</h1>
+      <div className="container mx-auto px-4 py-12 max-w-2xl">
+        <div className="mb-12">
+          <h1 className="text-2xl font-medium mb-2">Create Tour</h1>
+          <p className="text-sm text-muted-foreground">Fill in the details to create your tour</p>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Basic Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Basic Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-10">
+          {/* Basic */}
+          <div className="space-y-5">
+            <h2 className="text-base font-medium pb-2 border-b">Basic Information</h2>
+            
+            <div>
+              <Label className="text-sm font-normal mb-1.5 block">Tour Name *</Label>
+              <Input
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                onBlur={() => handleBlur('title')}
+                placeholder="Gorilla Trekking Adventure"
+                className={cn("h-10", errors.title && "border-destructive")}
+              />
+              {errors.title && <p className="text-xs text-destructive mt-1">{errors.title}</p>}
+            </div>
+
+            <div>
+              <Label className="text-sm font-normal mb-1.5 block">Description * <span className="text-xs text-muted-foreground">(min 20 chars)</span></Label>
+              <Textarea
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                onBlur={() => handleBlur('description')}
+                placeholder="Describe your tour experience..."
+                rows={4}
+                className={cn(errors.description && "border-destructive")}
+              />
+              {errors.description && <p className="text-xs text-destructive mt-1">{errors.description}</p>}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="title">Tour Name *</Label>
+                <Label className="text-sm font-normal mb-1.5 block">Location *</Label>
                 <Input
-                  id="title"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="Gorilla Trekking Adventure"
-                  required
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="description">Description *</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Describe your tour experience..."
-                  rows={5}
-                  required
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="location">Location *</Label>
-                <Input
-                  id="location"
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  placeholder="Volcanoes National Park, Rwanda"
-                  required
+                  onBlur={() => handleBlur('location')}
+                  placeholder="Kigali, Rwanda"
+                  className={cn("h-10", errors.location && "border-destructive")}
                 />
+                {errors.location && <p className="text-xs text-destructive mt-1">{errors.location}</p>}
               </div>
 
               <div>
-                <Label htmlFor="address">Address</Label>
-                <Input
-                  id="address"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  placeholder="Detailed meeting point or pickup address"
-                />
+                <Label className="text-sm font-normal mb-1.5 block">Difficulty</Label>
+                <Select value={formData.difficulty} onValueChange={(v) => setFormData({ ...formData, difficulty: v })}>
+                  <SelectTrigger className="h-10"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    {difficultyLevels.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
-
-              <div className="grid grid-cols-1 gap-4">
-                <div>
-                  <Label>Categories * (Select at least one)</Label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-2">
-                    {categories.map((cat) => (
-                      <div key={cat} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`category-${cat}`}
-                          checked={formData.categories.includes(cat)}
-                          onCheckedChange={() => toggleCategory(cat)}
-                        />
-                        <Label htmlFor={`category-${cat}`} className="cursor-pointer">
-                          {cat}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="difficulty">Difficulty</Label>
-                  <Select
-                    value={formData.difficulty}
-                    onValueChange={(value) => setFormData({ ...formData, difficulty: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select difficulty" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {difficultyLevels.map((level) => (
-                        <SelectItem key={level} value={level}>
-                          {level}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           {/* Tour Details */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Tour Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="duration">Duration (days)</Label>
-                  <Input
-                    id="duration"
-                    type="number"
-                    min="1"
-                    value={formData.duration_days}
-                    onChange={(e) =>
-                      setFormData({ ...formData, duration_days: parseInt(e.target.value) || 1 })
-                    }
-                  />
-                </div>
+          <div className="space-y-5">
+            <h2 className="text-base font-medium pb-2 border-b">Tour Details</h2>
 
-                <div>
-                  <Label htmlFor="maxParticipants">Max Participants</Label>
-                  <Input
-                    id="maxParticipants"
-                    type="number"
-                    min="1"
-                    value={formData.max_participants}
-                    onChange={(e) =>
-                      setFormData({ ...formData, max_participants: parseInt(e.target.value) || 10 })
-                    }
-                  />
-                </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm font-normal mb-1.5 block">Duration (days) *</Label>
+                <Input
+                  type="number"
+                  value={formData.duration_days}
+                  onChange={(e) => setFormData({ ...formData, duration_days: parseInt(e.target.value) || 1 })}
+                  min="1"
+                  className={cn("h-10", errors.duration_days && "border-destructive")}
+                />
+                {errors.duration_days && <p className="text-xs text-destructive mt-1">{errors.duration_days}</p>}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="price">Price per Person</Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    min="0"
-                    value={formData.price_per_person}
-                    onChange={(e) =>
-                      setFormData({ ...formData, price_per_person: parseFloat(e.target.value) || 0 })
-                    }
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="currency">Currency</Label>
-                  <Select
-                    value={formData.currency}
-                    onValueChange={(value) => setFormData({ ...formData, currency: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="RWF">(FRw) RWF</SelectItem>
-                      <SelectItem value="USD">($) USD</SelectItem>
-                      <SelectItem value="EUR">(€) EUR</SelectItem>
-                      <SelectItem value="GBP">(£) GBP</SelectItem>
-                      <SelectItem value="CNY">(¥) CNY</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div>
+                <Label className="text-sm font-normal mb-1.5 block">Max Guests *</Label>
+                <Input
+                  type="number"
+                  value={formData.max_participants}
+                  onChange={(e) => setFormData({ ...formData, max_participants: parseInt(e.target.value) || 10 })}
+                  min="1"
+                  className={cn("h-10", errors.max_participants && "border-destructive")}
+                />
+                {errors.max_participants && <p className="text-xs text-destructive mt-1">{errors.max_participants}</p>}
               </div>
-            </CardContent>
-          </Card>
+            </div>
 
-          {/* Amenities */}
-          <Card>
-            <CardHeader>
-              <CardTitle>What's Included</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {tourAmenities.map((amenity) => (
-                  <div key={amenity} className="flex items-center space-x-2">
+            <div>
+              <Label className="text-sm font-normal mb-1.5 block">Categories * <span className="text-xs text-muted-foreground">(select at least one)</span></Label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
+                {categories.map((cat) => (
+                  <label key={cat} className="flex items-center space-x-2 text-sm cursor-pointer">
                     <Checkbox
-                      id={amenity}
-                      checked={formData.amenities.includes(amenity)}
-                      onCheckedChange={() => toggleAmenity(amenity)}
+                      checked={formData.categories.includes(cat)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setFormData({ ...formData, categories: [...formData.categories, cat] });
+                        } else {
+                          setFormData({ ...formData, categories: formData.categories.filter(c => c !== cat) });
+                        }
+                        setTouched(prev => new Set([...prev, 'categories']));
+                      }}
                     />
-                    <Label htmlFor={amenity} className="cursor-pointer">
-                      {amenity}
-                    </Label>
+                    <span>{cat}</span>
+                  </label>
+                ))}
+              </div>
+              {errors.categories && <p className="text-xs text-destructive mt-1">{errors.categories}</p>}
+            </div>
+          </div>
+
+          {/* Pricing */}
+          <div className="space-y-5">
+            <h2 className="text-base font-medium pb-2 border-b">Pricing</h2>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm font-normal mb-1.5 block">Price *</Label>
+                <Input
+                  type="number"
+                  value={formData.price_per_person}
+                  onChange={(e) => setFormData({ ...formData, price_per_person: parseFloat(e.target.value) || 0 })}
+                  onBlur={() => handleBlur('price_per_person')}
+                  min="0"
+                  step="0.01"
+                  className={cn("h-10", errors.price_per_person && "border-destructive")}
+                />
+                {errors.price_per_person && <p className="text-xs text-destructive mt-1">{errors.price_per_person}</p>}
+              </div>
+
+              <div>
+                <Label className="text-sm font-normal mb-1.5 block">Currency</Label>
+                <Select value={formData.currency} onValueChange={(v) => setFormData({ ...formData, currency: v })}>
+                  <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="RWF">RWF</SelectItem>
+                    <SelectItem value="USD">USD</SelectItem>
+                    <SelectItem value="EUR">EUR</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          {/* Media */}
+          <div className="space-y-5">
+            <h2 className="text-base font-medium pb-2 border-b">Images & Files</h2>
+
+            <div>
+              <Label className="text-sm font-normal mb-2 block">Tour Images * <span className="text-xs text-muted-foreground">(at least 1)</span></Label>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {images.map((img, i) => (
+                  <div key={i} className="relative group">
+                    <img src={img} alt="" className="w-20 h-20 object-cover rounded border" />
+                    <button
+                      type="button"
+                      onClick={() => setImages(images.filter((_, idx) => idx !== i))}
+                      className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full p-1 opacity-0 group-hover:opacity-100"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
+              <Button type="button" variant="outline" size="sm" onClick={() => setCloudinaryDialogOpen(true)}>
+                <Upload className="w-3.5 h-3.5 mr-1.5" /> Upload Images
+              </Button>
+              {errors.images && <p className="text-xs text-destructive mt-1">{errors.images}</p>}
+              <CloudinaryUploadDialog
+                title="Upload Images"
+                folder="tours"
+                accept="image/*"
+                multiple={true}
+                maxFiles={10}
+                value={images}
+                onChange={(urls) => {
+                  setImages(urls);
+                  setTouched(prev => new Set([...prev, 'images']));
+                }}
+                open={cloudinaryDialogOpen}
+                onOpenChange={setCloudinaryDialogOpen}
+              />
+            </div>
 
-          {/* Images */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Tour Images</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {imagePreviews.map((preview, index) => (
-                    <div key={index} className="relative aspect-square">
-                      <img
-                        src={preview}
-                        alt={`Preview ${index + 1}`}
-                        className="w-full h-full object-cover rounded-lg"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeImage(index)}
-                        className="absolute top-2 right-2 p-1 bg-destructive text-destructive-foreground rounded-full"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                  <label className="aspect-square border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-muted">
-                    <Upload className="w-8 h-8 text-muted-foreground mb-2" />
-                    <span className="text-sm text-muted-foreground">Add Image</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={handleImageChange}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            <div>
+              <Label className="text-sm font-normal mb-2 block">Itinerary PDF <span className="text-xs text-muted-foreground">(optional)</span></Label>
+              <Input type="file" accept=".pdf" onChange={handlePdfChange} className="h-10 cursor-pointer" />
+              {pdfFile && <p className="text-xs text-muted-foreground mt-1">{pdfFile.name}</p>}
+            </div>
+          </div>
 
-          {/* Tour Itinerary PDF */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Tour Itinerary (Optional)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="pdf-upload">Upload PDF Itinerary</Label>
-                  <Input
-                    id="pdf-upload"
-                    type="file"
-                    accept=".pdf"
-                    onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
-                    className="mt-2"
-                  />
-                  {pdfFile && (
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Selected: {pdfFile.name}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Submit */}
-          <div className="flex gap-4">
-            <Button type="button" variant="outline" onClick={() => navigate(-1)}>
+          {/* Actions */}
+          <div className="flex gap-3 pt-6 border-t">
+            <Button type="button" variant="outline" onClick={() => navigate("/host-dashboard")} disabled={uploading} className="flex-1">
               Cancel
             </Button>
-            <Button type="submit" disabled={uploading}>
-              {uploading ? "Creating..." : "Create Tour"}
+            <Button type="submit" disabled={uploading || !isFormValid()} className="flex-1">
+              {uploading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creating...</> : "Create Tour"}
             </Button>
           </div>
         </form>

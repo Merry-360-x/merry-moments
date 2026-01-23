@@ -1,983 +1,440 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { Database } from "@/integrations/supabase/types";
+import { useToast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertCircle, Loader2, Upload, X } from "lucide-react";
 import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
-import {
-  FileText,
-  Upload,
-  CheckCircle2,
-  AlertCircle,
-  Loader2,
-  Calendar,
-  DollarSign,
-  Users,
-  MapPin,
-  Edit,
-  Save,
-  Eye,
-} from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { uploadFile } from "@/lib/uploads";
+import { useQueryClient } from "@tanstack/react-query";
+import { cn } from "@/lib/utils";
 
-type TourType = "Private" | "Group";
-type TourCategory = "Cultural" | "Adventure" | "Wildlife" | "City Tours" | "Hiking" | "Photography" | "Historical" | "Eco-Tourism";
-
-const currencies = [
-  { value: "RWF", label: "(FRw) RWF", symbol: "FRw" },
-  { value: "USD", label: "($) USD", symbol: "$" },
-  { value: "EUR", label: "(€) EUR", symbol: "€" },
-  { value: "GBP", label: "(£) GBP", symbol: "£" },
-];
+const categories = ["Cultural", "Adventure", "Wildlife", "City Tours", "Hiking", "Photography", "Historical", "Eco-Tourism"];
+const tourTypes = ["Private", "Group"];
 
 export default function CreateTourPackage() {
   const { user, isHost } = useAuth();
-  const navigate = useNavigate();
   const { toast } = useToast();
-
-  const [pdfUrl, setPdfUrl] = useState("");
-  const [pdfUploading, setPdfUploading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [formData, setFormData] = useState({
     title: "",
-    category: "Cultural" as TourCategory,
-    tourType: "Group" as TourType,
+    category: "",
+    tour_type: "",
     description: "",
-    country: "Rwanda",
     city: "",
-    
-    // Auto-extracted (editable)
     duration: "",
-    dailyItinerary: "" as string,
-    includedServices: "",
-    excludedServices: "",
-    meetingPoint: "",
-    whatToBring: "",
-    cancellationPolicy: "",
-    
-    // Manual inputs
-    pricePerAdult: "",
+    daily_itinerary: "",
+    included_services: "",
+    excluded_services: "",
+    meeting_point: "",
+    what_to_bring: "",
+    cancellation_policy: "",
+    price_per_adult: "",
     currency: "RWF",
-    minGuests: "1",
-    maxGuests: "10",
-    availableDates: [] as string[],
-    
-    // New fields
-    cancellationPolicyType: "standard_day" as "standard_day" | "multiday_private" | "non_refundable" | "custom",
-    customCancellationPolicy: "",
-    nonRefundableItems: [] as string[],
-    groupDiscountPercentage: "",
-    groupDiscountMinSize: "",
-    rdbCertificateUrl: "",
-    rdbCertificateValidUntil: "",
-    
-    // Images
-    coverImage: "",
-    galleryImages: [] as string[],
+    min_guests: 1,
+    max_guests: 10,
   });
 
-  const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
-  const [imageUploadOpen, setImageUploadOpen] = useState(false);
-  const [galleryUploadOpen, setGalleryUploadOpen] = useState(false);
-  const [pdfUploadOpen, setPdfUploadOpen] = useState(false);
-  const [rdbCertUploadOpen, setRdbCertUploadOpen] = useState(false);
+  const [coverImage, setCoverImage] = useState<string>("");
+  const [galleryImages, setGalleryImages] = useState<string[]>([]);
+  const [coverDialogOpen, setCoverDialogOpen] = useState(false);
+  const [galleryDialogOpen, setGalleryDialogOpen] = useState(false);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
-  const STORAGE_KEY = 'create_tour_progress';
+  const isFormValid = () => {
+    return formData.title.trim() && formData.category && formData.tour_type &&
+      formData.description.trim().length >= 50 && formData.city.trim() &&
+      formData.duration.trim() && formData.daily_itinerary.trim().length >= 100 &&
+      formData.meeting_point.trim() && formData.cancellation_policy.trim().length >= 20 &&
+      parseFloat(formData.price_per_adult) > 0 && coverImage && pdfFile;
+  };
 
-  // Load saved progress from localStorage on mount
-  useEffect(() => {
-    const savedData = localStorage.getItem(STORAGE_KEY);
-    if (savedData) {
-      try {
-        const parsed = JSON.parse(savedData);
-        setFormData(parsed.formData || formData);
-        setPdfUrl(parsed.pdfUrl || "");
-        setDisclaimerAccepted(parsed.disclaimerAccepted || false);
-        
-        toast({
-          title: "Progress Restored",
-          description: "Your tour draft has been restored.",
-          duration: 3000,
-        });
-      } catch (e) {
-        console.error("Failed to restore tour progress:", e);
+  const handlePdfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.type !== "application/pdf" || file.size > 10 * 1024 * 1024) {
+        toast({ title: "Invalid PDF", description: "Must be PDF under 10MB", variant: "destructive" });
+        return;
       }
-    }
-  }, []);
-
-  // Save progress to localStorage whenever form data changes
-  useEffect(() => {
-    const dataToSave = {
-      formData,
-      pdfUrl,
-      disclaimerAccepted,
-      lastSaved: new Date().toISOString(),
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
-  }, [formData, pdfUrl, disclaimerAccepted]);
-
-  const updateField = (field: string, value: any) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handlePdfUpload = async (urls: string[]) => {
-    if (urls[0]) {
-      setPdfUrl(urls[0]);
-      setPdfUploadOpen(false);
-      // Trigger extraction
+      setPdfFile(file);
     }
   };
 
-  const handleSaveDraft = async () => {
-    if (!user) return;
-    
-    setSubmitting(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !isFormValid()) return;
+    setUploading(true);
 
     try {
-      // Accept any input, fill required fields with defaults
-      const payload = {
+      let pdfUrl = "";
+      if (pdfFile) {
+        const { url } = await uploadFile(pdfFile, { folder: "tour-itineraries" });
+        pdfUrl = url;
+      }
+
+      const packageData: Database['public']['Tables']['tour_packages']['Insert'] = {
         host_id: user.id,
-        title: formData.title || 'Draft Tour',
+        title: formData.title.trim(),
         category: formData.category,
-        tour_type: formData.tourType,
-        description: formData.description || '',
-        country: formData.country,
-        city: formData.city,
-        duration: formData.duration || 'TBD',
-        daily_itinerary: formData.dailyItinerary || '',
-        included_services: formData.includedServices || null,
-        excluded_services: formData.excludedServices || null,
-        meeting_point: formData.meetingPoint || 'TBD',
-        what_to_bring: formData.whatToBring || null,
-        cancellation_policy: formData.cancellationPolicy || 'Standard cancellation policy applies',
-        price_per_adult: parseFloat(formData.pricePerAdult) || 0,
+        tour_type: formData.tour_type,
+        description: formData.description.trim(),
+        country: "Rwanda",
+        city: formData.city.trim(),
+        duration: formData.duration.trim(),
+        daily_itinerary: formData.daily_itinerary.trim(),
+        included_services: formData.included_services.trim() || null,
+        excluded_services: formData.excluded_services.trim() || null,
+        meeting_point: formData.meeting_point.trim(),
+        what_to_bring: formData.what_to_bring.trim() || null,
+        cancellation_policy: formData.cancellation_policy.trim(),
+        price_per_adult: parseFloat(formData.price_per_adult),
         currency: formData.currency,
-        min_guests: parseInt(formData.minGuests) || 1,
-        max_guests: parseInt(formData.maxGuests) || 10,
-        available_dates: formData.availableDates,
-        cancellation_policy_type: formData.cancellationPolicyType,
-        group_discount_percentage: formData.groupDiscountPercentage ? parseInt(formData.groupDiscountPercentage) : null,
-        group_discount_min_size: formData.groupDiscountMinSize ? parseInt(formData.groupDiscountMinSize) : null,
-        rdb_certificate_url: formData.rdbCertificateUrl || null,
-        rdb_certificate_valid_until: formData.rdbCertificateValidUntil || null,
-        cover_image: formData.coverImage || '',
-        gallery_images: formData.galleryImages,
-        itinerary_pdf_url: pdfUrl || '',
-        status: 'draft',
+        min_guests: formData.min_guests,
+        max_guests: formData.max_guests,
+        cover_image: coverImage,
+        gallery_images: galleryImages.length > 0 ? galleryImages : null,
+        itinerary_pdf_url: pdfUrl,
+        status: "draft",
       };
 
-      const { error } = await supabase.from("tour_packages").insert(payload);
-
+      const { error } = await supabase.from("tour_packages").insert(packageData as any).select().single();
       if (error) throw error;
 
-      toast({
-        title: "Draft saved!",
-        description: "Your tour package has been saved as a draft.",
-      });
-
-      localStorage.removeItem(STORAGE_KEY);
+      toast({ title: "Success!", description: "Tour package created successfully" });
       navigate("/host-dashboard");
-    } catch (error) {
-      console.error('[CreateTourPackage] Save draft error:', error);
-      const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
-      toast({
-        variant: "destructive",
-        title: "Failed to save draft",
-        description: errorMessage,
-      });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "Failed to create tour package", variant: "destructive" });
     } finally {
-      setSubmitting(false);
+      setUploading(false);
     }
   };
 
-  const handleSubmitForReview = async () => {
-    if (!user || !disclaimerAccepted) return;
-    
-    setSubmitting(true);
-
-    try {
-      // Auto-fill required fields with defaults if empty
-      const payload = {
-        host_id: user.id,
-        title: formData.title || 'Untitled Tour',
-        category: formData.category,
-        tour_type: formData.tourType,
-        description: formData.description || 'Tour description coming soon',
-        country: formData.country,
-        city: formData.city,
-        duration: formData.duration || '1 day',
-        daily_itinerary: formData.dailyItinerary || 'Itinerary details to be provided',
-        included_services: formData.includedServices || null,
-        excluded_services: formData.excludedServices || null,
-        meeting_point: formData.meetingPoint || 'Meeting point TBD',
-        what_to_bring: formData.whatToBring || null,
-        cancellation_policy: formData.cancellationPolicy || 'Standard cancellation policy applies. Please contact us for details.',
-        price_per_adult: parseFloat(formData.pricePerAdult) || 0,
-        currency: formData.currency,
-        min_guests: parseInt(formData.minGuests) || 1,
-        max_guests: parseInt(formData.maxGuests) || 10,
-        available_dates: formData.availableDates,
-        cancellation_policy_type: formData.cancellationPolicyType,
-        custom_cancellation_policy: formData.cancellationPolicyType === 'custom' ? formData.customCancellationPolicy : null,
-        non_refundable_items: formData.nonRefundableItems.length > 0 ? JSON.stringify(formData.nonRefundableItems) : null,
-        group_discount_percentage: formData.groupDiscountPercentage ? parseFloat(formData.groupDiscountPercentage) : null,
-        group_discount_min_size: formData.groupDiscountMinSize ? parseInt(formData.groupDiscountMinSize) : null,
-        rdb_certificate_url: formData.rdbCertificateUrl || null,
-        rdb_certificate_valid_until: formData.rdbCertificateValidUntil || null,
-        cover_image: formData.coverImage || 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800',
-        gallery_images: formData.galleryImages,
-        itinerary_pdf_url: pdfUrl || '',
-        status: 'approved',
-      };
-
-      const { error } = await supabase.from("tour_packages").insert(payload);
-
-      if (error) throw error;
-
-      toast({
-        title: "Tour Published!",
-        description: "Your tour package is now live and available for bookings.",
-      });
-
-      localStorage.removeItem(STORAGE_KEY);
-      navigate("/host-dashboard");
-    } catch (error) {
-      console.error('[CreateTourPackage] Submit error:', error);
-      const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
-      toast({
-        variant: "destructive",
-        title: "Submission failed",
-        description: `${errorMessage}. Please try again.`,
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  if (!user || !isHost) {
+  if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex flex-col">
+      <div className="min-h-screen bg-background">
         <Navbar />
-        <main className="flex-1 container max-w-4xl mx-auto px-4 py-16">
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              You must be approved as a tour guide host to create tour packages.
-            </AlertDescription>
-          </Alert>
-        </main>
+        <div className="container mx-auto px-4 py-20 text-center">
+          <AlertCircle className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+          <h1 className="text-xl font-medium mb-2">Sign In Required</h1>
+          <p className="text-sm text-muted-foreground mb-6">Please sign in to create tour packages</p>
+          <Button onClick={() => navigate("/auth")}>Sign In</Button>
+        </div>
         <Footer />
       </div>
     );
   }
 
-  const isFormValid = 
-    formData.title &&
-    formData.description &&
-    formData.city &&
-    pdfUrl &&
-    formData.duration &&
-    formData.dailyItinerary &&
-    formData.pricePerAdult &&
-    formData.coverImage;
+  if (!isHost) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-20 text-center">
+          <AlertCircle className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+          <h1 className="text-xl font-medium mb-2">Host Access Required</h1>
+          <p className="text-sm text-muted-foreground mb-6">You must be an approved host</p>
+          <Button onClick={() => navigate("/host-application")}>Become a Host</Button>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex flex-col">
+    <div className="min-h-screen bg-background">
       <Navbar />
+      <div className="container mx-auto px-4 py-12 max-w-2xl">
+        <div className="mb-12">
+          <h1 className="text-2xl font-medium mb-2">Create Tour Package</h1>
+          <p className="text-sm text-muted-foreground">Fill in the details to create your tour package</p>
+        </div>
 
-      <main className="flex-1 container max-w-5xl mx-auto px-4 py-8">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-3xl">Create Tour Package</CardTitle>
-            <CardDescription>
-              Upload your tour itinerary PDF and we'll automatically extract the key information
-            </CardDescription>
-          </CardHeader>
+        <form onSubmit={handleSubmit} className="space-y-10">
+          {/* Basic */}
+          <div className="space-y-5">
+            <h2 className="text-base font-medium pb-2 border-b">Basic Information</h2>
+            
+            <div>
+              <Label className="text-sm font-normal mb-1.5 block">Package Title *</Label>
+              <Input
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                placeholder="3-Day Gorilla Trekking Safari"
+                className="h-10"
+              />
+            </div>
 
-          <CardContent className="space-y-8">
-            {/* Manual Inputs Section */}
-            <div className="space-y-6">
-              <h3 className="text-lg font-semibold">Basic Information</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm font-normal mb-1.5 block">Category *</Label>
+                <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
+                  <SelectTrigger className="h-10"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
 
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="md:col-span-2 space-y-2">
-                  <Label htmlFor="title">Tour Title *</Label>
-                  <Input
-                    id="title"
-                    placeholder="e.g., Gorilla Trekking Adventure in Volcanoes National Park"
-                    value={formData.title}
-                    onChange={(e) => updateField("title", e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="category">Tour Category *</Label>
-                  <Select value={formData.category} onValueChange={(val) => updateField("category", val)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Cultural">Cultural</SelectItem>
-                      <SelectItem value="Adventure">Adventure</SelectItem>
-                      <SelectItem value="Wildlife">Wildlife</SelectItem>
-                      <SelectItem value="City Tours">City Tours</SelectItem>
-                      <SelectItem value="Hiking">Hiking</SelectItem>
-                      <SelectItem value="Photography">Photography</SelectItem>
-                      <SelectItem value="Historical">Historical</SelectItem>
-                      <SelectItem value="Eco-Tourism">Eco-Tourism</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="tourType">Tour Type *</Label>
-                  <Select value={formData.tourType} onValueChange={(val) => updateField("tourType", val)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Private">Private Tour</SelectItem>
-                      <SelectItem value="Group">Group Tour</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="md:col-span-2 space-y-2">
-                  <Label htmlFor="description">Short Description *</Label>
-                  <Textarea
-                    id="description"
-                    placeholder="Brief overview of your tour..."
-                    rows={3}
-                    value={formData.description}
-                    onChange={(e) => updateField("description", e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="country">Country *</Label>
-                  <Input
-                    id="country"
-                    value={formData.country}
-                    onChange={(e) => updateField("country", e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="city">City / Region *</Label>
-                  <Input
-                    id="city"
-                    placeholder="e.g., Musanze"
-                    value={formData.city}
-                    onChange={(e) => updateField("city", e.target.value)}
-                  />
-                </div>
+              <div>
+                <Label className="text-sm font-normal mb-1.5 block">Tour Type *</Label>
+                <Select value={formData.tour_type} onValueChange={(v) => setFormData({ ...formData, tour_type: v })}>
+                  <SelectTrigger className="h-10"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    {tourTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
-            {/* PDF Upload Section */}
-            <div className="space-y-4 border-t pt-6">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                <FileText className="w-5 h-5" />
-                Tour Itinerary PDF *
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                Upload your detailed tour itinerary PDF. We'll automatically extract duration, daily schedule, included/excluded services, and more.
-              </p>
+            <div>
+              <Label className="text-sm font-normal mb-1.5 block">Description * <span className="text-xs text-muted-foreground">(min 50 chars)</span></Label>
+              <Textarea
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Provide a compelling description..."
+                rows={4}
+              />
+            </div>
 
-              {pdfUrl ? (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
-                    <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">PDF uploaded successfully</p>
-                      <p className="text-xs text-muted-foreground truncate">{pdfUrl}</p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setPdfUrl("")}
-                    >
-                      Remove
-                    </Button>
-                  </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm font-normal mb-1.5 block">City *</Label>
+                <Input
+                  value={formData.city}
+                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  placeholder="Kigali"
+                  className="h-10"
+                />
+              </div>
 
-                  {/* PDF Preview */}
-                  <div className="border rounded-lg overflow-hidden">
-                    <iframe
-                      src={pdfUrl}
-                      className="w-full h-96"
-                      title="PDF Preview"
-                      onError={(e) => {
-                        console.warn('PDF preview failed to load:', pdfUrl);
-                        // Hide broken iframe on error
-                        (e.target as HTMLIFrameElement).style.display = 'none';
-                      }}
-                    />
-                    <div className="p-4 text-sm text-muted-foreground">
-                      <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                        Open PDF in new tab
-                      </a>
-                    </div>
-                  </div>
+              <div>
+                <Label className="text-sm font-normal mb-1.5 block">Duration *</Label>
+                <Input
+                  value={formData.duration}
+                  onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
+                  placeholder="3 Days, 2 Nights"
+                  className="h-10"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Itinerary */}
+          <div className="space-y-5">
+            <h2 className="text-base font-medium pb-2 border-b">Itinerary</h2>
+
+            <div>
+              <Label className="text-sm font-normal mb-1.5 block">Daily Itinerary * <span className="text-xs text-muted-foreground">(min 100 chars)</span></Label>
+              <Textarea
+                value={formData.daily_itinerary}
+                onChange={(e) => setFormData({ ...formData, daily_itinerary: e.target.value })}
+                placeholder="Day 1: ..., Day 2: ..."
+                rows={6}
+              />
+            </div>
+
+            <div>
+              <Label className="text-sm font-normal mb-1.5 block">Included Services</Label>
+              <Textarea
+                value={formData.included_services}
+                onChange={(e) => setFormData({ ...formData, included_services: e.target.value })}
+                placeholder="Accommodation, meals, guide..."
+                rows={3}
+              />
+            </div>
+
+            <div>
+              <Label className="text-sm font-normal mb-1.5 block">Excluded Services</Label>
+              <Textarea
+                value={formData.excluded_services}
+                onChange={(e) => setFormData({ ...formData, excluded_services: e.target.value })}
+                placeholder="Personal expenses, tips..."
+                rows={3}
+              />
+            </div>
+
+            <div>
+              <Label className="text-sm font-normal mb-1.5 block">Meeting Point *</Label>
+              <Input
+                value={formData.meeting_point}
+                onChange={(e) => setFormData({ ...formData, meeting_point: e.target.value })}
+                placeholder="Where guests meet the guide"
+                className="h-10"
+              />
+            </div>
+
+            <div>
+              <Label className="text-sm font-normal mb-1.5 block">What to Bring</Label>
+              <Textarea
+                value={formData.what_to_bring}
+                onChange={(e) => setFormData({ ...formData, what_to_bring: e.target.value })}
+                placeholder="Comfortable shoes, hat..."
+                rows={2}
+              />
+            </div>
+
+            <div>
+              <Label className="text-sm font-normal mb-1.5 block">Cancellation Policy * <span className="text-xs text-muted-foreground">(min 20 chars)</span></Label>
+              <Textarea
+                value={formData.cancellation_policy}
+                onChange={(e) => setFormData({ ...formData, cancellation_policy: e.target.value })}
+                placeholder="Full refund if cancelled 7+ days before..."
+                rows={3}
+              />
+            </div>
+          </div>
+
+          {/* Pricing */}
+          <div className="space-y-5">
+            <h2 className="text-base font-medium pb-2 border-b">Pricing & Group Size</h2>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm font-normal mb-1.5 block">Price per Adult *</Label>
+                <Input
+                  type="number"
+                  value={formData.price_per_adult}
+                  onChange={(e) => setFormData({ ...formData, price_per_adult: e.target.value })}
+                  min="0"
+                  step="0.01"
+                  className="h-10"
+                />
+              </div>
+
+              <div>
+                <Label className="text-sm font-normal mb-1.5 block">Currency</Label>
+                <Select value={formData.currency} onValueChange={(v) => setFormData({ ...formData, currency: v })}>
+                  <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="RWF">RWF</SelectItem>
+                    <SelectItem value="USD">USD</SelectItem>
+                    <SelectItem value="EUR">EUR</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm font-normal mb-1.5 block">Min Guests</Label>
+                <Input
+                  type="number"
+                  value={formData.min_guests}
+                  onChange={(e) => setFormData({ ...formData, min_guests: parseInt(e.target.value) || 1 })}
+                  min="1"
+                  className="h-10"
+                />
+              </div>
+
+              <div>
+                <Label className="text-sm font-normal mb-1.5 block">Max Guests</Label>
+                <Input
+                  type="number"
+                  value={formData.max_guests}
+                  onChange={(e) => setFormData({ ...formData, max_guests: parseInt(e.target.value) || 10 })}
+                  min={formData.min_guests}
+                  className="h-10"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Media */}
+          <div className="space-y-5">
+            <h2 className="text-base font-medium pb-2 border-b">Images & Files</h2>
+
+            <div>
+              <Label className="text-sm font-normal mb-2 block">Cover Image *</Label>
+              {coverImage ? (
+                <div className="relative inline-block">
+                  <img src={coverImage} alt="Cover" className="w-full max-w-sm h-40 object-cover rounded border" />
+                  <button
+                    type="button"
+                    onClick={() => setCoverImage("")}
+                    className="absolute -top-2 -right-2 bg-destructive text-white rounded-full p-1.5"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               ) : (
-                <Button
-                  variant="outline"
-                  className="w-full h-24"
-                  onClick={() => setPdfUploadOpen(true)}
-                >
-                  <div className="flex flex-col items-center gap-2">
-                    <Upload className="w-8 h-8" />
-                    <span>Upload Itinerary PDF</span>
-                    <span className="text-xs text-muted-foreground">PDF files only</span>
-                  </div>
+                <Button type="button" variant="outline" size="sm" onClick={() => setCoverDialogOpen(true)}>
+                  <Upload className="w-3.5 h-3.5 mr-1.5" /> Upload Cover
                 </Button>
               )}
+              <CloudinaryUploadDialog
+                title="Upload Cover"
+                folder="tour-packages"
+                accept="image/*"
+                multiple={false}
+                maxFiles={1}
+                value={coverImage ? [coverImage] : []}
+                onChange={(urls) => setCoverImage(urls[0] || "")}
+                open={coverDialogOpen}
+                onOpenChange={setCoverDialogOpen}
+              />
             </div>
 
-            {/* Tour Details Section */}
-            <div className="space-y-6 border-t pt-6">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Tour Details</h3>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Provide detailed information about your tour package
-              </p>
-
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="duration">
-                    Duration (days/nights) *
-                  </Label>
-                  <Input
-                    id="duration"
-                    placeholder="e.g., 3 days / 2 nights"
-                    value={formData.duration}
-                    onChange={(e) => updateField("duration", e.target.value)}
-                  />
-                </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="meetingPoint">Meeting Point *</Label>
-                    <Input
-                      id="meetingPoint"
-                      placeholder="Where the tour starts"
-                      value={formData.meetingPoint}
-                      onChange={(e) => updateField("meetingPoint", e.target.value)}
-                    />
-                  </div>
-
-                  <div className="md:col-span-2 space-y-2">
-                    <Label htmlFor="dailyItinerary">Daily Itinerary Summary *</Label>
-                    <Textarea
-                      id="dailyItinerary"
-                      placeholder="Day 1: ...\nDay 2: ..."
-                      rows={6}
-                      value={formData.dailyItinerary}
-                      onChange={(e) => updateField("dailyItinerary", e.target.value)}
-                    />
-                  </div>
-
-                  <div className="md:col-span-2 space-y-2">
-                    <Label htmlFor="includedServices">Included Services *</Label>
-                    <Textarea
-                      id="includedServices"
-                      placeholder="One per line"
-                      rows={4}
-                      value={formData.includedServices}
-                      onChange={(e) => updateField("includedServices", e.target.value)}
-                    />
-                  </div>
-
-                  <div className="md:col-span-2 space-y-2">
-                    <Label htmlFor="excludedServices">Excluded Services</Label>
-                    <Textarea
-                      id="excludedServices"
-                      placeholder="One per line"
-                      rows={3}
-                      value={formData.excludedServices}
-                      onChange={(e) => updateField("excludedServices", e.target.value)}
-                    />
-                  </div>
-
-                  <div className="md:col-span-2 space-y-2">
-                    <Label htmlFor="whatToBring">What to Bring</Label>
-                    <Textarea
-                      id="whatToBring"
-                      placeholder="One per line"
-                      rows={3}
-                      value={formData.whatToBring}
-                      onChange={(e) => updateField("whatToBring", e.target.value)}
-                    />
-                  </div>
-
-                  <div className="md:col-span-2 space-y-2">
-                    <Label htmlFor="cancellationPolicy">Cancellation Policy *</Label>
-                    <Textarea
-                      id="cancellationPolicy"
-                      placeholder="Describe your cancellation policy..."
-                      rows={3}
-                      value={formData.cancellationPolicy}
-                      onChange={(e) => updateField("cancellationPolicy", e.target.value)}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="cancellationPolicyType">Cancellation Policy Type</Label>
-                    <Select 
-                      value={formData.cancellationPolicyType} 
-                      onValueChange={(val) => updateField("cancellationPolicyType", val)}
+            <div>
+              <Label className="text-sm font-normal mb-2 block">Gallery Images</Label>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {galleryImages.map((img, i) => (
+                  <div key={i} className="relative group">
+                    <img src={img} alt="" className="w-20 h-20 object-cover rounded border" />
+                    <button
+                      type="button"
+                      onClick={() => setGalleryImages(galleryImages.filter((_, idx) => idx !== i))}
+                      className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full p-1 opacity-0 group-hover:opacity-100"
                     >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="standard_day">
-                          <div>
-                            <div className="font-medium">Standard Experiences (Day Tours)</div>
-                            <div className="text-xs text-muted-foreground">72-48 hours refund policy</div>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="multiday_private">
-                          <div>
-                            <div className="font-medium">Multi-Day, Private & Custom</div>
-                            <div className="text-xs text-muted-foreground">14-7 days refund policy</div>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="non_refundable">
-                          <div>
-                            <div className="font-medium">Non-Refundable</div>
-                            <div className="text-xs text-muted-foreground">No refunds allowed</div>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="custom">
-                          <div>
-                            <div className="font-medium">Custom Policy</div>
-                            <div className="text-xs text-muted-foreground">Define your own terms</div>
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                    
-                    {/* Policy Details */}
-                    {formData.cancellationPolicyType === 'standard_day' && (
-                      <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg text-xs space-y-1">
-                        <div className="font-medium text-blue-900 dark:text-blue-100">Standard Day Tour Policy:</div>
-                        <div className="text-blue-700 dark:text-blue-300">• 72+ hours: Full refund (minus platform & processing fees)</div>
-                        <div className="text-blue-700 dark:text-blue-300">• 48-72 hours: 50% refund (minus platform fees)</div>
-                        <div className="text-blue-700 dark:text-blue-300">• Less than 48 hours: No refund</div>
-                        <div className="text-blue-700 dark:text-blue-300">• No-shows: No refund</div>
-                      </div>
-                    )}
-                    
-                    {formData.cancellationPolicyType === 'multiday_private' && (
-                      <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg text-xs space-y-1">
-                        <div className="font-medium text-blue-900 dark:text-blue-100">Multi-Day/Private Tour Policy:</div>
-                        <div className="text-blue-700 dark:text-blue-300">• 14+ days: Full refund (minus deposits & third-party costs)</div>
-                        <div className="text-blue-700 dark:text-blue-300">• 7-14 days: 50% refund</div>
-                        <div className="text-blue-700 dark:text-blue-300">• Less than 7 days: No refund</div>
-                        <div className="text-blue-700 dark:text-blue-300 mt-2">Custom/tailor-made itineraries may require non-refundable deposits</div>
-                      </div>
-                    )}
-                    
-                    {formData.cancellationPolicyType === 'non_refundable' && (
-                      <div className="mt-3 p-3 bg-red-50 dark:bg-red-950/20 rounded-lg text-xs">
-                        <div className="font-medium text-red-900 dark:text-red-100">Non-Refundable Policy:</div>
-                        <div className="text-red-700 dark:text-red-300">No refunds will be provided for cancellations at any time</div>
-                      </div>
-                    )}
+                      <X className="w-3 h-3" />
+                    </button>
                   </div>
-
-                  {/* Custom Policy Input */}
-                  {formData.cancellationPolicyType === 'custom' && (
-                    <div className="space-y-2 md:col-span-2">
-                      <Label htmlFor="customCancellationPolicy">Custom Cancellation Policy</Label>
-                      <Textarea
-                        id="customCancellationPolicy"
-                        rows={5}
-                        placeholder="Describe your cancellation policy in detail, including refund timeframes, percentages, and any special conditions..."
-                        value={formData.customCancellationPolicy}
-                        onChange={(e) => updateField("customCancellationPolicy", e.target.value)}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Be clear and specific about refund conditions to avoid disputes
-                      </p>
-                    </div>
-                  )}
-                  
-                  {/* Non-Refundable Items */}
-                  <div className="space-y-2 md:col-span-2">
-                    <Label>Non-Refundable Components (Optional)</Label>
-                    <p className="text-xs text-muted-foreground mb-2">
-                      Select any items that are non-refundable once booked
-                    </p>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                      {[
-                        "National park permits",
-                        "Gorilla trekking permits",
-                        "Conservation permits",
-                        "Special access permits",
-                        "Third-party accommodation",
-                        "Third-party transport",
-                        "Flight tickets",
-                        "Activity tickets",
-                        "Other permits"
-                      ].map((item) => (
-                        <div key={item} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={item}
-                            checked={formData.nonRefundableItems.includes(item)}
-                            onCheckedChange={(checked) => {
-                              const items = checked
-                                ? [...formData.nonRefundableItems, item]
-                                : formData.nonRefundableItems.filter((i) => i !== item);
-                              updateField("nonRefundableItems", items);
-                            }}
-                          />
-                          <label
-                            htmlFor={item}
-                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                          >
-                            {item}
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                    {formData.nonRefundableItems.length > 0 && (
-                      <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-950/20 rounded text-xs text-amber-700 dark:text-amber-300">
-                        <strong>Selected non-refundable items:</strong> {formData.nonRefundableItems.join(", ")}
-                      </div>
-                    )}
-                  </div>
-                </div>
+                ))}
               </div>
-
-            {/* Group Discounts */}
-            <div className="space-y-6 border-t pt-6">
-              <h3 className="text-lg font-semibold">Group Discounts (Optional)</h3>
-              <p className="text-sm text-muted-foreground">
-                Offer discounts for larger groups to attract more bookings
-              </p>
-
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="groupDiscountPercentage">Discount Percentage</Label>
-                  <div className="flex gap-2 items-center">
-                    <Input
-                      id="groupDiscountPercentage"
-                      type="number"
-                      min="0"
-                      max="100"
-                      placeholder="0"
-                      value={formData.groupDiscountPercentage}
-                      onChange={(e) => updateField("groupDiscountPercentage", e.target.value)}
-                    />
-                    <span className="text-sm text-muted-foreground">%</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">e.g., 10% off for groups</p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="groupDiscountMinSize">Minimum Group Size</Label>
-                  <Input
-                    id="groupDiscountMinSize"
-                    type="number"
-                    min="2"
-                    placeholder="5"
-                    value={formData.groupDiscountMinSize}
-                    onChange={(e) => updateField("groupDiscountMinSize", e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground">Minimum guests to qualify</p>
-                </div>
-              </div>
-            </div>
-
-            {/* RDB Certificate */}
-            <div className="space-y-6 border-t pt-6">
-              <h3 className="text-lg font-semibold">RDB Tourism Certificate *</h3>
-              <p className="text-sm text-muted-foreground">
-                Upload your valid Rwanda Development Board (RDB) tourism certificate
-              </p>
-
-              <div className="space-y-4">
-                {formData.rdbCertificateUrl ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between p-4 border rounded-lg bg-green-50 dark:bg-green-950/20">
-                      <div className="flex items-center gap-3">
-                        <FileText className="w-5 h-5 text-green-600" />
-                        <div>
-                          <p className="text-sm font-medium">RDB Certificate Uploaded</p>
-                          <p className="text-xs text-muted-foreground">Click to view or replace</p>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => window.open(formData.rdbCertificateUrl, '_blank')}
-                        >
-                          <Eye className="w-4 h-4 mr-1" />
-                          View
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => updateField("rdbCertificateUrl", "")}
-                        >
-                          Remove
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="rdbCertificateValidUntil">Certificate Valid Until *</Label>
-                      <Input
-                        id="rdbCertificateValidUntil"
-                        type="date"
-                        value={formData.rdbCertificateValidUntil}
-                        onChange={(e) => updateField("rdbCertificateValidUntil", e.target.value)}
-                        min={new Date().toISOString().split('T')[0]}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Your certificate must be valid for at least 30 days from today
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <Button
-                    variant="outline"
-                    className="w-full h-24"
-                    onClick={() => setRdbCertUploadOpen(true)}
-                  >
-                    <div className="flex flex-col items-center gap-2">
-                      <Upload className="w-8 h-8" />
-                      <span>Upload RDB Certificate</span>
-                      <span className="text-xs text-muted-foreground">PDF or image files</span>
-                    </div>
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {/* Pricing & Availability */}
-            <div className="space-y-6 border-t pt-6">
-              <h3 className="text-lg font-semibold">Pricing & Availability</h3>
-
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="pricePerAdult">Price per Adult *</Label>
-                  <div className="flex gap-2">
-                    <Select value={formData.currency} onValueChange={(val) => updateField("currency", val)}>
-                      <SelectTrigger className="w-32">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {currencies.map((c) => (
-                          <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      id="pricePerAdult"
-                      type="number"
-                      placeholder="0"
-                      value={formData.pricePerAdult}
-                      onChange={(e) => updateField("pricePerAdult", e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="minGuests">Min Guests</Label>
-                  <Input
-                    id="minGuests"
-                    type="number"
-                    min="1"
-                    value={formData.minGuests}
-                    onChange={(e) => updateField("minGuests", e.target.value)}
-                  />
-                </div>
-
-                <div className="md:col-span-2 space-y-2">
-                  <Label htmlFor="maxGuests">Max Group Size</Label>
-                  <Input
-                    id="maxGuests"
-                    type="number"
-                    min="1"
-                    value={formData.maxGuests}
-                    onChange={(e) => updateField("maxGuests", e.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Images */}
-            <div className="space-y-6 border-t pt-6">
-              <h3 className="text-lg font-semibold">Tour Images</h3>
-
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Cover Image *</Label>
-                  {formData.coverImage ? (
-                    <div className="relative w-full h-48 rounded-lg overflow-hidden border">
-                      <img src={formData.coverImage} alt="Cover" className="w-full h-full object-cover" />
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        className="absolute top-2 right-2"
-                        onClick={() => updateField("coverImage", "")}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      className="w-full h-32"
-                      onClick={() => setImageUploadOpen(true)}
-                    >
-                      <Upload className="w-6 h-6 mr-2" />
-                      Upload Cover Image
-                    </Button>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Gallery Images (optional)</Label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {formData.galleryImages.map((img, i) => (
-                      <div key={i} className="relative aspect-square rounded-lg overflow-hidden border">
-                        <img src={img} alt="" className="w-full h-full object-cover" />
-                        <button
-                          onClick={() => updateField("galleryImages", formData.galleryImages.filter((_, j) => j !== i))}
-                          className="absolute top-1 right-1 w-6 h-6 bg-black/60 rounded-full text-white flex items-center justify-center hover:bg-black/80"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                    <Button
-                      variant="outline"
-                      className="aspect-square"
-                      onClick={() => setGalleryUploadOpen(true)}
-                    >
-                      <Upload className="w-6 h-6" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Disclaimer */}
-            <div className="border-t pt-6">
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  <div className="flex items-start gap-2">
-                    <Checkbox
-                      checked={disclaimerAccepted}
-                      onCheckedChange={(checked) => setDisclaimerAccepted(checked as boolean)}
-                      className="mt-0.5"
-                    />
-                    <label className="text-sm cursor-pointer" onClick={() => setDisclaimerAccepted(!disclaimerAccepted)}>
-                      I understand that this tour will not be published or bookable until reviewed and approved by the Merry360x team.
-                    </label>
-                  </div>
-                </AlertDescription>
-              </Alert>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex gap-3 justify-end">
-              <Button
-                variant="outline"
-                onClick={handleSaveDraft}
-                disabled={!formData.title || submitting}
-              >
-                <Save className="w-4 h-4 mr-2" />
-                Save as Draft
+              <Button type="button" variant="outline" size="sm" onClick={() => setGalleryDialogOpen(true)}>
+                <Upload className="w-3.5 h-3.5 mr-1.5" /> Add Gallery Images
               </Button>
-              <Button
-                onClick={handleSubmitForReview}
-                disabled={!isFormValid || !disclaimerAccepted || submitting}
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Submitting...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-4 h-4 mr-2" />
-                    Submit for Review
-                  </>
-                )}
-              </Button>
+              <CloudinaryUploadDialog
+                title="Upload Gallery"
+                folder="tour-packages"
+                accept="image/*"
+                multiple={true}
+                maxFiles={10}
+                value={galleryImages}
+                onChange={setGalleryImages}
+                open={galleryDialogOpen}
+                onOpenChange={setGalleryDialogOpen}
+              />
             </div>
-          </CardContent>
-        </Card>
-      </main>
 
+            <div>
+              <Label className="text-sm font-normal mb-2 block">Itinerary PDF *</Label>
+              <Input type="file" accept=".pdf" onChange={handlePdfChange} className="h-10 cursor-pointer" />
+              {pdfFile && <p className="text-xs text-muted-foreground mt-1">{pdfFile.name}</p>}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-6 border-t">
+            <Button type="button" variant="outline" onClick={() => navigate("/host-dashboard")} disabled={uploading} className="flex-1">
+              Cancel
+            </Button>
+            <Button type="submit" disabled={uploading || !isFormValid()} className="flex-1">
+              {uploading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creating...</> : "Create Package"}
+            </Button>
+          </div>
+        </form>
+      </div>
       <Footer />
-
-      {/* Upload Dialogs */}
-      <CloudinaryUploadDialog
-        open={pdfUploadOpen}
-        onOpenChange={setPdfUploadOpen}
-        title="Upload Tour Itinerary PDF"
-        folder="tour_packages/itineraries"
-        accept="application/pdf"
-        multiple={false}
-        value={pdfUrl ? [pdfUrl] : []}
-        onChange={handlePdfUpload}
-      />
-
-      <CloudinaryUploadDialog
-        open={imageUploadOpen}
-        onOpenChange={setImageUploadOpen}
-        title="Upload Cover Image"
-        folder="tour_packages/covers"
-        accept="image/*"
-        multiple={false}
-        value={formData.coverImage ? [formData.coverImage] : []}
-        onChange={(urls) => updateField("coverImage", urls[0] || "")}
-      />
-
-      <CloudinaryUploadDialog
-        open={galleryUploadOpen}
-        onOpenChange={setGalleryUploadOpen}
-        title="Upload Gallery Images"
-        folder="tour_packages/gallery"
-        accept="image/*"
-        multiple
-        value={formData.galleryImages}
-        onChange={(urls) => updateField("galleryImages", urls)}
-      />
-
-      <CloudinaryUploadDialog
-        open={rdbCertUploadOpen}
-        onOpenChange={setRdbCertUploadOpen}
-        title="Upload RDB Tourism Certificate"
-        folder="tour_packages/rdb_certificates"
-        accept="application/pdf,image/*"
-        multiple={false}
-        value={formData.rdbCertificateUrl ? [formData.rdbCertificateUrl] : []}
-        onChange={(urls) => {
-          updateField("rdbCertificateUrl", urls[0] || "");
-          setRdbCertUploadOpen(false);
-        }}
-      />
     </div>
   );
 }

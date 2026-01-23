@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 
-export type CartItemType = "tour" | "property" | "transport_vehicle" | "transport_route" | "transport_service";
+export type CartItemType = "tour" | "tour_package" | "property" | "transport_vehicle" | "transport_route" | "transport_service";
 
 export interface GuestCartItem {
   id: string;
@@ -95,27 +95,50 @@ export function useTripCart() {
       if (user) {
         try {
           // Check for duplicates
-          const { data: existing } = await supabase
+          const { data: existing, error: checkError } = await supabase
             .from("trip_cart_items")
-            .select("id")
+            .select("id, quantity")
             .eq("user_id", user.id)
             .eq("item_type", itemType)
             .eq("reference_id", referenceId)
             .maybeSingle();
           
+          if (checkError) {
+            throw checkError;
+          }
+          
           if (existing) {
-            toast({ title: "Already in Trip Cart" });
+            // Item already exists - update quantity instead
+            const { error: updateError } = await supabase
+              .from("trip_cart_items")
+              .update({ quantity: existing.quantity + quantity })
+              .eq("id", existing.id);
+            
+            if (updateError) throw updateError;
+            
+            toast({ title: "Cart updated", description: "Quantity increased" });
+            qc.invalidateQueries({ queryKey: ["trip_cart"] });
             return true;
           }
 
-          await supabase.from("trip_cart_items").insert({
-            user_id: user.id,
-            item_type: itemType,
-            reference_id: referenceId,
-            quantity,
-          });
+          // Insert new item and verify it was saved
+          const { data: inserted, error: insertError } = await supabase
+            .from("trip_cart_items")
+            .insert({
+              user_id: user.id,
+              item_type: itemType,
+              reference_id: referenceId,
+              quantity,
+            })
+            .select();
           
-          toast({ title: "Added to Trip Cart" });
+          if (insertError) throw insertError;
+          
+          if (!inserted || inserted.length === 0) {
+            throw new Error("Failed to save item to cart");
+          }
+          
+          toast({ title: "Added to Trip Cart", description: "Item saved successfully" });
           qc.invalidateQueries({ queryKey: ["trip_cart"] });
           return true;
         } catch (e) {
@@ -157,7 +180,13 @@ export function useTripCart() {
     async (itemId: string) => {
       if (user) {
         try {
-          await supabase.from("trip_cart_items").delete().eq("id", itemId);
+          const { error } = await supabase
+            .from("trip_cart_items")
+            .delete()
+            .eq("id", itemId);
+          
+          if (error) throw error;
+          
           toast({ title: "Removed from cart" });
           qc.invalidateQueries({ queryKey: ["trip_cart"] });
           return true;
@@ -186,7 +215,13 @@ export function useTripCart() {
   const clearCart = useCallback(async () => {
     if (user) {
       try {
-        await supabase.from("trip_cart_items").delete().eq("user_id", user.id);
+        const { error } = await supabase
+          .from("trip_cart_items")
+          .delete()
+          .eq("user_id", user.id);
+        
+        if (error) throw error;
+        
         qc.invalidateQueries({ queryKey: ["trip_cart"] });
         toast({ title: "Cart cleared" });
         return true;
@@ -202,6 +237,50 @@ export function useTripCart() {
     toast({ title: "Cart cleared" });
     return true;
   }, [user, qc, toast]);
+
+  // Update cart item quantity
+  const updateQuantity = useCallback(
+    async (itemId: string, newQuantity: number) => {
+      if (newQuantity < 1) {
+        return removeFromCart(itemId);
+      }
+
+      if (user) {
+        try {
+          const { error } = await supabase
+            .from("trip_cart_items")
+            .update({ quantity: newQuantity })
+            .eq("id", itemId)
+            .eq("user_id", user.id);
+          
+          if (error) throw error;
+          
+          qc.invalidateQueries({ queryKey: ["trip_cart"] });
+          toast({ title: "Quantity updated" });
+          return true;
+        } catch (e) {
+          logError("tripCart.updateQuantity", e);
+          toast({
+            variant: "destructive",
+            title: "Could not update quantity",
+            description: uiErrorMessage(e),
+          });
+          return false;
+        }
+      } else {
+        setGuestCart((prev) => {
+          const updated = prev.map((item) =>
+            item.id === itemId ? { ...item, quantity: newQuantity } : item
+          );
+          saveGuestCart(updated);
+          toast({ title: "Quantity updated" });
+          return updated;
+        });
+        return true;
+      }
+    },
+    [user, toast, qc, removeFromCart]
+  );
 
   // Auto-cleanup invalid items from guest cart
   const cleanupInvalidItems = useCallback(async (validIds: string[]) => {
@@ -256,6 +335,7 @@ export function useTripCart() {
     guestCart,
     addToCart,
     removeFromCart,
+    updateQuantity,
     clearCart,
     cleanupInvalidItems,
     isGuest: !user,

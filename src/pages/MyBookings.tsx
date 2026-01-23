@@ -49,6 +49,7 @@ const MyBookings = () => {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewValidationError, setReviewValidationError] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -117,17 +118,27 @@ const MyBookings = () => {
     setReviewBooking(b);
     setReviewRating(5);
     setReviewComment("");
+    setReviewValidationError(false);
     setReviewOpen(true);
   };
 
   const submitReview = async () => {
     if (!user || !reviewBooking) return;
+    
+    // Validation check
+    if (!reviewRating || reviewRating < 1 || reviewRating > 5) {
+      setReviewValidationError(true);
+      toast({ 
+        variant: "destructive", 
+        title: t("common.error"), 
+        description: "Please select a rating between 1-5." 
+      });
+      return;
+    }
+    
+    setReviewValidationError(false);
     setSubmittingReview(true);
     try {
-      if (!reviewRating || reviewRating < 1 || reviewRating > 5) {
-        toast({ variant: "destructive", title: t("common.error"), description: "Rating must be 1-5." });
-        return;
-      }
       const { error } = await supabase.from("property_reviews").insert({
         booking_id: reviewBooking.id,
         property_id: reviewBooking.property_id,
@@ -298,11 +309,20 @@ const MyBookings = () => {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Rating</Label>
+              <Label className={reviewValidationError ? "text-red-600" : ""}>
+                Rating <span className="text-red-600">*</span>
+              </Label>
               <select
                 value={reviewRating}
-                onChange={(e) => setReviewRating(Number(e.target.value))}
-                className="w-full mt-1 h-10 px-3 rounded-md border border-input bg-background"
+                onChange={(e) => {
+                  setReviewRating(Number(e.target.value));
+                  setReviewValidationError(false);
+                }}
+                className={`w-full mt-1 h-10 px-3 rounded-md border bg-background ${
+                  reviewValidationError 
+                    ? "border-red-600 ring-2 ring-red-600/20 focus:ring-red-600/40" 
+                    : "border-input"
+                }`}
               >
                 <option value={5}>5 - Excellent</option>
                 <option value={4}>4 - Good</option>
@@ -310,6 +330,9 @@ const MyBookings = () => {
                 <option value={2}>2 - Bad</option>
                 <option value={1}>1 - Terrible</option>
               </select>
+              {reviewValidationError && (
+                <p className="text-sm text-red-600 mt-1">Please select a rating for your review.</p>
+              )}
             </div>
             <div>
               <Label>Comment (optional)</Label>
