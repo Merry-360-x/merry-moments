@@ -1404,6 +1404,9 @@ For support, contact: support@merry360x.com
             <TabsTrigger value="accommodations" className="gap-1">
               <Home className="w-4 h-4" /> Stays
             </TabsTrigger>
+            <TabsTrigger value="tours" className="gap-1">
+              <MapPin className="w-4 h-4" /> Tours
+            </TabsTrigger>
             <TabsTrigger value="transport" className="gap-1">
               <Car className="w-4 h-4" /> Transport
             </TabsTrigger>
@@ -2424,7 +2427,93 @@ For support, contact: support@merry360x.com
             </Card>
           </TabsContent>
 
-
+          {/* TOURS TAB */}
+          <TabsContent value="tours">
+            <Card className="p-6">
+              <h2 className="text-lg font-semibold mb-4">Tours & Experiences Management</h2>
+              {/* {toursLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    <span className="text-muted-foreground">Loading tours...</span>
+                  </div>
+                </div>
+              ) : */ (
+                <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-16">Image</TableHead>
+                      <TableHead>Tour</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Location</TableHead>
+                      <TableHead>Price</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {tours.map((t) => (
+                      <TableRow key={t.id}>
+                        <TableCell>
+                          <Thumb src={t.images?.[0]} alt={t.title} />
+                        </TableCell>
+                        <TableCell className="font-medium">{t.title}</TableCell>
+                        <TableCell>
+                          {t.source === "tour_packages" ? (
+                            <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800">
+                              Package
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+                              Tour
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{t.location || "—"}</TableCell>
+                        <TableCell>{formatMoney(t.price_per_person ?? 0, t.currency ?? "RWF")}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            {t.is_published ? (
+                              <Badge className="bg-green-100 text-green-800">Live</Badge>
+                            ) : (
+                              <Badge variant="outline">Draft</Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => togglePublished("tours", t.id, !t.is_published)}
+                            >
+                              {t.is_published ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => deleteItem("tours", t.id, t.source)}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {tours.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                          No tours found
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+                </div>
+              )}
+            </Card>
+          </TabsContent>
 
           {/* TRANSPORT TAB */}
           <TabsContent value="transport">
