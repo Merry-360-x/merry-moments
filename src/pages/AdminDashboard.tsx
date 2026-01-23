@@ -631,8 +631,9 @@ export default function AdminDashboard() {
 
   // Tours with images - enhanced loading - includes tour_packages
   const { data: tours = [], refetch: refetchTours } = useQuery({
-    queryKey: ["admin-tours"],
+    queryKey: ["admin-tours", Date.now()], // Add timestamp to force fresh data
     queryFn: async () => {
+      console.log('[AdminDashboard] Fetching tours - cache bypass');
       // Fetch both tours and tour_packages
       const [toursRes, packagesRes] = await Promise.all([
         supabase
@@ -649,6 +650,9 @@ export default function AdminDashboard() {
       
       if (toursRes.error) throw toursRes.error;
       if (packagesRes.error) throw packagesRes.error;
+      
+      console.log('[AdminDashboard] Tours fetched:', toursRes.data?.length || 0);
+      console.log('[AdminDashboard] Packages fetched:', packagesRes.data?.length || 0);
       
       // Mark tours with source
       const toursWithSource = (toursRes.data ?? []).map(t => ({ ...t, source: "tours" as const }));
@@ -667,12 +671,15 @@ export default function AdminDashboard() {
         source: "tour_packages" as const
       }));
       
-      return [...toursWithSource, ...packagesAsTours] as TourRow[];
+      const result = [...toursWithSource, ...packagesAsTours] as TourRow[];
+      console.log('[AdminDashboard] Total tours to display:', result.length);
+      return result;
     },
     enabled: tab === "tours" || tab === "overview", // Also load for overview
     staleTime: 0, // Always refetch to ensure fresh data
-    gcTime: 1000 * 60 * 5, // 5 minutes cache retention (reduced)
+    gcTime: 0, // No cache retention - always fetch fresh
     refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
   });
 
   // Transport vehicles with images - enhanced loading
@@ -2430,7 +2437,18 @@ For support, contact: support@merry360x.com
           {/* TOURS TAB */}
           <TabsContent value="tours">
             <Card className="p-6">
-              <h2 className="text-lg font-semibold mb-4">Tours & Experiences Management</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">Tours & Experiences Management</h2>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => refetchTours()}
+                  className="gap-2"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  Refresh
+                </Button>
+              </div>
               {/* {toursLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <div className="flex items-center gap-2">
