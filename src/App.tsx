@@ -231,6 +231,8 @@ const App = () => (
                   </RequireRole>
                 }
               />
+              {/* Redirect old route to new one */}
+              <Route path="/support-dashboard" element={<Navigate to="/customer-support-dashboard" replace />} />
               <Route path="/my-bookings" element={<MyBookings />} />
               <Route path="/favorites" element={<Favorites />} />
               <Route path="/trip-cart" element={<TripCart />} />
