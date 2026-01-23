@@ -88,8 +88,18 @@ export async function uploadFileToCloudinary(
     );
   }
 
-  // Use "auto" so unsigned uploads can accept images and videos.
-  const endpoint = `https://api.cloudinary.com/v1_1/${encodeURIComponent(CLOUDINARY_CLOUD_NAME)}/auto/upload`;
+  // Determine the resource type based on file type
+  // Use "auto" for images/videos, "raw" for PDFs and other documents
+  let resourceType = "auto";
+  if (file.type === "application/pdf" || file.name.toLowerCase().endsWith('.pdf')) {
+    resourceType = "raw";
+  } else if (file.type.startsWith("video/")) {
+    resourceType = "video";
+  } else if (file.type.startsWith("image/")) {
+    resourceType = "image";
+  }
+
+  const endpoint = `https://api.cloudinary.com/v1_1/${encodeURIComponent(CLOUDINARY_CLOUD_NAME)}/${resourceType}/upload`;
 
   const form = new FormData();
   form.append("file", file);
