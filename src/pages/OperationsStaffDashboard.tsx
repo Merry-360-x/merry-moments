@@ -25,7 +25,7 @@ type HostApplication = {
 type Property = {
   id: string;
   title: string;
-  status: string;
+  is_published: boolean;
   host_id: string;
   created_at: string;
 };
@@ -75,11 +75,16 @@ export default function OperationsStaffDashboard() {
   const { data: applications = [] } = useQuery({
     queryKey: ["operations_applications"],
     queryFn: async () => {
+      console.log('[OperationsStaff] Fetching applications...');
       const { data, error } = await supabase
         .from("host_applications")
         .select("id, user_id, service_types, status, created_at, first_name, last_name, email")
         .order("created_at", { ascending: false });
-      if (error) throw error;
+      if (error) {
+        console.error('[OperationsStaff] Applications error:', error);
+        throw error;
+      }
+      console.log('[OperationsStaff] Applications fetched:', data?.length || 0);
       return (data ?? []) as HostApplication[];
     },
   });
@@ -87,20 +92,30 @@ export default function OperationsStaffDashboard() {
   const { data: properties = [] } = useQuery({
     queryKey: ["operations_properties"],
     queryFn: async () => {
+      console.log('[OperationsStaff] Fetching properties...');
       const { data, error } = await supabase
         .from("properties")
-        .select("id, title, status, host_id, created_at")
+        .select("id, title, is_published, host_id, created_at")
         .order("created_at", { ascending: false })
         .limit(50);
-      if (error) throw error;
+      if (error) {
+        console.error('[OperationsStaff] Properties error:', error);
+        throw error;
+      }
+      console.log('[OperationsStaff] Properties fetched:', data?.length || 0);
       return (data ?? []) as Property[];
     },
-  });
-
-  const { data: tours = [] } = useQuery({
-    queryKey: ["operations_tours"],
-    queryFn: async () => {
+  });ole.log('[OperationsStaff] Fetching tours...');
       const { data, error } = await supabase
+        .from("tour_packages")
+        .select("id, title, status, guide_id, created_at")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) {
+        console.error('[OperationsStaff] Tours error:', error);
+        throw error;
+      }
+      console.log('[OperationsStaff] Tours fetched:', data?.length || 0)= await supabase
         .from("tour_packages")
         .select("id, title, status, guide_id, created_at")
         .order("created_at", { ascending: false })
@@ -121,12 +136,17 @@ export default function OperationsStaffDashboard() {
       if (error) throw error;
       return (data ?? []) as Transport[];
     },
-  });
-
-  const { data: bookings = [] } = useQuery({
-    queryKey: ["operations_bookings"],
-    queryFn: async () => {
+  });ole.log('[OperationsStaff] Fetching bookings...');
       const { data, error } = await supabase
+        .from("bookings")
+        .select("id, property_id, guest_id, guest_name, guest_email, guest_phone, is_guest_booking, check_in, check_out, guests, total_price, currency, status, payment_method, special_requests, host_id, created_at")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (error) {
+        console.error('[OperationsStaff] Bookings error:', error);
+        throw error;
+      }
+      console.log('[OperationsStaff] Bookings fetched:', data?.length || 0)= await supabase
         .from("bookings")
         .select("id, property_id, guest_id, guest_name, guest_email, guest_phone, is_guest_booking, check_in, check_out, guests, total_price, currency, status, payment_method, special_requests, host_id, created_at")
         .order("created_at", { ascending: false })
@@ -175,8 +195,8 @@ export default function OperationsStaffDashboard() {
   const pendingApplications = applications.filter(a => a.status === 'pending');
   const approvedApplications = applications.filter(a => a.status === 'approved');
 
-  const pendingProperties = properties.filter(p => p.status === 'pending');
-  const activeProperties = properties.filter(p => p.status === 'active');
+  const pendingProperties = properties.filter(p => !p.is_published);
+  const activeProperties = properties.filter(p => p.is_published);
 
   const pendingTours = tours.filter(t => t.status === 'pending');
   const activeTours = tours.filter(t => t.status === 'approved');
@@ -443,14 +463,12 @@ export default function OperationsStaffDashboard() {
                         <TableCell>
                           <Badge
                             variant={
-                              property.status === "active"
+                              property.is_published
                                 ? "default"
-                                : property.status === "pending"
-                                ? "secondary"
-                                : "outline"
+                                : "secondary"
                             }
                           >
-                            {property.status}
+                            {property.is_published ? 'Published' : 'Draft'}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-sm">
