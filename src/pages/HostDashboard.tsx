@@ -603,18 +603,21 @@ export default function HostDashboard() {
 
   const queryClient = useQueryClient();
 
-  const deleteTour = async (id: string) => {
+  const deleteTour = async (id: string, source?: "tours" | "tour_packages") => {
     if (!confirm("Are you sure you want to permanently delete this tour? This cannot be undone.")) return;
     
     try {
-      console.log('[HostDashboard] Deleting tour:', id);
+      const tableName = source || "tours";
+      const ownerField = tableName === "tour_packages" ? "host_id" : "created_by";
       
-      // Delete the tour directly (RLS ensures user can only delete their own)
+      console.log('[HostDashboard] Deleting from table:', tableName, 'ID:', id);
+      
+      // Delete from the correct table (RLS ensures user can only delete their own)
       const { error: deleteError, count } = await supabase
-        .from("tours")
+        .from(tableName)
         .delete({ count: 'exact' })
         .eq("id", id)
-        .eq("created_by", user!.id); // Security: only delete if user owns it
+        .eq(ownerField, user!.id); // Security: only delete if user owns it
       
       if (deleteError) {
         console.error('[HostDashboard] Delete failed:', deleteError);
@@ -2170,7 +2173,7 @@ export default function HostDashboard() {
                         >
                           <Eye className="w-3 h-3" />
                         </Button>
-                        <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteTour(t.id)}><Trash2 className="w-3 h-3" /></Button>
+                        <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteTour(t.id, t.source)}><Trash2 className="w-3 h-3" /></Button>
             </div>
                     </div>
                   </div>
