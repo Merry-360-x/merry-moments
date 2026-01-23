@@ -206,6 +206,45 @@ export default function PropertyDetails() {
     },
   });
 
+  // Fetch blocked dates for this property
+  const { data: blockedDates = [] } = useQuery({
+    queryKey: ["property-blocked-dates", propertyId],
+    enabled: Boolean(propertyId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("property_blocked_dates")
+        .select("start_date, end_date, reason")
+        .eq("property_id", propertyId!)
+        .order("start_date", { ascending: true });
+      if (error) throw error;
+      return (data || []) as Array<{ start_date: string; end_date: string; reason: string | null }>;
+    },
+  });
+
+  // Check if selected dates overlap with blocked dates
+  useEffect(() => {
+    if (!checkIn || !checkOut || blockedDates.length === 0) return;
+    
+    const selectedStart = new Date(checkIn);
+    const selectedEnd = new Date(checkOut);
+    
+    for (const blocked of blockedDates) {
+      const blockedStart = new Date(blocked.start_date);
+      const blockedEnd = new Date(blocked.end_date);
+      
+      // Check if dates overlap
+      if (selectedStart <= blockedEnd && selectedEnd >= blockedStart) {
+        const reason = blocked.reason || "unavailable";
+        toast({
+          title: "Dates Not Available",
+          description: `These dates are ${reason}. Please select different dates.`,
+          variant: "destructive",
+        });
+        break; // Only show one toast
+      }
+    }
+  }, [checkIn, checkOut, blockedDates, toast]);
+
   useEffect(() => {
     if (!propertyId) return;
     let alive = true;
