@@ -2312,7 +2312,9 @@ For support, contact: support@merry360x.com
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="host">Host</SelectItem>
-                                  <SelectItem value="staff">Staff</SelectItem>
+                                  <SelectItem value="financial_staff">Financial Staff</SelectItem>
+                                  <SelectItem value="operations_staff">Operations Staff</SelectItem>
+                                  <SelectItem value="customer_support">Customer Support</SelectItem>
                                   <SelectItem value="admin">Admin</SelectItem>
                                 </SelectContent>
                               </Select>

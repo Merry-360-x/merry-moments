@@ -408,7 +408,7 @@ const Navbar = () => {
                     </DropdownMenuItem>
                   )}
                   {isCustomerSupport && (
-                    <DropdownMenuItem onClick={() => navigate("/support-dashboard")}>
+                    <DropdownMenuItem onClick={() => navigate("/customer-support-dashboard")}>
                       <MessageSquare className="w-4 h-4 mr-2" />
                       Support Dashboard
                     </DropdownMenuItem>

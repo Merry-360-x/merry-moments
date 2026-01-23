@@ -20,7 +20,6 @@ import RequireAuth from "@/components/RequireAuth";
 import RequireRole from "@/components/RequireRole";
 import HostApplication from "./pages/HostApplication";
 import AdminDashboard from "./pages/AdminDashboard";
-import StaffDashboard from "./pages/StaffDashboard";
 import FinancialStaffDashboard from "./pages/FinancialStaffDashboard";
 import OperationsStaffDashboard from "./pages/OperationsStaffDashboard";
 import CustomerSupportDashboard from "./pages/CustomerSupportDashboard";
@@ -209,14 +208,6 @@ const App = () => (
                 }
               />
               <Route
-                path="/staff"
-                element={
-                  <RequireRole allowed={["staff", "admin"]}>
-                    <StaffDashboard />
-                  </RequireRole>
-                }
-              />
-              <Route
                 path="/financial-dashboard"
                 element={
                   <RequireRole allowed={["financial_staff", "admin"]}>
@@ -233,7 +224,7 @@ const App = () => (
                 }
               />
               <Route
-                path="/support-dashboard"
+                path="/customer-support-dashboard"
                 element={
                   <RequireRole allowed={["customer_support", "admin"]}>
                     <CustomerSupportDashboard />
