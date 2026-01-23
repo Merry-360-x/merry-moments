@@ -27,7 +27,8 @@ import {
   ArrowLeft,
   Info,
   Mail,
-  Phone
+  Phone,
+  Download
 } from "lucide-react";
 import { extractNeighborhood } from "@/lib/location";
 
@@ -319,22 +320,38 @@ export default function TourDetails() {
             {tour.itinerary_pdf_url && (
               <div className="border-t pt-6">
                 <h2 className="text-xl font-semibold text-foreground mb-4">Detailed Itinerary</h2>
-                <div className="bg-card rounded-lg border overflow-hidden">
-                  <iframe
-                    src={tour.itinerary_pdf_url}
-                    className="w-full h-[500px]"
-                    title="Tour Itinerary PDF"
-                  />
-                  <div className="p-4 bg-muted/30 border-t">
-                    <a
-                      href={tour.itinerary_pdf_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-primary hover:underline inline-flex items-center gap-1"
-                    >
+                <div className="bg-card rounded-lg border overflow-hidden shadow-md">
+                  <div className="relative">
+                    <iframe
+                      src={`https://docs.google.com/viewer?url=${encodeURIComponent(tour.itinerary_pdf_url)}&embedded=true`}
+                      className="w-full h-[600px] bg-muted/20"
+                      title="Tour Itinerary PDF Preview"
+                      loading="lazy"
+                    />
+                  </div>
+                  <div className="p-4 bg-muted/30 border-t flex items-center justify-between gap-4 flex-wrap">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <FileText className="w-4 h-4" />
-                      Open PDF in new tab →
-                    </a>
+                      <span>Complete tour itinerary document</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={tour.itinerary_pdf_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+                      >
+                        Open in new tab →
+                      </a>
+                      <a
+                        href={tour.itinerary_pdf_url}
+                        download
+                        className="px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90 inline-flex items-center gap-2 transition-colors"
+                      >
+                        <Download className="w-4 h-4" />
+                        Download
+                      </a>
+                    </div>
                   </div>
                 </div>
               </div>
