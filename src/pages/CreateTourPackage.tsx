@@ -26,6 +26,25 @@ export default function CreateTourPackage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  const defaultCancellationPolicy = `STANDARD EXPERIENCES (Day Tours & Activities)
+• More than 72 hours before start time: Full refund (excluding platform service fees and payment processing fees)
+• 48–72 hours before start time: 50% refund (excluding platform service fees)
+• Less than 48 hours before start time: No refund
+• No-shows or late arrivals: No refund
+
+MULTI-DAY, PRIVATE & CUSTOM EXPERIENCES
+• More than 14 days before start date: Full refund minus non-refundable deposits and third-party costs
+• 7–14 days before start date: 50% refund
+• Less than 7 days before start date: No refund
+• Custom or tailor-made itineraries may require non-refundable deposits, clearly disclosed at booking
+
+NON-REFUNDABLE COSTS
+Some components are non-refundable once booked, including but not limited to:
+• National park and conservation permits
+• Gorilla trekking and special access permits
+• Third-party accommodation, transport, flights, or activity tickets
+• Experiences marked "Non-Refundable" on the listing page`;
+
   const [formData, setFormData] = useState({
     title: "",
     category: "",
@@ -38,7 +57,7 @@ export default function CreateTourPackage() {
     excluded_services: "",
     meeting_point: "",
     what_to_bring: "",
-    cancellation_policy: "",
+    cancellation_policy: defaultCancellationPolicy,
     price_per_adult: "",
     currency: "RWF",
     min_guests: 1,
@@ -284,13 +303,15 @@ export default function CreateTourPackage() {
             </div>
 
             <div>
-              <Label className="text-sm font-normal mb-1.5 block">Cancellation Policy * <span className="text-xs text-muted-foreground">(min 20 chars)</span></Label>
+              <Label className="text-sm font-normal mb-1.5 block">Cancellation Policy *</Label>
               <Textarea
                 value={formData.cancellation_policy}
                 onChange={(e) => setFormData({ ...formData, cancellation_policy: e.target.value })}
-                placeholder="Full refund if cancelled 7+ days before..."
-                rows={3}
+                placeholder="Cancellation policy details..."
+                rows={12}
+                className="font-mono text-xs"
               />
+              <p className="text-xs text-muted-foreground mt-1">Default policy includes standard, multi-day, and non-refundable terms. Edit as needed.</p>
             </div>
           </div>
 
