@@ -18,11 +18,11 @@ type User = {
 };
 
 type Profile = {
-  id: string;
-  first_name?: string;
-  last_name?: string;
-  email?: string;
+  user_id: string;
+  full_name?: string;
+  phone?: string;
   created_at?: string;
+  email?: string;
 };
 
 type SupportTicket = {
@@ -61,7 +61,7 @@ export default function CustomerSupportDashboard() {
       console.log('[CustomerSupport] Fetching profiles...');
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, first_name, last_name, email, created_at")
+        .select("user_id, full_name, phone, created_at")
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) {
@@ -105,9 +105,9 @@ export default function CustomerSupportDashboard() {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (
-      (user.email?.toLowerCase().includes(query)) ||
-      (user.first_name?.toLowerCase().includes(query)) ||
-      (user.last_name?.toLowerCase().includes(query))
+      (user.full_name?.toLowerCase().includes(query)) ||
+      (user.phone?.toLowerCase().includes(query)) ||
+      (user.user_id?.toLowerCase().includes(query))
     );
   });
 
@@ -211,19 +211,17 @@ export default function CustomerSupportDashboard() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Name</TableHead>
-                        <TableHead>Email</TableHead>
+                        <TableHead>Phone</TableHead>
                         <TableHead>Joined</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {recentUsers.map((user) => (
-                        <TableRow key={user.id}>
+                        <TableRow key={user.user_id}>
                           <TableCell className="font-medium">
-                            {user.first_name && user.last_name
-                              ? `${user.first_name} ${user.last_name}`
-                              : "N/A"}
+                            {user.full_name || "N/A"}
                           </TableCell>
-                          <TableCell>{user.email || "N/A"}</TableCell>
+                          <TableCell>{user.phone || "N/A"}</TableCell>
                           <TableCell className="text-sm">
                             {user.created_at
                               ? new Date(user.created_at).toLocaleDateString()
@@ -304,7 +302,7 @@ export default function CustomerSupportDashboard() {
                 <CardDescription>Search and manage user accounts</CardDescription>
                 <div className="mt-4">
                   <Input
-                    placeholder="Search by name or email..."
+                    placeholder="Search by name or phone..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="max-w-md"
@@ -315,22 +313,20 @@ export default function CustomerSupportDashboard() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>ID</TableHead>
+                      <TableHead>User ID</TableHead>
                       <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
+                      <TableHead>Phone</TableHead>
                       <TableHead>Joined</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredUsers.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell className="font-mono text-xs">{user.id.slice(0, 8)}...</TableCell>
+                      <TableRow key={user.user_id}>
+                        <TableCell className="font-mono text-xs">{user.user_id.slice(0, 8)}...</TableCell>
                         <TableCell className="font-medium">
-                          {user.first_name && user.last_name
-                            ? `${user.first_name} ${user.last_name}`
-                            : "N/A"}
+                          {user.full_name || "N/A"}
                         </TableCell>
-                        <TableCell>{user.email || "N/A"}</TableCell>
+                        <TableCell>{user.phone || "N/A"}</TableCell>
                         <TableCell className="text-sm">
                           {user.created_at
                             ? new Date(user.created_at).toLocaleDateString()
