@@ -646,7 +646,7 @@ const Navbar = () => {
                         className="w-full justify-start gap-2"
                         onClick={() => {
                           setMobileMenuOpen(false);
-                          navigate("/support-dashboard");
+                          navigate("/customer-support-dashboard");
                         }}
                       >
                         <MessageSquare className="w-4 h-4" /> Support Dashboard
