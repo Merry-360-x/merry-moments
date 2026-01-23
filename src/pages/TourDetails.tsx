@@ -88,11 +88,16 @@ export default function TourDetails() {
       if (pkgError) throw pkgError;
 
       if (pkg?.host_id) {
-        const { data: profile } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from("profiles")
           .select("full_name, years_of_experience, languages_spoken, tour_guide_bio, avatar_url, email, phone, created_at")
           .eq("user_id", pkg.host_id)
-          .single();
+          .maybeSingle();
+        
+        if (profileError) {
+          console.warn("[TourDetails] Profile fetch failed:", profileError);
+        }
+        
         return { source: "tour_packages", tour: pkg, host: profile } as TourDetailsData;
       }
 
@@ -321,13 +326,27 @@ export default function TourDetails() {
               <div className="border-t pt-6">
                 <h2 className="text-xl font-semibold text-foreground mb-4">Detailed Itinerary</h2>
                 <div className="bg-card rounded-lg border overflow-hidden shadow-md">
-                  <div className="relative">
-                    <iframe
-                      src={`https://docs.google.com/viewer?url=${encodeURIComponent(tour.itinerary_pdf_url)}&embedded=true`}
-                      className="w-full h-[600px] bg-muted/20"
+                  <div className="relative bg-muted/20">
+                    <object
+                      data={tour.itinerary_pdf_url}
+                      type="application/pdf"
+                      className="w-full h-[600px]"
                       title="Tour Itinerary PDF Preview"
-                      loading="lazy"
-                    />
+                    >
+                      <div className="flex flex-col items-center justify-center h-[600px] p-8 text-center">
+                        <FileText className="w-16 h-16 text-muted-foreground mb-4" />
+                        <p className="text-muted-foreground mb-4">PDF preview not available in your browser</p>
+                        <a
+                          href={tour.itinerary_pdf_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 inline-flex items-center gap-2 transition-colors"
+                        >
+                          <Download className="w-4 h-4" />
+                          Download PDF to view
+                        </a>
+                      </div>
+                    </object>
                   </div>
                   <div className="p-4 bg-muted/30 border-t flex items-center justify-between gap-4 flex-wrap">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
