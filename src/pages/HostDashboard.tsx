@@ -394,27 +394,26 @@ export default function HostDashboard() {
       ]);
 
       if (propsRes.data) setProperties(propsRes.data as Property[]);
-      if (toursRes.data) {
-        const toursWithSource = (toursRes.data as Tour[]).map(t => ({ ...t, source: "tours" as const }));
-        setTours(toursWithSource);
-      }
-      // Merge tour_packages into tours array for display
-      if (tourPackagesRes.data) {
-        const packagesAsTours = tourPackagesRes.data.map(pkg => ({
-          id: pkg.id,
-          title: pkg.title,
-          description: pkg.description,
-          location: `${pkg.city}, ${pkg.country}`,
-          price_per_person: pkg.price_per_adult,
-          currency: pkg.currency,
-          images: [pkg.cover_image, ...(Array.isArray(pkg.gallery_images) ? pkg.gallery_images : [])],
-          duration_days: parseInt(pkg.duration) || 1,
-          created_at: pkg.created_at,
-          is_published: pkg.status === 'approved',
-          source: "tour_packages" as const, // Mark as package
-        }));
-        setTours(prev => [...prev, ...packagesAsTours as any]);
-      }
+      
+      // Build tours array from both sources
+      const toursWithSource = (toursRes.data as Tour[] || []).map(t => ({ ...t, source: "tours" as const }));
+      const packagesAsTours = (tourPackagesRes.data || []).map(pkg => ({
+        id: pkg.id,
+        title: pkg.title,
+        description: pkg.description,
+        location: `${pkg.city}, ${pkg.country}`,
+        price_per_person: pkg.price_per_adult,
+        currency: pkg.currency,
+        images: [pkg.cover_image, ...(Array.isArray(pkg.gallery_images) ? pkg.gallery_images : [])],
+        duration_days: parseInt(pkg.duration) || 1,
+        created_at: pkg.created_at,
+        is_published: pkg.status === 'approved',
+        source: "tour_packages" as const,
+      }));
+      
+      // Replace entire tours array (don't append to prevent stale data)
+      setTours([...toursWithSource, ...packagesAsTours as any]);
+      
       if (vehiclesRes.data) setVehicles(vehiclesRes.data as Vehicle[]);
       if (routesRes.data) setRoutes(routesRes.data as TransportRoute[]);
 

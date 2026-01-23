@@ -670,10 +670,9 @@ export default function AdminDashboard() {
       return [...toursWithSource, ...packagesAsTours] as TourRow[];
     },
     enabled: tab === "tours" || tab === "overview", // Also load for overview
-    staleTime: 1000 * 30, // 30 seconds
-    gcTime: 1000 * 60 * 20, // 20 minutes cache retention
+    staleTime: 0, // Always refetch to ensure fresh data
+    gcTime: 1000 * 60 * 5, // 5 minutes cache retention (reduced)
     refetchOnWindowFocus: true,
-    placeholderData: (previousData) => previousData,
   });
 
   // Transport vehicles with images - enhanced loading
