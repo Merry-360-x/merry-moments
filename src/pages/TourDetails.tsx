@@ -163,7 +163,7 @@ export default function TourDetails() {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <div className="container mx-auto px-4 lg:px-8 py-8">
+      <div className="container mx-auto px-4 lg:px-8 py-8 max-w-7xl">
         <button
           type="button"
           onClick={() => navigate(-1)}
@@ -173,25 +173,28 @@ export default function TourDetails() {
           Back
         </button>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left column - Tour Details */}
-          <div className="space-y-6">
-            {/* Title and pricing header */}
-            <div className="bg-card rounded-xl shadow-card p-5">
-              <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">{tour.title}</h1>
-              <div className="flex items-center justify-between gap-4 mb-3">
-                <p className="text-muted-foreground flex items-center gap-1">
-                  <MapPin className="w-4 h-4" />
-                  {extractNeighborhood(normalizedLocation || "")}
-                </p>
-                <div className="text-right">
-                  <div className="text-lg font-bold text-primary">
-                    {formatMoney(Number(normalizedPrice ?? 0), String(normalizedCurrency ?? "RWF"))}
-                    <span className="text-sm text-muted-foreground"> / person</span>
-                  </div>
-                </div>
+        {/* Hero Section with Main Image */}
+        <div className="mb-8">
+          <div className="bg-card rounded-2xl shadow-lg overflow-hidden">
+            {normalizedImages?.length ? (
+              <ListingImageCarousel
+                images={normalizedImages}
+                alt={tour.title}
+                className="w-full h-[450px] lg:h-[550px]"
+              />
+            ) : (
+              <div className="w-full h-[450px] lg:h-[550px] bg-gradient-to-br from-primary/20 via-primary/10 to-background flex items-center justify-center">
+                <Info className="w-16 h-16 text-muted-foreground" />
               </div>
-              
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left column - Main content (2/3 width) */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Title and metadata */}
+            <div>
               <div className="flex flex-wrap items-center gap-2 mb-3">
                 {normalizedCategories.map((category: string) => (
                   <Badge key={category} variant="secondary" className="text-xs">{category}</Badge>
@@ -199,71 +202,79 @@ export default function TourDetails() {
                 {tour.rating && (
                   <div className="flex items-center gap-1 text-xs">
                     <Star className="w-3.5 h-3.5 fill-primary text-primary" />
-                    <span>{tour.rating.toFixed(1)}</span>
-                    <span className="text-muted-foreground">({tour.review_count || 0})</span>
+                    <span className="font-semibold">{tour.rating.toFixed(1)}</span>
+                    <span className="text-muted-foreground">({tour.review_count || 0} reviews)</span>
                   </div>
                 )}
               </div>
 
-              <div className="text-sm text-muted-foreground">
-                {[
-                  `${normalizedDurationDays} day${normalizedDurationDays === 1 ? "" : "s"}`,
-                  normalizedMaxGroup ? `Up to ${normalizedMaxGroup} guests` : null,
-                  normalizedDifficulty || null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
+              <h1 className="text-3xl lg:text-4xl font-bold text-foreground mb-3">{tour.title}</h1>
+              
+              <div className="flex items-center gap-2 text-muted-foreground mb-4">
+                <MapPin className="w-4 h-4" />
+                <span className="text-sm">{normalizedLocation || "Location not specified"}</span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                {normalizedDurationDays && (
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-primary" />
+                    <span>{normalizedDurationDays} day{normalizedDurationDays === 1 ? "" : "s"}</span>
+                  </div>
+                )}
+                {normalizedMaxGroup && (
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-primary" />
+                    <span>Up to {normalizedMaxGroup} guests</span>
+                  </div>
+                )}
+                {normalizedDifficulty && (
+                  <Badge variant="outline" className="text-xs">
+                    {normalizedDifficulty}
+                  </Badge>
+                )}
               </div>
             </div>
 
-            {/* Booking actions */}
-            <div className="bg-card rounded-xl shadow-card p-5">
-              <div className="space-y-3">
-                <Button
-                  className="w-full"
-                  onClick={() => {
-                    addToCart("tour", String(tour.id), 1);
-                    navigate("/trip-cart");
-                  }}
-                >
-                  <Calendar className="w-4 h-4 mr-2" />
-                  Book Now
-                </Button>
-                <Button
-                  className="w-full"
-                  variant="outline"
-                  onClick={() => addToCart("tour", String(tour.id), 1)}
-                >
-                  Add to Trip Cart
-                </Button>
+            <div className="border-t pt-6">
+              <div className="prose prose-sm max-w-none">
+                <h2 className="text-xl font-semibold text-foreground mb-3">About this tour</h2>
+                {tour.description && (
+                  <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
+                    {tour.description}
+                  </p>
+                )}
               </div>
             </div>
 
             {/* Daily Itinerary */}
             {isPackage && tour?.daily_itinerary && (
-              <div className="bg-card rounded-xl shadow-card p-5">
-                <div className="text-sm font-semibold text-foreground mb-2">Daily Itinerary</div>
-                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-                  {tour.daily_itinerary}
-                </p>
+              <div className="border-t pt-6">
+                <h2 className="text-xl font-semibold text-foreground mb-3">Daily Itinerary</h2>
+                <div className="bg-muted/30 rounded-lg p-5">
+                  <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                    {tour.daily_itinerary}
+                  </p>
+                </div>
               </div>
             )}
 
             {/* What's included/excluded */}
             {isPackage && (tour?.included_services || tour?.excluded_services) && (
-              <div className="bg-card rounded-xl shadow-card p-5">
+              <div className="border-t pt-6">
+                <h2 className="text-xl font-semibold text-foreground mb-4">What to Expect</h2>
                 <div className="grid md:grid-cols-2 gap-6">
                   {tour?.included_services && (
-                    <div>
-                      <div className="text-sm font-semibold text-foreground mb-2">What's Included</div>
+                    <div className="bg-green-50 dark:bg-green-950/20 rounded-lg p-5">
+                      <h3 className="text-sm font-semibold text-foreground mb-3">✓ What's Included</h3>
                       <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
                         {tour.included_services}
                       </p>
                     </div>
                   )}
                   {tour?.excluded_services && (
-                    <div>
-                      <div className="text-sm font-semibold text-foreground mb-2">What's Excluded</div>
+                    <div className="bg-orange-50 dark:bg-orange-950/20 rounded-lg p-5">
+                      <h3 className="text-sm font-semibold text-foreground mb-3">✗ What's Not Included</h3>
                       <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
                         {tour.excluded_services}
                       </p>
@@ -275,128 +286,210 @@ export default function TourDetails() {
 
             {/* Meeting point & What to bring */}
             {isPackage && (tour?.meeting_point || tour?.what_to_bring) && (
-              <div className="bg-card rounded-xl shadow-card p-5">
-                {tour?.meeting_point && (
-                  <div className={tour?.what_to_bring ? "mb-4" : ""}>
-                    <div className="text-sm font-semibold text-foreground mb-2">Meeting Point</div>
-                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-                      {tour.meeting_point}
-                    </p>
-                  </div>
-                )}
-                {tour?.what_to_bring && (
-                  <div>
-                    <div className="text-sm font-semibold text-foreground mb-2">What to Bring</div>
-                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-                      {tour.what_to_bring}
-                    </p>
-                  </div>
-                )}
+              <div className="border-t pt-6">
+                <h2 className="text-xl font-semibold text-foreground mb-4">Important Information</h2>
+                <div className="space-y-4">
+                  {tour?.meeting_point && (
+                    <div className="bg-card rounded-lg border p-5">
+                      <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-primary" />
+                        Meeting Point
+                      </h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                        {tour.meeting_point}
+                      </p>
+                    </div>
+                  )}
+                  {tour?.what_to_bring && (
+                    <div className="bg-card rounded-lg border p-5">
+                      <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                        <Info className="w-4 h-4 text-primary" />
+                        What to Bring
+                      </h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                        {tour.what_to_bring}
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
-          </div>
-
-          {/* Right column - Image and Description */}
-          <div className="space-y-6 lg:sticky lg:top-4 lg:self-start">
-            {/* Image carousel */}
-            <div className="bg-card rounded-xl shadow-card overflow-hidden">
-              {normalizedImages?.length ? (
-                <ListingImageCarousel
-                  images={normalizedImages}
-                  alt={tour.title}
-                  className="w-full h-[400px]"
-                />
-              ) : (
-                <div className="w-full h-[400px] bg-gradient-to-br from-muted via-muted/70 to-muted/40" />
-              )}
-            </div>
-
-            {/* About this tour */}
-            <div className="bg-card rounded-xl shadow-card p-5">
-              <div className="text-sm font-semibold text-foreground mb-3">About this tour</div>
-              
-              {tour.description && (
-                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-                  {tour.description}
-                </p>
-              )}
-            </div>
 
             {/* PDF Itinerary */}
             {tour.itinerary_pdf_url && (
-              <div className="bg-card rounded-xl shadow-card p-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <FileText className="w-4 h-4" />
-                  <div className="text-sm font-semibold text-foreground">Tour Itinerary</div>
+              <div className="border-t pt-6">
+                <h2 className="text-xl font-semibold text-foreground mb-4">Detailed Itinerary</h2>
+                <div className="bg-card rounded-lg border overflow-hidden">
+                  <iframe
+                    src={tour.itinerary_pdf_url}
+                    className="w-full h-[500px]"
+                    title="Tour Itinerary PDF"
+                  />
+                  <div className="p-4 bg-muted/30 border-t">
+                    <a
+                      href={tour.itinerary_pdf_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+                    >
+                      <FileText className="w-4 h-4" />
+                      Open PDF in new tab →
+                    </a>
+                  </div>
                 </div>
-                <iframe
-                  src={tour.itinerary_pdf_url}
-                  className="w-full h-[420px] border rounded-lg"
-                  title="Tour Itinerary PDF"
-                />
-                <a
-                  href={tour.itinerary_pdf_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-primary hover:underline mt-2 inline-block"
-                >
-                  Open PDF in new tab →
-                </a>
               </div>
             )}
 
+            {/* Cancellation Policy */}
+            {isPackage && (tour?.cancellation_policy || tour?.custom_cancellation_policy || nonRefundableItems.length > 0) && (
+              <Card className="border-t-4 border-t-primary">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-xl">Cancellation & Refund Policy</CardTitle>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button className="text-muted-foreground hover:text-foreground transition-colors">
+                            <Info className="w-4 h-4" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p className="text-xs">
+                            Please review the cancellation policy carefully before booking. 
+                            Refunds are subject to the terms specified below. Some items may be non-refundable 
+                            due to advance bookings or permits.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {tour?.cancellation_policy && (
+                    <div>
+                      <div className="text-sm font-medium text-foreground mb-1.5">Policy Type</div>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        {tour.cancellation_policy}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {tour?.custom_cancellation_policy && (
+                    <div>
+                      <div className="text-sm font-medium text-foreground mb-1.5">Terms & Conditions</div>
+                      <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                        {tour.custom_cancellation_policy}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {nonRefundableItems.length > 0 && (
+                    <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Info className="w-4 h-4 text-amber-600 dark:text-amber-500" />
+                        <div className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                          Non-refundable Items
+                        </div>
+                      </div>
+                      <ul className="text-sm text-amber-800 dark:text-amber-200 list-disc pl-5 space-y-1">
+                        {nonRefundableItems.map((item: string) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Right column - Booking & Host (1/3 width, sticky) */}
+          <div className="space-y-6 lg:sticky lg:top-24 lg:self-start">
+            {/* Booking card */}
+            <div className="bg-card rounded-xl shadow-lg border p-6">
+              <div className="mb-6">
+                <div className="text-3xl font-bold text-primary">
+                  {formatMoney(Number(normalizedPrice ?? 0), String(normalizedCurrency ?? "RWF"))}
+                </div>
+                <div className="text-sm text-muted-foreground">per person</div>
+              </div>
+
+              <div className="space-y-3">
+                <Button
+                  className="w-full"
+                  size="lg"
+                  onClick={() => {
+                    addToCart("tour", String(tour.id), 1);
+                    navigate("/trip-cart");
+                  }}
+                >
+                  <Calendar className="w-4 h-4 mr-2" />
+                  Book Now
+                </Button>
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  size="lg"
+                  onClick={() => addToCart("tour", String(tour.id), 1)}
+                >
+                  Add to Trip Cart
+                </Button>
+              </div>
+            </div>
+
             {/* Host info */}
             {hostProfile && (
-              <div className="bg-card rounded-xl shadow-card p-5">
-                <div className="flex items-start gap-3 mb-4">
-                  <Avatar className="w-14 h-14">
+              <div className="bg-card rounded-xl shadow-lg border p-6">
+                <h3 className="text-lg font-semibold text-foreground mb-4">Your Tour Guide</h3>
+                
+                <div className="flex items-start gap-4 mb-4">
+                  <Avatar className="w-16 h-16 border-2 border-primary/20">
                     <AvatarImage src={hostProfile.avatar_url || undefined} />
-                    <AvatarFallback className="text-sm">
+                    <AvatarFallback className="text-lg bg-primary/10 text-primary">
                       {hostProfile.full_name?.charAt(0) || "?"}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
                     <div className="text-base font-semibold text-foreground">
-                      Hosted by {hostProfile.full_name || "Tour Guide"}
+                      {hostProfile.full_name || "Tour Guide"}
                     </div>
                     {hostProfile.created_at && (
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        Member since {new Date(hostProfile.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Joined {new Date(hostProfile.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                       </div>
                     )}
                   </div>
                 </div>
 
                 {hostProfile.tour_guide_bio && (
-                  <div className="mb-4">
-                    <div className="text-sm font-semibold text-foreground mb-1.5">About Your Guide</div>
+                  <div className="mb-4 p-4 bg-muted/30 rounded-lg">
                     <p className="text-sm text-muted-foreground leading-relaxed">
                       {hostProfile.tour_guide_bio}
                     </p>
                   </div>
                 )}
 
-                <div className="space-y-2.5">
+                <div className="space-y-3 border-t pt-4">
                   {hostProfile.years_of_experience && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <Award className="w-4 h-4 text-primary" />
+                    <div className="flex items-center gap-3 text-sm">
+                      <Award className="w-5 h-5 text-primary flex-shrink-0" />
                       <span className="text-foreground">
-                        <span className="font-medium">{hostProfile.years_of_experience}</span> years of experience
+                        <span className="font-semibold">{hostProfile.years_of_experience}</span> years of experience
                       </span>
                     </div>
                   )}
                   {hostProfile.languages_spoken && hostProfile.languages_spoken.length > 0 && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <Globe className="w-4 h-4 text-primary" />
+                    <div className="flex items-center gap-3 text-sm">
+                      <Globe className="w-5 h-5 text-primary flex-shrink-0" />
                       <span className="text-foreground">
-                        Speaks <span className="font-medium">{hostProfile.languages_spoken.join(", ")}</span>
+                        Speaks <span className="font-semibold">{hostProfile.languages_spoken.join(", ")}</span>
                       </span>
                     </div>
                   )}
                   {hostProfile.email && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <Mail className="w-4 h-4 text-primary" />
-                      <a href={`mailto:${hostProfile.email}`} className="text-primary hover:underline">
+                    <div className="flex items-center gap-3 text-sm">
+                      <Mail className="w-5 h-5 text-primary flex-shrink-0" />
+                      <a href={`mailto:${hostProfile.email}`} className="text-primary hover:underline break-all">
                         {hostProfile.email}
                       </a>
                     </div>
@@ -410,65 +503,6 @@ export default function TourDetails() {
                     </div>
                   )}
                 </div>
-              </div>
-            )}
-
-            {/* Cancellation Policy */}
-            {isPackage && (tour?.cancellation_policy || tour?.custom_cancellation_policy || nonRefundableItems.length > 0) && (
-              <div className="bg-card rounded-xl shadow-card p-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <h2 className="text-lg font-semibold text-foreground">Cancellation & Refund Policy</h2>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button className="text-muted-foreground hover:text-foreground transition-colors">
-                          <Info className="w-4 h-4" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">
-                        <p className="text-xs">
-                          Please review the cancellation policy carefully before booking. 
-                          Refunds are subject to the terms specified below. Some items may be non-refundable 
-                          due to advance bookings or permits.
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-
-                {tour?.cancellation_policy && (
-                  <div className="mb-3">
-                    <div className="text-sm font-medium text-foreground mb-1.5">Policy Type</div>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {tour.cancellation_policy}
-                    </p>
-                  </div>
-                )}
-                
-                {tour?.custom_cancellation_policy && (
-                  <div className="mb-3">
-                    <div className="text-sm font-medium text-foreground mb-1.5">Terms & Conditions</div>
-                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-                      {tour.custom_cancellation_policy}
-                    </p>
-                  </div>
-                )}
-                
-                {nonRefundableItems.length > 0 && (
-                  <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Info className="w-4 h-4 text-amber-600 dark:text-amber-500" />
-                      <div className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                        Non-refundable Items
-                      </div>
-                    </div>
-                    <ul className="text-sm text-amber-800 dark:text-amber-200 list-disc pl-5 space-y-1">
-                      {nonRefundableItems.map((item: string) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
               </div>
             )}
           </div>
