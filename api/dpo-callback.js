@@ -77,149 +77,69 @@ export default async function handler(req, res) {
     }
 
     const checkoutId = safeStr(req.query?.checkoutId ?? "", 80);
+    const bookingId = safeStr(req.query?.bookingId ?? "", 80);
+    const orderId = safeStr(req.query?.orderId ?? "", 80);
     const token =
       safeStr(req.query?.TransactionToken ?? "", 200) ||
       safeStr(req.query?.TransToken ?? "", 200) ||
       safeStr(req.query?.token ?? "", 200) ||
       safeStr(req.query?.ID ?? "", 200);
 
-    if (!checkoutId) return redirect(res, `${origin}/checkout?status=error`);
+    if (!checkoutId && !bookingId && !orderId) {
+      return redirect(res, `${origin}/checkout?status=error`);
+    }
 
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    // Fetch checkout request
-    const { data: cr, error } = await supabaseAdmin
-      .from("checkout_requests")
-      .select("*")
-      .eq("id", checkoutId)
-      .maybeSingle();
-    if (error || !cr?.id) return redirect(res, `${origin}/checkout?status=error`);
-
-    // Try to verify with DPO (best-effort). If verification isn't configured, we still mark as paid
-    // and rely on your ops to reconcile in DPO dashboard.
+    // Try to verify with DPO (best-effort)
     const verification = token ? await verifyWithDpo(token) : null;
     const transStatus = verification?.transStatus || null;
     const isPaid =
       (verification?.result && verification.result === "000" && transStatus && String(transStatus).toLowerCase() === "paid") ||
-      (!verification && Boolean(token)); // fallback if DPO verification not configured
+      (!verification && Boolean(token));
 
     if (!isPaid) {
+      // Update booking(s) to failed status
+      if (bookingId) {
+        await supabaseAdmin
+          .from("bookings")
+          .update({ payment_status: "failed" })
+          .eq("id", bookingId);
+      } else if (orderId) {
+        await supabaseAdmin
+          .from("bookings")
+          .update({ payment_status: "failed" })
+          .eq("order_id", orderId);
+      }
+      return redirect(res, `${origin}/checkout?status=failed`);
+    }
+
+    // Update booking(s) to paid and confirmed
+    if (bookingId) {
+      // Single booking
       await supabaseAdmin
-        .from("checkout_requests")
+        .from("bookings")
         .update({
-          payment_status: "failed",
-          meta: { ...(cr.meta ?? {}), dpo_verify: verification ?? null },
-        })
-        .eq("id", checkoutId);
-      return redirect(res, `${origin}/checkout?status=failed&checkoutId=${encodeURIComponent(checkoutId)}`);
-    }
-
-    await supabaseAdmin
-      .from("checkout_requests")
-      .update({
-        payment_status: "paid",
-        paid_at: new Date().toISOString(),
-        provider_token: cr.provider_token ?? token ?? null,
-        meta: { ...(cr.meta ?? {}), dpo_verify: verification ?? null },
-      })
-      .eq("id", checkoutId);
-
-    // Post-payment effects:
-    // - booking mode: create a bookings row for single property
-    // - cart mode: create bookings for all items (property, tour, transport)
-    const mode = safeStr(cr.mode ?? "cart", 20);
-    const items = Array.isArray(cr.items) ? cr.items : [];
-    
-    if (mode === "booking") {
-      // Single property booking
-      const stay = items.find((i) => i && i.item_type === "property");
-      if (stay?.reference_id) {
-        const { data: prop } = await supabaseAdmin
-          .from("properties")
-          .select("host_id,currency,price_per_night")
-          .eq("id", String(stay.reference_id))
-          .maybeSingle();
-        const bookingPayload = {
-          property_id: String(stay.reference_id),
-          host_id: prop?.host_id ?? null,
-          booking_type: "property",
-          check_in: safeStr(stay.start_date ?? cr.meta?.check_in ?? "", 20),
-          check_out: safeStr(stay.end_date ?? cr.meta?.check_out ?? "", 20),
-          guests_count: Math.max(1, Number(stay.guests ?? cr.meta?.guests ?? 1)),
-          total_price: Number(cr.amount ?? 0),
-          currency: safeStr(cr.currency ?? prop?.currency ?? "RWF", 10),
-          status: "pending",
           payment_status: "paid",
-          guest_id: cr.user_id ?? null,
-          is_guest_booking: cr.user_id ? false : true,
-          guest_name: cr.user_id ? null : cr.name,
-          guest_email: cr.user_id ? null : cr.email,
-          guest_phone: cr.user_id ? null : cr.phone,
-        };
-        await supabaseAdmin.from("bookings").insert(bookingPayload);
-      }
-    } else {
-      // Cart mode: create bookings for all items
-      const orderId = crypto.randomUUID(); // Group all bookings from this cart
-      const bookingsToCreate = [];
-      
-      for (const item of items) {
-        if (!item?.reference_id || !item?.item_type) continue;
-        
-        let bookingPayload = {
-          booking_type: item.item_type,
-          order_id: orderId,
-          check_in: safeStr(item.start_date ?? "", 20),
-          check_out: safeStr(item.end_date ?? "", 20),
-          guests_count: Math.max(1, Number(item.guests ?? 1)),
-          total_price: Number(item.price ?? 0),
-          currency: safeStr(item.currency ?? cr.currency ?? "RWF", 10),
           status: "confirmed",
+        })
+        .eq("id", bookingId);
+      return redirect(res, `${origin}/checkout?status=paid&bookingId=${encodeURIComponent(bookingId)}`);
+    } else if (orderId) {
+      // Bulk booking (cart checkout)
+      await supabaseAdmin
+        .from("bookings")
+        .update({
           payment_status: "paid",
-          guest_id: cr.user_id ?? null,
-          is_guest_booking: cr.user_id ? false : true,
-          guest_name: cr.user_id ? null : cr.name,
-          guest_email: cr.user_id ? null : cr.email,
-          guest_phone: cr.user_id ? null : cr.phone,
-        };
-        
-        // Add type-specific fields
-        if (item.item_type === "property") {
-          const { data: prop } = await supabaseAdmin
-            .from("properties")
-            .select("host_id")
-            .eq("id", String(item.reference_id))
-            .maybeSingle();
-          bookingPayload.property_id = String(item.reference_id);
-          bookingPayload.host_id = prop?.host_id ?? null;
-        } else if (item.item_type === "tour") {
-          const { data: tour } = await supabaseAdmin
-            .from("tour_packages")
-            .select("host_id")
-            .eq("id", String(item.reference_id))
-            .maybeSingle();
-          bookingPayload.tour_id = String(item.reference_id);
-          bookingPayload.host_id = tour?.host_id ?? null;
-        } else if (item.item_type === "transport") {
-          bookingPayload.transport_id = String(item.reference_id);
-        }
-        
-        bookingsToCreate.push(bookingPayload);
-      }
-      
-      if (bookingsToCreate.length > 0) {
-        await supabaseAdmin.from("bookings").insert(bookingsToCreate);
-      }
-      
-      // Clear user's cart after creating bookings
-      if (cr.user_id) {
-        await supabaseAdmin.from("trip_cart_items").delete().eq("user_id", cr.user_id);
-      }
+          status: "confirmed",
+        })
+        .eq("order_id", orderId);
+      return redirect(res, `${origin}/checkout?status=paid&orderId=${encodeURIComponent(orderId)}`);
     }
 
-    return redirect(res, `${origin}/checkout?status=paid&checkoutId=${encodeURIComponent(checkoutId)}`);
+    return redirect(res, `${origin}/checkout?status=error`);
   } catch {
     return redirect(res, `${origin}/checkout?status=error`);
   }

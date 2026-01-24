@@ -313,18 +313,95 @@ export default function Checkout() {
         return;
       }
 
-      const payload: Record<string, unknown> = {
-        user_id: user ? user.id : null,
-        name: name.trim(),
-        email: email.trim().toLowerCase(),
-        phone: phone.trim(),
-        message: message.trim() || null,
-        payment_method: paymentMethod,
-        items,
-        status: "pending_confirmation",
-      };
+      // Create bookings directly instead of checkout_requests
+      const orderId = crypto.randomUUID(); // Group all bookings from this cart
+      const bookingsToCreate = [];
+      
+      for (const item of items) {
+        if (!item?.reference_id || !item?.item_type) continue;
+        
+        let bookingPayload: any = {
+          booking_type: item.item_type,
+          order_id: orderId,
+          check_in: checkIn || new Date().toISOString().split('T')[0],
+          check_out: checkOut || new Date(Date.now() + 86400000).toISOString().split('T')[0],
+          guests_count: Math.max(1, Number(guests || 1)),
+          total_price: 0, // Will be calculated based on item price
+          currency: "RWF",
+          status: "pending",
+          payment_status: "pending",
+          payment_method: paymentMethod,
+          guest_id: user ? user.id : null,
+          is_guest_booking: user ? false : true,
+          guest_name: user ? name.trim() : name.trim(),
+          guest_email: user ? email.trim().toLowerCase() : email.trim().toLowerCase(),
+          guest_phone: phone.trim(),
+          special_requests: message.trim() || null,
+        };
+        
+        // Fetch details and add type-specific fields
+        if (item.item_type === "property") {
+          const { data: prop } = await supabase
+            .from("properties")
+            .select("host_id, price_per_night, currency")
+            .eq("id", String(item.reference_id))
+            .maybeSingle();
+          
+          if (prop) {
+            bookingPayload.property_id = String(item.reference_id);
+            bookingPayload.host_id = prop.host_id;
+            bookingPayload.currency = prop.currency || "RWF";
+            
+            // Calculate nights and total
+            const cin = new Date(checkIn);
+            const cout = new Date(checkOut);
+            const nights = Math.max(1, Math.ceil((cout.getTime() - cin.getTime()) / 86400000));
+            bookingPayload.total_price = nights * (prop.price_per_night || 0);
+          }
+        } else if (item.item_type === "tour") {
+          const { data: tour } = await supabase
+            .from("tour_packages")
+            .select("host_id, price_per_adult, currency")
+            .eq("id", String(item.reference_id))
+            .maybeSingle();
+          
+          if (tour) {
+            bookingPayload.tour_id = String(item.reference_id);
+            bookingPayload.host_id = tour.host_id;
+            bookingPayload.currency = tour.currency || "RWF";
+            bookingPayload.total_price = (tour.price_per_adult || 0) * bookingPayload.guests_count;
+          }
+        } else if (item.item_type === "transport") {
+          const { data: vehicle } = await supabase
+            .from("transport_vehicles")
+            .select("created_by, price_per_day, currency")
+            .eq("id", String(item.reference_id))
+            .maybeSingle();
+          
+          if (vehicle) {
+            bookingPayload.transport_id = String(item.reference_id);
+            bookingPayload.host_id = vehicle.created_by;
+            bookingPayload.currency = vehicle.currency || "RWF";
+            
+            // Calculate days and total
+            const cin = new Date(checkIn);
+            const cout = new Date(checkOut);
+            const days = Math.max(1, Math.ceil((cout.getTime() - cin.getTime()) / 86400000));
+            bookingPayload.total_price = days * (vehicle.price_per_day || 0);
+          }
+        }
+        
+        if (bookingPayload.total_price > 0) {
+          bookingsToCreate.push(bookingPayload);
+        }
+      }
 
-      const { error } = await supabase.from("checkout_requests").insert(payload as never);
+      if (bookingsToCreate.length === 0) {
+        toast({ variant: "destructive", title: "No valid items", description: "Could not create bookings from cart items." });
+        return;
+      }
+
+      const { error } = await supabase.from("bookings").insert(bookingsToCreate);
       if (error) throw error;
 
       await clearCart();
