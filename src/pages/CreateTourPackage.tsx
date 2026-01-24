@@ -70,7 +70,7 @@ Some components are non-refundable once booked, including but not limited to:
   const [galleryDialogOpen, setGalleryDialogOpen] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [cancellationPolicyType, setCancellationPolicyType] = useState<string>("non_refundable");
+  const [cancellationPolicyType, setCancellationPolicyType] = useState<string>("standard");
   const [customPolicyFile, setCustomPolicyFile] = useState<File | null>(null);
 
   const isFormValid = () => {
@@ -335,43 +335,66 @@ Some components are non-refundable once booked, including but not limited to:
                   <SelectValue placeholder="Select cancellation policy" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="non_refundable">Non-Refundable (Recommended)</SelectItem>
-                  <SelectItem value="standard">Standard (72hr full refund, 48hr 50%)</SelectItem>
-                  <SelectItem value="flexible">Flexible (24hr full refund)</SelectItem>
-                  <SelectItem value="moderate">Moderate (5 days full, 2-5 days 50%)</SelectItem>
-                  <SelectItem value="strict">Strict (7 days 50%, less = no refund)</SelectItem>
-                  <SelectItem value="multiday_private">Multi-day/Private (14 days full, 7-14 days 50%)</SelectItem>
+                  <SelectItem value="standard">
+                    <div className="flex items-center gap-2">
+                      <span>Standard Experiences (Day Tours & Activities)</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="multiday_private">
+                    <div className="flex items-center gap-2">
+                      <span>Multi-Day, Private & Custom Experiences</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="non_refundable">
+                    <div className="flex items-center gap-2">
+                      <span>Non-Refundable (Recommended)</span>
+                    </div>
+                  </SelectItem>
                   <SelectItem value="custom">Custom Policy (Write your own or upload PDF)</SelectItem>
                 </SelectContent>
               </Select>
 
-              {cancellationPolicyType === 'non_refundable' && (
-                <div className="p-3 bg-muted rounded-md text-xs">
-                  <p className="font-semibold mb-1">Non-Refundable Policy:</p>
-                  <p>This booking is non-refundable once confirmed. No cancellations or modifications allowed. Customer agrees to these terms at checkout.</p>
+              <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-md">
+                <AlertCircle className="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+                <div className="text-xs text-muted-foreground space-y-1">
+                  {cancellationPolicyType === 'standard' && (
+                    <>
+                      <p className="font-medium text-foreground">Standard Experiences (Day Tours & Activities)</p>
+                      <ul className="list-disc list-inside space-y-0.5 ml-1">
+                        <li>More than 72 hours before start time: Full refund (excluding platform service fees and payment processing fees)</li>
+                        <li>48–72 hours before start time: 50% refund (excluding platform service fees)</li>
+                        <li>Less than 48 hours before start time: No refund</li>
+                        <li>No-shows or late arrivals: No refund</li>
+                      </ul>
+                    </>
+                  )}
+                  
+                  {cancellationPolicyType === 'multiday_private' && (
+                    <>
+                      <p className="font-medium text-foreground">Multi-Day, Private & Custom Experiences</p>
+                      <ul className="list-disc list-inside space-y-0.5 ml-1">
+                        <li>More than 14 days before start date: Full refund minus non-refundable deposits and third-party costs</li>
+                        <li>7–14 days before start date: 50% refund</li>
+                        <li>Less than 7 days before start date: No refund</li>
+                        <li>Custom or tailor-made itineraries may require non-refundable deposits, clearly disclosed at booking</li>
+                      </ul>
+                    </>
+                  )}
+                  
+                  {cancellationPolicyType === 'non_refundable' && (
+                    <>
+                      <p className="font-medium text-foreground">Non-Refundable Costs</p>
+                      <p className="mb-2">Some components are non-refundable once booked, including but not limited to:</p>
+                      <ul className="list-disc list-inside space-y-0.5 ml-1">
+                        <li>National park and conservation permits</li>
+                        <li>Gorilla trekking and special access permits</li>
+                        <li>Third-party accommodation, transport, flights, or activity tickets</li>
+                        <li>Experiences marked "Non-Refundable" on the listing page</li>
+                      </ul>
+                    </>
+                  )}
                 </div>
-              )}
-
-              {cancellationPolicyType === 'standard' && (
-                <div className="p-3 bg-muted rounded-md text-xs">
-                  <p className="font-semibold mb-1">Standard Cancellation Policy:</p>
-                  <ul className="list-disc list-inside space-y-1">
-                    <li>More than 72 hours: Full refund (excl. service fees)</li>
-                    <li>48-72 hours: 50% refund</li>
-                    <li>Less than 48 hours: No refund</li>
-                  </ul>
-                </div>
-              )}
-
-              {cancellationPolicyType === 'flexible' && (
-                <div className="p-3 bg-muted rounded-md text-xs">
-                  <p className="font-semibold mb-1">Flexible Cancellation Policy:</p>
-                  <ul className="list-disc list-inside space-y-1">
-                    <li>More than 24 hours: Full refund</li>
-                    <li>Less than 24 hours: No refund</li>
-                  </ul>
-                </div>
-              )}
+              </div>
 
               {cancellationPolicyType === 'custom' && (
                 <div className="space-y-3">

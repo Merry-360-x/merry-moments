@@ -404,55 +404,41 @@ export default function TourDetails() {
                 <CardContent className="space-y-4">
                   {tour?.cancellation_policy_type && tour.cancellation_policy_type !== 'custom' && (
                     <div className="bg-muted p-4 rounded-md">
-                      <div className="text-sm font-semibold mb-2">
-                        {tour.cancellation_policy_type === 'non_refundable' && 'Non-Refundable Policy'}
-                        {tour.cancellation_policy_type === 'standard' && 'Standard Cancellation Policy'}
-                        {tour.cancellation_policy_type === 'flexible' && 'Flexible Cancellation Policy'}
-                        {tour.cancellation_policy_type === 'moderate' && 'Moderate Cancellation Policy'}
-                        {tour.cancellation_policy_type === 'strict' && 'Strict Cancellation Policy'}
-                        {tour.cancellation_policy_type === 'multiday_private' && 'Multi-day/Private Tour Policy'}
-                      </div>
-                      
-                      {tour.cancellation_policy_type === 'non_refundable' && (
-                        <p className="text-sm text-muted-foreground">This booking is non-refundable once confirmed. No cancellations or modifications allowed.</p>
-                      )}
-                      
                       {tour.cancellation_policy_type === 'standard' && (
-                        <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                          <li>More than 72 hours before start: Full refund (excluding service fees)</li>
-                          <li>48-72 hours before start: 50% refund</li>
-                          <li>Less than 48 hours: No refund</li>
-                        </ul>
-                      )}
-                      
-                      {tour.cancellation_policy_type === 'flexible' && (
-                        <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                          <li>More than 24 hours before start: Full refund</li>
-                          <li>Less than 24 hours: No refund</li>
-                        </ul>
-                      )}
-                      
-                      {tour.cancellation_policy_type === 'moderate' && (
-                        <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                          <li>More than 5 days before start: Full refund</li>
-                          <li>2-5 days before start: 50% refund</li>
-                          <li>Less than 2 days: No refund</li>
-                        </ul>
-                      )}
-                      
-                      {tour.cancellation_policy_type === 'strict' && (
-                        <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                          <li>More than 7 days before start: 50% refund</li>
-                          <li>Less than 7 days: No refund</li>
-                        </ul>
+                        <>
+                          <div className="text-sm font-semibold mb-2">Standard Experiences (Day Tours & Activities)</div>
+                          <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                            <li>More than 72 hours before start time: Full refund (excluding platform service fees and payment processing fees)</li>
+                            <li>48–72 hours before start time: 50% refund (excluding platform service fees)</li>
+                            <li>Less than 48 hours before start time: No refund</li>
+                            <li>No-shows or late arrivals: No refund</li>
+                          </ul>
+                        </>
                       )}
                       
                       {tour.cancellation_policy_type === 'multiday_private' && (
-                        <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                          <li>More than 14 days: Full refund minus deposits</li>
-                          <li>7-14 days: 50% refund</li>
-                          <li>Less than 7 days: No refund</li>
-                        </ul>
+                        <>
+                          <div className="text-sm font-semibold mb-2">Multi-Day, Private & Custom Experiences</div>
+                          <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                            <li>More than 14 days before start date: Full refund minus non-refundable deposits and third-party costs</li>
+                            <li>7–14 days before start date: 50% refund</li>
+                            <li>Less than 7 days before start date: No refund</li>
+                            <li>Custom or tailor-made itineraries may require non-refundable deposits, clearly disclosed at booking</li>
+                          </ul>
+                        </>
+                      )}
+                      
+                      {tour.cancellation_policy_type === 'non_refundable' && (
+                        <>
+                          <div className="text-sm font-semibold mb-2">Non-Refundable Costs</div>
+                          <p className="text-sm text-muted-foreground mb-2">Some components are non-refundable once booked, including but not limited to:</p>
+                          <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                            <li>National park and conservation permits</li>
+                            <li>Gorilla trekking and special access permits</li>
+                            <li>Third-party accommodation, transport, flights, or activity tickets</li>
+                            <li>Experiences marked "Non-Refundable" on the listing page</li>
+                          </ul>
+                        </>
                       )}
                     </div>
                   )}
