@@ -12,7 +12,7 @@ import { Database } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Upload, X, AlertCircle, Loader2 } from "lucide-react";
+import { Upload, X, AlertCircle, Loader2, Save } from "lucide-react";
 import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
 import { extractPDFMetadata, validatePDF } from "@/lib/pdf-extractor";
 import { uploadFile } from "@/lib/uploads";
@@ -56,6 +56,77 @@ export default function CreateTour() {
   const [uploading, setUploading] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState<Set<string>>(new Set());
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Auto-save to localStorage
+  useEffect(() => {
+    const draftKey = `tour-draft-${user?.id}`;
+    
+    const saveDraftInternal = () => {
+      if (!user?.id) return;
+      
+      const draft = {
+        formData,
+        images,
+        timestamp: new Date().toISOString(),
+      };
+      
+      localStorage.setItem(draftKey, JSON.stringify(draft));
+      setLastSaved(new Date());
+    };
+    
+    // Load draft on mount
+    const savedDraft = localStorage.getItem(draftKey);
+    if (savedDraft) {
+      try {
+        const draft = JSON.parse(savedDraft);
+        if (draft.formData) setFormData(draft.formData);
+        if (draft.images) setImages(draft.images);
+        setLastSaved(new Date(draft.timestamp));
+        toast({ title: "Draft restored", description: "Your previous work has been restored" });
+      } catch (err) {
+        console.error('Failed to load draft:', err);
+      }
+    }
+
+    // Auto-save interval
+    const interval = setInterval(() => {
+      if (formData.title || formData.description) {
+        saveDraftInternal();
+      }
+    }, 30000); // Every 30 seconds
+
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  const saveDraft = () => {
+    if (!user?.id) return;
+    
+    const draftKey = `tour-draft-${user.id}`;
+    const draft = {
+      formData,
+      images,
+      timestamp: new Date().toISOString(),
+    };
+    
+    localStorage.setItem(draftKey, JSON.stringify(draft));
+    setLastSaved(new Date());
+  };
+
+  const handleSaveDraft = () => {
+    setIsSaving(true);
+    saveDraft();
+    toast({ title: "Draft saved", description: "Your progress has been saved locally" });
+    setTimeout(() => setIsSaving(false), 500);
+  };
+
+  const clearDraft = () => {
+    if (!user?.id) return;
+    const draftKey = `tour-draft-${user.id}`;
+    localStorage.removeItem(draftKey);
+  };
 
   useEffect(() => {
     if (pdfFile) {
@@ -145,6 +216,7 @@ export default function CreateTour() {
       await queryClient.invalidateQueries({ queryKey: ["featured-tours"] });
 
       toast({ title: "Success!", description: "Tour created successfully" });
+      clearDraft();
       navigate("/host-dashboard");
     } catch (error: any) {
       toast({ title: "Error", description: error.message || "Failed to create tour", variant: "destructive" });
@@ -399,13 +471,29 @@ export default function CreateTour() {
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3 pt-6 border-t">
-            <Button type="button" variant="outline" onClick={() => navigate("/host-dashboard")} disabled={uploading} className="flex-1">
-              Cancel
-            </Button>
-            <Button type="submit" disabled={uploading || !isFormValid()} className="flex-1">
-              {uploading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creating...</> : "Create Tour"}
-            </Button>
+          <div className="space-y-3 pt-6 border-t">
+            {lastSaved && (
+              <p className="text-xs text-muted-foreground text-center">
+                Last saved: {lastSaved.toLocaleTimeString()}
+              </p>
+            )}
+            <div className="flex gap-3">
+              <Button type="button" variant="outline" onClick={() => navigate("/host-dashboard")} disabled={uploading} className="flex-1">
+                Cancel
+              </Button>
+              <Button 
+                type="button" 
+                variant="secondary" 
+                onClick={handleSaveDraft} 
+                disabled={uploading || isSaving}
+                className="flex-1"
+              >
+                {isSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</> : <><Save className="w-4 h-4 mr-2" />Save Draft</>}
+              </Button>
+              <Button type="submit" disabled={uploading || !isFormValid()} className="flex-1">
+                {uploading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creating...</> : "Create Tour"}
+              </Button>
+            </div>
           </div>
         </form>
       </div>

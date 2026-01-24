@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, X } from "lucide-react";
+import { Upload, X, Save, Loader2 } from "lucide-react";
 import { uploadFile } from "@/lib/uploads";
 
 const vehicleTypes = [
@@ -44,6 +44,8 @@ export default function CreateTransport() {
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const STORAGE_KEY = 'create_transport_progress';
 
@@ -54,6 +56,7 @@ export default function CreateTransport() {
       try {
         const parsed = JSON.parse(savedData);
         setFormData(parsed.formData || formData);
+        setLastSaved(new Date(parsed.timestamp));
         
         toast({
           title: "Progress Restored",
@@ -73,7 +76,24 @@ export default function CreateTransport() {
       timestamp: new Date().toISOString(),
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+    setLastSaved(new Date());
   }, [formData]);
+
+  const handleSaveDraft = () => {
+    setIsSaving(true);
+    const dataToSave = {
+      formData,
+      timestamp: new Date().toISOString(),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+    setLastSaved(new Date());
+    toast({ title: "Draft saved", description: "Your progress has been saved locally" });
+    setTimeout(() => setIsSaving(false), 500);
+  };
+
+  const clearDraft = () => {
+    localStorage.removeItem(STORAGE_KEY);
+  };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -154,7 +174,7 @@ export default function CreateTransport() {
         description: "Your transport service has been created successfully.",
       });
 
-      localStorage.removeItem(STORAGE_KEY);
+      clearDraft();
       navigate("/host-dashboard");
     } catch (error) {
       console.error("Failed to create transport service:", error);
@@ -393,13 +413,28 @@ export default function CreateTransport() {
           </Card>
 
           {/* Submit */}
-          <div className="flex gap-4">
-            <Button type="button" variant="outline" onClick={() => navigate(-1)}>
-              Cancel
-            </Button>
-            <Button type="submit">
-              Create Transport Service
-            </Button>
+          <div className="space-y-3">
+            {lastSaved && (
+              <p className="text-xs text-muted-foreground text-center">
+                Last saved: {lastSaved.toLocaleTimeString()}
+              </p>
+            )}
+            <div className="flex gap-4">
+              <Button type="button" variant="outline" onClick={() => navigate(-1)}>
+                Cancel
+              </Button>
+              <Button 
+                type="button" 
+                variant="secondary" 
+                onClick={handleSaveDraft} 
+                disabled={uploading || isSaving}
+              >
+                {isSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</> : <><Save className="w-4 h-4 mr-2" />Save Draft</>}
+              </Button>
+              <Button type="submit" disabled={uploading}>
+                {uploading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creating...</> : "Create Transport Service"}
+              </Button>
+            </div>
           </div>
         </form>
       </div>

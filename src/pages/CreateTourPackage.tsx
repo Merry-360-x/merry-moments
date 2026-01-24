@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertCircle, Loader2, Upload, X } from "lucide-react";
+import { AlertCircle, Loader2, Upload, X, Save } from "lucide-react";
 import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
 import { uploadFile } from "@/lib/uploads";
 import { useQueryClient } from "@tanstack/react-query";
@@ -89,6 +89,98 @@ Some components are non-refundable once booked, including but not limited to:
   const [selectedPolicies, setSelectedPolicies] = useState<string[]>([]);
   const [customPolicyText, setCustomPolicyText] = useState("");
   const [customPolicyFile, setCustomPolicyFile] = useState<File | null>(null);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Auto-save to localStorage every 30 seconds
+  useEffect(() => {
+    const draftKey = `tour-package-draft-${user?.id}`;
+    
+    const saveDraftInternal = () => {
+      if (!user?.id) return;
+      
+      const draft = {
+        formData,
+        groupDiscounts,
+        selectedNonRefundable,
+        customNonRefundable1,
+        customNonRefundable2,
+        coverImage,
+        galleryImages,
+        selectedPolicies,
+        customPolicyText,
+        timestamp: new Date().toISOString(),
+      };
+      
+      localStorage.setItem(draftKey, JSON.stringify(draft));
+      setLastSaved(new Date());
+    };
+    
+    // Load draft on mount
+    const savedDraft = localStorage.getItem(draftKey);
+    if (savedDraft) {
+      try {
+        const draft = JSON.parse(savedDraft);
+        if (draft.formData) setFormData(draft.formData);
+        if (draft.groupDiscounts) setGroupDiscounts(draft.groupDiscounts);
+        if (draft.selectedNonRefundable) setSelectedNonRefundable(draft.selectedNonRefundable);
+        if (draft.customNonRefundable1) setCustomNonRefundable1(draft.customNonRefundable1);
+        if (draft.customNonRefundable2) setCustomNonRefundable2(draft.customNonRefundable2);
+        if (draft.coverImage) setCoverImage(draft.coverImage);
+        if (draft.galleryImages) setGalleryImages(draft.galleryImages);
+        if (draft.selectedPolicies) setSelectedPolicies(draft.selectedPolicies);
+        if (draft.customPolicyText) setCustomPolicyText(draft.customPolicyText);
+        setLastSaved(new Date(draft.timestamp));
+        toast({ title: "Draft restored", description: "Your previous work has been restored" });
+      } catch (err) {
+        console.error('Failed to load draft:', err);
+      }
+    }
+
+    // Auto-save interval
+    const interval = setInterval(() => {
+      if (formData.title || formData.description) {
+        saveDraftInternal();
+      }
+    }, 30000); // Every 30 seconds
+
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  const saveDraft = () => {
+    if (!user?.id) return;
+    
+    const draftKey = `tour-package-draft-${user.id}`;
+    const draft = {
+      formData,
+      groupDiscounts,
+      selectedNonRefundable,
+      customNonRefundable1,
+      customNonRefundable2,
+      coverImage,
+      galleryImages,
+      selectedPolicies,
+      customPolicyText,
+      timestamp: new Date().toISOString(),
+    };
+    
+    localStorage.setItem(draftKey, JSON.stringify(draft));
+    setLastSaved(new Date());
+  };
+
+  const handleSaveDraft = () => {
+    setIsSaving(true);
+    saveDraft();
+    toast({ title: "Draft saved", description: "Your progress has been saved locally" });
+    setTimeout(() => setIsSaving(false), 500);
+  };
+
+  const clearDraft = () => {
+    if (!user?.id) return;
+    const draftKey = `tour-package-draft-${user.id}`;
+    localStorage.removeItem(draftKey);
+  };
 
   const isFormValid = () => {
     const policyValid = selectedPolicies.length > 0 && 
@@ -203,6 +295,7 @@ Some components are non-refundable once booked, including but not limited to:
       }
 
       toast({ title: "Success!", description: "Tour package created successfully" });
+      clearDraft(); // Clear the draft after successful submission
       navigate("/host-dashboard");
     } catch (error: any) {
       toast({ title: "Error", description: error.message || "Failed to create tour package", variant: "destructive" });
@@ -846,13 +939,29 @@ Some components are non-refundable once booked, including but not limited to:
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3 pt-6 border-t">
-            <Button type="button" variant="outline" onClick={() => navigate("/host-dashboard")} disabled={uploading} className="flex-1">
-              Cancel
-            </Button>
-            <Button type="submit" disabled={uploading || !isFormValid()} className="flex-1">
-              {uploading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creating...</> : "Create Package"}
-            </Button>
+          <div className="space-y-3 pt-6 border-t">
+            {lastSaved && (
+              <p className="text-xs text-muted-foreground text-center">
+                Last saved: {lastSaved.toLocaleTimeString()}
+              </p>
+            )}
+            <div className="flex gap-3">
+              <Button type="button" variant="outline" onClick={() => navigate("/host-dashboard")} disabled={uploading} className="flex-1">
+                Cancel
+              </Button>
+              <Button 
+                type="button" 
+                variant="secondary" 
+                onClick={handleSaveDraft} 
+                disabled={uploading || isSaving}
+                className="flex-1"
+              >
+                {isSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</> : <><Save className="w-4 h-4 mr-2" />Save Draft</>}
+              </Button>
+              <Button type="submit" disabled={uploading || !isFormValid()} className="flex-1">
+                {uploading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creating...</> : "Create Package"}
+              </Button>
+            </div>
           </div>
         </form>
       </div>
