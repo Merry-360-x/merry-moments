@@ -569,9 +569,10 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               <div>
                 <Label htmlFor="fullName">Full name</Label>
-                        <Input id="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Your name" />
+                <Input id="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Your name" />
               </div>
-              <div>nickname">Display Name (Nickname)</Label>
+              <div>
+                <Label htmlFor="nickname">Display Name (Nickname)</Label>
                 <Input 
                   id="nickname" 
                   value={nickname} 
@@ -583,14 +584,13 @@ export default function Dashboard() {
                 </p>
               </div>
               <div>
-                <Label htmlFor="
                 <Label htmlFor="phone">Phone number</Label>
-                        <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+250..." />
+                <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+250..." />
               </div>
               <div>
                 <Label htmlFor="dob">Date of birth</Label>
-                        <Input id="dob" type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
-                      </div>
+                <Input id="dob" type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
+              </div>
 
                       <div className="md:col-span-3">
                         <Label htmlFor="bio">About you</Label>

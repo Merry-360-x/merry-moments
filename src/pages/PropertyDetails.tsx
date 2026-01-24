@@ -880,8 +880,8 @@ export default function PropertyDetails() {
                         )}
                       </div>
                       <div>
-                        <di(hostProfile?.nickname || hostProfile?.full_name) font-semibold text-foreground">
-                          {hostProfile?.full_name?.trim() || (
+                        <div className="text-base font-semibold text-foreground">
+                          {(hostProfile?.nickname || hostProfile?.full_name)?.trim() || (
                             <span className="text-muted-foreground">
                               Host Profile Unavailable
                             </span>
