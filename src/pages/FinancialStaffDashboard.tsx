@@ -293,11 +293,18 @@ export default function FinancialStaffDashboard() {
         <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="space-y-6">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="bookings">All Bookings</TabsTrigger>
+            <TabsTrigger value="bookings">
+              All Bookings
+              {bookings.filter(b => b.payment_status !== 'paid' && b.status === 'confirmed').length > 0 && (
+                <Badge variant="destructive" className="ml-1.5 px-1.5 py-0 text-xs h-5 min-w-[20px] rounded-full">
+                  {bookings.filter(b => b.payment_status !== 'paid' && b.status === 'confirmed').length}
+                </Badge>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="checkout">
               Cart Checkouts
               {checkoutRequests.filter(r => r.status === 'pending_confirmation').length > 0 && (
-                <Badge className="ml-2" variant="destructive">
+                <Badge variant="destructive" className="ml-1.5 px-1.5 py-0 text-xs h-5 min-w-[20px] rounded-full">
                   {checkoutRequests.filter(r => r.status === 'pending_confirmation').length}
                 </Badge>
               )}

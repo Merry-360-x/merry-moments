@@ -1518,12 +1518,27 @@ For support, contact: support@merry360x.com
             </TabsTrigger>
             <TabsTrigger value="bookings" className="gap-1">
               <Calendar className="w-4 h-4" /> Bookings
+              {bookings.filter(b => b.status === 'pending').length > 0 && (
+                <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-xs h-5 min-w-[20px] rounded-full">
+                  {bookings.filter(b => b.status === 'pending').length}
+                </Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="cart-checkouts" className="gap-1">
               <CreditCard className="w-4 h-4" /> Cart Checkouts
+              {checkoutRequests.filter(r => r.status === 'pending_confirmation').length > 0 && (
+                <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-xs h-5 min-w-[20px] rounded-full">
+                  {checkoutRequests.filter(r => r.status === 'pending_confirmation').length}
+                </Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="payments" className="gap-1">
               <CreditCard className="w-4 h-4" /> Payments
+              {bookings.filter(b => b.payment_status !== 'paid' && b.status === 'confirmed').length > 0 && (
+                <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-xs h-5 min-w-[20px] rounded-full">
+                  {bookings.filter(b => b.payment_status !== 'paid' && b.status === 'confirmed').length}
+                </Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="reviews" className="gap-1">
               <Star className="w-4 h-4" /> Reviews

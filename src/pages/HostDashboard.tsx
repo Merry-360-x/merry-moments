@@ -2227,7 +2227,14 @@ export default function HostDashboard() {
             <TabsTrigger value="properties">Properties ({(properties || []).length})</TabsTrigger>
             <TabsTrigger value="tours">Tours ({(tours || []).length})</TabsTrigger>
             <TabsTrigger value="transport">Transport ({(vehicles || []).length})</TabsTrigger>
-            <TabsTrigger value="bookings">Bookings ({(bookings || []).length})</TabsTrigger>
+            <TabsTrigger value="bookings">
+              Bookings ({(bookings || []).length})
+              {bookings.filter(b => b.status === 'pending').length > 0 && (
+                <Badge variant="destructive" className="ml-1.5 px-1.5 py-0 text-xs h-5 min-w-[20px] rounded-full">
+                  {bookings.filter(b => b.status === 'pending').length}
+                </Badge>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="financial">Financial Reports</TabsTrigger>
           </TabsList>
 
