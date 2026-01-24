@@ -378,7 +378,7 @@ export default function TourDetails() {
             )}
 
             {/* Cancellation Policy */}
-            {isPackage && (tour?.cancellation_policy || tour?.custom_cancellation_policy || nonRefundableItems.length > 0) && (
+            {isPackage && (tour?.cancellation_policy_type || tour?.cancellation_policy || tour?.custom_cancellation_policy_url || nonRefundableItems.length > 0) && (
               <Card className="border-t-4 border-t-primary">
                 <CardHeader>
                   <div className="flex items-center gap-2">
@@ -402,21 +402,81 @@ export default function TourDetails() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {tour?.cancellation_policy && (
+                  {tour?.cancellation_policy_type && tour.cancellation_policy_type !== 'custom' && (
+                    <div className="bg-muted p-4 rounded-md">
+                      <div className="text-sm font-semibold mb-2">
+                        {tour.cancellation_policy_type === 'non_refundable' && 'Non-Refundable Policy'}
+                        {tour.cancellation_policy_type === 'standard' && 'Standard Cancellation Policy'}
+                        {tour.cancellation_policy_type === 'flexible' && 'Flexible Cancellation Policy'}
+                        {tour.cancellation_policy_type === 'moderate' && 'Moderate Cancellation Policy'}
+                        {tour.cancellation_policy_type === 'strict' && 'Strict Cancellation Policy'}
+                        {tour.cancellation_policy_type === 'multiday_private' && 'Multi-day/Private Tour Policy'}
+                      </div>
+                      
+                      {tour.cancellation_policy_type === 'non_refundable' && (
+                        <p className="text-sm text-muted-foreground">This booking is non-refundable once confirmed. No cancellations or modifications allowed.</p>
+                      )}
+                      
+                      {tour.cancellation_policy_type === 'standard' && (
+                        <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                          <li>More than 72 hours before start: Full refund (excluding service fees)</li>
+                          <li>48-72 hours before start: 50% refund</li>
+                          <li>Less than 48 hours: No refund</li>
+                        </ul>
+                      )}
+                      
+                      {tour.cancellation_policy_type === 'flexible' && (
+                        <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                          <li>More than 24 hours before start: Full refund</li>
+                          <li>Less than 24 hours: No refund</li>
+                        </ul>
+                      )}
+                      
+                      {tour.cancellation_policy_type === 'moderate' && (
+                        <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                          <li>More than 5 days before start: Full refund</li>
+                          <li>2-5 days before start: 50% refund</li>
+                          <li>Less than 2 days: No refund</li>
+                        </ul>
+                      )}
+                      
+                      {tour.cancellation_policy_type === 'strict' && (
+                        <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                          <li>More than 7 days before start: 50% refund</li>
+                          <li>Less than 7 days: No refund</li>
+                        </ul>
+                      )}
+                      
+                      {tour.cancellation_policy_type === 'multiday_private' && (
+                        <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                          <li>More than 14 days: Full refund minus deposits</li>
+                          <li>7-14 days: 50% refund</li>
+                          <li>Less than 7 days: No refund</li>
+                        </ul>
+                      )}
+                    </div>
+                  )}
+                  
+                  {tour?.cancellation_policy_type === 'custom' && tour?.cancellation_policy && (
                     <div>
-                      <div className="text-sm font-medium text-foreground mb-1.5">Policy Type</div>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
+                      <div className="text-sm font-medium text-foreground mb-1.5">Custom Cancellation Policy</div>
+                      <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
                         {tour.cancellation_policy}
                       </p>
                     </div>
                   )}
                   
-                  {tour?.custom_cancellation_policy && (
+                  {tour?.custom_cancellation_policy_url && (
                     <div>
-                      <div className="text-sm font-medium text-foreground mb-1.5">Terms & Conditions</div>
-                      <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-                        {tour.custom_cancellation_policy}
-                      </p>
+                      <a 
+                        href={tour.custom_cancellation_policy_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+                      >
+                        <FileText className="w-4 h-4" />
+                        View Full Cancellation Policy (PDF)
+                      </a>
                     </div>
                   )}
                   

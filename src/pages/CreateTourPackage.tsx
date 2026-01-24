@@ -70,12 +70,18 @@ Some components are non-refundable once booked, including but not limited to:
   const [galleryDialogOpen, setGalleryDialogOpen] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [cancellationPolicyType, setCancellationPolicyType] = useState<string>("non_refundable");
+  const [customPolicyFile, setCustomPolicyFile] = useState<File | null>(null);
 
   const isFormValid = () => {
+    const policyValid = cancellationPolicyType === 'custom' 
+      ? (formData.cancellation_policy.trim().length >= 20 || customPolicyFile !== null)
+      : cancellationPolicyType !== '';
+    
     return formData.title.trim() && formData.category && formData.tour_type &&
       formData.description.trim().length >= 50 && formData.city.trim() &&
       formData.duration.trim() && formData.daily_itinerary.trim().length >= 100 &&
-      formData.meeting_point.trim() && formData.cancellation_policy.trim().length >= 20 &&
+      formData.meeting_point.trim() && policyValid &&
       parseFloat(formData.price_per_adult) > 0 && coverImage && pdfFile;
   };
 
@@ -90,6 +96,17 @@ Some components are non-refundable once booked, including but not limited to:
     }
   };
 
+  const handleCustomPolicyFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.type !== "application/pdf" || file.size > 5 * 1024 * 1024) {
+        toast({ title: "Invalid PDF", description: "Must be PDF under 5MB", variant: "destructive" });
+        return;
+      }
+      setCustomPolicyFile(file);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !isFormValid()) return;
@@ -100,6 +117,12 @@ Some components are non-refundable once booked, including but not limited to:
       if (pdfFile) {
         const { url } = await uploadFile(pdfFile, { folder: "tour-itineraries" });
         pdfUrl = url;
+      }
+
+      let customPolicyUrl = null;
+      if (customPolicyFile) {
+        const { url } = await uploadFile(customPolicyFile, { folder: "cancellation-policies" });
+        customPolicyUrl = url;
       }
 
       const packageData: Database['public']['Tables']['tour_packages']['Insert'] = {
@@ -116,7 +139,9 @@ Some components are non-refundable once booked, including but not limited to:
         excluded_services: formData.excluded_services.trim() || null,
         meeting_point: formData.meeting_point.trim(),
         what_to_bring: formData.what_to_bring.trim() || null,
-        cancellation_policy: formData.cancellation_policy.trim(),
+        cancellation_policy: cancellationPolicyType === 'custom' ? formData.cancellation_policy.trim() : null,
+        cancellation_policy_type: cancellationPolicyType,
+        custom_cancellation_policy_url: customPolicyUrl,
         price_per_adult: parseFloat(formData.price_per_adult),
         currency: formData.currency,
         min_guests: formData.min_guests,
@@ -302,16 +327,91 @@ Some components are non-refundable once booked, including but not limited to:
               />
             </div>
 
-            <div>
+            <div className="space-y-3">
               <Label className="text-sm font-normal mb-1.5 block">Cancellation Policy *</Label>
-              <Textarea
-                value={formData.cancellation_policy}
-                onChange={(e) => setFormData({ ...formData, cancellation_policy: e.target.value })}
-                placeholder="Cancellation policy details..."
-                rows={12}
-                className="font-mono text-xs"
-              />
-              <p className="text-xs text-muted-foreground mt-1">Default policy includes standard, multi-day, and non-refundable terms. Edit as needed.</p>
+              
+              <Select value={cancellationPolicyType} onValueChange={setCancellationPolicyType}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select cancellation policy" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="non_refundable">Non-Refundable (Recommended)</SelectItem>
+                  <SelectItem value="standard">Standard (72hr full refund, 48hr 50%)</SelectItem>
+                  <SelectItem value="flexible">Flexible (24hr full refund)</SelectItem>
+                  <SelectItem value="moderate">Moderate (5 days full, 2-5 days 50%)</SelectItem>
+                  <SelectItem value="strict">Strict (7 days 50%, less = no refund)</SelectItem>
+                  <SelectItem value="multiday_private">Multi-day/Private (14 days full, 7-14 days 50%)</SelectItem>
+                  <SelectItem value="custom">Custom Policy (Write your own or upload PDF)</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {cancellationPolicyType === 'non_refundable' && (
+                <div className="p-3 bg-muted rounded-md text-xs">
+                  <p className="font-semibold mb-1">Non-Refundable Policy:</p>
+                  <p>This booking is non-refundable once confirmed. No cancellations or modifications allowed. Customer agrees to these terms at checkout.</p>
+                </div>
+              )}
+
+              {cancellationPolicyType === 'standard' && (
+                <div className="p-3 bg-muted rounded-md text-xs">
+                  <p className="font-semibold mb-1">Standard Cancellation Policy:</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>More than 72 hours: Full refund (excl. service fees)</li>
+                    <li>48-72 hours: 50% refund</li>
+                    <li>Less than 48 hours: No refund</li>
+                  </ul>
+                </div>
+              )}
+
+              {cancellationPolicyType === 'flexible' && (
+                <div className="p-3 bg-muted rounded-md text-xs">
+                  <p className="font-semibold mb-1">Flexible Cancellation Policy:</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>More than 24 hours: Full refund</li>
+                    <li>Less than 24 hours: No refund</li>
+                  </ul>
+                </div>
+              )}
+
+              {cancellationPolicyType === 'custom' && (
+                <div className="space-y-3">
+                  <Textarea
+                    value={formData.cancellation_policy}
+                    onChange={(e) => setFormData({ ...formData, cancellation_policy: e.target.value })}
+                    placeholder="Write your custom cancellation policy (minimum 20 characters)..."
+                    rows={6}
+                    className="text-xs"
+                  />
+                  
+                  <div className="border-t pt-3">
+                    <Label className="text-xs font-normal mb-2 block">Or Upload Policy PDF (Optional)</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="file"
+                        accept="application/pdf"
+                        onChange={handleCustomPolicyFileChange}
+                        className="text-xs"
+                      />
+                      {customPolicyFile && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setCustomPolicyFile(null)}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                    {customPolicyFile && (
+                      <p className="text-xs text-green-600 mt-1">✓ {customPolicyFile.name}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-1">PDF under 5MB</p>
+                  </div>
+                </div>
+              )}
+
+              <p className="text-xs text-muted-foreground">Selected policy will be shown to guests at booking.</p>
             </div>
           </div>
 
