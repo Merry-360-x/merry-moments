@@ -20,7 +20,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 
 const categories = ["Nature", "Adventure", "Cultural", "Wildlife", "Historical", "City Tours", "Eco-Tourism", "Photography"];
-const difficultyLevels = ["Easy", "Moderate", "Challenging", "Difficult"];
 
 interface FormErrors {
   title?: string;
@@ -44,7 +43,6 @@ export default function CreateTour() {
     description: "",
     location: "",
     categories: [] as string[],
-    difficulty: "",
     duration_days: 1,
     max_participants: 10,
     price_per_person: 0,
@@ -130,7 +128,6 @@ export default function CreateTour() {
         location: formData.location.trim(),
         category: formData.categories[0] || null,
         categories: formData.categories.length > 1 ? formData.categories.slice(1) : null,
-        difficulty: formData.difficulty || null,
         duration_days: formData.duration_days || null,
         max_group_size: formData.max_participants || null,
         price_per_person: formData.price_per_person,
@@ -236,16 +233,6 @@ export default function CreateTour() {
                   className={cn("h-10", errors.location && "border-destructive")}
                 />
                 {errors.location && <p className="text-xs text-destructive mt-1">{errors.location}</p>}
-              </div>
-
-              <div>
-                <Label className="text-sm font-normal mb-1.5 block">Difficulty</Label>
-                <Select value={formData.difficulty} onValueChange={(v) => setFormData({ ...formData, difficulty: v })}>
-                  <SelectTrigger className="h-10"><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    {difficultyLevels.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                  </SelectContent>
-                </Select>
               </div>
             </div>
           </div>
