@@ -2934,8 +2934,8 @@ For support, contact: support@merry360x.com
                   <TableBody>
                     {reviews.map((r) => (
                       <TableRow key={r.id} className={r.is_hidden ? "opacity-50" : ""}>
-                        <TableCell className="font-mono text-xs">{r.property_id.slice(0, 8)}...</TableCell>
-                        <TableCell className="font-mono text-xs">{r.user_id.slice(0, 8)}...</TableCell>
+                        <TableCell className="font-mono text-xs">{r.property_id?.slice(0, 8) || 'N/A'}...</TableCell>
+                        <TableCell className="font-mono text-xs">{r.reviewer_id?.slice(0, 8) || 'N/A'}...</TableCell>
                         <TableCell>
                           <span className="flex items-center gap-1">
                             <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
@@ -3021,7 +3021,7 @@ For support, contact: support@merry360x.com
                           </div>
                         )}
                         <p className="text-xs text-muted-foreground mt-2">
-                          {new Date(t.created_at).toLocaleString()} · User: {t.user_id.slice(0, 8)}...
+                          {new Date(t.created_at).toLocaleString()} · User: {t.user_id?.slice(0, 8) || 'Guest'}...
                         </p>
                       </div>
                       <div className="flex gap-2">
@@ -3112,7 +3112,7 @@ For support, contact: support@merry360x.com
                   {blacklist.map((b) => (
                     <div key={b.id} className="flex items-center justify-between p-3 border rounded">
                       <div>
-                        <p className="text-sm font-mono">{b.user_id.slice(0, 12)}...</p>
+                        <p className="text-sm font-mono">{b.user_id?.slice(0, 12) || 'Unknown'}...</p>
                         <p className="text-xs text-muted-foreground">{b.reason}</p>
                       </div>
                       <Button size="sm" variant="outline" onClick={() => removeFromBlacklist(b.id)}>
