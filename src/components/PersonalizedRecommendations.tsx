@@ -115,26 +115,42 @@ export function PersonalizedRecommendations({
     <div className={className}>
       {/* Properties recommendations */}
       {properties.length > 0 && (
-        <div className="mb-12">
-          <div className="flex items-center gap-3 mb-6">
-            <Sparkles className="w-6 h-6 text-primary" />
-            <h2 className="text-2xl font-bold">
+        <div className="mb-16">
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="h-1 w-12 bg-gradient-to-r from-primary to-primary/50 rounded-full" />
+              <Sparkles className="w-5 h-5 text-primary/80" />
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent">
               {title || (user ? 'Recommended For You' : 'Popular Stays')}
             </h2>
+            {user && (
+              <p className="text-sm text-muted-foreground mt-2">Handpicked based on your preferences</p>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {properties.map((property) => (
-              <div key={property.id} className="relative">
-                <PropertyCard {...mapToPropertyProps(property)} />
+              <div 
+                key={property.id} 
+                className="group relative overflow-hidden rounded-2xl transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl"
+              >
+                <div className="[&>div]:rounded-2xl [&>div]:border-0 [&>div]:shadow-none [&>div]:hover:shadow-none [&_img]:object-cover [&_img]:h-full">
+                  <PropertyCard {...mapToPropertyProps(property)} />
+                </div>
                 {property.reasons && property.reasons.length > 0 && (
-                  <div className="absolute top-4 right-4 z-10">
-                    <Badge variant="secondary" className="bg-primary/90 text-primary-foreground">
-                      <TrendingUp className="w-3 h-3 mr-1" />
+                  <div className="absolute top-3 right-3 z-10">
+                    <Badge 
+                      variant="secondary" 
+                      className="bg-white/95 dark:bg-gray-900/95 text-gray-900 dark:text-white backdrop-blur-sm border-0 shadow-lg text-xs py-1 px-2.5 font-medium"
+                    >
+                      <TrendingUp className="w-3 h-3 mr-1.5" />
                       {property.reasons[0]}
                     </Badge>
                   </div>
                 )}
+                {/* Gradient overlay on hover */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-2xl" />
               </div>
             ))}
           </div>
@@ -144,25 +160,41 @@ export function PersonalizedRecommendations({
       {/* Tours recommendations */}
       {tours.length > 0 && (
         <div>
-          <div className="flex items-center gap-3 mb-6">
-            <Heart className="w-6 h-6 text-primary" />
-            <h2 className="text-2xl font-bold">
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="h-1 w-12 bg-gradient-to-r from-rose-500 to-rose-300 rounded-full" />
+              <Heart className="w-5 h-5 text-rose-500/80" />
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent">
               {user ? 'Tours You Might Love' : 'Popular Tours'}
             </h2>
+            {user && (
+              <p className="text-sm text-muted-foreground mt-2">Curated adventures just for you</p>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {tours.map((tour) => (
-              <div key={tour.id} className="relative">
-                <TourPromoCard {...mapToTourProps(tour)} />
+              <div 
+                key={tour.id} 
+                className="group relative overflow-hidden rounded-2xl transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl"
+              >
+                <div className="[&>a]:rounded-2xl [&>a]:border-0 [&>a]:shadow-none [&>a]:hover:shadow-none [&_img]:object-cover [&_img]:h-full">
+                  <TourPromoCard {...mapToTourProps(tour)} />
+                </div>
                 {tour.reasons && tour.reasons.length > 0 && (
-                  <div className="absolute top-4 right-4 z-10">
-                    <Badge variant="secondary" className="bg-primary/90 text-primary-foreground">
-                      <TrendingUp className="w-3 h-3 mr-1" />
+                  <div className="absolute top-3 right-3 z-10">
+                    <Badge 
+                      variant="secondary" 
+                      className="bg-white/95 dark:bg-gray-900/95 text-gray-900 dark:text-white backdrop-blur-sm border-0 shadow-lg text-xs py-1 px-2.5 font-medium"
+                    >
+                      <TrendingUp className="w-3 h-3 mr-1.5" />
                       {tour.reasons[0]}
                     </Badge>
                   </div>
                 )}
+                {/* Gradient overlay on hover */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-2xl" />
               </div>
             ))}
           </div>
