@@ -122,7 +122,7 @@ const fetchTourPackages = async () => {
     const { data, error } = await supabase
       .from("tour_packages")
       .select("*")
-      .eq("is_published", true)
+      .eq("status", "approved")
       .order("created_at", { ascending: false })
       .limit(16);
       

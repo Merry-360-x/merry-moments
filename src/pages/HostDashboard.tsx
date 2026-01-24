@@ -239,6 +239,7 @@ export default function HostDashboard() {
   const { user, isHost, isLoading: authLoading, rolesLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const [tab, setTab] = useState("overview");
   const [isLoading, setIsLoading] = useState(true);
@@ -463,7 +464,7 @@ export default function HostDashboard() {
         bookingQueries.push(
           supabase
             .from("bookings")
-            .select("*, tours(title)")
+            .select("*, tour_packages(title)")
             .eq("booking_type", "tour")
             .in("tour_id", tourPackageIds)
             .order("created_at", { ascending: false })
