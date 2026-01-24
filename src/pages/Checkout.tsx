@@ -361,7 +361,7 @@ export default function Checkout() {
         } else if (item.item_type === "tour") {
           const { data: tour } = await supabase
             .from("tour_packages")
-            .select("host_id, price_per_adult, currency")
+            .select("host_id, price_per_adult, currency, group_discount_6_10, group_discount_11_15, group_discount_16_plus")
             .eq("id", String(item.reference_id))
             .maybeSingle();
           
@@ -369,7 +369,20 @@ export default function Checkout() {
             bookingPayload.tour_id = String(item.reference_id);
             bookingPayload.host_id = tour.host_id;
             bookingPayload.currency = tour.currency || "RWF";
-            bookingPayload.total_price = (tour.price_per_adult || 0) * bookingPayload.guests_count;
+            
+            // Apply group discounts
+            let pricePerPerson = tour.price_per_adult || 0;
+            const guestCount = bookingPayload.guests_count;
+            
+            if (guestCount >= 16 && tour.group_discount_16_plus) {
+              pricePerPerson = pricePerPerson * (1 - tour.group_discount_16_plus / 100);
+            } else if (guestCount >= 11 && tour.group_discount_11_15) {
+              pricePerPerson = pricePerPerson * (1 - tour.group_discount_11_15 / 100);
+            } else if (guestCount >= 6 && tour.group_discount_6_10) {
+              pricePerPerson = pricePerPerson * (1 - tour.group_discount_6_10 / 100);
+            }
+            
+            bookingPayload.total_price = pricePerPerson * guestCount;
           }
         } else if (item.item_type === "transport") {
           const { data: vehicle } = await supabase

@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useFavorites } from "@/hooks/useFavorites";
-import { ArrowLeft, ChevronLeft, ChevronRight, Heart, User } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Heart, Star, User } from "lucide-react";
 import { amenityByValue } from "@/lib/amenities";
 import PropertyCard from "@/components/PropertyCard";
 import { formatMoney } from "@/lib/money";
@@ -944,7 +944,18 @@ export default function PropertyDetails() {
                     {topReviews.map((r) => (
                       <div key={r.id} className="border border-border rounded-lg p-4">
                         <div className="flex items-center justify-between">
-                          <div className="text-sm font-medium text-foreground">{r.rating} / 5</div>
+                          <div className="flex items-center gap-1">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <Star
+                                key={star}
+                                className={`w-4 h-4 ${
+                                  star <= r.rating
+                                    ? "fill-yellow-400 text-yellow-400"
+                                    : "fill-gray-200 text-gray-200 dark:fill-gray-700 dark:text-gray-700"
+                                }`}
+                              />
+                            ))}
+                          </div>
                           <div className="text-xs text-muted-foreground">
                             {new Date(r.created_at).toLocaleDateString()}
                           </div>

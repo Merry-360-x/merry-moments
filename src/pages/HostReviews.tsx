@@ -4,6 +4,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Star } from "lucide-react";
 
 type HostProfile = {
   user_id: string;
@@ -104,7 +105,18 @@ export default function HostReviews() {
             {reviews.map((r) => (
               <div key={r.id} className="bg-card rounded-xl shadow-card p-5">
                 <div className="flex items-center justify-between gap-3">
-                  <div className="text-sm font-semibold text-foreground">{r.rating} / 5</div>
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star
+                        key={star}
+                        className={`w-4 h-4 ${
+                          star <= r.rating
+                            ? "fill-yellow-400 text-yellow-400"
+                            : "fill-gray-200 text-gray-200 dark:fill-gray-700 dark:text-gray-700"
+                        }`}
+                      />
+                    ))}
+                  </div>
                   <div className="text-xs text-muted-foreground">
                     {new Date(r.created_at).toLocaleDateString()}
                   </div>

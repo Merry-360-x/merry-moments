@@ -62,6 +62,9 @@ Some components are non-refundable once booked, including but not limited to:
     currency: "RWF",
     min_guests: 1,
     max_guests: 10,
+    group_discount_6_10: 0,
+    group_discount_11_15: 0,
+    group_discount_16_plus: 0,
   });
 
   const [coverImage, setCoverImage] = useState<string>("");
@@ -141,11 +144,13 @@ Some components are non-refundable once booked, including but not limited to:
         what_to_bring: formData.what_to_bring.trim() || null,
         cancellation_policy: cancellationPolicyType === 'custom' ? formData.cancellation_policy.trim() : null,
         cancellation_policy_type: cancellationPolicyType,
-        custom_cancellation_policy_url: customPolicyUrl,
         price_per_adult: parseFloat(formData.price_per_adult),
         currency: formData.currency,
         min_guests: formData.min_guests,
         max_guests: formData.max_guests,
+        group_discount_6_10: formData.group_discount_6_10,
+        group_discount_11_15: formData.group_discount_11_15,
+        group_discount_16_plus: formData.group_discount_16_plus,
         cover_image: coverImage,
         gallery_images: galleryImages.length > 0 ? galleryImages : null,
         itinerary_pdf_url: pdfUrl,
@@ -489,6 +494,55 @@ Some components are non-refundable once booked, including but not limited to:
                   min={formData.min_guests}
                   className="h-10"
                 />
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Group Discounts (Optional)</Label>
+              <p className="text-xs text-muted-foreground">Offer discounts for larger groups to attract more bookings</p>
+              
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-xs font-normal mb-1.5 block">6-10 people (%)</Label>
+                  <Input
+                    type="number"
+                    value={formData.group_discount_6_10}
+                    onChange={(e) => setFormData({ ...formData, group_discount_6_10: parseFloat(e.target.value) || 0 })}
+                    min="0"
+                    max="50"
+                    step="1"
+                    placeholder="0"
+                    className="h-10"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs font-normal mb-1.5 block">11-15 people (%)</Label>
+                  <Input
+                    type="number"
+                    value={formData.group_discount_11_15}
+                    onChange={(e) => setFormData({ ...formData, group_discount_11_15: parseFloat(e.target.value) || 0 })}
+                    min="0"
+                    max="50"
+                    step="1"
+                    placeholder="0"
+                    className="h-10"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs font-normal mb-1.5 block">16+ people (%)</Label>
+                  <Input
+                    type="number"
+                    value={formData.group_discount_16_plus}
+                    onChange={(e) => setFormData({ ...formData, group_discount_16_plus: parseFloat(e.target.value) || 0 })}
+                    min="0"
+                    max="50"
+                    step="1"
+                    placeholder="0"
+                    className="h-10"
+                  />
+                </div>
               </div>
             </div>
           </div>
