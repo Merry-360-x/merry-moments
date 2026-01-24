@@ -1212,20 +1212,79 @@ export default function HostDashboard() {
     const [form, setForm] = useState(tour);
     const [uploading, setUploading] = useState(false);
     const [pdfFile, setPdfFile] = useState<File | null>(null);
+    const [newImages, setNewImages] = useState<string[]>([]);
+    const [removedImages, setRemovedImages] = useState<string[]>([]);
 
     // Sync form state when tour prop changes or when exiting edit mode
     useEffect(() => {
       setForm(tour);
+      setNewImages([]);
+      setRemovedImages([]);
     }, [tour, isEditing]);
+
+    const handleAddImage = async (file: File) => {
+      try {
+        setUploading(true);
+        const { uploadFile } = await import("@/lib/uploads");
+        const { url } = await uploadFile(file, { folder: "tour-images" });
+        setNewImages(prev => [...prev, url]);
+        toast({ title: "Image uploaded" });
+      } catch (e) {
+        toast({ variant: "destructive", title: "Upload failed", description: String(e) });
+      } finally {
+        setUploading(false);
+      }
+    };
+
+    const handleRemoveImage = (url: string) => {
+      if (form.images?.includes(url)) {
+        setRemovedImages(prev => [...prev, url]);
+      } else {
+        setNewImages(prev => prev.filter(img => img !== url));
+      }
+    };
+
+    const getCurrentImages = () => {
+      const existingImages = (form.images || []).filter(img => !removedImages.includes(img));
+      return [...existingImages, ...newImages];
+    };
 
     const handleSave = async () => {
       let updates: any = {
         title: form.title,
-        location: form.location,
+        description: form.description,
         price_per_person: form.price_per_person,
         currency: form.currency,
-        description: form.description,
       };
+
+      // Common fields for both tours and packages
+      if (tour.source === "tours") {
+        updates.location = form.location;
+        updates.duration_days = form.duration_days;
+        updates.max_participants = form.max_participants;
+        updates.categories = form.categories;
+      } else {
+        // Tour package specific fields
+        updates.city = form.city;
+        updates.duration = form.duration;
+        updates.category = form.category;
+        updates.tour_type = form.tour_type;
+        updates.daily_itinerary = form.daily_itinerary;
+        updates.included_services = form.included_services;
+        updates.excluded_services = form.excluded_services;
+        updates.meeting_point = form.meeting_point;
+        updates.what_to_bring = form.what_to_bring;
+        updates.cancellation_policy = form.cancellation_policy;
+        updates.min_guests = form.min_guests;
+        updates.max_guests = form.max_guests;
+        updates.group_discount_6_10 = form.group_discount_6_10 || 0;
+        updates.group_discount_11_15 = form.group_discount_11_15 || 0;
+        updates.group_discount_16_plus = form.group_discount_16_plus || 0;
+      }
+
+      // Update images array
+      const finalImages = getCurrentImages();
+      updates.images = finalImages;
 
       // Upload new PDF if selected
       if (pdfFile) {
@@ -1246,29 +1305,76 @@ export default function HostDashboard() {
       if (success) {
         setEditingTourId(null);
         setPdfFile(null);
+        setNewImages([]);
+        setRemovedImages([]);
       }
     };
 
+    const isTourPackage = tour.source === "tour_packages";
+    const displayImages = isEditing ? getCurrentImages() : (form.images || []);
+
     return (
       <Card className="overflow-hidden">
-        <div className="relative h-32 bg-muted flex items-center justify-center">
-          {form.images?.[0] ? (
-            <img src={form.images[0]} alt={form.title} className="w-full h-full object-cover" />
-          ) : (
-            <MapPin className="w-8 h-8 text-muted-foreground" />
-          )}
-          <div className="absolute top-2 right-2">
-            {tour.source === "tour_packages" ? (
-              <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">Package</Badge>
+        {!isEditing && (
+          <div className="relative h-32 bg-muted flex items-center justify-center">
+            {displayImages[0] ? (
+              <img src={displayImages[0]} alt={form.title} className="w-full h-full object-cover" />
             ) : (
-              <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">Tour</Badge>
+              <MapPin className="w-8 h-8 text-muted-foreground" />
             )}
+            <div className="absolute top-2 right-2">
+              {isTourPackage ? (
+                <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">Package</Badge>
+              ) : (
+                <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">Tour</Badge>
+              )}
+            </div>
           </div>
-        </div>
+        )}
         
         <div className="p-4">
           {isEditing ? (
-            <div className="space-y-3">
+            <div className="space-y-3 max-h-[600px] overflow-y-auto">
+              {/* Badge */}
+              <div className="flex justify-between items-center mb-2">
+                <Badge variant="outline" className={isTourPackage ? "bg-purple-50 text-purple-700" : "bg-blue-50 text-blue-700"}>
+                  {isTourPackage ? "Tour Package" : "Tour"}
+                </Badge>
+              </div>
+
+              {/* Images */}
+              <div>
+                <Label className="text-xs">Images</Label>
+                <div className="mt-1 space-y-2">
+                  {displayImages.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2">
+                      {displayImages.map((img, idx) => (
+                        <div key={idx} className="relative group">
+                          <img src={img} alt="" className="w-full h-20 object-cover rounded" />
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
+                            onClick={() => handleRemoveImage(img)}
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => e.target.files?.[0] && handleAddImage(e.target.files[0])}
+                    className="text-xs h-8"
+                    disabled={uploading}
+                  />
+                </div>
+              </div>
+
+              {/* Basic Info */}
               <div>
                 <Label className="text-xs">Title</Label>
                 <Input
@@ -1277,14 +1383,7 @@ export default function HostDashboard() {
                   className="mt-1 h-8 text-sm"
                 />
               </div>
-              <div>
-                <Label className="text-xs">Location</Label>
-                <Input
-                  value={form.location}
-                  onChange={(e) => setForm({ ...form, location: e.target.value })}
-                  className="mt-1 h-8 text-sm"
-                />
-              </div>
+
               <div>
                 <Label className="text-xs">Description</Label>
                 <Textarea
@@ -1294,9 +1393,266 @@ export default function HostDashboard() {
                   rows={3}
                 />
               </div>
+
+              {/* Tour vs Package specific fields */}
+              {!isTourPackage ? (
+                <>
+                  <div>
+                    <Label className="text-xs">Location</Label>
+                    <Input
+                      value={form.location || ''}
+                      onChange={(e) => setForm({ ...form, location: e.target.value })}
+                      className="mt-1 h-8 text-sm"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs">Duration (days)</Label>
+                      <Input
+                        type="number"
+                        value={form.duration_days || 1}
+                        onChange={(e) => setForm({ ...form, duration_days: parseInt(e.target.value) || 1 })}
+                        className="mt-1 h-8 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Max Participants</Label>
+                      <Input
+                        type="number"
+                        value={form.max_participants || 10}
+                        onChange={(e) => setForm({ ...form, max_participants: parseInt(e.target.value) || 10 })}
+                        className="mt-1 h-8 text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Categories</Label>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {["Nature", "Adventure", "Cultural", "Wildlife", "Historical", "City Tours", "Eco-Tourism", "Photography"].map(cat => (
+                        <label key={cat} className="flex items-center gap-1 text-xs bg-muted px-2 py-1 rounded cursor-pointer hover:bg-muted/80">
+                          <input
+                            type="checkbox"
+                            checked={(form.categories || []).includes(cat)}
+                            onChange={(e) => {
+                              const cats = form.categories || [];
+                              setForm({
+                                ...form,
+                                categories: e.target.checked ? [...cats, cat] : cats.filter(c => c !== cat)
+                              });
+                            }}
+                            className="w-3 h-3"
+                          />
+                          {cat}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs">Category</Label>
+                      <Select value={form.category || ''} onValueChange={(v) => setForm({ ...form, category: v })}>
+                        <SelectTrigger className="mt-1 h-8 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {["Cultural", "Adventure", "Wildlife", "City Tours", "Hiking", "Photography", "Historical", "Eco-Tourism"].map(c => (
+                            <SelectItem key={c} value={c}>{c}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Tour Type</Label>
+                      <Select value={form.tour_type || ''} onValueChange={(v) => setForm({ ...form, tour_type: v })}>
+                        <SelectTrigger className="mt-1 h-8 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Private">Private</SelectItem>
+                          <SelectItem value="Group">Group</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs">City</Label>
+                      <Input
+                        value={form.city || ''}
+                        onChange={(e) => setForm({ ...form, city: e.target.value })}
+                        className="mt-1 h-8 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Duration</Label>
+                      <Input
+                        value={form.duration || ''}
+                        onChange={(e) => setForm({ ...form, duration: e.target.value })}
+                        placeholder="3 Days, 2 Nights"
+                        className="mt-1 h-8 text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Daily Itinerary</Label>
+                    <Textarea
+                      value={form.daily_itinerary || ''}
+                      onChange={(e) => setForm({ ...form, daily_itinerary: e.target.value })}
+                      className="mt-1 text-sm"
+                      rows={3}
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Included Services</Label>
+                    <Textarea
+                      value={form.included_services || ''}
+                      onChange={(e) => setForm({ ...form, included_services: e.target.value })}
+                      className="mt-1 text-sm"
+                      rows={2}
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Excluded Services</Label>
+                    <Textarea
+                      value={form.excluded_services || ''}
+                      onChange={(e) => setForm({ ...form, excluded_services: e.target.value })}
+                      className="mt-1 text-sm"
+                      rows={2}
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Meeting Point</Label>
+                    <Input
+                      value={form.meeting_point || ''}
+                      onChange={(e) => setForm({ ...form, meeting_point: e.target.value })}
+                      className="mt-1 h-8 text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">What to Bring</Label>
+                    <Textarea
+                      value={form.what_to_bring || ''}
+                      onChange={(e) => setForm({ ...form, what_to_bring: e.target.value })}
+                      className="mt-1 text-sm"
+                      rows={2}
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Cancellation Policy</Label>
+                    <Textarea
+                      value={form.cancellation_policy || ''}
+                      onChange={(e) => setForm({ ...form, cancellation_policy: e.target.value })}
+                      className="mt-1 text-sm"
+                      rows={3}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs">Min Guests</Label>
+                      <Input
+                        type="number"
+                        value={form.min_guests || 1}
+                        onChange={(e) => setForm({ ...form, min_guests: parseInt(e.target.value) || 1 })}
+                        className="mt-1 h-8 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Max Guests</Label>
+                      <Input
+                        type="number"
+                        value={form.max_guests || 10}
+                        onChange={(e) => setForm({ ...form, max_guests: parseInt(e.target.value) || 10 })}
+                        className="mt-1 h-8 text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Group Discounts (%)</Label>
+                    <div className="grid grid-cols-3 gap-2 mt-1">
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">6-10 guests</Label>
+                        <Input
+                          type="number"
+                          value={form.group_discount_6_10 || 0}
+                          onChange={(e) => setForm({ ...form, group_discount_6_10: parseFloat(e.target.value) || 0 })}
+                          className="h-8 text-sm"
+                          min="0"
+                          max="50"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">11-15 guests</Label>
+                        <Input
+                          type="number"
+                          value={form.group_discount_11_15 || 0}
+                          onChange={(e) => setForm({ ...form, group_discount_11_15: parseFloat(e.target.value) || 0 })}
+                          className="h-8 text-sm"
+                          min="0"
+                          max="50"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">16+ guests</Label>
+                        <Input
+                          type="number"
+                          value={form.group_discount_16_plus || 0}
+                          onChange={(e) => setForm({ ...form, group_discount_16_plus: parseFloat(e.target.value) || 0 })}
+                          className="h-8 text-sm"
+                          min="0"
+                          max="50"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Update Itinerary PDF (Optional)</Label>
+                    <div className="mt-1 flex items-center gap-2">
+                      <Input
+                        type="file"
+                        accept="application/pdf"
+                        onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
+                        className="text-xs h-8"
+                      />
+                      {pdfFile && (
+                        <Button type="button" size="sm" variant="ghost" onClick={() => setPdfFile(null)}>
+                          <X className="w-3 h-3" />
+                        </Button>
+                      )}
+                    </div>
+                    {pdfFile && <p className="text-xs text-green-600 mt-1">✓ {pdfFile.name}</p>}
+                    {form.itinerary_pdf_url && !pdfFile && (
+                      <a 
+                        href={form.itinerary_pdf_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="text-xs text-primary hover:underline mt-1 inline-block"
+                      >
+                        View current PDF
+                      </a>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Price */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <Label className="text-xs">Price</Label>
+                  <Label className="text-xs">Price per Person</Label>
                   <Input
                     type="number"
                     value={form.price_per_person}
@@ -1318,39 +1674,9 @@ export default function HostDashboard() {
                   </Select>
                 </div>
               </div>
-              
-              {tour.source === 'tour_packages' && (
-                <div>
-                  <Label className="text-xs">Update Itinerary PDF (Optional)</Label>
-                  <div className="mt-1 flex items-center gap-2">
-                    <Input
-                      type="file"
-                      accept="application/pdf"
-                      onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
-                      className="text-xs h-8"
-                    />
-                    {pdfFile && (
-                      <Button type="button" size="sm" variant="ghost" onClick={() => setPdfFile(null)}>
-                        <X className="w-3 h-3" />
-                      </Button>
-                    )}
-                  </div>
-                  {pdfFile && <p className="text-xs text-green-600 mt-1">✓ {pdfFile.name}</p>}
-                  {form.itinerary_pdf_url && !pdfFile && (
-                    <a 
-                      href={form.itinerary_pdf_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="text-xs text-primary hover:underline mt-1 inline-block"
-                    >
-                      View current PDF
-                    </a>
-                  )}
-                </div>
-              )}
 
-              <div className="flex justify-end gap-2 pt-2">
-                <Button size="sm" variant="outline" onClick={() => { setEditingTourId(null); setPdfFile(null); }}>
+              <div className="flex justify-end gap-2 pt-2 border-t sticky bottom-0 bg-card">
+                <Button size="sm" variant="outline" onClick={() => { setEditingTourId(null); setPdfFile(null); setNewImages([]); setRemovedImages([]); }}>
                   <X className="w-3 h-3 mr-1" /> Cancel
                 </Button>
                 <Button size="sm" onClick={handleSave} disabled={uploading}>
@@ -1362,7 +1688,9 @@ export default function HostDashboard() {
           ) : (
             <>
               <h3 className="font-semibold mb-1">{tour.title}</h3>
-              <p className="text-sm text-muted-foreground">{tour.location}</p>
+              <p className="text-sm text-muted-foreground">
+                {isTourPackage ? `${tour.city || ''} • ${tour.duration || ''}` : tour.location}
+              </p>
               <div className="flex items-center justify-between mt-3">
                 <span className="text-primary font-bold">{formatMoney(form.price_per_person, form.currency || "RWF")}</span>
                 <div className="flex gap-1">
