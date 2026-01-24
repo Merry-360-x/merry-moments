@@ -4,11 +4,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
-import { Calendar, MapPin, Users, XCircle, Star } from "lucide-react";
+import { Calendar, MapPin, Users, XCircle, Star, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { formatMoneyWithConversion } from "@/lib/money";
@@ -18,22 +18,41 @@ import { extractNeighborhood } from "@/lib/location";
 import { useFxRates } from "@/hooks/useFxRates";
 import { usePreferences } from "@/hooks/usePreferences";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface Booking {
   id: string;
   property_id: string;
+  tour_id?: string | null;
+  transport_id?: string | null;
   check_in: string;
   check_out: string;
   guests_count: number;
   total_price: number;
   currency: string;
   status: string;
+  payment_status?: string | null;
+  payment_method?: string | null;
   created_at: string;
-  properties: {
+  properties?: {
     title: string;
     location: string;
     property_type: string;
     address?: string | null;
+    cancellation_policy?: string | null;
+  } | null;
+  tours?: {
+    title: string;
+    location: string;
+    cancellation_policy_type?: string | null;
+    custom_cancellation_policy?: string | null;
+  } | null;
+  tour_packages?: {
+    title: string;
+    city: string;
+    country: string;
+    cancellation_policy_type?: string | null;
+    custom_cancellation_policy?: string | null;
   } | null;
 }
 
@@ -51,6 +70,9 @@ const MyBookings = () => {
   const [reviewComment, setReviewComment] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
   const [reviewValidationError, setReviewValidationError] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [bookingToCancel, setBookingToCancel] = useState<Booking | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -64,7 +86,12 @@ const MyBookings = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("bookings")
-        .select("*, properties(title, location, property_type, address)")
+        .select(`
+          *, 
+          properties(title, location, property_type, address, cancellation_policy),
+          tours(title, location, cancellation_policy_type, custom_cancellation_policy),
+          tour_packages(title, city, country, cancellation_policy_type, custom_cancellation_policy)
+        `)
         .eq("guest_id", user!.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -86,6 +113,79 @@ const MyBookings = () => {
     },
     placeholderData: new Set(),
   });
+
+  const getCancellationPolicy = (booking: Booking): string => {
+    // Check for property cancellation policy
+    if (booking.properties?.cancellation_policy) {
+      return booking.properties.cancellation_policy;
+    }
+    
+    // Check for tour cancellation policy
+    if (booking.tours) {
+      if (booking.tours.cancellation_policy_type === 'custom' && booking.tours.custom_cancellation_policy) {
+        return booking.tours.custom_cancellation_policy;
+      }
+      return booking.tours.cancellation_policy_type || 'standard';
+    }
+    
+    // Check for tour package cancellation policy
+    if (booking.tour_packages) {
+      if (booking.tour_packages.cancellation_policy_type === 'custom' && booking.tour_packages.custom_cancellation_policy) {
+        return booking.tour_packages.custom_cancellation_policy;
+      }
+      return booking.tour_packages.cancellation_policy_type || 'standard_day';
+    }
+    
+    return 'fair';
+  };
+
+  const getPolicyDescription = (policyType: string): string => {
+    const policies: Record<string, string> = {
+      'flexible': 'Free cancellation up to 24 hours before check-in. After that, 50% refund.',
+      'moderate': 'Free cancellation up to 5 days before check-in. Cancellations within 5 days are non-refundable.',
+      'fair': 'Free cancellation up to 7 days before check-in. Cancellations within 7 days receive 50% refund.',
+      'strict': 'Free cancellation up to 14 days before check-in. Cancellations within 14 days are non-refundable.',
+      'standard': 'Free cancellation up to 72 hours before the tour. Cancellations within 72 hours are non-refundable.',
+      'standard_day': 'Free cancellation up to 72-48 hours before the tour. Cancellations within this period are non-refundable.',
+      'multiday_private': 'Free cancellation up to 14-7 days before the tour. Cancellations within this period are non-refundable.',
+      'non_refundable': 'This booking is non-refundable. No refunds will be issued for cancellations.',
+    };
+    return policies[policyType] || policyType;
+  };
+
+  const openCancelDialog = (booking: Booking) => {
+    setBookingToCancel(booking);
+    setCancelDialogOpen(true);
+  };
+
+  const confirmCancellation = async () => {
+    if (!bookingToCancel || !user) return;
+
+    setCancelling(true);
+    try {
+      const { error } = await supabase
+        .from("bookings")
+        .update({ status: "cancelled" })
+        .eq("id", bookingToCancel.id)
+        .eq("guest_id", user.id);
+
+      if (error) throw error;
+      
+      toast({ title: "Booking cancelled successfully" });
+      qc.invalidateQueries({ queryKey: ["bookings", user?.id] });
+      setCancelDialogOpen(false);
+      setBookingToCancel(null);
+    } catch (e) {
+      logError("bookings.cancel", e);
+      toast({
+        variant: "destructive",
+        title: t("common.error"),
+        description: uiErrorMessage(e, t("common.somethingWentWrong")),
+      });
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   const cancelBooking = async (id: string) => {
     if (!confirm(t("bookings.confirmCancel"))) return;
@@ -270,12 +370,12 @@ const MyBookings = () => {
                   </div>
                 </div>
 
-                {booking.status === "pending" && (
+                {(booking.status === "pending" || booking.status === "confirmed") && (
                   <div className="flex md:flex-col justify-end gap-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => cancelBooking(booking.id)}
+                      onClick={() => openCancelDialog(booking)}
                       className="gap-1"
                     >
                       <XCircle className="w-4 h-4" />
@@ -302,6 +402,93 @@ const MyBookings = () => {
           </div>
         )}
       </div>
+
+      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              Cancel Booking
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to cancel this booking?
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {bookingToCancel && (
+              <>
+                <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                  <h3 className="font-semibold">
+                    {bookingToCancel.properties?.title || 
+                     bookingToCancel.tours?.title || 
+                     bookingToCancel.tour_packages?.title || 
+                     'Booking'}
+                  </h3>
+                  <div className="text-sm text-muted-foreground space-y-1">
+                    <p className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      {new Date(bookingToCancel.check_in).toLocaleDateString()} - {new Date(bookingToCancel.check_out).toLocaleDateString()}
+                    </p>
+                    <p className="flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      {bookingToCancel.guests_count} guest{bookingToCancel.guests_count > 1 ? 's' : ''}
+                    </p>
+                  </div>
+                </div>
+
+                {bookingToCancel.payment_status === 'paid' && (
+                  <Alert variant="default" className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    <AlertTitle className="text-amber-900 dark:text-amber-100">Cancellation Policy</AlertTitle>
+                    <AlertDescription className="text-amber-800 dark:text-amber-200">
+                      <p className="font-semibold mb-2">
+                        {getCancellationPolicy(bookingToCancel).toUpperCase()} POLICY
+                      </p>
+                      <p className="text-sm">
+                        {getPolicyDescription(getCancellationPolicy(bookingToCancel))}
+                      </p>
+                      <p className="text-sm mt-2 font-medium">
+                        Please review the cancellation terms before proceeding. Refunds (if applicable) will be processed according to this policy.
+                      </p>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {bookingToCancel.payment_status !== 'paid' && (
+                  <Alert variant="default">
+                    <AlertDescription>
+                      This booking has not been paid yet. Cancelling will remove your reservation.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </>
+            )}
+
+            <div className="flex gap-3 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setCancelDialogOpen(false);
+                  setBookingToCancel(null);
+                }}
+                disabled={cancelling}
+                className="flex-1"
+              >
+                Keep Booking
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={confirmCancellation}
+                disabled={cancelling}
+                className="flex-1"
+              >
+                {cancelling ? "Cancelling..." : "Yes, Cancel Booking"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
         <DialogContent className="sm:max-w-md">
