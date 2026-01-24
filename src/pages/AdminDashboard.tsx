@@ -777,7 +777,7 @@ export default function AdminDashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("property_reviews")
-        .select("id, property_id, user_id, rating, comment, is_hidden, created_at")
+        .select("id, property_id, reviewer_id, rating, comment, is_hidden, created_at")
         .order("created_at", { ascending: false })
         .limit(300); // Increase limit
       if (error) {
