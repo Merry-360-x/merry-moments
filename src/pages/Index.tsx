@@ -21,7 +21,7 @@ const fetchLatestProperties = async () => {
     const { data, error } = await supabase
       .from("properties")
       .select(
-        "id, title, location, price_per_night, currency, property_type, rating, review_count, images, created_at, bedrooms, bathrooms, beds, max_guests, check_in_time, check_out_time, smoking_allowed, events_allowed, pets_allowed"
+        "id, title, location, price_per_night, price_per_person, currency, property_type, rating, review_count, images, created_at, bedrooms, bathrooms, beds, max_guests, check_in_time, check_out_time, smoking_allowed, events_allowed, pets_allowed"
       )
       .eq("is_published", true)
       .order("created_at", { ascending: false })
@@ -46,7 +46,7 @@ const fetchFeaturedProperties = async () => {
     const { data, error } = await supabase
       .from("properties")
       .select(
-        "id, title, location, price_per_night, currency, property_type, rating, review_count, images, created_at, bedrooms, bathrooms, beds, max_guests, check_in_time, check_out_time, smoking_allowed, events_allowed, pets_allowed"
+        "id, title, location, price_per_night, price_per_person, currency, property_type, rating, review_count, images, created_at, bedrooms, bathrooms, beds, max_guests, check_in_time, check_out_time, smoking_allowed, events_allowed, pets_allowed"
       )
       .eq("is_published", true)
       .order("created_at", { ascending: false })
@@ -70,7 +70,7 @@ const fetchTopRatedProperties = async () => {
     const { data, error } = await supabase
       .from("properties")
       .select(
-        "id, title, location, price_per_night, currency, property_type, rating, review_count, images, created_at, bedrooms, bathrooms, beds, max_guests, check_in_time, check_out_time, smoking_allowed, events_allowed, pets_allowed"
+        "id, title, location, price_per_night, price_per_person, currency, property_type, rating, review_count, images, created_at, bedrooms, bathrooms, beds, max_guests, check_in_time, check_out_time, smoking_allowed, events_allowed, pets_allowed"
       )
       .eq("is_published", true)
       .gte("rating", 3) // Lower rating threshold to show more results
@@ -424,6 +424,7 @@ const Index = () => {
                       rating={Number(property.rating) || 0}
                       reviews={property.review_count || 0}
                       price={Number(property.price_per_night)}
+                      pricePerPerson={(property as { price_per_person?: number | null }).price_per_person ?? null}
                       currency={property.currency}
                       type={property.property_type}
                       bedrooms={(property as { bedrooms?: number | null }).bedrooms ?? null}
@@ -495,6 +496,7 @@ const Index = () => {
                     rating={Number(property.rating) || 0}
                     reviews={property.review_count || 0}
                     price={Number(property.price_per_night)}
+                    pricePerPerson={(property as { price_per_person?: number | null }).price_per_person ?? null}
                     currency={property.currency}
                     type={property.property_type}
                     bedrooms={(property as { bedrooms?: number | null }).bedrooms ?? null}
@@ -557,6 +559,7 @@ const Index = () => {
                     rating={Number(property.rating) || 0}
                     reviews={property.review_count || 0}
                     price={Number(property.price_per_night)}
+                    pricePerPerson={(property as { price_per_person?: number | null }).price_per_person ?? null}
                     currency={property.currency}
                     type={property.property_type}
                     bedrooms={(property as { bedrooms?: number | null }).bedrooms ?? null}

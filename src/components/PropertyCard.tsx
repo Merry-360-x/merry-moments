@@ -19,6 +19,7 @@ export interface PropertyCardProps {
   rating: number;
   reviews: number;
   price: number;
+  pricePerPerson?: number | null;
   currency?: string;
   type: string;
   bedrooms?: number | null;
@@ -42,6 +43,7 @@ const PropertyCard = ({
   rating,
   reviews,
   price,
+  pricePerPerson,
   currency = "RWF",
   type,
   images,
@@ -207,11 +209,21 @@ const PropertyCard = ({
             </div>
           </div>
         ) : null}
-        <div className="flex items-baseline gap-1">
-          <span className="text-lg font-bold text-foreground">
-            {formatMoneyWithConversion(price, originalCurrency, preferredCurrency, usdRates)}
-          </span>
-          <span className="text-sm text-muted-foreground">{t("common.perNight")}</span>
+        <div className="space-y-1">
+          <div className="flex items-baseline gap-1">
+            <span className="text-lg font-bold text-foreground">
+              {formatMoneyWithConversion(price, originalCurrency, preferredCurrency, usdRates)}
+            </span>
+            <span className="text-sm text-muted-foreground">{t("common.perNight")}</span>
+          </div>
+          {pricePerPerson && pricePerPerson > 0 ? (
+            <div className="flex items-baseline gap-1">
+              <span className="text-sm font-semibold text-foreground">
+                {formatMoneyWithConversion(pricePerPerson, originalCurrency, preferredCurrency, usdRates)}
+              </span>
+              <span className="text-xs text-muted-foreground">per person</span>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

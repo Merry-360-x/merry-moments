@@ -275,6 +275,7 @@ export default function HostDashboard() {
     property_type: "Apartment",
     description: "",
     price_per_night: 50000,
+    price_per_person: null as number | null,
     currency: "RWF",
     max_guests: 2,
     bedrooms: 1,
@@ -527,6 +528,7 @@ export default function HostDashboard() {
       property_type: propertyForm.property_type || "Apartment",
       description: propertyForm.description.trim() || null,
       price_per_night: propertyForm.price_per_night || 50000,
+      price_per_person: propertyForm.price_per_person || null,
       currency: propertyForm.currency || "RWF",
       max_guests: propertyForm.max_guests || 2,
       bedrooms: propertyForm.bedrooms || 1,
@@ -599,6 +601,7 @@ export default function HostDashboard() {
       property_type: "Apartment",
       description: "",
       price_per_night: 50000,
+      price_per_person: null,
       currency: "RWF",
       max_guests: 2,
       bedrooms: 1,
@@ -901,6 +904,7 @@ export default function HostDashboard() {
         location: form.location,
         property_type: form.property_type,
         price_per_night: form.price_per_night,
+        price_per_person: form.price_per_person || null,
         currency: form.currency,
         max_guests: form.max_guests,
         bedrooms: form.bedrooms,
@@ -966,12 +970,27 @@ export default function HostDashboard() {
                 rows={3}
                 className="resize-none"
               />
-              <div className="grid grid-cols-2 gap-2">
-                <Input type="number" value={form.price_per_night} onChange={(e) => setForm((f) => ({ ...f, price_per_night: Number(e.target.value) }))} />
-                <Select value={form.currency || "RWF"} onValueChange={(v) => setForm((f) => ({ ...f, currency: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{currencies.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
-                </Select>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <Label className="text-xs">Price/Night</Label>
+                  <Input type="number" value={form.price_per_night} onChange={(e) => setForm((f) => ({ ...f, price_per_night: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <Label className="text-xs">Price/Person</Label>
+                  <Input 
+                    type="number" 
+                    value={form.price_per_person || ''} 
+                    onChange={(e) => setForm((f) => ({ ...f, price_per_person: e.target.value ? Number(e.target.value) : null }))} 
+                    placeholder="Optional"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Currency</Label>
+                  <Select value={form.currency || "RWF"} onValueChange={(v) => setForm((f) => ({ ...f, currency: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{currencies.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
               </div>
               <div>
                 <Label className="text-xs">Images ({(form.images || []).length}) - Drag to reorder, first image is the cover</Label>
@@ -1390,7 +1409,7 @@ export default function HostDashboard() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <Label className="text-sm font-medium">Price per Night</Label>
                   <Input
@@ -1398,6 +1417,17 @@ export default function HostDashboard() {
                     value={propertyForm.price_per_night}
                     onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_night: Number(e.target.value) }))}
                     min="0"
+                    className="mt-1.5"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Price per Person</Label>
+                  <Input
+                    type="number"
+                    value={propertyForm.price_per_person || ''}
+                    onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_person: e.target.value ? Number(e.target.value) : null }))}
+                    min="0"
+                    placeholder="Optional"
                     className="mt-1.5"
                   />
                 </div>
@@ -1584,7 +1614,7 @@ export default function HostDashboard() {
                 </div>
 
                 <div className="space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
                     <div>
                       <Label className="text-base font-medium">Price per Night *</Label>
                   <Input
@@ -1592,6 +1622,17 @@ export default function HostDashboard() {
                         min={1}
                         value={propertyForm.price_per_night}
                         onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_night: Number(e.target.value) }))}
+                        className="mt-2 text-lg py-6"
+                  />
+                </div>
+                <div>
+                      <Label className="text-base font-medium">Price per Person</Label>
+                  <Input
+                        type="number"
+                        min={0}
+                        value={propertyForm.price_per_person || ''}
+                        onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_person: e.target.value ? Number(e.target.value) : null }))}
+                        placeholder="Optional"
                         className="mt-2 text-lg py-6"
                   />
                 </div>
