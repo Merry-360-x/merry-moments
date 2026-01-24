@@ -86,13 +86,13 @@ Some components are non-refundable once booked, including but not limited to:
   const [galleryDialogOpen, setGalleryDialogOpen] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [cancellationPolicyType, setCancellationPolicyType] = useState<string>("standard");
+  const [selectedPolicies, setSelectedPolicies] = useState<string[]>([]);
+  const [customPolicyText, setCustomPolicyText] = useState("");
   const [customPolicyFile, setCustomPolicyFile] = useState<File | null>(null);
 
   const isFormValid = () => {
-    const policyValid = cancellationPolicyType === 'custom' 
-      ? (formData.cancellation_policy.trim().length >= 20 || customPolicyFile !== null)
-      : cancellationPolicyType !== '';
+    const policyValid = selectedPolicies.length > 0 && 
+      (!selectedPolicies.includes('custom') || (customPolicyText.trim().length >= 20 || customPolicyFile !== null));
     
     return formData.title.trim() && formData.categories.length > 0 && formData.tour_type &&
       formData.description.trim().length >= 50 && formData.city.trim() &&
@@ -141,6 +141,26 @@ Some components are non-refundable once booked, including but not limited to:
         customPolicyUrl = url;
       }
 
+      // Build combined cancellation policy
+      let combinedPolicy = '';
+      if (selectedPolicies.includes('standard')) {
+        combinedPolicy += 'STANDARD EXPERIENCES (Day Tours & Activities)\n';
+        combinedPolicy += '• More than 72 hours before start time: Full refund (excluding platform service fees and payment processing fees)\n';
+        combinedPolicy += '• 48–72 hours before start time: 50% refund (excluding platform service fees)\n';
+        combinedPolicy += '• Less than 48 hours before start time: No refund\n';
+        combinedPolicy += '• No-shows or late arrivals: No refund\n\n';
+      }
+      if (selectedPolicies.includes('multiday_private')) {
+        combinedPolicy += 'MULTI-DAY, PRIVATE & CUSTOM EXPERIENCES\n';
+        combinedPolicy += '• More than 14 days before start date: Full refund minus non-refundable deposits and third-party costs\n';
+        combinedPolicy += '• 7–14 days before start date: 50% refund\n';
+        combinedPolicy += '• Less than 7 days before start date: No refund\n';
+        combinedPolicy += '• Custom or tailor-made itineraries may require non-refundable deposits, clearly disclosed at booking\n\n';
+      }
+      if (selectedPolicies.includes('custom') && customPolicyText.trim()) {
+        combinedPolicy += 'CUSTOM POLICY\n' + customPolicyText.trim() + '\n\n';
+      }
+
       // Build non-refundable items list
       const nonRefundableItems = [...selectedNonRefundable];
       if (customNonRefundable1.trim()) nonRefundableItems.push(customNonRefundable1.trim());
@@ -160,8 +180,8 @@ Some components are non-refundable once booked, including but not limited to:
         excluded_services: formData.excluded_services.trim() || null,
         meeting_point: formData.meeting_point.trim(),
         what_to_bring: formData.what_to_bring.trim() || null,
-        cancellation_policy: cancellationPolicyType === 'custom' ? formData.cancellation_policy.trim() : null,
-        cancellation_policy_type: cancellationPolicyType,
+        cancellation_policy: combinedPolicy.trim() || null,
+        cancellation_policy_type: selectedPolicies.join(','),
         price_per_adult: parseFloat(formData.price_per_adult),
         currency: formData.currency,
         min_guests: formData.min_guests,
@@ -367,142 +387,158 @@ Some components are non-refundable once booked, including but not limited to:
               />
             </div>
 
-            <div className="space-y-3">
-              <Label className="text-sm font-normal mb-1.5 block">Cancellation Policy *</Label>
-              
-              <Select value={cancellationPolicyType} onValueChange={setCancellationPolicyType}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select cancellation policy" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="standard">
-                    <div className="flex items-center gap-2">
-                      <span>Standard Experiences (Day Tours & Activities)</span>
+            <div className="space-y-4">
+              <div>
+                <Label className="text-sm font-medium mb-3 block">Cancellation Policies *</Label>
+                <p className="text-xs text-muted-foreground mb-3">Select one or more policies that apply to your tour package</p>
+                
+                <div className="space-y-3">
+                  <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                    <Checkbox
+                      checked={selectedPolicies.includes('standard')}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedPolicies([...selectedPolicies, 'standard']);
+                        } else {
+                          setSelectedPolicies(selectedPolicies.filter(p => p !== 'standard'));
+                        }
+                      }}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1">
+                      <p className="font-medium text-sm mb-1">Standard Experiences (Day Tours & Activities)</p>
+                      <ul className="text-xs text-muted-foreground space-y-0.5 list-disc list-inside">
+                        <li>72+ hours: Full refund (minus fees)</li>
+                        <li>48-72 hours: 50% refund</li>
+                        <li>&lt;48 hours: No refund</li>
+                      </ul>
                     </div>
-                  </SelectItem>
-                  <SelectItem value="multiday_private">
-                    <div className="flex items-center gap-2">
-                      <span>Multi-Day, Private & Custom Experiences</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="non_refundable">
-                    <div className="flex items-center gap-2">
-                      <span>Non-Refundable (Recommended)</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="custom">Custom Policy (Write your own or upload PDF)</SelectItem>
-                </SelectContent>
-              </Select>
+                  </label>
 
-              <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-md">
-                <AlertCircle className="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-                <div className="text-xs text-muted-foreground space-y-1">
-                  {cancellationPolicyType === 'standard' && (
-                    <>
-                      <p className="font-medium text-foreground">Standard Experiences (Day Tours & Activities)</p>
-                      <ul className="list-disc list-inside space-y-0.5 ml-1">
-                        <li>More than 72 hours before start time: Full refund (excluding platform service fees and payment processing fees)</li>
-                        <li>48–72 hours before start time: 50% refund (excluding platform service fees)</li>
-                        <li>Less than 48 hours before start time: No refund</li>
-                        <li>No-shows or late arrivals: No refund</li>
+                  <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                    <Checkbox
+                      checked={selectedPolicies.includes('multiday_private')}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedPolicies([...selectedPolicies, 'multiday_private']);
+                        } else {
+                          setSelectedPolicies(selectedPolicies.filter(p => p !== 'multiday_private'));
+                        }
+                      }}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1">
+                      <p className="font-medium text-sm mb-1">Multi-Day, Private & Custom Experiences</p>
+                      <ul className="text-xs text-muted-foreground space-y-0.5 list-disc list-inside">
+                        <li>14+ days: Full refund minus deposits</li>
+                        <li>7-14 days: 50% refund</li>
+                        <li>&lt;7 days: No refund</li>
                       </ul>
-                    </>
-                  )}
-                  
-                  {cancellationPolicyType === 'multiday_private' && (
-                    <>
-                      <p className="font-medium text-foreground">Multi-Day, Private & Custom Experiences</p>
-                      <ul className="list-disc list-inside space-y-0.5 ml-1">
-                        <li>More than 14 days before start date: Full refund minus non-refundable deposits and third-party costs</li>
-                        <li>7–14 days before start date: 50% refund</li>
-                        <li>Less than 7 days before start date: No refund</li>
-                        <li>Custom or tailor-made itineraries may require non-refundable deposits, clearly disclosed at booking</li>
-                      </ul>
-                    </>
-                  )}
-                  
-                  {cancellationPolicyType === 'non_refundable' && (
-                    <>
-                      <p className="font-medium text-foreground mb-2">Non-Refundable Costs</p>
-                      <p className="mb-3 text-xs">Select items that are non-refundable once booked:</p>
-                      <div className="space-y-2 mb-4">
-                        {nonRefundableOptions.map((item) => (
-                          <label key={item} className="flex items-start gap-2 text-xs cursor-pointer">
-                            <Checkbox
-                              checked={selectedNonRefundable.includes(item)}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setSelectedNonRefundable([...selectedNonRefundable, item]);
-                                } else {
-                                  setSelectedNonRefundable(selectedNonRefundable.filter(i => i !== item));
-                                }
-                              }}
-                              className="mt-0.5"
-                            />
-                            <span>{item}</span>
-                          </label>
-                        ))}
-                      </div>
+                    </div>
+                  </label>
+
+                  <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                    <Checkbox
+                      checked={selectedPolicies.includes('custom')}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedPolicies([...selectedPolicies, 'custom']);
+                        } else {
+                          setSelectedPolicies(selectedPolicies.filter(p => p !== 'custom'));
+                          setCustomPolicyText('');
+                          setCustomPolicyFile(null);
+                        }
+                      }}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1">
+                      <p className="font-medium text-sm mb-1">Custom Policy</p>
+                      <p className="text-xs text-muted-foreground">Write your own cancellation terms or upload a PDF</p>
+                    </div>
+                  </label>
+
+                  {selectedPolicies.includes('custom') && (
+                    <div className="ml-9 space-y-3 pt-2">
+                      <Textarea
+                        value={customPolicyText}
+                        onChange={(e) => setCustomPolicyText(e.target.value)}
+                        placeholder="Write your custom cancellation policy (minimum 20 characters)..."
+                        rows={4}
+                        className="text-sm"
+                      />
                       
-                      <div className="space-y-2 pt-2 border-t">
-                        <Label className="text-xs font-medium">Add Custom Non-Refundable Items (Optional)</Label>
-                        <Input
-                          value={customNonRefundable1}
-                          onChange={(e) => setCustomNonRefundable1(e.target.value)}
-                          placeholder="e.g., Special event tickets"
-                          className="h-8 text-xs"
-                        />
-                        <Input
-                          value={customNonRefundable2}
-                          onChange={(e) => setCustomNonRefundable2(e.target.value)}
-                          placeholder="e.g., Private guide booking fee"
-                          className="h-8 text-xs"
-                        />
+                      <div className="border-t pt-3">
+                        <Label className="text-xs font-normal mb-2 block">Or Upload Policy PDF (Optional)</Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="file"
+                            accept="application/pdf"
+                            onChange={handleCustomPolicyFileChange}
+                            className="text-xs"
+                          />
+                          {customPolicyFile && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setCustomPolicyFile(null)}
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                        {customPolicyFile && (
+                          <p className="text-xs text-green-600 mt-2">✓ {customPolicyFile.name}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-1">PDF under 5MB</p>
                       </div>
-                    </>
+                    </div>
                   )}
                 </div>
               </div>
 
-              {cancellationPolicyType === 'custom' && (
-                <div className="space-y-3">
-                  <Textarea
-                    value={formData.cancellation_policy}
-                    onChange={(e) => setFormData({ ...formData, cancellation_policy: e.target.value })}
-                    placeholder="Write your custom cancellation policy (minimum 20 characters)..."
-                    rows={6}
-                    className="text-xs"
-                  />
-                  
-                  <div className="border-t pt-3">
-                    <Label className="text-xs font-normal mb-2 block">Or Upload Policy PDF (Optional)</Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="file"
-                        accept="application/pdf"
-                        onChange={handleCustomPolicyFileChange}
-                        className="text-xs"
+              {/* Non-Refundable Items Section */}
+              <div className="pt-4 border-t">
+                <Label className="text-sm font-medium mb-3 block">Non-Refundable Items (Optional)</Label>
+                <p className="text-xs text-muted-foreground mb-3">Select items that cannot be refunded once booked</p>
+                
+                <div className="space-y-2 mb-4">
+                  {nonRefundableOptions.map((item) => (
+                    <label key={item} className="flex items-start gap-2 text-sm cursor-pointer hover:bg-muted/30 p-2 rounded transition-colors">
+                      <Checkbox
+                        checked={selectedNonRefundable.includes(item)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedNonRefundable([...selectedNonRefundable, item]);
+                          } else {
+                            setSelectedNonRefundable(selectedNonRefundable.filter(i => i !== item));
+                          }
+                        }}
+                        className="mt-0.5"
                       />
-                      {customPolicyFile && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setCustomPolicyFile(null)}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
-                    {customPolicyFile && (
-                      <p className="text-xs text-green-600 mt-1">✓ {customPolicyFile.name}</p>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-1">PDF under 5MB</p>
-                  </div>
+                      <span className="text-sm">{item}</span>
+                    </label>
+                  ))}
                 </div>
-              )}
+                
+                <div className="space-y-2 pt-2 border-t">
+                  <Label className="text-xs font-medium">Add Custom Non-Refundable Items</Label>
+                  <Input
+                    value={customNonRefundable1}
+                    onChange={(e) => setCustomNonRefundable1(e.target.value)}
+                    placeholder="e.g., Special event tickets"
+                    className="h-9 text-sm"
+                  />
+                  <Input
+                    value={customNonRefundable2}
+                    onChange={(e) => setCustomNonRefundable2(e.target.value)}
+                    placeholder="e.g., Private guide booking fee"
+                    className="h-9 text-sm"
+                  />
+                </div>
+              </div>
 
-              <p className="text-xs text-muted-foreground">Selected policy will be shown to guests at booking.</p>
+              <p className="text-xs text-muted-foreground">Selected policies and non-refundable items will be shown to guests at booking.</p>
             </div>
           </div>
 
