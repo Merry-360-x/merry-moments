@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 
 // Helper function to get time remaining for a story (24-hour limit)
@@ -203,6 +203,60 @@ const Stories = () => {
     enabled: stories.length > 0,
   });
 
+  // Real-time subscriptions for likes and comments
+  useEffect(() => {
+    if (!activeStoryId) return;
+
+    console.log("[Stories] Setting up real-time subscriptions for story:", activeStoryId);
+
+    // Subscribe to likes for active story
+    const likesChannel = supabase
+      .channel(`story-likes-${activeStoryId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'story_likes',
+          filter: `story_id=eq.${activeStoryId}`
+        },
+        (payload) => {
+          console.log("[Stories] Likes change detected:", payload);
+          refetchLikes();
+          qc.invalidateQueries({ queryKey: ["story-engagement-counts"] });
+        }
+      )
+      .subscribe();
+
+    // Subscribe to comments for active story
+    const commentsChannel = supabase
+      .channel(`story-comments-${activeStoryId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'story_comments',
+          filter: `story_id=eq.${activeStoryId}`
+        },
+        (payload) => {
+          console.log("[Stories] Comments change detected:", payload);
+          refetchComments();
+          if (floatingCommentsStoryId === activeStoryId) {
+            refetchFloatingComments();
+          }
+          qc.invalidateQueries({ queryKey: ["story-engagement-counts"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log("[Stories] Cleaning up real-time subscriptions");
+      supabase.removeChannel(likesChannel);
+      supabase.removeChannel(commentsChannel);
+    };
+  }, [activeStoryId, floatingCommentsStoryId, refetchLikes, refetchComments, refetchFloatingComments, qc]);
+
   const openFloatingComments = (storyId: string) => {
     setFloatingCommentsStoryId(storyId);
     setFloatingCommentsOpen(true);
@@ -236,17 +290,19 @@ const Stories = () => {
           .eq("story_id", activeStoryId)
           .eq("user_id", user.id);
         if (error) throw error;
+        
+        console.log("[Stories] Story unliked successfully");
       } else {
         // Like
         const { error } = await supabase
           .from("story_likes")
           .insert({ story_id: activeStoryId, user_id: user.id });
         if (error) throw error;
+        
+        console.log("[Stories] Story liked successfully");
       }
       
-      refetchLikes();
-      // Refresh engagement counts for all stories
-      await qc.invalidateQueries({ queryKey: ["story-engagement-counts"] });
+      // Real-time subscription will handle the refetch
     } catch (e) {
       logError("story.like", e);
       toast({ variant: "destructive", title: "Error", description: "Could not update like." });
@@ -264,47 +320,42 @@ const Stories = () => {
     try {
       console.log("[Stories] Posting comment to story:", activeStoryId);
       
+      const commentToPost = commentText.trim();
+      setCommentText(""); // Clear immediately for better UX
+      
       const { data: insertedComment, error } = await supabase
         .from("story_comments")
         .insert({ 
           story_id: activeStoryId, 
           user_id: user.id,
-          comment_text: commentText.trim()
+          comment_text: commentToPost
         })
-        .select()
+        .select(`
+          id, comment_text, created_at, user_id,
+          profiles:user_id (full_name, avatar_url)
+        `)
         .single();
       
       if (error) throw error;
       
       console.log("[Stories] Comment inserted successfully:", insertedComment);
       
-      setCommentText("");
+      // Immediate UI update - no need to wait for refetch
+      toast({ title: "Comment added!", description: "Your comment has been posted." });
       
-      // Wait a brief moment for database to propagate
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Invalidate all comment-related queries
-      qc.invalidateQueries({ queryKey: ["story-comments"] });
-      qc.invalidateQueries({ queryKey: ["floating-story-comments"] });
-      qc.invalidateQueries({ queryKey: ["story-engagement-counts"] });
-      
-      // Force refetch with a slight delay
-      setTimeout(async () => {
-        console.log("[Stories] Refetching comments for story:", activeStoryId);
-        await refetchComments();
-        
-        if (floatingCommentsStoryId === activeStoryId) {
-          await refetchFloatingComments();
-        }
-        
-        console.log("[Stories] Comments refetched, count:", commentsData.length);
-      }, 150);
-      
-      toast({ title: "Comment added!" });
+      // Refetch will happen via real-time subscription
     } catch (e) {
       logError("story.comment", e);
       toast({ variant: "destructive", title: "Error", description: "Could not add comment." });
+      // Restore comment text on error
+      setCommentText(commentText);
     }
+  };
+
+  const openViewer = (storyId: string) => {
+    setActiveStoryId(storyId);
+    setViewerOpen(true);
+    setShowComments(false); // Reset comments view
   };
 
   const submit = async () => {
