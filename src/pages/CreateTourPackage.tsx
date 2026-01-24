@@ -16,6 +16,7 @@ import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
 import { uploadFile } from "@/lib/uploads";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const categories = ["Cultural", "Adventure", "Wildlife", "City Tours", "Hiking", "Photography", "Historical", "Eco-Tourism"];
 const tourTypes = ["Private", "Group"];
@@ -47,7 +48,7 @@ Some components are non-refundable once booked, including but not limited to:
 
   const [formData, setFormData] = useState({
     title: "",
-    category: "",
+    categories: [] as string[],
     tour_type: "",
     description: "",
     city: "",
@@ -81,7 +82,7 @@ Some components are non-refundable once booked, including but not limited to:
       ? (formData.cancellation_policy.trim().length >= 20 || customPolicyFile !== null)
       : cancellationPolicyType !== '';
     
-    return formData.title.trim() && formData.category && formData.tour_type &&
+    return formData.title.trim() && formData.categories.length > 0 && formData.tour_type &&
       formData.description.trim().length >= 50 && formData.city.trim() &&
       formData.duration.trim() && formData.daily_itinerary.trim().length >= 100 &&
       formData.meeting_point.trim() && policyValid &&
@@ -131,7 +132,7 @@ Some components are non-refundable once booked, including but not limited to:
       const packageData: Database['public']['Tables']['tour_packages']['Insert'] = {
         host_id: user.id,
         title: formData.title.trim(),
-        category: formData.category,
+        category: formData.categories[0] || 'Cultural',
         tour_type: formData.tour_type,
         description: formData.description.trim(),
         country: "Rwanda",
@@ -148,17 +149,24 @@ Some components are non-refundable once booked, including but not limited to:
         currency: formData.currency,
         min_guests: formData.min_guests,
         max_guests: formData.max_guests,
-        group_discount_6_10: formData.group_discount_6_10,
-        group_discount_11_15: formData.group_discount_11_15,
-        group_discount_16_plus: formData.group_discount_16_plus,
         cover_image: coverImage,
         gallery_images: galleryImages.length > 0 ? galleryImages : null,
         itinerary_pdf_url: pdfUrl,
         status: "draft",
       };
 
-      const { error } = await supabase.from("tour_packages").insert(packageData as any).select().single();
+      // Add fields not in type definition yet
+      (packageData as any).group_discount_6_10 = formData.group_discount_6_10;
+      (packageData as any).group_discount_11_15 = formData.group_discount_11_15;
+      (packageData as any).group_discount_16_plus = formData.group_discount_16_plus;
+
+      const { data: newPackage, error } = await supabase.from("tour_packages").insert(packageData as any).select("id").single();
       if (error) throw error;
+
+      // Update categories array separately (after migration is applied)
+      if (newPackage && formData.categories.length > 0) {
+        await supabase.from("tour_packages").update({ categories: formData.categories } as any).eq("id", (newPackage as any).id);
+      }
 
       toast({ title: "Success!", description: "Tour package created successfully" });
       navigate("/host-dashboard");
@@ -223,26 +231,35 @@ Some components are non-refundable once booked, including but not limited to:
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-sm font-normal mb-1.5 block">Category *</Label>
-                <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
-                  <SelectTrigger className="h-10"><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+            <div>
+              <Label className="text-sm font-normal mb-1.5 block">Categories * <span className="text-xs text-muted-foreground">(select at least one)</span></Label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {categories.map((cat) => (
+                  <label key={cat} className="flex items-center gap-2 text-sm bg-muted px-3 py-2 rounded cursor-pointer hover:bg-muted/80">
+                    <Checkbox
+                      checked={formData.categories.includes(cat)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setFormData({ ...formData, categories: [...formData.categories, cat] });
+                        } else {
+                          setFormData({ ...formData, categories: formData.categories.filter(c => c !== cat) });
+                        }
+                      }}
+                    />
+                    {cat}
+                  </label>
+                ))}
               </div>
+            </div>
 
-              <div>
-                <Label className="text-sm font-normal mb-1.5 block">Tour Type *</Label>
-                <Select value={formData.tour_type} onValueChange={(v) => setFormData({ ...formData, tour_type: v })}>
-                  <SelectTrigger className="h-10"><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    {tourTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div>
+              <Label className="text-sm font-normal mb-1.5 block">Tour Type *</Label>
+              <Select value={formData.tour_type} onValueChange={(v) => setFormData({ ...formData, tour_type: v })}>
+                <SelectTrigger className="h-10"><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectContent>
+                  {tourTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
