@@ -264,6 +264,7 @@ export default function HostDashboard() {
 
   // New property wizard
   const [showPropertyWizard, setShowPropertyWizard] = useState(false);
+  const [showRoomWizard, setShowRoomWizard] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
   const [propertyForm, setPropertyForm] = useState({
     title: "",
@@ -1126,6 +1127,173 @@ export default function HostDashboard() {
   //     </div>
   //   );
   // }
+
+  // Room Creation Form - Minimalistic
+  if (showRoomWizard) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-8 max-w-2xl">
+          <div className="mb-6">
+            <Button
+              variant="ghost"
+              onClick={() => setShowRoomWizard(false)}
+              className="mb-4"
+            >
+              <ChevronLeft className="w-4 h-4 mr-2" />
+              Back to Dashboard
+            </Button>
+            <h1 className="text-3xl font-bold">Create a Room</h1>
+            <p className="text-muted-foreground mt-2">List a room in your apartment or house</p>
+          </div>
+
+          <Card className="p-8">
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!propertyForm.title.trim() || !propertyForm.location.trim()) {
+                  toast({ variant: "destructive", title: "Missing info", description: "Please fill in all required fields." });
+                  return;
+                }
+                
+                try {
+                  const payload = {
+                    ...propertyForm,
+                    property_type: "Room in Apartment",
+                    host_id: user!.id,
+                    is_published: false,
+                  };
+                  
+                  const { error } = await supabase.from("properties").insert(payload);
+                  if (error) throw error;
+                  
+                  toast({ title: "Success!", description: "Your room has been listed." });
+                  setShowRoomWizard(false);
+                  resetPropertyForm();
+                  fetchData();
+                } catch (e) {
+                  logError("host.createRoom", e);
+                  toast({ variant: "destructive", title: "Error", description: uiErrorMessage(e, "Could not create room.") });
+                }
+              }}
+              className="space-y-6"
+            >
+              <div>
+                <Label className="text-sm font-medium">Room Title *</Label>
+                <Input
+                  value={propertyForm.title}
+                  onChange={(e) => setPropertyForm((f) => ({ ...f, title: e.target.value }))}
+                  placeholder="Cozy Room with City View"
+                  required
+                  className="mt-1.5"
+                />
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium">Location *</Label>
+                <Input
+                  value={propertyForm.location}
+                  onChange={(e) => setPropertyForm((f) => ({ ...f, location: e.target.value }))}
+                  placeholder="Kigali, Nyarutarama"
+                  required
+                  className="mt-1.5"
+                />
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium">Description</Label>
+                <textarea
+                  value={propertyForm.description}
+                  onChange={(e) => setPropertyForm((f) => ({ ...f, description: e.target.value }))}
+                  placeholder="Describe your room..."
+                  rows={4}
+                  className="w-full mt-1.5 px-3 py-2 border border-input rounded-md bg-background"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium">Price per Night</Label>
+                  <Input
+                    type="number"
+                    value={propertyForm.price_per_night}
+                    onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_night: Number(e.target.value) }))}
+                    min="0"
+                    className="mt-1.5"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Currency</Label>
+                  <Select
+                    value={propertyForm.currency}
+                    onValueChange={(v) => setPropertyForm((f) => ({ ...f, currency: v }))}
+                  >
+                    <SelectTrigger className="mt-1.5">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {currencies.map((c) => (
+                        <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-sm font-medium">Beds</Label>
+                  <Input
+                    type="number"
+                    value={propertyForm.beds}
+                    onChange={(e) => setPropertyForm((f) => ({ ...f, beds: Number(e.target.value) }))}
+                    min="1"
+                    className="mt-1.5"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Max Guests</Label>
+                  <Input
+                    type="number"
+                    value={propertyForm.max_guests}
+                    onChange={(e) => setPropertyForm((f) => ({ ...f, max_guests: Number(e.target.value) }))}
+                    min="1"
+                    className="mt-1.5"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Bathrooms</Label>
+                  <Input
+                    type="number"
+                    value={propertyForm.bathrooms}
+                    onChange={(e) => setPropertyForm((f) => ({ ...f, bathrooms: Number(e.target.value) }))}
+                    min="0"
+                    step="0.5"
+                    className="mt-1.5"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowRoomWizard(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" className="flex-1">
+                  Create Room
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   // Property Creation Wizard
   if (showPropertyWizard) {
@@ -2161,7 +2329,10 @@ export default function HostDashboard() {
 
           {/* Properties */}
           <TabsContent value="properties">
-            <div className="flex justify-end mb-4">
+            <div className="flex justify-end gap-2 mb-4">
+              <Button variant="outline" onClick={() => setShowRoomWizard(true)}>
+                <Plus className="w-4 h-4 mr-2" /> Create Room
+              </Button>
               <Button onClick={openPropertyWizard}>
                 <Plus className="w-4 h-4 mr-2" /> Add Property
               </Button>
