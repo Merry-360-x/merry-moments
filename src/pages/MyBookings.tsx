@@ -88,9 +88,7 @@ const MyBookings = () => {
         .from("bookings")
         .select(`
           *, 
-          properties(title, location, property_type, address, cancellation_policy),
-          tours(title, location, cancellation_policy_type, custom_cancellation_policy),
-          tour_packages(title, city, country, cancellation_policy_type, custom_cancellation_policy)
+          properties(title, location, property_type, address, cancellation_policy)
         `)
         .eq("guest_id", user!.id)
         .order("created_at", { ascending: false });
