@@ -127,7 +127,8 @@ const fetchTourPackages = async () => {
       .limit(16);
       
     if (error) {
-      console.error("[Index] fetchTourPackages error:", error.message);
+      console.error("[Index] fetchTourPackages error:", error);
+      // Return empty array instead of throwing to prevent cascade failures
       return [];
     }
     
@@ -150,7 +151,8 @@ const fetchTourPackages = async () => {
     if (!(err instanceof Error && err.name === "AbortError")) {
       console.error("[Index] fetchTourPackages exception:", err);
     }
-    throw err;
+    // Return empty array on exception to prevent app crashes
+    return [];
   }
 };
 
@@ -237,6 +239,8 @@ const Index = () => {
     refetchOnMount: true,
     refetchOnWindowFocus: true,
     refetchInterval: 1000 * 60 * 3,
+    retry: 2, // Only retry twice
+    retryDelay: 1000, // Wait 1 second between retries
   });
 
   const { data: latestVehicles = [], isLoading: vehiclesLoading, refetch: refetchVehicles } = useQuery({
