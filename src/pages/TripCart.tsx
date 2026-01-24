@@ -485,169 +485,182 @@ export default function TripCart() {
             </div>
           </div>
         ) : (
-          <div className="space-y-4">
-            {/* Cart summary */}
-            <div className="bg-card rounded-xl shadow-card p-5">
-              {/* Discount Code Input */}
-              <div className="mb-4 pb-4 border-b">
-                <label className="text-sm font-medium text-muted-foreground mb-2 block">
-                  Have a discount code?
-                </label>
-                {!appliedDiscount ? (
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Enter code"
-                      value={discountCode}
-                      onChange={(e) => setDiscountCode(e.target.value.toUpperCase())}
-                      className="max-w-xs"
-                      disabled={validatingCode}
-                    />
-                    <Button 
-                      onClick={applyDiscountCode} 
-                      disabled={!discountCode.trim() || validatingCode}
-                      variant="outline"
-                    >
-                      {validatingCode ? "Validating..." : "Apply"}
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
-                    <Tag className="w-4 h-4 text-green-600 dark:text-green-400" />
-                    <span className="text-sm font-medium text-green-900 dark:text-green-100">
-                      {appliedDiscount.code} - {appliedDiscount.description || 
-                        `${appliedDiscount.discount_type === 'percentage' ? appliedDiscount.discount_value + '% off' : formatMoney(appliedDiscount.discount_value, appliedDiscount.currency) + ' off'}`}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setAppliedDiscount(null);
-                        setDiscountCode("");
-                      }}
-                      className="ml-auto h-6 px-2"
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                )}
-              </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left side - Cart items (2 columns) */}
+            <div className="lg:col-span-2 space-y-4">
+              {cartItems.map((item) => {
+                const itemLink = getItemLink(item);
+                const itemPrice = convertAmount(item.price, item.currency, preferredCurrency || "RWF", usdRates) ?? item.price;
+                const displayCurrency = convertAmount(item.price, item.currency, preferredCurrency || "RWF", usdRates) !== null
+                  ? (preferredCurrency || "RWF")
+                  : item.currency;
 
-              {/* Total Summary */}
-              <div className="space-y-2 mb-4">
-                <div className="flex justify-between text-foreground">
-                  <span>Subtotal ({cartItems.length} {cartItems.length === 1 ? "item" : "items"}):</span>
-                  <span className="font-semibold">{formatMoney(total, totalCurrency)}</span>
-                </div>
-                {appliedDiscount && discount > 0 && (
-                  <div className="flex justify-between text-green-600 dark:text-green-400">
-                    <span>Discount:</span>
-                    <span className="font-semibold">-{formatMoney(discount, totalCurrency)}</span>
-                  </div>
-                )}
-                {appliedDiscount && appliedDiscount.minimum_amount && total < appliedDiscount.minimum_amount && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400">
-                    Minimum purchase of {formatMoney(appliedDiscount.minimum_amount, appliedDiscount.currency)} required
-                  </p>
-                )}
-                <div className="flex justify-between text-foreground text-lg font-bold pt-2 border-t">
-                  <span>Total:</span>
-                  <span>{formatMoney(finalTotal, totalCurrency)}</span>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                <Link to="/checkout?mode=cart" className="flex-1">
-                  <Button size="lg" className="w-full">Proceed to Checkout</Button>
-                </Link>
-                <Button variant="outline" size="lg" onClick={handleClearCart}>
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Clear
-                </Button>
-              </div>
-            </div>
-
-            {/* Cart items */}
-            {cartItems.map((item) => {
-              const itemLink = getItemLink(item);
-              const itemPrice = convertAmount(item.price, item.currency, preferredCurrency || "RWF", usdRates) ?? item.price;
-              const displayCurrency = convertAmount(item.price, item.currency, preferredCurrency || "RWF", usdRates) !== null
-                ? (preferredCurrency || "RWF")
-                : item.currency;
-
-              return (
-                <div key={item.id} className="bg-card rounded-xl shadow-card p-4 flex flex-col md:flex-row gap-4 hover:shadow-lg transition-shadow">
-                  {/* Image */}
-                  <div className="w-full md:w-32 h-32 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
-                    {item.image ? (
-                      itemLink ? (
-                        <Link to={itemLink}>
-                          <img src={item.image} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
-                        </Link>
-                      ) : (
-                        <img src={item.image} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
-                      )
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                        No image
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Details */}
-                  <div className="flex-1 flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        {itemLink ? (
-                          <Link to={itemLink} className="font-semibold text-lg text-foreground hover:text-primary hover:underline">
-                            {item.title}
+                return (
+                  <div key={item.id} className="bg-card rounded-xl shadow-card p-4 flex flex-col md:flex-row gap-4 hover:shadow-lg transition-shadow">
+                    {/* Image */}
+                    <div className="w-full md:w-32 h-32 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
+                      {item.image ? (
+                        itemLink ? (
+                          <Link to={itemLink}>
+                            <img src={item.image} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
                           </Link>
                         ) : (
-                          <h3 className="font-semibold text-lg text-foreground">{item.title}</h3>
-                        )}
-                        {item.item_type === "tour" && (
-                          <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
-                            Tour
-                          </Badge>
-                        )}
-                        {item.item_type === "tour_package" && (
-                          <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800">
-                            Package
-                          </Badge>
-                        )}
-                      </div>
-                      {item.meta && (
-                        <p className="text-sm text-muted-foreground mt-1">{item.meta}</p>
+                          <img src={item.image} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
+                        )
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                          No image
+                        </div>
                       )}
-                      <p className="text-xs text-muted-foreground mt-1 capitalize">{item.item_type.replace("_", " ")}</p>
                     </div>
 
-                    <div className="flex items-center justify-between mt-3">
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">Qty: </span>
-                        <span className="font-medium">{item.quantity}</span>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <div className="font-bold text-lg text-foreground">
-                            {formatMoney(itemPrice * item.quantity, displayCurrency)}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {formatMoney(itemPrice, displayCurrency)} each
-                          </div>
+                    {/* Details */}
+                    <div className="flex-1 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          {itemLink ? (
+                            <Link to={itemLink} className="font-semibold text-lg text-foreground hover:text-primary hover:underline">
+                              {item.title}
+                            </Link>
+                          ) : (
+                            <h3 className="font-semibold text-lg text-foreground">{item.title}</h3>
+                          )}
+                          {item.item_type === "tour" && (
+                            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+                              Tour
+                            </Badge>
+                          )}
+                          {item.item_type === "tour_package" && (
+                            <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800">
+                              Package
+                            </Badge>
+                          )}
                         </div>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => removeFromCart(item.id)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        {item.meta && (
+                          <p className="text-sm text-muted-foreground mt-1">{item.meta}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-1 capitalize">{item.item_type.replace("_", " ")}</p>
+                      </div>
+
+                      <div className="flex items-center justify-between mt-3">
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">Qty: </span>
+                          <span className="font-medium">{item.quantity}</span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <div className="font-bold text-lg text-foreground">
+                              {formatMoney(itemPrice * item.quantity, displayCurrency)}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {formatMoney(itemPrice, displayCurrency)} each
+                            </div>
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => removeFromCart(item.id)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
+                );
+              })}
+            </div>
+
+            {/* Right side - Price summary (1 column, sticky) */}
+            <div className="lg:col-span-1">
+              <div className="bg-card rounded-xl shadow-card p-5 sticky top-24">
+                <h2 className="text-xl font-bold text-foreground mb-4">Order Summary</h2>
+                
+                {/* Discount Code Input */}
+                <div className="mb-4 pb-4 border-b">
+                  <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                    Have a discount code?
+                  </label>
+                  {!appliedDiscount ? (
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Enter code"
+                        value={discountCode}
+                        onChange={(e) => setDiscountCode(e.target.value.toUpperCase())}
+                        className="flex-1"
+                        disabled={validatingCode}
+                      />
+                      <Button 
+                        onClick={applyDiscountCode} 
+                        disabled={!discountCode.trim() || validatingCode}
+                        variant="outline"
+                        size="sm"
+                      >
+                        {validatingCode ? "..." : "Apply"}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
+                      <Tag className="w-4 h-4 text-green-600 dark:text-green-400" />
+                      <span className="text-sm font-medium text-green-900 dark:text-green-100 flex-1">
+                        {appliedDiscount.code}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setAppliedDiscount(null);
+                          setDiscountCode("");
+                        }}
+                        className="h-6 px-2"
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  )}
                 </div>
+
+                {/* Price breakdown */}
+                <div className="space-y-3 mb-4">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Items ({cartItems.length}):</span>
+                    <span className="font-medium">{formatMoney(total, totalCurrency)}</span>
+                  </div>
+                  {appliedDiscount && discount > 0 && (
+                    <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
+                      <span>Discount:</span>
+                      <span className="font-medium">-{formatMoney(discount, totalCurrency)}</span>
+                    </div>
+                  )}
+                  {appliedDiscount && appliedDiscount.minimum_amount && total < appliedDiscount.minimum_amount && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      Minimum {formatMoney(appliedDiscount.minimum_amount, appliedDiscount.currency)} required
+                    </p>
+                  )}
+                </div>
+
+                {/* Total */}
+                <div className="pt-3 border-t mb-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-bold text-foreground">Total:</span>
+                    <span className="text-2xl font-bold text-primary">{formatMoney(finalTotal, totalCurrency)}</span>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="space-y-2">
+                  <Link to="/checkout?mode=cart" className="block">
+                    <Button size="lg" className="w-full">Proceed to Checkout</Button>
+                  </Link>
+                  <Button variant="outline" size="lg" onClick={handleClearCart} className="w-full">
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Clear Cart
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
               );
             })}
           </div>
