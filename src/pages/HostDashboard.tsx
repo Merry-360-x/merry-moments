@@ -88,6 +88,7 @@ import {
   Info,
   Download,
   FileText,
+  Loader2,
   Calendar as CalendarIcon,
 } from "lucide-react";
 
@@ -259,6 +260,7 @@ export default function HostDashboard() {
 
   // Editing states
   const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null);
+  const [editingTourId, setEditingTourId] = useState<string | null>(null);
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
   const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
 
@@ -628,21 +630,20 @@ export default function HostDashboard() {
   };
 
   // Tour CRUD
-  const updateTour = async (id: string, updates: Partial<Tour>) => {
-    const { error } = await supabase.from("tours").update(updates).eq("id", id);
-    if (error) {
-      logError("host.tour.update", error);
-      toast({ variant: "destructive", title: "Update failed", description: uiErrorMessage(error) });
+  const updateTour = async (id: string, updates: any, source?: "tours" | "tour_packages") => {
+    if (!user) return false;
+    try {
+      const tableName = source === "tour_packages" ? "tour_packages" : "tours";
+      const { error } = await supabase.from(tableName).update(updates).eq("id", id);
+      if (error) throw error;
+      toast({ title: "Success", description: "Tour updated successfully" });
+      fetchData();
+      return true;
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "Failed to update tour", variant: "destructive" });
       return false;
     }
-    setTours((prev) => prev.map((t) => (t.id === id ? { ...t, ...updates } : t)));
-    toast({ title: "Saved" });
-    return true;
   };
-
-
-
-  const queryClient = useQueryClient();
 
   const deleteTour = async (id: string, source?: "tours" | "tour_packages") => {
     if (!confirm("Are you sure you want to permanently delete this tour? This cannot be undone.")) return;
@@ -1071,6 +1072,179 @@ export default function HostDashboard() {
                     {property.is_published ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
                   </Button>
                   <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteProperty(property.id)}><Trash2 className="w-3 h-3" /></Button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </Card>
+    );
+  };
+
+  // Tour Card Component with edit functionality
+  const TourCard = ({ tour }: { tour: Tour }) => {
+    const isEditing = editingTourId === tour.id;
+    const [form, setForm] = useState(tour);
+    const [uploading, setUploading] = useState(false);
+    const [pdfFile, setPdfFile] = useState<File | null>(null);
+
+    const handleSave = async () => {
+      let updates: any = {
+        title: form.title,
+        location: form.location,
+        price_per_person: form.price_per_person,
+        currency: form.currency,
+        description: form.description,
+      };
+
+      // Upload new PDF if selected
+      if (pdfFile) {
+        setUploading(true);
+        try {
+          const { uploadFile } = await import("@/lib/uploads");
+          const { url } = await uploadFile(pdfFile, { folder: "tour-itineraries" });
+          updates.itinerary_pdf_url = url;
+        } catch (e) {
+          toast({ variant: "destructive", title: "PDF upload failed", description: String(e) });
+          setUploading(false);
+          return;
+        }
+        setUploading(false);
+      }
+
+      const success = await updateTour(tour.id, updates, form.source);
+      if (success) {
+        setEditingTourId(null);
+        setPdfFile(null);
+      }
+    };
+
+    return (
+      <Card className="overflow-hidden">
+        <div className="relative h-32 bg-muted flex items-center justify-center">
+          {form.images?.[0] ? (
+            <img src={form.images[0]} alt={form.title} className="w-full h-full object-cover" />
+          ) : (
+            <MapPin className="w-8 h-8 text-muted-foreground" />
+          )}
+          <div className="absolute top-2 right-2">
+            {tour.source === "tour_packages" ? (
+              <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">Package</Badge>
+            ) : (
+              <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">Tour</Badge>
+            )}
+          </div>
+        </div>
+        
+        <div className="p-4">
+          {isEditing ? (
+            <div className="space-y-3">
+              <div>
+                <Label className="text-xs">Title</Label>
+                <Input
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  className="mt-1 h-8 text-sm"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Location</Label>
+                <Input
+                  value={form.location}
+                  onChange={(e) => setForm({ ...form, location: e.target.value })}
+                  className="mt-1 h-8 text-sm"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Description</Label>
+                <Textarea
+                  value={form.description || ''}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  className="mt-1 text-sm"
+                  rows={3}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs">Price</Label>
+                  <Input
+                    type="number"
+                    value={form.price_per_person}
+                    onChange={(e) => setForm({ ...form, price_per_person: parseFloat(e.target.value) })}
+                    className="mt-1 h-8 text-sm"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Currency</Label>
+                  <Select value={form.currency || 'RWF'} onValueChange={(v) => setForm({ ...form, currency: v })}>
+                    <SelectTrigger className="mt-1 h-8 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {currencies.map((c) => (
+                        <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              {tour.source === 'tour_packages' && (
+                <div>
+                  <Label className="text-xs">Update Itinerary PDF (Optional)</Label>
+                  <div className="mt-1 flex items-center gap-2">
+                    <Input
+                      type="file"
+                      accept="application/pdf"
+                      onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
+                      className="text-xs h-8"
+                    />
+                    {pdfFile && (
+                      <Button type="button" size="sm" variant="ghost" onClick={() => setPdfFile(null)}>
+                        <X className="w-3 h-3" />
+                      </Button>
+                    )}
+                  </div>
+                  {pdfFile && <p className="text-xs text-green-600 mt-1">✓ {pdfFile.name}</p>}
+                  {form.itinerary_pdf_url && !pdfFile && (
+                    <a 
+                      href={form.itinerary_pdf_url} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-xs text-primary hover:underline mt-1 inline-block"
+                    >
+                      View current PDF
+                    </a>
+                  )}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button size="sm" variant="outline" onClick={() => { setEditingTourId(null); setPdfFile(null); }}>
+                  <X className="w-3 h-3 mr-1" /> Cancel
+                </Button>
+                <Button size="sm" onClick={handleSave} disabled={uploading}>
+                  {uploading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Save className="w-3 h-3 mr-1" />}
+                  Save
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <h3 className="font-semibold mb-1">{tour.title}</h3>
+              <p className="text-sm text-muted-foreground">{tour.location}</p>
+              <div className="flex items-center justify-between mt-3">
+                <span className="text-primary font-bold">{formatMoney(tour.price_per_person, tour.currency || "RWF")}</span>
+                <div className="flex gap-1">
+                  <Button size="sm" variant="ghost" onClick={() => navigate(`/tours/${tour.id}`)} title="View details">
+                    <Eye className="w-3 h-3" />
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setEditingTourId(tour.id)}>
+                    <Edit className="w-3 h-3" />
+                  </Button>
+                  <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteTour(tour.id, tour.source)}>
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
                 </div>
               </div>
             </>
@@ -2361,50 +2535,11 @@ export default function HostDashboard() {
           {/* Tours */}
           <TabsContent value="tours">
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {(tours || []).map((t) => (
-                <Card key={t.id} className="overflow-hidden">
-                  <div className="h-32 bg-muted flex items-center justify-center">
-                    {t.images?.[0] ? (
-                      <img src={t.images[0]} alt={t.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <MapPin className="w-8 h-8 text-muted-foreground" />
-                    )}
-                        </div>
-                  <div className="p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="font-semibold flex-1">{t.title}</h3>
-                      {t.source === "tour_packages" ? (
-                        <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800">
-                          Package
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
-                          Tour
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground">{t.location}</p>
-                    <div className="flex items-center justify-between mt-3">
-                      <span className="text-primary font-bold">{formatMoney(t.price_per_person, t.currency || "RWF")}</span>
-                      <div className="flex gap-1">
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
-                          onClick={() => navigate(`/tours/${t.id}`)}
-                          title="View tour details"
-                        >
-                          <Eye className="w-3 h-3" />
-                        </Button>
-                        <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteTour(t.id, t.source)}><Trash2 className="w-3 h-3" /></Button>
-            </div>
-                    </div>
-                  </div>
-                </Card>
-              ))}
+              {(tours || []).map((t) => <TourCard key={t.id} tour={t} />)}
               {(tours || []).length === 0 && (
                 <p className="text-muted-foreground col-span-full text-center py-8">No tours yet</p>
-          )}
-        </div>
+              )}
+            </div>
           </TabsContent>
 
           {/* Transport */}
