@@ -255,6 +255,16 @@ const Index = () => {
     refetchInterval: 1000 * 60 * 3, // Consistent 3-minute refresh
   });
 
+  const { data: tourPackages = [], isLoading: packagesLoading, refetch: refetchPackages } = useQuery({
+    queryKey: ["tour-packages", "featured-home"],
+    queryFn: fetchTourPackages,
+    staleTime: 1000 * 60 * 3,
+    gcTime: 1000 * 60 * 15,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchInterval: 1000 * 60 * 3,
+  });
+
   const { data: latestVehicles = [], isLoading: vehiclesLoading, refetch: refetchVehicles } = useQuery({
     queryKey: ["transport_vehicles", "latest-home"],
     queryFn: fetchLatestVehicles,
