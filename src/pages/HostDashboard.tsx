@@ -180,7 +180,7 @@ interface Booking {
   is_guest_booking: boolean;
 }
 
-const propertyTypes = ["Hotel", "Apartment", "Villa", "Guesthouse", "Resort", "Lodge", "Motel", "House", "Cabin"];
+const propertyTypes = ["Hotel", "Apartment", "Room in Apartment", "Villa", "Guesthouse", "Resort", "Lodge", "Motel", "House", "Cabin"];
 const currencies = [
   { value: "RWF", label: "(FRw) RWF" },
   { value: "USD", label: "($) USD" },

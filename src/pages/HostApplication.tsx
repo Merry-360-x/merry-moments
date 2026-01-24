@@ -38,7 +38,7 @@ import { formatMoney } from "@/lib/money";
 
 type ApplicantType = "individual" | "business";
 
-const propertyTypes = ["Hotel", "Apartment", "Villa", "Guesthouse", "Resort", "Lodge", "House"];
+const propertyTypes = ["Hotel", "Apartment", "Room in Apartment", "Villa", "Guesthouse", "Resort", "Lodge", "House"];
 const currencies = [
   { value: "RWF", label: "(FRw) RWF", symbol: "FRw" },
   { value: "USD", label: "($) USD", symbol: "$" },

@@ -21,7 +21,7 @@ import { AMENITIES } from "@/lib/amenities";
 import { formatMoney } from "@/lib/money";
 import { usePreferences } from "@/hooks/usePreferences";
 
-const propertyTypes = ["Hotel", "Motel", "Resort", "Lodge", "Apartment", "Villa", "Guesthouse"];
+const propertyTypes = ["Hotel", "Motel", "Resort", "Lodge", "Apartment", "Room in Apartment", "Villa", "Guesthouse"];
 const amenities = AMENITIES;
 
 const fetchProperties = async (args: {
