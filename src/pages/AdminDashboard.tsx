@@ -632,9 +632,8 @@ export default function AdminDashboard() {
 
   // Tours with images - enhanced loading - includes tour_packages
   const { data: tours = [], refetch: refetchTours } = useQuery({
-    queryKey: ["admin-tours", Date.now()], // Add timestamp to force fresh data
+    queryKey: ["admin-tours"], // Remove timestamp to enable proper caching
     queryFn: async () => {
-      console.log('[AdminDashboard] Fetching tours - cache bypass');
       // Fetch both tours and tour_packages
       const [toursRes, packagesRes] = await Promise.all([
         supabase
@@ -651,9 +650,6 @@ export default function AdminDashboard() {
       
       if (toursRes.error) throw toursRes.error;
       if (packagesRes.error) throw packagesRes.error;
-      
-      console.log('[AdminDashboard] Tours fetched:', toursRes.data?.length || 0);
-      console.log('[AdminDashboard] Packages fetched:', packagesRes.data?.length || 0);
       
       // Mark tours with source
       const toursWithSource = (toursRes.data ?? []).map(t => ({ ...t, source: "tours" as const }));
@@ -673,11 +669,10 @@ export default function AdminDashboard() {
       }));
       
       const result = [...toursWithSource, ...packagesAsTours] as TourRow[];
-      console.log('[AdminDashboard] Total tours to display:', result.length);
       return result;
     },
     enabled: tab === "tours" || tab === "overview", // Also load for overview
-    staleTime: 0, // Always refetch to ensure fresh data
+    staleTime: 1000 * 30, // Cache for 30 seconds
     gcTime: 0, // No cache retention - always fetch fresh
     refetchOnWindowFocus: true,
     refetchOnMount: 'always',

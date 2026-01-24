@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
-import { Calendar, MapPin, Users, XCircle } from "lucide-react";
+import { Calendar, MapPin, Users, XCircle, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
@@ -17,6 +17,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { extractNeighborhood } from "@/lib/location";
 import { useFxRates } from "@/hooks/useFxRates";
 import { usePreferences } from "@/hooks/usePreferences";
+import { Badge } from "@/components/ui/badge";
 
 interface Booking {
   id: string;
@@ -303,51 +304,116 @@ const MyBookings = () => {
       </div>
 
       <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Leave a review</DialogTitle>
+            <DialogTitle className="text-xl font-semibold">Rate Your Stay</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label className={reviewValidationError ? "text-red-600" : ""}>
-                Rating <span className="text-red-600">*</span>
-              </Label>
-              <select
-                value={reviewRating}
-                onChange={(e) => {
-                  setReviewRating(Number(e.target.value));
-                  setReviewValidationError(false);
-                }}
-                className={`w-full mt-1 h-10 px-3 rounded-md border bg-background ${
-                  reviewValidationError 
-                    ? "border-red-600 ring-2 ring-red-600/20 focus:ring-red-600/40" 
-                    : "border-input"
-                }`}
-              >
-                <option value={5}>5 - Excellent</option>
-                <option value={4}>4 - Good</option>
-                <option value={3}>3 - Okay</option>
-                <option value={2}>2 - Bad</option>
-                <option value={1}>1 - Terrible</option>
-              </select>
+          
+          <div className="space-y-6">
+            {/* Star Rating */}
+            <div className="flex flex-col items-center gap-3 py-4">
+              <div className="flex gap-2">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => {
+                      setReviewRating(star);
+                      setReviewValidationError(false);
+                    }}
+                    className="transition-all duration-200 hover:scale-110 focus:outline-none"
+                  >
+                    <Star
+                      className={`w-10 h-10 ${
+                        star <= reviewRating
+                          ? "fill-yellow-400 text-yellow-400"
+                          : "text-gray-300"
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {reviewRating === 5 && "Excellent!"}
+                {reviewRating === 4 && "Very Good"}
+                {reviewRating === 3 && "Good"}
+                {reviewRating === 2 && "Fair"}
+                {reviewRating === 1 && "Poor"}
+              </p>
               {reviewValidationError && (
-                <p className="text-sm text-red-600 mt-1">Please select a rating for your review.</p>
+                <p className="text-sm text-red-600">Please select a rating</p>
               )}
             </div>
+
+            {/* Quick Comment Templates */}
             <div>
-              <Label>Comment (optional)</Label>
+              <Label className="text-sm font-medium mb-2 block">Quick Comments</Label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  "Great location",
+                  "Very clean",
+                  "Excellent host",
+                  "Amazing views",
+                  "Good value",
+                  "Would recommend",
+                  "Perfect stay",
+                  "Comfortable bed"
+                ].map((template) => (
+                  <Badge
+                    key={template}
+                    variant="outline"
+                    className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                    onClick={() => {
+                      const current = reviewComment.trim();
+                      if (current && !current.includes(template)) {
+                        setReviewComment(current + (current.endsWith(".") ? " " : ". ") + template + ".");
+                      } else if (!current) {
+                        setReviewComment(template + ".");
+                      }
+                    }}
+                  >
+                    {template}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom Comment */}
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Your Review (optional)</Label>
               <Textarea
                 value={reviewComment}
                 onChange={(e) => setReviewComment(e.target.value)}
-                placeholder="Share your experience…"
+                placeholder="Share more details about your experience..."
+                className="resize-none h-20"
+                maxLength={500}
               />
+              <p className="text-xs text-muted-foreground mt-1 text-right">
+                {reviewComment.length}/500
+              </p>
             </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setReviewOpen(false)} disabled={submittingReview}>
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-2">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setReviewOpen(false);
+                  setReviewComment("");
+                  setReviewRating(5);
+                  setReviewValidationError(false);
+                }} 
+                disabled={submittingReview}
+                className="flex-1"
+              >
                 Cancel
               </Button>
-              <Button onClick={submitReview} disabled={submittingReview}>
-                {submittingReview ? "Submitting..." : "Submit"}
+              <Button 
+                onClick={submitReview} 
+                disabled={submittingReview}
+                className="flex-1"
+              >
+                {submittingReview ? "Submitting..." : "Submit Review"}
               </Button>
             </div>
           </div>
