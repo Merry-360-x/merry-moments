@@ -324,6 +324,7 @@ export default function AdminDashboard() {
   const [roleToAdd, setRoleToAdd] = useState<Record<string, string>>({});
   const [selectedBooking, setSelectedBooking] = useState<BookingRow | null>(null);
   const [bookingDetailsOpen, setBookingDetailsOpen] = useState(false);
+  const [markingPaid, setMarkingPaid] = useState<string | null>(null);
 
   const [newBanner, setNewBanner] = useState<Omit<AdBannerRow, "id" | "created_at" | "updated_at">>({
     message: "",
@@ -595,6 +596,36 @@ export default function AdminDashboard() {
     }
     return map;
   }, [roleRows]);
+
+  const markAsPaid = async (bookingId: string) => {
+    setMarkingPaid(bookingId);
+    try {
+      const { error } = await supabase
+        .from("bookings")
+        .update({ payment_status: 'paid' })
+        .eq("id", bookingId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Payment Confirmed",
+        description: "Booking has been marked as paid successfully.",
+      });
+
+      // Refetch data
+      refetchBookings();
+      refetchMetrics();
+    } catch (error) {
+      console.error("Error marking as paid:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to mark booking as paid. Please try again.",
+      });
+    } finally {
+      setMarkingPaid(null);
+    }
+  };
 
   // Users - always enabled for better performance
   const { data: adminUsers = [], refetch: refetchUsers } = useQuery({
@@ -2696,6 +2727,18 @@ For support, contact: support@merry360x.com
                         </TableCell>
                         <TableCell>
                           <div className="flex justify-end gap-1">
+                            {b.status === 'confirmed' && b.payment_status !== 'paid' && (
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={() => markAsPaid(b.id)}
+                                disabled={markingPaid === b.id}
+                                className="gap-1"
+                              >
+                                <CheckCircle className="w-3 h-3" />
+                                {markingPaid === b.id ? 'Marking...' : 'Mark Paid'}
+                              </Button>
+                            )}
                             <Button 
                               size="sm" 
                               variant="outline" 

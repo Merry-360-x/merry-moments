@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -11,12 +11,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatMoney } from "@/lib/money";
 import { supabase } from "@/integrations/supabase/client";
-import { DollarSign, TrendingUp, CreditCard, Wallet, Calendar, Download } from "lucide-react";
+import { DollarSign, TrendingUp, CreditCard, Wallet, Calendar, Download, CheckCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 type BookingRow = {
   id: string;
   guest_id: string;
   status: string;
+  payment_status?: string | null;
   total_price: number;
   currency: string;
   created_at: string;
@@ -34,9 +36,12 @@ type Metrics = {
 
 export default function FinancialStaffDashboard() {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<"overview" | "bookings" | "checkout" | "revenue">("overview");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
+  const [markingPaid, setMarkingPaid] = useState<string | null>(null);
 
   const { data: metrics, refetch: refetchMetrics } = useQuery({
     queryKey: ["financial_metrics"],
@@ -59,13 +64,13 @@ export default function FinancialStaffDashboard() {
     },
   });
 
-  const { data: bookings = [] } = useQuery({
+  const { data: bookings = [], refetch: refetchBookings } = useQuery({
     queryKey: ["financial_bookings"],
     queryFn: async () => {
       console.log('[FinancialStaff] Fetching bookings...');
       const { data, error } = await supabase
         .from("bookings")
-        .select("id, guest_id, status, total_price, currency, created_at")
+        .select("id, guest_id, status, payment_status, total_price, currency, created_at")
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) {
@@ -76,6 +81,36 @@ export default function FinancialStaffDashboard() {
       return (data ?? []) as BookingRow[];
     },
   });
+
+  const markAsPaid = async (bookingId: string) => {
+    setMarkingPaid(bookingId);
+    try {
+      const { error } = await supabase
+        .from("bookings")
+        .update({ payment_status: 'paid' })
+        .eq("id", bookingId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Payment Confirmed",
+        description: "Booking has been marked as paid successfully.",
+      });
+
+      // Refetch data
+      refetchBookings();
+      refetchMetrics();
+    } catch (error) {
+      console.error("Error marking as paid:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to mark booking as paid. Please try again.",
+      });
+    } finally {
+      setMarkingPaid(null);
+    }
+  };
 
   const { data: checkoutRequests = [] } = useQuery({
     queryKey: ["financial_checkout_requests"],
@@ -371,6 +406,8 @@ export default function FinancialStaffDashboard() {
                       <TableHead>Amount</TableHead>
                       <TableHead>Currency</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Payment</TableHead>
+                      <TableHead>Action</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -385,15 +422,47 @@ export default function FinancialStaffDashboard() {
                         <TableCell>
                           <Badge
                             variant={
-                              booking.status === "paid"
+                              booking.status === "confirmed"
                                 ? "default"
                                 : booking.status === "pending"
                                 ? "secondary"
-                                : "destructive"
+                                : booking.status === "cancelled"
+                                ? "destructive"
+                                : "outline"
                             }
                           >
                             {booking.status}
                           </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              booking.payment_status === "paid"
+                                ? "default"
+                                : booking.payment_status === "pending"
+                                ? "secondary"
+                                : "outline"
+                            }
+                          >
+                            {booking.payment_status || 'pending'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {booking.status === 'confirmed' && booking.payment_status !== 'paid' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="gap-1"
+                              onClick={() => markAsPaid(booking.id)}
+                              disabled={markingPaid === booking.id}
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                              {markingPaid === booking.id ? 'Marking...' : 'Mark Paid'}
+                            </Button>
+                          )}
+                          {booking.payment_status === 'paid' && (
+                            <span className="text-sm text-muted-foreground">Paid</span>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
