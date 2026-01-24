@@ -32,7 +32,7 @@ type Metrics = {
 
 export default function FinancialStaffDashboard() {
   const { user } = useAuth();
-  const [tab, setTab] = useState<"overview" | "bookings" | "revenue">("overview");
+  const [tab, setTab] = useState<"overview" | "bookings" | "checkout" | "revenue">("overview");
 
   const { data: metrics, refetch: refetchMetrics } = useQuery({
     queryKey: ["financial_metrics"],
@@ -70,6 +70,24 @@ export default function FinancialStaffDashboard() {
       }
       console.log('[FinancialStaff] Bookings fetched:', data?.length || 0);
       return (data ?? []) as BookingRow[];
+    },
+  });
+
+  const { data: checkoutRequests = [] } = useQuery({
+    queryKey: ["financial_checkout_requests"],
+    queryFn: async () => {
+      console.log('[FinancialStaff] Fetching checkout requests...');
+      const { data, error } = await supabase
+        .from("checkout_requests")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (error) {
+        console.error('[FinancialStaff] Checkout requests error:', error);
+        throw error;
+      }
+      console.log('[FinancialStaff] Checkout requests fetched:', data?.length || 0);
+      return data ?? [];
     },
   });
 
@@ -144,6 +162,14 @@ export default function FinancialStaffDashboard() {
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="bookings">All Bookings</TabsTrigger>
+            <TabsTrigger value="checkout">
+              Cart Checkouts
+              {checkoutRequests.filter(r => r.status === 'pending_confirmation').length > 0 && (
+                <Badge className="ml-2" variant="destructive">
+                  {checkoutRequests.filter(r => r.status === 'pending_confirmation').length}
+                </Badge>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="revenue">Revenue by Currency</TabsTrigger>
           </TabsList>
 
@@ -274,6 +300,72 @@ export default function FinancialStaffDashboard() {
                         </TableCell>
                       </TableRow>
                     ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="checkout">
+            <Card>
+              <CardHeader>
+                <CardTitle>Cart Checkout Requests</CardTitle>
+                <CardDescription>Manage checkout requests from the trip cart</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Payment Method</TableHead>
+                      <TableHead>Items</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Created</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {checkoutRequests.map((request: any) => (
+                      <TableRow key={request.id}>
+                        <TableCell className="font-medium">{request.name}</TableCell>
+                        <TableCell className="text-sm">{request.email}</TableCell>
+                        <TableCell>
+                          {request.payment_method ? (
+                            <Badge variant="outline" className="text-xs">
+                              {request.payment_method.replace('_', ' ').toUpperCase()}
+                            </Badge>
+                          ) : 'N/A'}
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-xs">
+                            {Array.isArray(request.items) ? request.items.length : 0} items
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              request.status === "confirmed"
+                                ? "default"
+                                : request.status === "pending_confirmation"
+                                ? "secondary"
+                                : "destructive"
+                            }
+                          >
+                            {request.status?.replace('_', ' ') || 'pending'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {new Date(request.created_at).toLocaleDateString()}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {checkoutRequests.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-muted-foreground">
+                          No checkout requests found
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </CardContent>
