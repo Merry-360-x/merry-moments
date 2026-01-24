@@ -37,6 +37,7 @@ import ConnectionTest from "./pages/ConnectionTest";
 import CreateTour from "./pages/CreateTour";
 import CreateTourPackage from "./pages/CreateTourPackage";
 import CreateTransport from "./pages/CreateTransport";
+import SearchResults from "./pages/SearchResults";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import ScrollToTop from "@/components/ScrollToTop";
@@ -139,6 +140,7 @@ const App = () => (
               <Route path="/accommodations" element={<Accommodations />} />
               <Route path="/tours" element={<Tours />} />
               <Route path="/tours/:id" element={<TourDetails />} />
+              <Route path="/search" element={<SearchResults />} />
               <Route path="/transport" element={<Transport />} />
               <Route path="/services" element={<Navigate to="/" replace />} />
               <Route path="/stories" element={<Stories />} />

@@ -1,0 +1,267 @@
+import { useState, useEffect, useCallback } from "react";
+import { RecommendationEngine } from "@/lib/recommendation-engine";
+import { useAuth } from "@/contexts/AuthContext";
+import PropertyCard from "@/components/PropertyCard";
+import TourPromoCard from "@/components/TourPromoCard";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Sparkles, TrendingUp, Heart } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+
+interface RecommendationsProps {
+  type: 'properties' | 'tours' | 'all';
+  limit?: number;
+  title?: string;
+  className?: string;
+}
+
+export function PersonalizedRecommendations({
+  type = 'all',
+  limit = 6,
+  title,
+  className = '',
+}: RecommendationsProps) {
+  const { user } = useAuth();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [properties, setProperties] = useState<any[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [tours, setTours] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [engine, setEngine] = useState<RecommendationEngine | null>(null);
+
+  const initializeEngine = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const recommendationEngine = new RecommendationEngine(user?.id || null);
+      await recommendationEngine.initialize();
+      setEngine(recommendationEngine);
+
+      if (type === 'properties' || type === 'all') {
+        const propertyRecs = await recommendationEngine.getPropertyRecommendations(limit);
+        setProperties(propertyRecs);
+      }
+
+      if (type === 'tours' || type === 'all') {
+        const tourRecs = await recommendationEngine.getTourRecommendations(limit);
+        setTours(tourRecs);
+      }
+    } catch (err) {
+      console.error('[PersonalizedRecommendations] Failed to initialize:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user?.id, type, limit]);
+
+  useEffect(() => {
+    initializeEngine();
+  }, [initializeEngine]);
+
+  // Map recommendation data to card props
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mapToPropertyProps = (item: any) => ({
+    id: item.id,
+    image: item.images?.[0] || null,
+    images: item.images || null,
+    title: item.title || item.name || '',
+    location: item.location || item.city || '',
+    rating: item.rating || 0,
+    reviews: item.review_count || 0,
+    price: item.price_per_night || 0,
+    currency: item.currency,
+    type: item.property_type || 'Property',
+    bedrooms: item.bedrooms,
+    beds: item.beds,
+    bathrooms: item.bathrooms,
+    maxGuests: item.max_guests,
+    isFavorited: false,
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mapToTourProps = (item: any) => ({
+    id: item.id,
+    title: item.title || item.name || '',
+    location: item.location || null,
+    price: item.price_per_person || item.price_per_adult || 0,
+    currency: item.currency || null,
+    images: item.images || null,
+    rating: item.rating || null,
+    reviewCount: item.review_count || null,
+    category: item.category || null,
+    durationDays: item.duration_days || null,
+  });
+
+  if (isLoading) {
+    return (
+      <div className={className}>
+        <div className="flex items-center gap-2 mb-6">
+          <Skeleton className="h-8 w-64" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-80 rounded-lg" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const hasRecommendations = properties.length > 0 || tours.length > 0;
+
+  if (!hasRecommendations) {
+    return null;
+  }
+
+  return (
+    <div className={className}>
+      {/* Properties recommendations */}
+      {properties.length > 0 && (
+        <div className="mb-12">
+          <div className="flex items-center gap-3 mb-6">
+            <Sparkles className="w-6 h-6 text-primary" />
+            <h2 className="text-2xl font-bold">
+              {title || (user ? 'Recommended For You' : 'Popular Stays')}
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {properties.map((property) => (
+              <div key={property.id} className="relative">
+                <PropertyCard {...mapToPropertyProps(property)} />
+                {property.reasons && property.reasons.length > 0 && (
+                  <div className="absolute top-4 right-4 z-10">
+                    <Badge variant="secondary" className="bg-primary/90 text-primary-foreground">
+                      <TrendingUp className="w-3 h-3 mr-1" />
+                      {property.reasons[0]}
+                    </Badge>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Tours recommendations */}
+      {tours.length > 0 && (
+        <div>
+          <div className="flex items-center gap-3 mb-6">
+            <Heart className="w-6 h-6 text-primary" />
+            <h2 className="text-2xl font-bold">
+              {user ? 'Tours You Might Love' : 'Popular Tours'}
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {tours.map((tour) => (
+              <div key={tour.id} className="relative">
+                <TourPromoCard {...mapToTourProps(tour)} />
+                {tour.reasons && tour.reasons.length > 0 && (
+                  <div className="absolute top-4 right-4 z-10">
+                    <Badge variant="secondary" className="bg-primary/90 text-primary-foreground">
+                      <TrendingUp className="w-3 h-3 mr-1" />
+                      {tour.reasons[0]}
+                    </Badge>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface SimilarItemsProps {
+  itemId: string;
+  itemType: 'property' | 'tour' | 'tour_package' | 'transport';
+  limit?: number;
+}
+
+export function SimilarItems({ itemId, itemType, limit = 4 }: SimilarItemsProps) {
+  const { user } = useAuth();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [similar, setSimilar] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const loadSimilar = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const engine = new RecommendationEngine(user?.id || null);
+      const items = await engine.getSimilarItems(itemId, itemType, limit);
+      setSimilar(items);
+    } catch (err) {
+      console.error('[SimilarItems] Failed to load:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user?.id, itemId, itemType, limit]);
+
+  useEffect(() => {
+    loadSimilar();
+  }, [loadSimilar]);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mapToPropertyProps = (item: any) => ({
+    id: item.id,
+    image: item.images?.[0] || null,
+    images: item.images || null,
+    title: item.title || item.name || '',
+    location: item.location || item.city || '',
+    rating: item.rating || 0,
+    reviews: item.review_count || 0,
+    price: item.price_per_night || 0,
+    currency: item.currency,
+    type: item.property_type || 'Property',
+    bedrooms: item.bedrooms,
+    beds: item.beds,
+    bathrooms: item.bathrooms,
+    maxGuests: item.max_guests,
+    isFavorited: false,
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mapToTourProps = (item: any) => ({
+    id: item.id,
+    title: item.title || item.name || '',
+    location: item.location || null,
+    price: item.price_per_person || item.price_per_adult || 0,
+    currency: item.currency || null,
+    images: item.images || null,
+    rating: item.rating || null,
+    reviewCount: item.review_count || null,
+    category: item.category || null,
+    durationDays: item.duration_days || null,
+  });
+
+  if (isLoading) {
+    return (
+      <div>
+        <h3 className="text-xl font-semibold mb-4">Similar Options</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-64 rounded-lg" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (similar.length === 0) {
+    return null;
+  }
+
+  return (
+    <div>
+      <h3 className="text-xl font-semibold mb-4">You Might Also Like</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {similar.map((item) => (
+          <div key={item.id}>
+            {(itemType === 'property') && <PropertyCard {...mapToPropertyProps(item)} />}
+            {(itemType === 'tour' || itemType === 'tour_package') && <TourPromoCard {...mapToTourProps(item)} />}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

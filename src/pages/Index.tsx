@@ -6,12 +6,14 @@ import HostingCTA from "@/components/HostingCTA";
 import Footer from "@/components/Footer";
 import TourPromoCard from "@/components/TourPromoCard";
 import TransportPromoCard from "@/components/TransportPromoCard";
+import { PersonalizedRecommendations } from "@/components/PersonalizedRecommendations";
 import { OptimizedImage } from "@/components/OptimizedImage";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useRef } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 import heroImage from "@/assets/hero-resort.jpg";
 import merryVideo from "@/assets/Merry.mp4";
@@ -180,6 +182,7 @@ const fetchLatestVehicles = async () => {
 
 const Index = () => {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const featuredStaysRef = useRef<HTMLDivElement | null>(null);
   const topRatedRef = useRef<HTMLDivElement | null>(null);
@@ -732,6 +735,11 @@ const Index = () => {
           </div>
         </section>
       ) : null}
+
+      {/* Personalized Recommendations */}
+      <section className="container mx-auto px-4 py-16">
+        <PersonalizedRecommendations type="all" limit={6} />
+      </section>
 
       {/* Hosting CTA */}
       <HostingCTA />
