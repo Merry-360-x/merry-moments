@@ -661,9 +661,6 @@ export default function TripCart() {
               </div>
             </div>
           </div>
-              );
-            })}
-          </div>
         )}
       </div>
 
