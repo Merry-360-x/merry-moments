@@ -1275,6 +1275,7 @@ export default function HostDashboard() {
         updates.meeting_point = form.meeting_point;
         updates.what_to_bring = form.what_to_bring;
         updates.cancellation_policy = form.cancellation_policy;
+        updates.non_refundable_items = form.non_refundable_items || [];
         updates.min_guests = form.min_guests;
         updates.max_guests = form.max_guests;
         updates.group_discount_6_10 = form.group_discount_6_10 || 0;
@@ -1563,6 +1564,18 @@ export default function HostDashboard() {
                       value={form.cancellation_policy || ''}
                       onChange={(e) => setForm({ ...form, cancellation_policy: e.target.value })}
                       className="mt-1 text-sm"
+                      rows={3}
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Non-Refundable Items</Label>
+                    <p className="text-[10px] text-muted-foreground mb-1">Items that cannot be refunded once booked</p>
+                    <Textarea
+                      value={(form.non_refundable_items || []).join('\n')}
+                      onChange={(e) => setForm({ ...form, non_refundable_items: e.target.value.split('\n').filter(item => item.trim()) })}
+                      placeholder="One item per line, e.g.&#10;National park permits&#10;Gorilla trekking permits&#10;Third-party accommodation"
+                      className="mt-1 text-sm font-mono"
                       rows={3}
                     />
                   </div>

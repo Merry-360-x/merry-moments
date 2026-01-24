@@ -68,6 +68,18 @@ Some components are non-refundable once booked, including but not limited to:
     group_discount_16_plus: 0,
   });
 
+  const nonRefundableOptions = [
+    "National park and conservation permits",
+    "Gorilla trekking and special access permits",
+    "Third-party accommodation",
+    "Transport and flights",
+    "Activity tickets",
+  ];
+
+  const [selectedNonRefundable, setSelectedNonRefundable] = useState<string[]>([]);
+  const [customNonRefundable1, setCustomNonRefundable1] = useState("");
+  const [customNonRefundable2, setCustomNonRefundable2] = useState("");
+
   const [coverImage, setCoverImage] = useState<string>("");
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
   const [coverDialogOpen, setCoverDialogOpen] = useState(false);
@@ -129,6 +141,11 @@ Some components are non-refundable once booked, including but not limited to:
         customPolicyUrl = url;
       }
 
+      // Build non-refundable items list
+      const nonRefundableItems = [...selectedNonRefundable];
+      if (customNonRefundable1.trim()) nonRefundableItems.push(customNonRefundable1.trim());
+      if (customNonRefundable2.trim()) nonRefundableItems.push(customNonRefundable2.trim());
+
       const packageData: Database['public']['Tables']['tour_packages']['Insert'] = {
         host_id: user.id,
         title: formData.title.trim(),
@@ -159,6 +176,7 @@ Some components are non-refundable once booked, including but not limited to:
       (packageData as any).group_discount_6_10 = formData.group_discount_6_10;
       (packageData as any).group_discount_11_15 = formData.group_discount_11_15;
       (packageData as any).group_discount_16_plus = formData.group_discount_16_plus;
+      (packageData as any).non_refundable_items = nonRefundableItems.length > 0 ? nonRefundableItems : null;
 
       const { data: newPackage, error } = await supabase.from("tour_packages").insert(packageData as any).select("id").single();
       if (error) throw error;
@@ -405,14 +423,42 @@ Some components are non-refundable once booked, including but not limited to:
                   
                   {cancellationPolicyType === 'non_refundable' && (
                     <>
-                      <p className="font-medium text-foreground">Non-Refundable Costs</p>
-                      <p className="mb-2">Some components are non-refundable once booked, including but not limited to:</p>
-                      <ul className="list-disc list-inside space-y-0.5 ml-1">
-                        <li>National park and conservation permits</li>
-                        <li>Gorilla trekking and special access permits</li>
-                        <li>Third-party accommodation, transport, flights, or activity tickets</li>
-                        <li>Experiences marked "Non-Refundable" on the listing page</li>
-                      </ul>
+                      <p className="font-medium text-foreground mb-2">Non-Refundable Costs</p>
+                      <p className="mb-3 text-xs">Select items that are non-refundable once booked:</p>
+                      <div className="space-y-2 mb-4">
+                        {nonRefundableOptions.map((item) => (
+                          <label key={item} className="flex items-start gap-2 text-xs cursor-pointer">
+                            <Checkbox
+                              checked={selectedNonRefundable.includes(item)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedNonRefundable([...selectedNonRefundable, item]);
+                                } else {
+                                  setSelectedNonRefundable(selectedNonRefundable.filter(i => i !== item));
+                                }
+                              }}
+                              className="mt-0.5"
+                            />
+                            <span>{item}</span>
+                          </label>
+                        ))}
+                      </div>
+                      
+                      <div className="space-y-2 pt-2 border-t">
+                        <Label className="text-xs font-medium">Add Custom Non-Refundable Items (Optional)</Label>
+                        <Input
+                          value={customNonRefundable1}
+                          onChange={(e) => setCustomNonRefundable1(e.target.value)}
+                          placeholder="e.g., Special event tickets"
+                          className="h-8 text-xs"
+                        />
+                        <Input
+                          value={customNonRefundable2}
+                          onChange={(e) => setCustomNonRefundable2(e.target.value)}
+                          placeholder="e.g., Private guide booking fee"
+                          className="h-8 text-xs"
+                        />
+                      </div>
                     </>
                   )}
                 </div>
