@@ -107,12 +107,18 @@ export default function SearchResults() {
     rating: item.rating || 0,
     reviews: item.review_count || 0,
     price: item.price_per_night || 0,
+    pricePerPerson: item.price_per_person,
     currency: item.currency,
     type: item.property_type || 'Property',
     bedrooms: item.bedrooms,
     beds: item.beds,
     bathrooms: item.bathrooms,
     maxGuests: item.max_guests,
+    checkInTime: item.check_in_time,
+    checkOutTime: item.check_out_time,
+    smokingAllowed: item.smoking_allowed,
+    eventsAllowed: item.events_allowed,
+    petsAllowed: item.pets_allowed,
     isFavorited: false,
   });
 
