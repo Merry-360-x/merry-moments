@@ -176,7 +176,7 @@ export default function OperationsStaffDashboard() {
       console.log('[OperationsStaff] Fetching cart checkout bookings...');
       const { data, error } = await supabase
         .from("bookings")
-        .select("id, order_id, booking_type, property_id, tour_id, transport_id, guest_name, guest_email, guest_phone, payment_method, total_price, currency, status, payment_status, created_at, properties(title), tour_packages(title), transport_vehicles(title)")
+        .select("id, order_id, booking_type, property_id, tour_id, transport_id, guest_name, guest_email, guest_phone, payment_method, total_price, currency, status, payment_status, created_at, properties(title), tours(title), transport_vehicles(title)")
         .not("order_id", "is", null)
         .order("created_at", { ascending: false })
         .limit(100);

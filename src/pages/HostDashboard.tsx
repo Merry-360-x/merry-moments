@@ -450,7 +450,7 @@ export default function HostDashboard() {
         bookingQueries.push(
           supabase
             .from("bookings")
-            .select("*, tour_packages(title)")
+            .select("*, tours(title)")
             .eq("booking_type", "tour")
             .in("tour_id", tourPackageIds)
             .order("created_at", { ascending: false })

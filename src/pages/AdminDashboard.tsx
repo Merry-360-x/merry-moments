@@ -751,7 +751,7 @@ export default function AdminDashboard() {
         // guest_* fields support guest checkout (guest_id can be NULL)
         // booking_type, tour_id, transport_id, order_id support multi-item cart checkouts
         .select(
-          "id, property_id, tour_id, transport_id, booking_type, order_id, guest_id, guest_name, guest_email, guest_phone, is_guest_booking, check_in, check_out, guests, total_price, currency, status, payment_status, payment_method, special_requests, host_id, created_at, properties(title, images), tour_packages(title, city, country), transport_vehicles(title, vehicle_type)"
+          "id, property_id, tour_id, transport_id, booking_type, order_id, guest_id, guest_name, guest_email, guest_phone, is_guest_booking, check_in, check_out, guests, total_price, currency, status, payment_status, payment_method, special_requests, host_id, created_at, properties(title, images), tours(title, location), transport_vehicles(title, vehicle_type)"
         )
         .order("created_at", { ascending: false })
         .limit(500); // Increase limit for comprehensive booking data
