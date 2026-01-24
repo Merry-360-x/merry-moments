@@ -49,7 +49,11 @@ type Transport = {
 
 type Booking = {
   id: string;
-  property_id: string;
+  property_id: string | null;
+  tour_id: string | null;
+  transport_id: string | null;
+  booking_type: string | null;
+  order_id: string | null;
   guest_id: string | null;
   guest_name: string | null;
   guest_email: string | null;
@@ -61,10 +65,14 @@ type Booking = {
   total_price: number;
   currency: string;
   status: string;
+  payment_status: string | null;
   payment_method: string | null;
   special_requests: string | null;
   host_id: string | null;
   created_at: string;
+  properties?: { title: string } | null;
+  tour_packages?: { title: string } | null;
+  transport_vehicles?: { title: string } | null;
 };
 
 export default function OperationsStaffDashboard() {
@@ -161,21 +169,23 @@ export default function OperationsStaffDashboard() {
     },
   });
 
-  const { data: checkoutRequests = [] } = useQuery({
-    queryKey: ["operations_checkout_requests"],
+  // Cart checkouts are bookings with order_id (bulk orders)
+  const { data: cartCheckouts = [], refetch: refetchCartCheckouts } = useQuery({
+    queryKey: ["operations_cart_checkouts"],
     queryFn: async () => {
-      console.log('[OperationsStaff] Fetching checkout requests...');
+      console.log('[OperationsStaff] Fetching cart checkout bookings...');
       const { data, error } = await supabase
-        .from("checkout_requests")
-        .select("*")
+        .from("bookings")
+        .select("id, order_id, booking_type, property_id, tour_id, transport_id, guest_name, guest_email, guest_phone, payment_method, total_price, currency, status, payment_status, created_at, properties(title), tour_packages(title), transport_vehicles(title)")
+        .not("order_id", "is", null)
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) {
-        console.error('[OperationsStaff] Checkout requests error:', error);
+        console.error('[OperationsStaff] Cart checkouts error:', error);
         throw error;
       }
-      console.log('[OperationsStaff] Checkout requests fetched:', data?.length || 0);
-      return data ?? [];
+      console.log('[OperationsStaff] Cart checkouts fetched:', data?.length || 0);
+      return (data ?? []) as Booking[];
     },
   });
 
@@ -306,9 +316,12 @@ export default function OperationsStaffDashboard() {
             </TabsTrigger>
             <TabsTrigger value="checkout">
               Cart Checkouts
-              {checkoutRequests.filter(r => r.status === 'pending_confirmation').length > 0 && (
-                <Badge className="ml-2" variant="destructive">
-                  {checkoutRequests.filter(r => r.status === 'pending_confirmation').length}
+              {cartCheckouts.filter(b => b.status === 'pending').length > 0 && (
+                <Badge className="ml-1.5 px-1.5 py-0 text-xs h-5 min-w-[20px] rounded-full" variant="destructive">
+                  {(() => {
+                    const pendingOrders = new Set(cartCheckouts.filter(b => b.status === 'pending').map(b => b.order_id));
+                    return pendingOrders.size;
+                  })()}
                 </Badge>
               )}
             </TabsTrigger>
@@ -707,62 +720,95 @@ export default function OperationsStaffDashboard() {
           <TabsContent value="checkout">
             <Card>
               <CardHeader>
-                <CardTitle>Cart Checkout Requests</CardTitle>
-                <CardDescription>Manage checkout requests from the trip cart</CardDescription>
+                <CardTitle>Cart Checkout Orders</CardTitle>
+                <CardDescription>Confirm bulk booking orders from the trip cart</CardDescription>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
+                      <TableHead>Order ID</TableHead>
+                      <TableHead>Guest</TableHead>
                       <TableHead>Phone</TableHead>
-                      <TableHead>Payment Method</TableHead>
                       <TableHead>Items</TableHead>
+                      <TableHead>Total</TableHead>
+                      <TableHead>Payment</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Created</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {checkoutRequests.map((request: any) => (
-                      <TableRow key={request.id}>
-                        <TableCell className="font-medium">{request.name}</TableCell>
-                        <TableCell className="text-sm">{request.email}</TableCell>
-                        <TableCell className="text-sm">{request.phone || 'N/A'}</TableCell>
-                        <TableCell>
-                          {request.payment_method ? (
-                            <Badge variant="outline" className="text-xs">
-                              {request.payment_method.replace('_', ' ').toUpperCase()}
-                            </Badge>
-                          ) : 'N/A'}
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-xs">
-                            {Array.isArray(request.items) ? request.items.length : 0} items
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              request.status === "confirmed"
-                                ? "default"
-                                : request.status === "pending_confirmation"
-                                ? "secondary"
-                                : "destructive"
-                            }
-                          >
-                            {request.status?.replace('_', ' ') || 'pending'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {new Date(request.created_at).toLocaleDateString()}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {checkoutRequests.length === 0 && (
+                    {(() => {
+                      // Group bookings by order_id
+                      const orderMap = new Map<string, Booking[]>();
+                      cartCheckouts.forEach(booking => {
+                        if (booking.order_id) {
+                          const existing = orderMap.get(booking.order_id) || [];
+                          orderMap.set(booking.order_id, [...existing, booking]);
+                        }
+                      });
+
+                      return Array.from(orderMap.entries()).map(([orderId, bookings]) => {
+                        const firstBooking = bookings[0];
+                        const totalAmount = bookings.reduce((sum, b) => sum + b.total_price, 0);
+                        const allConfirmed = bookings.every(b => b.status === 'confirmed');
+                        const anyPending = bookings.some(b => b.status === 'pending');
+
+                        return (
+                          <TableRow key={orderId}>
+                            <TableCell className="font-mono text-xs">{orderId.slice(0, 8)}...</TableCell>
+                            <TableCell>
+                              <div>
+                                <div className="font-medium">{firstBooking.guest_name}</div>
+                                <div className="text-xs text-muted-foreground">{firstBooking.guest_email}</div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-sm">{firstBooking.guest_phone || 'N/A'}</TableCell>
+                            <TableCell>
+                              <div className="text-xs space-y-1">
+                                {bookings.map(b => {
+                                  const itemName = b.booking_type === 'property' && b.properties ? b.properties.title :
+                                                  b.booking_type === 'tour' && b.tour_packages ? b.tour_packages.title :
+                                                  b.booking_type === 'transport' && b.transport_vehicles ? b.transport_vehicles.title : 'Item';
+                                  const icon = b.booking_type === 'property' ? '🏠' : b.booking_type === 'tour' ? '🗺️' : '🚗';
+                                  return <div key={b.id}>{icon} {itemName}</div>;
+                                })}
+                              </div>
+                            </TableCell>
+                            <TableCell className="font-medium">{firstBooking.currency} {totalAmount.toFixed(2)}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-xs">
+                                {firstBooking.payment_method?.replace('_', ' ').toUpperCase() || 'N/A'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={allConfirmed ? "default" : anyPending ? "secondary" : "destructive"}>
+                                {allConfirmed ? 'Confirmed' : anyPending ? 'Pending' : 'Mixed'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {anyPending && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => confirmOrder(orderId)}
+                                  className="gap-1"
+                                >
+                                  <CheckCircle className="w-3 h-3" />
+                                  Confirm
+                                </Button>
+                              )}
+                              {allConfirmed && (
+                                <span className="text-sm text-muted-foreground">✓ Confirmed</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      });
+                    })()}
+                    {cartCheckouts.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center text-muted-foreground">
-                          No checkout requests found
+                        <TableCell colSpan={8} className="text-center text-muted-foreground">
+                          No cart checkout orders found
                         </TableCell>
                       </TableRow>
                     )}

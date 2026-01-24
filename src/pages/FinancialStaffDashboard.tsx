@@ -16,9 +16,13 @@ import { useToast } from "@/hooks/use-toast";
 
 type BookingRow = {
   id: string;
-  guest_id: string;
+  guest_id: string | null;
+  guest_name: string | null;
+  guest_email: string | null;
+  guest_phone: string | null;
   status: string;
   payment_status?: string | null;
+  payment_method?: string | null;
   total_price: number;
   currency: string;
   created_at: string;
@@ -70,7 +74,7 @@ export default function FinancialStaffDashboard() {
       console.log('[FinancialStaff] Fetching bookings...');
       const { data, error } = await supabase
         .from("bookings")
-        .select("id, guest_id, status, payment_status, total_price, currency, created_at")
+        .select("id, guest_id, guest_name, guest_email, guest_phone, status, payment_status, payment_method, total_price, currency, created_at")
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) {
@@ -409,9 +413,10 @@ export default function FinancialStaffDashboard() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>ID</TableHead>
+                      <TableHead>Guest Info</TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead>Amount</TableHead>
-                      <TableHead>Currency</TableHead>
+                      <TableHead>Payment Method</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Payment</TableHead>
                       <TableHead>Action</TableHead>
@@ -421,11 +426,24 @@ export default function FinancialStaffDashboard() {
                     {filteredBookings.map((booking) => (
                       <TableRow key={booking.id}>
                         <TableCell className="font-mono text-xs">{booking.id.slice(0, 8)}...</TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            <div className="font-medium">{booking.guest_name || 'Guest'}</div>
+                            <div className="text-xs text-muted-foreground">{booking.guest_email || 'N/A'}</div>
+                            {booking.guest_phone && (
+                              <div className="text-xs text-muted-foreground">{booking.guest_phone}</div>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>{new Date(booking.created_at).toLocaleDateString()}</TableCell>
                         <TableCell className="font-medium">
                           {formatMoney(Number(booking.total_price), String(booking.currency ?? "USD"))}
                         </TableCell>
-                        <TableCell>{booking.currency}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs">
+                            {booking.payment_method?.replace('_', ' ').toUpperCase() || 'N/A'}
+                          </Badge>
+                        </TableCell>
                         <TableCell>
                           <Badge
                             variant={
@@ -491,6 +509,7 @@ export default function FinancialStaffDashboard() {
                     <TableRow>
                       <TableHead>Name</TableHead>
                       <TableHead>Email</TableHead>
+                      <TableHead>Phone</TableHead>
                       <TableHead>Payment Method</TableHead>
                       <TableHead>Items</TableHead>
                       <TableHead>Status</TableHead>
@@ -502,6 +521,7 @@ export default function FinancialStaffDashboard() {
                       <TableRow key={request.id}>
                         <TableCell className="font-medium">{request.name}</TableCell>
                         <TableCell className="text-sm">{request.email}</TableCell>
+                        <TableCell className="text-sm">{request.phone || 'N/A'}</TableCell>
                         <TableCell>
                           {request.payment_method ? (
                             <Badge variant="outline" className="text-xs">
@@ -534,7 +554,7 @@ export default function FinancialStaffDashboard() {
                     ))}
                     {checkoutRequests.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center text-muted-foreground">
+                        <TableCell colSpan={7} className="text-center text-muted-foreground">
                           No checkout requests found
                         </TableCell>
                       </TableRow>
