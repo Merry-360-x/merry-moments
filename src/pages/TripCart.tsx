@@ -14,7 +14,9 @@ import { formatMoney } from "@/lib/money";
 import { useTripCart } from "@/hooks/useTripCart";
 import { useFxRates } from "@/hooks/useFxRates";
 import { convertAmount } from "@/lib/fx";
-import { Trash2 } from "lucide-react";
+import { Trash2, Tag } from "lucide-react";
+import { useState } from "react";
+import { Input } from "@/components/ui/input";
 
 interface CartItem {
   id: string;
@@ -35,6 +37,11 @@ export default function TripCart() {
   const { currency: preferredCurrency } = usePreferences();
   const { guestCart, removeFromCart, clearCart } = useTripCart();
   const { usdRates } = useFxRates();
+  
+  // Discount code state
+  const [discountCode, setDiscountCode] = useState("");
+  const [appliedDiscount, setAppliedDiscount] = useState<any>(null);
+  const [validatingCode, setValidatingCode] = useState(false);
 
   // Optimized query with parallel fetching and caching
   const { data: cartItems = [], isLoading } = useQuery({
@@ -285,8 +292,49 @@ export default function TripCart() {
   // Manual cleanup only - no auto-cleanup to prevent accidental data loss
   // Items can be manually removed using the remove button
 
-  // Calculate totals
-  const { total, totalCurrency } = useMemo(() => {
+  // Validate discount code
+  const applyDiscountCode = async () => {
+    if (!discountCode.trim()) return;
+    
+    setValidatingCode(true);
+    try {
+      const { data, error } = await supabase
+        .from("discount_codes")
+        .select("*")
+        .eq("code", discountCode.toUpperCase().trim())
+        .eq("is_active", true)
+        .single();
+      
+      if (error || !data) {
+        toast({ variant: "destructive", title: "Invalid Code", description: "Discount code not found or expired" });
+        setValidatingCode(false);
+        return;
+      }
+      
+      // Check if expired
+      if (data.valid_until && new Date(data.valid_until) < new Date()) {
+        toast({ variant: "destructive", title: "Expired", description: "This discount code has expired" });
+        setValidatingCode(false);
+        return;
+      }
+      
+      // Check max uses
+      if (data.max_uses && data.current_uses >= data.max_uses) {
+        toast({ variant: "destructive", title: "Limit Reached", description: "This discount code has reached its usage limit" });
+        setValidatingCode(false);
+        return;
+      }
+      
+      setAppliedDiscount(data);
+      toast({ title: "Success", description: `Discount code applied: ${data.discount_type === 'percentage' ? data.discount_value + '%' : data.currency + ' ' + data.discount_value} off` });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Error", description: "Failed to validate discount code" });
+    }
+    setValidatingCode(false);
+  };
+
+  // Calculate totals with discount
+  const { total, totalCurrency, discount, finalTotal } = useMemo(() => {
     let amount = 0;
     let currency: string = preferredCurrency || "RWF";
 
@@ -302,8 +350,31 @@ export default function TripCart() {
       }
     });
 
-    return { total: amount, totalCurrency: currency };
-  }, [cartItems, preferredCurrency, usdRates]);
+    // Calculate discount
+    let discountAmount = 0;
+    if (appliedDiscount) {
+      if (appliedDiscount.discount_type === 'percentage') {
+        discountAmount = amount * (appliedDiscount.discount_value / 100);
+      } else {
+        // Fixed discount - convert to cart currency if needed
+        const converted = convertAmount(
+          appliedDiscount.discount_value,
+          appliedDiscount.currency,
+          currency,
+          usdRates
+        );
+        discountAmount = converted !== null ? converted : 0;
+      }
+      
+      // Check minimum amount requirement
+      if (appliedDiscount.minimum_amount && amount < appliedDiscount.minimum_amount) {
+        discountAmount = 0;
+      }
+    }
+
+    const final = amount - discountAmount;
+    return { total: amount, totalCurrency: currency, discount: discountAmount, finalTotal: final };
+  }, [cartItems, preferredCurrency, usdRates, appliedDiscount]);
 
   const getItemLink = (item: CartItem) => {
     switch (item.item_type) {
@@ -416,16 +487,78 @@ export default function TripCart() {
         ) : (
           <div className="space-y-4">
             {/* Cart summary */}
-            <div className="bg-card rounded-xl shadow-card p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="text-foreground">
-                <span className="font-semibold">Total ({cartItems.length} {cartItems.length === 1 ? "item" : "items"}): </span>
-                <span className="font-bold text-lg">
-                  {formatMoney(total, totalCurrency)}
-                </span>
+            <div className="bg-card rounded-xl shadow-card p-5">
+              {/* Discount Code Input */}
+              <div className="mb-4 pb-4 border-b">
+                <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                  Have a discount code?
+                </label>
+                {!appliedDiscount ? (
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Enter code"
+                      value={discountCode}
+                      onChange={(e) => setDiscountCode(e.target.value.toUpperCase())}
+                      className="max-w-xs"
+                      disabled={validatingCode}
+                    />
+                    <Button 
+                      onClick={applyDiscountCode} 
+                      disabled={!discountCode.trim() || validatingCode}
+                      variant="outline"
+                    >
+                      {validatingCode ? "Validating..." : "Apply"}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
+                    <Tag className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    <span className="text-sm font-medium text-green-900 dark:text-green-100">
+                      {appliedDiscount.code} - {appliedDiscount.description || 
+                        `${appliedDiscount.discount_type === 'percentage' ? appliedDiscount.discount_value + '% off' : formatMoney(appliedDiscount.discount_value, appliedDiscount.currency) + ' off'}`}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setAppliedDiscount(null);
+                        setDiscountCode("");
+                      }}
+                      className="ml-auto h-6 px-2"
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                )}
               </div>
-              <div className="flex items-center gap-3">
-                <Link to="/checkout?mode=cart">
-                  <Button size="lg">Proceed to Checkout</Button>
+
+              {/* Total Summary */}
+              <div className="space-y-2 mb-4">
+                <div className="flex justify-between text-foreground">
+                  <span>Subtotal ({cartItems.length} {cartItems.length === 1 ? "item" : "items"}):</span>
+                  <span className="font-semibold">{formatMoney(total, totalCurrency)}</span>
+                </div>
+                {appliedDiscount && discount > 0 && (
+                  <div className="flex justify-between text-green-600 dark:text-green-400">
+                    <span>Discount:</span>
+                    <span className="font-semibold">-{formatMoney(discount, totalCurrency)}</span>
+                  </div>
+                )}
+                {appliedDiscount && appliedDiscount.minimum_amount && total < appliedDiscount.minimum_amount && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    Minimum purchase of {formatMoney(appliedDiscount.minimum_amount, appliedDiscount.currency)} required
+                  </p>
+                )}
+                <div className="flex justify-between text-foreground text-lg font-bold pt-2 border-t">
+                  <span>Total:</span>
+                  <span>{formatMoney(finalTotal, totalCurrency)}</span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <Link to="/checkout?mode=cart" className="flex-1">
+                  <Button size="lg" className="w-full">Proceed to Checkout</Button>
                 </Link>
                 <Button variant="outline" size="lg" onClick={handleClearCart}>
                   <Trash2 className="w-4 h-4 mr-2" />

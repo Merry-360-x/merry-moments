@@ -360,6 +360,28 @@ export default function PropertyDetails() {
       return;
     }
 
+    // Check date availability
+    const selectedStart = new Date(checkIn);
+    const selectedEnd = new Date(checkOut);
+    
+    for (const blocked of blockedDates) {
+      const blockedStart = new Date(blocked.start_date);
+      const blockedEnd = new Date(blocked.end_date);
+      
+      // Check if dates overlap
+      if (selectedStart <= blockedEnd && selectedEnd >= blockedStart) {
+        const startDate = blockedStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const endDate = blockedEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        
+        toast({
+          variant: "destructive",
+          title: "Dates Not Available",
+          description: `This property is already booked from ${startDate} to ${endDate}. Please select different dates.`,
+        });
+        return;
+      }
+    }
+
     // Collect contact info at checkout (works for signed-in + signed-out users).
     const qs = new URLSearchParams();
     qs.set("mode", "booking");
@@ -1056,6 +1078,34 @@ export default function PropertyDetails() {
                     />
                   </div>
                 </div>
+
+                {/* Show blocked dates if any */}
+                {blockedDates.length > 0 && (
+                  <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <p className="text-sm font-medium text-amber-900 dark:text-amber-100 mb-2">
+                      Unavailable Dates:
+                    </p>
+                    <div className="space-y-1">
+                      {blockedDates.slice(0, 5).map((blocked, idx) => {
+                        const start = new Date(blocked.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                        const end = new Date(blocked.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                        return (
+                          <div key={idx} className="text-xs text-amber-800 dark:text-amber-200">
+                            • {start} - {end}
+                            {blocked.reason === 'booked' && ' (Already booked)'}
+                            {blocked.reason === 'maintenance' && ' (Maintenance)'}
+                            {blocked.reason === 'personal use' && ' (Host unavailable)'}
+                          </div>
+                        );
+                      })}
+                      {blockedDates.length > 5 && (
+                        <p className="text-xs text-amber-700 dark:text-amber-300 italic">
+                          +{blockedDates.length - 5} more blocked period{blockedDates.length - 5 > 1 ? 's' : ''}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div className="mt-4 flex items-center justify-between gap-4">
                   <div className="text-sm text-muted-foreground">
