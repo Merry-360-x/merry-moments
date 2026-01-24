@@ -161,10 +161,8 @@ Some components are non-refundable once booked, including but not limited to:
         combinedPolicy += 'CUSTOM POLICY\n' + customPolicyText.trim() + '\n\n';
       }
 
-      // Build non-refundable items list
+      // Build non-refundable items list (custom items already added via Add buttons)
       const nonRefundableItems = [...selectedNonRefundable];
-      if (customNonRefundable1.trim()) nonRefundableItems.push(customNonRefundable1.trim());
-      if (customNonRefundable2.trim()) nonRefundableItems.push(customNonRefundable2.trim());
 
       const packageData: Database['public']['Tables']['tour_packages']['Insert'] = {
         host_id: user.id,
@@ -523,18 +521,91 @@ Some components are non-refundable once booked, including but not limited to:
                 
                 <div className="space-y-2 pt-2 border-t">
                   <Label className="text-xs font-medium">Add Custom Non-Refundable Items</Label>
-                  <Input
-                    value={customNonRefundable1}
-                    onChange={(e) => setCustomNonRefundable1(e.target.value)}
-                    placeholder="e.g., Special event tickets"
-                    className="h-9 text-sm"
-                  />
-                  <Input
-                    value={customNonRefundable2}
-                    onChange={(e) => setCustomNonRefundable2(e.target.value)}
-                    placeholder="e.g., Private guide booking fee"
-                    className="h-9 text-sm"
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      value={customNonRefundable1}
+                      onChange={(e) => setCustomNonRefundable1(e.target.value)}
+                      placeholder="e.g., Special event tickets"
+                      className="h-9 text-sm flex-1"
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && customNonRefundable1.trim()) {
+                          e.preventDefault();
+                          setSelectedNonRefundable([...selectedNonRefundable, customNonRefundable1.trim()]);
+                          setCustomNonRefundable1('');
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        if (customNonRefundable1.trim()) {
+                          setSelectedNonRefundable([...selectedNonRefundable, customNonRefundable1.trim()]);
+                          setCustomNonRefundable1('');
+                          toast({ title: "Item added", description: "Custom non-refundable item added successfully" });
+                        }
+                      }}
+                      disabled={!customNonRefundable1.trim()}
+                      className="h-9"
+                    >
+                      Add
+                    </Button>
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      value={customNonRefundable2}
+                      onChange={(e) => setCustomNonRefundable2(e.target.value)}
+                      placeholder="e.g., Private guide booking fee"
+                      className="h-9 text-sm flex-1"
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && customNonRefundable2.trim()) {
+                          e.preventDefault();
+                          setSelectedNonRefundable([...selectedNonRefundable, customNonRefundable2.trim()]);
+                          setCustomNonRefundable2('');
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        if (customNonRefundable2.trim()) {
+                          setSelectedNonRefundable([...selectedNonRefundable, customNonRefundable2.trim()]);
+                          setCustomNonRefundable2('');
+                          toast({ title: "Item added", description: "Custom non-refundable item added successfully" });
+                        }
+                      }}
+                      disabled={!customNonRefundable2.trim()}
+                      className="h-9"
+                    >
+                      Add
+                    </Button>
+                  </div>
+                  
+                  {/* Show added custom items */}
+                  {selectedNonRefundable.filter(item => !nonRefundableOptions.includes(item)).length > 0 && (
+                    <div className="mt-3 pt-3 border-t">
+                      <Label className="text-xs font-medium mb-2 block">Custom Items Added:</Label>
+                      <div className="space-y-1">
+                        {selectedNonRefundable.filter(item => !nonRefundableOptions.includes(item)).map((item, idx) => (
+                          <div key={idx} className="flex items-center justify-between text-sm bg-muted/50 px-2 py-1.5 rounded">
+                            <span>{item}</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setSelectedNonRefundable(selectedNonRefundable.filter(i => i !== item))}
+                              className="h-6 w-6 p-0"
+                            >
+                              <X className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
