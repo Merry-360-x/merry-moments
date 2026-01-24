@@ -282,6 +282,7 @@ type TabValue =
   | "tours"
   | "transport"
   | "bookings"
+  | "cart-checkouts"
   | "payments"
   | "reviews"
   | "support"
@@ -724,6 +725,26 @@ export default function AdminDashboard() {
     refetchOnWindowFocus: true,
     placeholderData: (previousData) => previousData,
   });
+
+  // Cart Checkout Requests - direct query
+  const { data: checkoutRequests = [], refetch: refetchCheckoutRequests } = useQuery({
+    queryKey: ["admin-checkout-requests"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("checkout_requests")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: tab === "cart-checkouts" || tab === "overview",
+    staleTime: 1000 * 20,
+    gcTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: true,
+    placeholderData: (previousData) => previousData,
+  });
+
   // Reviews - direct query with enhanced loading
   const { data: reviews = [], refetch: refetchReviews } = useQuery({
     queryKey: ["admin-reviews-direct"],
@@ -1419,6 +1440,9 @@ For support, contact: support@merry360x.com
             </TabsTrigger>
             <TabsTrigger value="bookings" className="gap-1">
               <Calendar className="w-4 h-4" /> Bookings
+            </TabsTrigger>
+            <TabsTrigger value="cart-checkouts" className="gap-1">
+              <CreditCard className="w-4 h-4" /> Cart Checkouts
             </TabsTrigger>
             <TabsTrigger value="payments" className="gap-1">
               <CreditCard className="w-4 h-4" /> Payments
@@ -2732,6 +2756,81 @@ For support, contact: support@merry360x.com
                           No bookings found
                         </TableCell>
                       </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </Card>
+          </TabsContent>
+
+          {/* CART CHECKOUTS TAB */}
+          <TabsContent value="cart-checkouts">
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-lg font-semibold">Cart Checkout Requests</h2>
+                  <p className="text-sm text-muted-foreground">Manage bulk booking requests from cart</p>
+                </div>
+                <Badge variant="outline">{checkoutRequests.length} total</Badge>
+              </div>
+
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>ID</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Contact</TableHead>
+                      <TableHead>Items</TableHead>
+                      <TableHead>Total</TableHead>
+                      <TableHead>Payment</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {checkoutRequests.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                          No checkout requests yet
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      checkoutRequests.map((req: any) => (
+                        <TableRow key={req.id}>
+                          <TableCell className="font-mono text-xs">{req.id.slice(0, 8)}...</TableCell>
+                          <TableCell>
+                            <div className="text-sm font-medium">{req.name || "—"}</div>
+                            <div className="text-xs text-muted-foreground">{req.email || "—"}</div>
+                          </TableCell>
+                          <TableCell className="text-sm">{req.phone || "—"}</TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">
+                              {Array.isArray(req.items) ? req.items.length : 0} items
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {req.total_amount ? formatMoney(req.total_amount, "USD") : "—"}
+                          </TableCell>
+                          <TableCell className="text-xs">{req.payment_method || "—"}</TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                req.status === "completed"
+                                  ? "default"
+                                  : req.status === "pending_confirmation"
+                                  ? "secondary"
+                                  : "outline"
+                              }
+                            >
+                              {req.status || "pending"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {new Date(req.created_at).toLocaleDateString()}
+                          </TableCell>
+                        </TableRow>
+                      ))
                     )}
                   </TableBody>
                 </Table>
