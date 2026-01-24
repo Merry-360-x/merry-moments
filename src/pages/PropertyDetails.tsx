@@ -130,7 +130,7 @@ export default function PropertyDetails() {
       
       const { data: prof, error } = await supabase
         .from("profiles")
-        .select("user_id, full_name, avatar_url, bio, created_at")
+        .select("user_id, full_name, nickname, avatar_url, bio, created_at")
         .eq("user_id", hostId)
         .maybeSingle();
       
@@ -140,6 +140,7 @@ export default function PropertyDetails() {
         | {
             user_id: string;
             full_name: string | null;
+            nickname?: string | null;
             avatar_url: string | null;
             bio: string | null;
             created_at: string;
@@ -879,8 +880,12 @@ export default function PropertyDetails() {
                         )}
                       </div>
                       <div>
-                        <div className="text-base font-semibold text-foreground">
-                          Hosted by {hostProfile?.full_name?.trim() || "Host"}
+                        <di(hostProfile?.nickname || hostProfile?.full_name) font-semibold text-foreground">
+                          {hostProfile?.full_name?.trim() || (
+                            <span className="text-muted-foreground">
+                              Host Profile Unavailable
+                            </span>
+                          )}
                         </div>
                         <div className="mt-1 text-sm text-muted-foreground">
                           <span>
@@ -889,7 +894,9 @@ export default function PropertyDetails() {
                           {hostStats?.rating ? <span> · {hostStats.rating} overall</span> : null}
                           {hostStats?.hostingSince ? (
                             <span> · Hosting since {new Date(hostStats.hostingSince).toLocaleDateString()}</span>
-                          ) : null}
+                          ) : (hostProfile?.created_at ? (
+                            <span> · Joined {new Date(hostProfile.created_at).toLocaleDateString()}</span>
+                          ) : null)}
                         </div>
                       </div>
                     </div>

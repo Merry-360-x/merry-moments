@@ -37,6 +37,7 @@ type TourDetailsData = {
   tour: any;
   host?: {
     full_name?: string | null;
+    nickname?: string | null;
     years_of_experience?: string | number | null;
     languages_spoken?: string[] | null;
     tour_guide_bio?: string | null;
@@ -66,7 +67,7 @@ export default function TourDetails() {
         if (tour.created_by) {
           const { data: profile } = await supabase
             .from("profiles")
-            .select("full_name, years_of_experience, languages_spoken, tour_guide_bio, avatar_url, email, phone, created_at")
+            .select("full_name, nickname, years_of_experience, languages_spoken, tour_guide_bio, avatar_url, email, phone, created_at")
             .eq("user_id", tour.created_by)
             .single();
           return { source: "tours", tour, host: profile } as TourDetailsData;
@@ -90,7 +91,7 @@ export default function TourDetails() {
       if (pkg?.host_id) {
         const { data: profile, error: profileError } = await supabase
           .from("profiles")
-          .select("full_name, years_of_experience, languages_spoken, tour_guide_bio, avatar_url, email, phone, created_at")
+          .select("full_name, nickname, years_of_experience, languages_spoken, tour_guide_bio, avatar_url, email, phone, created_at")
           .eq("user_id", pkg.host_id)
           .maybeSingle();
         
@@ -487,7 +488,9 @@ export default function TourDetails() {
                   </Avatar>
                   <div className="flex-1">
                     <div className="text-base font-semibold text-foreground">
-                      {hostProfile.full_name || "Tour Guide"}
+                      {(hostProfile?.nickname || hostProfile?.full_name) || (
+                        <span className="text-muted-foreground">Guide Profile Incomplete</span>
+                      )}
                     </div>
                     {hostProfile.created_at && (
                       <div className="text-xs text-muted-foreground mt-1">
@@ -501,6 +504,14 @@ export default function TourDetails() {
                   <div className="mb-4 p-4 bg-muted/30 rounded-lg">
                     <p className="text-sm text-muted-foreground leading-relaxed">
                       {hostProfile.tour_guide_bio}
+                    </p>
+                  </div>
+                )}
+
+                {!hostProfile.full_name && !hostProfile.nickname && (
+                  <div className="mb-4 p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <p className="text-sm text-amber-800 dark:text-amber-200">
+                      The tour guide's profile information is incomplete. Please contact support if you need more details about your guide.
                     </p>
                   </div>
                 )}

@@ -7,9 +7,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { formatMoney } from "@/lib/money";
 import { supabase } from "@/integrations/supabase/client";
-import { DollarSign, TrendingUp, CreditCard, Wallet } from "lucide-react";
+import { DollarSign, TrendingUp, CreditCard, Wallet, Calendar, Download } from "lucide-react";
 
 type BookingRow = {
   id: string;
@@ -33,6 +35,8 @@ type Metrics = {
 export default function FinancialStaffDashboard() {
   const { user } = useAuth();
   const [tab, setTab] = useState<"overview" | "bookings" | "checkout" | "revenue">("overview");
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
 
   const { data: metrics, refetch: refetchMetrics } = useQuery({
     queryKey: ["financial_metrics"],
@@ -98,8 +102,45 @@ export default function FinancialStaffDashboard() {
     return `${formatMoney(Number(list[0].amount), String(list[0].currency ?? "USD"))} (+${list.length - 1} currencies)`;
   }, [metrics?.revenue_by_currency]);
 
-  const completedBookings = bookings.filter(b => b.status === 'completed' || b.status === 'confirmed');
-  const pendingBookings = bookings.filter(b => b.status === 'pending');
+  // Filter bookings by date range
+  const filteredBookings = useMemo(() => {
+    if (!startDate && !endDate) return bookings;
+    return bookings.filter(b => {
+      const bookingDate = new Date(b.created_at);
+      const start = startDate ? new Date(startDate) : new Date(0);
+      const end = endDate ? new Date(endDate) : new Date();
+      end.setHours(23, 59, 59, 999); // Include full end date
+      return bookingDate >= start && bookingDate <= end;
+    });
+  }, [bookings, startDate, endDate]);
+
+  const completedBookings = filteredBookings.filter(b => b.status === 'completed' || b.status === 'confirmed');
+  const pendingBookings = filteredBookings.filter(b => b.status === 'pending');
+
+  const filteredRevenue = useMemo(() => {
+    return completedBookings.reduce((sum, b) => sum + (b.total_price || 0), 0);
+  }, [completedBookings]);
+
+  const exportReport = () => {
+    const csvContent = [
+      ['Date', 'Booking ID', 'Status', 'Amount', 'Currency'].join(','),
+      ...filteredBookings.map(b => [
+        new Date(b.created_at).toLocaleDateString(),
+        b.id,
+        b.status,
+        b.total_price,
+        b.currency
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `financial-report-${startDate || 'all'}-to-${endDate || 'now'}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex flex-col">
@@ -109,6 +150,62 @@ export default function FinancialStaffDashboard() {
           <h1 className="text-3xl font-bold mb-2">Financial Dashboard</h1>
           <p className="text-muted-foreground">Revenue, bookings, and financial metrics</p>
         </div>
+
+        {/* Date Filter */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Financial Report Filter
+            </CardTitle>
+            <CardDescription>Filter bookings and revenue by date range</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col sm:flex-row gap-4 items-end">
+              <div className="flex-1">
+                <label className="text-sm font-medium mb-2 block">Start Date</label>
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="text-sm font-medium mb-2 block">End Date</label>
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setStartDate("");
+                    setEndDate("");
+                  }}
+                >
+                  Clear
+                </Button>
+                <Button onClick={exportReport} disabled={filteredBookings.length === 0}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Export CSV
+                </Button>
+              </div>
+            </div>
+            {(startDate || endDate) && (
+              <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                <p className="text-sm font-medium">
+                  Showing {filteredBookings.length} bookings | 
+                  Filtered Revenue: {formatMoney(filteredRevenue, "USD")}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Metrics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -277,7 +374,7 @@ export default function FinancialStaffDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {bookings.map((booking) => (
+                    {filteredBookings.map((booking) => (
                       <TableRow key={booking.id}>
                         <TableCell className="font-mono text-xs">{booking.id.slice(0, 8)}...</TableCell>
                         <TableCell>{new Date(booking.created_at).toLocaleDateString()}</TableCell>

@@ -146,6 +146,7 @@ export default function Dashboard() {
   const [phone, setPhone] = useState("");
   const [dob, setDob] = useState("");
   const [bio, setBio] = useState("");
+  const [nickname, setNickname] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -153,6 +154,7 @@ export default function Dashboard() {
     setPhone(profile?.phone ?? "");
     setDob(profile?.date_of_birth ?? "");
     setBio(profile?.bio ?? "");
+    setNickname((profile as any)?.nickname ?? "");
   }, [profile]);
 
   const completeProfileMissing = useMemo(
@@ -201,6 +203,7 @@ export default function Dashboard() {
         full_name: fullName.trim() || null,
         phone: phone.trim() || null,
         bio: bio.trim() || null,
+        nickname: nickname.trim() || null,
         updated_at: new Date().toISOString(),
       };
       if (dob.trim()) payload.date_of_birth = dob.trim();
@@ -568,7 +571,19 @@ export default function Dashboard() {
                 <Label htmlFor="fullName">Full name</Label>
                         <Input id="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Your name" />
               </div>
+              <div>nickname">Display Name (Nickname)</Label>
+                <Input 
+                  id="nickname" 
+                  value={nickname} 
+                  onChange={(e) => setNickname(e.target.value)} 
+                  placeholder="Optional - shown to guests" 
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  This name will be shown to guests instead of your full name
+                </p>
+              </div>
               <div>
+                <Label htmlFor="
                 <Label htmlFor="phone">Phone number</Label>
                         <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+250..." />
               </div>
