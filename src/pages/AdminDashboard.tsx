@@ -2807,10 +2807,23 @@ For support, contact: support@merry360x.com
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="text-lg font-semibold">Cart Checkout Requests</h2>
-                  <p className="text-sm text-muted-foreground">Manage bulk booking requests from cart</p>
+                  <p className="text-sm text-muted-foreground">
+                    Bulk booking requests from cart - these create bookings when payment is confirmed
+                  </p>
                 </div>
-                <Badge variant="outline">{checkoutRequests.length} total</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">{checkoutRequests.length} requests</Badge>
+                  <Badge variant="secondary">{bookings.length} bookings created</Badge>
+                </div>
               </div>
+
+              <Alert className="mb-4">
+                <AlertDescription>
+                  <strong>Note:</strong> Checkout requests become bookings after payment is confirmed. 
+                  Check the <strong>Bookings</strong> tab to see completed bookings from these cart checkouts.
+                  Payment status shows if the checkout has been processed.
+                </AlertDescription>
+              </Alert>
 
               <div className="overflow-x-auto">
                 <Table>
@@ -2834,18 +2847,34 @@ For support, contact: support@merry360x.com
                         </TableCell>
                       </TableRow>
                     ) : (
-                      checkoutRequests.map((req: any) => (
+                      checkoutRequests.map((req: any) => {
+                        const items = req.metadata?.items || req.items || [];
+                        const itemsArray = Array.isArray(items) ? items : [];
+                        
+                        return (
                         <TableRow key={req.id}>
                           <TableCell className="font-mono text-xs">{req.id.slice(0, 8)}...</TableCell>
                           <TableCell>
-                            <div className="text-sm font-medium">{req.name || "—"}</div>
-                            <div className="text-xs text-muted-foreground">{req.email || "—"}</div>
+                            <div className="text-sm font-medium">{req.name || req.metadata?.name || "—"}</div>
+                            <div className="text-xs text-muted-foreground">{req.email || req.metadata?.email || "—"}</div>
                           </TableCell>
-                          <TableCell className="text-sm">{req.phone || "—"}</TableCell>
+                          <TableCell className="text-sm">{req.phone || req.metadata?.phone || "—"}</TableCell>
                           <TableCell>
-                            <Badge variant="secondary">
-                              {Array.isArray(req.items) ? req.items.length : 0} items
-                            </Badge>
+                            <div className="flex flex-col gap-1">
+                              <Badge variant="secondary">
+                                {itemsArray.length} items
+                              </Badge>
+                              {itemsArray.length > 0 && (
+                                <div className="text-xs text-muted-foreground">
+                                  {itemsArray.map((item: any, i: number) => (
+                                    <div key={i}>
+                                      {item.type || item.item_type}: {item.title || item.name || 'Item'}
+                                    </div>
+                                  )).slice(0, 2)}
+                                  {itemsArray.length > 2 && <div>+{itemsArray.length - 2} more</div>}
+                                </div>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell className="font-medium">
                             {req.total_amount ? formatMoney(req.total_amount, "USD") : "—"}
@@ -2868,7 +2897,8 @@ For support, contact: support@merry360x.com
                             {new Date(req.created_at).toLocaleDateString()}
                           </TableCell>
                         </TableRow>
-                      ))
+                        );
+                      })
                     )}
                   </TableBody>
                 </Table>
