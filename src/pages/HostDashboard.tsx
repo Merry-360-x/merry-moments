@@ -172,7 +172,11 @@ interface Booking {
   currency: string;
   status: string;
   created_at: string;
-  property_id: string;
+  property_id: string | null;
+  tour_id: string | null;
+  transport_id: string | null;
+  booking_type: 'property' | 'tour' | 'transport';
+  order_id: string | null;
   guest_id: string | null;
   guest_name: string | null;
   guest_email: string | null;
@@ -418,17 +422,53 @@ export default function HostDashboard() {
       if (vehiclesRes.data) setVehicles(vehiclesRes.data as Vehicle[]);
       if (routesRes.data) setRoutes(routesRes.data as TransportRoute[]);
 
-      // Fetch bookings separately - try via property_id if host_id fails
+      // Fetch bookings separately for properties, tours, and transport
       const propertyIds = (propsRes.data || []).map((p: { id: string }) => p.id);
+      const tourPackageIds = (tourPackagesRes.data || []).map((t: { id: string }) => t.id);
+      const vehicleIds = (vehiclesRes.data || []).map((v: { id: string }) => v.id);
       
+      const bookingQueries = [];
+      
+      // Property bookings
       if (propertyIds.length > 0) {
-        const { data: bookingsData } = await supabase
-          .from("bookings")
-          .select("*")
-          .in("property_id", propertyIds)
-          .order("created_at", { ascending: false });
-
-        if (bookingsData) setBookings(bookingsData as Booking[]);
+        bookingQueries.push(
+          supabase
+            .from("bookings")
+            .select("*, properties(title)")
+            .eq("booking_type", "property")
+            .in("property_id", propertyIds)
+            .order("created_at", { ascending: false })
+        );
+      }
+      
+      // Tour bookings
+      if (tourPackageIds.length > 0) {
+        bookingQueries.push(
+          supabase
+            .from("bookings")
+            .select("*, tour_packages(title)")
+            .eq("booking_type", "tour")
+            .in("tour_id", tourPackageIds)
+            .order("created_at", { ascending: false })
+        );
+      }
+      
+      // Transport bookings
+      if (vehicleIds.length > 0) {
+        bookingQueries.push(
+          supabase
+            .from("bookings")
+            .select("*")
+            .eq("booking_type", "transport")
+            .in("transport_id", vehicleIds)
+            .order("created_at", { ascending: false })
+        );
+      }
+      
+      if (bookingQueries.length > 0) {
+        const results = await Promise.all(bookingQueries);
+        const allBookings = results.flatMap(r => r.data || []);
+        setBookings(allBookings as Booking[]);
       } else {
         setBookings([]);
       }
@@ -2355,10 +2395,44 @@ export default function HostDashboard() {
               {(bookings || []).length === 0 ? (
                 <p className="text-muted-foreground text-center py-8">No bookings yet</p>
               ) : (
-                (bookings || []).map((b) => (
+                (bookings || []).map((b) => {
+                  // Get the name of the booked item based on type
+                  let itemName = 'Unknown';
+                  let itemType = b.booking_type || 'property';
+                  
+                  if (b.booking_type === 'property' && (b as any).properties) {
+                    itemName = (b as any).properties.title;
+                  } else if (b.booking_type === 'tour' && (b as any).tour_packages) {
+                    itemName = (b as any).tour_packages.title;
+                  } else if (b.booking_type === 'transport') {
+                    const vehicle = vehicles.find(v => v.id === b.transport_id);
+                    itemName = vehicle?.title || 'Transport';
+                  }
+                  
+                  // Count other items in the same order
+                  const orderItemCount = b.order_id 
+                    ? bookings.filter(bk => bk.order_id === b.order_id).length 
+                    : 1;
+                  const isBulkOrder = orderItemCount > 1;
+                  
+                  return (
                   <Card key={b.id} className="p-4">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                       <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="outline" className="text-xs">
+                            {itemType === 'property' && '🏠'} 
+                            {itemType === 'tour' && '🗺️'}
+                            {itemType === 'transport' && '🚗'}
+                            {' '}{itemType.charAt(0).toUpperCase() + itemType.slice(1)}
+                          </Badge>
+                          <span className="font-medium text-sm">{itemName}</span>
+                          {isBulkOrder && (
+                            <Badge variant="secondary" className="text-xs">
+                              Part of {orderItemCount}-item order
+                            </Badge>
+                          )}
+                        </div>
                         <div className="flex items-center gap-2 mb-1">
                           <Calendar className="w-4 h-4 text-muted-foreground" />
                           <span className="font-medium">{b.check_in} → {b.check_out}</span>
@@ -2403,7 +2477,8 @@ export default function HostDashboard() {
                       </div>
                     </div>
                   </Card>
-                ))
+                  );
+                })
               )}
             </div>
           </TabsContent>
