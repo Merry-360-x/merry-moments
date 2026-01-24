@@ -63,10 +63,10 @@ Some components are non-refundable once booked, including but not limited to:
     currency: "RWF",
     min_guests: 1,
     max_guests: 10,
-    group_discount_6_10: 0,
-    group_discount_11_15: 0,
-    group_discount_16_plus: 0,
   });
+
+  // Group discounts as an array of tiers
+  const [groupDiscounts, setGroupDiscounts] = useState<Array<{min_people: number, max_people: number | null, discount_percentage: number}>>([]);
 
   const nonRefundableOptions = [
     "National park and conservation permits",
@@ -191,9 +191,7 @@ Some components are non-refundable once booked, including but not limited to:
       };
 
       // Add fields not in type definition yet
-      (packageData as any).group_discount_6_10 = formData.group_discount_6_10;
-      (packageData as any).group_discount_11_15 = formData.group_discount_11_15;
-      (packageData as any).group_discount_16_plus = formData.group_discount_16_plus;
+      (packageData as any).group_discounts = groupDiscounts.length > 0 ? groupDiscounts : null;
       (packageData as any).non_refundable_items = nonRefundableItems.length > 0 ? nonRefundableItems : null;
 
       const { data: newPackage, error } = await supabase.from("tour_packages").insert(packageData as any).select("id").single();
@@ -698,48 +696,77 @@ Some components are non-refundable once booked, including but not limited to:
               <Label className="text-sm font-medium">Group Discounts (Optional)</Label>
               <p className="text-xs text-muted-foreground">Offer discounts for larger groups to attract more bookings</p>
               
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label className="text-xs font-normal mb-1.5 block">6-10 people (%)</Label>
-                  <Input
-                    type="number"
-                    value={formData.group_discount_6_10}
-                    onChange={(e) => setFormData({ ...formData, group_discount_6_10: parseFloat(e.target.value) || 0 })}
-                    min="0"
-                    max="50"
-                    step="1"
-                    placeholder="0"
-                    className="h-10"
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-xs font-normal mb-1.5 block">11-15 people (%)</Label>
-                  <Input
-                    type="number"
-                    value={formData.group_discount_11_15}
-                    onChange={(e) => setFormData({ ...formData, group_discount_11_15: parseFloat(e.target.value) || 0 })}
-                    min="0"
-                    max="50"
-                    step="1"
-                    placeholder="0"
-                    className="h-10"
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-xs font-normal mb-1.5 block">16+ people (%)</Label>
-                  <Input
-                    type="number"
-                    value={formData.group_discount_16_plus}
-                    onChange={(e) => setFormData({ ...formData, group_discount_16_plus: parseFloat(e.target.value) || 0 })}
-                    min="0"
-                    max="50"
-                    step="1"
-                    placeholder="0"
-                    className="h-10"
-                  />
-                </div>
+              <div className="space-y-3">
+                {groupDiscounts.map((discount, index) => (
+                  <div key={index} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-3 items-end">
+                    <div>
+                      <Label className="text-xs font-normal mb-1.5 block">Min People</Label>
+                      <Input
+                        type="number"
+                        value={discount.min_people}
+                        onChange={(e) => {
+                          const newDiscounts = [...groupDiscounts];
+                          newDiscounts[index].min_people = parseInt(e.target.value) || 0;
+                          setGroupDiscounts(newDiscounts);
+                        }}
+                        min="2"
+                        placeholder="e.g., 6"
+                        className="h-10"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs font-normal mb-1.5 block">Max People (optional)</Label>
+                      <Input
+                        type="number"
+                        value={discount.max_people || ''}
+                        onChange={(e) => {
+                          const newDiscounts = [...groupDiscounts];
+                          newDiscounts[index].max_people = e.target.value ? parseInt(e.target.value) : null;
+                          setGroupDiscounts(newDiscounts);
+                        }}
+                        min={discount.min_people}
+                        placeholder="Leave empty for no limit"
+                        className="h-10"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs font-normal mb-1.5 block">Discount (%)</Label>
+                      <Input
+                        type="number"
+                        value={discount.discount_percentage}
+                        onChange={(e) => {
+                          const newDiscounts = [...groupDiscounts];
+                          newDiscounts[index].discount_percentage = parseFloat(e.target.value) || 0;
+                          setGroupDiscounts(newDiscounts);
+                        }}
+                        min="0"
+                        max="50"
+                        step="1"
+                        placeholder="e.g., 10"
+                        className="h-10"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setGroupDiscounts(groupDiscounts.filter((_, i) => i !== index))}
+                      className="h-10"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+                
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setGroupDiscounts([...groupDiscounts, { min_people: 6, max_people: null, discount_percentage: 10 }])}
+                  className="w-full"
+                >
+                  + Add Discount Tier
+                </Button>
               </div>
             </div>
           </div>
