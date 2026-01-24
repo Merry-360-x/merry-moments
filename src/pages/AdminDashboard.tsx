@@ -148,7 +148,11 @@ type TransportVehicleRow = {
 
 type BookingRow = {
   id: string;
-  property_id: string;
+  property_id: string | null;
+  tour_id: string | null;
+  transport_id: string | null;
+  booking_type: string | null;
+  order_id: string | null;
   guest_id: string | null;
   guest_name: string | null;
   guest_email: string | null;
@@ -168,7 +172,16 @@ type BookingRow = {
   properties?: {
     title: string;
     images: string[] | null;
-  };
+  } | null;
+  tour_packages?: {
+    title: string;
+    city: string;
+    country: string;
+  } | null;
+  transport_vehicles?: {
+    title: string;
+    vehicle_type: string;
+  } | null;
   profiles?: {
     full_name: string | null;
     nickname: string | null;
@@ -736,8 +749,9 @@ export default function AdminDashboard() {
       let q = supabase
         .from("bookings")
         // guest_* fields support guest checkout (guest_id can be NULL)
+        // booking_type, tour_id, transport_id, order_id support multi-item cart checkouts
         .select(
-          "id, property_id, guest_id, guest_name, guest_email, guest_phone, is_guest_booking, check_in, check_out, guests, total_price, currency, status, payment_status, payment_method, special_requests, host_id, created_at, properties(title, images)"
+          "id, property_id, tour_id, transport_id, booking_type, order_id, guest_id, guest_name, guest_email, guest_phone, is_guest_booking, check_in, check_out, guests, total_price, currency, status, payment_status, payment_method, special_requests, host_id, created_at, properties(title, images), tour_packages(title, city, country), transport_vehicles(title, vehicle_type)"
         )
         .order("created_at", { ascending: false })
         .limit(500); // Increase limit for comprehensive booking data
@@ -1345,8 +1359,26 @@ export default function AdminDashboard() {
 
   // Export booking details
   const exportBooking = (booking: BookingRow) => {
+    // Determine item details
+    let itemName = "Unknown Item";
+    let itemType = booking.booking_type || "property";
+    
+    if (itemType === "property" && booking.properties) {
+      itemName = booking.properties.title;
+    } else if (itemType === "tour" && booking.tour_packages) {
+      itemName = `${booking.tour_packages.title} (${booking.tour_packages.city}, ${booking.tour_packages.country})`;
+    } else if (itemType === "transport" && booking.transport_vehicles) {
+      itemName = `${booking.transport_vehicles.title} - ${booking.transport_vehicles.vehicle_type}`;
+    } else if (booking.properties) {
+      itemName = booking.properties.title;
+    }
+
     const bookingData = {
       'Booking ID': booking.id,
+      'Order ID': booking.order_id || 'N/A',
+      'Booking Type': itemType.toUpperCase(),
+      'Item': itemName,
+      'Item ID': booking.property_id || booking.tour_id || booking.transport_id || 'N/A',
       'Guest Name': booking.is_guest_booking ? booking.guest_name : booking.guest_id,
       'Guest Email': booking.guest_email || 'N/A',
       'Guest Phone': booking.guest_phone || 'N/A',
@@ -1355,6 +1387,7 @@ export default function AdminDashboard() {
       'Number of Guests': booking.guests,
       'Total Price': `${booking.currency} ${booking.total_price}`,
       'Payment Method': booking.payment_method || 'N/A',
+      'Payment Status': booking.payment_status || 'N/A',
       'Status': booking.status,
       'Special Requests': booking.special_requests || 'None',
       'Created At': new Date(booking.created_at).toLocaleString(),
@@ -1376,6 +1409,20 @@ export default function AdminDashboard() {
 
   // Export payment receipt
   const exportReceipt = (booking: BookingRow) => {
+    // Determine item details
+    let itemName = "Unknown Item";
+    let itemType = booking.booking_type || "property";
+    
+    if (itemType === "property" && booking.properties) {
+      itemName = booking.properties.title;
+    } else if (itemType === "tour" && booking.tour_packages) {
+      itemName = `${booking.tour_packages.title} (${booking.tour_packages.city}, ${booking.tour_packages.country})`;
+    } else if (itemType === "transport" && booking.transport_vehicles) {
+      itemName = `${booking.transport_vehicles.title} - ${booking.transport_vehicles.vehicle_type}`;
+    } else if (booking.properties) {
+      itemName = booking.properties.title;
+    }
+
     const receiptContent = `
 PAYMENT RECEIPT
 ================
@@ -1384,21 +1431,25 @@ Receipt Date: ${new Date().toLocaleString()}
 BOOKING INFORMATION
 -------------------
 Booking ID: ${booking.id}
+${booking.order_id ? `Order ID: ${booking.order_id} (Part of bulk order)` : ''}
+Booking Type: ${itemType.toUpperCase()}
+Item: ${itemName}
 Guest Name: ${booking.is_guest_booking ? booking.guest_name : booking.guest_id}
 Guest Email: ${booking.guest_email || 'N/A'}
 Guest Phone: ${booking.guest_phone || 'N/A'}
 
-STAY DETAILS
+${itemType === 'property' ? 'STAY' : 'SERVICE'} DETAILS
 ------------
-Check-in Date: ${booking.check_in}
-Check-out Date: ${booking.check_out}
-Number of Guests: ${booking.guests}
+${itemType === 'property' ? 'Check-in Date: ' + booking.check_in : 'Start Date: ' + booking.check_in}
+${itemType === 'property' ? 'Check-out Date: ' + booking.check_out : 'End Date: ' + booking.check_out}
+Number of ${itemType === 'property' ? 'Guests' : 'Participants'}: ${booking.guests}
 
 PAYMENT DETAILS
 ---------------
 Total Amount: ${booking.currency} ${booking.total_price}
 Payment Method: ${booking.payment_method || 'Pending'}
-Payment Status: ${booking.status}
+Payment Status: ${booking.payment_status || 'N/A'}
+Booking Status: ${booking.status}
 Transaction Date: ${new Date(booking.created_at).toLocaleString()}
 
 ADDITIONAL INFORMATION
@@ -2677,6 +2728,7 @@ For support, contact: support@merry360x.com
                   <TableHeader>
                     <TableRow>
                       <TableHead>Booking ID</TableHead>
+                      <TableHead>Item</TableHead>
                       <TableHead>Guest</TableHead>
                       <TableHead>Dates</TableHead>
                       <TableHead>Guests</TableHead>
@@ -2687,9 +2739,44 @@ For support, contact: support@merry360x.com
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {bookings.map((b) => (
+                    {bookings.map((b) => {
+                      // Determine item name and type based on booking_type
+                      let itemName = "Unknown";
+                      let itemType = b.booking_type || "property";
+                      
+                      if (itemType === "property" && b.properties) {
+                        itemName = b.properties.title;
+                      } else if (itemType === "tour" && b.tour_packages) {
+                        itemName = b.tour_packages.title;
+                      } else if (itemType === "transport" && b.transport_vehicles) {
+                        itemName = b.transport_vehicles.title;
+                      } else if (b.properties) {
+                        // Fallback to property if no booking_type specified
+                        itemName = b.properties.title;
+                      }
+
+                      return (
                       <TableRow key={b.id}>
-                        <TableCell className="font-mono text-xs">{b.id.slice(0, 8)}...</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            <span className="font-mono text-xs">{b.id.slice(0, 8)}...</span>
+                            {b.order_id && (
+                              <span className="text-xs text-muted-foreground">
+                                Order: {b.order_id.slice(0, 6)}...
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-sm font-medium">{itemName}</span>
+                            <div className="flex items-center gap-1">
+                              {itemType === "property" && <span className="text-xs">🏠 Property</span>}
+                              {itemType === "tour" && <span className="text-xs">🗺️ Tour</span>}
+                              {itemType === "transport" && <span className="text-xs">🚗 Transport</span>}
+                            </div>
+                          </div>
+                        </TableCell>
                         <TableCell className="text-sm">
                           {b.is_guest_booking ? (
                             <div className="min-w-0">
@@ -2788,7 +2875,8 @@ For support, contact: support@merry360x.com
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                     {bookings.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
@@ -3422,7 +3510,47 @@ For support, contact: support@merry360x.com
             </DialogHeader>
             {selectedBooking && (
               <div className="space-y-4">
-                {selectedBooking.properties && (
+                {/* Show item details based on booking type */}
+                {selectedBooking.booking_type === "property" && selectedBooking.properties && (
+                  <div className="border-b pb-4">
+                    <h3 className="font-semibold mb-3">🏠 Property Booking</h3>
+                    <div className="flex items-start gap-4">
+                      {selectedBooking.properties.images?.[0] && (
+                        <img
+                          src={selectedBooking.properties.images[0]}
+                          alt={selectedBooking.properties.title}
+                          className="w-24 h-24 rounded-lg object-cover"
+                        />
+                      )}
+                      <div>
+                        <p className="font-medium">{selectedBooking.properties.title}</p>
+                        <p className="text-sm text-muted-foreground font-mono break-all">{selectedBooking.property_id}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {selectedBooking.booking_type === "tour" && selectedBooking.tour_packages && (
+                  <div className="border-b pb-4">
+                    <h3 className="font-semibold mb-3">🗺️ Tour Booking</h3>
+                    <div>
+                      <p className="font-medium">{selectedBooking.tour_packages.title}</p>
+                      <p className="text-sm text-muted-foreground">{selectedBooking.tour_packages.city}, {selectedBooking.tour_packages.country}</p>
+                      <p className="text-sm text-muted-foreground font-mono break-all mt-1">{selectedBooking.tour_id}</p>
+                    </div>
+                  </div>
+                )}
+                {selectedBooking.booking_type === "transport" && selectedBooking.transport_vehicles && (
+                  <div className="border-b pb-4">
+                    <h3 className="font-semibold mb-3">🚗 Transport Booking</h3>
+                    <div>
+                      <p className="font-medium">{selectedBooking.transport_vehicles.title}</p>
+                      <p className="text-sm text-muted-foreground">{selectedBooking.transport_vehicles.vehicle_type}</p>
+                      <p className="text-sm text-muted-foreground font-mono break-all mt-1">{selectedBooking.transport_id}</p>
+                    </div>
+                  </div>
+                )}
+                {/* Fallback for old bookings without booking_type */}
+                {!selectedBooking.booking_type && selectedBooking.properties && (
                   <div className="border-b pb-4">
                     <h3 className="font-semibold mb-3">Property</h3>
                     <div className="flex items-start gap-4">
@@ -3445,6 +3573,12 @@ For support, contact: support@merry360x.com
                     <p className="text-sm text-muted-foreground">Booking ID</p>
                     <p className="font-mono text-xs break-all">{selectedBooking.id}</p>
                   </div>
+                  {selectedBooking.order_id && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Order ID (Bulk)</p>
+                      <p className="font-mono text-xs break-all">{selectedBooking.order_id}</p>
+                    </div>
+                  )}
                   <div>
                     <p className="text-sm text-muted-foreground">Status</p>
                     <StatusBadge status={selectedBooking.status} />
