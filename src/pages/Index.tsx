@@ -145,6 +145,41 @@ const fetchFeaturedTours = async () => {
   }
 };
 
+const fetchTourPackages = async () => {
+  try {
+    const { data, error } = await supabase
+      .from("tour_packages")
+      .select("*")
+      .eq("status", "approved")
+      .order("created_at", { ascending: false })
+      .limit(16);
+      
+    if (error) {
+      console.error("[Index] fetchTourPackages error:", error.message);
+      throw error;
+    }
+    
+    // Convert tour_packages to tour format for TourPromoCard
+    return (data ?? []).map(pkg => ({
+      id: pkg.id,
+      title: pkg.title,
+      location: `${pkg.city}, ${pkg.country}`,
+      price_per_person: pkg.price_per_adult,
+      currency: pkg.currency,
+      images: [pkg.cover_image, ...(Array.isArray(pkg.gallery_images) ? pkg.gallery_images : [])].filter(Boolean) as string[],
+      rating: null,
+      review_count: null,
+      category: pkg.category,
+      duration_days: parseInt(pkg.duration) || 1,
+    }));
+  } catch (err) {
+    if (!(err instanceof Error && err.name === "AbortError")) {
+      console.error("[Index] fetchTourPackages exception:", err);
+    }
+    throw err;
+  }
+};
+
 const fetchLatestVehicles = async () => {
   try {
     const { data, error } = await supabase
@@ -173,6 +208,7 @@ const Index = () => {
   const featuredStaysRef = useRef<HTMLDivElement | null>(null);
   const topRatedRef = useRef<HTMLDivElement | null>(null);
   const featuredToursRef = useRef<HTMLDivElement | null>(null);
+  const tourPackagesRef = useRef<HTMLDivElement | null>(null);
   const vehiclesRef = useRef<HTMLDivElement | null>(null);
   const {
     data: properties = [],
@@ -535,6 +571,65 @@ const Index = () => {
                   />
                 </div>
               ))}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {tourPackages.length > 0 ? (
+        <section className="container mx-auto px-4 lg:px-8 pb-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-2xl lg:text-3xl font-bold text-foreground mb-1">Tour Packages</h2>
+              <p className="text-muted-foreground">All-inclusive curated experiences</p>
+            </div>
+            <Link to="/tours" className="hidden md:block text-primary font-medium hover:underline">
+              View all
+            </Link>
+          </div>
+          <div className="relative">
+            <button
+              type="button"
+              className="hidden lg:flex absolute -left-3 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-background shadow-card border border-border items-center justify-center"
+              onClick={() => tourPackagesRef.current?.scrollBy({ left: -420, behavior: "smooth" })}
+              aria-label="Scroll left"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <button
+              type="button"
+              className="hidden lg:flex absolute -right-3 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-background shadow-card border border-border items-center justify-center"
+              onClick={() => tourPackagesRef.current?.scrollBy({ left: 420, behavior: "smooth" })}
+              aria-label="Scroll right"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+            <div
+              ref={tourPackagesRef}
+              className="grid grid-flow-col auto-cols-[70%] sm:auto-cols-[38%] lg:auto-cols-[24%] gap-6 overflow-x-auto pb-2 snap-x snap-mandatory"
+            >
+              {tourPackages.map((pkg) => {
+                const title = (pkg.title ?? "Package") as string;
+                const location = (pkg.location ?? null) as string | null;
+                const price = Number((pkg.price_per_person ?? 0) as number);
+                const images = (pkg.images ?? null) as string[] | null;
+                return (
+                  <div key={pkg.id} className="snap-start">
+                    <TourPromoCard
+                      id={pkg.id}
+                      title={title}
+                      location={location}
+                      price={price}
+                      currency={pkg.currency ?? "USD"}
+                      images={images}
+                      rating={(pkg as { rating?: number | null }).rating ?? null}
+                      reviewCount={(pkg as { review_count?: number | null }).review_count ?? null}
+                      category={(pkg as { category?: string | null }).category ?? null}
+                      durationDays={(pkg as { duration_days?: number | null }).duration_days ?? null}
+                    />
+                  </div>
+                );
+              })}
             </div>
           </div>
         </section>

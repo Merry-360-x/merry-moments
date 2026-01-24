@@ -1088,6 +1088,11 @@ export default function HostDashboard() {
     const [uploading, setUploading] = useState(false);
     const [pdfFile, setPdfFile] = useState<File | null>(null);
 
+    // Sync form state when tour prop changes or when exiting edit mode
+    useEffect(() => {
+      setForm(tour);
+    }, [tour, isEditing]);
+
     const handleSave = async () => {
       let updates: any = {
         title: form.title,
@@ -1234,7 +1239,7 @@ export default function HostDashboard() {
               <h3 className="font-semibold mb-1">{tour.title}</h3>
               <p className="text-sm text-muted-foreground">{tour.location}</p>
               <div className="flex items-center justify-between mt-3">
-                <span className="text-primary font-bold">{formatMoney(tour.price_per_person, tour.currency || "RWF")}</span>
+                <span className="text-primary font-bold">{formatMoney(form.price_per_person, form.currency || "RWF")}</span>
                 <div className="flex gap-1">
                   <Button size="sm" variant="ghost" onClick={() => navigate(`/tours/${tour.id}`)} title="View details">
                     <Eye className="w-3 h-3" />
