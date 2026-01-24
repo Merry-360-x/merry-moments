@@ -353,9 +353,18 @@ export default function TripCart() {
         )}
 
         {isLoading ? (
-          <div className="bg-card rounded-xl shadow-card p-8 text-center">
-            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-muted-foreground">Loading your cart…</p>
+          <div className="bg-card rounded-xl shadow-card p-12 text-center">
+            <div className="flex flex-col items-center gap-4">
+              <div className="relative">
+                <img 
+                  src="/brand/merry-logo.svg" 
+                  alt="Merry Logo" 
+                  className="w-16 h-16 opacity-50"
+                />
+                <div className="absolute -top-2 -right-2 w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+              </div>
+              <p className="text-muted-foreground font-medium">Loading your cart…</p>
+            </div>
           </div>
         ) : cartItems.length === 0 ? (
           <div className="space-y-4">
