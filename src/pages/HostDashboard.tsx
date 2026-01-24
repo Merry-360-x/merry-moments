@@ -1267,7 +1267,7 @@ export default function HostDashboard() {
         // Tour package specific fields
         updates.city = form.city;
         updates.duration = form.duration;
-        updates.category = form.category;
+        updates.categories = form.categories;
         updates.tour_type = form.tour_type;
         updates.daily_itinerary = form.daily_itinerary;
         updates.included_services = form.included_services;
@@ -1452,32 +1452,40 @@ export default function HostDashboard() {
                 </>
               ) : (
                 <>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label className="text-xs">Category</Label>
-                      <Select value={form.category || ''} onValueChange={(v) => setForm({ ...form, category: v })}>
-                        <SelectTrigger className="mt-1 h-8 text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {["Cultural", "Adventure", "Wildlife", "City Tours", "Hiking", "Photography", "Historical", "Eco-Tourism"].map(c => (
-                            <SelectItem key={c} value={c}>{c}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                  <div>
+                    <Label className="text-xs">Categories</Label>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {["Cultural", "Adventure", "Wildlife", "City Tours", "Hiking", "Photography", "Historical", "Eco-Tourism"].map(cat => (
+                        <label key={cat} className="flex items-center gap-1 text-xs bg-muted px-2 py-1 rounded cursor-pointer hover:bg-muted/80">
+                          <input
+                            type="checkbox"
+                            checked={(form.categories || []).includes(cat)}
+                            onChange={(e) => {
+                              const cats = form.categories || [];
+                              setForm({
+                                ...form,
+                                categories: e.target.checked ? [...cats, cat] : cats.filter(c => c !== cat)
+                              });
+                            }}
+                            className="w-3 h-3"
+                          />
+                          {cat}
+                        </label>
+                      ))}
                     </div>
-                    <div>
-                      <Label className="text-xs">Tour Type</Label>
-                      <Select value={form.tour_type || ''} onValueChange={(v) => setForm({ ...form, tour_type: v })}>
-                        <SelectTrigger className="mt-1 h-8 text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Private">Private</SelectItem>
-                          <SelectItem value="Group">Group</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Tour Type</Label>
+                    <Select value={form.tour_type || ''} onValueChange={(v) => setForm({ ...form, tour_type: v })}>
+                      <SelectTrigger className="mt-1 h-8 text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Private">Private</SelectItem>
+                        <SelectItem value="Group">Group</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
