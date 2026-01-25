@@ -273,7 +273,7 @@ Some components are non-refundable once booked, including but not limited to:
         meeting_point: formData.meeting_point.trim(),
         what_to_bring: formData.what_to_bring.trim() || null,
         cancellation_policy: combinedPolicy.trim() || null,
-        cancellation_policy_type: selectedPolicies.join(','),
+        cancellation_policy_type: selectedPolicies.length > 0 ? selectedPolicies.join(',') : null,
         price_per_adult: parseFloat(formData.price_per_adult),
         currency: formData.currency,
         min_guests: formData.min_guests,
