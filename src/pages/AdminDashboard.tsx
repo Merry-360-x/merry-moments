@@ -774,14 +774,15 @@ export default function AdminDashboard() {
       // Fetch bookings that have order_id (cart checkouts)
       const { data, error } = await supabase
         .from("bookings")
-        .select("id, order_id, booking_type, property_id, tour_id, transport_id, guest_name, guest_email, guest_phone, payment_method, total_price, currency, status, payment_status, created_at, properties(title), tour_packages(title), transport_vehicles(title)")
+        .select("*")
         .not("order_id", "is", null)
         .order("created_at", { ascending: false })
         .limit(200);
       if (error) {
-        console.warn("Error fetching cart checkouts:", error);
-        return [];
+        console.error("Error fetching cart checkouts:", error);
+        throw error;
       }
+      console.log("Cart checkout requests:", data);
       return data ?? [];
     },
     enabled: tab === "cart-checkouts" || tab === "overview",
@@ -3031,9 +3032,9 @@ For support, contact: support@merry360x.com
                                 </Badge>
                                 <div className="text-xs text-muted-foreground">
                                   {orderBookings.map((b, i) => {
-                                    const itemName = b.booking_type === 'property' && b.properties?.title ? b.properties.title :
-                                                    b.booking_type === 'tour' && b.tour_packages?.title ? b.tour_packages.title :
-                                                    b.booking_type === 'transport' && b.transport_vehicles?.title ? b.transport_vehicles.title : 'Item';
+                                    const itemName = b.booking_type === 'property' ? 'Property' :
+                                                    b.booking_type === 'tour' ? 'Tour Package' :
+                                                    b.booking_type === 'transport' ? 'Transport' : 'Item';
                                     const icon = b.booking_type === 'property' ? '🏠' : b.booking_type === 'tour' ? '🗺️' : '🚗';
                                     return <div key={i}>{icon} {itemName}</div>;
                                   }).slice(0, 2)}
