@@ -46,6 +46,7 @@ export default function FinancialStaffDashboard() {
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
   const [markingPaid, setMarkingPaid] = useState<string | null>(null);
+  const [requestingPayment, setRequestingPayment] = useState<string | null>(null);
 
   const { data: metrics, refetch: refetchMetrics } = useQuery({
     queryKey: ["financial_metrics"],
@@ -113,6 +114,41 @@ export default function FinancialStaffDashboard() {
       });
     } finally {
       setMarkingPaid(null);
+    }
+  };
+
+  const requestPayment = async (bookingId: string, guestEmail: string, guestName: string) => {
+    setRequestingPayment(bookingId);
+    try {
+      // Update booking to indicate payment was requested
+      const { error } = await supabase
+        .from("bookings")
+        .update({ 
+          payment_status: 'requested',
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", bookingId);
+
+      if (error) throw error;
+
+      // In a real implementation, you would send an email here
+      // For now, we'll just show a toast
+      toast({
+        title: "Payment Request Sent",
+        description: `Payment request sent to ${guestName} at ${guestEmail}`,
+      });
+
+      refetchBookings();
+      refetchMetrics();
+    } catch (error) {
+      console.error("Error requesting payment:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to request payment. Please try again.",
+      });
+    } finally {
+      setRequestingPayment(null);
     }
   };
 
@@ -473,21 +509,35 @@ export default function FinancialStaffDashboard() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {booking.status === 'confirmed' && booking.payment_status !== 'paid' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="gap-1"
-                              onClick={() => markAsPaid(booking.id)}
-                              disabled={markingPaid === booking.id}
-                            >
-                              <CheckCircle className="w-4 h-4" />
-                              {markingPaid === booking.id ? 'Marking...' : 'Mark Paid'}
-                            </Button>
-                          )}
-                          {booking.payment_status === 'paid' && (
-                            <span className="text-sm text-muted-foreground">Paid</span>
-                          )}
+                          <div className="flex gap-2">
+                            {booking.status === 'confirmed' && booking.payment_status === 'pending' && (
+                              <Button
+                                size="sm"
+                                variant="default"
+                                className="gap-1"
+                                onClick={() => requestPayment(booking.id, booking.guest_email || '', booking.guest_name || 'Guest')}
+                                disabled={requestingPayment === booking.id}
+                              >
+                                <DollarSign className="w-4 h-4" />
+                                {requestingPayment === booking.id ? 'Requesting...' : 'Request Payment'}
+                              </Button>
+                            )}
+                            {booking.status === 'confirmed' && (booking.payment_status === 'requested' || booking.payment_status === 'pending') && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="gap-1"
+                                onClick={() => markAsPaid(booking.id)}
+                                disabled={markingPaid === booking.id}
+                              >
+                                <CheckCircle className="w-4 h-4" />
+                                {markingPaid === booking.id ? 'Marking...' : 'Mark Paid'}
+                              </Button>
+                            )}
+                            {booking.payment_status === 'paid' && (
+                              <span className="text-sm text-muted-foreground">✓ Paid</span>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

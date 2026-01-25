@@ -19,6 +19,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Separator } from "@/components/ui/separator";
 import { Check, Smartphone, Building2, Wallet, CreditCard, ChevronRight, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { checkAvailability } from "@/lib/availability-check";
 
 const isoToday = () => new Date().toISOString().slice(0, 10);
 
@@ -268,6 +269,25 @@ export default function Checkout() {
         basePayload.is_guest_booking = true;
       }
 
+      // Check availability and auto-confirm if available
+      const availabilityResults = await checkAvailability([
+        {
+          itemId: propertyId,
+          itemType: "property",
+          checkIn,
+          checkOut,
+        }
+      ]);
+
+      // If available, auto-confirm the booking
+      if (availabilityResults[0]?.autoConfirm) {
+        basePayload.status = "confirmed";
+        toast({
+          title: "✓ Auto-Confirmed!",
+          description: "Your booking has been automatically confirmed. The property is available for your dates.",
+        });
+      }
+
       const { error } = await supabase.from("bookings").insert(basePayload as never);
       if (error) throw error;
 
@@ -414,8 +434,37 @@ export default function Checkout() {
         return;
       }
 
+      // Check availability for all items and auto-confirm available ones
+      const availabilityChecks = bookingsToCreate.map((booking) => ({
+        itemId: booking.property_id || booking.tour_id || booking.transport_id,
+        itemType: booking.booking_type === "property" ? "property" as const : 
+                  booking.booking_type === "tour" ? "tour_package" as const : 
+                  "transport" as const,
+        checkIn: booking.check_in,
+        checkOut: booking.check_out,
+      }));
+
+      const availabilityResults = await checkAvailability(availabilityChecks);
+
+      // Update booking status based on availability
+      let autoConfirmedCount = 0;
+      bookingsToCreate.forEach((booking, index) => {
+        if (availabilityResults[index]?.autoConfirm) {
+          booking.status = "confirmed";
+          autoConfirmedCount++;
+        }
+      });
+
       const { error } = await supabase.from("bookings").insert(bookingsToCreate);
       if (error) throw error;
+
+      // Show appropriate success message
+      if (autoConfirmedCount > 0) {
+        toast({
+          title: `✓ ${autoConfirmedCount} Item${autoConfirmedCount > 1 ? "s" : ""} Auto-Confirmed!`,
+          description: `${autoConfirmedCount} of ${bookingsToCreate.length} bookings were automatically confirmed as available.`,
+        });
+      }
 
       await clearCart();
       // Clear saved progress after successful submission

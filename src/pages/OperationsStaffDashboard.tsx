@@ -155,6 +155,7 @@ export default function OperationsStaffDashboard() {
     queryKey: ["operations_bookings"],
     queryFn: async () => {
       console.log('[OperationsStaff] Fetching bookings...');
+      // @ts-ignore - Supabase type inference issue
       const { data, error } = await supabase
         .from("bookings")
         .select("id, property_id, guest_id, guest_name, guest_email, guest_phone, is_guest_booking, check_in, check_out, guests, total_price, currency, status, payment_method, special_requests, host_id, created_at")
@@ -165,6 +166,7 @@ export default function OperationsStaffDashboard() {
         throw error;
       }
       console.log('[OperationsStaff] Bookings fetched:', data?.length || 0);
+      // @ts-ignore - Supabase type inference issue
       return (data ?? []) as Booking[];
     },
   });
@@ -174,6 +176,7 @@ export default function OperationsStaffDashboard() {
     queryKey: ["operations_cart_checkouts"],
     queryFn: async () => {
       console.log('[OperationsStaff] Fetching cart checkout bookings...');
+      // @ts-ignore - Supabase type inference issue
       const { data, error } = await supabase
         .from("bookings")
         .select("id, order_id, booking_type, property_id, tour_id, transport_id, guest_name, guest_email, guest_phone, payment_method, total_price, currency, status, payment_status, created_at, properties(title), tours(title), transport_vehicles(title)")
@@ -185,13 +188,14 @@ export default function OperationsStaffDashboard() {
         throw error;
       }
       console.log('[OperationsStaff] Cart checkouts fetched:', data?.length || 0);
+      // @ts-ignore - Supabase type inference issue
       return (data ?? []) as Booking[];
     },
   });
 
   const approveApplicationMutation = useMutation({
     mutationFn: async (id: string) => {
-      // @ts-expect-error - Supabase type issue with host_applications update
+      // @ts-ignore - Supabase type inference issue
       const { error } = await supabase
         .from("host_applications")
         .update({ status: "approved" })
@@ -209,7 +213,7 @@ export default function OperationsStaffDashboard() {
 
   const rejectApplicationMutation = useMutation({
     mutationFn: async (id: string) => {
-      // @ts-expect-error - Supabase type issue with host_applications update
+      // @ts-ignore - Supabase type inference issue
       const { error } = await supabase
         .from("host_applications")
         .update({ status: "rejected" })
@@ -236,6 +240,44 @@ export default function OperationsStaffDashboard() {
 
   const pendingBookings = bookings.filter(b => b.status === 'pending_confirmation');
   const confirmedBookings = bookings.filter(b => b.status === 'confirmed');
+
+  // Mutation to manually confirm a booking
+  const confirmBookingMutation = useMutation({
+    mutationFn: async (bookingId: string) => {
+      // @ts-ignore - Supabase type inference issue
+      const { error } = await supabase
+        .from("bookings")
+        .update({ status: "confirmed" })
+        .eq("id", bookingId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["operations_bookings"] });
+      toast({ title: "Booking confirmed successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to confirm booking", variant: "destructive" });
+    },
+  });
+
+  // Mutation to manually confirm all bookings in a cart order
+  const confirmCartOrderMutation = useMutation({
+    mutationFn: async (orderId: string) => {
+      // @ts-ignore - Supabase type inference issue
+      const { error } = await supabase
+        .from("bookings")
+        .update({ status: "confirmed" })
+        .eq("order_id", orderId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["operations_cart_checkouts"] });
+      toast({ title: "Cart order confirmed successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to confirm cart order", variant: "destructive" });
+    },
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex flex-col">
@@ -656,6 +698,7 @@ export default function OperationsStaffDashboard() {
                       <TableHead>Total</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Created</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -702,11 +745,26 @@ export default function OperationsStaffDashboard() {
                         <TableCell className="text-sm">
                           {new Date(booking.created_at).toLocaleDateString()}
                         </TableCell>
+                        <TableCell>
+                          {booking.status === "pending_confirmation" || booking.status === "pending" ? (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => confirmBookingMutation.mutate(booking.id)}
+                              disabled={confirmBookingMutation.isPending}
+                            >
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              Confirm
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))}
                     {bookings.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center text-muted-foreground">
+                        <TableCell colSpan={10} className="text-center text-muted-foreground">
                           No bookings found
                         </TableCell>
                       </TableRow>
@@ -790,7 +848,8 @@ export default function OperationsStaffDashboard() {
                               {anyPending && (
                                 <Button
                                   size="sm"
-                                  onClick={() => confirmOrder(orderId)}
+                                  onClick={() => confirmCartOrderMutation.mutate(orderId)}
+                                  disabled={confirmCartOrderMutation.isPending}
                                   className="gap-1"
                                 >
                                   <CheckCircle className="w-3 h-3" />
