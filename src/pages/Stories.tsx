@@ -14,24 +14,6 @@ import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
 import { useMemo, useState, useEffect } from "react";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 
-// Helper function to get time remaining for a story (24-hour limit)
-const getTimeRemaining = (createdAt: string) => {
-  const created = new Date(createdAt).getTime();
-  const now = Date.now();
-  const expiresAt = created + (24 * 60 * 60 * 1000); // 24 hours in milliseconds
-  const remaining = expiresAt - now;
-  
-  if (remaining <= 0) return "Expired";
-  
-  const hours = Math.floor(remaining / (60 * 60 * 1000));
-  const minutes = Math.floor((remaining % (60 * 60 * 1000)) / (60 * 1000));
-  
-  if (hours > 0) {
-    return `${hours}h ${minutes}m left`;
-  }
-  return `${minutes}m left`;
-};
-
 const Stories = () => {
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
@@ -55,15 +37,12 @@ const Stories = () => {
   const { data: stories = [], isLoading } = useQuery({
     queryKey: ["stories"],
     queryFn: async () => {
-      // Only fetch stories from the last 24 hours
-      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      
+      // Fetch all stories - no expiration time limit
       const { data, error } = await supabase
         .from("stories")
         .select("id, title, body, location, media_url, media_type, image_url, user_id, created_at")
-        .gte("created_at", twentyFourHoursAgo)
         .order("created_at", { ascending: false })
-        .limit(30);
+        .limit(50);
       if (error) throw error;
       return (data ?? []) as Array<{
         id: string;
@@ -563,7 +542,7 @@ const Stories = () => {
                         </div>
                         <div className="text-white/80 text-xs drop-shadow-sm flex items-center gap-1">
                           <Clock className="w-3 h-3" />
-                          {getTimeRemaining(s.created_at)}
+                          {new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         </div>
                       </div>
                     </div>
@@ -673,7 +652,7 @@ const Stories = () => {
                           </div>
                           <div className="text-white/80 text-xs flex items-center gap-1">
                             <Clock className="w-3 h-3" />
-                            {getTimeRemaining(activeStory.created_at)}
+                            {new Date(activeStory.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                           </div>
                         </div>
                       </div>
