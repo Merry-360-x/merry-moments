@@ -1164,22 +1164,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const markAsPaid = async (bookingId: string) => {
-    try {
-      // @ts-ignore - Supabase type inference issue
-      const { error } = await supabase
-        .from("bookings")
-        .update({ payment_status: "paid" })
-        .eq("id", bookingId);
-      if (error) throw error;
-      toast({ title: "Payment confirmed", description: "Booking has been marked as paid." });
-      await Promise.all([refetchBookings(), refetchMetrics()]);
-    } catch (e) {
-      logError("admin.markAsPaid", e);
-      toast({ variant: "destructive", title: "Failed to mark as paid", description: uiErrorMessage(e, "Please try again.") });
-    }
-  };
-
   const markOrderAsPaid = async (orderId: string) => {
     try {
       // @ts-ignore - Supabase type inference issue
