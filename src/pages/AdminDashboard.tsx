@@ -767,16 +767,21 @@ export default function AdminDashboard() {
     placeholderData: (previousData) => previousData,
   });
 
-  // Cart Checkout Requests - direct query
+  // Cart Checkout Requests - now fetches bookings with order_id
   const { data: checkoutRequests = [], refetch: refetchCheckoutRequests } = useQuery({
     queryKey: ["admin-checkout-requests"],
     queryFn: async () => {
+      // Fetch bookings that have order_id (cart checkouts)
       const { data, error } = await supabase
-        .from("checkout_requests")
-        .select("*")
+        .from("bookings")
+        .select("id, order_id, booking_type, property_id, tour_id, transport_id, guest_name, guest_email, guest_phone, payment_method, total_price, currency, status, payment_status, created_at, properties(title), tour_packages(title), transport_vehicles(title)")
+        .not("order_id", "is", null)
         .order("created_at", { ascending: false })
         .limit(200);
-      if (error) throw error;
+      if (error) {
+        console.warn("Error fetching cart checkouts:", error);
+        return [];
+      }
       return data ?? [];
     },
     enabled: tab === "cart-checkouts" || tab === "overview",
@@ -2949,10 +2954,13 @@ For support, contact: support@merry360x.com
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge variant="outline">
-                    {bookings.filter(b => b.order_id).length} requests
+                    {(() => {
+                      const uniqueOrders = new Set(checkoutRequests.map((r: any) => r.order_id));
+                      return uniqueOrders.size;
+                    })()} requests
                   </Badge>
                   <Badge variant="secondary">
-                    {bookings.filter(b => b.order_id && b.status === 'confirmed').length} bookings created
+                    {checkoutRequests.filter((r: any) => r.status === 'confirmed').length} items confirmed
                   </Badge>
                 </div>
               </div>
@@ -2983,9 +2991,11 @@ For support, contact: support@merry360x.com
                     {(() => {
                       // Group bookings by order_id
                       const orderMap = new Map<string, any[]>();
-                      bookings.filter(b => b.order_id).forEach(booking => {
-                        const existing = orderMap.get(booking.order_id!) || [];
-                        orderMap.set(booking.order_id!, [...existing, booking]);
+                      checkoutRequests.forEach((booking: any) => {
+                        if (booking.order_id) {
+                          const existing = orderMap.get(booking.order_id) || [];
+                          orderMap.set(booking.order_id, [...existing, booking]);
+                        }
                       });
 
                       if (orderMap.size === 0) {
