@@ -225,14 +225,40 @@ Some components are non-refundable once booked, including but not limited to:
     try {
       let pdfUrl = null;
       if (pdfFile) {
-        const { url } = await uploadFile(pdfFile, { folder: "tour-itineraries" });
-        pdfUrl = url;
+        try {
+          toast({ title: "Uploading itinerary PDF...", description: "Please wait" });
+          const { url } = await uploadFile(pdfFile, { folder: "tour-itineraries" });
+          pdfUrl = url;
+          toast({ title: "PDF uploaded successfully!" });
+        } catch (uploadError) {
+          console.error("PDF upload error:", uploadError);
+          toast({ 
+            title: "PDF upload failed", 
+            description: uploadError instanceof Error ? uploadError.message : "Please try again", 
+            variant: "destructive" 
+          });
+          setUploading(false);
+          return;
+        }
       }
 
       let customPolicyUrl = null;
       if (customPolicyFile) {
-        const { url } = await uploadFile(customPolicyFile, { folder: "cancellation-policies" });
-        customPolicyUrl = url;
+        try {
+          toast({ title: "Uploading policy PDF...", description: "Please wait" });
+          const { url } = await uploadFile(customPolicyFile, { folder: "cancellation-policies" });
+          customPolicyUrl = url;
+          toast({ title: "Policy PDF uploaded successfully!" });
+        } catch (uploadError) {
+          console.error("Policy PDF upload error:", uploadError);
+          toast({ 
+            title: "Policy PDF upload failed", 
+            description: uploadError instanceof Error ? uploadError.message : "Please try again", 
+            variant: "destructive" 
+          });
+          setUploading(false);
+          return;
+        }
       }
 
       // Build combined cancellation policy

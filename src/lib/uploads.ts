@@ -9,10 +9,10 @@ export async function uploadFile(
   opts: { folder: string; onProgress?: (percent: number) => void }
 ): Promise<{ url: string }> {
   try {
-    // Compress image before upload to reduce upload time by 60-90%
+    // Only compress images, skip PDFs and other file types
     let fileToUpload = file;
     try {
-      if (file.type.startsWith('image/')) {
+      if (file.type.startsWith('image/') && !file.type.includes('svg')) {
         const startSize = file.size;
         fileToUpload = await compressImage(file, { maxSizeMB: 0.8, maxWidthOrHeight: 1920, quality: 0.82 });
         const savedKB = Math.round((startSize - fileToUpload.size) / 1024);
