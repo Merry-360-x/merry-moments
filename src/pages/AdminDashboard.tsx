@@ -751,7 +751,7 @@ export default function AdminDashboard() {
         // guest_* fields support guest checkout (guest_id can be NULL)
         // booking_type, tour_id, transport_id, order_id support multi-item cart checkouts
         .select(
-          "id, property_id, tour_id, transport_id, booking_type, order_id, guest_id, guest_name, guest_email, guest_phone, is_guest_booking, check_in, check_out, guests, total_price, currency, status, payment_status, payment_method, special_requests, host_id, created_at, properties(title, images), tours(title, location), transport_vehicles(title, vehicle_type)"
+          "id, property_id, tour_id, transport_id, booking_type, order_id, guest_id, guest_name, guest_email, guest_phone, is_guest_booking, check_in, check_out, guests, total_price, currency, status, payment_status, payment_method, special_requests, host_id, created_at, properties(title, images), tour_packages(title), transport_vehicles(title, vehicle_type)"
         )
         .order("created_at", { ascending: false })
         .limit(500); // Increase limit for comprehensive booking data
@@ -3022,7 +3022,7 @@ For support, contact: support@merry360x.com
                                 <div className="text-xs text-muted-foreground">
                                   {orderBookings.map((b, i) => {
                                     const itemName = b.booking_type === 'property' && b.properties?.title ? b.properties.title :
-                                                    b.booking_type === 'tour' && b.tours?.title ? b.tours.title :
+                                                    b.booking_type === 'tour' && b.tour_packages?.title ? b.tour_packages.title :
                                                     b.booking_type === 'transport' && b.transport_vehicles?.title ? b.transport_vehicles.title : 'Item';
                                     const icon = b.booking_type === 'property' ? '🏠' : b.booking_type === 'tour' ? '🗺️' : '🚗';
                                     return <div key={i}>{icon} {itemName}</div>;
