@@ -352,12 +352,6 @@ const Stories = () => {
     }
   };
 
-  const openViewer = (storyId: string) => {
-    setActiveStoryId(storyId);
-    setViewerOpen(true);
-    setShowComments(false); // Reset comments view
-  };
-
   const submit = async () => {
     if (!user) {
       toast({ variant: "destructive", title: "Sign in required", description: "Please sign in to post a story." });

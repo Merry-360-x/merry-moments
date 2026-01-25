@@ -35,7 +35,7 @@ export class RecommendationEngine {
       // Fetch user favorites
       const { data: favs } = await supabase
         .from('favorites')
-        .select('item_id, item_type')
+        .select('id, property_id, created_at')
         .eq('user_id', this.userId);
       this.favorites = favs || [];
 
@@ -43,7 +43,7 @@ export class RecommendationEngine {
       const { data: bookings } = await supabase
         .from('bookings')
         .select('*')
-        .eq('user_id', this.userId)
+        .eq('guest_id', this.userId)
         .order('created_at', { ascending: false })
         .limit(20);
       this.userHistory = bookings || [];
