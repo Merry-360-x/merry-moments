@@ -183,14 +183,16 @@ Some components are non-refundable once booked, including but not limited to:
   };
 
   const isFormValid = () => {
-    const policyValid = selectedPolicies.length > 0 && 
+    // Cancellation policy is now optional - can use default or add later
+    const policyValid = selectedPolicies.length === 0 || 
       (!selectedPolicies.includes('custom') || (customPolicyText.trim().length >= 20 || customPolicyFile !== null));
     
     return formData.title.trim() && formData.categories.length > 0 && formData.tour_type &&
       formData.description.trim().length >= 50 && formData.city.trim() &&
       formData.duration.trim() && formData.daily_itinerary.trim().length >= 100 &&
       formData.meeting_point.trim() && policyValid &&
-      parseFloat(formData.price_per_adult) > 0 && coverImage && pdfFile;
+      parseFloat(formData.price_per_adult) > 0;
+      // Note: coverImage, pdfFile, and cancellation_policy are now optional - can be uploaded later
   };
 
   const handlePdfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -221,7 +223,7 @@ Some components are non-refundable once booked, including but not limited to:
     setUploading(true);
 
     try {
-      let pdfUrl = "";
+      let pdfUrl = null;
       if (pdfFile) {
         const { url } = await uploadFile(pdfFile, { folder: "tour-itineraries" });
         pdfUrl = url;
@@ -276,7 +278,7 @@ Some components are non-refundable once booked, including but not limited to:
         currency: formData.currency,
         min_guests: formData.min_guests,
         max_guests: formData.max_guests,
-        cover_image: coverImage,
+        cover_image: coverImage || null,
         gallery_images: galleryImages.length > 0 ? galleryImages : null,
         itinerary_pdf_url: pdfUrl,
         status: "draft",
