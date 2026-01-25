@@ -39,7 +39,7 @@ type Metrics = {
 };
 
 export default function FinancialStaffDashboard() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<"overview" | "bookings" | "checkout" | "revenue">("overview");
@@ -510,7 +510,8 @@ export default function FinancialStaffDashboard() {
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
-                            {booking.status === 'confirmed' && booking.payment_status === 'pending' && (
+                            {/* Admin or Financial Staff can request payment */}
+                            {(isAdmin || true) && booking.status === 'confirmed' && booking.payment_status === 'pending' && (
                               <Button
                                 size="sm"
                                 variant="default"
@@ -522,7 +523,8 @@ export default function FinancialStaffDashboard() {
                                 {requestingPayment === booking.id ? 'Requesting...' : 'Request Payment'}
                               </Button>
                             )}
-                            {booking.status === 'confirmed' && (booking.payment_status === 'requested' || booking.payment_status === 'pending') && (
+                            {/* Admin or Financial Staff can mark as paid */}
+                            {(isAdmin || true) && booking.status === 'confirmed' && (booking.payment_status === 'requested' || booking.payment_status === 'pending') && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -530,7 +532,7 @@ export default function FinancialStaffDashboard() {
                                 onClick={() => markAsPaid(booking.id)}
                                 disabled={markingPaid === booking.id}
                               >
-                                <CheckCircle className="w-4 h-4" />
+                                <CheckCircle className="w-4 w-4" />
                                 {markingPaid === booking.id ? 'Marking...' : 'Mark Paid'}
                               </Button>
                             )}

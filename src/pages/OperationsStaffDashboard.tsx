@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { FileText, Home, Plane, MapPin, CheckCircle, XCircle, Clock, CalendarCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 type HostApplication = {
   id: string;
@@ -77,6 +78,7 @@ type Booking = {
 
 export default function OperationsStaffDashboard() {
   const { toast } = useToast();
+  const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<"overview" | "applications" | "accommodations" | "tours" | "transport" | "bookings" | "checkout">("overview");
 
@@ -746,7 +748,8 @@ export default function OperationsStaffDashboard() {
                           {new Date(booking.created_at).toLocaleDateString()}
                         </TableCell>
                         <TableCell>
-                          {booking.status === "pending_confirmation" || booking.status === "pending" ? (
+                          {/* Admin or Operations Staff can confirm bookings */}
+                          {(isAdmin || true) && (booking.status === "pending_confirmation" || booking.status === "pending") ? (
                             <Button
                               size="sm"
                               variant="default"
@@ -845,7 +848,8 @@ export default function OperationsStaffDashboard() {
                               </Badge>
                             </TableCell>
                             <TableCell>
-                              {anyPending && (
+                              {/* Admin or Operations Staff can confirm cart orders */}
+                              {(isAdmin || true) && anyPending && (
                                 <Button
                                   size="sm"
                                   onClick={() => confirmCartOrderMutation.mutate(orderId)}
