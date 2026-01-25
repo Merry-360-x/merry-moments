@@ -1148,6 +1148,54 @@ export default function AdminDashboard() {
     }
   };
 
+  const confirmCartOrder = async (orderId: string) => {
+    try {
+      // @ts-ignore - Supabase type inference issue
+      const { error } = await supabase
+        .from("bookings")
+        .update({ status: "confirmed" })
+        .eq("order_id", orderId);
+      if (error) throw error;
+      toast({ title: "Cart order confirmed", description: "All items in this order have been confirmed." });
+      await Promise.all([refetchBookings(), refetchMetrics()]);
+    } catch (e) {
+      logError("admin.confirmCartOrder", e);
+      toast({ variant: "destructive", title: "Failed to confirm order", description: uiErrorMessage(e, "Please try again.") });
+    }
+  };
+
+  const markAsPaid = async (bookingId: string) => {
+    try {
+      // @ts-ignore - Supabase type inference issue
+      const { error } = await supabase
+        .from("bookings")
+        .update({ payment_status: "paid" })
+        .eq("id", bookingId);
+      if (error) throw error;
+      toast({ title: "Payment confirmed", description: "Booking has been marked as paid." });
+      await Promise.all([refetchBookings(), refetchMetrics()]);
+    } catch (e) {
+      logError("admin.markAsPaid", e);
+      toast({ variant: "destructive", title: "Failed to mark as paid", description: uiErrorMessage(e, "Please try again.") });
+    }
+  };
+
+  const markOrderAsPaid = async (orderId: string) => {
+    try {
+      // @ts-ignore - Supabase type inference issue
+      const { error } = await supabase
+        .from("bookings")
+        .update({ payment_status: "paid" })
+        .eq("order_id", orderId);
+      if (error) throw error;
+      toast({ title: "Order payment confirmed", description: "All items in this order have been marked as paid." });
+      await Promise.all([refetchBookings(), refetchMetrics()]);
+    } catch (e) {
+      logError("admin.markOrderAsPaid", e);
+      toast({ variant: "destructive", title: "Failed to mark order as paid", description: uiErrorMessage(e, "Please try again.") });
+    }
+  };
+
   const unsuspendUser = async (userId: string) => {
     try {
       const { error } = await supabase
@@ -2916,15 +2964,18 @@ For support, contact: support@merry360x.com
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline">{checkoutRequests.length} requests</Badge>
-                  <Badge variant="secondary">{bookings.length} bookings created</Badge>
+                  <Badge variant="outline">
+                    {bookings.filter(b => b.order_id).length} requests
+                  </Badge>
+                  <Badge variant="secondary">
+                    {bookings.filter(b => b.order_id && b.status === 'confirmed').length} bookings created
+                  </Badge>
                 </div>
               </div>
 
               <Alert className="mb-4">
                 <AlertDescription>
                   <strong>Note:</strong> Checkout requests become bookings after payment is confirmed. 
-                  Check the <strong>Bookings</strong> tab to see completed bookings from these cart checkouts.
                   Payment status shows if the checkout has been processed.
                 </AlertDescription>
               </Alert>
@@ -2941,69 +2992,119 @@ For support, contact: support@merry360x.com
                       <TableHead>Payment</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Date</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {checkoutRequests.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                          No checkout requests yet
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      checkoutRequests.map((req: any) => {
-                        const items = req.metadata?.items || req.items || [];
-                        const itemsArray = Array.isArray(items) ? items : [];
+                    {(() => {
+                      // Group bookings by order_id
+                      const orderMap = new Map<string, any[]>();
+                      bookings.filter(b => b.order_id).forEach(booking => {
+                        const existing = orderMap.get(booking.order_id!) || [];
+                        orderMap.set(booking.order_id!, [...existing, booking]);
+                      });
+
+                      if (orderMap.size === 0) {
+                        return (
+                          <TableRow>
+                            <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                              No checkout requests yet
+                            </TableCell>
+                          </TableRow>
+                        );
+                      }
+
+                      return Array.from(orderMap.entries()).map(([orderId, orderBookings]) => {
+                        const firstBooking = orderBookings[0];
+                        const totalAmount = orderBookings.reduce((sum, b) => sum + (b.total_price || 0), 0);
+                        const allConfirmed = orderBookings.every(b => b.status === 'confirmed');
+                        const anyPending = orderBookings.some(b => b.status === 'pending' || b.status === 'pending_confirmation');
+                        const allPaid = orderBookings.every(b => b.payment_status === 'paid');
+                        const paymentStatus = allPaid ? 'paid' : orderBookings.some(b => b.payment_status === 'requested') ? 'requested' : 'pending';
                         
                         return (
-                        <TableRow key={req.id}>
-                          <TableCell className="font-mono text-xs">{req.id.slice(0, 8)}...</TableCell>
-                          <TableCell>
-                            <div className="text-sm font-medium">{req.name || req.metadata?.name || "—"}</div>
-                            <div className="text-xs text-muted-foreground">{req.email || req.metadata?.email || "—"}</div>
-                          </TableCell>
-                          <TableCell className="text-sm">{req.phone || req.metadata?.phone || "—"}</TableCell>
-                          <TableCell>
-                            <div className="flex flex-col gap-1">
-                              <Badge variant="secondary">
-                                {itemsArray.length} items
-                              </Badge>
-                              {itemsArray.length > 0 && (
+                          <TableRow key={orderId}>
+                            <TableCell className="font-mono text-xs">{orderId.slice(0, 8)}...</TableCell>
+                            <TableCell>
+                              <div className="text-sm font-medium">{firstBooking.guest_name || "—"}</div>
+                              <div className="text-xs text-muted-foreground">{firstBooking.guest_email || "—"}</div>
+                            </TableCell>
+                            <TableCell className="text-sm">{firstBooking.guest_phone || "—"}</TableCell>
+                            <TableCell>
+                              <div className="flex flex-col gap-1">
+                                <Badge variant="secondary">
+                                  {orderBookings.length} items
+                                </Badge>
                                 <div className="text-xs text-muted-foreground">
-                                  {itemsArray.map((item: any, i: number) => (
-                                    <div key={i}>
-                                      {item.type || item.item_type}: {item.title || item.name || 'Item'}
-                                    </div>
-                                  )).slice(0, 2)}
-                                  {itemsArray.length > 2 && <div>+{itemsArray.length - 2} more</div>}
+                                  {orderBookings.map((b, i) => {
+                                    const itemName = b.booking_type === 'property' && b.properties?.title ? b.properties.title :
+                                                    b.booking_type === 'tour' && b.tours?.title ? b.tours.title :
+                                                    b.booking_type === 'transport' && b.transport_vehicles?.title ? b.transport_vehicles.title : 'Item';
+                                    const icon = b.booking_type === 'property' ? '🏠' : b.booking_type === 'tour' ? '🗺️' : '🚗';
+                                    return <div key={i}>{icon} {itemName}</div>;
+                                  }).slice(0, 2)}
+                                  {orderBookings.length > 2 && <div>+{orderBookings.length - 2} more</div>}
                                 </div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            {req.total_amount ? formatMoney(req.total_amount, "USD") : "—"}
-                          </TableCell>
-                          <TableCell className="text-xs">{req.payment_method || "—"}</TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={
-                                req.status === "completed"
-                                  ? "default"
-                                  : req.status === "pending_confirmation"
-                                  ? "secondary"
-                                  : "outline"
-                              }
-                            >
-                              {req.status || "pending"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-xs text-muted-foreground">
-                            {new Date(req.created_at).toLocaleDateString()}
-                          </TableCell>
-                        </TableRow>
+                              </div>
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              {formatMoney(totalAmount, firstBooking.currency || "RWF")}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={
+                                paymentStatus === 'paid' ? 'default' :
+                                paymentStatus === 'requested' ? 'secondary' : 'outline'
+                              }>
+                                {paymentStatus}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={
+                                  allConfirmed
+                                    ? "default"
+                                    : anyPending
+                                    ? "secondary"
+                                    : "outline"
+                                }
+                              >
+                                {allConfirmed ? 'confirmed' : anyPending ? 'pending' : 'mixed'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground">
+                              {new Date(firstBooking.created_at).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-2">
+                                {anyPending && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => confirmCartOrder(orderId)}
+                                  >
+                                    <CheckCircle className="w-3 h-3 mr-1" />
+                                    Confirm
+                                  </Button>
+                                )}
+                                {!allPaid && allConfirmed && (
+                                  <Button
+                                    size="sm"
+                                    variant="default"
+                                    onClick={() => markOrderAsPaid(orderId)}
+                                  >
+                                    <DollarSign className="w-3 h-3 mr-1" />
+                                    Mark Paid
+                                  </Button>
+                                )}
+                                {allPaid && (
+                                  <span className="text-xs text-muted-foreground">✓ Paid</span>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
                         );
-                      })
-                    )}
+                      });
+                    })()}
                   </TableBody>
                 </Table>
               </div>
