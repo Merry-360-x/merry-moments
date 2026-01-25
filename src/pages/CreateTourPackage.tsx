@@ -307,7 +307,7 @@ Some components are non-refundable once booked, including but not limited to:
         cover_image: coverImage || null,
         gallery_images: galleryImages.length > 0 ? galleryImages : null,
         itinerary_pdf_url: pdfUrl,
-        status: "draft",
+        status: "approved", // Auto-approve for now, can add manual approval later
       };
 
       // Add fields not in type definition yet
