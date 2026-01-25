@@ -6,6 +6,7 @@ import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Tooltip,
   TooltipContent,
@@ -61,22 +62,26 @@ export default function TourDetails() {
         .from("tours")
         .select("*")
         .eq("id", id)
-        .single();
+        .maybeSingle();
 
       if (!tourError && tour) {
         if (tour.created_by) {
-          const { data: profile } = await supabase
+          const { data: profile, error: profileError } = await supabase
             .from("profiles")
             .select("full_name, nickname, years_of_experience, languages_spoken, tour_guide_bio, avatar_url, email, phone, created_at")
             .eq("user_id", tour.created_by)
-            .single();
+            .maybeSingle();
+          
+          if (profileError) {
+            console.warn("[TourDetails] Profile fetch failed:", profileError);
+          }
           return { source: "tours", tour, host: profile } as TourDetailsData;
         }
         return { source: "tours", tour, host: null } as TourDetailsData;
       }
 
       // If not found in tours, try tour_packages
-      if (tourError && tourError.code !== "PGRST116") {
+      if (tourError) {
         throw tourError;
       }
 
