@@ -767,31 +767,6 @@ export default function AdminDashboard() {
     placeholderData: (previousData) => previousData,
   });
 
-  // Cart Checkout Requests - now fetches bookings with order_id
-  const { data: checkoutRequests = [], refetch: refetchCheckoutRequests } = useQuery({
-    queryKey: ["admin-checkout-requests"],
-    queryFn: async () => {
-      // Fetch bookings that have order_id (cart checkouts)
-      const { data, error } = await supabase
-        .from("bookings")
-        .select("*")
-        .not("order_id", "is", null)
-        .order("created_at", { ascending: false })
-        .limit(200);
-      if (error) {
-        console.error("Error fetching cart checkouts:", error);
-        throw error;
-      }
-      console.log("Cart checkout requests:", data);
-      return data ?? [];
-    },
-    enabled: tab === "cart-checkouts" || tab === "overview",
-    staleTime: 1000 * 20,
-    gcTime: 1000 * 60 * 10,
-    refetchOnWindowFocus: true,
-    placeholderData: (previousData) => previousData,
-  });
-
   // Reviews - direct query with enhanced loading
   const { data: reviews = [], refetch: refetchReviews } = useQuery({
     queryKey: ["admin-reviews-direct"],
@@ -1151,38 +1126,6 @@ export default function AdminDashboard() {
     } catch (e) {
       logError("admin.suspendUser", e);
       toast({ variant: "destructive", title: "Failed", description: uiErrorMessage(e, "Please try again.") });
-    }
-  };
-
-  const confirmCartOrder = async (orderId: string) => {
-    try {
-      // @ts-ignore - Supabase type inference issue
-      const { error } = await supabase
-        .from("bookings")
-        .update({ status: "confirmed" })
-        .eq("order_id", orderId);
-      if (error) throw error;
-      toast({ title: "Cart order confirmed", description: "All items in this order have been confirmed." });
-      await Promise.all([refetchBookings(), refetchMetrics()]);
-    } catch (e) {
-      logError("admin.confirmCartOrder", e);
-      toast({ variant: "destructive", title: "Failed to confirm order", description: uiErrorMessage(e, "Please try again.") });
-    }
-  };
-
-  const markOrderAsPaid = async (orderId: string) => {
-    try {
-      // @ts-ignore - Supabase type inference issue
-      const { error } = await supabase
-        .from("bookings")
-        .update({ payment_status: "paid" })
-        .eq("order_id", orderId);
-      if (error) throw error;
-      toast({ title: "Order payment confirmed", description: "All items in this order have been marked as paid." });
-      await Promise.all([refetchBookings(), refetchMetrics()]);
-    } catch (e) {
-      logError("admin.markOrderAsPaid", e);
-      toast({ variant: "destructive", title: "Failed to mark order as paid", description: uiErrorMessage(e, "Please try again.") });
     }
   };
 
@@ -1559,14 +1502,6 @@ For support, contact: support@merry360x.com
               {bookings.filter(b => b.status === 'pending').length > 0 && (
                 <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-xs h-5 min-w-[20px] rounded-full">
                   {bookings.filter(b => b.status === 'pending').length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="cart-checkouts" className="gap-1">
-              <CreditCard className="w-4 h-4" /> Cart Checkouts
-              {checkoutRequests.filter(r => r.status === 'pending_confirmation').length > 0 && (
-                <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-xs h-5 min-w-[20px] rounded-full">
-                  {checkoutRequests.filter(r => r.status === 'pending_confirmation').length}
                 </Badge>
               )}
             </TabsTrigger>
@@ -2781,6 +2716,7 @@ For support, contact: support@merry360x.com
                   <TableHeader>
                     <TableRow>
                       <TableHead>Booking ID</TableHead>
+                      <TableHead>Order ID</TableHead>
                       <TableHead>Item</TableHead>
                       <TableHead>Guest</TableHead>
                       <TableHead>Dates</TableHead>
@@ -2811,14 +2747,16 @@ For support, contact: support@merry360x.com
                       return (
                       <TableRow key={b.id}>
                         <TableCell>
-                          <div className="flex flex-col gap-1">
-                            <span className="font-mono text-xs">{b.id.slice(0, 8)}...</span>
-                            {b.order_id && (
-                              <span className="text-xs text-muted-foreground">
-                                Order: {b.order_id.slice(0, 6)}...
-                              </span>
-                            )}
-                          </div>
+                          <span className="font-mono text-xs">{b.id.slice(0, 8)}...</span>
+                        </TableCell>
+                        <TableCell>
+                          {b.order_id ? (
+                            <Badge variant="secondary" className="font-mono text-xs">
+                              {b.order_id.slice(0, 8)}...
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col gap-1">
@@ -2944,168 +2882,6 @@ For support, contact: support@merry360x.com
           </TabsContent>
 
           {/* CART CHECKOUTS TAB */}
-          <TabsContent value="cart-checkouts">
-            <Card className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-lg font-semibold">Cart Checkout Requests</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Bulk booking requests from cart - these create bookings when payment is confirmed
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline">
-                    {(() => {
-                      const uniqueOrders = new Set(checkoutRequests.map((r: any) => r.order_id));
-                      return uniqueOrders.size;
-                    })()} requests
-                  </Badge>
-                  <Badge variant="secondary">
-                    {checkoutRequests.filter((r: any) => r.status === 'confirmed').length} items confirmed
-                  </Badge>
-                </div>
-              </div>
-
-              <Alert className="mb-4">
-                <AlertDescription>
-                  <strong>Note:</strong> Checkout requests become bookings after payment is confirmed. 
-                  Payment status shows if the checkout has been processed.
-                </AlertDescription>
-              </Alert>
-
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>ID</TableHead>
-                      <TableHead>Customer</TableHead>
-                      <TableHead>Contact</TableHead>
-                      <TableHead>Items</TableHead>
-                      <TableHead>Total</TableHead>
-                      <TableHead>Payment</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(() => {
-                      // Group bookings by order_id
-                      const orderMap = new Map<string, any[]>();
-                      checkoutRequests.forEach((booking: any) => {
-                        if (booking.order_id) {
-                          const existing = orderMap.get(booking.order_id) || [];
-                          orderMap.set(booking.order_id, [...existing, booking]);
-                        }
-                      });
-
-                      if (orderMap.size === 0) {
-                        return (
-                          <TableRow>
-                            <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
-                              No checkout requests yet
-                            </TableCell>
-                          </TableRow>
-                        );
-                      }
-
-                      return Array.from(orderMap.entries()).map(([orderId, orderBookings]) => {
-                        const firstBooking = orderBookings[0];
-                        const totalAmount = orderBookings.reduce((sum, b) => sum + (b.total_price || 0), 0);
-                        const allConfirmed = orderBookings.every(b => b.status === 'confirmed');
-                        const anyPending = orderBookings.some(b => b.status === 'pending' || b.status === 'pending_confirmation');
-                        const allPaid = orderBookings.every(b => b.payment_status === 'paid');
-                        const paymentStatus = allPaid ? 'paid' : orderBookings.some(b => b.payment_status === 'requested') ? 'requested' : 'pending';
-                        
-                        return (
-                          <TableRow key={orderId}>
-                            <TableCell className="font-mono text-xs">{orderId.slice(0, 8)}...</TableCell>
-                            <TableCell>
-                              <div className="text-sm font-medium">{firstBooking.guest_name || "—"}</div>
-                              <div className="text-xs text-muted-foreground">{firstBooking.guest_email || "—"}</div>
-                            </TableCell>
-                            <TableCell className="text-sm">{firstBooking.guest_phone || "—"}</TableCell>
-                            <TableCell>
-                              <div className="flex flex-col gap-1">
-                                <Badge variant="secondary">
-                                  {orderBookings.length} items
-                                </Badge>
-                                <div className="text-xs text-muted-foreground">
-                                  {orderBookings.map((b, i) => {
-                                    const itemName = b.booking_type === 'property' ? 'Property' :
-                                                    b.booking_type === 'tour' ? 'Tour Package' :
-                                                    b.booking_type === 'transport' ? 'Transport' : 'Item';
-                                    const icon = b.booking_type === 'property' ? '🏠' : b.booking_type === 'tour' ? '🗺️' : '🚗';
-                                    return <div key={i}>{icon} {itemName}</div>;
-                                  }).slice(0, 2)}
-                                  {orderBookings.length > 2 && <div>+{orderBookings.length - 2} more</div>}
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell className="font-medium">
-                              {formatMoney(totalAmount, firstBooking.currency || "RWF")}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant={
-                                paymentStatus === 'paid' ? 'default' :
-                                paymentStatus === 'requested' ? 'secondary' : 'outline'
-                              }>
-                                {paymentStatus}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                variant={
-                                  allConfirmed
-                                    ? "default"
-                                    : anyPending
-                                    ? "secondary"
-                                    : "outline"
-                                }
-                              >
-                                {allConfirmed ? 'confirmed' : anyPending ? 'pending' : 'mixed'}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-xs text-muted-foreground">
-                              {new Date(firstBooking.created_at).toLocaleDateString()}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex gap-2">
-                                {anyPending && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => confirmCartOrder(orderId)}
-                                  >
-                                    <CheckCircle className="w-3 h-3 mr-1" />
-                                    Confirm
-                                  </Button>
-                                )}
-                                {!allPaid && allConfirmed && (
-                                  <Button
-                                    size="sm"
-                                    variant="default"
-                                    onClick={() => markOrderAsPaid(orderId)}
-                                  >
-                                    <DollarSign className="w-3 h-3 mr-1" />
-                                    Mark Paid
-                                  </Button>
-                                )}
-                                {allPaid && (
-                                  <span className="text-xs text-muted-foreground">✓ Paid</span>
-                                )}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      });
-                    })()}
-                  </TableBody>
-                </Table>
-              </div>
-            </Card>
-          </TabsContent>
-
           {/* PAYMENTS TAB */}
           <TabsContent value="payments">
             <div className="grid md:grid-cols-3 gap-4 mb-6">
