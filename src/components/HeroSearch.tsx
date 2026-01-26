@@ -20,17 +20,84 @@ type DestinationSuggestion = {
 import { extractNeighborhood } from "@/lib/location";
 
 const NEARBY_LABEL = "Find what's nearby";
-const STATIC_DESTINATIONS = [
-  "Kagugu",
-  "Norvège (Norway)", 
-  "Rebero", 
-  "Gacuriro", 
+
+// Comprehensive list of places in Rwanda - organized by region
+const KIGALI_NEIGHBORHOODS = [
+  "Kigali City Center",
   "Nyarutarama",
   "Kimihurura",
   "Kacyiru",
   "Remera",
-  "Kigali City Center",
-  "Nyamirambo"
+  "Gikondo",
+  "Nyamirambo",
+  "Kiyovu",
+  "Kibagabaga",
+  "Gisozi",
+  "Kagugu",
+  "Rebero",
+  "Gacuriro",
+  "Kimironko",
+  "Kicukiro",
+  "Nyarugenge",
+  "Gasabo",
+  "Kanombe",
+  "Masaka",
+  "Kabeza",
+  "Kagarama",
+  "Niboye",
+  "Nyagatare",
+  "Kimisagara",
+  "Biryogo",
+  "Rugando",
+  "Muhima",
+  "Nyakabanda",
+  "Kinyinya",
+  "Rusororo",
+  "Batsinda",
+  "Gatenga",
+  "Kabuga",
+  "Norvege", // Local neighborhood in Kigali
+];
+
+const RWANDA_CITIES = [
+  "Kigali",
+  "Musanze (Ruhengeri)",
+  "Rubavu (Gisenyi)",
+  "Huye (Butare)",
+  "Nyanza",
+  "Rwamagana",
+  "Muhanga",
+  "Karongi (Kibuye)",
+  "Rusizi (Cyangugu)",
+  "Nyagatare",
+  "Kayonza",
+  "Bugesera",
+  "Burera",
+];
+
+const RWANDA_ATTRACTIONS = [
+  "Volcanoes National Park",
+  "Akagera National Park",
+  "Nyungwe National Park",
+  "Lake Kivu",
+  "Kigali Genocide Memorial",
+  "King's Palace Museum, Nyanza",
+  "Ethnographic Museum, Huye",
+  "Inema Arts Center",
+  "Kandt House Museum",
+  "Nyamata Genocide Memorial",
+  "Mount Bisoke",
+  "Mount Karisimbi",
+  "Gisakura Tea Estate",
+  "Ruhondo Lake",
+  "Burera Lake",
+];
+
+// Combine all locations for search suggestions
+const STATIC_DESTINATIONS = [
+  ...KIGALI_NEIGHBORHOODS,
+  ...RWANDA_CITIES,
+  ...RWANDA_ATTRACTIONS,
 ];
 
 const fetchAllAccommodationLocations = async () => {
@@ -42,13 +109,25 @@ const fetchAllAccommodationLocations = async () => {
 
   if (error) throw error;
 
-  // Get all unique locations
-  const locations = (data as DestinationSuggestion[] | null)
+  // Get all unique locations from database
+  const dbLocations = (data as DestinationSuggestion[] | null)
     ?.map((d) => d.location)
     .filter(Boolean) ?? [];
   
-  const unique = Array.from(new Set(locations));
-  return [NEARBY_LABEL, ...STATIC_DESTINATIONS, ...unique].slice(0, 20);
+  const uniqueDbLocations = Array.from(new Set(dbLocations));
+  
+  // Combine static destinations with database locations
+  // Prioritize Kigali neighborhoods, then cities, then attractions, then DB locations
+  const allLocations = [
+    NEARBY_LABEL,
+    ...KIGALI_NEIGHBORHOODS.slice(0, 15), // Top Kigali neighborhoods
+    ...RWANDA_CITIES.slice(0, 10), // Major cities
+    ...RWANDA_ATTRACTIONS.slice(0, 10), // Popular attractions
+    ...uniqueDbLocations.slice(0, 20), // Database locations
+  ];
+  
+  // Remove duplicates and limit to reasonable number
+  return Array.from(new Set(allLocations)).slice(0, 50);
 };
 
 const fetchDestinationSuggestions = async (search: string) => {
@@ -59,7 +138,9 @@ const fetchDestinationSuggestions = async (search: string) => {
     .order("created_at", { ascending: false })
     .limit(100);
 
-  const trimmed = search.trim();
+  const trimmed = search.trim().toLowerCase();
+  
+  // If there's a search term, filter database locations
   if (trimmed) {
     query = query.ilike("location", `%${trimmed}%`);
   }
@@ -77,16 +158,46 @@ const fetchDestinationSuggestions = async (search: string) => {
     .map((location) => extractNeighborhood(location))
     .filter(Boolean);
   
-  // Combine full locations, neighborhoods, and static destinations
+  // Smart search algorithm:
+  // 1. Filter static destinations that match the search
+  const matchedStatic = trimmed
+    ? STATIC_DESTINATIONS.filter((x) => String(x).toLowerCase().includes(trimmed))
+    : STATIC_DESTINATIONS;
+  
+  // 2. Prioritize exact matches and starts-with matches
+  const exactMatches = matchedStatic.filter((x) => 
+    String(x).toLowerCase() === trimmed
+  );
+  const startsWithMatches = matchedStatic.filter((x) => 
+    String(x).toLowerCase().startsWith(trimmed) && !exactMatches.includes(x)
+  );
+  const containsMatches = matchedStatic.filter((x) => 
+    !exactMatches.includes(x) && !startsWithMatches.includes(x)
+  );
+  
+  // 3. Combine in priority order
+  const prioritizedStatic = [
+    ...exactMatches,
+    ...startsWithMatches,
+    ...containsMatches,
+  ];
+  
+  // 4. Combine all suggestions with database locations
   const allSuggestions = [...fullLocations, ...neighborhoods];
   const unique = Array.from(new Set(allSuggestions));
-
-  const trimmed2 = search.trim().toLowerCase();
-  const merged = [NEARBY_LABEL, ...STATIC_DESTINATIONS, ...unique];
-  const filtered = trimmed2
-    ? merged.filter((x) => String(x).toLowerCase().includes(trimmed2) || x === NEARBY_LABEL)
-    : merged;
-  return Array.from(new Set(filtered)).slice(0, 18);
+  
+  // 5. Filter database locations if searching
+  const filteredDbLocations = trimmed
+    ? unique.filter((x) => String(x).toLowerCase().includes(trimmed))
+    : unique;
+  
+  // 6. Merge with "Find what's nearby" always at top when no search
+  const finalResults = trimmed
+    ? [...prioritizedStatic, ...filteredDbLocations]
+    : [NEARBY_LABEL, ...prioritizedStatic, ...filteredDbLocations];
+  
+  // 7. Remove duplicates and limit results
+  return Array.from(new Set(finalResults)).slice(0, 20);
 };
 
 const HeroSearch = () => {
