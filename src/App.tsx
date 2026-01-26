@@ -43,6 +43,8 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
+import AffiliateSignup from "./pages/AffiliateSignup";
+import AffiliateDashboard from "./pages/AffiliateDashboard";
 import ScrollToTop from "@/components/ScrollToTop";
 import SupportCenterLauncher from "@/components/SupportCenterLauncher";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
@@ -282,6 +284,8 @@ const App = () => (
               <Route path="/terms" element={<InfoPage kind="terms" />} />
               <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
               <Route path="/connection-test" element={<ConnectionTest />} />
+              <Route path="/affiliate-signup" element={<AffiliateSignup />} />
+              <Route path="/affiliate-dashboard" element={<AffiliateDashboard />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

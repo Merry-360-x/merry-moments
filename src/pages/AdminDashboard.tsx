@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { AffiliatesManagement } from "@/components/AffiliatesManagement";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -302,7 +303,8 @@ type TabValue =
   | "support"
   | "safety"
   | "reports"
-  | "legal-content";
+  | "legal-content"
+  | "affiliates";
 
 const statusColors: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800",
@@ -1627,6 +1629,9 @@ For support, contact: support@merry360x.com
             </TabsTrigger>
             <TabsTrigger value="legal-content" className="gap-1">
               <FileText className="w-4 h-4" /> Legal Content
+            </TabsTrigger>
+            <TabsTrigger value="affiliates" className="gap-1">
+              <Users className="w-4 h-4" /> Affiliates
             </TabsTrigger>
           </TabsList>
 
@@ -3601,6 +3606,21 @@ For support, contact: support@merry360x.com
                   </p>
                 </div>
               )}
+            </Card>
+          </TabsContent>
+
+          {/* AFFILIATES TAB */}
+          <TabsContent value="affiliates">
+            <Card>
+              <CardHeader>
+                <CardTitle>Affiliate Management</CardTitle>
+                <CardDescription>
+                  Manage affiliate applications and monitor performance
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AffiliatesManagement />
+              </CardContent>
             </Card>
           </TabsContent>
         </Tabs>

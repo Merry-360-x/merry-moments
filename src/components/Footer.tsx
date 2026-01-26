@@ -57,6 +57,11 @@ const Footer = () => {
                   {t("actions.becomeHost")}
                 </Link>
               </li>
+              <li>
+                <Link to="/affiliate-signup" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                  Affiliate Program
+                </Link>
+              </li>
             </ul>
           </div>
 
