@@ -41,6 +41,8 @@ import CreateTransport from "./pages/CreateTransport";
 import SearchResults from "./pages/SearchResults";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsAndConditions from "./pages/TermsAndConditions";
 import ScrollToTop from "@/components/ScrollToTop";
 import SupportCenterLauncher from "@/components/SupportCenterLauncher";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
@@ -275,8 +277,10 @@ const App = () => (
               <Route path="/help" element={<InfoPage kind="help" />} />
               <Route path="/safety" element={<InfoPage kind="safety" />} />
               <Route path="/privacy" element={<InfoPage kind="privacy" />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               <Route path="/cookies" element={<InfoPage kind="cookies" />} />
               <Route path="/terms" element={<InfoPage kind="terms" />} />
+              <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
               <Route path="/connection-test" element={<ConnectionTest />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

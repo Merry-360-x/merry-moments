@@ -75,8 +75,13 @@ const Footer = () => {
                 </Link>
               </li>
               <li>
-                <Link to="/terms" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                  {t("footer.terms")}
+                <Link to="/privacy-policy" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                  Privacy Policy
+                </Link>
+              </li>
+              <li>
+                <Link to="/terms-and-conditions" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                  Terms & Conditions
                 </Link>
               </li>
             </ul>
@@ -89,11 +94,11 @@ const Footer = () => {
             {t("footer.copyright", { year: new Date().getFullYear() })}
           </p>
           <div className="flex items-center gap-6">
-            <Link to="/privacy" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-              {t("footer.privacy")}
+            <Link to="/privacy-policy" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+              Privacy
             </Link>
-            <Link to="/terms" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-              {t("footer.terms")}
+            <Link to="/terms-and-conditions" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+              Terms
             </Link>
             <Link to="/cookies" className="text-sm text-muted-foreground hover:text-primary transition-colors">
               {t("footer.cookies")}
