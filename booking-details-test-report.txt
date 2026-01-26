@@ -1,0 +1,210 @@
+[dotenv@17.2.3] injecting env (5) from .env -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+
+🔍 Testing Booking Details Display...
+
+======================================================================
+
+📋 Test 1: Fetching Booking with All Details...
+
+✅ Found 5 bookings
+
+
+──────────────────────────────────────────────────────────────────────
+📌 Booking ID: 4f7c49e4-768d-4a63-8bba-eeaf3070728f
+   Order ID: N/A
+   Type: property
+   Status: cancelled
+   Payment Status: pending
+
+   👤 GUEST INFORMATION:
+      User ID: cab21106-dead-40e0-a164-0966d2cf36a2
+      User Name: davy dushimiyimana
+      User Email: bebisdavy@gmail.com
+
+   🏢 HOST INFORMATION:
+      Host ID: bf1af521-e047-41bf-aba2-494a42d2af6b
+      Host Name: Amina Uwineza
+      Host Email: amina@merry360global.com
+
+   🏠 SERVICE INFORMATION:
+      Property: Presidential suite
+      Location: Kigali, Kacyiru
+      Price/Night: 1250 USD
+      Images: 34 photos
+
+   📅 BOOKING DETAILS:
+      Check-in: 2026-01-21
+      Check-out: 2026-01-22
+      Guests: 1
+      Total Price: 1250 USD
+      Payment Method: card
+
+   ✅ All essential data present
+
+──────────────────────────────────────────────────────────────────────
+📌 Booking ID: aa96b1c1-5414-40bd-8f50-5b081cdfb9af
+   Order ID: N/A
+   Type: property
+   Status: confirmed
+   Payment Status: paid
+
+   👤 GUEST INFORMATION:
+      User ID: cab21106-dead-40e0-a164-0966d2cf36a2
+      User Name: davy dushimiyimana
+      User Email: bebisdavy@gmail.com
+
+   🏢 HOST INFORMATION:
+      Host ID: bf1af521-e047-41bf-aba2-494a42d2af6b
+      Host Name: Amina Uwineza
+      Host Email: amina@merry360global.com
+
+   🏠 SERVICE INFORMATION:
+      Property: Modern spacious Apartment
+      Location: Kigali, Norvege
+      Price/Night: 40 USD
+      Images: 26 photos
+
+   📅 BOOKING DETAILS:
+      Check-in: 2026-01-24
+      Check-out: 2026-01-25
+      Guests: 1
+      Total Price: 40 USD
+      Payment Method: card
+
+   ✅ All essential data present
+
+──────────────────────────────────────────────────────────────────────
+📌 Booking ID: 69a65c72-fbb3-4bcd-9615-5f2e2b0c94ae
+   Order ID: N/A
+   Type: property
+   Status: completed
+   Payment Status: pending
+
+   👤 GUEST INFORMATION:
+      User ID: a949b385-213b-4989-94eb-6f421975107c
+      User Name: iwanyu Store
+      User Email: iwanyustore@gmail.com
+
+   🏢 HOST INFORMATION:
+      Host ID: bf1af521-e047-41bf-aba2-494a42d2af6b
+      Host Name: Amina Uwineza
+      Host Email: amina@merry360global.com
+
+   🏠 SERVICE INFORMATION:
+      Property: Prime Urban Residence
+      Location: Kigali, Kimihurura
+      Price/Night: 150 USD
+      Images: 30 photos
+
+   📅 BOOKING DETAILS:
+      Check-in: 2026-01-22
+      Check-out: 2026-01-23
+      Guests: 1
+      Total Price: 150 USD
+      Payment Method: airtel_money
+      Special Requests: it
+
+   ✅ All essential data present
+
+──────────────────────────────────────────────────────────────────────
+📌 Booking ID: bf4162c3-3169-407e-9bb9-26857a22f442
+   Order ID: N/A
+   Type: property
+   Status: confirmed
+   Payment Status: paid
+
+   👤 GUEST INFORMATION:
+      User ID: 3b94377e-8dd2-4c9f-bcc2-5749aa8952a6
+      User Name: Fidel iranzi
+      User Email: fideliranzii@gmail.com
+
+   🏢 HOST INFORMATION:
+      Host ID: bf1af521-e047-41bf-aba2-494a42d2af6b
+      Host Name: Amina Uwineza
+      Host Email: amina@merry360global.com
+
+   🏠 SERVICE INFORMATION:
+      Property: Modern spacious Apartment
+      Location: Kigali, Norvege
+      Price/Night: 40 USD
+      Images: 26 photos
+
+   📅 BOOKING DETAILS:
+      Check-in: 2026-01-24
+      Check-out: 2026-01-25
+      Guests: 1
+      Total Price: 40 USD
+      Payment Method: airtel_money
+      Special Requests: fs
+
+   ✅ All essential data present
+
+──────────────────────────────────────────────────────────────────────
+📌 Booking ID: 5dfa7949-d964-43c8-a9bd-461be012e96f
+   Order ID: N/A
+   Type: property
+   Status: completed
+   Payment Status: pending
+
+   👤 GUEST INFORMATION:
+      User ID: 3b94377e-8dd2-4c9f-bcc2-5749aa8952a6
+      User Name: Fidel iranzi
+      User Email: fideliranzii@gmail.com
+
+   🏢 HOST INFORMATION:
+      Host ID: bf1af521-e047-41bf-aba2-494a42d2af6b
+      Host Name: Amina Uwineza
+      Host Email: amina@merry360global.com
+
+   🏠 SERVICE INFORMATION:
+      Property: Serenity Lodge
+      Location: Kigali, Rebero
+      Price/Night: 140 USD
+      Images: 36 photos
+
+   📅 BOOKING DETAILS:
+      Check-in: 2026-01-22
+      Check-out: 2026-01-23
+      Guests: 1
+      Total Price: 140 USD
+      Payment Method: card
+
+   ✅ All essential data present
+
+
+📦 Test 2: Fetching Bulk Order Details...
+
+✅ Found 1 bulk orders
+
+──────────────────────────────────────────────────────────────────────
+📦 Bulk Order ID: a8373a23-30f5-448c-a492-dbb813c18538
+   Contains 2 items
+
+   1. Item Details:
+      Type: Property
+      Name: Modern and stylish apartment
+      Image: ✅ Available
+      Price: 80 USD
+      Status: pending
+      Host: Amina Uwineza
+
+   2. Item Details:
+      Type: Property
+      Name: Bright & Modern centrally located apartment
+      Image: ✅ Available
+      Price: 90 USD
+      Status: pending
+      Host: Amina Uwineza
+
+──────────────────────────────────────────────────────────────────────
+📊 BULK ORDER SUMMARY:
+   Total Items: 2
+   Total Price: 170 RWF
+   Service Types: property
+   Unique Hosts: 1
+   ✅ Guest info consistent across all items
+
+======================================================================
+
+✨ Booking Details Testing Complete!
+
