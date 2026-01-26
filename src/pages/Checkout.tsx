@@ -345,7 +345,7 @@ export default function Checkout() {
           order_id: orderId,
           check_in: checkIn || new Date().toISOString().split('T')[0],
           check_out: checkOut || new Date(Date.now() + 86400000).toISOString().split('T')[0],
-          guests_count: Math.max(1, Number(guests || 1)),
+          guests: Math.max(1, Number(guests || 1)),
           total_price: 0, // Will be calculated based on item price
           currency: "RWF",
           status: "pending",
@@ -392,7 +392,7 @@ export default function Checkout() {
             
             // Apply group discounts
             let pricePerPerson = tour.price_per_adult || 0;
-            const guestCount = bookingPayload.guests_count;
+            const guestCount = bookingPayload.guests;
             
             if (guestCount >= 16 && tour.group_discount_16_plus) {
               pricePerPerson = pricePerPerson * (1 - tour.group_discount_16_plus / 100);
