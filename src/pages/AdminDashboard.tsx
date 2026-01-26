@@ -749,7 +749,13 @@ export default function AdminDashboard() {
     queryFn: async () => {
       let q = supabase
         .from("bookings")
-        .select("*")
+        .select(`
+          *,
+          properties(title, host_id),
+          tour_packages(title, host_id),
+          transport_vehicles(title, vehicle_type, created_by),
+          profiles!bookings_host_id_fkey(full_name)
+        `)
         .order("created_at", { ascending: false })
         .limit(500);
       if (bookingStatus && bookingStatus !== "all") q = q.eq("status", bookingStatus);
@@ -3414,32 +3420,44 @@ For support, contact: support@merry360x.com
               <div className="space-y-4">
                 {/* Show bulk order info if this is part of a cart order */}
                 {selectedBooking.order_id && orderBookings.length > 1 && (
-                  <div className="bg-muted/50 p-4 rounded-lg">
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <h3 className="font-semibold">🛒 Bulk Order</h3>
-                        <p className="text-sm text-muted-foreground">This booking is part of a cart order with {orderBookings.length} items</p>
+                  <div className="border rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-3 pb-2 border-b">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">🛒</span>
+                        <div>
+                          <p className="text-sm font-semibold">Cart Order ({orderBookings.length} items)</p>
+                          <p className="text-xs text-muted-foreground font-mono">{selectedBooking.order_id.slice(0, 16)}...</p>
+                        </div>
                       </div>
-                      <Badge variant="secondary" className="font-mono text-xs">
-                        {selectedBooking.order_id.slice(0, 12)}...
-                      </Badge>
+                      <p className="text-base font-bold">
+                        {formatMoney(
+                          orderBookings.reduce((sum, b) => sum + (b.total_price || 0), 0),
+                          selectedBooking.currency
+                        )}
+                      </p>
                     </div>
                     
                     {/* List all items in the order */}
-                    <div className="space-y-2">
-                      {orderBookings.map((item, idx) => {
-                        let itemName = "Unknown";
+                    <div className="space-y-1.5">
+                      {orderBookings.map((item) => {
+                        let itemName = "Unknown Item";
+                        let hostName = "N/A";
                         let itemIcon = "📦";
                         
-                        if (item.booking_type === "property") {
-                          itemName = "Property";
+                        if (item.booking_type === "property" && item.properties) {
+                          itemName = item.properties.title;
                           itemIcon = "🏠";
-                        } else if (item.booking_type === "tour") {
-                          itemName = "Tour Package";
+                        } else if (item.booking_type === "tour" && item.tour_packages) {
+                          itemName = item.tour_packages.title;
                           itemIcon = "🗺️";
-                        } else if (item.booking_type === "transport") {
-                          itemName = "Transport";
+                        } else if (item.booking_type === "transport" && item.transport_vehicles) {
+                          itemName = `${item.transport_vehicles.title} (${item.transport_vehicles.vehicle_type})`;
                           itemIcon = "🚗";
+                        }
+                        
+                        // Get host name from profiles relation
+                        if (item.profiles?.full_name) {
+                          hostName = item.profiles.full_name;
                         }
                         
                         const isCurrentItem = item.id === selectedBooking.id;
@@ -3447,37 +3465,32 @@ For support, contact: support@merry360x.com
                         return (
                           <div 
                             key={item.id} 
-                            className={`flex items-center justify-between p-2 rounded border ${isCurrentItem ? 'bg-primary/10 border-primary' : 'bg-background'}`}
+                            className={`p-2 rounded text-sm ${isCurrentItem ? 'bg-primary/5 border border-primary/20' : 'hover:bg-muted/30'}`}
                           >
-                            <div className="flex items-center gap-2">
-                              <span>{itemIcon}</span>
-                              <div>
-                                <p className="text-sm font-medium">{itemName}</p>
-                                <p className="text-xs text-muted-foreground font-mono">{item.id.slice(0, 8)}...</p>
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-start gap-2 flex-1 min-w-0">
+                                <span className="text-base mt-0.5">{itemIcon}</span>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-sm truncate">{itemName}</p>
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                                    <span>Host: {hostName}</span>
+                                    <span>•</span>
+                                    <Badge variant={item.status === 'confirmed' ? 'default' : 'secondary'} className="text-xs h-4 px-1.5">
+                                      {item.status}
+                                    </Badge>
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm font-medium">{formatMoney(item.total_price, item.currency)}</p>
-                              <Badge variant={item.status === 'confirmed' ? 'default' : 'secondary'} className="text-xs">
-                                {item.status}
-                              </Badge>
-                              {isCurrentItem && (
-                                <Badge variant="outline" className="text-xs">Viewing</Badge>
-                              )}
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="font-semibold text-sm whitespace-nowrap">{formatMoney(item.total_price, item.currency)}</span>
+                                {isCurrentItem && (
+                                  <Badge variant="outline" className="text-xs h-4 px-1.5">👁️</Badge>
+                                )}
+                              </div>
                             </div>
                           </div>
                         );
                       })}
-                    </div>
-                    
-                    <div className="mt-3 pt-3 border-t flex items-center justify-between">
-                      <p className="text-sm font-medium">Order Total</p>
-                      <p className="text-lg font-bold">
-                        {formatMoney(
-                          orderBookings.reduce((sum, b) => sum + (b.total_price || 0), 0),
-                          selectedBooking.currency
-                        )}
-                      </p>
                     </div>
                   </div>
                 )}
