@@ -749,31 +749,50 @@ export default function AdminDashboard() {
     queryFn: async () => {
       let q = supabase
         .from("bookings")
-        .select(`
-          *,
-          properties(title, images),
-          tour_packages(title),
-          transport_vehicles(title, vehicle_type)
-        `)
+        .select("*")
         .order("created_at", { ascending: false })
         .limit(500);
       if (bookingStatus && bookingStatus !== "all") q = q.eq("status", bookingStatus);
       const { data, error } = await q;
       if (error) {
         console.error("Error fetching bookings:", error);
-        // If joins fail due to RLS, try without joins
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from("bookings")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .limit(500);
-        
-        if (fallbackError) throw fallbackError;
-        console.log("Bookings fetched (fallback):", fallbackData?.length || 0, "records");
-        return (fallbackData ?? []) as BookingRow[];
+        throw error;
       }
       console.log("Bookings fetched:", data?.length || 0, "records");
-      return (data ?? []) as BookingRow[];
+      
+      // Fetch property, tour, and transport details separately to avoid RLS issues
+      const propertyIds = [...new Set(data?.filter(b => b.property_id).map(b => b.property_id))];
+      const tourIds = [...new Set(data?.filter(b => b.tour_id).map(b => b.tour_id))];
+      const transportIds = [...new Set(data?.filter(b => b.transport_id).map(b => b.transport_id))];
+      
+      const [properties, tours, vehicles] = await Promise.all([
+        propertyIds.length > 0 
+          ? supabase.from("properties").select("id, title, images").in("id", propertyIds).then(r => r.data || [])
+          : Promise.resolve([]),
+        tourIds.length > 0
+          ? supabase.from("tour_packages").select("id, title").in("id", tourIds).then(r => r.data || [])
+          : Promise.resolve([]),
+        transportIds.length > 0
+          ? supabase.from("transport_vehicles").select("id, title, vehicle_type").in("id", transportIds).then(r => r.data || [])
+          : Promise.resolve([])
+      ]);
+      
+      // Map the data back to bookings
+      const enrichedData = (data || []).map(booking => {
+        const enriched = { ...booking };
+        if (booking.property_id) {
+          enriched.properties = properties.find(p => p.id === booking.property_id) || null;
+        }
+        if (booking.tour_id) {
+          enriched.tour_packages = tours.find(t => t.id === booking.tour_id) || null;
+        }
+        if (booking.transport_id) {
+          enriched.transport_vehicles = vehicles.find(v => v.id === booking.transport_id) || null;
+        }
+        return enriched;
+      });
+      
+      return enrichedData as BookingRow[];
     },
     enabled: tab === "bookings" || tab === "payments" || tab === "overview",
     staleTime: 1000 * 20,
