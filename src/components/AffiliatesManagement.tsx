@@ -35,19 +35,33 @@ export const AffiliatesManagement = () => {
     queryFn: async () => {
       let query = supabase
         .from('affiliates')
-        .select(`
-          *,
-          profiles:user_id (full_name, email)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (filter !== 'all') {
         query = query.eq('status', filter);
       }
 
-      const { data, error } = await query;
+      const { data: affiliatesData, error } = await query;
       if (error) throw error;
-      return data || [];
+      
+      // Fetch profiles separately
+      if (affiliatesData && affiliatesData.length > 0) {
+        const userIds = affiliatesData.map(a => a.user_id);
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, email')
+          .in('user_id', userIds);
+        
+        // Merge profiles with affiliates
+        const profileMap = new Map(profilesData?.map(p => [p.user_id, p]) || []);
+        return affiliatesData.map(affiliate => ({
+          ...affiliate,
+          profiles: profileMap.get(affiliate.user_id) || null
+        }));
+      }
+      
+      return affiliatesData || [];
     }
   });
 
