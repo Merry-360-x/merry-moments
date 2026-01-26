@@ -5,6 +5,9 @@ import HostingCTA from "@/components/HostingCTA";
 import { PersonalizedRecommendations } from "@/components/PersonalizedRecommendations";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { TrendingUp } from "lucide-react";
 
 import heroImage from "@/assets/hero-resort.jpg";
 import merryVideo from "@/assets/Merry.mp4";
@@ -12,6 +15,7 @@ import merryVideo from "@/assets/Merry.mp4";
 const Index = () => {
   const { user } = useAuth();
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-background">
@@ -55,6 +59,19 @@ const Index = () => {
 
           {/* Search Bar */}
           <HeroSearch />
+
+          {/* Affiliate CTA */}
+          <div className="mt-8 flex justify-center">
+            <Button
+              onClick={() => navigate('/affiliate-signup')}
+              variant="outline"
+              size="lg"
+              className="bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20 hover:text-white transition-all shadow-lg"
+            >
+              <TrendingUp className="w-5 h-5 mr-2" />
+              Earn 10% Commission - Join Affiliate Program
+            </Button>
+          </div>
         </div>
       </section>
 
