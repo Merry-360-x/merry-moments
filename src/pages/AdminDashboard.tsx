@@ -1705,20 +1705,57 @@ For support, contact: support@merry360x.com
                                 setSelectedBooking(b);
                                 // If this is a bulk order, fetch all bookings with the same order_id
                                 if (b.order_id) {
-                                  // Fetch with joins for display
+                                  // Fetch all bookings in this order
                                   const { data: orderItems } = await supabase
                                     .from("bookings")
-                                    .select(`
-                                      *,
-                                      properties(title),
-                                      tour_packages(title),
-                                      transport_vehicles(title, vehicle_type),
-                                      profiles!bookings_host_id_fkey(full_name)
-                                    `)
+                                    .select("*")
                                     .eq("order_id", b.order_id)
                                     .order("created_at", { ascending: false });
                                   
-                                  setOrderBookings(orderItems || []);
+                                  if (orderItems && orderItems.length > 0) {
+                                    // Fetch related details separately
+                                    const propertyIds = [...new Set(orderItems.filter(item => item.property_id).map(item => item.property_id))];
+                                    const tourIds = [...new Set(orderItems.filter(item => item.tour_id).map(item => item.tour_id))];
+                                    const transportIds = [...new Set(orderItems.filter(item => item.transport_id).map(item => item.transport_id))];
+                                    const hostIds = [...new Set(orderItems.filter(item => item.host_id).map(item => item.host_id))];
+                                    
+                                    const [properties, tours, vehicles, hosts] = await Promise.all([
+                                      propertyIds.length > 0 
+                                        ? supabase.from("properties").select("id, title").in("id", propertyIds).then(r => r.data || [])
+                                        : Promise.resolve([]),
+                                      tourIds.length > 0
+                                        ? supabase.from("tour_packages").select("id, title").in("id", tourIds).then(r => r.data || [])
+                                        : Promise.resolve([]),
+                                      transportIds.length > 0
+                                        ? supabase.from("transport_vehicles").select("id, title, vehicle_type").in("id", transportIds).then(r => r.data || [])
+                                        : Promise.resolve([]),
+                                      hostIds.length > 0
+                                        ? supabase.from("profiles").select("id, full_name").in("id", hostIds).then(r => r.data || [])
+                                        : Promise.resolve([])
+                                    ]);
+                                    
+                                    // Enrich order items with related data
+                                    const enrichedItems = orderItems.map(item => {
+                                      const enriched = { ...item };
+                                      if (item.property_id) {
+                                        enriched.properties = properties.find(p => p.id === item.property_id) || null;
+                                      }
+                                      if (item.tour_id) {
+                                        enriched.tour_packages = tours.find(t => t.id === item.tour_id) || null;
+                                      }
+                                      if (item.transport_id) {
+                                        enriched.transport_vehicles = vehicles.find(v => v.id === item.transport_id) || null;
+                                      }
+                                      if (item.host_id) {
+                                        enriched.profiles = hosts.find(h => h.id === item.host_id) || null;
+                                      }
+                                      return enriched;
+                                    });
+                                    
+                                    setOrderBookings(enrichedItems);
+                                  } else {
+                                    setOrderBookings([]);
+                                  }
                                 } else {
                                   setOrderBookings([]);
                                 }
@@ -2878,20 +2915,57 @@ For support, contact: support@merry360x.com
                                 setSelectedBooking(b);
                                 // If this is a bulk order, fetch all bookings with the same order_id
                                 if (b.order_id) {
-                                  // Fetch with joins for display
+                                  // Fetch all bookings in this order
                                   const { data: orderItems } = await supabase
                                     .from("bookings")
-                                    .select(`
-                                      *,
-                                      properties(title),
-                                      tour_packages(title),
-                                      transport_vehicles(title, vehicle_type),
-                                      profiles!bookings_host_id_fkey(full_name)
-                                    `)
+                                    .select("*")
                                     .eq("order_id", b.order_id)
                                     .order("created_at", { ascending: false });
                                   
-                                  setOrderBookings(orderItems || []);
+                                  if (orderItems && orderItems.length > 0) {
+                                    // Fetch related details separately
+                                    const propertyIds = [...new Set(orderItems.filter(item => item.property_id).map(item => item.property_id))];
+                                    const tourIds = [...new Set(orderItems.filter(item => item.tour_id).map(item => item.tour_id))];
+                                    const transportIds = [...new Set(orderItems.filter(item => item.transport_id).map(item => item.transport_id))];
+                                    const hostIds = [...new Set(orderItems.filter(item => item.host_id).map(item => item.host_id))];
+                                    
+                                    const [properties, tours, vehicles, hosts] = await Promise.all([
+                                      propertyIds.length > 0 
+                                        ? supabase.from("properties").select("id, title").in("id", propertyIds).then(r => r.data || [])
+                                        : Promise.resolve([]),
+                                      tourIds.length > 0
+                                        ? supabase.from("tour_packages").select("id, title").in("id", tourIds).then(r => r.data || [])
+                                        : Promise.resolve([]),
+                                      transportIds.length > 0
+                                        ? supabase.from("transport_vehicles").select("id, title, vehicle_type").in("id", transportIds).then(r => r.data || [])
+                                        : Promise.resolve([]),
+                                      hostIds.length > 0
+                                        ? supabase.from("profiles").select("id, full_name").in("id", hostIds).then(r => r.data || [])
+                                        : Promise.resolve([])
+                                    ]);
+                                    
+                                    // Enrich order items with related data
+                                    const enrichedItems = orderItems.map(item => {
+                                      const enriched = { ...item };
+                                      if (item.property_id) {
+                                        enriched.properties = properties.find(p => p.id === item.property_id) || null;
+                                      }
+                                      if (item.tour_id) {
+                                        enriched.tour_packages = tours.find(t => t.id === item.tour_id) || null;
+                                      }
+                                      if (item.transport_id) {
+                                        enriched.transport_vehicles = vehicles.find(v => v.id === item.transport_id) || null;
+                                      }
+                                      if (item.host_id) {
+                                        enriched.profiles = hosts.find(h => h.id === item.host_id) || null;
+                                      }
+                                      return enriched;
+                                    });
+                                    
+                                    setOrderBookings(enrichedItems);
+                                  } else {
+                                    setOrderBookings([]);
+                                  }
                                 } else {
                                   setOrderBookings([]);
                                 }
