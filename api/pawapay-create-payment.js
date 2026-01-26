@@ -73,7 +73,6 @@ export default async function handler(req, res) {
     const {
       bookingId,
       amount,
-      currency = "RWF",
       phoneNumber,
       customerName,
       customerEmail,
@@ -105,7 +104,7 @@ export default async function handler(req, res) {
       return json(res, 400, { error: `Unsupported payment method: ${paymentMethod}` });
     }
 
-    // Fetch booking details from database
+    // Fetch booking details from database to get the correct currency
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
       .select("*")
@@ -116,6 +115,9 @@ export default async function handler(req, res) {
       console.error("Booking not found:", bookingError);
       return json(res, 404, { error: "Booking not found" });
     }
+
+    // Use the booking's currency, not a hardcoded default
+    const currency = booking.currency || "RWF";
 
     // Generate unique deposit ID
     const depositId = `merry360-${bookingId}-${Date.now()}`;
