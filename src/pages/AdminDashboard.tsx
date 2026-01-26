@@ -2849,12 +2849,38 @@ For support, contact: support@merry360x.com
                           )}
                         </TableCell>
                         <TableCell>
-                          <div className="flex flex-col gap-1">
-                            <span className="text-sm font-medium">{itemName}</span>
-                            <div className="flex items-center gap-1">
-                              {itemType === "property" && <span className="text-xs">🏠 Property</span>}
-                              {itemType === "tour" && <span className="text-xs">🗺️ Tour</span>}
-                              {itemType === "transport" && <span className="text-xs">🚗 Transport</span>}
+                          <div className="flex items-center gap-2">
+                            {/* Item Image */}
+                            {itemType === "property" && b.properties?.images?.[0] && (
+                              <img 
+                                src={b.properties.images[0]} 
+                                alt={itemName}
+                                className="w-12 h-12 rounded object-cover"
+                              />
+                            )}
+                            {itemType === "property" && !b.properties?.images?.[0] && (
+                              <div className="w-12 h-12 rounded bg-muted flex items-center justify-center">
+                                <Home className="w-6 h-6 text-muted-foreground" />
+                              </div>
+                            )}
+                            {itemType === "tour" && (
+                              <div className="w-12 h-12 rounded bg-primary/10 flex items-center justify-center">
+                                <MapPin className="w-6 h-6 text-primary" />
+                              </div>
+                            )}
+                            {itemType === "transport" && (
+                              <div className="w-12 h-12 rounded bg-secondary/50 flex items-center justify-center">
+                                <Car className="w-6 h-6 text-secondary-foreground" />
+                              </div>
+                            )}
+                            
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-sm font-medium line-clamp-1">{itemName}</span>
+                              <div className="flex items-center gap-1">
+                                {itemType === "property" && <span className="text-xs text-muted-foreground">🏠 Property</span>}
+                                {itemType === "tour" && <span className="text-xs text-muted-foreground">🗺️ Tour</span>}
+                                {itemType === "transport" && <span className="text-xs text-muted-foreground">🚗 Transport</span>}
+                              </div>
                             </div>
                           </div>
                         </TableCell>

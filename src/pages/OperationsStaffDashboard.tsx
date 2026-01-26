@@ -157,10 +157,9 @@ export default function OperationsStaffDashboard() {
     queryKey: ["operations_bookings"],
     queryFn: async () => {
       console.log('[OperationsStaff] Fetching bookings...');
-      // @ts-ignore - Supabase type inference issue
       const { data, error } = await supabase
         .from("bookings")
-        .select("id, property_id, guest_id, guest_name, guest_email, guest_phone, is_guest_booking, check_in, check_out, guests, total_price, currency, status, payment_method, special_requests, host_id, created_at")
+        .select("*")
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) {
@@ -168,7 +167,42 @@ export default function OperationsStaffDashboard() {
         throw error;
       }
       console.log('[OperationsStaff] Bookings fetched:', data?.length || 0);
-      // @ts-ignore - Supabase type inference issue
+      
+      // Enrich with property/tour/transport details
+      if (data && data.length > 0) {
+        const propertyIds = [...new Set(data.filter(b => b.property_id).map(b => b.property_id))];
+        const tourIds = [...new Set(data.filter(b => b.tour_id).map(b => b.tour_id))];
+        const transportIds = [...new Set(data.filter(b => b.transport_id).map(b => b.transport_id))];
+        
+        const [properties, tours, vehicles] = await Promise.all([
+          propertyIds.length > 0 
+            ? supabase.from("properties").select("id, title, images").in("id", propertyIds).then(r => r.data || [])
+            : Promise.resolve([]),
+          tourIds.length > 0
+            ? supabase.from("tour_packages").select("id, title").in("id", tourIds).then(r => r.data || [])
+            : Promise.resolve([]),
+          transportIds.length > 0
+            ? supabase.from("transport_vehicles").select("id, title, vehicle_type").in("id", transportIds).then(r => r.data || [])
+            : Promise.resolve([])
+        ]);
+        
+        const enriched = data.map(booking => {
+          const b = { ...booking };
+          if (booking.property_id) {
+            b.properties = properties.find(p => p.id === booking.property_id) || null;
+          }
+          if (booking.tour_id) {
+            b.tour_packages = tours.find(t => t.id === booking.tour_id) || null;
+          }
+          if (booking.transport_id) {
+            b.transport_vehicles = vehicles.find(v => v.id === booking.transport_id) || null;
+          }
+          return b;
+        });
+        
+        return enriched as Booking[];
+      }
+      
       return (data ?? []) as Booking[];
     },
   });
@@ -691,27 +725,72 @@ export default function OperationsStaffDashboard() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>Item</TableHead>
+                      <TableHead>Order ID</TableHead>
                       <TableHead>Guest</TableHead>
-                      <TableHead>Phone</TableHead>
                       <TableHead>Check-In</TableHead>
                       <TableHead>Check-Out</TableHead>
                       <TableHead>Guests</TableHead>
-                      <TableHead>Payment Method</TableHead>
                       <TableHead>Total</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Created</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {bookings.map((booking) => (
+                    {bookings.map((booking) => {
+                      let itemName = "Unknown";
+                      let itemType = booking.booking_type || "property";
+                      
+                      if (itemType === "property" && booking.properties) {
+                        itemName = booking.properties.title;
+                      } else if (itemType === "tour" && booking.tour_packages) {
+                        itemName = booking.tour_packages.title;
+                      } else if (itemType === "transport" && booking.transport_vehicles) {
+                        itemName = booking.transport_vehicles.title;
+                      }
+                      
+                      return (
                       <TableRow key={booking.id}>
-                        <TableCell className="font-medium">
-                          {booking.guest_name || 'N/A'}
-                          <br />
-                          <span className="text-xs text-muted-foreground">{booking.guest_email}</span>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {itemType === "property" && booking.properties?.images?.[0] && (
+                              <img 
+                                src={booking.properties.images[0]} 
+                                alt={itemName}
+                                className="w-10 h-10 rounded object-cover"
+                              />
+                            )}
+                            {itemType === "property" && !booking.properties?.images?.[0] && (
+                              <div className="w-10 h-10 rounded bg-muted flex items-center justify-center">
+                                <Home className="w-5 h-5 text-muted-foreground" />
+                              </div>
+                            )}
+                            {itemType === "tour" && (
+                              <div className="w-10 h-10 rounded bg-primary/10 flex items-center justify-center">
+                                <MapPin className="w-5 h-5 text-primary" />
+                              </div>
+                            )}
+                            {itemType === "transport" && (
+                              <div className="w-10 h-10 rounded bg-secondary/50 flex items-center justify-center">
+                                <Plane className="w-5 h-5 text-secondary-foreground" />
+                              </div>
+                            )}
+                            <span className="text-sm font-medium line-clamp-1">{itemName}</span>
+                          </div>
                         </TableCell>
-                        <TableCell>{booking.guest_phone || 'N/A'}</TableCell>
+                        <TableCell>
+                          {booking.order_id ? (
+                            <Badge variant="secondary" className="font-mono text-xs">
+                              {booking.order_id.slice(0, 8)}...
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-medium text-sm">
+                          {booking.guest_name || 'N/A'}
+                          <div className="text-xs text-muted-foreground">{booking.guest_email}</div>
+                        </TableCell>
                         <TableCell className="text-sm">
                           {new Date(booking.check_in).toLocaleDateString()}
                         </TableCell>
@@ -719,14 +798,7 @@ export default function OperationsStaffDashboard() {
                           {new Date(booking.check_out).toLocaleDateString()}
                         </TableCell>
                         <TableCell>{booking.guests}</TableCell>
-                        <TableCell>
-                          {booking.payment_method ? (
-                            <Badge variant="outline" className="text-xs">
-                              {booking.payment_method.replace('_', ' ').toUpperCase()}
-                            </Badge>
-                          ) : 'N/A'}
-                        </TableCell>
-                        <TableCell className="font-mono">
+                        <TableCell className="font-mono text-sm">
                           {booking.currency} {booking.total_price.toLocaleString()}
                         </TableCell>
                         <TableCell>
@@ -743,9 +815,6 @@ export default function OperationsStaffDashboard() {
                           >
                             {booking.status.replace('_', ' ')}
                           </Badge>
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {new Date(booking.created_at).toLocaleDateString()}
                         </TableCell>
                         <TableCell>
                           {/* Admin or Operations Staff can confirm bookings */}
@@ -764,10 +833,11 @@ export default function OperationsStaffDashboard() {
                           )}
                         </TableCell>
                       </TableRow>
-                    ))}
+                    );
+                    })}
                     {bookings.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={10} className="text-center text-muted-foreground">
+                        <TableCell colSpan={9} className="text-center text-muted-foreground">
                           No bookings found
                         </TableCell>
                       </TableRow>
