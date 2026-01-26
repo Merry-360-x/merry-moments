@@ -592,20 +592,27 @@ const Stories = () => {
                       {/* Interaction Preview */}
                       <div className="flex items-center justify-between text-white/80 text-xs">
                         <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-1">
-                            <Heart className="w-4 h-4" />
-                            <span>{engagementCounts[s.id]?.likes || 0}</span>
-                          </div>
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openFloatingComments(s.id);
-                            }}
-                            className="flex items-center gap-1 hover:text-white transition-colors"
-                          >
-                            <MessageCircle className="w-4 h-4" />
-                            <span>{engagementCounts[s.id]?.comments || 0}</span>
-                          </button>
+                          {(engagementCounts[s.id]?.likes || 0) > 0 && (
+                            <div className="flex items-center gap-1">
+                              <Heart className="w-4 h-4" />
+                              <span>{engagementCounts[s.id]?.likes}</span>
+                            </div>
+                          )}
+                          {(engagementCounts[s.id]?.comments || 0) > 0 && (
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openFloatingComments(s.id);
+                              }}
+                              className="flex items-center gap-1 hover:text-white transition-colors"
+                            >
+                              <MessageCircle className="w-4 h-4" />
+                              <span>{engagementCounts[s.id]?.comments}</span>
+                            </button>
+                          )}
+                          {!engagementCounts[s.id]?.likes && !engagementCounts[s.id]?.comments && (
+                            <span className="text-white/60 text-xs">No engagement yet</span>
+                          )}
                         </div>
                         <div className="text-white/60 text-xs">
                           Tap to view
