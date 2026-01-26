@@ -337,6 +337,7 @@ export default function AdminDashboard() {
   const [ticketStatus, setTicketStatus] = useState<"all" | string>("all");
   const [roleToAdd, setRoleToAdd] = useState<Record<string, string>>({});
   const [selectedBooking, setSelectedBooking] = useState<BookingRow | null>(null);
+  const [orderBookings, setOrderBookings] = useState<BookingRow[]>([]);
   const [bookingDetailsOpen, setBookingDetailsOpen] = useState(false);
   const [markingPaid, setMarkingPaid] = useState<string | null>(null);
 
@@ -1669,6 +1670,13 @@ For support, contact: support@merry360x.com
                               variant="outline" 
                               onClick={() => {
                                 setSelectedBooking(b);
+                                // If this is a bulk order, fetch all bookings with the same order_id
+                                if (b.order_id) {
+                                  const orderItems = bookings.filter(booking => booking.order_id === b.order_id);
+                                  setOrderBookings(orderItems);
+                                } else {
+                                  setOrderBookings([]);
+                                }
                                 setBookingDetailsOpen(true);
                               }}
                             >
@@ -2821,8 +2829,15 @@ For support, contact: support@merry360x.com
                             <Button 
                               size="sm" 
                               variant="outline" 
-                              onClick={() => {
+                              onClick={async () => {
                                 setSelectedBooking(b);
+                                // If this is a bulk order, fetch all bookings with the same order_id
+                                if (b.order_id) {
+                                  const orderItems = bookings.filter(booking => booking.order_id === b.order_id);
+                                  setOrderBookings(orderItems);
+                                } else {
+                                  setOrderBookings([]);
+                                }
                                 setBookingDetailsOpen(true);
                               }}
                             >
@@ -3397,6 +3412,76 @@ For support, contact: support@merry360x.com
             </DialogHeader>
             {selectedBooking && (
               <div className="space-y-4">
+                {/* Show bulk order info if this is part of a cart order */}
+                {selectedBooking.order_id && orderBookings.length > 1 && (
+                  <div className="bg-muted/50 p-4 rounded-lg">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <h3 className="font-semibold">🛒 Bulk Order</h3>
+                        <p className="text-sm text-muted-foreground">This booking is part of a cart order with {orderBookings.length} items</p>
+                      </div>
+                      <Badge variant="secondary" className="font-mono text-xs">
+                        {selectedBooking.order_id.slice(0, 12)}...
+                      </Badge>
+                    </div>
+                    
+                    {/* List all items in the order */}
+                    <div className="space-y-2">
+                      {orderBookings.map((item, idx) => {
+                        let itemName = "Unknown";
+                        let itemIcon = "📦";
+                        
+                        if (item.booking_type === "property") {
+                          itemName = "Property";
+                          itemIcon = "🏠";
+                        } else if (item.booking_type === "tour") {
+                          itemName = "Tour Package";
+                          itemIcon = "🗺️";
+                        } else if (item.booking_type === "transport") {
+                          itemName = "Transport";
+                          itemIcon = "🚗";
+                        }
+                        
+                        const isCurrentItem = item.id === selectedBooking.id;
+                        
+                        return (
+                          <div 
+                            key={item.id} 
+                            className={`flex items-center justify-between p-2 rounded border ${isCurrentItem ? 'bg-primary/10 border-primary' : 'bg-background'}`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span>{itemIcon}</span>
+                              <div>
+                                <p className="text-sm font-medium">{itemName}</p>
+                                <p className="text-xs text-muted-foreground font-mono">{item.id.slice(0, 8)}...</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium">{formatMoney(item.total_price, item.currency)}</p>
+                              <Badge variant={item.status === 'confirmed' ? 'default' : 'secondary'} className="text-xs">
+                                {item.status}
+                              </Badge>
+                              {isCurrentItem && (
+                                <Badge variant="outline" className="text-xs">Viewing</Badge>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    
+                    <div className="mt-3 pt-3 border-t flex items-center justify-between">
+                      <p className="text-sm font-medium">Order Total</p>
+                      <p className="text-lg font-bold">
+                        {formatMoney(
+                          orderBookings.reduce((sum, b) => sum + (b.total_price || 0), 0),
+                          selectedBooking.currency
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
                 {/* Show item details based on booking type */}
                 {selectedBooking.booking_type === "property" && selectedBooking.properties && (
                   <div className="border-b pb-4">
