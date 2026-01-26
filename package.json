@@ -22,7 +22,9 @@
     "supabase:db:pull": "supabase db pull",
     "pawapay": "node pawapay-cli.mjs",
     "verify:currencies": "node verify-currencies.mjs",
-    "check:bookings": "node show-booking-currencies.mjs"
+    "check:bookings": "node show-booking-currencies.mjs",
+    "test:booking-ui": "node test-booking-ui.mjs",
+    "create:bulk-booking": "node create-bulk-booking-test.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
