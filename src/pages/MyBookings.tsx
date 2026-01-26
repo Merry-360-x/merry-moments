@@ -492,6 +492,9 @@ const MyBookings = () => {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold">Rate Your Stay</DialogTitle>
+            <DialogDescription>
+              Share your experience to help other travelers
+            </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-6">

@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { Eye, Download, FileText } from "lucide-react";
@@ -1034,6 +1034,9 @@ For support, contact: support@merry360x.com
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Booking Details</DialogTitle>
+              <DialogDescription>
+                View complete booking information and guest details
+              </DialogDescription>
             </DialogHeader>
             {selectedBooking && (
               <div className="space-y-4">

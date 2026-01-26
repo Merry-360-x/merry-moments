@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import {
@@ -3630,6 +3630,7 @@ For support, contact: support@merry360x.com
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
             <DialogHeader>
               <DialogTitle>{viewingDocument?.title || 'Document Viewer'}</DialogTitle>
+              <DialogDescription>View uploaded document or image</DialogDescription>
             </DialogHeader>
             <div className="flex-1 overflow-auto">
               {viewingDocument && (
@@ -3669,6 +3670,7 @@ For support, contact: support@merry360x.com
                 <UserX className="w-5 h-5" />
                 Suspend & Reject Host Application
               </DialogTitle>
+              <DialogDescription>This action will suspend the user and reject their application</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
@@ -3726,6 +3728,7 @@ For support, contact: support@merry360x.com
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Booking Details</DialogTitle>
+              <DialogDescription>Complete booking information and guest details</DialogDescription>
             </DialogHeader>
             {selectedBooking && (
               <div className="space-y-4">

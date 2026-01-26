@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -632,7 +632,7 @@ const Stories = () => {
 
       {/* Instagram-style Story viewer */}
       <Dialog open={viewerOpen} onOpenChange={setViewerOpen}>
-        <DialogContent className="p-0 max-w-sm mx-auto h-[80vh] overflow-hidden rounded-2xl [&>button]:hidden">
+        <DialogContent className="p-0 max-w-sm mx-auto h-[80vh] overflow-hidden rounded-2xl [&>button]:hidden" aria-describedby={undefined}>
           <div className="relative w-full h-full bg-black">
             {activeStory ? (
               (() => {
@@ -801,6 +801,7 @@ const Stories = () => {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Create Your Story</DialogTitle>
+            <DialogDescription>Share your travel moments and experiences</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
