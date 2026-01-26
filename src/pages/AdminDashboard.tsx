@@ -301,7 +301,8 @@ type TabValue =
   | "reviews"
   | "support"
   | "safety"
-  | "reports";
+  | "reports"
+  | "legal-content";
 
 const statusColors: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800",
@@ -340,6 +341,10 @@ export default function AdminDashboard() {
   const [orderBookings, setOrderBookings] = useState<BookingRow[]>([]);
   const [bookingDetailsOpen, setBookingDetailsOpen] = useState(false);
   const [markingPaid, setMarkingPaid] = useState<string | null>(null);
+
+  const [legalContentType, setLegalContentType] = useState<'privacy_policy' | 'terms_and_conditions'>('privacy_policy');
+  const [legalContent, setLegalContent] = useState('');
+  const [savingLegal, setSavingLegal] = useState(false);
 
   const [newBanner, setNewBanner] = useState<Omit<AdBannerRow, "id" | "created_at" | "updated_at">>({
     message: "",
@@ -611,6 +616,30 @@ export default function AdminDashboard() {
     }
     return map;
   }, [roleRows]);
+
+  // Legal content query
+  const { data: legalContentData, refetch: refetchLegalContent } = useQuery({
+    queryKey: ["legal_content", legalContentType],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("legal_content")
+        .select("*")
+        .eq("content_type", legalContentType)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 1000 * 60,
+    gcTime: 1000 * 60 * 15,
+  });
+
+  // Load legal content into editor when data changes
+  useEffect(() => {
+    if (legalContentData?.content) {
+      const sections = legalContentData.content.sections || [];
+      setLegalContent(sections.map((s: any) => s.text).join('\n\n'));
+    }
+  }, [legalContentData]);
 
   const markAsPaid = async (bookingId: string) => {
     setMarkingPaid(bookingId);
@@ -1486,6 +1515,43 @@ For support, contact: support@merry360x.com
     toast({ title: "Receipt exported successfully" });
   };
 
+  // Save legal content
+  const saveLegalContent = async () => {
+    setSavingLegal(true);
+    try {
+      const sections = legalContent
+        .split('\n\n')
+        .filter(s => s.trim())
+        .map((text, index) => ({ id: index + 1, text: text.trim() }));
+
+      const { error } = await supabase
+        .from("legal_content")
+        .update({
+          content: { sections },
+          last_updated_by: user?.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("content_type", legalContentType);
+
+      if (error) throw error;
+
+      await refetchLegalContent();
+      toast({
+        title: "Success",
+        description: `${legalContentType === 'privacy_policy' ? 'Privacy Policy' : 'Terms and Conditions'} updated successfully`,
+      });
+    } catch (e) {
+      logError(e, "saveLegalContent");
+      toast({
+        variant: "destructive",
+        title: "Failed to save",
+        description: uiErrorMessage(e, "Please try again."),
+      });
+    } finally {
+      setSavingLegal(false);
+    }
+  };
+
   const pendingApps = applications.filter((a) => a.status === "pending");
 
   return (
@@ -1558,6 +1624,9 @@ For support, contact: support@merry360x.com
             </TabsTrigger>
             <TabsTrigger value="reports" className="gap-1">
               <FileText className="w-4 h-4" /> Reports
+            </TabsTrigger>
+            <TabsTrigger value="legal-content" className="gap-1">
+              <FileText className="w-4 h-4" /> Legal Content
             </TabsTrigger>
           </TabsList>
 
@@ -3461,6 +3530,77 @@ For support, contact: support@merry360x.com
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground mt-2">Export functionality coming soon</p>
+            </Card>
+          </TabsContent>
+
+          {/* LEGAL CONTENT TAB */}
+          <TabsContent value="legal-content">
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold">Manage Legal Content</h3>
+                <Select
+                  value={legalContentType}
+                  onValueChange={(v: 'privacy_policy' | 'terms_and_conditions') => setLegalContentType(v)}
+                >
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="privacy_policy">Privacy Policy</SelectItem>
+                    <SelectItem value="terms_and_conditions">Terms & Conditions</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Alert className="mb-4">
+                <AlertCircle className="w-4 h-4" />
+                <AlertDescription>
+                  Write your content with double line breaks to separate sections. Each paragraph will become a section in the formatted output.
+                </AlertDescription>
+              </Alert>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    {legalContentType === 'privacy_policy' ? 'Privacy Policy' : 'Terms and Conditions'} Content
+                  </label>
+                  <textarea
+                    className="w-full min-h-[400px] p-4 rounded-md border border-input bg-background text-sm font-mono"
+                    value={legalContent}
+                    onChange={(e) => setLegalContent(e.target.value)}
+                    placeholder={`Enter ${legalContentType === 'privacy_policy' ? 'Privacy Policy' : 'Terms and Conditions'} content here...\n\nEach paragraph separated by double line breaks will become a section.`}
+                  />
+                </div>
+
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      if (legalContentData?.content) {
+                        const sections = legalContentData.content.sections || [];
+                        setLegalContent(sections.map((s: any) => s.text).join('\n\n'));
+                      }
+                    }}
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Reset
+                  </Button>
+                  <Button
+                    onClick={saveLegalContent}
+                    disabled={savingLegal}
+                  >
+                    {savingLegal ? "Saving..." : "Save Changes"}
+                  </Button>
+                </div>
+              </div>
+
+              {legalContentData && (
+                <div className="mt-6 pt-6 border-t">
+                  <p className="text-xs text-muted-foreground">
+                    Last updated: {legalContentData.updated_at ? new Date(legalContentData.updated_at).toLocaleString() : 'Never'}
+                  </p>
+                </div>
+              )}
             </Card>
           </TabsContent>
         </Tabs>
