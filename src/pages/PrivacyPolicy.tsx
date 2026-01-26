@@ -38,15 +38,17 @@ export default function PrivacyPolicy() {
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>
           ) : hasContent ? (
-            <div className="space-y-6">
-              {sections.map((section: any, index: number) => (
-                <Card key={section.id || index} className="p-6">
-                  <div className="text-muted-foreground whitespace-pre-wrap">
-                    {section.text}
+            <Card className="p-8">
+              <div className="prose prose-slate max-w-none">
+                {sections.map((section: any, index: number) => (
+                  <div key={section.id || index} className="mb-6 last:mb-0">
+                    <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                      {section.text}
+                    </p>
                   </div>
-                </Card>
-              ))}
-            </div>
+                ))}
+              </div>
+            </Card>
           ) : (
             <Card className="p-6">
               <p className="text-muted-foreground">
