@@ -90,7 +90,7 @@ export default function BookingsPage() {
             ? supabase.from("transport_vehicles").select("id, title, vehicle_type").in("id", transportIds).then(r => r.data || [])
             : Promise.resolve([]),
           hostIds.length > 0
-            ? supabase.from("profiles").select("id, full_name").in("id", hostIds).then(r => r.data || [])
+            ? supabase.from("profiles").select("id, full_name, nickname, email").in("id", hostIds).then(r => r.data || [])
             : Promise.resolve([])
         ]);
 
@@ -330,12 +330,15 @@ export default function BookingsPage() {
                           <p className="text-sm text-muted-foreground mb-1">Payment Method</p>
                           <p className="text-sm">{booking.payment_method || "—"}</p>
                         </div>
-                        {booking.profiles?.full_name && (
-                          <div>
-                            <p className="text-sm text-muted-foreground mb-1">Host</p>
-                            <p className="text-sm">{booking.profiles.full_name}</p>
-                          </div>
-                        )}
+                        <div>
+                          <p className="text-sm text-muted-foreground mb-1">Host</p>
+                          <p className="text-sm">
+                            {booking.profiles?.full_name || booking.profiles?.nickname || booking.profiles?.email || (booking.host_id ? booking.host_id.substring(0, 8) + "..." : "N/A")}
+                          </p>
+                          {booking.host_id && !booking.profiles && (
+                            <p className="text-xs text-muted-foreground font-mono mt-1">{booking.host_id}</p>
+                          )}
+                        </div>
                       </div>
 
                       {/* Special Requests */}
