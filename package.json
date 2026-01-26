@@ -19,7 +19,10 @@
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "supabase:link": "supabase link",
-    "supabase:db:pull": "supabase db pull"
+    "supabase:db:pull": "supabase db pull",
+    "pawapay": "node pawapay-cli.mjs",
+    "verify:currencies": "node verify-currencies.mjs",
+    "check:bookings": "node show-booking-currencies.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
