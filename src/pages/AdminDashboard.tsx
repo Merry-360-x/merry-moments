@@ -748,21 +748,21 @@ export default function AdminDashboard() {
     queryFn: async () => {
       let q = supabase
         .from("bookings")
-        // guest_* fields support guest checkout (guest_id can be NULL)
-        // booking_type, tour_id, transport_id, order_id support multi-item cart checkouts
-        .select(
-          "id, property_id, tour_id, transport_id, booking_type, order_id, guest_id, guest_name, guest_email, guest_phone, is_guest_booking, check_in, check_out, guests, total_price, currency, status, payment_status, payment_method, special_requests, host_id, created_at, properties(title, images), tour_packages(title), transport_vehicles(title, vehicle_type)"
-        )
+        .select("*")
         .order("created_at", { ascending: false })
-        .limit(500); // Increase limit for comprehensive booking data
+        .limit(500);
       if (bookingStatus && bookingStatus !== "all") q = q.eq("status", bookingStatus);
       const { data, error } = await q;
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching bookings:", error);
+        throw error;
+      }
+      console.log("Bookings fetched:", data?.length || 0, "records");
       return (data ?? []) as BookingRow[];
     },
-    enabled: tab === "bookings" || tab === "payments" || tab === "overview", // Also for overview
-    staleTime: 1000 * 20, // 20 seconds for booking data
-    gcTime: 1000 * 60 * 10, // 10 minutes cache retention
+    enabled: tab === "bookings" || tab === "payments" || tab === "overview",
+    staleTime: 1000 * 20,
+    gcTime: 1000 * 60 * 10,
     refetchOnWindowFocus: true,
     placeholderData: (previousData) => previousData,
   });
