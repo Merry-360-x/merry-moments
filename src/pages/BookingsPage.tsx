@@ -90,7 +90,7 @@ export default function BookingsPage() {
             ? supabase.from("transport_vehicles").select("id, title, vehicle_type").in("id", transportIds).then(r => r.data || [])
             : Promise.resolve([]),
           hostIds.length > 0
-            ? supabase.from("profiles").select("id, full_name, nickname, email").in("id", hostIds).then(r => r.data || [])
+            ? supabase.from("profiles").select("user_id, full_name, nickname, email").in("user_id", hostIds).then(r => r.data || [])
             : Promise.resolve([])
         ]);
 
@@ -106,7 +106,7 @@ export default function BookingsPage() {
             enriched.transport_vehicles = vehicles.find(v => v.id === booking.transport_id) || null;
           }
           if (booking.host_id) {
-            enriched.profiles = hosts.find(h => h.id === booking.host_id) || null;
+            enriched.profiles = hosts.find(h => h.user_id === booking.host_id) || null;
           }
           return enriched;
         });
