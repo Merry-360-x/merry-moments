@@ -23,6 +23,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import FinancialStaffDashboard from "./pages/FinancialStaffDashboard";
 import OperationsStaffDashboard from "./pages/OperationsStaffDashboard";
 import CustomerSupportDashboard from "./pages/CustomerSupportDashboard";
+import BookingsPage from "./pages/BookingsPage";
 import AdminRoles from "./pages/AdminRoles";
 import PropertyDetails from "./pages/PropertyDetails";
 import TripCart from "./pages/TripCart";
@@ -230,6 +231,14 @@ const App = () => (
                 element={
                   <RequireRole allowed={["customer_support", "admin"]}>
                     <CustomerSupportDashboard />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/bookings"
+                element={
+                  <RequireRole allowed={["admin", "operations_staff", "customer_support"]}>
+                    <BookingsPage />
                   </RequireRole>
                 }
               />
