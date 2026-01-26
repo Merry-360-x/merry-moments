@@ -749,13 +749,7 @@ export default function AdminDashboard() {
     queryFn: async () => {
       let q = supabase
         .from("bookings")
-        .select(`
-          *,
-          properties(title, host_id),
-          tour_packages(title, host_id),
-          transport_vehicles(title, vehicle_type, created_by),
-          profiles!bookings_host_id_fkey(full_name)
-        `)
+        .select("*")
         .order("created_at", { ascending: false })
         .limit(500);
       if (bookingStatus && bookingStatus !== "all") q = q.eq("status", bookingStatus);
@@ -1674,12 +1668,24 @@ For support, contact: support@merry360x.com
                             <Button 
                               size="sm" 
                               variant="outline" 
-                              onClick={() => {
+                              onClick={async () => {
                                 setSelectedBooking(b);
                                 // If this is a bulk order, fetch all bookings with the same order_id
                                 if (b.order_id) {
-                                  const orderItems = bookings.filter(booking => booking.order_id === b.order_id);
-                                  setOrderBookings(orderItems);
+                                  // Fetch with joins for display
+                                  const { data: orderItems } = await supabase
+                                    .from("bookings")
+                                    .select(`
+                                      *,
+                                      properties(title),
+                                      tour_packages(title),
+                                      transport_vehicles(title, vehicle_type),
+                                      profiles!bookings_host_id_fkey(full_name)
+                                    `)
+                                    .eq("order_id", b.order_id)
+                                    .order("created_at", { ascending: false });
+                                  
+                                  setOrderBookings(orderItems || []);
                                 } else {
                                   setOrderBookings([]);
                                 }
@@ -2839,8 +2845,20 @@ For support, contact: support@merry360x.com
                                 setSelectedBooking(b);
                                 // If this is a bulk order, fetch all bookings with the same order_id
                                 if (b.order_id) {
-                                  const orderItems = bookings.filter(booking => booking.order_id === b.order_id);
-                                  setOrderBookings(orderItems);
+                                  // Fetch with joins for display
+                                  const { data: orderItems } = await supabase
+                                    .from("bookings")
+                                    .select(`
+                                      *,
+                                      properties(title),
+                                      tour_packages(title),
+                                      transport_vehicles(title, vehicle_type),
+                                      profiles!bookings_host_id_fkey(full_name)
+                                    `)
+                                    .eq("order_id", b.order_id)
+                                    .order("created_at", { ascending: false });
+                                  
+                                  setOrderBookings(orderItems || []);
                                 } else {
                                   setOrderBookings([]);
                                 }
