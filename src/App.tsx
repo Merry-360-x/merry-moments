@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { PreferencesProvider } from "@/contexts/PreferencesProvider";
+import { lazy, Suspense } from "react";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Accommodations from "./pages/Accommodations";
@@ -19,10 +20,13 @@ import NotFound from "./pages/NotFound";
 import RequireAuth from "@/components/RequireAuth";
 import RequireRole from "@/components/RequireRole";
 import HostApplication from "./pages/HostApplication";
-import AdminDashboard from "./pages/AdminDashboard";
-import FinancialStaffDashboard from "./pages/FinancialStaffDashboard";
-import OperationsStaffDashboard from "./pages/OperationsStaffDashboard";
-import CustomerSupportDashboard from "./pages/CustomerSupportDashboard";
+
+// Lazy load dashboard pages to prevent circular dependencies
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const FinancialStaffDashboard = lazy(() => import("./pages/FinancialStaffDashboard"));
+const OperationsStaffDashboard = lazy(() => import("./pages/OperationsStaffDashboard"));
+const CustomerSupportDashboard = lazy(() => import("./pages/CustomerSupportDashboard"));
+
 import BookingsPage from "./pages/BookingsPage";
 import AdminRoles from "./pages/AdminRoles";
 import PropertyDetails from "./pages/PropertyDetails";
@@ -194,7 +198,9 @@ const App = () => (
                 path="/admin"
                 element={
                   <RequireRole allowed={["admin"]}>
-                    <AdminDashboard />
+                    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+                      <AdminDashboard />
+                    </Suspense>
                   </RequireRole>
                 }
               />
@@ -218,7 +224,9 @@ const App = () => (
                 path="/financial-dashboard"
                 element={
                   <RequireRole allowed={["financial_staff", "admin"]}>
-                    <FinancialStaffDashboard />
+                    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+                      <FinancialStaffDashboard />
+                    </Suspense>
                   </RequireRole>
                 }
               />
@@ -226,7 +234,9 @@ const App = () => (
                 path="/operations-dashboard"
                 element={
                   <RequireRole allowed={["operations_staff", "admin"]}>
-                    <OperationsStaffDashboard />
+                    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+                      <OperationsStaffDashboard />
+                    </Suspense>
                   </RequireRole>
                 }
               />
@@ -234,7 +244,9 @@ const App = () => (
                 path="/customer-support-dashboard"
                 element={
                   <RequireRole allowed={["customer_support", "admin"]}>
-                    <CustomerSupportDashboard />
+                    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+                      <CustomerSupportDashboard />
+                    </Suspense>
                   </RequireRole>
                 }
               />
