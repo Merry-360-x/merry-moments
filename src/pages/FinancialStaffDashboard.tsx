@@ -39,29 +39,6 @@ type Metrics = {
   revenue_by_currency: Array<{ currency: string; amount: number }>;
 };
 
-// Component to show refund amount for cancelled paid bookings
-function RefundDisplay({ bookingId, currency }: { bookingId: string; currency: string }) {
-  const [refund, setRefund] = useState<number | null>(null);
-  const [percentage, setPercentage] = useState<number | null>(null);
-
-  useEffect(() => {
-    getRefundInfo(bookingId, null).then((info) => {
-      if (info) {
-        setRefund(info.refundAmount);
-        setPercentage(info.refundPercentage);
-      }
-    });
-  }, [bookingId]);
-
-  if (refund === null) return null;
-
-  return (
-    <span title={`${percentage}% refund based on cancellation policy`}>
-      ↩ Refund: {formatMoney(refund, currency)}
-    </span>
-  );
-}
-
 export default function FinancialStaffDashboard() {
   const { user, isAdmin } = useAuth();
   const { toast } = useToast();
@@ -71,6 +48,7 @@ export default function FinancialStaffDashboard() {
   const [endDate, setEndDate] = useState<string>("");
   const [markingPaid, setMarkingPaid] = useState<string | null>(null);
   const [requestingPayment, setRequestingPayment] = useState<string | null>(null);
+  const [bookingRefunds, setBookingRefunds] = useState<Record<string, number>>({});
 
   const { data: metrics, refetch: refetchMetrics } = useQuery({
     queryKey: ["financial_metrics"],
@@ -110,6 +88,49 @@ export default function FinancialStaffDashboard() {
       return (data ?? []) as BookingRow[];
     },
   });
+
+  // Calculate refunds for cancelled paid bookings
+  useEffect(() => {
+    let isMounted = true;
+    
+    const calculateRefunds = async () => {
+      try {
+        const cancelledPaid = bookings.filter(
+          b => b.status === 'cancelled' && b.payment_status === 'paid'
+        );
+        
+        if (cancelledPaid.length === 0) {
+          if (isMounted) setBookingRefunds({});
+          return;
+        }
+
+        const refunds: Record<string, number> = {};
+        for (const booking of cancelledPaid) {
+          try {
+            const refund = await getRefundInfo(booking.id, null);
+            if (refund && isMounted) {
+              refunds[booking.id] = refund.refundAmount;
+            }
+          } catch (error) {
+            console.error(`Error calculating refund for booking ${booking.id}:`, error);
+          }
+        }
+        if (isMounted) {
+          setBookingRefunds(refunds);
+        }
+      } catch (error) {
+        console.error('Error in refund calculation:', error);
+      }
+    };
+
+    if (bookings.length > 0) {
+      calculateRefunds();
+    }
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [bookings.length]);
 
   const markAsPaid = async (bookingId: string) => {
     setMarkingPaid(bookingId);
@@ -499,9 +520,9 @@ export default function FinancialStaffDashboard() {
                         <TableCell className="font-medium">
                           <div>
                             {formatMoney(Number(booking.total_price), String(booking.currency ?? "USD"))}
-                            {booking.status === 'cancelled' && booking.payment_status === 'paid' && (
+                            {booking.status === 'cancelled' && booking.payment_status === 'paid' && bookingRefunds[booking.id] && (
                               <div className="text-xs text-yellow-700 font-semibold mt-1">
-                                <RefundDisplay bookingId={booking.id} currency={booking.currency} />
+                                ↩ Refund: {formatMoney(bookingRefunds[booking.id], String(booking.currency ?? "USD"))}
                               </div>
                             )}
                           </div>
