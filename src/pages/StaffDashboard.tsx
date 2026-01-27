@@ -16,7 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
-import { getRefundInfo } from "@/lib/refund-calculator";
+import type { RefundCalculation } from "@/lib/refund-calculator";
 import { Eye, Download, FileText, DollarSign, AlertCircle } from "lucide-react";
 
 type HostApplicationStatus = "draft" | "pending" | "approved" | "rejected";
@@ -345,6 +345,9 @@ export default function StaffDashboard() {
           if (isMounted) setBookingRefunds({});
           return;
         }
+
+        // Dynamic import to avoid circular dependency
+        const { getRefundInfo } = await import('@/lib/refund-calculator');
 
         const refunds: Record<string, number> = {};
         for (const booking of cancelledPaid) {

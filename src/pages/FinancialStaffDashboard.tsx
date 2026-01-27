@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatMoney } from "@/lib/money";
 import { supabase } from "@/integrations/supabase/client";
-import { getRefundInfo } from "@/lib/refund-calculator";
+import type { RefundCalculation } from "@/lib/refund-calculator";
 import { DollarSign, TrendingUp, CreditCard, Wallet, Calendar, Download, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -103,6 +103,9 @@ export default function FinancialStaffDashboard() {
           if (isMounted) setBookingRefunds({});
           return;
         }
+
+        // Dynamic import to avoid circular dependency
+        const { getRefundInfo } = await import('@/lib/refund-calculator');
 
         const refunds: Record<string, number> = {};
         for (const booking of cancelledPaid) {
