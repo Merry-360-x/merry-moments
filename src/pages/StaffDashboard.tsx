@@ -345,11 +345,7 @@ export default function StaffDashboard() {
 
       const { error } = await supabase
         .from("bookings")
-        .update({ 
-          payment_status: 'refunded',
-          refund_amount: refund.refundAmount,
-          refund_processed_at: new Date().toISOString()
-        })
+        .update({ payment_status: 'refunded' })
         .eq("id", bookingId);
 
       if (error) throw error;
