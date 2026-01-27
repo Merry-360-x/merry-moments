@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { AuthProvider } from "@/contexts/AuthContext";
 import { PreferencesProvider } from "@/contexts/PreferencesProvider";
 import { lazy, Suspense } from "react";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Accommodations from "./pages/Accommodations";
@@ -198,9 +199,18 @@ const App = () => (
                 path="/admin"
                 element={
                   <RequireRole allowed={["admin"]}>
-                    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
-                      <AdminDashboard />
-                    </Suspense>
+                    <ErrorBoundary>
+                      <Suspense fallback={
+                        <div className="flex items-center justify-center min-h-screen">
+                          <div className="text-center">
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+                            <p>Loading Admin Dashboard...</p>
+                          </div>
+                        </div>
+                      }>
+                        <AdminDashboard />
+                      </Suspense>
+                    </ErrorBoundary>
                   </RequireRole>
                 }
               />

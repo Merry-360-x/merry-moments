@@ -16,7 +16,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
-import type { RefundCalculation } from "@/lib/refund-calculator";
 import { Eye, Download, FileText, DollarSign, AlertCircle } from "lucide-react";
 
 type HostApplicationStatus = "draft" | "pending" | "approved" | "rejected";
@@ -184,7 +183,6 @@ export default function StaffDashboard() {
     description: string;
     currency: string;
   } | null>(null);
-  const [bookingRefunds, setBookingRefunds] = useState<Record<string, number>>({});
 
   const {
     data: applications = [],
@@ -330,52 +328,6 @@ export default function StaffDashboard() {
     },
     enabled: tab === "overview",
   });
-
-  // Calculate refunds for cancelled paid bookings
-  useEffect(() => {
-    let isMounted = true;
-    
-    const calculateRefunds = async () => {
-      try {
-        const cancelledPaid = recentBookings.filter(
-          b => b.status === 'cancelled' && b.payment_status === 'paid'
-        );
-        
-        if (cancelledPaid.length === 0) {
-          if (isMounted) setBookingRefunds({});
-          return;
-        }
-
-        // Dynamic import to avoid circular dependency
-        const { getRefundInfo } = await import('@/lib/refund-calculator');
-
-        const refunds: Record<string, number> = {};
-        for (const booking of cancelledPaid) {
-          try {
-            const refund = await getRefundInfo(booking.id, booking.order_id);
-            if (refund && isMounted) {
-              refunds[booking.id] = refund.refundAmount;
-            }
-          } catch (error) {
-            console.error(`Error calculating refund for booking ${booking.id}:`, error);
-          }
-        }
-        if (isMounted) {
-          setBookingRefunds(refunds);
-        }
-      } catch (error) {
-        console.error('Error in refund calculation:', error);
-      }
-    };
-
-    if (recentBookings.length > 0) {
-      calculateRefunds();
-    }
-    
-    return () => {
-      isMounted = false;
-    };
-  }, [recentBookings.length]);
 
   const revenueLabel = useMemo(() => {
     const list = metrics?.revenue_by_currency ?? [];
@@ -712,15 +664,8 @@ For support, contact: support@merry360x.com
                     )}
                   </TableCell>
                   <TableCell className="font-medium">{b.status}</TableCell>
-                  <TableCell>
-                    <div>
-                      <div className="font-medium">{formatMoney(Number(b.total_price), String(b.currency ?? "USD"))}</div>
-                      {b.status === 'cancelled' && b.payment_status === 'paid' && bookingRefunds[b.id] && (
-                        <div className="text-xs font-semibold text-yellow-700 mt-1">
-                          ↩ Refund: {formatMoney(bookingRefunds[b.id], b.currency ?? "USD")}
-                        </div>
-                      )}
-                    </div>
+                  <TableCell className="font-medium">
+                    {formatMoney(Number(b.total_price), String(b.currency ?? "USD"))}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
@@ -817,14 +762,7 @@ For support, contact: support@merry360x.com
                           </TableCell>
                           <TableCell className="text-sm">{b.properties?.title || "—"}</TableCell>
                           <TableCell className="font-medium">
-                            <div>
-                              <div>{formatMoney(b.total_price, b.currency)}</div>
-                              {b.status === 'cancelled' && b.payment_status === 'paid' && bookingRefunds[b.id] && (
-                                <div className="text-xs font-semibold text-yellow-700 mt-1">
-                                  ↩ Refund: {formatMoney(bookingRefunds[b.id], b.currency)}
-                                </div>
-                              )}
-                            </div>
+                            {formatMoney(b.total_price, b.currency)}
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-1">

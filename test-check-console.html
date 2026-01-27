@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Dashboard Test</title>
+    <script>
+        // Redirect and capture errors
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                window.location.href = 'https://merry360x.com/admin';
+            }, 1000);
+        });
+        
+        window.addEventListener('error', (e) => {
+            console.error('ERROR CAPTURED:', e.error);
+            document.body.innerHTML += '<div style="color:red;padding:20px;"><h2>Error:</h2><pre>' + e.error.stack + '</pre></div>';
+        });
+    </script>
+</head>
+<body>
+    <h1>Redirecting to Admin Dashboard...</h1>
+    <p>Check console for errors</p>
+</body>
+</html>

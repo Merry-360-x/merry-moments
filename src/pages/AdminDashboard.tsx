@@ -17,7 +17,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
-import type { RefundCalculation } from "@/lib/refund-calculator";
 import {
   Users,
   Home,
@@ -351,7 +350,6 @@ export default function AdminDashboard() {
     description: string;
     currency: string;
   } | null>(null);
-  const [bookingRefunds, setBookingRefunds] = useState<Record<string, number>>({});
 
   const [legalContentType, setLegalContentType] = useState<'privacy_policy' | 'terms_and_conditions'>('privacy_policy');
   const [legalContent, setLegalContent] = useState('');
@@ -651,52 +649,6 @@ export default function AdminDashboard() {
       setLegalContent(sections.map((s: any) => s.text).join('\n\n'));
     }
   }, [legalContentData]);
-
-  // Calculate refunds for cancelled paid bookings
-  useEffect(() => {
-    let isMounted = true;
-    
-    const calculateRefunds = async () => {
-      try {
-        const cancelledPaid = bookings.filter(
-          b => b.status === 'cancelled' && b.payment_status === 'paid'
-        );
-        
-        if (cancelledPaid.length === 0) {
-          if (isMounted) setBookingRefunds({});
-          return;
-        }
-
-        // Dynamic import to avoid circular dependency
-        const { getRefundInfo } = await import('@/lib/refund-calculator');
-
-        const refunds: Record<string, number> = {};
-        for (const booking of cancelledPaid) {
-          try {
-            const refund = await getRefundInfo(booking.id, booking.order_id);
-            if (refund && isMounted) {
-              refunds[booking.id] = refund.refundAmount;
-            }
-          } catch (error) {
-            console.error(`Error calculating refund for booking ${booking.id}:`, error);
-          }
-        }
-        if (isMounted) {
-          setBookingRefunds(refunds);
-        }
-      } catch (error) {
-        console.error('Error in refund calculation:', error);
-      }
-    };
-
-    if (bookings.length > 0) {
-      calculateRefunds();
-    }
-    
-    return () => {
-      isMounted = false;
-    };
-  }, [bookings.length]);
 
   const markAsPaid = async (bookingId: string) => {
     setMarkingPaid(bookingId);
@@ -3062,14 +3014,7 @@ For support, contact: support@merry360x.com
                         </TableCell>
                         <TableCell>{b.guests}</TableCell>
                         <TableCell>
-                          <div>
-                            <div className="font-medium">{formatMoney(b.total_price, b.currency)}</div>
-                            {b.status === 'cancelled' && b.payment_status === 'paid' && bookingRefunds[b.id] && (
-                              <div className="text-xs font-semibold text-yellow-700 mt-1">
-                                ↩ Refund: {formatMoney(bookingRefunds[b.id], b.currency)}
-                              </div>
-                            )}
-                          </div>
+                          <div className="font-medium">{formatMoney(b.total_price, b.currency)}</div>
                         </TableCell>
                         <TableCell>
                           <StatusBadge status={b.status} />
