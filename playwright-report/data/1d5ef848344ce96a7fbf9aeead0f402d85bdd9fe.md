@@ -1,0 +1,63 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications alt+T"
+  - button "Help" [ref=e3] [cursor=pointer]:
+    - img [ref=e4]
+  - generic [ref=e7]:
+    - generic [ref=e8]:
+      - link "Merry 360 X" [ref=e9] [cursor=pointer]:
+        - /url: /
+        - img "Merry 360 X" [ref=e12]
+      - heading "Welcome back" [level=1] [ref=e13]
+      - paragraph [ref=e14]: Sign in to continue
+    - generic [ref=e15]:
+      - button "Continue with Google" [ref=e16] [cursor=pointer]:
+        - img
+        - text: Continue with Google
+      - generic [ref=e21]: or
+      - generic [ref=e22]:
+        - generic [ref=e23]:
+          - text: Email
+          - textbox "Email" [ref=e24]:
+            - /placeholder: Enter your email
+        - generic [ref=e25]:
+          - generic [ref=e26]:
+            - generic [ref=e27]: Password
+            - link "Forgot password?" [ref=e28] [cursor=pointer]:
+              - /url: /forgot-password
+          - generic [ref=e29]:
+            - textbox "Password" [ref=e30]:
+              - /placeholder: Enter your password
+            - button [ref=e31] [cursor=pointer]:
+              - img [ref=e32]
+        - button "Sign In" [ref=e35] [cursor=pointer]
+      - button "Don’t have an account? Sign up" [ref=e37] [cursor=pointer]
+  - generic [ref=e38]:
+    - generic [ref=e39]:
+      - img [ref=e40]
+      - generic [ref=e44]: DB Status
+      - button [ref=e45] [cursor=pointer]:
+        - img
+    - generic [ref=e46]:
+      - generic [ref=e47]: "Last tested: 2:50:31 AM"
+      - generic [ref=e48]:
+        - img [ref=e49]
+        - generic [ref=e52]: "Properties:"
+        - generic [ref=e53]: 50 records
+      - generic [ref=e54]:
+        - img [ref=e55]
+        - generic [ref=e58]: "Tours:"
+        - generic [ref=e59]: 0 records
+      - generic [ref=e60]:
+        - img [ref=e61]
+        - generic [ref=e64]: "Vehicles:"
+        - generic [ref=e65]: 1 records
+      - generic [ref=e66]:
+        - img [ref=e67]
+        - generic [ref=e70]: "Admin RPC:"
+        - generic [ref=e71]: 11 records
+```
