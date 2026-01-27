@@ -650,6 +650,50 @@ export default function AdminDashboard() {
     }
   }, [legalContentData]);
 
+  const processRefund = async (bookingId: string) => {
+    try {
+      // Calculate refund amount
+      const { getRefundInfo } = await import('@/lib/refund-calculator');
+      const refund = await getRefundInfo(bookingId, null);
+      
+      if (!refund) {
+        toast({
+          variant: "destructive",
+          title: "Cannot Calculate Refund",
+          description: "Unable to determine refund amount for this booking.",
+        });
+        return;
+      }
+
+      // Update booking to refunded
+      const { error } = await supabase
+        .from("bookings")
+        .update({ 
+          payment_status: 'refunded',
+          refund_amount: refund.refundAmount,
+          refund_processed_at: new Date().toISOString()
+        })
+        .eq("id", bookingId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Refund Processed",
+        description: `Refund of ${refund.refundAmount.toFixed(2)} ${refund.currency} (${refund.refundPercentage}%) has been processed.`,
+      });
+
+      refetchBookings();
+      refetchMetrics();
+    } catch (error) {
+      console.error("Error processing refund:", error);
+      toast({
+        variant: "destructive",
+        title: "Refund Failed",
+        description: "Failed to process refund. Please try again.",
+      });
+    }
+  };
+
   const markAsPaid = async (bookingId: string) => {
     setMarkingPaid(bookingId);
     try {
@@ -1263,42 +1307,6 @@ export default function AdminDashboard() {
       await Promise.all([refetchBookings(), refetchMetrics()]);
     } catch (e) {
       logError("admin.updateBookingStatus", e);
-      toast({ variant: "destructive", title: "Failed", description: uiErrorMessage(e, "Please try again.") });
-    }
-  };
-
-  const processRefund = async (booking: BookingRow) => {
-    try {
-      // Calculate the refund amount based on cancellation policy
-      const refundInfo = await getRefundInfo(booking.id, booking.order_id);
-      
-      if (!refundInfo) {
-        toast({ 
-          variant: "destructive", 
-          title: "Cannot calculate refund", 
-          description: "This booking is not eligible for a refund or refund calculation failed." 
-        });
-        return;
-      }
-
-      const { error } = await supabase
-        .from("bookings")
-        .update({ 
-          refund_amount: refundInfo.refundAmount, 
-          refund_status: "processed" 
-        } as never)
-        .eq("id", booking.id);
-      
-      if (error) throw error;
-      
-      toast({ 
-        title: "Refund processed", 
-        description: `${formatMoney(refundInfo.refundAmount, refundInfo.currency)} (${refundInfo.refundPercentage}%) will be refunded.` 
-      });
-      
-      await Promise.all([refetchBookings(), refetchMetrics()]);
-    } catch (e) {
-      logError("admin.processRefund", e);
       toast({ variant: "destructive", title: "Failed", description: uiErrorMessage(e, "Please try again.") });
     }
   };
@@ -3024,6 +3032,19 @@ For support, contact: support@merry360x.com
                         </TableCell>
                         <TableCell>
                           <div className="flex justify-end gap-1">
+                            {b.status === 'cancelled' && b.payment_status === 'paid' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={async () => {
+                                  await processRefund(b.id);
+                                }}
+                                className="gap-1 text-yellow-700 border-yellow-700 hover:bg-yellow-50"
+                              >
+                                <DollarSign className="w-3 h-3" />
+                                Process Refund
+                              </Button>
+                            )}
                             {b.status === 'confirmed' && b.payment_status !== 'paid' && (
                               <Button
                                 size="sm"

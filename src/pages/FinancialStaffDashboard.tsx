@@ -87,6 +87,48 @@ export default function FinancialStaffDashboard() {
     },
   });
 
+  const processRefund = async (bookingId: string) => {
+    try {
+      const { getRefundInfo } = await import('@/lib/refund-calculator');
+      const refund = await getRefundInfo(bookingId, null);
+      
+      if (!refund) {
+        toast({
+          variant: "destructive",
+          title: "Cannot Calculate Refund",
+          description: "Unable to determine refund amount for this booking.",
+        });
+        return;
+      }
+
+      const { error } = await supabase
+        .from("bookings")
+        .update({ 
+          payment_status: 'refunded',
+          refund_amount: refund.refundAmount,
+          refund_processed_at: new Date().toISOString()
+        })
+        .eq("id", bookingId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Refund Processed",
+        description: `Refund of ${refund.refundAmount.toFixed(2)} ${refund.currency} (${refund.refundPercentage}%) has been processed.`,
+      });
+
+      refetchBookings();
+      refetchMetrics();
+    } catch (error) {
+      console.error("Error processing refund:", error);
+      toast({
+        variant: "destructive",
+        title: "Refund Failed",
+        description: "Failed to process refund. Please try again.",
+      });
+    }
+  };
+
   const markAsPaid = async (bookingId: string) => {
     setMarkingPaid(bookingId);
     try {
@@ -521,6 +563,18 @@ export default function FinancialStaffDashboard() {
                               >
                                 <DollarSign className="w-4 h-4" />
                                 {requestingPayment === booking.id ? 'Requesting...' : 'Request Payment'}
+                              </Button>
+                            )}
+                            {/* Refund button for cancelled paid bookings */}
+                            {booking.status === 'cancelled' && booking.payment_status === 'paid' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="gap-1 text-yellow-700 border-yellow-700 hover:bg-yellow-50"
+                                onClick={() => processRefund(booking.id)}
+                              >
+                                <DollarSign className="w-4 h-4" />
+                                Process Refund
                               </Button>
                             )}
                             {/* Admin or Financial Staff can mark as paid */}

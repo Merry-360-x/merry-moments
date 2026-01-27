@@ -329,6 +329,48 @@ export default function StaffDashboard() {
     enabled: tab === "overview",
   });
 
+  const processRefund = async (bookingId: string) => {
+    try {
+      const { getRefundInfo } = await import('@/lib/refund-calculator');
+      const refund = await getRefundInfo(bookingId, null);
+      
+      if (!refund) {
+        toast({
+          variant: "destructive",
+          title: "Cannot Calculate Refund",
+          description: "Unable to determine refund amount for this booking.",
+        });
+        return;
+      }
+
+      const { error } = await supabase
+        .from("bookings")
+        .update({ 
+          payment_status: 'refunded',
+          refund_amount: refund.refundAmount,
+          refund_processed_at: new Date().toISOString()
+        })
+        .eq("id", bookingId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Refund Processed",
+        description: `Refund of ${refund.refundAmount.toFixed(2)} ${refund.currency} (${refund.refundPercentage}%) has been processed.`,
+      });
+
+      refetchRecentBookings();
+      refetchMetrics();
+    } catch (error) {
+      console.error("Error processing refund:", error);
+      toast({
+        variant: "destructive",
+        title: "Refund Failed",
+        description: "Failed to process refund. Please try again.",
+      });
+    }
+  };
+
   const revenueLabel = useMemo(() => {
     const list = metrics?.revenue_by_currency ?? [];
     if (!list.length) return "—";
@@ -669,6 +711,17 @@ For support, contact: support@merry360x.com
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
+                      {b.status === 'cancelled' && b.payment_status === 'paid' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1 text-yellow-700 border-yellow-700 hover:bg-yellow-50"
+                          onClick={() => processRefund(b.id)}
+                        >
+                          <DollarSign className="w-3 h-3" />
+                          Refund
+                        </Button>
+                      )}
                       <Button 
                         size="sm" 
                         variant="outline" 
@@ -676,6 +729,7 @@ For support, contact: support@merry360x.com
                           setSelectedBooking(b);
                           // Calculate refund if cancelled and paid
                           if (b.status === 'cancelled' && b.payment_status === 'paid') {
+                            const { getRefundInfo } = await import('@/lib/refund-calculator');
                             const refund = await getRefundInfo(b.id, b.order_id);
                             setRefundInfo(refund);
                           } else {
