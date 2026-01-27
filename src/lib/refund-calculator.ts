@@ -65,8 +65,23 @@ export async function calculateBookingRefund(
       return null;
     }
 
+    console.log('Calculating refund for booking:', {
+      id: booking.id,
+      status: booking.status,
+      payment_status: booking.payment_status,
+      total_price: booking.total_price,
+      check_in: booking.check_in,
+      booking_type: booking.booking_type
+    });
+
     // Only calculate refund for cancelled paid bookings
     if (booking.status !== 'cancelled' || booking.payment_status !== 'paid') {
+      console.log('Booking not eligible for refund:', booking.status, booking.payment_status);
+      return null;
+    }
+
+    if (!booking.check_in || !booking.total_price) {
+      console.error('Missing required booking data:', { check_in: booking.check_in, total_price: booking.total_price });
       return null;
     }
 
@@ -79,7 +94,9 @@ export async function calculateBookingRefund(
       (checkInDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
     );
 
-    let policyType = 'standard';
+    console.log('Days until check-in:', daysUntilCheckIn);
+
+    let policyType = 'fair'; // Default to fair policy
 
     // Get cancellation policy based on booking type
     if (booking.booking_type === 'property' && booking.property_id) {
@@ -90,6 +107,7 @@ export async function calculateBookingRefund(
         .single() as any;
       
       policyType = property?.cancellation_policy || 'fair';
+      console.log('Property policy:', policyType);
     } else if (booking.booking_type === 'tour' && booking.tour_id) {
       const { data: tour } = await supabase
         .from('tour_packages')
@@ -97,14 +115,25 @@ export async function calculateBookingRefund(
         .eq('id', booking.tour_id)
         .single() as any;
       
-      policyType = tour?.cancellation_policy_type || 'standard';
+      policyType = tour?.cancellation_policy_type || 'fair';
+      console.log('Tour policy:', policyType);
+    } else {
+      console.log('Using default policy: fair');
     }
 
     // Get refund percentage
-    const policy = REFUND_POLICIES[policyType as keyof typeof REFUND_POLICIES] || REFUND_POLICIES.standard;
+    const policy = REFUND_POLICIES[policyType as keyof typeof REFUND_POLICIES] || REFUND_POLICIES.fair;
     const refundRule = policy.find(rule => daysUntilCheckIn >= rule.minDays) || policy[policy.length - 1];
 
-    const refundAmount = (booking.total_price * refundRule.refundPct) / 100;
+    const refundAmount = (Number(booking.total_price) * refundRule.refundPct) / 100;
+
+    console.log('Refund calculation:', {
+      policy: policyType,
+      rule: refundRule,
+      totalPrice: booking.total_price,
+      refundPct: refundRule.refundPct,
+      refundAmount
+    });
 
     return {
       refundAmount,
