@@ -351,6 +351,7 @@ export default function AdminDashboard() {
     description: string;
     currency: string;
   } | null>(null);
+  const [bookingRefunds, setBookingRefunds] = useState<Record<string, number>>({});
 
   const [legalContentType, setLegalContentType] = useState<'privacy_policy' | 'terms_and_conditions'>('privacy_policy');
   const [legalContent, setLegalContent] = useState('');
@@ -650,6 +651,28 @@ export default function AdminDashboard() {
       setLegalContent(sections.map((s: any) => s.text).join('\n\n'));
     }
   }, [legalContentData]);
+
+  // Calculate refunds for cancelled paid bookings
+  useEffect(() => {
+    const calculateRefunds = async () => {
+      const cancelledPaid = bookings.filter(
+        b => b.status === 'cancelled' && b.payment_status === 'paid'
+      );
+      
+      if (cancelledPaid.length === 0) return;
+
+      const refunds: Record<string, number> = {};
+      for (const booking of cancelledPaid) {
+        const refund = await getRefundInfo(booking.id, booking.order_id);
+        if (refund) {
+          refunds[booking.id] = refund.refundAmount;
+        }
+      }
+      setBookingRefunds(refunds);
+    };
+
+    calculateRefunds();
+  }, [bookings]);
 
   const markAsPaid = async (bookingId: string) => {
     setMarkingPaid(bookingId);
@@ -2995,7 +3018,16 @@ For support, contact: support@merry360x.com
                           {b.check_in} → {b.check_out}
                         </TableCell>
                         <TableCell>{b.guests}</TableCell>
-                        <TableCell>{formatMoney(b.total_price, b.currency)}</TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{formatMoney(b.total_price, b.currency)}</div>
+                            {b.status === 'cancelled' && b.payment_status === 'paid' && bookingRefunds[b.id] && (
+                              <div className="text-xs font-semibold text-yellow-700 mt-1">
+                                ↩ Refund: {formatMoney(bookingRefunds[b.id], b.currency)}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <StatusBadge status={b.status} />
                         </TableCell>

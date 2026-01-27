@@ -184,6 +184,7 @@ export default function StaffDashboard() {
     description: string;
     currency: string;
   } | null>(null);
+  const [bookingRefunds, setBookingRefunds] = useState<Record<string, number>>({});
 
   const {
     data: applications = [],
@@ -329,6 +330,28 @@ export default function StaffDashboard() {
     },
     enabled: tab === "overview",
   });
+
+  // Calculate refunds for cancelled paid bookings
+  useEffect(() => {
+    const calculateRefunds = async () => {
+      const cancelledPaid = recentBookings.filter(
+        b => b.status === 'cancelled' && b.payment_status === 'paid'
+      );
+      
+      if (cancelledPaid.length === 0) return;
+
+      const refunds: Record<string, number> = {};
+      for (const booking of cancelledPaid) {
+        const refund = await getRefundInfo(booking.id, booking.order_id);
+        if (refund) {
+          refunds[booking.id] = refund.refundAmount;
+        }
+      }
+      setBookingRefunds(refunds);
+    };
+
+    calculateRefunds();
+  }, [recentBookings]);
 
   const revenueLabel = useMemo(() => {
     const list = metrics?.revenue_by_currency ?? [];
@@ -666,7 +689,14 @@ For support, contact: support@merry360x.com
                   </TableCell>
                   <TableCell className="font-medium">{b.status}</TableCell>
                   <TableCell>
-                    {formatMoney(Number(b.total_price), String(b.currency ?? "USD"))}
+                    <div>
+                      <div className="font-medium">{formatMoney(Number(b.total_price), String(b.currency ?? "USD"))}</div>
+                      {b.status === 'cancelled' && b.payment_status === 'paid' && bookingRefunds[b.id] && (
+                        <div className="text-xs font-semibold text-yellow-700 mt-1">
+                          ↩ Refund: {formatMoney(bookingRefunds[b.id], b.currency ?? "USD")}
+                        </div>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
@@ -762,7 +792,16 @@ For support, contact: support@merry360x.com
                             {b.is_guest_booking ? b.guest_name || "Guest" : (b.profiles?.nickname || b.profiles?.full_name || "User")}
                           </TableCell>
                           <TableCell className="text-sm">{b.properties?.title || "—"}</TableCell>
-                          <TableCell className="font-medium">{formatMoney(b.total_price, b.currency)}</TableCell>
+                          <TableCell className="font-medium">
+                            <div>
+                              <div>{formatMoney(b.total_price, b.currency)}</div>
+                              {b.status === 'cancelled' && b.payment_status === 'paid' && bookingRefunds[b.id] && (
+                                <div className="text-xs font-semibold text-yellow-700 mt-1">
+                                  ↩ Refund: {formatMoney(bookingRefunds[b.id], b.currency)}
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
                           <TableCell>
                             <div className="flex gap-1">
                               <StatusBadge status={b.status} />
