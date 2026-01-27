@@ -333,25 +333,46 @@ export default function StaffDashboard() {
 
   // Calculate refunds for cancelled paid bookings
   useEffect(() => {
+    let isMounted = true;
+    
     const calculateRefunds = async () => {
-      const cancelledPaid = recentBookings.filter(
-        b => b.status === 'cancelled' && b.payment_status === 'paid'
-      );
-      
-      if (cancelledPaid.length === 0) return;
-
-      const refunds: Record<string, number> = {};
-      for (const booking of cancelledPaid) {
-        const refund = await getRefundInfo(booking.id, booking.order_id);
-        if (refund) {
-          refunds[booking.id] = refund.refundAmount;
+      try {
+        const cancelledPaid = recentBookings.filter(
+          b => b.status === 'cancelled' && b.payment_status === 'paid'
+        );
+        
+        if (cancelledPaid.length === 0) {
+          if (isMounted) setBookingRefunds({});
+          return;
         }
+
+        const refunds: Record<string, number> = {};
+        for (const booking of cancelledPaid) {
+          try {
+            const refund = await getRefundInfo(booking.id, booking.order_id);
+            if (refund && isMounted) {
+              refunds[booking.id] = refund.refundAmount;
+            }
+          } catch (error) {
+            console.error(`Error calculating refund for booking ${booking.id}:`, error);
+          }
+        }
+        if (isMounted) {
+          setBookingRefunds(refunds);
+        }
+      } catch (error) {
+        console.error('Error in refund calculation:', error);
       }
-      setBookingRefunds(refunds);
     };
 
-    calculateRefunds();
-  }, [recentBookings]);
+    if (recentBookings.length > 0) {
+      calculateRefunds();
+    }
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [recentBookings.length]);
 
   const revenueLabel = useMemo(() => {
     const list = metrics?.revenue_by_currency ?? [];
