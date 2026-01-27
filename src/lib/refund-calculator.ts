@@ -38,7 +38,7 @@ const REFUND_POLICIES = {
   ]
 };
 
-interface RefundCalculation {
+export interface RefundCalculation {
   refundAmount: number;
   refundPercentage: number;
   policyType: string;
