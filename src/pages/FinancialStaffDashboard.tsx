@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatMoney } from "@/lib/money";
 import { supabase } from "@/integrations/supabase/client";
+import { getRefundInfo } from "@/lib/refund-calculator";
 import { DollarSign, TrendingUp, CreditCard, Wallet, Calendar, Download, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -37,6 +38,29 @@ type Metrics = {
   revenue_gross: number;
   revenue_by_currency: Array<{ currency: string; amount: number }>;
 };
+
+// Component to show refund amount for cancelled paid bookings
+function RefundDisplay({ bookingId, currency }: { bookingId: string; currency: string }) {
+  const [refund, setRefund] = useState<number | null>(null);
+  const [percentage, setPercentage] = useState<number | null>(null);
+
+  useEffect(() => {
+    getRefundInfo(bookingId, null).then((info) => {
+      if (info) {
+        setRefund(info.refundAmount);
+        setPercentage(info.refundPercentage);
+      }
+    });
+  }, [bookingId]);
+
+  if (refund === null) return null;
+
+  return (
+    <span title={`${percentage}% refund based on cancellation policy`}>
+      ↩ Refund: {formatMoney(refund, currency)}
+    </span>
+  );
+}
 
 export default function FinancialStaffDashboard() {
   const { user, isAdmin } = useAuth();
@@ -473,7 +497,14 @@ export default function FinancialStaffDashboard() {
                         </TableCell>
                         <TableCell>{new Date(booking.created_at).toLocaleDateString()}</TableCell>
                         <TableCell className="font-medium">
-                          {formatMoney(Number(booking.total_price), String(booking.currency ?? "USD"))}
+                          <div>
+                            {formatMoney(Number(booking.total_price), String(booking.currency ?? "USD"))}
+                            {booking.status === 'cancelled' && booking.payment_status === 'paid' && (
+                              <div className="text-xs text-yellow-700 font-semibold mt-1">
+                                <RefundDisplay bookingId={booking.id} currency={booking.currency} />
+                              </div>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className="text-xs">

@@ -17,6 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
+import { getRefundInfo } from "@/lib/refund-calculator";
 import {
   Users,
   Home,
@@ -343,6 +344,13 @@ export default function AdminDashboard() {
   const [orderBookings, setOrderBookings] = useState<BookingRow[]>([]);
   const [bookingDetailsOpen, setBookingDetailsOpen] = useState(false);
   const [markingPaid, setMarkingPaid] = useState<string | null>(null);
+  const [refundInfo, setRefundInfo] = useState<{
+    refundAmount: number;
+    refundPercentage: number;
+    policyType: string;
+    description: string;
+    currency: string;
+  } | null>(null);
 
   const [legalContentType, setLegalContentType] = useState<'privacy_policy' | 'terms_and_conditions'>('privacy_policy');
   const [legalContent, setLegalContent] = useState('');
@@ -3013,6 +3021,13 @@ For support, contact: support@merry360x.com
                               variant="outline" 
                               onClick={async () => {
                                 setSelectedBooking(b);
+                                // Calculate refund if cancelled and paid
+                                if (b.status === 'cancelled' && b.payment_status === 'paid') {
+                                  const refund = await getRefundInfo(b.id, b.order_id);
+                                  setRefundInfo(refund);
+                                } else {
+                                  setRefundInfo(null);
+                                }
                                 // If this is a bulk order, fetch all bookings with the same order_id
                                 if (b.order_id) {
                                   // Fetch all bookings in this order
@@ -3951,6 +3966,40 @@ For support, contact: support@merry360x.com
                     </div>
                   </div>
                 </div>
+
+                {/* Show refund information for cancelled paid bookings */}
+                {refundInfo && selectedBooking.status === 'cancelled' && selectedBooking.payment_status === 'paid' && (
+                  <div className="border-t pt-4">
+                    <h3 className="font-semibold mb-3 flex items-center gap-2">
+                      <DollarSign className="w-4 h-4 text-yellow-600" />
+                      Refund Information
+                    </h3>
+                    <Alert className="bg-yellow-50 border-yellow-200">
+                      <AlertCircle className="h-4 w-4 text-yellow-600" />
+                      <AlertDescription>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">Refund Amount:</span>
+                            <span className="text-lg font-bold text-yellow-700">
+                              {formatMoney(refundInfo.refundAmount, refundInfo.currency)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">Refund Percentage:</span>
+                            <span className="text-sm font-semibold">{refundInfo.refundPercentage}%</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">Policy Type:</span>
+                            <Badge variant="outline">{refundInfo.policyType}</Badge>
+                          </div>
+                          <div className="mt-2 pt-2 border-t border-yellow-200">
+                            <p className="text-xs text-muted-foreground">{refundInfo.description}</p>
+                          </div>
+                        </div>
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                )}
 
                 {selectedBooking.special_requests && (
                   <div className="border-t pt-4">

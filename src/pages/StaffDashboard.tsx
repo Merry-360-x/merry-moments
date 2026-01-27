@@ -11,11 +11,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
-import { Eye, Download, FileText } from "lucide-react";
+import { getRefundInfo } from "@/lib/refund-calculator";
+import { Eye, Download, FileText, DollarSign, AlertCircle } from "lucide-react";
 
 type HostApplicationStatus = "draft" | "pending" | "approved" | "rejected";
 
@@ -175,6 +177,13 @@ export default function StaffDashboard() {
   const [userSearch, setUserSearch] = useState("");
   const [selectedBooking, setSelectedBooking] = useState<BookingRow | null>(null);
   const [bookingDetailsOpen, setBookingDetailsOpen] = useState(false);
+  const [refundInfo, setRefundInfo] = useState<{
+    refundAmount: number;
+    refundPercentage: number;
+    policyType: string;
+    description: string;
+    currency: string;
+  } | null>(null);
 
   const {
     data: applications = [],
@@ -664,8 +673,15 @@ For support, contact: support@merry360x.com
                       <Button 
                         size="sm" 
                         variant="outline" 
-                        onClick={() => {
+                        onClick={async () => {
                           setSelectedBooking(b);
+                          // Calculate refund if cancelled and paid
+                          if (b.status === 'cancelled' && b.payment_status === 'paid') {
+                            const refund = await getRefundInfo(b.id, b.order_id);
+                            setRefundInfo(refund);
+                          } else {
+                            setRefundInfo(null);
+                          }
                           setBookingDetailsOpen(true);
                         }}
                       >
@@ -757,8 +773,15 @@ For support, contact: support@merry360x.com
                             <Button 
                               size="sm" 
                               variant="outline" 
-                              onClick={() => {
+                              onClick={async () => {
                                 setSelectedBooking(b);
+                                // Calculate refund if cancelled and paid
+                                if (b.status === 'cancelled' && b.payment_status === 'paid') {
+                                  const refund = await getRefundInfo(b.id, b.order_id);
+                                  setRefundInfo(refund);
+                                } else {
+                                  setRefundInfo(null);
+                                }
                                 setBookingDetailsOpen(true);
                               }}
                             >
@@ -1142,6 +1165,40 @@ For support, contact: support@merry360x.com
                     </div>
                   </div>
                 </div>
+
+                {/* Show refund information for cancelled paid bookings */}
+                {refundInfo && selectedBooking.status === 'cancelled' && selectedBooking.payment_status === 'paid' && (
+                  <div className="border-t pt-4">
+                    <h3 className="font-semibold mb-3 flex items-center gap-2">
+                      <DollarSign className="w-4 h-4 text-yellow-600" />
+                      Refund Information
+                    </h3>
+                    <Alert className="bg-yellow-50 border-yellow-200">
+                      <AlertCircle className="h-4 w-4 text-yellow-600" />
+                      <AlertDescription>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">Refund Amount:</span>
+                            <span className="text-lg font-bold text-yellow-700">
+                              {formatMoney(refundInfo.refundAmount, refundInfo.currency)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">Refund Percentage:</span>
+                            <span className="text-sm font-semibold">{refundInfo.refundPercentage}%</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">Policy Type:</span>
+                            <Badge variant="outline">{refundInfo.policyType}</Badge>
+                          </div>
+                          <div className="mt-2 pt-2 border-t border-yellow-200">
+                            <p className="text-xs text-muted-foreground">{refundInfo.description}</p>
+                          </div>
+                        </div>
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                )}
 
                 {selectedBooking.special_requests && (
                   <div className="border-t pt-4">
