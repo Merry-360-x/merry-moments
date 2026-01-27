@@ -1292,15 +1292,34 @@ export default function AdminDashboard() {
   };
 
   const processRefund = async (booking: BookingRow) => {
-    const amount = window.prompt("Refund amount:", String(booking.total_price));
-    if (!amount) return;
     try {
+      // Calculate the refund amount based on cancellation policy
+      const refundInfo = await getRefundInfo(booking.id, booking.order_id);
+      
+      if (!refundInfo) {
+        toast({ 
+          variant: "destructive", 
+          title: "Cannot calculate refund", 
+          description: "This booking is not eligible for a refund or refund calculation failed." 
+        });
+        return;
+      }
+
       const { error } = await supabase
         .from("bookings")
-        .update({ refund_amount: Number(amount), refund_status: "processed" } as never)
+        .update({ 
+          refund_amount: refundInfo.refundAmount, 
+          refund_status: "processed" 
+        } as never)
         .eq("id", booking.id);
+      
       if (error) throw error;
-      toast({ title: "Refund processed" });
+      
+      toast({ 
+        title: "Refund processed", 
+        description: `${formatMoney(refundInfo.refundAmount, refundInfo.currency)} (${refundInfo.refundPercentage}%) will be refunded.` 
+      });
+      
       await Promise.all([refetchBookings(), refetchMetrics()]);
     } catch (e) {
       logError("admin.processRefund", e);
