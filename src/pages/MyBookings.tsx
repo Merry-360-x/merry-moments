@@ -80,7 +80,7 @@ const MyBookings = () => {
     }
   }, [user, authLoading, navigate]);
 
-  const { data: bookings = [], isLoading } = useQuery({
+  const { data: bookings = [], isLoading, refetch: refetchBookings } = useQuery({
     queryKey: ["bookings", user?.id],
     enabled: Boolean(user?.id),
     queryFn: async () => {
@@ -170,9 +170,10 @@ const MyBookings = () => {
       if (error) throw error;
       
       toast({ title: "Booking cancelled successfully" });
-      qc.invalidateQueries({ queryKey: ["bookings", user?.id] });
       setCancelDialogOpen(false);
       setBookingToCancel(null);
+      // Immediately refetch to update the UI
+      await refetchBookings();
     } catch (e) {
       logError("bookings.cancel", e);
       toast({
@@ -203,7 +204,7 @@ const MyBookings = () => {
       });
     } else {
       toast({ title: t("bookings.toast.cancelled") });
-      qc.invalidateQueries({ queryKey: ["bookings", user?.id] });
+      await refetchBookings();
     }
   };
 
