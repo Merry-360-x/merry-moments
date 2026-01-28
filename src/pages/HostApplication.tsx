@@ -164,13 +164,17 @@ export default function HostApplication() {
   // Calculate total steps dynamically based on selected service types
   // Step 1: Service Type Selection
   // Step 2+: One step for each selected service type (accommodation, tour, transport)
+  // If tour selected: Tour Package step (optional)
   // Second to last: Personal Information
   // Last: Review
   const serviceSteps = useMemo(() => {
-    const steps = [];
+    const steps: string[] = [];
     const serviceTypes = formData?.service_types || [];
     if (serviceTypes.includes('accommodation')) steps.push('accommodation');
-    if (serviceTypes.includes('tour')) steps.push('tour');
+    if (serviceTypes.includes('tour')) {
+      steps.push('tour');
+      steps.push('tour_package'); // Always show tour package step after tour
+    }
     if (serviceTypes.includes('transport')) steps.push('transport');
     return steps;
   }, [formData?.service_types]);
@@ -840,7 +844,7 @@ export default function HostApplication() {
             )}
 
             {/* Step 2+: Service-Specific Details (dynamic based on selected services) */}
-            {currentStep >= 2 && currentStep <= (1 + (serviceSteps?.length || 0)) && currentServiceType && (
+            {currentStep >= 2 && currentStep <= (1 + (serviceSteps?.length || 0)) && currentServiceType && currentServiceType !== 'tour_package' && (
               <div className="space-y-6">
                 <div className="text-center mb-6">
                   <h2 className="text-2xl font-bold mb-2">
@@ -852,281 +856,6 @@ export default function HostApplication() {
                     {currentServiceType === 'transport' && 'Provide details about your vehicle'}
                   </p>
                 </div>
-
-                {currentServiceType === 'tour' && (
-                  <div className="rounded-xl border bg-muted/20 p-4 space-y-4">
-                    <div className="flex items-start justify-between gap-4 flex-wrap">
-                      <div>
-                        <div className="font-semibold">Optional: Create a Tour Package</div>
-                        <div className="text-sm text-muted-foreground mt-1">
-                          If you have a detailed itinerary (multi-day/experience package), you can add it here.
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant={formData.tour_package.enabled ? "default" : "outline"}
-                        onClick={() => setFormData(prev => ({
-                          ...prev,
-                          tour_package: { ...prev.tour_package, enabled: !prev.tour_package.enabled }
-                        }))}
-                      >
-                        {formData.tour_package.enabled ? "Hide Package Form" : "Add Tour Package"}
-                      </Button>
-                    </div>
-
-                    {formData.tour_package.enabled && (
-                      <div className="border-t pt-4 space-y-4">
-                        <div className="grid md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label>Package Title *</Label>
-                            <Input
-                              placeholder="e.g., 3-Day Gorilla Trekking Safari"
-                              value={formData.tour_package.title}
-                              onChange={(e) => setFormData(prev => ({
-                                ...prev,
-                                tour_package: { ...prev.tour_package, title: e.target.value }
-                              }))}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>City *</Label>
-                            <Input
-                              placeholder="Kigali"
-                              value={formData.tour_package.city}
-                              onChange={(e) => setFormData(prev => ({
-                                ...prev,
-                                tour_package: { ...prev.tour_package, city: e.target.value }
-                              }))}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label>Categories * (select at least one)</Label>
-                          <div className="flex flex-wrap gap-2">
-                            {["Cultural", "Adventure", "Wildlife", "City Tours", "Hiking", "Photography", "Historical", "Eco-Tourism"].map((cat) => (
-                              <button
-                                key={cat}
-                                type="button"
-                                className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
-                                  formData.tour_package.categories.includes(cat)
-                                    ? "bg-primary text-primary-foreground border-primary"
-                                    : "bg-background hover:bg-muted"
-                                }`}
-                                onClick={() => {
-                                  const cats = formData.tour_package.categories;
-                                  setFormData(prev => ({
-                                    ...prev,
-                                    tour_package: {
-                                      ...prev.tour_package,
-                                      categories: cats.includes(cat)
-                                        ? cats.filter(c => c !== cat)
-                                        : [...cats, cat]
-                                    }
-                                  }));
-                                }}
-                              >
-                                {cat}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="grid md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label>Tour Type *</Label>
-                            <Select
-                              value={formData.tour_package.tour_type}
-                              onValueChange={(val) => setFormData(prev => ({
-                                ...prev,
-                                tour_package: { ...prev.tour_package, tour_type: val }
-                              }))}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Private">Private</SelectItem>
-                                <SelectItem value="Group">Group</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Duration *</Label>
-                            <Input
-                              placeholder="e.g., 3 Days, 2 Nights"
-                              value={formData.tour_package.duration}
-                              onChange={(e) => setFormData(prev => ({
-                                ...prev,
-                                tour_package: { ...prev.tour_package, duration: e.target.value }
-                              }))}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label>Description * (min 50 chars)</Label>
-                          <Textarea
-                            placeholder="Provide a compelling description of your tour package..."
-                            rows={4}
-                            value={formData.tour_package.description}
-                            onChange={(e) => setFormData(prev => ({
-                              ...prev,
-                              tour_package: { ...prev.tour_package, description: e.target.value }
-                            }))}
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label>Daily Itinerary * (min 100 chars)</Label>
-                          <Textarea
-                            placeholder="Day 1: Arrival and welcome...&#10;Day 2: Gorilla trekking...&#10;Day 3: Departure..."
-                            rows={6}
-                            value={formData.tour_package.daily_itinerary}
-                            onChange={(e) => setFormData(prev => ({
-                              ...prev,
-                              tour_package: { ...prev.tour_package, daily_itinerary: e.target.value }
-                            }))}
-                          />
-                        </div>
-
-                        <div className="grid md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label>What's Included</Label>
-                            <Textarea
-                              placeholder="Transportation, meals, guide, permits..."
-                              rows={3}
-                              value={formData.tour_package.included_services}
-                              onChange={(e) => setFormData(prev => ({
-                                ...prev,
-                                tour_package: { ...prev.tour_package, included_services: e.target.value }
-                              }))}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>What's Not Included</Label>
-                            <Textarea
-                              placeholder="International flights, travel insurance..."
-                              rows={3}
-                              value={formData.tour_package.excluded_services}
-                              onChange={(e) => setFormData(prev => ({
-                                ...prev,
-                                tour_package: { ...prev.tour_package, excluded_services: e.target.value }
-                              }))}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid md:grid-cols-3 gap-4">
-                          <div className="space-y-2">
-                            <Label>Price per Adult *</Label>
-                            <Input
-                              type="number"
-                              placeholder="500"
-                              value={formData.tour_package.price_per_adult}
-                              onChange={(e) => setFormData(prev => ({
-                                ...prev,
-                                tour_package: { ...prev.tour_package, price_per_adult: e.target.value }
-                              }))}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Currency</Label>
-                            <Select
-                              value={formData.tour_package.currency}
-                              onValueChange={(val) => setFormData(prev => ({
-                                ...prev,
-                                tour_package: { ...prev.tour_package, currency: val }
-                              }))}
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {currencies.map(c => (
-                                  <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Max Guests</Label>
-                            <Input
-                              type="number"
-                              min={1}
-                              value={formData.tour_package.max_guests}
-                              onChange={(e) => setFormData(prev => ({
-                                ...prev,
-                                tour_package: { ...prev.tour_package, max_guests: parseInt(e.target.value) || 10 }
-                              }))}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label>Meeting Point</Label>
-                          <Input
-                            placeholder="Hotel pickup or specific location"
-                            value={formData.tour_package.meeting_point}
-                            onChange={(e) => setFormData(prev => ({
-                              ...prev,
-                              tour_package: { ...prev.tour_package, meeting_point: e.target.value }
-                            }))}
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label>What to Bring</Label>
-                          <Input
-                            placeholder="Comfortable shoes, camera, sunscreen..."
-                            value={formData.tour_package.what_to_bring}
-                            onChange={(e) => setFormData(prev => ({
-                              ...prev,
-                              tour_package: { ...prev.tour_package, what_to_bring: e.target.value }
-                            }))}
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label>Itinerary PDF (optional)</Label>
-                          <div className="flex items-center gap-4">
-                            {formData.tour_package.itinerary_pdf ? (
-                              <div className="flex items-center gap-2">
-                                <a
-                                  href={formData.tour_package.itinerary_pdf}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-primary underline text-sm"
-                                >
-                                  View Itinerary PDF
-                                </a>
-                                <button
-                                  type="button"
-                                  className="bg-destructive text-destructive-foreground rounded-full p-1"
-                                  onClick={() => setFormData(prev => ({
-                                    ...prev,
-                                    tour_package: { ...prev.tour_package, itinerary_pdf: "" }
-                                  }))}
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              </div>
-                            ) : (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setTourPackageItineraryOpen(true)}
-                              >
-                                <Upload className="w-4 h-4 mr-2" />
-                                Upload Itinerary PDF
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
 
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-2">
@@ -1766,6 +1495,322 @@ export default function HostApplication() {
                           description: `Please provide: ${missingFields.join(', ')}.`,
                         });
                         return;
+                      }
+                      setCurrentStep(currentStep + 1);
+                    }}
+                  >
+                    Continue <ArrowRight className="ml-2 w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Tour Package Step (optional, shown when tour is selected) */}
+            {currentServiceType === 'tour_package' && (
+              <div className="space-y-6">
+                <div className="text-center mb-6">
+                  <h2 className="text-2xl font-bold mb-2">Tour Package (Optional)</h2>
+                  <p className="text-muted-foreground">
+                    Create a detailed multi-day tour package with itinerary
+                  </p>
+                </div>
+
+                <div className="rounded-xl border bg-muted/20 p-6 space-y-6">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="enablePackage"
+                      checked={formData.tour_package.enabled}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        tour_package: { ...prev.tour_package, enabled: e.target.checked }
+                      }))}
+                      className="w-5 h-5 rounded"
+                    />
+                    <Label htmlFor="enablePackage" className="text-base cursor-pointer">
+                      I want to create a tour package with detailed itinerary
+                    </Label>
+                  </div>
+
+                  {formData.tour_package.enabled && (
+                    <div className="border-t pt-6 space-y-6">
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Package Title *</Label>
+                          <Input
+                            placeholder="e.g., 3-Day Gorilla Trekking Safari"
+                            value={formData.tour_package.title}
+                            onChange={(e) => setFormData(prev => ({
+                              ...prev,
+                              tour_package: { ...prev.tour_package, title: e.target.value }
+                            }))}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>City *</Label>
+                          <Input
+                            placeholder="Kigali"
+                            value={formData.tour_package.city}
+                            onChange={(e) => setFormData(prev => ({
+                              ...prev,
+                              tour_package: { ...prev.tour_package, city: e.target.value }
+                            }))}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Categories * (select at least one)</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {["Cultural", "Adventure", "Wildlife", "City Tours", "Hiking", "Photography", "Historical", "Eco-Tourism"].map((cat) => (
+                            <button
+                              key={cat}
+                              type="button"
+                              className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                                formData.tour_package.categories.includes(cat)
+                                  ? "bg-primary text-primary-foreground border-primary"
+                                  : "bg-background hover:bg-muted"
+                              }`}
+                              onClick={() => {
+                                const cats = formData.tour_package.categories;
+                                setFormData(prev => ({
+                                  ...prev,
+                                  tour_package: {
+                                    ...prev.tour_package,
+                                    categories: cats.includes(cat)
+                                      ? cats.filter(c => c !== cat)
+                                      : [...cats, cat]
+                                  }
+                                }));
+                              }}
+                            >
+                              {cat}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Tour Type *</Label>
+                          <Select
+                            value={formData.tour_package.tour_type}
+                            onValueChange={(val) => setFormData(prev => ({
+                              ...prev,
+                              tour_package: { ...prev.tour_package, tour_type: val }
+                            }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Private">Private</SelectItem>
+                              <SelectItem value="Group">Group</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Duration *</Label>
+                          <Input
+                            placeholder="e.g., 3 Days, 2 Nights"
+                            value={formData.tour_package.duration}
+                            onChange={(e) => setFormData(prev => ({
+                              ...prev,
+                              tour_package: { ...prev.tour_package, duration: e.target.value }
+                            }))}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Description * (min 50 chars)</Label>
+                        <Textarea
+                          placeholder="Provide a compelling description of your tour package..."
+                          rows={4}
+                          value={formData.tour_package.description}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            tour_package: { ...prev.tour_package, description: e.target.value }
+                          }))}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Daily Itinerary * (min 100 chars)</Label>
+                        <Textarea
+                          placeholder="Day 1: Arrival and welcome...&#10;Day 2: Gorilla trekking...&#10;Day 3: Departure..."
+                          rows={6}
+                          value={formData.tour_package.daily_itinerary}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            tour_package: { ...prev.tour_package, daily_itinerary: e.target.value }
+                          }))}
+                        />
+                      </div>
+
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>What's Included</Label>
+                          <Textarea
+                            placeholder="Transportation, meals, guide, permits..."
+                            rows={3}
+                            value={formData.tour_package.included_services}
+                            onChange={(e) => setFormData(prev => ({
+                              ...prev,
+                              tour_package: { ...prev.tour_package, included_services: e.target.value }
+                            }))}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>What's Not Included</Label>
+                          <Textarea
+                            placeholder="International flights, travel insurance..."
+                            rows={3}
+                            value={formData.tour_package.excluded_services}
+                            onChange={(e) => setFormData(prev => ({
+                              ...prev,
+                              tour_package: { ...prev.tour_package, excluded_services: e.target.value }
+                            }))}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid md:grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <Label>Price per Adult *</Label>
+                          <Input
+                            type="number"
+                            placeholder="500"
+                            value={formData.tour_package.price_per_adult}
+                            onChange={(e) => setFormData(prev => ({
+                              ...prev,
+                              tour_package: { ...prev.tour_package, price_per_adult: e.target.value }
+                            }))}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Currency</Label>
+                          <Select
+                            value={formData.tour_package.currency}
+                            onValueChange={(val) => setFormData(prev => ({
+                              ...prev,
+                              tour_package: { ...prev.tour_package, currency: val }
+                            }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {currencies.map(c => (
+                                <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Max Guests</Label>
+                          <Input
+                            type="number"
+                            min={1}
+                            value={formData.tour_package.max_guests}
+                            onChange={(e) => setFormData(prev => ({
+                              ...prev,
+                              tour_package: { ...prev.tour_package, max_guests: parseInt(e.target.value) || 10 }
+                            }))}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Meeting Point</Label>
+                        <Input
+                          placeholder="Hotel pickup or specific location"
+                          value={formData.tour_package.meeting_point}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            tour_package: { ...prev.tour_package, meeting_point: e.target.value }
+                          }))}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>What to Bring</Label>
+                        <Input
+                          placeholder="Comfortable shoes, camera, sunscreen..."
+                          value={formData.tour_package.what_to_bring}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            tour_package: { ...prev.tour_package, what_to_bring: e.target.value }
+                          }))}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Itinerary PDF (optional)</Label>
+                        <div className="flex items-center gap-4">
+                          {formData.tour_package.itinerary_pdf ? (
+                            <div className="flex items-center gap-2">
+                              <a
+                                href={formData.tour_package.itinerary_pdf}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary underline text-sm"
+                              >
+                                View Itinerary PDF
+                              </a>
+                              <button
+                                type="button"
+                                className="bg-destructive text-destructive-foreground rounded-full p-1"
+                                onClick={() => setFormData(prev => ({
+                                  ...prev,
+                                  tour_package: { ...prev.tour_package, itinerary_pdf: "" }
+                                }))}
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => setTourPackageItineraryOpen(true)}
+                            >
+                              <Upload className="w-4 h-4 mr-2" />
+                              Upload Itinerary PDF
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-between pt-6">
+                  <Button variant="outline" onClick={() => setCurrentStep(currentStep - 1)}>
+                    Back
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      // If package is enabled, validate required fields
+                      if (formData.tour_package.enabled) {
+                        const missingFields = [];
+                        if (!formData.tour_package.title) missingFields.push('Package Title');
+                        if (!formData.tour_package.city) missingFields.push('City');
+                        if (formData.tour_package.categories.length === 0) missingFields.push('At least one category');
+                        if (!formData.tour_package.tour_type) missingFields.push('Tour Type');
+                        if (!formData.tour_package.duration) missingFields.push('Duration');
+                        if (!formData.tour_package.description || formData.tour_package.description.length < 50) missingFields.push('Description (min 50 chars)');
+                        if (!formData.tour_package.daily_itinerary || formData.tour_package.daily_itinerary.length < 100) missingFields.push('Daily Itinerary (min 100 chars)');
+                        if (!formData.tour_package.price_per_adult) missingFields.push('Price per Adult');
+                        
+                        if (missingFields.length > 0) {
+                          toast({
+                            variant: "destructive",
+                            title: "Missing required fields",
+                            description: `Please provide: ${missingFields.join(', ')}.`,
+                          });
+                          return;
+                        }
                       }
                       setCurrentStep(currentStep + 1);
                     }}
