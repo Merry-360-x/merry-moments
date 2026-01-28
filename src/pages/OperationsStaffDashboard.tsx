@@ -25,6 +25,7 @@ type HostApplication = {
   about?: string;
   national_id_number?: string;
   national_id_photo_url?: string;
+  selfie_photo_url?: string;
   business_name?: string;
   business_tin?: string;
   hosting_location?: string;
@@ -795,16 +796,30 @@ export default function OperationsStaffDashboard() {
                     )}
 
                     {/* Documents */}
-                    {selectedApplication.national_id_photo_url && (
+                    {(selectedApplication.national_id_photo_url || selectedApplication.selfie_photo_url) && (
                       <div className="space-y-3">
                         <h3 className="font-semibold text-lg border-b pb-2">Documents</h3>
-                        <div>
-                          <p className="text-sm text-muted-foreground mb-2">National ID Photo</p>
-                          <img 
-                            src={selectedApplication.national_id_photo_url} 
-                            alt="National ID"
-                            className="max-w-md h-auto rounded border"
-                          />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {selectedApplication.national_id_photo_url && (
+                            <div>
+                              <p className="text-sm text-muted-foreground mb-2">National ID Photo</p>
+                              <img 
+                                src={selectedApplication.national_id_photo_url} 
+                                alt="National ID"
+                                className="max-w-full h-auto rounded border"
+                              />
+                            </div>
+                          )}
+                          {selectedApplication.selfie_photo_url && (
+                            <div>
+                              <p className="text-sm text-muted-foreground mb-2">Selfie Photo</p>
+                              <img 
+                                src={selectedApplication.selfie_photo_url} 
+                                alt="Selfie"
+                                className="max-w-full h-auto rounded border"
+                              />
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
