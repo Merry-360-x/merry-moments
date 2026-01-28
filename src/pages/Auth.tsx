@@ -95,6 +95,12 @@ const Auth = () => {
         // User is now authenticated, navigate will happen via useEffect
         // when user state updates
       } else {
+        // Validate password length without throwing error
+        if (password.length < 6) {
+          setIsLoading(false);
+          return; // Just stop - the UI already shows the warning
+        }
+        
         if (!firstName.trim() || !lastName.trim()) {
           throw new Error("First name and last name are required");
         }
@@ -303,8 +309,8 @@ const Auth = () => {
                 </button>
               </div>
               {!isLogin && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  Password must be at least 6 characters long
+                <p className={`text-xs mt-2 ${password.length > 0 && password.length < 6 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                  {password.length > 0 && password.length < 6 ? '⚠ ' : ''}Password must be at least 6 characters long
                 </p>
               )}
             </div>
