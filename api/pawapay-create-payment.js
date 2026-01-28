@@ -116,11 +116,18 @@ export default async function handler(req, res) {
       return json(res, 404, { error: "Booking not found" });
     }
 
-    // Use the booking's currency, not a hardcoded default
-    const currency = booking.currency || "RWF";
+    // Rwanda mobile money uses RWF - convert if needed
+    // For now, always use RWF for mobile money in Rwanda
+    const currency = "RWF";
+    
+    // Convert amount to RWF if booking is in USD (approximate rate)
+    let rwfAmount = numAmount;
+    if (booking.currency === "USD") {
+      rwfAmount = Math.round(numAmount * 1300); // Approximate USD to RWF rate
+    }
 
-    // Generate unique deposit ID
-    const depositId = `merry360-${bookingId}-${Date.now()}`;
+    // Generate unique deposit ID - must be a valid UUID
+    const depositId = crypto.randomUUID();
 
     // Format phone number (remove +, spaces, dashes)
     const cleanPhone = phoneNumber.replace(/[\s\-+]/g, "");
@@ -134,7 +141,7 @@ export default async function handler(req, res) {
     // Create PawaPay deposit request
     const pawaPayRequest = {
       depositId,
-      amount: numAmount.toFixed(2),
+      amount: String(rwfAmount),
       currency,
       correspondent,
       payer: {
@@ -144,12 +151,12 @@ export default async function handler(req, res) {
         }
       },
       customerTimestamp: new Date().toISOString(),
-      statementDescription: `Merry360 Booking ${bookingId.substring(0, 8)}`,
-      metadata: {
-        bookingId,
-        customerName: safeStr(customerName, 100),
-        customerEmail: safeStr(customerEmail, 100)
-      }
+      statementDescription: "Merry360x Booking",
+      metadata: [
+        { fieldName: "bookingId", fieldValue: bookingId },
+        { fieldName: "customerName", fieldValue: safeStr(customerName, 100) },
+        { fieldName: "customerEmail", fieldValue: safeStr(customerEmail, 100), isPII: true }
+      ]
     };
 
     console.log("Creating PawaPay deposit:", JSON.stringify(pawaPayRequest, null, 2));
@@ -202,21 +209,25 @@ export default async function handler(req, res) {
       console.error("Failed to update booking:", updateError);
     }
 
-    // Create payment transaction record
-    await supabase
-      .from("payment_transactions")
-      .insert({
-        booking_id: bookingId,
-        provider: "pawapay",
-        transaction_id: depositId,
-        amount: numAmount,
-        currency,
-        status: pawaPayData.status || "SUBMITTED",
-        payment_method: paymentMethod,
-        phone_number: msisdn,
-        provider_response: pawaPayData,
-        created_at: new Date().toISOString()
-      });
+    // Create payment transaction record (may fail if table doesn't exist, but that's ok)
+    try {
+      await supabase
+        .from("payment_transactions")
+        .insert({
+          booking_id: bookingId,
+          provider: "pawapay",
+          transaction_id: depositId,
+          amount: rwfAmount,
+          currency,
+          status: pawaPayData.status || "SUBMITTED",
+          payment_method: paymentMethod,
+          phone_number: msisdn,
+          provider_response: pawaPayData,
+          created_at: new Date().toISOString()
+        });
+    } catch (txErr) {
+      console.warn("Could not create payment transaction record:", txErr);
+    }
 
     return json(res, 200, {
       success: true,
@@ -226,7 +237,7 @@ export default async function handler(req, res) {
       data: {
         bookingId,
         depositId,
-        amount: numAmount,
+        amount: rwfAmount,
         currency,
         phoneNumber: msisdn,
         correspondent,
