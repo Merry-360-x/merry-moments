@@ -222,15 +222,16 @@ export default function HostApplication() {
 
   // Save progress to localStorage whenever form data or step changes
   useEffect(() => {
-    if (user && !hasExistingApp) {
-      const dataToSave = {
-        formData,
-        currentStep,
-        timestamp: new Date().toISOString(),
-      };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
-    }
-  }, [formData, currentStep, user, hasExistingApp]);
+    // Save for any user (even unauthenticated if they somehow get here)
+    // Also save if they have an existing app (so they can see their progress if they reapply later)
+    const dataToSave = {
+      formData,
+      currentStep,
+      timestamp: new Date().toISOString(),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+    console.log('[HostApplication] Saved progress to localStorage', { step: currentStep });
+  }, [formData, currentStep]);
 
   // Clear saved progress when application is submitted
   const clearSavedProgress = () => {

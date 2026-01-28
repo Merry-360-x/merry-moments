@@ -98,32 +98,10 @@ Some components are non-refundable once booked, including but not limited to:
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Auto-save to localStorage every 30 seconds
+  // Load draft on mount
   useEffect(() => {
-    const draftKey = `tour-package-draft-${user?.id}`;
+    const draftKey = user?.id ? `tour-package-draft-${user.id}` : 'tour-package-draft-anonymous';
     
-    const saveDraftInternal = () => {
-      if (!user?.id) return;
-      
-      const draft = {
-        formData,
-        groupDiscounts,
-        pricingTiers,
-        selectedNonRefundable,
-        customNonRefundable1,
-        customNonRefundable2,
-        coverImage,
-        galleryImages,
-        selectedPolicies,
-        customPolicyText,
-        timestamp: new Date().toISOString(),
-      };
-      
-      localStorage.setItem(draftKey, JSON.stringify(draft));
-      setLastSaved(new Date());
-    };
-    
-    // Load draft on mount
     const savedDraft = localStorage.getItem(draftKey);
     if (savedDraft) {
       try {
@@ -140,26 +118,44 @@ Some components are non-refundable once booked, including but not limited to:
         if (draft.customPolicyText) setCustomPolicyText(draft.customPolicyText);
         setLastSaved(new Date(draft.timestamp));
         toast({ title: "Draft restored", description: "Your previous work has been restored" });
+        console.log('[CreateTourPackage] Draft restored');
       } catch (err) {
         console.error('Failed to load draft:', err);
       }
     }
+  }, [user?.id]); // Only load once when user changes
 
-    // Auto-save interval
-    const interval = setInterval(() => {
-      if (formData.title || formData.description) {
-        saveDraftInternal();
-      }
-    }, 30000); // Every 30 seconds
+  // Auto-save on form changes (debounced)
+  useEffect(() => {
+    const draftKey = user?.id ? `tour-package-draft-${user.id}` : 'tour-package-draft-anonymous';
+    
+    // Only save if there's meaningful content
+    if (!formData.title && !formData.description) return;
+    
+    const timer = setTimeout(() => {
+      const draft = {
+        formData,
+        groupDiscounts,
+        pricingTiers,
+        selectedNonRefundable,
+        customNonRefundable1,
+        customNonRefundable2,
+        coverImage,
+        galleryImages,
+        selectedPolicies,
+        customPolicyText,
+        timestamp: new Date().toISOString(),
+      };
+      localStorage.setItem(draftKey, JSON.stringify(draft));
+      setLastSaved(new Date());
+      console.log('[CreateTourPackage] Auto-saved draft');
+    }, 2000); // Debounce 2 seconds
 
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+    return () => clearTimeout(timer);
+  }, [formData, groupDiscounts, pricingTiers, selectedNonRefundable, customNonRefundable1, customNonRefundable2, coverImage, galleryImages, selectedPolicies, customPolicyText, user?.id]);
 
   const saveDraft = () => {
-    if (!user?.id) return;
-    
-    const draftKey = `tour-package-draft-${user.id}`;
+    const draftKey = user?.id ? `tour-package-draft-${user.id}` : 'tour-package-draft-anonymous';
     const draft = {
       formData,
       groupDiscounts,
@@ -176,6 +172,7 @@ Some components are non-refundable once booked, including but not limited to:
     
     localStorage.setItem(draftKey, JSON.stringify(draft));
     setLastSaved(new Date());
+    console.log('[CreateTourPackage] Manually saved draft');
   };
 
   const handleSaveDraft = () => {
@@ -186,8 +183,7 @@ Some components are non-refundable once booked, including but not limited to:
   };
 
   const clearDraft = () => {
-    if (!user?.id) return;
-    const draftKey = `tour-package-draft-${user.id}`;
+    const draftKey = user?.id ? `tour-package-draft-${user.id}` : 'tour-package-draft-anonymous';
     localStorage.removeItem(draftKey);
   };
 

@@ -77,6 +77,7 @@ export default function CreateTransport() {
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
     setLastSaved(new Date());
+    console.log('[CreateTransport] Auto-saved draft');
   }, [formData]);
 
   const handleSaveDraft = () => {

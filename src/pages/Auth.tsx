@@ -56,6 +56,13 @@ const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Set initial mode from URL params
+  useEffect(() => {
+    const mode = searchParams.get("mode");
+    if (mode === "signup") setIsLogin(false);
+    if (mode === "login") setIsLogin(true);
+  }, [searchParams]);
+
   // Load saved signup progress from localStorage
   useEffect(() => {
     if (isLogin) return; // Only for signup
@@ -69,6 +76,7 @@ const Auth = () => {
         if (parsed.lastName) setLastName(parsed.lastName);
         if (parsed.phoneNumber) setPhoneNumber(parsed.phoneNumber);
         // Don't restore password for security
+        console.log('[Auth] Restored signup progress');
       }
     } catch (e) {
       console.error('Failed to restore signup progress:', e);
@@ -90,6 +98,7 @@ const Auth = () => {
         phoneNumber,
         timestamp: new Date().toISOString(),
       }));
+      console.log('[Auth] Saved signup progress');
     } catch (e) {
       console.error('Failed to save signup progress:', e);
     }
@@ -105,6 +114,24 @@ const Auth = () => {
     
     return () => clearTimeout(timer);
   }, [email, firstName, lastName, phoneNumber, isLogin, saveSignupProgress]);
+
+  // Also save when user leaves the page
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (!isLogin && (email || firstName || lastName || phoneNumber)) {
+        localStorage.setItem(SIGNUP_STORAGE_KEY, JSON.stringify({
+          email,
+          firstName,
+          lastName,
+          phoneNumber,
+          timestamp: new Date().toISOString(),
+        }));
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isLogin, email, firstName, lastName, phoneNumber]);
 
   // Clear saved signup data after successful signup
   const clearSignupProgress = () => {
@@ -130,12 +157,6 @@ const Auth = () => {
       navigate(redirectTo ?? "/", { replace: true });
     }
   }, [user, authLoading, navigate, redirectTo]);
-
-  useEffect(() => {
-    const mode = searchParams.get("mode");
-    if (mode === "signup") setIsLogin(false);
-    if (mode === "login") setIsLogin(true);
-  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
