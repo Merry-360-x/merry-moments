@@ -148,8 +148,6 @@ export default function HostApplication() {
       currency: "RWF",
       min_guests: 1,
       max_guests: 10,
-      cover_image: "",
-      gallery_images: [] as string[],
       itinerary_pdf: "",
     },
   });
@@ -158,7 +156,6 @@ export default function HostApplication() {
   const [idPhotoUploadOpen, setIdPhotoUploadOpen] = useState(false);
   const [selfieUploadOpen, setSelfieUploadOpen] = useState(false);
   const [licenseUploadOpen, setLicenseUploadOpen] = useState(false);
-  const [tourPackageGalleryOpen, setTourPackageGalleryOpen] = useState(false);
   const [tourPackageItineraryOpen, setTourPackageItineraryOpen] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
 
@@ -1088,69 +1085,6 @@ export default function HostApplication() {
                               tour_package: { ...prev.tour_package, what_to_bring: e.target.value }
                             }))}
                           />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label>Package Images (first image = cover)</Label>
-                          <p className="text-xs text-muted-foreground">Upload at least 1 image. Drag to reorder - first image becomes the cover.</p>
-                          <div className="flex flex-wrap gap-3 mt-2">
-                            {formData.tour_package.gallery_images.map((img, idx) => (
-                              <div
-                                key={img}
-                                draggable
-                                onDragStart={(e) => e.dataTransfer.setData("tourPkgIdx", String(idx))}
-                                onDragOver={(e) => e.preventDefault()}
-                                onDrop={(e) => {
-                                  e.preventDefault();
-                                  const fromIdx = parseInt(e.dataTransfer.getData("tourPkgIdx"));
-                                  if (fromIdx !== idx) {
-                                    setFormData(prev => {
-                                      const imgs = [...prev.tour_package.gallery_images];
-                                      const [moved] = imgs.splice(fromIdx, 1);
-                                      imgs.splice(idx, 0, moved);
-                                      return {
-                                        ...prev,
-                                        tour_package: { ...prev.tour_package, gallery_images: imgs }
-                                      };
-                                    });
-                                  }
-                                }}
-                                className={`relative cursor-move group ${idx === 0 ? "ring-2 ring-primary ring-offset-2" : ""}`}
-                              >
-                                <img
-                                  src={img}
-                                  alt={`Gallery ${idx + 1}`}
-                                  className="w-20 h-20 object-cover rounded-lg"
-                                />
-                                {idx === 0 && (
-                                  <span className="absolute -top-2 -left-2 bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full">
-                                    Cover
-                                  </span>
-                                )}
-                                <button
-                                  type="button"
-                                  className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  onClick={() => setFormData(prev => ({
-                                    ...prev,
-                                    tour_package: {
-                                      ...prev.tour_package,
-                                      gallery_images: prev.tour_package.gallery_images.filter((_, i) => i !== idx)
-                                    }
-                                  }))}
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              </div>
-                            ))}
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="w-20 h-20"
-                              onClick={() => setTourPackageGalleryOpen(true)}
-                            >
-                              <Upload className="w-5 h-5" />
-                            </Button>
-                          </div>
                         </div>
 
                         <div className="space-y-2">
@@ -2459,28 +2393,6 @@ export default function HostApplication() {
             toast({
               title: "Upload successful",
               description: "Your tour guide license/certificate has been uploaded.",
-            });
-          }
-        }}
-      />
-
-      <CloudinaryUploadDialog
-        open={tourPackageGalleryOpen}
-        onOpenChange={setTourPackageGalleryOpen}
-        title="Upload Tour Package Images"
-        folder="tour_packages/gallery"
-        accept="image/*"
-        multiple
-        value={formData.tour_package.gallery_images}
-        onChange={(urls) => {
-          setFormData(prev => ({
-            ...prev,
-            tour_package: { ...prev.tour_package, gallery_images: urls }
-          }));
-          if (urls.length > 0) {
-            toast({
-              title: "Upload successful",
-              description: `${urls.length} image(s) uploaded. First image is the cover.`,
             });
           }
         }}
