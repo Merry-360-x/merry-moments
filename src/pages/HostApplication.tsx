@@ -437,6 +437,10 @@ export default function HostApplication() {
         payload.tour_data = formData.tour;
       }
       
+      if (formData.service_types.includes('tour_package')) {
+        payload.tour_package_data = formData.tour_package;
+      }
+      
       if (formData.service_types.includes('transport')) {
         payload.transport_data = formData.transport;
       }
