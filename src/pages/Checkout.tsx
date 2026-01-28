@@ -55,8 +55,10 @@ export default function Checkout() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [mobileMoneyPhone, setMobileMoneyPhone] = useState(""); // Separate phone for mobile money
   const [message, setMessage] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<string>("mtn_momo");
+  const [paymentStatus, setPaymentStatus] = useState<"idle" | "processing" | "success" | "failed">("idle");
 
   // Load saved progress from localStorage on mount
   useEffect(() => {
@@ -68,6 +70,7 @@ export default function Checkout() {
         if (data.name) setName(data.name);
         if (data.email) setEmail(data.email);
         if (data.phone) setPhone(data.phone);
+        if (data.mobileMoneyPhone) setMobileMoneyPhone(data.mobileMoneyPhone);
         if (data.message) setMessage(data.message);
         if (data.paymentMethod) setPaymentMethod(data.paymentMethod);
         if (data.currentStep && data.currentStep > 1) setCurrentStep(data.currentStep);
@@ -83,12 +86,13 @@ export default function Checkout() {
       name,
       email,
       phone,
+      mobileMoneyPhone,
       message,
       paymentMethod,
       currentStep,
     };
     localStorage.setItem("checkout_progress", JSON.stringify(progressData));
-  }, [name, email, phone, message, paymentMethod, currentStep]);
+  }, [name, email, phone, mobileMoneyPhone, message, paymentMethod, currentStep]);
 
   const steps = [
     { id: 1, name: "Contact Info", description: "Your details" },
@@ -298,35 +302,66 @@ export default function Checkout() {
 
       // Initiate PawaPay payment for mobile money methods
       if (isPawaPayMethod(paymentMethod)) {
+        const paymentPhone = mobileMoneyPhone.trim() || phone.trim();
+        if (!paymentPhone) {
+          toast({
+            variant: "destructive",
+            title: "Phone number required",
+            description: "Please provide a mobile money phone number.",
+          });
+          setLoading(false);
+          return;
+        }
+
+        setPaymentStatus("processing");
         try {
           const pawaPayResult = await initiatePawaPayPayment({
             bookingId: insertedBooking.id,
             amount: total,
             currency,
             paymentMethod: paymentMethod as "mtn_momo" | "airtel_money",
-            phoneNumber: phone.trim(),
+            phoneNumber: paymentPhone,
           });
 
           if (pawaPayResult.success) {
+            setPaymentStatus("success");
             toast({
-              title: "📱 Payment Initiated",
-              description: "Please check your phone and approve the payment prompt.",
+              title: "📱 Payment Request Sent!",
+              description: `Please check your phone (${paymentPhone}) and enter your PIN to approve the payment.`,
             });
+            // Clear saved progress after successful submission
+            localStorage.removeItem("checkout_progress");
+            navigate(`/booking-success?mode=booking&payment=mobile_money&phone=${encodeURIComponent(paymentPhone)}`);
           } else {
+            setPaymentStatus("failed");
             toast({
               variant: "destructive",
-              title: "Payment initiation failed",
-              description: pawaPayResult.error || "Please try again or use a different payment method.",
+              title: "Payment Failed",
+              description: pawaPayResult.error || "The payment could not be processed. Please try again.",
             });
+            // Still navigate to success but show payment pending
+            localStorage.removeItem("checkout_progress");
+            navigate("/booking-success?mode=booking&payment=failed");
           }
+          return;
         } catch (paymentError) {
           logError("checkout.pawapay.initiate", paymentError);
-          // Don't block the booking - payment can be retried
+          setPaymentStatus("failed");
           toast({
-            title: "Booking created",
-            description: "Your booking was created but payment initiation failed. You can pay later.",
+            variant: "destructive",
+            title: "Payment Error",
+            description: "Could not connect to payment provider. Your booking was saved - we'll contact you.",
           });
+          localStorage.removeItem("checkout_progress");
+          navigate("/booking-success?mode=booking&payment=error");
+          return;
         }
+      } else {
+        // Bank transfer or card - manual confirmation
+        toast({
+          title: "✓ Booking Submitted!",
+          description: "Our team will contact you shortly to confirm your booking and arrange payment.",
+        });
       }
 
       // Clear saved progress after successful submission
@@ -505,6 +540,18 @@ export default function Checkout() {
 
       // Initiate PawaPay payment for mobile money methods
       if (isPawaPayMethod(paymentMethod) && insertedBookings && insertedBookings.length > 0) {
+        const paymentPhone = mobileMoneyPhone.trim() || phone.trim();
+        if (!paymentPhone) {
+          toast({
+            variant: "destructive",
+            title: "Phone number required",
+            description: "Please provide a mobile money phone number.",
+          });
+          setLoading(false);
+          return;
+        }
+
+        setPaymentStatus("processing");
         try {
           // Use the first booking as the primary for the payment
           const primaryBookingId = insertedBookings[0].id;
@@ -513,29 +560,49 @@ export default function Checkout() {
             amount: totalAmount,
             currency: cartCurrency,
             paymentMethod: paymentMethod as "mtn_momo" | "airtel_money",
-            phoneNumber: phone.trim(),
+            phoneNumber: paymentPhone,
           });
 
           if (pawaPayResult.success) {
+            setPaymentStatus("success");
             toast({
-              title: "📱 Payment Initiated",
-              description: "Please check your phone and approve the payment prompt.",
+              title: "📱 Payment Request Sent!",
+              description: `Please check your phone (${paymentPhone}) and enter your PIN to approve the payment.`,
             });
+            await clearCart();
+            localStorage.removeItem("checkout_progress");
+            navigate(`/booking-success?mode=cart&payment=mobile_money&phone=${encodeURIComponent(paymentPhone)}`);
           } else {
+            setPaymentStatus("failed");
             toast({
               variant: "destructive",
-              title: "Payment initiation failed",
-              description: pawaPayResult.error || "Please try again or use a different payment method.",
+              title: "Payment Failed",
+              description: pawaPayResult.error || "The payment could not be processed. Please try again.",
             });
+            await clearCart();
+            localStorage.removeItem("checkout_progress");
+            navigate("/booking-success?mode=cart&payment=failed");
           }
+          return;
         } catch (paymentError) {
           logError("checkout.cart.pawapay.initiate", paymentError);
-          // Don't block the booking - payment can be retried
+          setPaymentStatus("failed");
           toast({
-            title: "Bookings created",
-            description: "Your bookings were created but payment initiation failed. You can pay later.",
+            variant: "destructive",
+            title: "Payment Error",
+            description: "Could not connect to payment provider. Your bookings were saved - we'll contact you.",
           });
+          await clearCart();
+          localStorage.removeItem("checkout_progress");
+          navigate("/booking-success?mode=cart&payment=error");
+          return;
         }
+      } else {
+        // Bank transfer or card - manual confirmation
+        toast({
+          title: "✓ Booking Submitted!",
+          description: "Our team will contact you shortly to confirm your booking and arrange payment.",
+        });
       }
 
       // Show appropriate success message
@@ -610,6 +677,20 @@ export default function Checkout() {
       if (!paymentMethod) {
         toast({ variant: "destructive", title: "Payment method required", description: "Please select a payment method." });
         return false;
+      }
+      // Validate mobile money phone for MTN/Airtel
+      if (isPawaPayMethod(paymentMethod)) {
+        const phoneToUse = mobileMoneyPhone || phone;
+        if (!phoneToUse || !phoneToUse.trim()) {
+          toast({ variant: "destructive", title: "Mobile Money phone required", description: "Please enter your mobile money phone number." });
+          return false;
+        }
+        // Basic phone validation - should start with 25078 or 25073 for Rwanda
+        const cleanPhone = phoneToUse.replace(/[^0-9]/g, "");
+        if (cleanPhone.length < 10) {
+          toast({ variant: "destructive", title: "Invalid phone number", description: "Please enter a valid phone number." });
+          return false;
+        }
       }
     }
     return true;
@@ -796,14 +877,60 @@ export default function Checkout() {
                     );
                   })}
                 </div>
-                <div className="bg-white dark:bg-gray-900 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-4 shadow-sm">
-                  <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2 flex items-center gap-2">
-                    💡 Payment Information
-                  </h4>
-                  <p className="text-sm text-blue-900 dark:text-blue-200">
-                    You won't be charged now. Our team will contact you with payment instructions after reviewing your request.
-                  </p>
-                </div>
+                
+                {/* Mobile Money Phone Input - Only show when MTN or Airtel is selected */}
+                {isPawaPayMethod(paymentMethod) && (
+                  <div className="bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-300 dark:border-yellow-700 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <Smartphone className="h-5 w-5 text-yellow-600 mt-1" />
+                      <div className="flex-1">
+                        <Label htmlFor="mobileMoneyPhone" className="text-yellow-900 dark:text-yellow-100 font-semibold">
+                          Mobile Money Phone Number *
+                        </Label>
+                        <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-2">
+                          Enter the phone number registered with {paymentMethod === "mtn_momo" ? "MTN Mobile Money" : "Airtel Money"}
+                        </p>
+                        <Input
+                          id="mobileMoneyPhone"
+                          value={mobileMoneyPhone || phone}
+                          onChange={(e) => setMobileMoneyPhone(e.target.value)}
+                          placeholder={paymentMethod === "mtn_momo" ? "078 XXX XXXX" : "073 XXX XXXX"}
+                          className="bg-white dark:bg-gray-950"
+                        />
+                        <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-2">
+                          📱 You will receive a payment prompt on this phone. Enter your PIN to complete the payment.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Info for Mobile Money */}
+                {isPawaPayMethod(paymentMethod) && (
+                  <div className="bg-green-50 dark:bg-green-900/20 border-2 border-green-200 dark:border-green-800 rounded-lg p-4">
+                    <h4 className="font-semibold text-green-900 dark:text-green-100 mb-2 flex items-center gap-2">
+                      📱 How Mobile Money Payment Works
+                    </h4>
+                    <ol className="text-sm text-green-800 dark:text-green-200 space-y-1 list-decimal list-inside">
+                      <li>After you click "Book", a payment request will be sent to your phone</li>
+                      <li>Open the {paymentMethod === "mtn_momo" ? "MTN MoMo" : "Airtel Money"} prompt on your phone</li>
+                      <li>Enter your PIN to approve the payment</li>
+                      <li>Your booking will be confirmed automatically once payment is received</li>
+                    </ol>
+                  </div>
+                )}
+
+                {/* Info for Bank Transfer / Card */}
+                {!isPawaPayMethod(paymentMethod) && (
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                    <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2 flex items-center gap-2">
+                      💡 Payment Information
+                    </h4>
+                    <p className="text-sm text-blue-800 dark:text-blue-200">
+                      Our team will contact you shortly with {paymentMethod === "bank_transfer" ? "bank transfer details" : "a secure payment link"} to complete your booking.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
