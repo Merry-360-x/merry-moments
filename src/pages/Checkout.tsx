@@ -18,7 +18,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Check, ArrowRight, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { checkAvailability } from "@/lib/availability-check";
-import { initiatePawaPayPayment, isPawaPayMethod } from "@/lib/pawapay";
+import { initiatePawaPayPayment, isPawaPayMethod, validatePawaPayAmount, PAWAPAY_MIN_AMOUNT_RWF } from "@/lib/pawapay";
 
 const isoToday = () => new Date().toISOString().slice(0, 10);
 
@@ -248,6 +248,20 @@ export default function Checkout() {
       const currency = String(property?.currency ?? "RWF");
       const total = nights * nightly;
 
+      // Validate minimum amount for mobile money
+      if (isPawaPayMethod(paymentMethod)) {
+        const validation = validatePawaPayAmount(total, currency);
+        if (!validation.valid) {
+          toast({
+            variant: "destructive",
+            title: "Amount too low",
+            description: validation.message || `Minimum amount is ${PAWAPAY_MIN_AMOUNT_RWF} RWF for mobile money payments.`,
+          });
+          setLoading(false);
+          return;
+        }
+      }
+
       const basePayload: Record<string, unknown> = {
         property_id: propertyId,
         host_id: property?.host_id ?? null,
@@ -257,12 +271,12 @@ export default function Checkout() {
         total_price: total,
         currency,
         status: "pending_confirmation",
-        payment_status: "pending", // Payment status defaults to pending
+        payment_status: "pending",
         payment_method: paymentMethod,
         special_requests: message.trim() || null,
-        guest_phone: phone.trim(), // Always include phone for all users
-        guest_name: name.trim(), // Always include name for all users
-        guest_email: email.trim().toLowerCase(), // Always include email for all users
+        guest_phone: phone.trim(),
+        guest_name: name.trim(),
+        guest_email: email.trim().toLowerCase(),
       };
 
       if (user) {
@@ -272,23 +286,21 @@ export default function Checkout() {
         basePayload.is_guest_booking = true;
       }
 
-      // Check availability and auto-confirm if available
-      const availabilityResults = await checkAvailability([
-        {
-          itemId: propertyId,
-          itemType: "property",
-          checkIn,
-          checkOut,
-        }
-      ]);
+      // For mobile money, skip auto-confirm - wait for actual payment
+      if (!isPawaPayMethod(paymentMethod)) {
+        // Check availability and auto-confirm only for non-mobile-money payments
+        const availabilityResults = await checkAvailability([
+          {
+            itemId: propertyId,
+            itemType: "property",
+            checkIn,
+            checkOut,
+          }
+        ]);
 
-      // If available, auto-confirm the booking
-      if (availabilityResults[0]?.autoConfirm) {
-        basePayload.status = "confirmed";
-        toast({
-          title: "✓ Auto-Confirmed!",
-          description: "Your booking has been automatically confirmed. The property is available for your dates.",
-        });
+        if (availabilityResults[0]?.autoConfirm) {
+          basePayload.status = "confirmed";
+        }
       }
 
       const { data: insertedBooking, error } = await supabase
@@ -322,14 +334,9 @@ export default function Checkout() {
           });
 
           if (pawaPayResult.success) {
-            setPaymentStatus("success");
-            toast({
-              title: "📱 Payment Request Sent!",
-              description: `Please check your phone (${paymentPhone}) and enter your PIN to approve the payment.`,
-            });
-            // Clear saved progress after successful submission
+            // Don't navigate away - show waiting state
             localStorage.removeItem("checkout_progress");
-            navigate(`/booking-success?mode=booking&payment=mobile_money&phone=${encodeURIComponent(paymentPhone)}`);
+            navigate(`/payment-pending?bookingId=${insertedBooking.id}&depositId=${pawaPayResult.depositId}&phone=${encodeURIComponent(paymentPhone)}`);
           } else {
             setPaymentStatus("failed");
             toast({
@@ -337,9 +344,7 @@ export default function Checkout() {
               title: "Payment Failed",
               description: pawaPayResult.error || "The payment could not be processed. Please try again.",
             });
-            // Still navigate to success but show payment pending
-            localStorage.removeItem("checkout_progress");
-            navigate("/booking-success?mode=booking&payment=failed");
+            setLoading(false);
           }
           return;
         } catch (paymentError) {
@@ -348,10 +353,9 @@ export default function Checkout() {
           toast({
             variant: "destructive",
             title: "Payment Error",
-            description: "Could not connect to payment provider. Your booking was saved - we'll contact you.",
+            description: "Could not connect to payment provider. Please try again.",
           });
-          localStorage.removeItem("checkout_progress");
-          navigate("/booking-success?mode=booking&payment=error");
+          setLoading(false);
           return;
         }
       } else {
@@ -505,36 +509,51 @@ export default function Checkout() {
         return;
       }
 
-      // Check availability for all items and auto-confirm available ones
-      const availabilityChecks = bookingsToCreate.map((booking) => ({
-        itemId: booking.property_id || booking.tour_id || booking.transport_id,
-        itemType: booking.booking_type === "property" ? "property" as const : 
-                  booking.booking_type === "tour" ? "tour_package" as const : 
-                  "transport" as const,
-        checkIn: booking.check_in,
-        checkOut: booking.check_out,
-      }));
+      // Calculate total amount for cart checkout
+      const totalAmount = bookingsToCreate.reduce((sum, b) => sum + (b.total_price || 0), 0);
+      const cartCurrency = bookingsToCreate[0]?.currency || "RWF";
 
-      const availabilityResults = await checkAvailability(availabilityChecks);
-
-      // Update booking status based on availability
-      let autoConfirmedCount = 0;
-      bookingsToCreate.forEach((booking, index) => {
-        if (availabilityResults[index]?.autoConfirm) {
-          booking.status = "confirmed";
-          autoConfirmedCount++;
+      // Validate minimum amount for mobile money
+      if (isPawaPayMethod(paymentMethod)) {
+        const validation = validatePawaPayAmount(totalAmount, cartCurrency);
+        if (!validation.valid) {
+          toast({
+            variant: "destructive",
+            title: "Amount too low",
+            description: validation.message || `Minimum amount is ${PAWAPAY_MIN_AMOUNT_RWF} RWF for mobile money payments.`,
+          });
+          setLoading(false);
+          return;
         }
-      });
+      }
+
+      // For mobile money, skip auto-confirm - wait for actual payment
+      if (!isPawaPayMethod(paymentMethod)) {
+        // Check availability for all items and auto-confirm available ones
+        const availabilityChecks = bookingsToCreate.map((booking) => ({
+          itemId: booking.property_id || booking.tour_id || booking.transport_id,
+          itemType: booking.booking_type === "property" ? "property" as const : 
+                    booking.booking_type === "tour" ? "tour_package" as const : 
+                    "transport" as const,
+          checkIn: booking.check_in,
+          checkOut: booking.check_out,
+        }));
+
+        const availabilityResults = await checkAvailability(availabilityChecks);
+
+        // Update booking status based on availability
+        bookingsToCreate.forEach((booking, index) => {
+          if (availabilityResults[index]?.autoConfirm) {
+            booking.status = "confirmed";
+          }
+        });
+      }
 
       const { data: insertedBookings, error } = await supabase
         .from("bookings")
         .insert(bookingsToCreate)
         .select("id, total_price, currency");
       if (error) throw error;
-
-      // Calculate total amount for cart checkout
-      const totalAmount = bookingsToCreate.reduce((sum, b) => sum + (b.total_price || 0), 0);
-      const cartCurrency = bookingsToCreate[0]?.currency || "RWF";
 
       // Initiate PawaPay payment for mobile money methods
       if (isPawaPayMethod(paymentMethod) && insertedBookings && insertedBookings.length > 0) {
@@ -562,14 +581,10 @@ export default function Checkout() {
           });
 
           if (pawaPayResult.success) {
-            setPaymentStatus("success");
-            toast({
-              title: "📱 Payment Request Sent!",
-              description: `Please check your phone (${paymentPhone}) and enter your PIN to approve the payment.`,
-            });
+            // Don't navigate away - go to payment pending page
             await clearCart();
             localStorage.removeItem("checkout_progress");
-            navigate(`/booking-success?mode=cart&payment=mobile_money&phone=${encodeURIComponent(paymentPhone)}`);
+            navigate(`/payment-pending?bookingId=${primaryBookingId}&depositId=${pawaPayResult.depositId}&phone=${encodeURIComponent(paymentPhone)}`);
           } else {
             setPaymentStatus("failed");
             toast({
@@ -577,9 +592,7 @@ export default function Checkout() {
               title: "Payment Failed",
               description: pawaPayResult.error || "The payment could not be processed. Please try again.",
             });
-            await clearCart();
-            localStorage.removeItem("checkout_progress");
-            navigate("/booking-success?mode=cart&payment=failed");
+            setLoading(false);
           }
           return;
         } catch (paymentError) {
@@ -588,11 +601,9 @@ export default function Checkout() {
           toast({
             variant: "destructive",
             title: "Payment Error",
-            description: "Could not connect to payment provider. Your bookings were saved - we'll contact you.",
+            description: "Could not connect to payment provider. Please try again.",
           });
-          await clearCart();
-          localStorage.removeItem("checkout_progress");
-          navigate("/booking-success?mode=cart&payment=error");
+          setLoading(false);
           return;
         }
       } else {
@@ -600,14 +611,6 @@ export default function Checkout() {
         toast({
           title: "✓ Booking Submitted!",
           description: "Our team will contact you shortly to confirm your booking and arrange payment.",
-        });
-      }
-
-      // Show appropriate success message
-      if (autoConfirmedCount > 0) {
-        toast({
-          title: `✓ ${autoConfirmedCount} Item${autoConfirmedCount > 1 ? "s" : ""} Auto-Confirmed!`,
-          description: `${autoConfirmedCount} of ${bookingsToCreate.length} bookings were automatically confirmed as available.`,
         });
       }
 

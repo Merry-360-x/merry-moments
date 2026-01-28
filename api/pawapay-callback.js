@@ -40,7 +40,8 @@ export default async function handler(req, res) {
       payer,
       correspondent,
       created,
-      failureReason
+      failureReason,
+      metadata
     } = payload || {};
 
     if (!depositId) {
@@ -48,42 +49,62 @@ export default async function handler(req, res) {
       return json(res, 400, { error: "Missing depositId" });
     }
 
-    // Extract booking ID from depositId (format: merry360-{bookingId}-{timestamp})
-    const parts = depositId.split("-");
-    const bookingId = parts.length >= 3 ? parts.slice(1, -1).join("-") : null;
-
-    if (!bookingId) {
-      console.error("Could not extract booking ID from depositId:", depositId);
-      return json(res, 400, { error: "Invalid depositId format" });
+    // Extract booking ID from metadata or find by payment_reference
+    let bookingId = null;
+    
+    // Try to get from metadata
+    if (metadata && Array.isArray(metadata)) {
+      const bookingMeta = metadata.find(m => m.fieldName === "bookingId");
+      if (bookingMeta) {
+        bookingId = bookingMeta.fieldValue;
+      }
     }
 
-    // Update payment transaction record
-    const { error: txError } = await supabase
-      .from("payment_transactions")
-      .update({
-        status,
-        provider_response: payload,
-        failure_reason: failureReason?.errorMessage || null,
-        updated_at: new Date().toISOString()
-      })
-      .eq("transaction_id", depositId);
+    // If not in metadata, lookup by payment_reference
+    if (!bookingId) {
+      const { data: bookingLookup } = await supabase
+        .from("bookings")
+        .select("id")
+        .eq("payment_reference", depositId)
+        .maybeSingle();
+      
+      if (bookingLookup) {
+        bookingId = bookingLookup.id;
+      }
+    }
 
-    if (txError) {
-      console.error("Failed to update transaction:", txError);
+    if (!bookingId) {
+      console.error("Could not find booking for depositId:", depositId);
+      return json(res, 400, { error: "Booking not found" });
+    }
+
+    // Update payment transaction record if exists
+    try {
+      await supabase
+        .from("payment_transactions")
+        .update({
+          status,
+          provider_response: payload,
+          failure_reason: failureReason?.errorMessage || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq("transaction_id", depositId);
+    } catch (txErr) {
+      console.warn("Could not update transaction record:", txErr);
     }
 
     // Update booking based on payment status
-    let bookingStatus = "pending";
+    let bookingStatus = "pending_confirmation";
     let paymentStatus = "pending";
 
     if (status === "COMPLETED") {
       bookingStatus = "confirmed";
       paymentStatus = "paid";
     } else if (status === "FAILED" || status === "REJECTED" || status === "CANCELLED") {
-      bookingStatus = "pending";
+      bookingStatus = "pending_confirmation";
       paymentStatus = "failed";
     } else if (status === "SUBMITTED" || status === "ACCEPTED") {
-      bookingStatus = "pending";
+      bookingStatus = "pending_confirmation";
       paymentStatus = "pending";
     }
 
@@ -92,7 +113,6 @@ export default async function handler(req, res) {
       .update({
         status: bookingStatus,
         payment_status: paymentStatus,
-        payment_reference: depositId,
         updated_at: new Date().toISOString()
       })
       .eq("id", bookingId);
@@ -103,12 +123,6 @@ export default async function handler(req, res) {
     }
 
     console.log(`Booking ${bookingId} updated: status=${bookingStatus}, payment=${paymentStatus}`);
-
-    // If payment completed, send confirmation email (you can add email logic here)
-    if (status === "COMPLETED") {
-      console.log(`Payment completed for booking ${bookingId}`);
-      // TODO: Send confirmation email
-    }
 
     return json(res, 200, { 
       success: true, 

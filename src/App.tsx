@@ -34,6 +34,7 @@ import AdminRoles from "./pages/AdminRoles";
 import PropertyDetails from "./pages/PropertyDetails";
 import TripCart from "./pages/TripCart";
 import Checkout from "./pages/Checkout";
+import PaymentPending from "./pages/PaymentPending";
 import BookingSuccess from "./pages/BookingSuccess";
 import InfoPage from "./pages/InfoPage";
 import Dashboard from "./pages/Dashboard";
@@ -300,6 +301,7 @@ const App = () => (
               <Route path="/favorites" element={<Favorites />} />
               <Route path="/trip-cart" element={<TripCart />} />
               <Route path="/checkout" element={<Checkout />} />
+              <Route path="/payment-pending" element={<PaymentPending />} />
               <Route path="/booking-success" element={<BookingSuccess />} />
               <Route
                 path="/dashboard"

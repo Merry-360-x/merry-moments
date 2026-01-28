@@ -2,6 +2,9 @@
  * PawaPay payment integration for mobile money payments
  */
 
+// Minimum deposit amounts in RWF (PawaPay requirement)
+export const PAWAPAY_MIN_AMOUNT_RWF = 100;
+
 export interface PawaPayPaymentRequest {
   bookingId: string;
   amount: number;
@@ -27,6 +30,27 @@ export interface PawaPayPaymentResponse {
     correspondent: string;
     status: string;
   };
+}
+
+/**
+ * Validate if amount meets minimum PawaPay deposit requirement
+ */
+export function validatePawaPayAmount(amount: number, currency: string): { valid: boolean; minAmount: number; message?: string } {
+  // Convert to RWF equivalent for validation
+  let rwfAmount = amount;
+  if (currency === "USD") {
+    rwfAmount = amount * 1300; // Approximate rate
+  }
+  
+  if (rwfAmount < PAWAPAY_MIN_AMOUNT_RWF) {
+    return {
+      valid: false,
+      minAmount: PAWAPAY_MIN_AMOUNT_RWF,
+      message: `Minimum amount for mobile money is ${PAWAPAY_MIN_AMOUNT_RWF} RWF`
+    };
+  }
+  
+  return { valid: true, minAmount: PAWAPAY_MIN_AMOUNT_RWF };
 }
 
 /**
