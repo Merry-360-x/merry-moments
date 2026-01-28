@@ -734,6 +734,7 @@ export type Database = {
           meeting_point: string
           min_guests: number
           price_per_adult: number
+          pricing_tiers: Json | null
           rdb_certificate_url: string | null
           rdb_certificate_valid_until: string | null
           rejection_reason: string | null
@@ -770,6 +771,7 @@ export type Database = {
           meeting_point: string
           min_guests?: number
           price_per_adult: number
+          pricing_tiers?: Json | null
           rdb_certificate_url?: string | null
           rdb_certificate_valid_until?: string | null
           rejection_reason?: string | null
@@ -806,6 +808,7 @@ export type Database = {
           meeting_point?: string
           min_guests?: number
           price_per_adult?: number
+          pricing_tiers?: Json | null
           rdb_certificate_url?: string | null
           rdb_certificate_valid_until?: string | null
           rejection_reason?: string | null

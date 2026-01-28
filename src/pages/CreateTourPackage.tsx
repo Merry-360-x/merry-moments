@@ -68,6 +68,9 @@ Some components are non-refundable once booked, including but not limited to:
   // Group discounts as an array of tiers
   const [groupDiscounts, setGroupDiscounts] = useState<Array<{min_people: number, max_people: number | null, discount_percentage: number}>>([]);
 
+  // Flexible per-person pricing by group size (e.g., 1/2/4/6 people)
+  const [pricingTiers, setPricingTiers] = useState<Array<{ group_size: number; price_per_person: number }>>([]);
+
   const nonRefundableOptions = [
     "National park and conservation permits",
     "Gorilla trekking and special access permits",
@@ -102,6 +105,7 @@ Some components are non-refundable once booked, including but not limited to:
       const draft = {
         formData,
         groupDiscounts,
+        pricingTiers,
         selectedNonRefundable,
         customNonRefundable1,
         customNonRefundable2,
@@ -123,6 +127,7 @@ Some components are non-refundable once booked, including but not limited to:
         const draft = JSON.parse(savedDraft);
         if (draft.formData) setFormData(draft.formData);
         if (draft.groupDiscounts) setGroupDiscounts(draft.groupDiscounts);
+        if (draft.pricingTiers) setPricingTiers(draft.pricingTiers);
         if (draft.selectedNonRefundable) setSelectedNonRefundable(draft.selectedNonRefundable);
         if (draft.customNonRefundable1) setCustomNonRefundable1(draft.customNonRefundable1);
         if (draft.customNonRefundable2) setCustomNonRefundable2(draft.customNonRefundable2);
@@ -155,6 +160,7 @@ Some components are non-refundable once booked, including but not limited to:
     const draft = {
       formData,
       groupDiscounts,
+      pricingTiers,
       selectedNonRefundable,
       customNonRefundable1,
       customNonRefundable2,
@@ -310,9 +316,29 @@ Some components are non-refundable once booked, including but not limited to:
         status: "approved", // Auto-approve for now, can add manual approval later
       };
 
+      const normalizedPricingTiers = Array.from(
+        new Map(
+          (pricingTiers ?? [])
+            .map((t) => ({
+              group_size: Math.max(1, Math.floor(Number((t as any).group_size) || 0)),
+              price_per_person: Number((t as any).price_per_person) || 0,
+            }))
+            .filter((t) => t.group_size >= 1 && t.price_per_person > 0)
+            .map((t) => [t.group_size, t] as const)
+        ).values()
+      ).sort((a, b) => b.group_size - a.group_size);
+
       // Add fields not in type definition yet
       (packageData as any).group_discounts = groupDiscounts.length > 0 ? groupDiscounts : null;
       (packageData as any).non_refundable_items = nonRefundableItems.length > 0 ? nonRefundableItems : null;
+      (packageData as any).pricing_tiers = normalizedPricingTiers.length > 0 ? normalizedPricingTiers : null;
+
+      // Keep backwards compatibility: if the host provided a "single person" tier,
+      // use it as the base price shown across the app.
+      const singleTier = normalizedPricingTiers.find((t) => t.group_size === 1);
+      if (singleTier) {
+        (packageData as any).price_per_adult = singleTier.price_per_person;
+      }
 
       const { data: newPackage, error } = await supabase.from("tour_packages").insert(packageData as any).select("id").single();
       if (error) throw error;
@@ -810,6 +836,75 @@ Some components are non-refundable once booked, including but not limited to:
                   min={formData.min_guests}
                   className="h-10"
                 />
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Group Pricing (Optional)</Label>
+              <p className="text-xs text-muted-foreground">
+                Add per-person prices for specific group sizes (e.g., 1/2/4/6 people) like your brochure.
+              </p>
+
+              <div className="space-y-3">
+                {pricingTiers.map((tier, index) => (
+                  <div key={index} className="grid grid-cols-[1fr_1fr_auto] gap-3 items-end">
+                    <div>
+                      <Label className="text-xs font-normal mb-1.5 block">Group Size</Label>
+                      <Input
+                        type="number"
+                        value={tier.group_size}
+                        onChange={(e) => {
+                          const next = [...pricingTiers];
+                          next[index].group_size = Math.max(1, parseInt(e.target.value) || 1);
+                          setPricingTiers(next);
+                        }}
+                        min="1"
+                        max={formData.max_guests}
+                        className="h-10"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs font-normal mb-1.5 block">Price per Person</Label>
+                      <Input
+                        type="number"
+                        value={tier.price_per_person}
+                        onChange={(e) => {
+                          const next = [...pricingTiers];
+                          next[index].price_per_person = Math.max(0, parseFloat(e.target.value) || 0);
+                          setPricingTiers(next);
+                        }}
+                        min="0"
+                        step="0.01"
+                        className="h-10"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setPricingTiers(pricingTiers.filter((_, i) => i !== index))}
+                      className="h-10"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPricingTiers([...pricingTiers, { group_size: 1, price_per_person: 0 }])}
+                  className="w-full"
+                >
+                  + Add Pricing Tier
+                </Button>
+
+                {pricingTiers.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Tip: Add a tier for group size <span className="font-medium">1</span> to represent the “Single person” price.
+                  </p>
+                )}
               </div>
             </div>
 

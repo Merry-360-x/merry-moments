@@ -57,12 +57,17 @@ export default function TourDetails() {
   const { data, isLoading } = useQuery({
     queryKey: ["tour-with-host", id],
     queryFn: async () => {
+      // react-router's params are typed as string | undefined; enabled: !!id guarantees it's present.
+      const tourId = id as string;
+
       // Try tours table first
-      const { data: tour, error: tourError } = await supabase
-        .from("tours")
+      const { data: tourData, error: tourError } = await (supabase
+        .from("tours") as any)
         .select("*")
-        .eq("id", id)
+        .eq("id", tourId)
         .maybeSingle();
+
+      const tour = tourData as any;
 
       if (!tourError && tour) {
         if (tour.created_by) {
@@ -85,29 +90,31 @@ export default function TourDetails() {
         throw tourError;
       }
 
-      const { data: pkg, error: pkgError } = await supabase
-        .from("tour_packages")
+      const { data: pkg, error: pkgError } = await (supabase
+        .from("tour_packages") as any)
         .select("*")
-        .eq("id", id)
+        .eq("id", tourId)
         .single();
+
+      const pkgAny = pkg as any;
 
       if (pkgError) throw pkgError;
 
-      if (pkg?.host_id) {
+      if (pkgAny?.host_id) {
         const { data: profile, error: profileError } = await supabase
           .from("profiles")
           .select("full_name, nickname, years_of_experience, languages_spoken, tour_guide_bio, avatar_url, email, phone, created_at")
-          .eq("user_id", pkg.host_id)
+          .eq("user_id", pkgAny.host_id)
           .maybeSingle();
         
         if (profileError) {
           console.warn("[TourDetails] Profile fetch failed:", profileError);
         }
         
-        return { source: "tour_packages", tour: pkg, host: profile } as TourDetailsData;
+        return { source: "tour_packages", tour: pkgAny, host: profile } as TourDetailsData;
       }
 
-      return { source: "tour_packages", tour: pkg, host: null } as TourDetailsData;
+      return { source: "tour_packages", tour: pkgAny, host: null } as TourDetailsData;
     },
     enabled: !!id,
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
@@ -136,6 +143,20 @@ export default function TourDetails() {
   const nonRefundableItems = Array.isArray(tour?.non_refundable_items)
     ? tour?.non_refundable_items
     : [];
+
+  const pricingTiers = ((): Array<{ group_size: number; price_per_person: number }> => {
+    if (!isPackage) return [];
+    const raw = (tour as any)?.pricing_tiers;
+    if (!Array.isArray(raw)) return [];
+
+    return raw
+      .map((t: any) => ({
+        group_size: Math.max(1, Math.floor(Number(t?.group_size) || 0)),
+        price_per_person: Number(t?.price_per_person) || 0,
+      }))
+      .filter((t) => t.group_size >= 1 && t.price_per_person > 0)
+      .sort((a, b) => b.group_size - a.group_size);
+  })();
 
   if (isLoading) {
     return (
@@ -495,6 +516,28 @@ export default function TourDetails() {
           <div className="space-y-6 lg:sticky lg:top-24 lg:self-start">
             {/* Booking card */}
             <div className="bg-card rounded-xl shadow-lg border p-6">
+              {isPackage && pricingTiers.length > 0 && (
+                <div className="mb-6">
+                  <div className="text-sm font-semibold text-foreground">Price for the tour</div>
+                  <div className="mt-3 space-y-2">
+                    {pricingTiers.map((tier) => (
+                      <div key={tier.group_size} className="text-sm text-muted-foreground">
+                        <span className="font-medium text-foreground">
+                          {tier.group_size === 1
+                            ? "Single person"
+                            : `Group of ${tier.group_size} people`}
+                          :
+                        </span>{" "}
+                        <span className="font-semibold text-foreground">
+                          {formatMoney(Number(tier.price_per_person), String(normalizedCurrency ?? "RWF"))}
+                        </span>{" "}
+                        <span>per person</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="mb-6">
                 <div className="text-3xl font-bold text-primary">
                   {formatMoney(Number(normalizedPrice ?? 0), String(normalizedCurrency ?? "RWF"))}
