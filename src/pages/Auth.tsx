@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,6 +10,8 @@ import Logo from "@/components/Logo";
 import { Eye, EyeOff } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
+
+const SIGNUP_STORAGE_KEY = 'signup_form_progress';
 
 const GoogleIcon = (props: { className?: string }) => (
   <svg
@@ -53,6 +55,65 @@ const Auth = () => {
   const { signIn, signUp, user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Load saved signup progress from localStorage
+  useEffect(() => {
+    if (isLogin) return; // Only for signup
+    
+    try {
+      const saved = localStorage.getItem(SIGNUP_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.email) setEmail(parsed.email);
+        if (parsed.firstName) setFirstName(parsed.firstName);
+        if (parsed.lastName) setLastName(parsed.lastName);
+        if (parsed.phoneNumber) setPhoneNumber(parsed.phoneNumber);
+        // Don't restore password for security
+      }
+    } catch (e) {
+      console.error('Failed to restore signup progress:', e);
+    }
+  }, [isLogin]);
+
+  // Save signup progress to localStorage
+  const saveSignupProgress = useCallback(() => {
+    if (isLogin) return;
+    
+    // Only save if there's meaningful data
+    if (!email && !firstName && !lastName && !phoneNumber) return;
+    
+    try {
+      localStorage.setItem(SIGNUP_STORAGE_KEY, JSON.stringify({
+        email,
+        firstName,
+        lastName,
+        phoneNumber,
+        timestamp: new Date().toISOString(),
+      }));
+    } catch (e) {
+      console.error('Failed to save signup progress:', e);
+    }
+  }, [email, firstName, lastName, phoneNumber, isLogin]);
+
+  // Auto-save on field changes (debounced)
+  useEffect(() => {
+    if (isLogin) return;
+    
+    const timer = setTimeout(() => {
+      saveSignupProgress();
+    }, 1000);
+    
+    return () => clearTimeout(timer);
+  }, [email, firstName, lastName, phoneNumber, isLogin, saveSignupProgress]);
+
+  // Clear saved signup data after successful signup
+  const clearSignupProgress = () => {
+    try {
+      localStorage.removeItem(SIGNUP_STORAGE_KEY);
+    } catch (e) {
+      // Ignore
+    }
+  };
 
   const redirectTo = (() => {
     const raw = searchParams.get("redirect");
@@ -119,7 +180,8 @@ const Auth = () => {
         // Check if user is now signed in (email confirmation disabled)
         // The useEffect will handle navigation if user is set
         if (!user) {
-          // Email confirmation required
+          // Email confirmation required - clear saved progress
+          clearSignupProgress();
           toast({ 
             title: t("auth.toast.checkEmail"), 
             description: t("auth.toast.confirmEmail"),
@@ -131,7 +193,8 @@ const Auth = () => {
           setLastName("");
           setPhoneNumber("");
         } else {
-          // Signed in immediately
+          // Signed in immediately - clear saved progress
+          clearSignupProgress();
           toast({ 
             title: "Welcome!", 
             description: "Your account has been created successfully.",

@@ -235,6 +235,33 @@ export type Database = {
           },
         ]
       }
+      form_drafts: {
+        Row: {
+          id: string
+          user_id: string
+          form_key: string
+          draft_data: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          form_key: string
+          draft_data?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          form_key?: string
+          draft_data?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       host_applications: {
         Row: {
           about: string | null
