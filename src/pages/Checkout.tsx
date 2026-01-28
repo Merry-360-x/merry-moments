@@ -20,6 +20,7 @@ import { Separator } from "@/components/ui/separator";
 import { Check, Smartphone, Building2, Wallet, CreditCard, ChevronRight, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { checkAvailability } from "@/lib/availability-check";
+import { initiatePawaPayPayment, isPawaPayMethod } from "@/lib/pawapay";
 
 const isoToday = () => new Date().toISOString().slice(0, 10);
 
@@ -288,8 +289,45 @@ export default function Checkout() {
         });
       }
 
-      const { error } = await supabase.from("bookings").insert(basePayload as never);
+      const { data: insertedBooking, error } = await supabase
+        .from("bookings")
+        .insert(basePayload as never)
+        .select("id")
+        .single();
       if (error) throw error;
+
+      // Initiate PawaPay payment for mobile money methods
+      if (isPawaPayMethod(paymentMethod)) {
+        try {
+          const pawaPayResult = await initiatePawaPayPayment({
+            bookingId: insertedBooking.id,
+            amount: total,
+            currency,
+            paymentMethod: paymentMethod as "mtn_momo" | "airtel_money",
+            phoneNumber: phone.trim(),
+          });
+
+          if (pawaPayResult.success) {
+            toast({
+              title: "📱 Payment Initiated",
+              description: "Please check your phone and approve the payment prompt.",
+            });
+          } else {
+            toast({
+              variant: "destructive",
+              title: "Payment initiation failed",
+              description: pawaPayResult.error || "Please try again or use a different payment method.",
+            });
+          }
+        } catch (paymentError) {
+          logError("checkout.pawapay.initiate", paymentError);
+          // Don't block the booking - payment can be retried
+          toast({
+            title: "Booking created",
+            description: "Your booking was created but payment initiation failed. You can pay later.",
+          });
+        }
+      }
 
       // Clear saved progress after successful submission
       localStorage.removeItem("checkout_progress");
@@ -455,8 +493,50 @@ export default function Checkout() {
         }
       });
 
-      const { error } = await supabase.from("bookings").insert(bookingsToCreate);
+      const { data: insertedBookings, error } = await supabase
+        .from("bookings")
+        .insert(bookingsToCreate)
+        .select("id, total_price, currency");
       if (error) throw error;
+
+      // Calculate total amount for cart checkout
+      const totalAmount = bookingsToCreate.reduce((sum, b) => sum + (b.total_price || 0), 0);
+      const cartCurrency = bookingsToCreate[0]?.currency || "RWF";
+
+      // Initiate PawaPay payment for mobile money methods
+      if (isPawaPayMethod(paymentMethod) && insertedBookings && insertedBookings.length > 0) {
+        try {
+          // Use the first booking as the primary for the payment
+          const primaryBookingId = insertedBookings[0].id;
+          const pawaPayResult = await initiatePawaPayPayment({
+            bookingId: primaryBookingId,
+            amount: totalAmount,
+            currency: cartCurrency,
+            paymentMethod: paymentMethod as "mtn_momo" | "airtel_money",
+            phoneNumber: phone.trim(),
+          });
+
+          if (pawaPayResult.success) {
+            toast({
+              title: "📱 Payment Initiated",
+              description: "Please check your phone and approve the payment prompt.",
+            });
+          } else {
+            toast({
+              variant: "destructive",
+              title: "Payment initiation failed",
+              description: pawaPayResult.error || "Please try again or use a different payment method.",
+            });
+          }
+        } catch (paymentError) {
+          logError("checkout.cart.pawapay.initiate", paymentError);
+          // Don't block the booking - payment can be retried
+          toast({
+            title: "Bookings created",
+            description: "Your bookings were created but payment initiation failed. You can pay later.",
+          });
+        }
+      }
 
       // Show appropriate success message
       if (autoConfirmedCount > 0) {
