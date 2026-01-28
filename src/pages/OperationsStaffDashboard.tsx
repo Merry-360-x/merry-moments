@@ -40,6 +40,7 @@ type HostApplication = {
   listing_images?: string[];
   profiles?: {
     full_name: string | null;
+    email: string | null;
   } | null;
 };
 
@@ -136,12 +137,12 @@ export default function OperationsStaffDashboard() {
         throw error;
       }
       
-      // Fetch profile names for each application
+      // Fetch profile names and emails for each application
       const appsWithProfiles = await Promise.all(
         (data ?? []).map(async (app) => {
           const { data: profile } = await supabase
             .from("profiles")
-            .select("full_name")
+            .select("full_name, email")
             .eq("user_id", app.user_id)
             .single();
           
@@ -516,8 +517,8 @@ export default function OperationsStaffDashboard() {
                     <TableBody>
                       {pendingApplications.slice(0, 5).map((app) => (
                         <TableRow key={app.id}>
-                          <TableCell className="font-medium">{app.first_name} {app.last_name}</TableCell>
-                          <TableCell>{app.email}</TableCell>
+                          <TableCell className="font-medium">{app.full_name || app.profiles?.full_name || "—"}</TableCell>
+                          <TableCell>{app.profiles?.email || "—"}</TableCell>
                           <TableCell>
                             <div className="flex gap-1 flex-wrap">
                               {(app.service_types || []).map((type) => (
@@ -588,10 +589,10 @@ export default function OperationsStaffDashboard() {
                     {applications.map((app) => (
                       <TableRow key={app.id}>
                         <TableCell className="font-medium">
-                          {app.profiles?.full_name || 'N/A'}
+                          {app.full_name || app.profiles?.full_name || 'N/A'}
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {app.user_id.substring(0, 8)}...
+                        <TableCell>
+                          {app.profiles?.email || "—"}
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1 flex-wrap">
