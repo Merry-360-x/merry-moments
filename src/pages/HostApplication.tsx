@@ -109,9 +109,8 @@ export default function HostApplication() {
       description: "",
       currency: "RWF",
       images: [] as string[],
-      category: "Adventure",
+      categories: [] as string[],
       duration_days: 1,
-      difficulty: "Easy",
       price_per_person: 100,
       max_group_size: 10,
     },
@@ -1025,20 +1024,31 @@ export default function HostApplication() {
                   {/* Tour-specific fields */}
                   {currentServiceType === 'tour' && (
                     <>
-                      <div className="space-y-2">
-                        <Label htmlFor="tourCategory">Tour Category *</Label>
-                        <Select value={serviceData.category || "Adventure"} onValueChange={(val) => updateField("category", val)}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Adventure">Adventure</SelectItem>
-                            <SelectItem value="Cultural">Cultural</SelectItem>
-                            <SelectItem value="Wildlife">Wildlife</SelectItem>
-                            <SelectItem value="Historical">Historical</SelectItem>
-                            <SelectItem value="Nature">Nature</SelectItem>
-                          </SelectContent>
-                        </Select>
+                      <div className="md:col-span-2 space-y-2">
+                        <Label>Tour Categories * <span className="text-xs text-muted-foreground">(select at least one)</span></Label>
+                        <div className="flex flex-wrap gap-2">
+                          {["Adventure", "Cultural", "Wildlife", "Historical", "Nature", "City Tours", "Eco-Tourism", "Photography", "Hiking"].map((cat) => (
+                            <button
+                              key={cat}
+                              type="button"
+                              className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                                (serviceData.categories || []).includes(cat)
+                                  ? "bg-primary text-primary-foreground border-primary"
+                                  : "bg-background hover:bg-muted"
+                              }`}
+                              onClick={() => {
+                                const cats = serviceData.categories || [];
+                                if (cats.includes(cat)) {
+                                  updateField("categories", cats.filter((c: string) => c !== cat));
+                                } else {
+                                  updateField("categories", [...cats, cat]);
+                                }
+                              }}
+                            >
+                              {cat}
+                            </button>
+                          ))}
+                        </div>
                       </div>
 
                       <div className="space-y-2">
@@ -1050,20 +1060,6 @@ export default function HostApplication() {
                           value={serviceData.duration_days || 1}
                           onChange={(e) => updateField("duration_days", parseInt(e.target.value) || 1)}
                         />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="tourDifficulty">Difficulty Level *</Label>
-                        <Select value={serviceData.difficulty || "Easy"} onValueChange={(val) => updateField("difficulty", val)}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Easy">Easy</SelectItem>
-                            <SelectItem value="Moderate">Moderate</SelectItem>
-                            <SelectItem value="Challenging">Challenging</SelectItem>
-                          </SelectContent>
-                        </Select>
                       </div>
 
                       <div className="space-y-2">
@@ -2279,8 +2275,8 @@ export default function HostApplication() {
                             <p className="font-medium">{formData.tour.duration_days || 0} days</p>
                           </div>
                           <div>
-                            <span className="text-muted-foreground">Difficulty:</span>
-                            <p className="font-medium">{formData.tour.difficulty || 'N/A'}</p>
+                            <span className="text-muted-foreground">Categories:</span>
+                            <p className="font-medium">{(formData.tour.categories || []).join(', ') || 'N/A'}</p>
                           </div>
                           <div>
                             <span className="text-muted-foreground">Group Size:</span>
