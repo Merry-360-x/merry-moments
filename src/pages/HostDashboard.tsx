@@ -258,6 +258,7 @@ export default function HostDashboard() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [routes, setRoutes] = useState<TransportRoute[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [hostServiceTypes, setHostServiceTypes] = useState<string[]>([]);
 
   // Editing states
   const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null);
@@ -407,6 +408,21 @@ export default function HostDashboard() {
     setIsLoading(true);
     
     try {
+      // Fetch host application to get service_types
+      const { data: hostAppData } = await supabase
+        .from("host_applications")
+        .select("service_types")
+        .eq("user_id", user.id)
+        .eq("status", "approved")
+        .single();
+      
+      if (hostAppData?.service_types) {
+        setHostServiceTypes(hostAppData.service_types);
+      } else {
+        // Default to all if no approved application found (shouldn't happen for hosts)
+        setHostServiceTypes(['accommodation', 'tour', 'transport']);
+      }
+      
       // Fetch properties, tours, tour_packages, vehicles, routes
       const [propsRes, toursRes, tourPackagesRes, vehiclesRes, routesRes] = await Promise.all([
         supabase.from("properties").select("*").eq("host_id", user.id).order("created_at", { ascending: false }),
@@ -3207,18 +3223,26 @@ export default function HostDashboard() {
             <Card className="p-6 mb-8">
               <h3 className="font-semibold mb-4">Quick Actions</h3>
               <div className="flex flex-wrap gap-3">
-                <Button onClick={openPropertyWizard}>
-                  <Plus className="w-4 h-4 mr-2" /> Add Property
-                </Button>
-                <Button variant="outline" onClick={() => navigate("/create-tour")}>
-                  <Plus className="w-4 h-4 mr-2" /> Create Tour
-                </Button>
-                <Button variant="outline" onClick={() => navigate("/create-tour-package")}>
-                  <Plus className="w-4 h-4 mr-2" /> Create Tour Package
-                </Button>
-                <Button variant="outline" onClick={() => navigate("/create-transport")}>
-                  <Car className="w-4 h-4 mr-2" /> Add Vehicle
-                </Button>
+                {hostServiceTypes.includes('accommodation') && (
+                  <Button onClick={openPropertyWizard}>
+                    <Plus className="w-4 h-4 mr-2" /> Add Property
+                  </Button>
+                )}
+                {hostServiceTypes.includes('tour') && (
+                  <>
+                    <Button variant="outline" onClick={() => navigate("/create-tour")}>
+                      <Plus className="w-4 h-4 mr-2" /> Create Tour
+                    </Button>
+                    <Button variant="outline" onClick={() => navigate("/create-tour-package")}>
+                      <Plus className="w-4 h-4 mr-2" /> Create Tour Package
+                    </Button>
+                  </>
+                )}
+                {hostServiceTypes.includes('transport') && (
+                  <Button variant="outline" onClick={() => navigate("/create-transport")}>
+                    <Car className="w-4 h-4 mr-2" /> Add Vehicle
+                  </Button>
+                )}
               </div>
             </Card>
 
