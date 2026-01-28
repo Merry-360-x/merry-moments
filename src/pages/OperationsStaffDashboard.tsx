@@ -7,8 +7,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { FileText, Home, Plane, MapPin, CheckCircle, XCircle, Clock, CalendarCheck } from "lucide-react";
+import { FileText, Home, Plane, MapPin, CheckCircle, XCircle, Clock, CalendarCheck, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -18,9 +19,28 @@ type HostApplication = {
   service_types: string[];
   status: string;
   created_at: string;
-  first_name: string;
-  last_name: string;
-  email: string;
+  applicant_type?: string;
+  full_name?: string;
+  phone?: string;
+  about?: string;
+  national_id_number?: string;
+  national_id_photo_url?: string;
+  business_name?: string;
+  business_tin?: string;
+  hosting_location?: string;
+  listing_title?: string;
+  listing_location?: string;
+  listing_property_type?: string;
+  listing_price_per_night?: number;
+  listing_currency?: string;
+  listing_max_guests?: number;
+  listing_bedrooms?: number;
+  listing_bathrooms?: number;
+  listing_amenities?: string[];
+  listing_images?: string[];
+  profiles?: {
+    full_name: string | null;
+  } | null;
 };
 
 type Property = {
@@ -29,6 +49,15 @@ type Property = {
   is_published: boolean;
   host_id: string;
   created_at: string;
+  images?: string[];
+  description?: string;
+  price_per_night?: number;
+  currency?: string;
+  max_guests?: number;
+  bedrooms?: number;
+  bathrooms?: number;
+  location?: string;
+  property_type?: string;
 };
 
 type TourPackage = {
@@ -80,7 +109,18 @@ export default function OperationsStaffDashboard() {
   const { toast } = useToast();
   const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<"overview" | "applications" | "accommodations" | "tours" | "transport" | "bookings" | "checkout">("overview");
+  const [tab, setTab] = useState<"overview" | "applications" | "accommodations" | "tours" | "transport" | "bookings">("overview");
+  const [selectedApplication, setSelectedApplication] = useState<HostApplication | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [bookingDetailsOpen, setBookingDetailsOpen] = useState(false);
+  const [orderBookings, setOrderBookings] = useState<Booking[]>([]);
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+  const [propertyDetailsOpen, setPropertyDetailsOpen] = useState(false);
+  const [selectedTour, setSelectedTour] = useState<TourPackage | null>(null);
+  const [tourDetailsOpen, setTourDetailsOpen] = useState(false);
+  const [selectedTransport, setSelectedTransport] = useState<Transport | null>(null);
+  const [transportDetailsOpen, setTransportDetailsOpen] = useState(false);
 
   const { data: applications = [] } = useQuery({
     queryKey: ["operations_applications"],
@@ -88,15 +128,36 @@ export default function OperationsStaffDashboard() {
       console.log('[OperationsStaff] Fetching applications...');
       const { data, error } = await supabase
         .from("host_applications")
-        .select("id, user_id, service_types, status, created_at, first_name, last_name, email")
+        .select("*")
         .order("created_at", { ascending: false });
+      
       if (error) {
         console.error('[OperationsStaff] Applications error:', error);
         throw error;
       }
-      console.log('[OperationsStaff] Applications fetched:', data?.length || 0);
-      return (data ?? []) as HostApplication[];
+      
+      // Fetch profile names for each application
+      const appsWithProfiles = await Promise.all(
+        (data ?? []).map(async (app) => {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("user_id", app.user_id)
+            .single();
+          
+          return {
+            ...app,
+            profiles: profile,
+          };
+        })
+      );
+      
+      console.log('[OperationsStaff] Applications fetched:', appsWithProfiles?.length || 0);
+      return appsWithProfiles as HostApplication[];
     },
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const { data: properties = [] } = useQuery({
@@ -105,7 +166,7 @@ export default function OperationsStaffDashboard() {
       console.log('[OperationsStaff] Fetching properties...');
       const { data, error } = await supabase
         .from("properties")
-        .select("id, title, is_published, host_id, created_at")
+        .select("*")
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) {
@@ -115,6 +176,9 @@ export default function OperationsStaffDashboard() {
       console.log('[OperationsStaff] Properties fetched:', data?.length || 0);
       return (data ?? []) as Property[];
     },
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const { data: tours = [] } = useQuery({
@@ -123,7 +187,7 @@ export default function OperationsStaffDashboard() {
       console.log('[OperationsStaff] Fetching tours...');
       const { data, error } = await supabase
         .from("tour_packages")
-        .select("id, title, status, guide_id, created_at")
+        .select("id, title, status, created_at")
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) {
@@ -133,6 +197,9 @@ export default function OperationsStaffDashboard() {
       console.log('[OperationsStaff] Tours fetched:', data?.length || 0);
       return (data ?? []) as TourPackage[];
     },
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const { data: transport = [] } = useQuery({
@@ -151,6 +218,9 @@ export default function OperationsStaffDashboard() {
       console.log('[OperationsStaff] Transport fetched:', data?.length || 0);
       return (data ?? []) as Transport[];
     },
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const { data: bookings = [] } = useQuery({
@@ -205,6 +275,9 @@ export default function OperationsStaffDashboard() {
       
       return (data ?? []) as Booking[];
     },
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   // Cart checkouts are bookings with order_id (bulk orders)
@@ -212,10 +285,9 @@ export default function OperationsStaffDashboard() {
     queryKey: ["operations_cart_checkouts"],
     queryFn: async () => {
       console.log('[OperationsStaff] Fetching cart checkout bookings...');
-      // @ts-ignore - Supabase type inference issue
       const { data, error } = await supabase
         .from("bookings")
-        .select("id, order_id, booking_type, property_id, tour_id, transport_id, guest_name, guest_email, guest_phone, payment_method, total_price, currency, status, payment_status, created_at, properties(title), tours(title), transport_vehicles(title)")
+        .select("*")
         .not("order_id", "is", null)
         .order("created_at", { ascending: false })
         .limit(100);
@@ -224,19 +296,77 @@ export default function OperationsStaffDashboard() {
         throw error;
       }
       console.log('[OperationsStaff] Cart checkouts fetched:', data?.length || 0);
-      // @ts-ignore - Supabase type inference issue
+      
+      // Enrich with property/tour/transport details
+      if (data && data.length > 0) {
+        const propertyIds = [...new Set(data.filter(b => b.property_id).map(b => b.property_id))];
+        const tourIds = [...new Set(data.filter(b => b.tour_id).map(b => b.tour_id))];
+        const transportIds = [...new Set(data.filter(b => b.transport_id).map(b => b.transport_id))];
+        
+        const [properties, tours, vehicles] = await Promise.all([
+          propertyIds.length > 0 
+            ? supabase.from("properties").select("id, title").in("id", propertyIds).then(r => r.data || [])
+            : Promise.resolve([]),
+          tourIds.length > 0
+            ? supabase.from("tour_packages").select("id, title").in("id", tourIds).then(r => r.data || [])
+            : Promise.resolve([]),
+          transportIds.length > 0
+            ? supabase.from("transport_vehicles").select("id, title").in("id", transportIds).then(r => r.data || [])
+            : Promise.resolve([])
+        ]);
+        
+        const enriched = data.map(booking => {
+          const b = { ...booking };
+          if (booking.property_id) {
+            b.properties = properties.find(p => p.id === booking.property_id) || null;
+          }
+          if (booking.tour_id) {
+            b.tour_packages = tours.find(t => t.id === booking.tour_id) || null;
+          }
+          if (booking.transport_id) {
+            b.transport_vehicles = vehicles.find(v => v.id === booking.transport_id) || null;
+          }
+          return b;
+        });
+        
+        return enriched as Booking[];
+      }
+      
       return (data ?? []) as Booking[];
     },
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
+
+  // Cart checkouts removed - bulk bookings now shown in regular bookings tab with order details
 
   const approveApplicationMutation = useMutation({
     mutationFn: async (id: string) => {
-      // @ts-ignore - Supabase type inference issue
-      const { error } = await supabase
+      // Get the application to access user_id
+      const { data: application } = await supabase
+        .from("host_applications")
+        .select("user_id")
+        .eq("id", id)
+        .single();
+      
+      if (!application) throw new Error("Application not found");
+      
+      // Update application status
+      const { error: updateErr } = await supabase
         .from("host_applications")
         .update({ status: "approved" })
         .eq("id", id);
-      if (error) throw error;
+      if (updateErr) throw updateErr;
+      
+      // Add host role
+      const { error: roleErr } = await supabase
+        .from("user_roles")
+        .upsert(
+          { user_id: application.user_id, role: "host" },
+          { onConflict: "user_id,role" }
+        );
+      if (roleErr) throw roleErr;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["operations_applications"] });
@@ -293,25 +423,6 @@ export default function OperationsStaffDashboard() {
     },
     onError: () => {
       toast({ title: "Failed to confirm booking", variant: "destructive" });
-    },
-  });
-
-  // Mutation to manually confirm all bookings in a cart order
-  const confirmCartOrderMutation = useMutation({
-    mutationFn: async (orderId: string) => {
-      // @ts-ignore - Supabase type inference issue
-      const { error } = await supabase
-        .from("bookings")
-        .update({ status: "confirmed" })
-        .eq("order_id", orderId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["operations_cart_checkouts"] });
-      toast({ title: "Cart order confirmed successfully" });
-    },
-    onError: () => {
-      toast({ title: "Failed to confirm cart order", variant: "destructive" });
     },
   });
 
@@ -390,17 +501,6 @@ export default function OperationsStaffDashboard() {
               Applications
               {pendingApplications.length > 0 && (
                 <Badge className="ml-2" variant="destructive">{pendingApplications.length}</Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="checkout">
-              Cart Checkouts
-              {cartCheckouts.filter(b => b.status === 'pending').length > 0 && (
-                <Badge className="ml-1.5 px-1.5 py-0 text-xs h-5 min-w-[20px] rounded-full" variant="destructive">
-                  {(() => {
-                    const pendingOrders = new Set(cartCheckouts.filter(b => b.status === 'pending').map(b => b.order_id));
-                    return pendingOrders.size;
-                  })()}
-                </Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="bookings">
@@ -506,8 +606,12 @@ export default function OperationsStaffDashboard() {
                   <TableBody>
                     {applications.map((app) => (
                       <TableRow key={app.id}>
-                        <TableCell className="font-medium">{app.first_name} {app.last_name}</TableCell>
-                        <TableCell>{app.email}</TableCell>
+                        <TableCell className="font-medium">
+                          {app.profiles?.full_name || 'N/A'}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {app.user_id.substring(0, 8)}...
+                        </TableCell>
                         <TableCell>
                           <div className="flex gap-1 flex-wrap">
                             {(app.service_types || []).map((type) => (
@@ -534,24 +638,37 @@ export default function OperationsStaffDashboard() {
                           {new Date(app.created_at).toLocaleDateString()}
                         </TableCell>
                         <TableCell>
-                          {app.status === "pending" && (
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                variant="default"
-                                onClick={() => approveApplicationMutation.mutate(app.id)}
-                              >
-                                Approve
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => rejectApplicationMutation.mutate(app.id)}
-                              >
-                                Reject
-                              </Button>
-                            </div>
-                          )}
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedApplication(app);
+                                setDetailsOpen(true);
+                              }}
+                            >
+                              <Eye className="w-4 h-4 mr-1" />
+                              Details
+                            </Button>
+                            {app.status === "pending" && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  onClick={() => approveApplicationMutation.mutate(app.id)}
+                                >
+                                  Approve
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => rejectApplicationMutation.mutate(app.id)}
+                                >
+                                  Reject
+                                </Button>
+                              </>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -559,6 +676,235 @@ export default function OperationsStaffDashboard() {
                 </Table>
               </CardContent>
             </Card>
+
+            {/* Application Details Dialog */}
+            <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+              <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Application Details</DialogTitle>
+                  <DialogDescription>
+                    Full information about the host application
+                  </DialogDescription>
+                </DialogHeader>
+                {selectedApplication && (
+                  <div className="space-y-6">
+                    {/* Applicant Info */}
+                    <div className="space-y-3">
+                      <h3 className="font-semibold text-lg border-b pb-2">Applicant Information</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm text-muted-foreground">Full Name</p>
+                          <p className="font-medium">{selectedApplication.full_name || selectedApplication.profiles?.full_name || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Phone</p>
+                          <p className="font-medium">{selectedApplication.phone || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Applicant Type</p>
+                          <Badge variant="outline" className="capitalize">
+                            {selectedApplication.applicant_type || 'individual'}
+                          </Badge>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">National ID</p>
+                          <p className="font-medium">{selectedApplication.national_id_number || 'N/A'}</p>
+                        </div>
+                      </div>
+                      {selectedApplication.about && (
+                        <div>
+                          <p className="text-sm text-muted-foreground mb-1">About</p>
+                          <p className="text-sm">{selectedApplication.about}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Business Info */}
+                    {selectedApplication.applicant_type === 'business' && (
+                      <div className="space-y-3">
+                        <h3 className="font-semibold text-lg border-b pb-2">Business Information</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Business Name</p>
+                            <p className="font-medium">{selectedApplication.business_name || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">TIN</p>
+                            <p className="font-medium">{selectedApplication.business_tin || 'N/A'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Hosting Info */}
+                    {selectedApplication.hosting_location && (
+                      <div className="space-y-3">
+                        <h3 className="font-semibold text-lg border-b pb-2">Hosting Information</h3>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Hosting Location</p>
+                          <p className="font-medium">{selectedApplication.hosting_location}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Property Listing Preview */}
+                    {selectedApplication.listing_title && (
+                      <div className="space-y-3">
+                        <h3 className="font-semibold text-lg border-b pb-2">Property Listing Preview</h3>
+                        <div className="space-y-3">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Title</p>
+                            <p className="font-medium">{selectedApplication.listing_title}</p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-sm text-muted-foreground">Location</p>
+                              <p className="font-medium">{selectedApplication.listing_location || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Property Type</p>
+                              <p className="font-medium">{selectedApplication.listing_property_type || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Price</p>
+                              <p className="font-medium">
+                                {selectedApplication.listing_price_per_night ? 
+                                  `${selectedApplication.listing_currency || 'RWF'} ${selectedApplication.listing_price_per_night.toLocaleString()}/night` : 
+                                  'N/A'
+                                }
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Capacity</p>
+                              <p className="font-medium">
+                                {selectedApplication.listing_max_guests || 'N/A'} guests, {selectedApplication.listing_bedrooms || 'N/A'} bed, {selectedApplication.listing_bathrooms || 'N/A'} bath
+                              </p>
+                            </div>
+                          </div>
+                          {selectedApplication.listing_amenities && selectedApplication.listing_amenities.length > 0 && (
+                            <div>
+                              <p className="text-sm text-muted-foreground mb-2">Amenities</p>
+                              <div className="flex flex-wrap gap-1">
+                                {selectedApplication.listing_amenities.map((amenity, idx) => (
+                                  <Badge key={idx} variant="secondary" className="text-xs">
+                                    {amenity}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {selectedApplication.listing_images && selectedApplication.listing_images.length > 0 && (
+                            <div>
+                              <p className="text-sm text-muted-foreground mb-2">Images ({selectedApplication.listing_images.length})</p>
+                              <div className="grid grid-cols-3 gap-2">
+                                {selectedApplication.listing_images.slice(0, 6).map((img, idx) => (
+                                  <img 
+                                    key={idx} 
+                                    src={img} 
+                                    alt={`Property ${idx + 1}`}
+                                    className="w-full h-24 object-cover rounded border"
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Documents */}
+                    {selectedApplication.national_id_photo_url && (
+                      <div className="space-y-3">
+                        <h3 className="font-semibold text-lg border-b pb-2">Documents</h3>
+                        <div>
+                          <p className="text-sm text-muted-foreground mb-2">National ID Photo</p>
+                          <img 
+                            src={selectedApplication.national_id_photo_url} 
+                            alt="National ID"
+                            className="max-w-md h-auto rounded border"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Application Status */}
+                    <div className="space-y-2">
+                      <h3 className="font-semibold text-lg">Application Status</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm text-muted-foreground">Status</p>
+                          <Badge
+                            variant={
+                              selectedApplication.status === "approved"
+                                ? "default"
+                                : selectedApplication.status === "pending"
+                                ? "secondary"
+                                : "destructive"
+                            }
+                          >
+                            {selectedApplication.status}
+                          </Badge>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Submitted On</p>
+                          <p className="font-medium">
+                            {new Date(selectedApplication.created_at).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Service Types */}
+                    <div className="space-y-2">
+                      <h3 className="font-semibold text-lg">Requested Services</h3>
+                      <div className="flex gap-2 flex-wrap">
+                        {(selectedApplication.service_types || []).map((type) => (
+                          <Badge key={type} variant="outline" className="text-sm">
+                            {type === 'accommodation' && <Home className="w-3 h-3 mr-1" />}
+                            {type === 'tour' && <Plane className="w-3 h-3 mr-1" />}
+                            {type === 'transport' && <MapPin className="w-3 h-3 mr-1" />}
+                            {type}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    {selectedApplication.status === "pending" && (
+                      <div className="flex gap-3 pt-4 border-t">
+                        <Button
+                          className="flex-1"
+                          onClick={() => {
+                            approveApplicationMutation.mutate(selectedApplication.id);
+                            setDetailsOpen(false);
+                          }}
+                        >
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          Approve Application
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          className="flex-1"
+                          onClick={() => {
+                            rejectApplicationMutation.mutate(selectedApplication.id);
+                            setDetailsOpen(false);
+                          }}
+                        >
+                          <XCircle className="w-4 h-4 mr-2" />
+                          Reject Application
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           <TabsContent value="accommodations">
@@ -575,6 +921,7 @@ export default function OperationsStaffDashboard() {
                       <TableHead>ID</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Created</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -596,11 +943,24 @@ export default function OperationsStaffDashboard() {
                         <TableCell className="text-sm">
                           {new Date(property.created_at).toLocaleDateString()}
                         </TableCell>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedProperty(property);
+                              setPropertyDetailsOpen(true);
+                            }}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            Details
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                     {properties.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center text-muted-foreground">
+                        <TableCell colSpan={5} className="text-center text-muted-foreground">
                           No properties found
                         </TableCell>
                       </TableRow>
@@ -625,6 +985,7 @@ export default function OperationsStaffDashboard() {
                       <TableHead>ID</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Created</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -648,11 +1009,24 @@ export default function OperationsStaffDashboard() {
                         <TableCell className="text-sm">
                           {new Date(tour.created_at).toLocaleDateString()}
                         </TableCell>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedTour(tour);
+                              setTourDetailsOpen(true);
+                            }}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            Details
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                     {tours.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center text-muted-foreground">
+                        <TableCell colSpan={5} className="text-center text-muted-foreground">
                           No tours found
                         </TableCell>
                       </TableRow>
@@ -678,6 +1052,7 @@ export default function OperationsStaffDashboard() {
                       <TableHead>ID</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Created</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -700,11 +1075,24 @@ export default function OperationsStaffDashboard() {
                         <TableCell className="text-sm">
                           {new Date(item.created_at).toLocaleDateString()}
                         </TableCell>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedTransport(item);
+                              setTransportDetailsOpen(true);
+                            }}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            Details
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                     {transport.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center text-muted-foreground">
+                        <TableCell colSpan={6} className="text-center text-muted-foreground">
                           No transport vehicles found
                         </TableCell>
                       </TableRow>
@@ -817,20 +1205,72 @@ export default function OperationsStaffDashboard() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {/* Admin or Operations Staff can confirm bookings */}
-                          {(isAdmin || true) && (booking.status === "pending_confirmation" || booking.status === "pending") ? (
+                          <div className="flex gap-2">
                             <Button
                               size="sm"
-                              variant="default"
-                              onClick={() => confirmBookingMutation.mutate(booking.id)}
-                              disabled={confirmBookingMutation.isPending}
+                              variant="outline"
+                              onClick={async () => {
+                                setSelectedBooking(booking);
+                                // If booking has order_id, fetch all bookings in that order
+                                if (booking.order_id) {
+                                  const { data } = await supabase
+                                    .from("bookings")
+                                    .select("*")
+                                    .eq("order_id", booking.order_id);
+                                  
+                                  if (data) {
+                                    // Enrich with details
+                                    const propertyIds = [...new Set(data.filter(b => b.property_id).map(b => b.property_id))];
+                                    const tourIds = [...new Set(data.filter(b => b.tour_id).map(b => b.tour_id))];
+                                    const transportIds = [...new Set(data.filter(b => b.transport_id).map(b => b.transport_id))];
+                                    
+                                    const [properties, tours, vehicles] = await Promise.all([
+                                      propertyIds.length > 0 
+                                        ? supabase.from("properties").select("id, title, images").in("id", propertyIds).then(r => r.data || [])
+                                        : Promise.resolve([]),
+                                      tourIds.length > 0
+                                        ? supabase.from("tour_packages").select("id, title").in("id", tourIds).then(r => r.data || [])
+                                        : Promise.resolve([]),
+                                      transportIds.length > 0
+                                        ? supabase.from("transport_vehicles").select("id, title, vehicle_type").in("id", transportIds).then(r => r.data || [])
+                                        : Promise.resolve([])
+                                    ]);
+                                    
+                                    const enriched = data.map(b => {
+                                      const booking = { ...b };
+                                      if (b.property_id) {
+                                        booking.properties = properties.find(p => p.id === b.property_id) || null;
+                                      }
+                                      if (b.tour_id) {
+                                        booking.tour_packages = tours.find(t => t.id === b.tour_id) || null;
+                                      }
+                                      if (b.transport_id) {
+                                        booking.transport_vehicles = vehicles.find(v => v.id === b.transport_id) || null;
+                                      }
+                                      return booking;
+                                    });
+                                    
+                                    setOrderBookings(enriched as Booking[]);
+                                  }
+                                }
+                                setBookingDetailsOpen(true);
+                              }}
                             >
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Confirm
+                              <Eye className="h-4 w-4 mr-1" />
+                              Details
                             </Button>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">-</span>
-                          )}
+                            {(isAdmin || true) && (booking.status === "pending_confirmation" || booking.status === "pending") && (
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={() => confirmBookingMutation.mutate(booking.id)}
+                                disabled={confirmBookingMutation.isPending}
+                              >
+                                <CheckCircle className="h-4 w-4 mr-1" />
+                                Confirm
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -847,112 +1287,427 @@ export default function OperationsStaffDashboard() {
               </CardContent>
             </Card>
           </TabsContent>
-
-          <TabsContent value="checkout">
-            <Card>
-              <CardHeader>
-                <CardTitle>Cart Checkout Orders</CardTitle>
-                <CardDescription>Confirm bulk booking orders from the trip cart</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Order ID</TableHead>
-                      <TableHead>Guest</TableHead>
-                      <TableHead>Phone</TableHead>
-                      <TableHead>Items</TableHead>
-                      <TableHead>Total</TableHead>
-                      <TableHead>Payment</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(() => {
-                      // Group bookings by order_id
-                      const orderMap = new Map<string, Booking[]>();
-                      cartCheckouts.forEach(booking => {
-                        if (booking.order_id) {
-                          const existing = orderMap.get(booking.order_id) || [];
-                          orderMap.set(booking.order_id, [...existing, booking]);
-                        }
-                      });
-
-                      return Array.from(orderMap.entries()).map(([orderId, bookings]) => {
-                        const firstBooking = bookings[0];
-                        const totalAmount = bookings.reduce((sum, b) => sum + b.total_price, 0);
-                        const allConfirmed = bookings.every(b => b.status === 'confirmed');
-                        const anyPending = bookings.some(b => b.status === 'pending');
-
-                        return (
-                          <TableRow key={orderId}>
-                            <TableCell className="font-mono text-xs">{orderId.slice(0, 8)}...</TableCell>
-                            <TableCell>
-                              <div>
-                                <div className="font-medium">{firstBooking.guest_name}</div>
-                                <div className="text-xs text-muted-foreground">{firstBooking.guest_email}</div>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-sm">{firstBooking.guest_phone || 'N/A'}</TableCell>
-                            <TableCell>
-                              <div className="text-xs space-y-1">
-                                {bookings.map(b => {
-                                  const itemName = b.booking_type === 'property' && b.properties ? b.properties.title :
-                                                  b.booking_type === 'tour' && b.tour_packages ? b.tour_packages.title :
-                                                  b.booking_type === 'transport' && b.transport_vehicles ? b.transport_vehicles.title : 'Item';
-                                  const icon = b.booking_type === 'property' ? '🏠' : b.booking_type === 'tour' ? '🗺️' : '🚗';
-                                  return <div key={b.id}>{icon} {itemName}</div>;
-                                })}
-                              </div>
-                            </TableCell>
-                            <TableCell className="font-medium">{firstBooking.currency} {totalAmount.toFixed(2)}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className="text-xs">
-                                {firstBooking.payment_method?.replace('_', ' ').toUpperCase() || 'N/A'}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant={allConfirmed ? "default" : anyPending ? "secondary" : "destructive"}>
-                                {allConfirmed ? 'Confirmed' : anyPending ? 'Pending' : 'Mixed'}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {/* Admin or Operations Staff can confirm cart orders */}
-                              {(isAdmin || true) && anyPending && (
-                                <Button
-                                  size="sm"
-                                  onClick={() => confirmCartOrderMutation.mutate(orderId)}
-                                  disabled={confirmCartOrderMutation.isPending}
-                                  className="gap-1"
-                                >
-                                  <CheckCircle className="w-3 h-3" />
-                                  Confirm
-                                </Button>
-                              )}
-                              {allConfirmed && (
-                                <span className="text-sm text-muted-foreground">✓ Confirmed</span>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      });
-                    })()}
-                    {cartCheckouts.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center text-muted-foreground">
-                          No cart checkout orders found
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
       </main>
       <Footer />
+
+      {/* Booking Details Dialog */}
+      <Dialog open={bookingDetailsOpen} onOpenChange={setBookingDetailsOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Booking Details</DialogTitle>
+            <DialogDescription>
+              Complete information about this booking
+            </DialogDescription>
+          </DialogHeader>
+          {selectedBooking && (
+            <div className="space-y-6">
+              {/* Cart Order Badge */}
+              {selectedBooking.order_id && orderBookings.length > 1 && (
+                <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Badge variant="default" className="font-mono text-xs">
+                      Cart Order: {selectedBooking.order_id.slice(0, 8)}...
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">
+                      {orderBookings.length} items • Total: {selectedBooking.currency} {orderBookings.reduce((sum, b) => sum + b.total_price, 0).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {orderBookings.map((orderBooking) => {
+                      let itemName = "Unknown";
+                      let itemType = orderBooking.booking_type || "property";
+                      let itemIcon = "🏠";
+                      
+                      if (itemType === "property" && orderBooking.properties) {
+                        itemName = orderBooking.properties.title;
+                        itemIcon = "🏠";
+                      } else if (itemType === "tour" && orderBooking.tour_packages) {
+                        itemName = orderBooking.tour_packages.title;
+                        itemIcon = "🗺️";
+                      } else if (itemType === "transport" && orderBooking.transport_vehicles) {
+                        itemName = orderBooking.transport_vehicles.title;
+                        itemIcon = "🚗";
+                      }
+                      
+                      const isCurrentBooking = orderBooking.id === selectedBooking.id;
+                      
+                      return (
+                        <div
+                          key={orderBooking.id}
+                          className={`flex items-center justify-between p-2 rounded ${
+                            isCurrentBooking ? "bg-primary/20 border border-primary" : "bg-muted/50"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">{itemIcon}</span>
+                            <div>
+                              <div className="font-medium text-sm">{itemName}</div>
+                              <div className="text-xs text-muted-foreground font-mono">
+                                {orderBooking.host_id ? `Host: ${orderBooking.host_id}` : 'No host'}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <Badge variant={orderBooking.status === "confirmed" ? "default" : "secondary"}>
+                              {orderBooking.status.replace('_', ' ')}
+                            </Badge>
+                            <span className="font-mono text-sm">
+                              {orderBooking.currency} {orderBooking.total_price.toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Booking Information */}
+              <div>
+                <h3 className="font-semibold mb-3">Booking Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Booking ID</p>
+                    <p className="font-mono text-sm">{selectedBooking.id}</p>
+                  </div>
+                  {selectedBooking.order_id && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Order ID</p>
+                      <p className="font-mono text-sm">{selectedBooking.order_id}</p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-sm text-muted-foreground">Item Type</p>
+                    <p className="capitalize">{selectedBooking.booking_type || 'property'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Item Name</p>
+                    <p>
+                      {selectedBooking.booking_type === "tour" && selectedBooking.tour_packages?.title}
+                      {selectedBooking.booking_type === "transport" && selectedBooking.transport_vehicles?.title}
+                      {(!selectedBooking.booking_type || selectedBooking.booking_type === "property") && selectedBooking.properties?.title}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Check-In</p>
+                    <p>{new Date(selectedBooking.check_in).toLocaleDateString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Check-Out</p>
+                    <p>{new Date(selectedBooking.check_out).toLocaleDateString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Number of Guests</p>
+                    <p>{selectedBooking.guests}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Price</p>
+                    <p className="font-mono">{selectedBooking.currency} {selectedBooking.total_price.toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Status</p>
+                    <Badge
+                      variant={
+                        selectedBooking.status === "confirmed"
+                          ? "default"
+                          : selectedBooking.status === "pending_confirmation"
+                          ? "secondary"
+                          : selectedBooking.status === "completed"
+                          ? "outline"
+                          : "destructive"
+                      }
+                    >
+                      {selectedBooking.status.replace('_', ' ')}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Payment Status</p>
+                    <Badge variant={selectedBooking.payment_status === "paid" ? "default" : "secondary"}>
+                      {selectedBooking.payment_status || 'pending'}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
+              {/* Guest Information */}
+              <div>
+                <h3 className="font-semibold mb-3">Guest Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Guest Name</p>
+                    <p>{selectedBooking.guest_name || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Email</p>
+                    <p>{selectedBooking.guest_email || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Phone</p>
+                    <p>{selectedBooking.guest_phone || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Guest Type</p>
+                    <p>{selectedBooking.is_guest_booking ? 'Guest Checkout' : 'Registered User'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment Information */}
+              {selectedBooking.payment_method && (
+                <div>
+                  <h3 className="font-semibold mb-3">Payment Information</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Payment Method</p>
+                      <p className="capitalize">{selectedBooking.payment_method}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Payment Status</p>
+                      <Badge variant={selectedBooking.payment_status === "paid" ? "default" : "secondary"}>
+                        {selectedBooking.payment_status || 'pending'}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Special Requests */}
+              {selectedBooking.special_requests && (
+                <div>
+                  <h3 className="font-semibold mb-3">Special Requests</h3>
+                  <p className="text-sm bg-muted p-3 rounded">{selectedBooking.special_requests}</p>
+                </div>
+              )}
+
+              {/* Host Information */}
+              {selectedBooking.host_id && (
+                <div>
+                  <h3 className="font-semibold mb-3">Host Information</h3>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Host ID</p>
+                    <p className="font-mono text-sm">{selectedBooking.host_id}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Timestamps */}
+              <div>
+                <h3 className="font-semibold mb-3">Timestamps</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Created At</p>
+                    <p className="text-sm">{new Date(selectedBooking.created_at).toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Property Details Dialog */}
+      <Dialog open={propertyDetailsOpen} onOpenChange={setPropertyDetailsOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Property Details</DialogTitle>
+            <DialogDescription>
+              Complete information about this property listing
+            </DialogDescription>
+          </DialogHeader>
+          {selectedProperty && (
+            <div className="space-y-6">
+              {/* Property Images */}
+              {selectedProperty.images && selectedProperty.images.length > 0 && (
+                <div>
+                  <h3 className="font-semibold mb-3">Images</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    {selectedProperty.images.slice(0, 4).map((img, idx) => (
+                      <img
+                        key={idx}
+                        src={img}
+                        alt={`${selectedProperty.title} - ${idx + 1}`}
+                        className="w-full h-48 object-cover rounded-lg"
+                      />
+                    ))}
+                  </div>
+                  {selectedProperty.images.length > 4 && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      +{selectedProperty.images.length - 4} more images
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div>
+                <h3 className="font-semibold mb-3">Property Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Property ID</p>
+                    <p className="font-mono text-sm">{selectedProperty.id}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Title</p>
+                    <p className="font-medium">{selectedProperty.title}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Property Type</p>
+                    <p className="capitalize">{selectedProperty.property_type || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Location</p>
+                    <p>{selectedProperty.location || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Status</p>
+                    <Badge variant={selectedProperty.is_published ? "default" : "secondary"}>
+                      {selectedProperty.is_published ? 'Published' : 'Draft'}
+                    </Badge>
+                  </div>
+                  {selectedProperty.price_per_night && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Price per Night</p>
+                      <p className="font-mono">{selectedProperty.currency || 'USD'} {selectedProperty.price_per_night.toLocaleString()}</p>
+                    </div>
+                  )}
+                  {selectedProperty.max_guests && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Max Guests</p>
+                      <p>{selectedProperty.max_guests}</p>
+                    </div>
+                  )}
+                  {selectedProperty.bedrooms && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Bedrooms</p>
+                      <p>{selectedProperty.bedrooms}</p>
+                    </div>
+                  )}
+                  {selectedProperty.bathrooms && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Bathrooms</p>
+                      <p>{selectedProperty.bathrooms}</p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-sm text-muted-foreground">Host ID</p>
+                    <p className="font-mono text-sm">{selectedProperty.host_id}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Created At</p>
+                    <p className="text-sm">{new Date(selectedProperty.created_at).toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Description */}
+              {selectedProperty.description && (
+                <div>
+                  <h3 className="font-semibold mb-3">Description</h3>
+                  <p className="text-sm bg-muted p-3 rounded">{selectedProperty.description}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Tour Details Dialog */}
+      <Dialog open={tourDetailsOpen} onOpenChange={setTourDetailsOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Tour Package Details</DialogTitle>
+            <DialogDescription>
+              Complete information about this tour package
+            </DialogDescription>
+          </DialogHeader>
+          {selectedTour && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="font-semibold mb-3">Tour Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Tour ID</p>
+                    <p className="font-mono text-sm">{selectedTour.id}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Title</p>
+                    <p className="font-medium">{selectedTour.title}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Status</p>
+                    <Badge
+                      variant={
+                        selectedTour.status === "approved"
+                          ? "default"
+                          : selectedTour.status === "pending"
+                          ? "secondary"
+                          : "outline"
+                      }
+                    >
+                      {selectedTour.status}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Guide ID</p>
+                    <p className="font-mono text-sm">{selectedTour.guide_id}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Created At</p>
+                    <p className="text-sm">{new Date(selectedTour.created_at).toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Transport Details Dialog */}
+      <Dialog open={transportDetailsOpen} onOpenChange={setTransportDetailsOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Transport Vehicle Details</DialogTitle>
+            <DialogDescription>
+              Complete information about this transport vehicle
+            </DialogDescription>
+          </DialogHeader>
+          {selectedTransport && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="font-semibold mb-3">Vehicle Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Vehicle ID</p>
+                    <p className="font-mono text-sm">{selectedTransport.id}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Title</p>
+                    <p className="font-medium">{selectedTransport.title}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Vehicle Type</p>
+                    <p>{selectedTransport.vehicle_type || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Status</p>
+                    <Badge variant={selectedTransport.is_published ? "default" : "secondary"}>
+                      {selectedTransport.is_published ? 'Published' : 'Draft'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Created By</p>
+                    <p className="font-mono text-sm">{selectedTransport.created_by}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Created At</p>
+                    <p className="text-sm">{new Date(selectedTransport.created_at).toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

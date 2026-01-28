@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,11 +43,13 @@ export default function FinancialStaffDashboard() {
   const { user, isAdmin } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<"overview" | "bookings" | "checkout" | "revenue">("overview");
+  const [tab, setTab] = useState<"overview" | "bookings" | "revenue">("overview");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
   const [markingPaid, setMarkingPaid] = useState<string | null>(null);
   const [requestingPayment, setRequestingPayment] = useState<string | null>(null);
+  const [selectedBooking, setSelectedBooking] = useState<BookingRow | null>(null);
+  const [bookingDetailsOpen, setBookingDetailsOpen] = useState(false);
 
   const { data: metrics, refetch: refetchMetrics } = useQuery({
     queryKey: ["financial_metrics"],
@@ -67,6 +70,9 @@ export default function FinancialStaffDashboard() {
       }
       return data as unknown as Metrics;
     },
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const { data: bookings = [], refetch: refetchBookings } = useQuery({
@@ -85,45 +91,10 @@ export default function FinancialStaffDashboard() {
       console.log('[FinancialStaff] Bookings fetched:', data?.length || 0);
       return (data ?? []) as BookingRow[];
     },
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
-
-  const processRefund = async (bookingId: string) => {
-    try {
-      const { getRefundInfo } = await import('@/lib/refund-calculator');
-      const refund = await getRefundInfo(bookingId, null);
-      
-      if (!refund) {
-        toast({
-          variant: "destructive",
-          title: "Cannot Calculate Refund",
-          description: "Unable to determine refund amount for this booking.",
-        });
-        return;
-      }
-
-      const { error } = await supabase
-        .from("bookings")
-        .update({ payment_status: 'refunded' })
-        .eq("id", bookingId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Refund Processed",
-        description: `Refund of ${refund.refundAmount.toFixed(2)} ${refund.currency} (${refund.refundPercentage}%) has been processed.`,
-      });
-
-      refetchBookings();
-      refetchMetrics();
-    } catch (error) {
-      console.error("Error processing refund:", error);
-      toast({
-        variant: "destructive",
-        title: "Refund Failed",
-        description: "Failed to process refund. Please try again.",
-      });
-    }
-  };
 
   const markAsPaid = async (bookingId: string) => {
     setMarkingPaid(bookingId);
@@ -190,23 +161,7 @@ export default function FinancialStaffDashboard() {
     }
   };
 
-  const { data: checkoutRequests = [] } = useQuery({
-    queryKey: ["financial_checkout_requests"],
-    queryFn: async () => {
-      console.log('[FinancialStaff] Fetching checkout requests...');
-      const { data, error } = await supabase
-        .from("checkout_requests")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(100);
-      if (error) {
-        console.error('[FinancialStaff] Checkout requests error:', error);
-        throw error;
-      }
-      console.log('[FinancialStaff] Checkout requests fetched:', data?.length || 0);
-      return data ?? [];
-    },
-  });
+  // Checkout requests removed - bulk bookings now handled through regular bookings with order_id
 
   const revenueDisplay = useMemo(() => {
     const list = metrics?.revenue_by_currency ?? [];
@@ -379,14 +334,7 @@ export default function FinancialStaffDashboard() {
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="checkout">
-              Cart Checkouts
-              {checkoutRequests.filter(r => r.status === 'pending_confirmation').length > 0 && (
-                <Badge variant="destructive" className="ml-1.5 px-1.5 py-0 text-xs h-5 min-w-[20px] rounded-full">
-                  {checkoutRequests.filter(r => r.status === 'pending_confirmation').length}
-                </Badge>
-              )}
-            </TabsTrigger>
+
             <TabsTrigger value="revenue">Revenue by Currency</TabsTrigger>
           </TabsList>
 
@@ -548,6 +496,17 @@ export default function FinancialStaffDashboard() {
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedBooking(booking);
+                                setBookingDetailsOpen(true);
+                              }}
+                            >
+                              <Download className="w-4 h-4" />
+                              Details
+                            </Button>
                             {/* Admin or Financial Staff can request payment */}
                             {(isAdmin || true) && booking.status === 'confirmed' && booking.payment_status === 'pending' && (
                               <Button
@@ -562,17 +521,6 @@ export default function FinancialStaffDashboard() {
                               </Button>
                             )}
                             {/* Refund button for cancelled paid bookings */}
-                            {booking.status === 'cancelled' && booking.payment_status === 'paid' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="gap-1 text-yellow-700 border-yellow-700 hover:bg-yellow-50"
-                                onClick={() => processRefund(booking.id)}
-                              >
-                                <DollarSign className="w-4 h-4" />
-                                Process Refund
-                              </Button>
-                            )}
                             {/* Admin or Financial Staff can mark as paid */}
                             {(isAdmin || true) && booking.status === 'confirmed' && (booking.payment_status === 'requested' || booking.payment_status === 'pending') && (
                               <Button
@@ -593,74 +541,6 @@ export default function FinancialStaffDashboard() {
                         </TableCell>
                       </TableRow>
                     ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="checkout">
-            <Card>
-              <CardHeader>
-                <CardTitle>Cart Checkout Requests</CardTitle>
-                <CardDescription>Manage checkout requests from the trip cart</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Phone</TableHead>
-                      <TableHead>Payment Method</TableHead>
-                      <TableHead>Items</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Created</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {checkoutRequests.map((request: any) => (
-                      <TableRow key={request.id}>
-                        <TableCell className="font-medium">{request.name}</TableCell>
-                        <TableCell className="text-sm">{request.email}</TableCell>
-                        <TableCell className="text-sm">{request.phone || 'N/A'}</TableCell>
-                        <TableCell>
-                          {request.payment_method ? (
-                            <Badge variant="outline" className="text-xs">
-                              {request.payment_method.replace('_', ' ').toUpperCase()}
-                            </Badge>
-                          ) : 'N/A'}
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-xs">
-                            {Array.isArray(request.items) ? request.items.length : 0} items
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              request.status === "confirmed"
-                                ? "default"
-                                : request.status === "pending_confirmation"
-                                ? "secondary"
-                                : "destructive"
-                            }
-                          >
-                            {request.status?.replace('_', ' ') || 'pending'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {new Date(request.created_at).toLocaleDateString()}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {checkoutRequests.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center text-muted-foreground">
-                          No checkout requests found
-                        </TableCell>
-                      </TableRow>
-                    )}
                   </TableBody>
                 </Table>
               </CardContent>
@@ -703,6 +583,132 @@ export default function FinancialStaffDashboard() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Booking Details Dialog */}
+        <Dialog open={bookingDetailsOpen} onOpenChange={setBookingDetailsOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Booking Details</DialogTitle>
+              <DialogDescription>
+                Complete financial information for this booking
+              </DialogDescription>
+            </DialogHeader>
+            {selectedBooking && (
+              <div className="space-y-6">
+                {/* Booking Information */}
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold mb-3">Booking Information</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                      <p className="text-sm text-muted-foreground">Booking ID</p>
+                      <p className="font-mono text-xs break-all">{selectedBooking.id}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Status</p>
+                      <Badge>{selectedBooking.status}</Badge>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Payment Status</p>
+                      <Badge variant={selectedBooking.payment_status === 'paid' ? 'default' : 'secondary'}>
+                        {selectedBooking.payment_status || 'pending'}
+                      </Badge>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Created Date</p>
+                      <p className="text-sm">{new Date(selectedBooking.created_at).toLocaleString()}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Guest Information */}
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold mb-3">Guest Information</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Name</p>
+                      <p className="text-sm font-medium">{selectedBooking.guest_name || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Email</p>
+                      <p className="text-sm">{selectedBooking.guest_email || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Phone</p>
+                      <p className="text-sm">{selectedBooking.guest_phone || 'N/A'}</p>
+                    </div>
+                    {selectedBooking.guest_id && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">Guest ID</p>
+                        <p className="font-mono text-xs break-all">{selectedBooking.guest_id}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Payment Information */}
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold mb-3">Payment Information</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Total Amount</p>
+                      <p className="text-lg font-bold">
+                        {formatMoney(Number(selectedBooking.total_price), String(selectedBooking.currency ?? "USD"))}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Currency</p>
+                      <p className="text-sm font-medium">{selectedBooking.currency || 'USD'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Payment Method</p>
+                      <p className="text-sm">{selectedBooking.payment_method?.replace('_', ' ').toUpperCase() || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Payment Status</p>
+                      <Badge variant={selectedBooking.payment_status === 'paid' ? 'default' : 'secondary'}>
+                        {selectedBooking.payment_status || 'pending'}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                {selectedBooking.payment_status !== 'paid' && (
+                  <div className="border-t pt-4">
+                    <h3 className="font-semibold mb-3">Available Actions</h3>
+                    <div className="flex gap-2">
+                      {selectedBooking.status === 'confirmed' && selectedBooking.payment_status === 'pending' && (
+                        <Button
+                          onClick={() => {
+                            requestPayment(selectedBooking.id, selectedBooking.guest_email || '', selectedBooking.guest_name || 'Guest');
+                            setBookingDetailsOpen(false);
+                          }}
+                          disabled={requestingPayment === selectedBooking.id}
+                        >
+                          <DollarSign className="w-4 h-4 mr-2" />
+                          Request Payment
+                        </Button>
+                      )}
+                      {selectedBooking.status === 'confirmed' && (selectedBooking.payment_status === 'requested' || selectedBooking.payment_status === 'pending') && (
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            markAsPaid(selectedBooking.id);
+                            setBookingDetailsOpen(false);
+                          }}
+                          disabled={markingPaid === selectedBooking.id}
+                        >
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          Mark as Paid
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </main>
       <Footer />
     </div>

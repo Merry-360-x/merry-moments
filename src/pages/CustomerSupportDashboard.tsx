@@ -5,10 +5,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, MessageSquare, Mail, AlertCircle } from "lucide-react";
+import { Users, MessageSquare, Mail, AlertCircle, Eye } from "lucide-react";
+import { formatMoney } from "@/lib/money";
 
 type User = {
   id: string;
@@ -54,6 +56,10 @@ type Booking = {
 export default function CustomerSupportDashboard() {
   const [tab, setTab] = useState<"overview" | "users" | "tickets" | "bookings">("overview");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
+  const [userDetailsOpen, setUserDetailsOpen] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [bookingDetailsOpen, setBookingDetailsOpen] = useState(false);
 
   const { data: users = [] } = useQuery({
     queryKey: ["support_users"],
@@ -71,6 +77,9 @@ export default function CustomerSupportDashboard() {
       console.log('[CustomerSupport] Profiles fetched:', data?.length || 0);
       return (data ?? []) as Profile[];
     },
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const { data: bookings = [] } = useQuery({
@@ -89,6 +98,9 @@ export default function CustomerSupportDashboard() {
       console.log('[CustomerSupport] Bookings fetched:', data?.length || 0);
       return (data ?? []) as Booking[];
     },
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   // Mock support tickets (you'll need to create this table)
@@ -317,6 +329,7 @@ export default function CustomerSupportDashboard() {
                       <TableHead>Name</TableHead>
                       <TableHead>Phone</TableHead>
                       <TableHead>Joined</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -332,11 +345,24 @@ export default function CustomerSupportDashboard() {
                             ? new Date(user.created_at).toLocaleDateString()
                             : "N/A"}
                         </TableCell>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedUser(user);
+                              setUserDetailsOpen(true);
+                            }}
+                          >
+                            <Eye className="w-3 h-3 mr-1" />
+                            Details
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                     {filteredUsers.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center text-muted-foreground">
+                        <TableCell colSpan={5} className="text-center text-muted-foreground">
                           No users match your search
                         </TableCell>
                       </TableRow>
@@ -397,6 +423,19 @@ export default function CustomerSupportDashboard() {
                           >
                             {booking.status}
                           </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedBooking(booking);
+                              setBookingDetailsOpen(true);
+                            }}
+                          >
+                            <Eye className="w-3 h-3 mr-1" />
+                            Details
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -489,6 +528,129 @@ export default function CustomerSupportDashboard() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* User Details Dialog */}
+        <Dialog open={userDetailsOpen} onOpenChange={setUserDetailsOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>User Details</DialogTitle>
+              <DialogDescription>
+                Complete user account information
+              </DialogDescription>
+            </DialogHeader>
+            {selectedUser && (
+              <div className="space-y-6">
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold mb-3">Account Information</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                      <p className="text-sm text-muted-foreground">User ID</p>
+                      <p className="font-mono text-xs break-all">{selectedUser.user_id}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Full Name</p>
+                      <p className="text-sm font-medium">{selectedUser.full_name || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Phone</p>
+                      <p className="text-sm">{selectedUser.phone || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Account Created</p>
+                      <p className="text-sm">
+                        {selectedUser.created_at ? new Date(selectedUser.created_at).toLocaleString() : 'N/A'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Booking Details Dialog */}
+        <Dialog open={bookingDetailsOpen} onOpenChange={setBookingDetailsOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Booking Details</DialogTitle>
+              <DialogDescription>
+                Complete booking information
+              </DialogDescription>
+            </DialogHeader>
+            {selectedBooking && (
+              <div className="space-y-6">
+                {/* Booking Information */}
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold mb-3">Booking Information</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                      <p className="text-sm text-muted-foreground">Booking ID</p>
+                      <p className="font-mono text-xs break-all">{selectedBooking.id}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Status</p>
+                      <Badge>{selectedBooking.status}</Badge>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Created Date</p>
+                      <p className="text-sm">{new Date(selectedBooking.created_at).toLocaleString()}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Guest Information */}
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold mb-3">Guest Information</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Name</p>
+                      <p className="text-sm font-medium">{selectedBooking.guest_name || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Email</p>
+                      <p className="text-sm">{selectedBooking.guest_email || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Phone</p>
+                      <p className="text-sm">{selectedBooking.guest_phone || 'N/A'}</p>
+                    </div>
+                    {selectedBooking.guest_id && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">Guest ID</p>
+                        <p className="font-mono text-xs break-all">{selectedBooking.guest_id}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Stay Details */}
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold mb-3">Stay Details</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Check-in</p>
+                      <p className="text-sm font-medium">{selectedBooking.check_in}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Check-out</p>
+                      <p className="text-sm font-medium">{selectedBooking.check_out}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Number of Guests</p>
+                      <p className="text-sm">{selectedBooking.guests}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Total Amount</p>
+                      <p className="text-lg font-bold">
+                        {formatMoney(Number(selectedBooking.total_price), "USD")}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </main>
       <Footer />
     </div>

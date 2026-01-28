@@ -43,6 +43,8 @@ import ConnectionTest from "./pages/ConnectionTest";
 import CreateTour from "./pages/CreateTour";
 import CreateTourPackage from "./pages/CreateTourPackage";
 import CreateTransport from "./pages/CreateTransport";
+import CreateCarRental from "./pages/CreateCarRental";
+import CreateAirportTransfer from "./pages/CreateAirportTransfer";
 import SearchResults from "./pages/SearchResults";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
@@ -50,6 +52,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import AffiliateSignup from "./pages/AffiliateSignup";
 import AffiliateDashboard from "./pages/AffiliateDashboard";
+import AffiliatePortal from "./pages/AffiliatePortal";
 import ScrollToTop from "@/components/ScrollToTop";
 import SupportCenterLauncher from "@/components/SupportCenterLauncher";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
@@ -195,6 +198,29 @@ const App = () => (
                   </RequireAuth>
                 }
               />
+
+              <Route
+                path="/create-car-rental"
+                element={
+                  <RequireAuth>
+                    <RequireRole allowed={["host"]}>
+                      <CreateCarRental />
+                    </RequireRole>
+                  </RequireAuth>
+                }
+              />
+
+              <Route
+                path="/create-airport-transfer"
+                element={
+                  <RequireAuth>
+                    <RequireRole allowed={["host"]}>
+                      <CreateAirportTransfer />
+                    </RequireRole>
+                  </RequireAuth>
+                }
+              />
+
               <Route
                 path="/admin"
                 element={
@@ -308,6 +334,7 @@ const App = () => (
               <Route path="/connection-test" element={<ConnectionTest />} />
               <Route path="/affiliate-signup" element={<AffiliateSignup />} />
               <Route path="/affiliate-dashboard" element={<AffiliateDashboard />} />
+              <Route path="/affiliate" element={<RequireAuth><AffiliatePortal /></RequireAuth>} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

@@ -73,10 +73,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const normalized = (data ?? [])
         .map((r) => String(r.role ?? "").trim().toLowerCase())
         .filter(Boolean);
+      
       // Deduplicate and keep only known roles.
       // Note: 'staff' is deprecated, use specific roles instead
+      // Accept both 'user' and 'guest' for backward compatibility
       const uniq = Array.from(new Set(normalized)).filter((r) =>
-        ["guest", "host", "admin", "financial_staff", "operations_staff", "customer_support"].includes(r)
+        ["user", "guest", "host", "admin", "financial_staff", "operations_staff", "customer_support"].includes(r)
       );
 
       // If auth epoch changed (e.g., user signed out) while fetching, ignore results.
@@ -209,12 +211,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
                 // Don't await - let it happen in background
                 void fetchRoles(newSession.user.id);
+                
+                // If user just confirmed email (SIGNED_IN event), they're logged in automatically
+                // The navbar will show profile button instead of sign in
               }
             } else {
               // User signed out
               setRoles([]);
               setRolesLoading(false);
             }
+            
+            // Invalidate queries on auth state change
+            queryClient.invalidateQueries();
           }
         );
         

@@ -29,7 +29,7 @@ export default function TourPromoCard(props: TourPromoCardProps) {
   const from = String(props.currency ?? preferredCurrency ?? "RWF");
   const displayPrice = formatMoneyWithConversion(Number(props.price ?? 0), from, preferredCurrency, usdRates);
   return (
-    <Link to="/tours" className="block" aria-label={props.title}>
+    <Link to={`/tours/${props.id}`} className="block" aria-label={props.title}>
       <div className="group rounded-xl overflow-hidden bg-card shadow-card hover:shadow-lg transition-all duration-300">
         <div className="relative aspect-[4/3] overflow-hidden">
           {gallery.length ? (

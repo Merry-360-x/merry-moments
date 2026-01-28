@@ -254,7 +254,7 @@ const Navbar = () => {
               <span className="hidden xl:inline">
                 {isHost ? t("actions.hostDashboard") : t("actions.becomeHost")}
               </span>
-              <span className="xl:hidden">{isHost ? "Host" : "Host"}</span>
+              <span className="xl:hidden">{isHost ? "Dashboard" : "Host"}</span>
             </Button>
 
             {/* Admin dashboard (side) */}

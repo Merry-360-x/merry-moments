@@ -267,12 +267,7 @@ const Auth = () => {
           <div className="mt-6 text-center">
             <button
               onClick={() => {
-                const next = !isLogin;
-                setIsLogin(next);
-                const params = new URLSearchParams();
-                params.set("mode", next ? "signup" : "login");
-                if (redirectTo) params.set("redirect", redirectTo);
-                navigate(`/auth?${params.toString()}`, { replace: true });
+                setIsLogin(!isLogin);
               }}
               className="text-sm text-primary hover:underline"
             >

@@ -297,7 +297,6 @@ type TabValue =
   | "tours"
   | "transport"
   | "bookings"
-  | "cart-checkouts"
   | "payments"
   | "reviews"
   | "support"
@@ -372,6 +371,10 @@ export default function AdminDashboard() {
   const [viewingDocument, setViewingDocument] = useState<{ url: string; title: string } | null>(null);
   const [contactedHosts, setContactedHosts] = useState<Set<string>>(new Set());
   const [suspendingHost, setSuspendingHost] = useState<string | null>(null);
+  const [selectedApplication, setSelectedApplication] = useState<HostApplicationRow | null>(null);
+  const [applicationDetailsOpen, setApplicationDetailsOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<AdminUserRow | null>(null);
+  const [userDetailsOpen, setUserDetailsOpen] = useState(false);
 
   // Set up real-time subscriptions for instant updates
   useEffect(() => {
@@ -649,46 +652,6 @@ export default function AdminDashboard() {
       setLegalContent(sections.map((s: any) => s.text).join('\n\n'));
     }
   }, [legalContentData]);
-
-  const processRefund = async (bookingId: string) => {
-    try {
-      // Calculate refund amount
-      const { getRefundInfo } = await import('@/lib/refund-calculator');
-      const refund = await getRefundInfo(bookingId, null);
-      
-      if (!refund) {
-        toast({
-          variant: "destructive",
-          title: "Cannot Calculate Refund",
-          description: "Unable to determine refund amount for this booking.",
-        });
-        return;
-      }
-
-      // Update booking to refunded
-      const { error } = await supabase
-        .from("bookings")
-        .update({ payment_status: 'refunded' })
-        .eq("id", bookingId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Refund Processed",
-        description: `Refund of ${refund.refundAmount.toFixed(2)} ${refund.currency} (${refund.refundPercentage}%) has been processed.`,
-      });
-
-      refetchBookings();
-      refetchMetrics();
-    } catch (error) {
-      console.error("Error processing refund:", error);
-      toast({
-        variant: "destructive",
-        title: "Refund Failed",
-        description: "Failed to process refund. Please try again.",
-      });
-    }
-  };
 
   const markAsPaid = async (bookingId: string) => {
     setMarkingPaid(bookingId);
@@ -2477,6 +2440,17 @@ For support, contact: support@merry360x.com
                               </TableCell>
                               <TableCell>
                                 <div className="flex gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setSelectedApplication(app);
+                                      setApplicationDetailsOpen(true);
+                                    }}
+                                  >
+                                    <Eye className="w-3 h-3 mr-1" />
+                                    Details
+                                  </Button>
                                   {app.national_id_photo_url && (
                                     <Button
                                       size="sm"
@@ -3028,19 +3002,6 @@ For support, contact: support@merry360x.com
                         </TableCell>
                         <TableCell>
                           <div className="flex justify-end gap-1">
-                            {b.status === 'cancelled' && b.payment_status === 'paid' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={async () => {
-                                  await processRefund(b.id);
-                                }}
-                                className="gap-1 text-yellow-700 border-yellow-700 hover:bg-yellow-50"
-                              >
-                                <DollarSign className="w-3 h-3" />
-                                Process Refund
-                              </Button>
-                            )}
                             {b.status === 'confirmed' && b.payment_status !== 'paid' && (
                               <Button
                                 size="sm"
@@ -3156,11 +3117,6 @@ For support, contact: support@merry360x.com
                                 <SelectItem value="cancelled">Cancel</SelectItem>
                               </SelectContent>
                             </Select>
-                            {b.status === "cancelled" && (
-                              <Button size="sm" variant="outline" onClick={() => processRefund(b)}>
-                                Refund
-                              </Button>
-                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -4080,6 +4036,252 @@ For support, contact: support@merry360x.com
                       Export Receipt
                     </Button>
                   )}
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Application Details Dialog */}
+        <Dialog open={applicationDetailsOpen} onOpenChange={setApplicationDetailsOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Application Details</DialogTitle>
+              <DialogDescription>
+                Complete application information for host registration
+              </DialogDescription>
+            </DialogHeader>
+            {selectedApplication && (
+              <div className="space-y-6">
+                {/* Applicant Information */}
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold mb-3">Applicant Information</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Full Name</p>
+                      <p className="text-sm font-medium">{selectedApplication.full_name || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Phone</p>
+                      <p className="text-sm">{selectedApplication.phone || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Type</p>
+                      <Badge variant="outline">{selectedApplication.applicant_type || 'individual'}</Badge>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Status</p>
+                      <Badge>{selectedApplication.status}</Badge>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-sm text-muted-foreground">National ID Number</p>
+                      <p className="text-sm font-mono">{selectedApplication.national_id_number || 'N/A'}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-sm text-muted-foreground">About</p>
+                      <p className="text-sm">{selectedApplication.about || 'No description provided'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Business Information (if business) */}
+                {selectedApplication.applicant_type === 'business' && (
+                  <div className="border-t pt-4">
+                    <h3 className="font-semibold mb-3">Business Information</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Business Name</p>
+                        <p className="text-sm font-medium">{selectedApplication.business_name || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Business TIN</p>
+                        <p className="text-sm font-mono">{selectedApplication.business_tin || 'N/A'}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Hosting Location */}
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold mb-3">Hosting Information</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                      <p className="text-sm text-muted-foreground">Hosting Location</p>
+                      <p className="text-sm">{selectedApplication.hosting_location || 'N/A'}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-sm text-muted-foreground">Service Types</p>
+                      <div className="flex gap-2 flex-wrap mt-1">
+                        {selectedApplication.service_types && selectedApplication.service_types.length > 0 ? (
+                          selectedApplication.service_types.map((service, idx) => (
+                            <Badge key={idx} variant="secondary">{service}</Badge>
+                          ))
+                        ) : (
+                          <p className="text-sm">No services specified</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Listing Preview */}
+                {selectedApplication.listing_title && (
+                  <div className="border-t pt-4">
+                    <h3 className="font-semibold mb-3">Listing Preview</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="col-span-2">
+                        <p className="text-sm text-muted-foreground">Title</p>
+                        <p className="text-sm font-medium">{selectedApplication.listing_title}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-sm text-muted-foreground">Location</p>
+                        <p className="text-sm">{selectedApplication.listing_location || 'N/A'}</p>
+                      </div>
+                      {selectedApplication.listing_property_type && (
+                        <>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Property Type</p>
+                            <p className="text-sm">{selectedApplication.listing_property_type}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Price per Night</p>
+                            <p className="text-sm font-medium">
+                              {formatMoney(selectedApplication.listing_price_per_night || 0, selectedApplication.listing_currency || 'USD')}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Max Guests</p>
+                            <p className="text-sm">{selectedApplication.listing_max_guests || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Bedrooms</p>
+                            <p className="text-sm">{selectedApplication.listing_bedrooms || 'N/A'}</p>
+                          </div>
+                        </>
+                      )}
+                      {selectedApplication.listing_description && (
+                        <div className="col-span-2">
+                          <p className="text-sm text-muted-foreground">Description</p>
+                          <p className="text-sm">{selectedApplication.listing_description}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Amenities */}
+                {selectedApplication.listing_amenities && selectedApplication.listing_amenities.length > 0 && (
+                  <div className="border-t pt-4">
+                    <h3 className="font-semibold mb-3">Amenities</h3>
+                    <div className="flex gap-2 flex-wrap">
+                      {selectedApplication.listing_amenities.map((amenity, idx) => (
+                        <Badge key={idx} variant="outline">{amenity}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Images */}
+                {selectedApplication.listing_images && selectedApplication.listing_images.length > 0 && (
+                  <div className="border-t pt-4">
+                    <h3 className="font-semibold mb-3">Listing Images</h3>
+                    <div className="grid grid-cols-3 gap-2">
+                      {selectedApplication.listing_images.map((imageUrl, idx) => (
+                        <img
+                          key={idx}
+                          src={imageUrl}
+                          alt={`Listing image ${idx + 1}`}
+                          className="w-full h-32 object-cover rounded-md border"
+                          onClick={() => setViewingDocument({ url: imageUrl, title: `Image ${idx + 1}` })}
+                          style={{ cursor: 'pointer' }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Documents */}
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold mb-3">Documents</h3>
+                  <div className="flex gap-2">
+                    {selectedApplication.national_id_photo_url ? (
+                      <Button
+                        variant="outline"
+                        onClick={() => setViewingDocument({ 
+                          url: selectedApplication.national_id_photo_url!, 
+                          title: 'National ID' 
+                        })}
+                      >
+                        <Eye className="w-4 h-4 mr-2" />
+                        View National ID
+                      </Button>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No National ID uploaded</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Timestamps */}
+                <div className="border-t pt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Applied On</p>
+                      <p className="text-sm">{new Date(selectedApplication.created_at).toLocaleString()}</p>
+                    </div>
+                    {selectedApplication.updated_at && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">Last Updated</p>
+                        <p className="text-sm">{new Date(selectedApplication.updated_at).toLocaleString()}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* User Details Dialog */}
+        <Dialog open={userDetailsOpen} onOpenChange={setUserDetailsOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>User Details</DialogTitle>
+              <DialogDescription>
+                Complete user account information
+              </DialogDescription>
+            </DialogHeader>
+            {selectedUser && (
+              <div className="space-y-6">
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold mb-3">Account Information</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                      <p className="text-sm text-muted-foreground">User ID</p>
+                      <p className="font-mono text-xs break-all">{selectedUser.user_id}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Full Name</p>
+                      <p className="text-sm font-medium">{selectedUser.full_name || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Email</p>
+                      <p className="text-sm">{selectedUser.email || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Phone</p>
+                      <p className="text-sm">{selectedUser.phone || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Account Created</p>
+                      <p className="text-sm">{new Date(selectedUser.created_at).toLocaleString()}</p>
+                    </div>
+                    {selectedUser.last_sign_in_at && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">Last Sign In</p>
+                        <p className="text-sm">{new Date(selectedUser.last_sign_in_at).toLocaleString()}</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

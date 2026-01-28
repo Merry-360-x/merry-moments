@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,8 @@ export default function HostApplication() {
   const { user, refreshRoles, isHost, isLoading: authLoading, rolesLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+  const affiliateCode = searchParams.get("ref");
 
   const [isLoading, setIsLoading] = useState(true);
   const [hasExistingApp, setHasExistingApp] = useState(false);
@@ -268,6 +270,11 @@ export default function HostApplication() {
           setHasExistingApp(true);
           setExistingStatus(data.status);
           clearSavedProgress();
+          
+          // If application is approved, refresh roles to update navbar
+          if (data.status === 'approved') {
+            await refreshRoles();
+          }
         }
       } catch (e: any) {
         if (e.name !== 'AbortError') {
@@ -383,6 +390,32 @@ export default function HostApplication() {
 
       if (error) throw error;
 
+      // Track affiliate referral if applicable
+      if (affiliateCode && user.id) {
+        try {
+          // Find affiliate by code
+          const { data: affiliateData } = await supabase
+            .from("affiliates")
+            .select("id, user_id")
+            .eq("affiliate_code", affiliateCode)
+            .eq("status", "active")
+            .single();
+
+          if (affiliateData && affiliateData.user_id !== user.id) {
+            // Create referral record
+            await supabase.from("affiliate_referrals").insert({
+              affiliate_id: affiliateData.id,
+              referred_user_id: user.id,
+              referred_user_email: user.email || "",
+              status: "active",
+            });
+          }
+        } catch (affiliateError) {
+          // Don't fail the application if affiliate tracking fails
+          console.error("Affiliate tracking error:", affiliateError);
+        }
+      }
+
       toast({
         title: "Application submitted!",
         description: "We'll review your application and get back to you soon.",
@@ -478,7 +511,11 @@ export default function HostApplication() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button size="lg" onClick={() => navigate("/host-dashboard")}>
+              <Button size="lg" onClick={async () => {
+                // Refresh roles to ensure the user has the host role loaded
+                await refreshRoles();
+                navigate("/host-dashboard");
+              }}>
                 Go to Host Dashboard
               </Button>
             </CardContent>
@@ -535,7 +572,11 @@ export default function HostApplication() {
                 </p>
               )}
               {existingStatus === "approved" && (
-                <Button size="lg" onClick={() => navigate("/host-dashboard")}>
+                <Button size="lg" onClick={async () => {
+                  // Refresh roles to ensure the user has the host role loaded
+                  await refreshRoles();
+                  navigate("/host-dashboard");
+                }}>
                   Go to Host Dashboard
                 </Button>
               )}

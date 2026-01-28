@@ -183,6 +183,14 @@ export default function StaffDashboard() {
     description: string;
     currency: string;
   } | null>(null);
+  const [selectedApplication, setSelectedApplication] = useState<HostApplicationRow | null>(null);
+  const [applicationDetailsOpen, setApplicationDetailsOpen] = useState(false);
+  const [selectedProperty, setSelectedProperty] = useState<PropertyRow | null>(null);
+  const [propertyDetailsOpen, setPropertyDetailsOpen] = useState(false);
+  const [selectedTour, setSelectedTour] = useState<TourRow | null>(null);
+  const [tourDetailsOpen, setTourDetailsOpen] = useState(false);
+  const [selectedVehicle, setSelectedVehicle] = useState<TransportVehicleRow | null>(null);
+  const [vehicleDetailsOpen, setVehicleDetailsOpen] = useState(false);
 
   const {
     data: applications = [],
@@ -192,6 +200,9 @@ export default function StaffDashboard() {
   } = useQuery({
     queryKey: ["host_applications", "staff", "pending"],
     queryFn: fetchPending,
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const { data: metrics, refetch: refetchMetrics } = useQuery({
@@ -201,6 +212,9 @@ export default function StaffDashboard() {
       if (error) throw error;
       return data as unknown as Metrics;
     },
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const { data: adminUsers = [] } = useQuery({
@@ -225,6 +239,9 @@ export default function StaffDashboard() {
       return (data ?? []) as PropertyRow[];
     },
     enabled: tab === "accommodations",
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const { data: tours = [], refetch: refetchTours } = useQuery({
@@ -265,6 +282,9 @@ export default function StaffDashboard() {
       return [...toursWithSource, ...packagesAsTours] as TourRow[];
     },
     enabled: tab === "tours",
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const { data: vehicles = [], refetch: refetchVehicles } = useQuery({
@@ -279,6 +299,9 @@ export default function StaffDashboard() {
       return (data ?? []) as TransportVehicleRow[];
     },
     enabled: tab === "transport",
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const { data: routes = [], refetch: refetchRoutes } = useQuery({
@@ -293,6 +316,9 @@ export default function StaffDashboard() {
       return (data ?? []) as TransportRouteRow[];
     },
     enabled: tab === "transport",
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const { data: stories = [], refetch: refetchStories } = useQuery({
@@ -307,6 +333,9 @@ export default function StaffDashboard() {
       return (data ?? []) as StoryRow[];
     },
     enabled: tab === "stories",
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const { data: recentBookings = [] } = useQuery({
@@ -328,44 +357,6 @@ export default function StaffDashboard() {
     },
     enabled: tab === "overview",
   });
-
-  const processRefund = async (bookingId: string) => {
-    try {
-      const { getRefundInfo } = await import('@/lib/refund-calculator');
-      const refund = await getRefundInfo(bookingId, null);
-      
-      if (!refund) {
-        toast({
-          variant: "destructive",
-          title: "Cannot Calculate Refund",
-          description: "Unable to determine refund amount for this booking.",
-        });
-        return;
-      }
-
-      const { error } = await supabase
-        .from("bookings")
-        .update({ payment_status: 'refunded' })
-        .eq("id", bookingId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Refund Processed",
-        description: `Refund of ${refund.refundAmount.toFixed(2)} ${refund.currency} (${refund.refundPercentage}%) has been processed.`,
-      });
-
-      refetchRecentBookings();
-      refetchMetrics();
-    } catch (error) {
-      console.error("Error processing refund:", error);
-      toast({
-        variant: "destructive",
-        title: "Refund Failed",
-        description: "Failed to process refund. Please try again.",
-      });
-    }
-  };
 
   const revenueLabel = useMemo(() => {
     const list = metrics?.revenue_by_currency ?? [];
@@ -585,7 +576,10 @@ For support, contact: support@merry360x.com
 
       const { error: roleError } = await supabase
         .from("user_roles")
-        .insert({ user_id: app.user_id, role: "host" });
+        .upsert(
+          { user_id: app.user_id, role: "host" },
+          { onConflict: "user_id,role" }
+        );
 
       if (roleError) throw roleError;
 
@@ -707,30 +701,12 @@ For support, contact: support@merry360x.com
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      {b.status === 'cancelled' && b.payment_status === 'paid' && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="gap-1 text-yellow-700 border-yellow-700 hover:bg-yellow-50"
-                          onClick={() => processRefund(b.id)}
-                        >
-                          <DollarSign className="w-3 h-3" />
-                          Refund
-                        </Button>
-                      )}
                       <Button 
                         size="sm" 
                         variant="outline" 
-                        onClick={async () => {
+                        onClick={() => {
                           setSelectedBooking(b);
-                          // Calculate refund if cancelled and paid
-                          if (b.status === 'cancelled' && b.payment_status === 'paid') {
-                            const { getRefundInfo } = await import('@/lib/refund-calculator');
-                            const refund = await getRefundInfo(b.id, b.order_id);
-                            setRefundInfo(refund);
-                          } else {
-                            setRefundInfo(null);
-                          }
+                          setRefundInfo(null);
                           setBookingDetailsOpen(true);
                         }}
                       >
@@ -824,15 +800,9 @@ For support, contact: support@merry360x.com
                             <Button 
                               size="sm" 
                               variant="outline" 
-                              onClick={async () => {
+                              onClick={() => {
                                 setSelectedBooking(b);
-                                // Calculate refund if cancelled and paid
-                                if (b.status === 'cancelled' && b.payment_status === 'paid') {
-                                  const refund = await getRefundInfo(b.id, b.order_id);
-                                  setRefundInfo(refund);
-                                } else {
-                                  setRefundInfo(null);
-                                }
+                                setRefundInfo(null);
                                 setBookingDetailsOpen(true);
                               }}
                             >
@@ -876,6 +846,17 @@ For support, contact: support@merry360x.com
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
+                        <Button 
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedApplication(app);
+                            setApplicationDetailsOpen(true);
+                          }}
+                        >
+                          <Eye className="w-3 h-3 mr-1" />
+                          Details
+                        </Button>
                         <Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => approve(app)}>
                           Approve
                         </Button>
@@ -936,6 +917,17 @@ For support, contact: support@merry360x.com
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedProperty(p);
+                          setPropertyDetailsOpen(true);
+                        }}
+                      >
+                        <Eye className="w-3 h-3 mr-1" />
+                        Details
+                      </Button>
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-muted-foreground">Published</span>
                         <Switch
@@ -982,6 +974,17 @@ For support, contact: support@merry360x.com
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedTour(t);
+                          setTourDetailsOpen(true);
+                        }}
+                      >
+                        <Eye className="w-3 h-3 mr-1" />
+                        Details
+                      </Button>
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-muted-foreground">Published</span>
                         <Switch checked={Boolean(t.is_published)} onCheckedChange={(v) => togglePublished("tours", t.id, v)} />
@@ -1018,6 +1021,17 @@ For support, contact: support@merry360x.com
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedVehicle(v);
+                            setVehicleDetailsOpen(true);
+                          }}
+                        >
+                          <Eye className="w-3 h-3 mr-1" />
+                          Details
+                        </Button>
                         <div className="flex items-center gap-2">
                           <span className="text-sm text-muted-foreground">Published</span>
                           <Switch
@@ -1293,6 +1307,176 @@ For support, contact: support@merry360x.com
                       Export Receipt
                     </Button>
                   )}
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Application Details Dialog */}
+        <Dialog open={applicationDetailsOpen} onOpenChange={setApplicationDetailsOpen}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Application Details</DialogTitle>
+              <DialogDescription>Host application information</DialogDescription>
+            </DialogHeader>
+            {selectedApplication && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Full Name</p>
+                    <p className="font-medium">{selectedApplication.full_name || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Phone</p>
+                    <p>{selectedApplication.phone || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Business Name</p>
+                    <p>{selectedApplication.business_name || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Location</p>
+                    <p>{selectedApplication.hosting_location || 'N/A'}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-sm text-muted-foreground">User ID</p>
+                    <p className="font-mono text-xs break-all">{selectedApplication.user_id}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Property Details Dialog */}
+        <Dialog open={propertyDetailsOpen} onOpenChange={setPropertyDetailsOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Property Details</DialogTitle>
+              <DialogDescription>Accommodation information</DialogDescription>
+            </DialogHeader>
+            {selectedProperty && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <p className="text-sm text-muted-foreground">Title</p>
+                    <p className="font-medium text-lg">{selectedProperty.title}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Location</p>
+                    <p>{selectedProperty.location || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Price per Night</p>
+                    <p className="font-medium">
+                      {formatMoney(selectedProperty.price_per_night || 0, selectedProperty.currency || 'USD')}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Published</p>
+                    <Badge variant={selectedProperty.is_published ? 'default' : 'secondary'}>
+                      {selectedProperty.is_published ? 'Published' : 'Draft'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Created</p>
+                    <p className="text-sm">{new Date(selectedProperty.created_at).toLocaleDateString()}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Tour Details Dialog */}
+        <Dialog open={tourDetailsOpen} onOpenChange={setTourDetailsOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Tour Details</DialogTitle>
+              <DialogDescription>Tour or package information</DialogDescription>
+            </DialogHeader>
+            {selectedTour && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <p className="text-sm text-muted-foreground">Title</p>
+                    <p className="font-medium text-lg">{selectedTour.title}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Type</p>
+                    <Badge variant="outline">
+                      {selectedTour.source === 'tour_packages' ? 'Package' : 'Tour'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Location</p>
+                    <p>{selectedTour.location || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Price per Person</p>
+                    <p className="font-medium">
+                      {formatMoney(selectedTour.price_per_person || 0, selectedTour.currency || 'USD')}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Published</p>
+                    <Badge variant={selectedTour.is_published ? 'default' : 'secondary'}>
+                      {selectedTour.is_published ? 'Published' : 'Draft'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Created</p>
+                    <p className="text-sm">{new Date(selectedTour.created_at).toLocaleDateString()}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Vehicle Details Dialog */}
+        <Dialog open={vehicleDetailsOpen} onOpenChange={setVehicleDetailsOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Vehicle Details</DialogTitle>
+              <DialogDescription>Transport vehicle information</DialogDescription>
+            </DialogHeader>
+            {selectedVehicle && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <p className="text-sm text-muted-foreground">Title</p>
+                    <p className="font-medium text-lg">{selectedVehicle.title}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Provider</p>
+                    <p>{selectedVehicle.provider_name || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Vehicle Type</p>
+                    <p>{selectedVehicle.vehicle_type || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Seats</p>
+                    <p>{selectedVehicle.seats || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Price per Day</p>
+                    <p className="font-medium">
+                      {formatMoney(selectedVehicle.price_per_day || 0, selectedVehicle.currency || 'USD')}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Published</p>
+                    <Badge variant={selectedVehicle.is_published ? 'default' : 'secondary'}>
+                      {selectedVehicle.is_published ? 'Published' : 'Draft'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Created</p>
+                    <p className="text-sm">{new Date(selectedVehicle.created_at).toLocaleDateString()}</p>
+                  </div>
                 </div>
               </div>
             )}

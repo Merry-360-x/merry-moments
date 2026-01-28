@@ -425,13 +425,36 @@ export default function HostDashboard() {
         title: pkg.title,
         description: pkg.description,
         location: `${pkg.city}, ${pkg.country}`,
+        city: pkg.city,
+        country: pkg.country,
+        duration: pkg.duration,
         price_per_person: pkg.price_per_adult,
         currency: pkg.currency,
-        images: [pkg.cover_image, ...(Array.isArray(pkg.gallery_images) ? pkg.gallery_images : [])],
+        images: [pkg.cover_image, ...(Array.isArray(pkg.gallery_images) ? pkg.gallery_images : [])].filter(Boolean),
+        cover_image: pkg.cover_image,
+        gallery_images: pkg.gallery_images,
         duration_days: parseInt(pkg.duration) || 1,
         created_at: pkg.created_at,
         is_published: pkg.status === 'approved',
         source: "tour_packages" as const,
+        // Include all tour package specific fields
+        categories: pkg.categories,
+        tour_type: pkg.tour_type,
+        daily_itinerary: pkg.daily_itinerary,
+        included_services: pkg.included_services,
+        excluded_services: pkg.excluded_services,
+        meeting_point: pkg.meeting_point,
+        what_to_bring: pkg.what_to_bring,
+        cancellation_policy: pkg.cancellation_policy,
+        non_refundable_items: pkg.non_refundable_items,
+        min_guests: pkg.min_guests,
+        max_guests: pkg.max_guests,
+        group_discount_6_10: pkg.group_discount_6_10,
+        group_discount_11_15: pkg.group_discount_11_15,
+        group_discount_16_plus: pkg.group_discount_16_plus,
+        itinerary_pdf_url: pkg.itinerary_pdf_url,
+        status: pkg.status,
+        host_id: pkg.host_id,
       }));
       
       // Replace entire tours array (don't append to prevent stale data)
@@ -1214,12 +1237,28 @@ export default function HostDashboard() {
     const [pdfFile, setPdfFile] = useState<File | null>(null);
     const [newImages, setNewImages] = useState<string[]>([]);
     const [removedImages, setRemovedImages] = useState<string[]>([]);
+    const [groupDiscounts, setGroupDiscounts] = useState<Array<{min_people: number, max_people: number | null, discount_percentage: number}>>([]);
 
     // Sync form state when tour prop changes or when exiting edit mode
     useEffect(() => {
       setForm(tour);
       setNewImages([]);
       setRemovedImages([]);
+      
+      // Initialize groupDiscounts from existing discount fields or from group_discounts array
+      if (tour.source === "tour_packages") {
+        const discounts = [];
+        if ((tour as any).group_discount_6_10) {
+          discounts.push({ min_people: 6, max_people: 10, discount_percentage: (tour as any).group_discount_6_10 });
+        }
+        if ((tour as any).group_discount_11_15) {
+          discounts.push({ min_people: 11, max_people: 15, discount_percentage: (tour as any).group_discount_11_15 });
+        }
+        if ((tour as any).group_discount_16_plus) {
+          discounts.push({ min_people: 16, max_people: null, discount_percentage: (tour as any).group_discount_16_plus });
+        }
+        setGroupDiscounts(discounts);
+      }
     }, [tour, isEditing]);
 
     const handleAddImage = async (file: File) => {
@@ -1278,14 +1317,32 @@ export default function HostDashboard() {
         updates.non_refundable_items = form.non_refundable_items || [];
         updates.min_guests = form.min_guests;
         updates.max_guests = form.max_guests;
-        updates.group_discount_6_10 = form.group_discount_6_10 || 0;
-        updates.group_discount_11_15 = form.group_discount_11_15 || 0;
-        updates.group_discount_16_plus = form.group_discount_16_plus || 0;
+        
+        // Convert groupDiscounts array back to individual fields
+        updates.group_discount_6_10 = 0;
+        updates.group_discount_11_15 = 0;
+        updates.group_discount_16_plus = 0;
+        groupDiscounts.forEach(discount => {
+          if (discount.min_people === 6 && discount.max_people === 10) {
+            updates.group_discount_6_10 = discount.discount_percentage;
+          } else if (discount.min_people === 11 && discount.max_people === 15) {
+            updates.group_discount_11_15 = discount.discount_percentage;
+          } else if (discount.min_people === 16 && discount.max_people === null) {
+            updates.group_discount_16_plus = discount.discount_percentage;
+          }
+        });
       }
 
-      // Update images array
+      // Update images - tour_packages uses gallery_images and cover_image, tours uses images
       const finalImages = getCurrentImages();
-      updates.images = finalImages;
+      if (tour.source === "tour_packages") {
+        updates.gallery_images = finalImages;
+        if (finalImages.length > 0) {
+          updates.cover_image = finalImages[0];
+        }
+      } else {
+        updates.images = finalImages;
+      }
 
       // Upload new PDF if selected
       if (pdfFile) {
@@ -1335,69 +1392,70 @@ export default function HostDashboard() {
         
         <div className="p-4">
           {isEditing ? (
-            <div className="space-y-3 max-h-[600px] overflow-y-auto">
-              {/* Badge */}
-              <div className="flex justify-between items-center mb-2">
-                <Badge variant="outline" className={isTourPackage ? "bg-purple-50 text-purple-700" : "bg-blue-50 text-blue-700"}>
+            <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+              {/* Header */}
+              <div className="flex items-center justify-between pb-2 border-b">
+                <Badge variant="outline" className="text-xs">
                   {isTourPackage ? "Tour Package" : "Tour"}
                 </Badge>
+                <span className="text-xs text-muted-foreground">Editing</span>
               </div>
 
               {/* Images */}
-              <div>
-                <Label className="text-xs">Images</Label>
-                <div className="mt-1 space-y-2">
-                  {displayImages.length > 0 && (
-                    <div className="grid grid-cols-3 gap-2">
-                      {displayImages.map((img, idx) => (
-                        <div key={idx} className="relative group">
-                          <img src={img} alt="" className="w-full h-20 object-cover rounded" />
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="destructive"
-                            className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
-                            onClick={() => handleRemoveImage(img)}
-                          >
-                            <X className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Images</Label>
+                {displayImages.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {displayImages.map((img, idx) => (
+                      <div key={idx} className="relative group">
+                        <img src={img} alt="" className="w-full h-20 object-cover rounded border" />
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="destructive"
+                          className="absolute top-1 right-1 h-5 w-5 p-0 opacity-0 group-hover:opacity-100"
+                          onClick={() => handleRemoveImage(img)}
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => e.target.files?.[0] && handleAddImage(e.target.files[0])}
+                  className="text-xs h-8"
+                  disabled={uploading}
+                />
+              </div>
+
+              {/* Basic Info */}
+              <div className="space-y-2">
+                <div>
+                  <Label className="text-xs">Title</Label>
                   <Input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => e.target.files?.[0] && handleAddImage(e.target.files[0])}
-                    className="text-xs h-8"
-                    disabled={uploading}
+                    value={form.title}
+                    onChange={(e) => setForm({ ...form, title: e.target.value })}
+                    className="mt-1 h-8 text-sm"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs">Description</Label>
+                  <Textarea
+                    value={form.description || ''}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    className="mt-1 text-sm"
+                    rows={3}
                   />
                 </div>
               </div>
 
-              {/* Basic Info */}
-              <div>
-                <Label className="text-xs">Title</Label>
-                <Input
-                  value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  className="mt-1 h-8 text-sm"
-                />
-              </div>
-
-              <div>
-                <Label className="text-xs">Description</Label>
-                <Textarea
-                  value={form.description || ''}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  className="mt-1 text-sm"
-                  rows={3}
-                />
-              </div>
-
               {/* Tour vs Package specific fields */}
               {!isTourPackage ? (
-                <>
+                <div className="space-y-2">
                   <div>
                     <Label className="text-xs">Location</Label>
                     <Input
@@ -1450,9 +1508,9 @@ export default function HostDashboard() {
                       ))}
                     </div>
                   </div>
-                </>
+                </div>
               ) : (
-                <>
+                <div className="space-y-2">
                   <div>
                     <Label className="text-xs">Categories</Label>
                     <div className="mt-1 flex flex-wrap gap-1">
@@ -1560,88 +1618,270 @@ export default function HostDashboard() {
 
                   <div>
                     <Label className="text-xs">Cancellation Policy</Label>
-                    <Textarea
-                      value={form.cancellation_policy || ''}
-                      onChange={(e) => setForm({ ...form, cancellation_policy: e.target.value })}
-                      className="mt-1 text-sm"
-                      rows={3}
-                    />
+                    <div className="mt-1 space-y-1 bg-muted/50 p-3 rounded-md text-xs">
+                      <div className="font-semibold mb-2 text-primary">Standard Experiences (Day Tours & Activities)</div>
+                      <label className="flex items-start gap-2 cursor-pointer hover:bg-muted/80 p-1.5 rounded">
+                        <input
+                          type="checkbox"
+                          checked={form.cancellation_policy?.includes("More than 72 hours before start time: Full refund")}
+                          onChange={(e) => {
+                            const policy = form.cancellation_policy || '';
+                            const clause = "More than 72 hours before start time: Full refund (excluding platform service fees and payment processing fees)";
+                            setForm({
+                              ...form,
+                              cancellation_policy: e.target.checked 
+                                ? policy + (policy ? '\n\n' : '') + clause
+                                : policy.replace(clause, '').replace(/\n\n\n+/g, '\n\n').trim()
+                            });
+                          }}
+                          className="w-3 h-3 mt-0.5 shrink-0"
+                        />
+                        <span>More than 72 hours before start time: Full refund (excluding platform service fees and payment processing fees)</span>
+                      </label>
+                      <label className="flex items-start gap-2 cursor-pointer hover:bg-muted/80 p-1.5 rounded">
+                        <input
+                          type="checkbox"
+                          checked={form.cancellation_policy?.includes("48–72 hours before start time: 50% refund")}
+                          onChange={(e) => {
+                            const policy = form.cancellation_policy || '';
+                            const clause = "48–72 hours before start time: 50% refund (excluding platform service fees)";
+                            setForm({
+                              ...form,
+                              cancellation_policy: e.target.checked 
+                                ? policy + (policy ? '\n' : '') + clause
+                                : policy.replace(clause, '').replace(/\n\n\n+/g, '\n\n').trim()
+                            });
+                          }}
+                          className="w-3 h-3 mt-0.5 shrink-0"
+                        />
+                        <span>48–72 hours before start time: 50% refund (excluding platform service fees)</span>
+                      </label>
+                      <label className="flex items-start gap-2 cursor-pointer hover:bg-muted/80 p-1.5 rounded">
+                        <input
+                          type="checkbox"
+                          checked={form.cancellation_policy?.includes("Less than 48 hours before start time: No refund")}
+                          onChange={(e) => {
+                            const policy = form.cancellation_policy || '';
+                            const clause = "Less than 48 hours before start time: No refund";
+                            setForm({
+                              ...form,
+                              cancellation_policy: e.target.checked 
+                                ? policy + (policy ? '\n' : '') + clause
+                                : policy.replace(clause, '').replace(/\n\n\n+/g, '\n\n').trim()
+                            });
+                          }}
+                          className="w-3 h-3 mt-0.5 shrink-0"
+                        />
+                        <span>Less than 48 hours before start time: No refund</span>
+                      </label>
+
+                      <div className="font-semibold mt-3 mb-2 text-primary">Multi-Day, Private & Custom Experiences</div>
+                      <label className="flex items-start gap-2 cursor-pointer hover:bg-muted/80 p-1.5 rounded">
+                        <input
+                          type="checkbox"
+                          checked={form.cancellation_policy?.includes("More than 14 days before start date: Full refund")}
+                          onChange={(e) => {
+                            const policy = form.cancellation_policy || '';
+                            const clause = "More than 14 days before start date: Full refund minus non-refundable deposits and third-party costs";
+                            setForm({
+                              ...form,
+                              cancellation_policy: e.target.checked 
+                                ? policy + (policy ? '\n' : '') + clause
+                                : policy.replace(clause, '').replace(/\n\n\n+/g, '\n\n').trim()
+                            });
+                          }}
+                          className="w-3 h-3 mt-0.5 shrink-0"
+                        />
+                        <span>More than 14 days before start date: Full refund minus non-refundable deposits and third-party costs</span>
+                      </label>
+                      <label className="flex items-start gap-2 cursor-pointer hover:bg-muted/80 p-1.5 rounded">
+                        <input
+                          type="checkbox"
+                          checked={form.cancellation_policy?.includes("7–14 days before start date: 50% refund")}
+                          onChange={(e) => {
+                            const policy = form.cancellation_policy || '';
+                            const clause = "7–14 days before start date: 50% refund";
+                            setForm({
+                              ...form,
+                              cancellation_policy: e.target.checked 
+                                ? policy + (policy ? '\n' : '') + clause
+                                : policy.replace(clause, '').replace(/\n\n\n+/g, '\n\n').trim()
+                            });
+                          }}
+                          className="w-3 h-3 mt-0.5 shrink-0"
+                        />
+                        <span>7–14 days before start date: 50% refund</span>
+                      </label>
+                      <label className="flex items-start gap-2 cursor-pointer hover:bg-muted/80 p-1.5 rounded">
+                        <input
+                          type="checkbox"
+                          checked={form.cancellation_policy?.includes("Less than 7 days before start date: No refund")}
+                          onChange={(e) => {
+                            const policy = form.cancellation_policy || '';
+                            const clause = "Less than 7 days before start date: No refund";
+                            setForm({
+                              ...form,
+                              cancellation_policy: e.target.checked 
+                                ? policy + (policy ? '\n' : '') + clause
+                                : policy.replace(clause, '').replace(/\n\n\n+/g, '\n\n').trim()
+                            });
+                          }}
+                          className="w-3 h-3 mt-0.5 shrink-0"
+                        />
+                        <span>Less than 7 days before start date: No refund</span>
+                      </label>
+                    </div>
+                    {form.cancellation_policy && form.cancellation_policy.trim() && (
+                      <div className="mt-2 p-3 bg-primary/5 rounded border border-primary/20">
+                        <p className="text-[10px] font-semibold text-primary mb-2">Selected Policy:</p>
+                        <div className="text-[10px] whitespace-pre-line">{form.cancellation_policy}</div>
+                      </div>
+                    )}
                   </div>
 
                   <div>
                     <Label className="text-xs">Non-Refundable Items</Label>
                     <p className="text-[10px] text-muted-foreground mb-1">Items that cannot be refunded once booked</p>
-                    <Textarea
-                      value={(form.non_refundable_items || []).join('\n')}
-                      onChange={(e) => setForm({ ...form, non_refundable_items: e.target.value.split('\n').filter(item => item.trim()) })}
-                      placeholder="One item per line, e.g.&#10;National park permits&#10;Gorilla trekking permits&#10;Third-party accommodation"
-                      className="mt-1 text-sm font-mono"
-                      rows={3}
-                    />
+                    <div className="mt-1 space-y-1 bg-muted/50 p-3 rounded-md">
+                      {["National park and conservation permits", "Gorilla trekking and special access permits", "Third-party accommodation", "Transport and flights", "Activity tickets"].map(item => (
+                        <label key={item} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-muted/80 p-1 rounded">
+                          <input
+                            type="checkbox"
+                            checked={(form.non_refundable_items || []).includes(item)}
+                            onChange={(e) => {
+                              const items = form.non_refundable_items || [];
+                              setForm({
+                                ...form,
+                                non_refundable_items: e.target.checked 
+                                  ? [...items, item]
+                                  : items.filter(i => i !== item)
+                              });
+                            }}
+                            className="w-3 h-3"
+                          />
+                          <span>{item}</span>
+                        </label>
+                      ))}
+                    </div>
+                    {form.non_refundable_items && form.non_refundable_items.length > 0 && (
+                      <div className="mt-2 p-2 bg-primary/5 rounded border border-primary/20">
+                        <p className="text-[10px] font-semibold text-primary mb-1">Selected Items:</p>
+                        <ul className="text-[10px] space-y-0.5">
+                          {form.non_refundable_items.map((item, idx) => (
+                            <li key={idx} className="flex items-center gap-1">
+                              <span className="text-primary">✓</span>
+                              <span>{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label className="text-xs">Min Guests</Label>
+                      <Label className="text-sm font-normal mb-1.5 block">Min Guests</Label>
                       <Input
                         type="number"
                         value={form.min_guests || 1}
                         onChange={(e) => setForm({ ...form, min_guests: parseInt(e.target.value) || 1 })}
-                        className="mt-1 h-8 text-sm"
+                        min="1"
+                        className="h-10"
                       />
                     </div>
+
                     <div>
-                      <Label className="text-xs">Max Guests</Label>
+                      <Label className="text-sm font-normal mb-1.5 block">Max Guests</Label>
                       <Input
                         type="number"
                         value={form.max_guests || 10}
                         onChange={(e) => setForm({ ...form, max_guests: parseInt(e.target.value) || 10 })}
-                        className="mt-1 h-8 text-sm"
+                        min={form.min_guests || 1}
+                        className="h-10"
                       />
                     </div>
                   </div>
 
-                  <div>
-                    <Label className="text-xs">Group Discounts (%)</Label>
-                    <div className="grid grid-cols-3 gap-2 mt-1">
-                      <div>
-                        <Label className="text-[10px] text-muted-foreground">6-10 guests</Label>
-                        <Input
-                          type="number"
-                          value={form.group_discount_6_10 || 0}
-                          onChange={(e) => setForm({ ...form, group_discount_6_10: parseFloat(e.target.value) || 0 })}
-                          className="h-8 text-sm"
-                          min="0"
-                          max="50"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-[10px] text-muted-foreground">11-15 guests</Label>
-                        <Input
-                          type="number"
-                          value={form.group_discount_11_15 || 0}
-                          onChange={(e) => setForm({ ...form, group_discount_11_15: parseFloat(e.target.value) || 0 })}
-                          className="h-8 text-sm"
-                          min="0"
-                          max="50"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-[10px] text-muted-foreground">16+ guests</Label>
-                        <Input
-                          type="number"
-                          value={form.group_discount_16_plus || 0}
-                          onChange={(e) => setForm({ ...form, group_discount_16_plus: parseFloat(e.target.value) || 0 })}
-                          className="h-8 text-sm"
-                          min="0"
-                          max="50"
-                        />
-                      </div>
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium">Group Discounts (Optional)</Label>
+                    <p className="text-xs text-muted-foreground">Offer discounts for larger groups to attract more bookings</p>
+                    
+                    <div className="space-y-3">
+                      {groupDiscounts.map((discount, index) => (
+                        <div key={index} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-3 items-end">
+                          <div>
+                            <Label className="text-xs font-normal mb-1.5 block">Min People</Label>
+                            <Input
+                              type="number"
+                              value={discount.min_people}
+                              onChange={(e) => {
+                                const newDiscounts = [...groupDiscounts];
+                                newDiscounts[index].min_people = parseInt(e.target.value) || 0;
+                                setGroupDiscounts(newDiscounts);
+                              }}
+                              min="2"
+                              placeholder="e.g., 6"
+                              className="h-10"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs font-normal mb-1.5 block">Max People (optional)</Label>
+                            <Input
+                              type="number"
+                              value={discount.max_people || ''}
+                              onChange={(e) => {
+                                const newDiscounts = [...groupDiscounts];
+                                newDiscounts[index].max_people = e.target.value ? parseInt(e.target.value) : null;
+                                setGroupDiscounts(newDiscounts);
+                              }}
+                              min={discount.min_people}
+                              placeholder="Leave empty for no limit"
+                              className="h-10"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs font-normal mb-1.5 block">Discount (%)</Label>
+                            <Input
+                              type="number"
+                              value={discount.discount_percentage}
+                              onChange={(e) => {
+                                const newDiscounts = [...groupDiscounts];
+                                newDiscounts[index].discount_percentage = parseFloat(e.target.value) || 0;
+                                setGroupDiscounts(newDiscounts);
+                              }}
+                              min="0"
+                              max="50"
+                              step="1"
+                              placeholder="e.g., 10"
+                              className="h-10"
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setGroupDiscounts(groupDiscounts.filter((_, i) => i !== index))}
+                            className="h-10"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                      
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setGroupDiscounts([...groupDiscounts, { min_people: 6, max_people: null, discount_percentage: 10 }])}
+                        className="w-full"
+                      >
+                        + Add Discount Tier
+                      </Button>
                     </div>
                   </div>
 
                   <div>
-                    <Label className="text-xs">Update Itinerary PDF (Optional)</Label>
+                    <Label className="text-xs">Itinerary PDF (Optional)</Label>
                     <div className="mt-1 flex items-center gap-2">
                       <Input
                         type="file"
@@ -1663,11 +1903,11 @@ export default function HostDashboard() {
                         rel="noopener noreferrer" 
                         className="text-xs text-primary hover:underline mt-1 inline-block"
                       >
-                        View current PDF
+                        View PDF
                       </a>
                     )}
                   </div>
-                </>
+                </div>
               )}
 
               {/* Price */}
