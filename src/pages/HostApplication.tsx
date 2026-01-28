@@ -417,7 +417,8 @@ export default function HostApplication() {
       };
       
       // Add tour guide specific fields if applying for tours
-      if (formData.service_types.includes('tour')) {
+      // Add tour guide specific fields if applying for tours or tour packages
+      if (formData.service_types.includes('tour') || formData.service_types.includes('tour_package')) {
         payload.nationality = formData.nationality;
         payload.languages_spoken = formData.languages_spoken;
         payload.years_of_experience = parseInt(formData.years_of_experience) || 0;
