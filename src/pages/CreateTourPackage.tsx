@@ -417,15 +417,6 @@ Some components are non-refundable once booked, including but not limited to:
           <p className="text-sm text-muted-foreground">Fill in the details to create your tour package</p>
         </div>
 
-        {!isHost && (
-          <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900">
-            <div className="text-sm font-medium">Not approved as host yet</div>
-            <div className="mt-1 text-sm text-amber-800">
-              You can still create a tour package now. It will be saved as a <span className="font-medium">draft</span> until your host application is approved.
-            </div>
-          </div>
-        )}
-
         <form onSubmit={handleSubmit} className="space-y-10">
           {/* Basic */}
           <div className="space-y-5">
