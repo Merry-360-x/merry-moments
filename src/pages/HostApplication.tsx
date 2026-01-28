@@ -115,6 +115,8 @@ export default function HostApplication() {
       duration_days: 1,
       price_per_person: 100,
       max_group_size: 10,
+      // Group-based pricing tiers (e.g., single person: $696, group of 2: $439, etc.)
+      pricing_tiers: [] as Array<{ group_size: number; price_per_person: number }>,
     },
     
     // TRANSPORT data (separate object)
@@ -1066,28 +1068,17 @@ export default function HostApplication() {
                         />
                       </div>
 
+                      {/* Currency selector */}
                       <div className="space-y-2">
-                        <Label htmlFor="tourPrice">Price per Person *</Label>
-                        <div className="flex gap-2">
-                          <div className="relative flex-1">
-                            <DollarSign className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-                            <Input
-                              id="tourPrice"
-                              type="number"
-                              className="pl-10"
-                              value={serviceData.price_per_person || 100}
-                              onChange={(e) => updateField("price_per_person", parseInt(e.target.value) || 0)}
-                            />
-                          </div>
-                          <Select value={serviceData.currency || "RWF"} onValueChange={(val) => updateField("currency", val)}>
-                            <SelectTrigger className="w-32">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {currencies.map((c) => <SelectItem key={c.value} value={c.value}>{c.symbol}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        </div>
+                        <Label>Currency *</Label>
+                        <Select value={serviceData.currency || "RWF"} onValueChange={(val) => updateField("currency", val)}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {currencies.map((c) => <SelectItem key={c.value} value={c.value}>{c.symbol} {c.value}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
                       </div>
 
                       <div className="space-y-2">
@@ -1104,6 +1095,110 @@ export default function HostApplication() {
                           />
                         </div>
                       </div>
+
+                      {/* Group-Based Pricing Tiers */}
+                      <div className="md:col-span-2 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <Label className="text-base">Group-Based Pricing *</Label>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              Set different prices per person based on group size (e.g., single: $696, group of 2: $439)
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const tiers = serviceData.pricing_tiers || [];
+                              const nextSize = tiers.length === 0 ? 1 : Math.max(...tiers.map((t: any) => t.group_size)) + 1;
+                              updateField("pricing_tiers", [...tiers, { group_size: nextSize, price_per_person: 100 }]);
+                            }}
+                          >
+                            <Users className="w-4 h-4 mr-1" />
+                            Add Tier
+                          </Button>
+                        </div>
+
+                        {(serviceData.pricing_tiers || []).length === 0 && (
+                          <div className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-4 text-center">
+                            No pricing tiers added yet. Click "Add Tier" to set prices for different group sizes.
+                            <br />
+                            <span className="text-xs">Example: 1 person = $696, 2 people = $439/person, 4 people = $311/person</span>
+                          </div>
+                        )}
+
+                        <div className="space-y-2">
+                          {(serviceData.pricing_tiers || []).map((tier: { group_size: number; price_per_person: number }, index: number) => (
+                            <div key={index} className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border">
+                              <div className="flex-1 flex items-center gap-3">
+                                <div className="flex items-center gap-2">
+                                  <Users className="w-4 h-4 text-muted-foreground" />
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    className="w-20"
+                                    value={tier.group_size}
+                                    onChange={(e) => {
+                                      const tiers = [...(serviceData.pricing_tiers || [])];
+                                      tiers[index] = { ...tiers[index], group_size: parseInt(e.target.value) || 1 };
+                                      updateField("pricing_tiers", tiers);
+                                    }}
+                                  />
+                                  <span className="text-sm text-muted-foreground whitespace-nowrap">
+                                    {tier.group_size === 1 ? "person" : "people"}
+                                  </span>
+                                </div>
+                                <span className="text-muted-foreground">=</span>
+                                <div className="flex items-center gap-2">
+                                  <DollarSign className="w-4 h-4 text-muted-foreground" />
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    className="w-28"
+                                    value={tier.price_per_person}
+                                    onChange={(e) => {
+                                      const tiers = [...(serviceData.pricing_tiers || [])];
+                                      tiers[index] = { ...tiers[index], price_per_person: parseInt(e.target.value) || 0 };
+                                      updateField("pricing_tiers", tiers);
+                                    }}
+                                  />
+                                  <span className="text-sm text-muted-foreground whitespace-nowrap">per person</span>
+                                </div>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                onClick={() => {
+                                  const tiers = (serviceData.pricing_tiers || []).filter((_: any, i: number) => i !== index);
+                                  updateField("pricing_tiers", tiers);
+                                }}
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+
+                        {(serviceData.pricing_tiers || []).length > 0 && (serviceData.pricing_tiers || []).length < 6 && (
+                          <p className="text-xs text-muted-foreground">
+                            Tip: Common group sizes are 1, 2, 4, and 6 people.
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Hidden legacy field - use first tier or 0 as fallback */}
+                      <input
+                        type="hidden"
+                        value={
+                          (serviceData.pricing_tiers || []).length > 0
+                            ? Math.min(...(serviceData.pricing_tiers || []).map((t: any) => t.price_per_person))
+                            : serviceData.price_per_person || 0
+                        }
+                        onChange={() => {}}
+                      />
                     </>
                   )}
 
@@ -2354,10 +2449,6 @@ export default function HostApplication() {
                         )}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                           <div>
-                            <span className="text-muted-foreground">Price:</span>
-                            <p className="font-medium">{formatMoney(formData.tour.price_per_person || 0, formData.tour.currency || 'RWF')}/person</p>
-                          </div>
-                          <div>
                             <span className="text-muted-foreground">Duration:</span>
                             <p className="font-medium">{formData.tour.duration_days || 0} days</p>
                           </div>
@@ -2370,6 +2461,24 @@ export default function HostApplication() {
                             <p className="font-medium">{formData.tour.max_group_size || 0} people</p>
                           </div>
                         </div>
+                        {/* Group-Based Pricing Summary */}
+                        {(formData.tour.pricing_tiers || []).length > 0 && (
+                          <div className="mt-3 pt-3 border-t">
+                            <span className="text-sm text-muted-foreground font-medium">Group Pricing:</span>
+                            <div className="mt-2 space-y-1">
+                              {(formData.tour.pricing_tiers || [])
+                                .sort((a: any, b: any) => b.group_size - a.group_size)
+                                .map((tier: any, idx: number) => (
+                                  <p key={idx} className="text-sm">
+                                    <span className="font-medium">
+                                      {tier.group_size === 1 ? 'Single person' : `Group of ${tier.group_size}`}:
+                                    </span>{' '}
+                                    {formatMoney(tier.price_per_person, formData.tour.currency || 'RWF')}/person
+                                  </p>
+                                ))}
+                            </div>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   )}

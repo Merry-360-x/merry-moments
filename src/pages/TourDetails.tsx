@@ -144,8 +144,8 @@ export default function TourDetails() {
     ? tour?.non_refundable_items
     : [];
 
+  // Support pricing tiers for both regular tours and tour packages
   const pricingTiers = ((): Array<{ group_size: number; price_per_person: number }> => {
-    if (!isPackage) return [];
     const raw = (tour as any)?.pricing_tiers;
     if (!Array.isArray(raw)) return [];
 
@@ -516,7 +516,7 @@ export default function TourDetails() {
           <div className="space-y-6 lg:sticky lg:top-24 lg:self-start">
             {/* Booking card */}
             <div className="bg-card rounded-xl shadow-lg border p-6">
-              {isPackage && pricingTiers.length > 0 && (
+              {pricingTiers.length > 0 && (
                 <div className="mb-6">
                   <div className="text-sm font-semibold text-foreground">Price for the tour</div>
                   <div className="mt-3 space-y-2">
