@@ -14,6 +14,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import ListingImageCarousel from "@/components/ListingImageCarousel";
+import ImageGallery from "@/components/ImageGallery";
 import { formatMoney } from "@/lib/money";
 import { useTripCart } from "@/hooks/useTripCart";
 import { 
@@ -206,21 +207,18 @@ export default function TourDetails() {
           Back
         </button>
 
-        {/* Hero Section with Main Image */}
+        {/* Hero Section with Image Gallery */}
         <div className="mb-8">
-          <div className="bg-card rounded-2xl shadow-lg overflow-hidden">
-            {normalizedImages?.length ? (
-              <ListingImageCarousel
-                images={normalizedImages}
-                alt={tour.title}
-                className="w-full h-[450px] lg:h-[550px]"
-              />
-            ) : (
-              <div className="w-full h-[450px] lg:h-[550px] bg-gradient-to-br from-primary/20 via-primary/10 to-background flex items-center justify-center">
-                <Info className="w-16 h-16 text-muted-foreground" />
-              </div>
-            )}
-          </div>
+          {normalizedImages?.length ? (
+            <ImageGallery
+              images={normalizedImages}
+              alt={tour.title}
+            />
+          ) : (
+            <div className="w-full aspect-[16/9] bg-gradient-to-br from-primary/20 via-primary/10 to-background flex items-center justify-center rounded-xl">
+              <Info className="w-16 h-16 text-muted-foreground" />
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
