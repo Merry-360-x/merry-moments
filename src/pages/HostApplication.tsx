@@ -150,6 +150,7 @@ export default function HostApplication() {
       max_guests: 10,
       cover_image: "",
       gallery_images: [] as string[],
+      itinerary_pdf: "",
     },
   });
 
@@ -159,6 +160,7 @@ export default function HostApplication() {
   const [licenseUploadOpen, setLicenseUploadOpen] = useState(false);
   const [tourPackageCoverOpen, setTourPackageCoverOpen] = useState(false);
   const [tourPackageGalleryOpen, setTourPackageGalleryOpen] = useState(false);
+  const [tourPackageItineraryOpen, setTourPackageItineraryOpen] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
 
   const STORAGE_KEY = 'host_application_progress';
@@ -1118,6 +1120,43 @@ export default function HostApplication() {
                               >
                                 <Upload className="w-4 h-4 mr-2" />
                                 Upload Cover
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Itinerary PDF (optional)</Label>
+                          <div className="flex items-center gap-4">
+                            {formData.tour_package.itinerary_pdf ? (
+                              <div className="flex items-center gap-2">
+                                <a
+                                  href={formData.tour_package.itinerary_pdf}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-primary underline text-sm"
+                                >
+                                  View Itinerary PDF
+                                </a>
+                                <button
+                                  type="button"
+                                  className="bg-destructive text-destructive-foreground rounded-full p-1"
+                                  onClick={() => setFormData(prev => ({
+                                    ...prev,
+                                    tour_package: { ...prev.tour_package, itinerary_pdf: "" }
+                                  }))}
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ) : (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setTourPackageItineraryOpen(true)}
+                              >
+                                <Upload className="w-4 h-4 mr-2" />
+                                Upload Itinerary PDF
                               </Button>
                             )}
                           </div>
@@ -2415,6 +2454,29 @@ export default function HostApplication() {
             toast({
               title: "Upload successful",
               description: "Your tour package cover image has been uploaded.",
+            });
+          }
+        }}
+      />
+
+      <CloudinaryUploadDialog
+        open={tourPackageItineraryOpen}
+        onOpenChange={setTourPackageItineraryOpen}
+        title="Upload Itinerary PDF"
+        folder="tour_packages/itineraries"
+        accept="application/pdf"
+        multiple={false}
+        value={formData.tour_package.itinerary_pdf ? [formData.tour_package.itinerary_pdf] : []}
+        onChange={(urls) => {
+          setFormData(prev => ({
+            ...prev,
+            tour_package: { ...prev.tour_package, itinerary_pdf: urls[0] || "" }
+          }));
+          if (urls[0]) {
+            setTourPackageItineraryOpen(false);
+            toast({
+              title: "Upload successful",
+              description: "Your itinerary PDF has been uploaded.",
             });
           }
         }}
