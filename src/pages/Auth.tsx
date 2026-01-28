@@ -44,7 +44,9 @@ const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -93,9 +95,13 @@ const Auth = () => {
         // User is now authenticated, navigate will happen via useEffect
         // when user state updates
       } else {
-        if (!fullName.trim()) {
-          throw new Error(t("auth.errors.fullNameRequired"));
+        if (!firstName.trim() || !lastName.trim()) {
+          throw new Error("First name and last name are required");
         }
+        if (!phoneNumber.trim()) {
+          throw new Error("Phone number is required");
+        }
+        const fullName = `${firstName.trim()} ${lastName.trim()}`;
         const { error } = await signUp(email, password, fullName);
         if (error) throw error;
         
@@ -110,7 +116,9 @@ const Auth = () => {
           });
           setEmail("");
           setPassword("");
-          setFullName("");
+          setFirstName("");
+          setLastName("");
+          setPhoneNumber("");
         } else {
           // Signed in immediately
           toast({ 
@@ -209,18 +217,46 @@ const Auth = () => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
-              <div>
-                <Label htmlFor="fullName">{t("auth.fields.fullName")}</Label>
-                <Input
-                  id="fullName"
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder={t("auth.placeholders.fullName")}
-                  className="mt-1"
-                  required={!isLogin}
-                />
-              </div>
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="firstName">First Name</Label>
+                    <Input
+                      id="firstName"
+                      type="text"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="John"
+                      className="mt-1"
+                      required={!isLogin}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="lastName">Last Name</Label>
+                    <Input
+                      id="lastName"
+                      type="text"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      placeholder="Doe"
+                      className="mt-1"
+                      required={!isLogin}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="phoneNumber">Phone Number</Label>
+                  <Input
+                    id="phoneNumber"
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder="+250 123 456 789"
+                    className="mt-1"
+                    required={!isLogin}
+                  />
+                </div>
+              </>
             )}
 
             <div>
@@ -257,7 +293,6 @@ const Auth = () => {
                   placeholder={t("auth.placeholders.password")}
                   className="pr-10"
                   required
-                  minLength={6}
                 />
                 <button
                   type="button"
@@ -267,6 +302,11 @@ const Auth = () => {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              {!isLogin && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Password must be at least 6 characters long
+                </p>
+              )}
             </div>
 
             <Button type="submit" className="w-full">
