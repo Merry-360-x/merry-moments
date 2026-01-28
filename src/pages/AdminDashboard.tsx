@@ -2274,20 +2274,14 @@ For support, contact: support@merry360x.com
                                     className="flex-1 bg-green-600 hover:bg-green-700"
                                     onClick={async () => {
                                       try {
-                                        const { error } = await supabase
-                                          .from('host_applications')
-                                          .update({ status: 'approved' })
-                                          .eq('id', app.id);
-                                        
+                                        const { error } = await supabase.rpc('approve_host_application', {
+                                          application_id: app.id,
+                                          note: null,
+                                        } as any);
+
                                         if (error) throw error;
 
-                                        // Add host role
-                                        await supabase.from('user_roles').upsert({
-                                          user_id: app.user_id,
-                                          role: 'host',
-                                        });
-
-                                        toast({ title: 'Application Approved', description: 'Host role has been granted.' });
+                                        toast({ title: 'Application Approved', description: 'Host role has been granted and listings published.' });
                                         refetchApplications();
                                       } catch (e) {
                                         logError('admin.approve_host', e);

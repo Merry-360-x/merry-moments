@@ -273,6 +273,9 @@ export type Database = {
           national_id_photo_url: string | null
           nationality: string | null
           phone: string
+          promoted_property_id: string | null
+          promoted_tour_id: string | null
+          promoted_vehicle_id: string | null
           selfie_photo_url: string | null
           service_types: string[] | null
           status: Database["public"]["Enums"]["application_status"] | null
@@ -322,6 +325,9 @@ export type Database = {
           national_id_photo_url?: string | null
           nationality?: string | null
           phone: string
+          promoted_property_id?: string | null
+          promoted_tour_id?: string | null
+          promoted_vehicle_id?: string | null
           selfie_photo_url?: string | null
           service_types?: string[] | null
           status?: Database["public"]["Enums"]["application_status"] | null
@@ -371,6 +377,9 @@ export type Database = {
           national_id_photo_url?: string | null
           nationality?: string | null
           phone?: string
+          promoted_property_id?: string | null
+          promoted_tour_id?: string | null
+          promoted_vehicle_id?: string | null
           selfie_photo_url?: string | null
           service_types?: string[] | null
           status?: Database["public"]["Enums"]["application_status"] | null

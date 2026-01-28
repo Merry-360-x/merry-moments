@@ -343,30 +343,11 @@ export default function OperationsStaffDashboard() {
 
   const approveApplicationMutation = useMutation({
     mutationFn: async (id: string) => {
-      // Get the application to access user_id
-      const { data: application } = await supabase
-        .from("host_applications")
-        .select("user_id")
-        .eq("id", id)
-        .single();
-      
-      if (!application) throw new Error("Application not found");
-      
-      // Update application status
-      const { error: updateErr } = await supabase
-        .from("host_applications")
-        .update({ status: "approved" })
-        .eq("id", id);
-      if (updateErr) throw updateErr;
-      
-      // Add host role
-      const { error: roleErr } = await supabase
-        .from("user_roles")
-        .upsert(
-          { user_id: application.user_id, role: "host" },
-          { onConflict: "user_id,role" }
-        );
-      if (roleErr) throw roleErr;
+      const { error } = await supabase.rpc("approve_host_application", {
+        application_id: id,
+        note: null,
+      } as any);
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["operations_applications"] });

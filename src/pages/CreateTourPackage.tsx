@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,10 @@ export default function CreateTourPackage() {
   const { user, isHost } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
+
+  const redirectTo = searchParams.get("redirect") || "/host-dashboard";
 
   const defaultCancellationPolicy = `STANDARD EXPERIENCES (Day Tours & Activities)
 • More than 72 hours before start time: Full refund (excluding platform service fees and payment processing fees)
@@ -313,7 +316,7 @@ Some components are non-refundable once booked, including but not limited to:
         cover_image: coverImage || null,
         gallery_images: galleryImages.length > 0 ? galleryImages : null,
         itinerary_pdf_url: pdfUrl,
-        status: "approved", // Auto-approve for now, can add manual approval later
+        status: (isHost ? "approved" : "draft"),
       };
 
       const normalizedPricingTiers = Array.from(
@@ -350,7 +353,7 @@ Some components are non-refundable once booked, including but not limited to:
 
       toast({ title: "Success!", description: "Tour package created successfully" });
       clearDraft(); // Clear the draft after successful submission
-      navigate("/host-dashboard");
+      navigate(redirectTo);
     } catch (error: any) {
       toast({ title: "Error", description: error.message || "Failed to create tour package", variant: "destructive" });
     } finally {
@@ -373,21 +376,6 @@ Some components are non-refundable once booked, including but not limited to:
     );
   }
 
-  if (!isHost) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="container mx-auto px-4 py-20 text-center">
-          <AlertCircle className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-          <h1 className="text-xl font-medium mb-2">Host Access Required</h1>
-          <p className="text-sm text-muted-foreground mb-6">You must be an approved host</p>
-          <Button onClick={() => navigate("/host-application")}>Become a Host</Button>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -396,6 +384,15 @@ Some components are non-refundable once booked, including but not limited to:
           <h1 className="text-2xl font-medium mb-2">Create Tour Package</h1>
           <p className="text-sm text-muted-foreground">Fill in the details to create your tour package</p>
         </div>
+
+        {!isHost && (
+          <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900">
+            <div className="text-sm font-medium">Not approved as host yet</div>
+            <div className="mt-1 text-sm text-amber-800">
+              You can still create a tour package now. It will be saved as a <span className="font-medium">draft</span> until your host application is approved.
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-10">
           {/* Basic */}

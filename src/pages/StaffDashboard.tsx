@@ -567,23 +567,14 @@ For support, contact: support@merry360x.com
     try {
       const note = window.prompt("Approval note (optional):") ?? null;
 
-      const { error: updateError } = await supabase
-        .from("host_applications")
-        .update({ status: "approved", review_notes: note, reviewed_by: user?.id ?? null })
-        .eq("id", app.id);
+      const { error } = await supabase.rpc("approve_host_application", {
+        application_id: app.id,
+        note,
+      } as any);
 
-      if (updateError) throw updateError;
+      if (error) throw error;
 
-      const { error: roleError } = await supabase
-        .from("user_roles")
-        .upsert(
-          { user_id: app.user_id, role: "host" },
-          { onConflict: "user_id,role" }
-        );
-
-      if (roleError) throw roleError;
-
-      toast({ title: "Approved", description: "Host role granted." });
+      toast({ title: "Approved", description: "Host role granted and listings published." });
       await refetch();
     } catch (e) {
       logError("staff.approveHostApplication", e);

@@ -185,9 +185,7 @@ const App = () => (
                 path="/create-tour-package"
                 element={
                   <RequireAuth>
-                    <RequireRole allowed={["host"]}>
-                      <CreateTourPackage />
-                    </RequireRole>
+                    <CreateTourPackage />
                   </RequireAuth>
                 }
               />

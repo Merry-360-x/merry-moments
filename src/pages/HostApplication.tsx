@@ -804,6 +804,27 @@ export default function HostApplication() {
                   </p>
                 </div>
 
+                {currentServiceType === 'tour' && (
+                  <div className="rounded-xl border bg-muted/20 p-4">
+                    <div className="flex items-start justify-between gap-4 flex-wrap">
+                      <div>
+                        <div className="font-semibold">Optional: Create a Tour Package</div>
+                        <div className="text-sm text-muted-foreground mt-1">
+                          If you have a detailed itinerary (multi-day/experience package), you can create it now.
+                          It will be saved as a draft until your host application is approved.
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => navigate(`/create-tour-package?redirect=${encodeURIComponent('/become-host')}`)}
+                      >
+                        Create Tour Package
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <Label htmlFor="title">
