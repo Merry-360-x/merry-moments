@@ -4,6 +4,23 @@ import { compressImage } from "@/lib/image-compression";
 
 const randomId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
+// Sanitize filename to remove special characters that cause issues with storage
+const sanitizeFilename = (filename: string): string => {
+  // Get extension
+  const lastDot = filename.lastIndexOf('.');
+  const ext = lastDot > 0 ? filename.slice(lastDot) : '';
+  const name = lastDot > 0 ? filename.slice(0, lastDot) : filename;
+  
+  // Replace special characters with underscores, keep only alphanumeric, dash, underscore
+  const sanitized = name
+    .replace(/[^a-zA-Z0-9\-_]/g, '_')  // Replace special chars with underscore
+    .replace(/_+/g, '_')               // Collapse multiple underscores
+    .replace(/^_|_$/g, '')             // Trim leading/trailing underscores
+    .slice(0, 50);                     // Limit length
+  
+  return (sanitized || 'file') + ext.toLowerCase();
+};
+
 export async function uploadFile(
   file: File,
   opts: { folder: string; onProgress?: (percent: number) => void }
@@ -16,7 +33,8 @@ export async function uploadFile(
     
     if (isPDF || isDocument) {
       console.log(`[uploads] Uploading ${file.name} to Supabase Storage (documents/PDFs not supported in unsigned Cloudinary)`);
-      const path = `${opts.folder}/${randomId()}-${file.name}`.replaceAll("//", "/");
+      const safeName = sanitizeFilename(file.name);
+      const path = `${opts.folder}/${randomId()}-${safeName}`.replaceAll("//", "/");
       const { error } = await supabase.storage.from("uploads").upload(path, file, {
         cacheControl: "3600",
         upsert: false,
@@ -56,7 +74,8 @@ export async function uploadFile(
     }
 
     // Fallback to Supabase Storage (public bucket).
-    const path = `${opts.folder}/${randomId()}-${fileToUpload.name}`.replaceAll("//", "/");
+    const safeName = sanitizeFilename(fileToUpload.name);
+    const path = `${opts.folder}/${randomId()}-${safeName}`.replaceAll("//", "/");
     const { error } = await supabase.storage.from("uploads").upload(path, fileToUpload, {
       cacheControl: "3600",
       upsert: false,
