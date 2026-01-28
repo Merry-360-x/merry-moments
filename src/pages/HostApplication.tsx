@@ -33,6 +33,8 @@ import {
   Car,
   Compass,
   X,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { formatMoney } from "@/lib/money";
@@ -147,6 +149,7 @@ export default function HostApplication() {
       currency: "RWF",
       min_guests: 1,
       max_guests: 10,
+      gallery_images: [] as string[],
       itinerary_pdf: "",
     },
   });
@@ -155,6 +158,7 @@ export default function HostApplication() {
   const [idPhotoUploadOpen, setIdPhotoUploadOpen] = useState(false);
   const [selfieUploadOpen, setSelfieUploadOpen] = useState(false);
   const [licenseUploadOpen, setLicenseUploadOpen] = useState(false);
+  const [tourPackageGalleryOpen, setTourPackageGalleryOpen] = useState(false);
   const [tourPackageItineraryOpen, setTourPackageItineraryOpen] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
 
@@ -1756,6 +1760,89 @@ export default function HostApplication() {
                         />
                       </div>
 
+                      {/* Gallery Images */}
+                      <div className="space-y-2">
+                        <Label>Package Images</Label>
+                        <p className="text-sm text-muted-foreground">Add photos of your tour package. The first image will be used as the cover.</p>
+                        
+                        {formData.tour_package.gallery_images.length > 0 && (
+                          <div className="grid grid-cols-3 gap-2">
+                            {formData.tour_package.gallery_images.map((img, idx) => (
+                              <div key={idx} className="relative group">
+                                <img
+                                  src={img}
+                                  alt={`Package ${idx + 1}`}
+                                  className="w-full h-24 object-cover rounded-lg"
+                                />
+                                {idx === 0 && (
+                                  <span className="absolute top-1 left-1 bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded">
+                                    Cover
+                                  </span>
+                                )}
+                                <div className="absolute top-1 right-1 flex gap-1">
+                                  {idx > 0 && (
+                                    <button
+                                      type="button"
+                                      className="bg-white/90 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                      onClick={() => {
+                                        const newImages = [...formData.tour_package.gallery_images];
+                                        [newImages[idx - 1], newImages[idx]] = [newImages[idx], newImages[idx - 1]];
+                                        setFormData(prev => ({
+                                          ...prev,
+                                          tour_package: { ...prev.tour_package, gallery_images: newImages }
+                                        }));
+                                      }}
+                                    >
+                                      <ChevronLeft className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                  {idx < formData.tour_package.gallery_images.length - 1 && (
+                                    <button
+                                      type="button"
+                                      className="bg-white/90 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                      onClick={() => {
+                                        const newImages = [...formData.tour_package.gallery_images];
+                                        [newImages[idx], newImages[idx + 1]] = [newImages[idx + 1], newImages[idx]];
+                                        setFormData(prev => ({
+                                          ...prev,
+                                          tour_package: { ...prev.tour_package, gallery_images: newImages }
+                                        }));
+                                      }}
+                                    >
+                                      <ChevronRight className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    className="bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={() => {
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        tour_package: {
+                                          ...prev.tour_package,
+                                          gallery_images: prev.tour_package.gallery_images.filter((_, i) => i !== idx)
+                                        }
+                                      }));
+                                    }}
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setTourPackageGalleryOpen(true)}
+                        >
+                          <ImageIcon className="w-4 h-4 mr-2" />
+                          Add Images
+                        </Button>
+                      </div>
+
                       <div className="space-y-2">
                         <Label>Itinerary PDF (optional)</Label>
                         <div className="flex items-center gap-4">
@@ -2450,6 +2537,29 @@ export default function HostApplication() {
             toast({
               title: "Upload successful",
               description: "Your tour guide license/certificate has been uploaded.",
+            });
+          }
+        }}
+      />
+
+      <CloudinaryUploadDialog
+        open={tourPackageGalleryOpen}
+        onOpenChange={setTourPackageGalleryOpen}
+        title="Upload Package Images"
+        folder="tour_packages/gallery"
+        accept="image/*"
+        multiple={true}
+        value={formData.tour_package.gallery_images}
+        onChange={(urls) => {
+          setFormData(prev => ({
+            ...prev,
+            tour_package: { ...prev.tour_package, gallery_images: urls }
+          }));
+          if (urls.length > 0) {
+            setTourPackageGalleryOpen(false);
+            toast({
+              title: "Upload successful",
+              description: `${urls.length} image(s) have been uploaded.`,
             });
           }
         }}
