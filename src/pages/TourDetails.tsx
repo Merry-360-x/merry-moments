@@ -346,56 +346,37 @@ export default function TourDetails() {
               </div>
             )}
 
-            {/* PDF Itinerary */}
+            {/* PDF Itinerary - Compact Card */}
             {tour.itinerary_pdf_url && (
               <div className="border-t pt-6">
                 <h2 className="text-xl font-semibold text-foreground mb-4">Detailed Itinerary</h2>
-                <div className="bg-card rounded-lg border overflow-hidden shadow-md">
-                  <div className="relative bg-muted/20">
-                    <object
-                      data={tour.itinerary_pdf_url}
-                      type="application/pdf"
-                      className="w-full h-[600px]"
-                      title="Tour Itinerary PDF Preview"
-                    >
-                      <div className="flex flex-col items-center justify-center h-[600px] p-8 text-center">
-                        <FileText className="w-16 h-16 text-muted-foreground mb-4" />
-                        <p className="text-muted-foreground mb-4">PDF preview not available in your browser</p>
-                        <a
-                          href={tour.itinerary_pdf_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 inline-flex items-center gap-2 transition-colors"
-                        >
-                          <Download className="w-4 h-4" />
-                          Download PDF to view
-                        </a>
-                      </div>
-                    </object>
+                <div className="bg-card rounded-lg border p-4 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
+                      <FileText className="w-6 h-6 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">Tour Itinerary</p>
+                      <p className="text-sm text-muted-foreground">PDF Document</p>
+                    </div>
                   </div>
-                  <div className="p-4 bg-muted/30 border-t flex items-center justify-between gap-4 flex-wrap">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <FileText className="w-4 h-4" />
-                      <span>Complete tour itinerary document</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <a
-                        href={tour.itinerary_pdf_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-primary hover:underline inline-flex items-center gap-1"
-                      >
-                        Open in new tab →
-                      </a>
-                      <a
-                        href={tour.itinerary_pdf_url}
-                        download
-                        className="px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90 inline-flex items-center gap-2 transition-colors"
-                      >
-                        <Download className="w-4 h-4" />
-                        Download
-                      </a>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={tour.itinerary_pdf_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 border rounded-lg text-sm font-medium hover:bg-muted transition-colors"
+                    >
+                      View
+                    </a>
+                    <a
+                      href={tour.itinerary_pdf_url}
+                      download
+                      className="px-4 py-2 bg-foreground text-background rounded-lg text-sm font-medium hover:bg-foreground/90 transition-colors inline-flex items-center gap-2"
+                    >
+                      <Download className="w-4 h-4" />
+                      Download
+                    </a>
                   </div>
                 </div>
               </div>
