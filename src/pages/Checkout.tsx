@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,8 +15,7 @@ import { useFxRates } from "@/hooks/useFxRates";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useTripCart } from "@/hooks/useTripCart";
 import { useQuery } from "@tanstack/react-query";
-import { Separator } from "@/components/ui/separator";
-import { Check, Smartphone, Building2, Wallet, CreditCard, ChevronRight, ChevronLeft } from "lucide-react";
+import { Check, ArrowRight, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { checkAvailability } from "@/lib/availability-check";
 import { initiatePawaPayPayment, isPawaPayMethod } from "@/lib/pawapay";
@@ -95,9 +93,9 @@ export default function Checkout() {
   }, [name, email, phone, mobileMoneyPhone, message, paymentMethod, currentStep]);
 
   const steps = [
-    { id: 1, name: "Contact Info", description: "Your details" },
-    { id: 2, name: "Payment Method", description: "How you'll pay" },
-    { id: 3, name: "Review", description: "Confirm & submit" },
+    { id: 1, name: "Details" },
+    { id: 2, name: "Payment" },
+    { id: 3, name: "Confirm" },
   ];
 
   const [property, setProperty] = useState<null | {
@@ -717,354 +715,221 @@ export default function Checkout() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <Navbar />
-      <div className="container mx-auto px-4 lg:px-8 py-10">
-        <div className="max-w-3xl mx-auto">
-          <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">{pageTitle}</h1>
-          <p className="text-muted-foreground mb-8">
-            {mode === "booking"
-              ? "Submit your booking request. Our team will contact you to confirm and arrange payment."
-              : "Share your contact information and preferred payment method. We'll contact you to confirm your order."}
-          </p>
-
-          {mode === "booking" ? (
-            <Card className="p-5 mb-6">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="text-sm text-muted-foreground">Booking</div>
-                  <div className="text-lg font-semibold text-foreground">{bookingTitle}</div>
-                  <div className="mt-2 text-sm text-muted-foreground">
-                    {checkIn} → {checkOut} • {nights} night{nights === 1 ? "" : "s"} • {Math.max(1, guests)} guest
-                    {Math.max(1, guests) === 1 ? "" : "s"}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm text-muted-foreground">Total</div>
-                  <div className="text-xl font-bold text-foreground">
-                    {formatMoneyWithConversion(bookingTotal, currency, preferredCurrency, usdRates)}
-                  </div>
-                </div>
-              </div>
-            </Card>
-          ) : null}
-
-          {/* Progress Steps */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between">
-              {steps.map((step, index) => (
-                <div key={step.id} className="flex items-center flex-1">
-                  <div className="flex flex-col items-center">
-                    <div
-                      className={cn(
-                        "w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all",
-                        currentStep > step.id
-                          ? "bg-green-500 text-white"
-                          : currentStep === step.id
-                          ? "bg-primary text-primary-foreground ring-4 ring-primary/20"
-                          : "bg-muted text-muted-foreground"
-                      )}
-                    >
-                      {currentStep > step.id ? <Check className="h-5 w-5" /> : step.id}
-                    </div>
-                    <div className="mt-2 text-center">
-                      <div className={cn("text-sm font-medium", currentStep >= step.id ? "text-foreground" : "text-muted-foreground")}>
-                        {step.name}
-                      </div>
-                      <div className="text-xs text-muted-foreground hidden sm:block">{step.description}</div>
-                    </div>
-                  </div>
-                  {index < steps.length - 1 && (
-                    <div className={cn("flex-1 h-1 mx-4 rounded transition-all", currentStep > step.id ? "bg-green-500" : "bg-muted")} />
-                  )}
-                </div>
-              ))}
-            </div>
+      <div className="container mx-auto px-4 lg:px-8 py-12">
+        <div className="max-w-xl mx-auto">
+          {/* Minimal Header */}
+          <div className="text-center mb-12">
+            <h1 className="text-3xl font-light tracking-tight text-foreground">
+              {mode === "booking" ? "Complete Booking" : "Checkout"}
+            </h1>
           </div>
 
-          <Card className="p-6">
-            {/* Step 1: Contact Information */}
-            {currentStep === 1 && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-xl font-semibold mb-2">Contact Information</h3>
-                  <p className="text-sm text-muted-foreground">We'll use this to contact you about your request</p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="md:col-span-2">
-                    <Label htmlFor="name">Full name *</Label>
-                    <Input
-                      id="name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="John Doe"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="email">Email *</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="john@example.com"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="phone">Phone Number *</Label>
-                    <Input
-                      id="phone"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="+250 788 123 456"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <Label htmlFor="message">Special Requests or Notes (Optional)</Label>
-                    <Textarea
-                      id="message"
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
-                      placeholder="Any special requests or additional information..."
-                      rows={3}
-                      className="mt-1"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Step 2: Payment Method */}
-            {currentStep === 2 && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-xl font-semibold mb-2">Payment Method</h3>
-                  <p className="text-sm text-muted-foreground">Choose how you'd like to pay</p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {paymentMethods.map((method) => {
-                    const isSelected = paymentMethod === method.id;
-                    return (
-                      <button
-                        key={method.id}
-                        type="button"
-                        onClick={() => setPaymentMethod(method.id)}
-                        className={cn(
-                          "relative p-4 border-2 rounded-lg text-left transition-all hover:shadow-md bg-white dark:bg-gray-950",
-                          isSelected ? "border-primary shadow-lg" : "border-gray-200 dark:border-gray-800"
-                        )}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="p-2 rounded-lg">
-                            <img src={method.iconPath} alt={method.name} className="h-10 w-10 object-contain" />
-                          </div>
-                          <div className="flex-1">
-                            <div className="font-semibold text-foreground">{method.name}</div>
-                            <div className="text-sm text-muted-foreground mt-1">{method.description}</div>
-                          </div>
-                          {isSelected && (
-                            <div className="absolute top-3 right-3">
-                              <div className="bg-primary text-primary-foreground rounded-full p-1">
-                                <Check className="h-4 w-4" />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-                
-                {/* Mobile Money Phone Input - Only show when MTN or Airtel is selected */}
-                {isPawaPayMethod(paymentMethod) && (
-                  <div className="bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-300 dark:border-yellow-700 rounded-lg p-4">
-                    <div className="flex items-start gap-3">
-                      <Smartphone className="h-5 w-5 text-yellow-600 mt-1" />
-                      <div className="flex-1">
-                        <Label htmlFor="mobileMoneyPhone" className="text-yellow-900 dark:text-yellow-100 font-semibold">
-                          Mobile Money Phone Number *
-                        </Label>
-                        <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-2">
-                          Enter the phone number registered with {paymentMethod === "mtn_momo" ? "MTN Mobile Money" : "Airtel Money"}
-                        </p>
-                        <Input
-                          id="mobileMoneyPhone"
-                          value={mobileMoneyPhone || phone}
-                          onChange={(e) => setMobileMoneyPhone(e.target.value)}
-                          placeholder={paymentMethod === "mtn_momo" ? "078 XXX XXXX" : "073 XXX XXXX"}
-                          className="bg-white dark:bg-gray-950"
-                        />
-                        <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-2">
-                          📱 You will receive a payment prompt on this phone. Enter your PIN to complete the payment.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Info for Mobile Money */}
-                {isPawaPayMethod(paymentMethod) && (
-                  <div className="bg-green-50 dark:bg-green-900/20 border-2 border-green-200 dark:border-green-800 rounded-lg p-4">
-                    <h4 className="font-semibold text-green-900 dark:text-green-100 mb-2 flex items-center gap-2">
-                      📱 How Mobile Money Payment Works
-                    </h4>
-                    <ol className="text-sm text-green-800 dark:text-green-200 space-y-1 list-decimal list-inside">
-                      <li>After you click "Book", a payment request will be sent to your phone</li>
-                      <li>Open the {paymentMethod === "mtn_momo" ? "MTN MoMo" : "Airtel Money"} prompt on your phone</li>
-                      <li>Enter your PIN to approve the payment</li>
-                      <li>Your booking will be confirmed automatically once payment is received</li>
-                    </ol>
-                  </div>
-                )}
-
-                {/* Info for Bank Transfer / Card */}
-                {!isPawaPayMethod(paymentMethod) && (
-                  <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                    <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2 flex items-center gap-2">
-                      💡 Payment Information
-                    </h4>
-                    <p className="text-sm text-blue-800 dark:text-blue-200">
-                      Our team will contact you shortly with {paymentMethod === "bank_transfer" ? "bank transfer details" : "a secure payment link"} to complete your booking.
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Step 3: Review */}
-            {currentStep === 3 && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-xl font-semibold mb-2">Review Your Request</h3>
-                  <p className="text-sm text-muted-foreground">Please verify all information before submitting</p>
-                </div>
-
-                <div className="space-y-4">
-                  {mode === "booking" && property && (
-                    <div className="bg-primary/5 rounded-lg p-4 border-2 border-primary/20">
-                      <h4 className="font-semibold mb-3 text-primary">Booking Details</h4>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Property:</span>
-                          <span className="font-medium">{property.title || property.name}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Check-in:</span>
-                          <span className="font-medium">{checkIn}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Check-out:</span>
-                          <span className="font-medium">{checkOut}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Nights:</span>
-                          <span className="font-medium">{nights} night{nights === 1 ? "" : "s"}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Guests:</span>
-                          <span className="font-medium">{Math.max(1, guests)} guest{Math.max(1, guests) === 1 ? "" : "s"}</span>
-                        </div>
-                        <div className="flex justify-between pt-2 border-t">
-                          <span className="text-muted-foreground">Price per night:</span>
-                          <span className="font-medium">{formatMoneyWithConversion(Number(property.price_per_night ?? 0), currency, preferredCurrency, usdRates)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="font-semibold">Total Price:</span>
-                          <span className="font-bold text-lg text-primary">{formatMoneyWithConversion(bookingTotal, currency, preferredCurrency, usdRates)}</span>
-                        </div>
-                      </div>
-                    </div>
+          {/* Minimal Progress Indicator */}
+          <div className="flex items-center justify-center gap-2 mb-12">
+            {steps.map((step, index) => (
+              <div key={step.id} className="flex items-center">
+                <div
+                  className={cn(
+                    "w-8 h-8 rounded-full flex items-center justify-center text-sm transition-all",
+                    currentStep > step.id
+                      ? "bg-foreground text-background"
+                      : currentStep === step.id
+                      ? "border-2 border-foreground text-foreground"
+                      : "border border-muted-foreground/30 text-muted-foreground/50"
                   )}
+                >
+                  {currentStep > step.id ? <Check className="h-4 w-4" /> : step.id}
+                </div>
+                {index < steps.length - 1 && (
+                  <div className={cn(
+                    "w-12 h-px mx-2",
+                    currentStep > step.id ? "bg-foreground" : "bg-muted-foreground/20"
+                  )} />
+                )}
+              </div>
+            ))}
+          </div>
 
-                  <div className="bg-muted/50 rounded-lg p-4">
-                    <h4 className="font-semibold mb-3">Contact Details</h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Name:</span>
-                        <span className="font-medium">{name || <span className="text-red-500">Not provided</span>}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Email:</span>
-                        <span className="font-medium">{email || <span className="text-red-500">Not provided</span>}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Phone:</span>
-                        <span className="font-medium">{phone || <span className="text-red-500">Not provided</span>}</span>
-                      </div>
-                      {message && (
-                        <div className="pt-2 border-t">
-                          <span className="text-muted-foreground">Special Requests:</span>
-                          <p className="mt-1 text-foreground">{message}</p>
-                        </div>
-                      )}
-                    </div>
-                    {(!name || !email || !phone) && (
-                      <div className="mt-3 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg">
-                        <p className="text-sm text-red-800 dark:text-red-200">
-                          ⚠️ Please go back and fill in all required contact information
-                        </p>
-                      </div>
-                    )}
-                  </div>
+          {/* Booking Summary - Minimal */}
+          {mode === "booking" && property && (
+            <div className="mb-10 pb-8 border-b border-muted-foreground/10">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">{bookingTitle}</p>
+                  <p className="text-xs text-muted-foreground/70">
+                    {checkIn} → {checkOut} · {nights}n · {Math.max(1, guests)}g
+                  </p>
+                </div>
+                <p className="text-lg font-medium">
+                  {formatMoneyWithConversion(bookingTotal, currency, preferredCurrency, usdRates)}
+                </p>
+              </div>
+            </div>
+          )}
 
-                  <div className="bg-muted/50 rounded-lg p-4">
-                    <h4 className="font-semibold mb-3">Payment Method</h4>
-                    <div className="flex items-center gap-3">
-                      {(() => {
-                        const selectedMethod = paymentMethods.find((m) => m.id === paymentMethod);
-                        if (!selectedMethod) return null;
-                        return (
-                          <>
-                            <div className="p-2 bg-background rounded-lg border">
-                              <img src={selectedMethod.iconPath} alt={selectedMethod.name} className="h-10 w-10 object-contain" />
-                            </div>
-                            <div>
-                              <div className="font-medium">{selectedMethod.name}</div>
-                              <div className="text-sm text-muted-foreground">{selectedMethod.description}</div>
-                            </div>
-                          </>
-                        );
-                      })()}
-                    </div>
-                  </div>
+          {/* Step 1: Contact Information */}
+          {currentStep === 1 && (
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="name" className="text-xs uppercase tracking-wider text-muted-foreground">Name</Label>
+                  <Input
+                    id="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Your full name"
+                    className="mt-2 border-0 border-b rounded-none px-0 focus-visible:ring-0 focus-visible:border-foreground"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="email" className="text-xs uppercase tracking-wider text-muted-foreground">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="mt-2 border-0 border-b rounded-none px-0 focus-visible:ring-0 focus-visible:border-foreground"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="phone" className="text-xs uppercase tracking-wider text-muted-foreground">Phone</Label>
+                  <Input
+                    id="phone"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+250 788 123 456"
+                    className="mt-2 border-0 border-b rounded-none px-0 focus-visible:ring-0 focus-visible:border-foreground"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="message" className="text-xs uppercase tracking-wider text-muted-foreground">Notes (optional)</Label>
+                  <Textarea
+                    id="message"
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder="Any special requests..."
+                    rows={2}
+                    className="mt-2 border-0 border-b rounded-none px-0 resize-none focus-visible:ring-0 focus-visible:border-foreground"
+                  />
                 </div>
               </div>
-            )}
+            </div>
+          )}
 
-            <Separator className="my-6" />
-
-            {/* Navigation Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3 justify-between">
-              <Button
-                variant="outline"
-                type="button"
-                onClick={currentStep === 1 ? () => navigate(-1) : handlePrevious}
-                disabled={loading}
-              >
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                {currentStep === 1 ? "Cancel" : "Previous"}
-              </Button>
-              {currentStep < 3 ? (
-                <Button type="button" onClick={handleNext} disabled={loading}>
-                  Next
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={loading || (mode === "booking" && !isPropertyInCart)}
-                  className="bg-red-600 hover:bg-red-700"
-                >
-                  {loading ? "Booking..." : "Book"}
-                  <Check className="h-4 w-4 ml-1" />
-                </Button>
+          {/* Step 2: Payment Method */}
+          {currentStep === 2 && (
+            <div className="space-y-6">
+              <div className="space-y-3">
+                {paymentMethods.map((method) => (
+                  <button
+                    key={method.id}
+                    type="button"
+                    onClick={() => setPaymentMethod(method.id)}
+                    className={cn(
+                      "w-full p-4 text-left transition-all flex items-center gap-4 border rounded-lg",
+                      paymentMethod === method.id
+                        ? "border-foreground"
+                        : "border-muted-foreground/20 hover:border-muted-foreground/40"
+                    )}
+                  >
+                    <img src={method.iconPath} alt={method.name} className="h-8 w-8 object-contain opacity-80" />
+                    <span className="font-medium text-sm">{method.name}</span>
+                    {paymentMethod === method.id && (
+                      <Check className="h-4 w-4 ml-auto" />
+                    )}
+                  </button>
+                ))}
+              </div>
+              
+              {/* Mobile Money Phone - Minimal */}
+              {isPawaPayMethod(paymentMethod) && (
+                <div className="pt-4">
+                  <Label htmlFor="mobileMoneyPhone" className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Mobile Money Number
+                  </Label>
+                  <Input
+                    id="mobileMoneyPhone"
+                    value={mobileMoneyPhone || phone}
+                    onChange={(e) => setMobileMoneyPhone(e.target.value)}
+                    placeholder={paymentMethod === "mtn_momo" ? "078 XXX XXXX" : "073 XXX XXXX"}
+                    className="mt-2 border-0 border-b rounded-none px-0 focus-visible:ring-0 focus-visible:border-foreground"
+                  />
+                  <p className="text-xs text-muted-foreground/70 mt-2">
+                    You'll receive a payment prompt on this number.
+                  </p>
+                </div>
               )}
             </div>
-          </Card>
+          )}
+
+          {/* Step 3: Review - Minimal */}
+          {currentStep === 3 && (
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex justify-between py-2 border-b border-muted-foreground/10">
+                  <span className="text-muted-foreground text-sm">Name</span>
+                  <span className="text-sm">{name}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-muted-foreground/10">
+                  <span className="text-muted-foreground text-sm">Email</span>
+                  <span className="text-sm">{email}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-muted-foreground/10">
+                  <span className="text-muted-foreground text-sm">Phone</span>
+                  <span className="text-sm">{phone}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-muted-foreground/10">
+                  <span className="text-muted-foreground text-sm">Payment</span>
+                  <span className="text-sm">{paymentMethods.find((m) => m.id === paymentMethod)?.name}</span>
+                </div>
+                {mode === "booking" && property && (
+                  <div className="flex justify-between py-2 pt-4">
+                    <span className="font-medium">Total</span>
+                    <span className="font-medium text-lg">
+                      {formatMoneyWithConversion(bookingTotal, currency, preferredCurrency, usdRates)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Navigation - Minimal */}
+          <div className="flex justify-between mt-12 pt-8 border-t border-muted-foreground/10">
+            <Button
+              variant="ghost"
+              type="button"
+              onClick={currentStep === 1 ? () => navigate(-1) : handlePrevious}
+              disabled={loading}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              {currentStep === 1 ? "Back" : "Previous"}
+            </Button>
+            {currentStep < 3 ? (
+              <Button
+                type="button"
+                onClick={handleNext}
+                disabled={loading}
+                className="bg-foreground text-background hover:bg-foreground/90"
+              >
+                Continue
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                onClick={handleSubmit}
+                disabled={loading || (mode === "booking" && !isPropertyInCart)}
+                className="bg-foreground text-background hover:bg-foreground/90"
+              >
+                {loading ? "Processing..." : "Confirm Booking"}
+              </Button>
+            )}
+          </div>
         </div>
       </div>
       <Footer />
