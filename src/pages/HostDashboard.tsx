@@ -3229,14 +3229,14 @@ export default function HostDashboard() {
                   </Button>
                 )}
                 {hostServiceTypes.includes('tour') && (
-                  <>
-                    <Button variant="outline" onClick={() => navigate("/create-tour")}>
-                      <Plus className="w-4 h-4 mr-2" /> Create Tour
-                    </Button>
-                    <Button variant="outline" onClick={() => navigate("/create-tour-package")}>
-                      <Plus className="w-4 h-4 mr-2" /> Create Tour Package
-                    </Button>
-                  </>
+                  <Button variant="outline" onClick={() => navigate("/create-tour")}>
+                    <Plus className="w-4 h-4 mr-2" /> Create Tour
+                  </Button>
+                )}
+                {hostServiceTypes.includes('tour_package') && (
+                  <Button variant="outline" onClick={() => navigate("/create-tour-package")}>
+                    <Plus className="w-4 h-4 mr-2" /> Create Tour Package
+                  </Button>
                 )}
                 {hostServiceTypes.includes('transport') && (
                   <Button variant="outline" onClick={() => navigate("/create-transport")}>

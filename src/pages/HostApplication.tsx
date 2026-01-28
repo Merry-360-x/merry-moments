@@ -163,18 +163,15 @@ export default function HostApplication() {
 
   // Calculate total steps dynamically based on selected service types
   // Step 1: Service Type Selection
-  // Step 2+: One step for each selected service type (accommodation, tour, transport)
-  // If tour selected: Tour Package step (optional)
+  // Step 2+: One step for each selected service type (accommodation, tour, tour_package, transport)
   // Second to last: Personal Information
   // Last: Review
   const serviceSteps = useMemo(() => {
     const steps: string[] = [];
     const serviceTypes = formData?.service_types || [];
     if (serviceTypes.includes('accommodation')) steps.push('accommodation');
-    if (serviceTypes.includes('tour')) {
-      steps.push('tour');
-      steps.push('tour_package'); // Always show tour package step after tour
-    }
+    if (serviceTypes.includes('tour')) steps.push('tour');
+    if (serviceTypes.includes('tour_package')) steps.push('tour_package');
     if (serviceTypes.includes('transport')) steps.push('transport');
     return steps;
   }, [formData?.service_types]);
@@ -698,7 +695,7 @@ export default function HostApplication() {
                   <p className="text-muted-foreground">Select one or more services you want to provide</p>
                 </div>
 
-                <div className="grid md:grid-cols-3 gap-4">
+                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
                   {/* Accommodation */}
                   <div
                     onClick={() => {
@@ -800,10 +797,46 @@ export default function HostApplication() {
                       <div>
                         <h3 className="font-semibold text-lg">Tours</h3>
                         <p className="text-sm text-muted-foreground">
-                          Guided tours, experiences, activities
+                          Day trips, guided experiences
                         </p>
                       </div>
                       {formData.service_types.includes("tour") && (
+                        <CheckCircle2 className="w-6 h-6 text-primary" />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Tour Packages */}
+                  <div
+                    onClick={() => {
+                      const types = formData.service_types.includes("tour_package")
+                        ? formData.service_types.filter((t) => t !== "tour_package")
+                        : [...formData.service_types, "tour_package"];
+                      updateField("service_types", types);
+                    }}
+                    className={`p-6 border-2 rounded-xl cursor-pointer transition-all hover:shadow-lg ${
+                      formData.service_types.includes("tour_package")
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                  >
+                    <div className="flex flex-col items-center text-center space-y-3">
+                      <div
+                        className={`w-16 h-16 rounded-full flex items-center justify-center ${
+                          formData.service_types.includes("tour_package")
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted"
+                        }`}
+                      >
+                        <Compass className="w-8 h-8" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-lg">Tour Packages</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Multi-day safaris, itineraries
+                        </p>
+                      </div>
+                      {formData.service_types.includes("tour_package") && (
                         <CheckCircle2 className="w-6 h-6 text-primary" />
                       )}
                     </div>
@@ -1505,76 +1538,58 @@ export default function HostApplication() {
               </div>
             )}
 
-            {/* Tour Package Step (optional, shown when tour is selected) */}
+            {/* Tour Package Step (shown when tour_package service type is selected) */}
             {currentServiceType === 'tour_package' && (
               <div className="space-y-6">
                 <div className="text-center mb-6">
-                  <h2 className="text-2xl font-bold mb-2">Tour Package (Optional)</h2>
+                  <h2 className="text-2xl font-bold mb-2">Create Your Tour Package</h2>
                   <p className="text-muted-foreground">
                     Create a detailed multi-day tour package with itinerary
                   </p>
                 </div>
 
-                <div className="rounded-xl border bg-muted/20 p-6 space-y-6">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      id="enablePackage"
-                      checked={formData.tour_package.enabled}
-                      onChange={(e) => setFormData(prev => ({
-                        ...prev,
-                        tour_package: { ...prev.tour_package, enabled: e.target.checked }
-                      }))}
-                      className="w-5 h-5 rounded"
-                    />
-                    <Label htmlFor="enablePackage" className="text-base cursor-pointer">
-                      I want to create a tour package with detailed itinerary
-                    </Label>
+                <div className="space-y-6">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Package Title *</Label>
+                      <Input
+                        placeholder="e.g., 3-Day Gorilla Trekking Safari"
+                        value={formData.tour_package.title}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          tour_package: { ...prev.tour_package, title: e.target.value }
+                        }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>City *</Label>
+                      <Input
+                        placeholder="Kigali"
+                        value={formData.tour_package.city}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          tour_package: { ...prev.tour_package, city: e.target.value }
+                        }))}
+                      />
+                    </div>
                   </div>
 
-                  {formData.tour_package.enabled && (
-                    <div className="border-t pt-6 space-y-6">
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Package Title *</Label>
-                          <Input
-                            placeholder="e.g., 3-Day Gorilla Trekking Safari"
-                            value={formData.tour_package.title}
-                            onChange={(e) => setFormData(prev => ({
+                  <div className="space-y-2">
+                    <Label>Categories * (select at least one)</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {["Cultural", "Adventure", "Wildlife", "City Tours", "Hiking", "Photography", "Historical", "Eco-Tourism"].map((cat) => (
+                        <button
+                          key={cat}
+                          type="button"
+                          className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                            formData.tour_package.categories.includes(cat)
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-background hover:bg-muted"
+                          }`}
+                          onClick={() => {
+                            const cats = formData.tour_package.categories;
+                            setFormData(prev => ({
                               ...prev,
-                              tour_package: { ...prev.tour_package, title: e.target.value }
-                            }))}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>City *</Label>
-                          <Input
-                            placeholder="Kigali"
-                            value={formData.tour_package.city}
-                            onChange={(e) => setFormData(prev => ({
-                              ...prev,
-                              tour_package: { ...prev.tour_package, city: e.target.value }
-                            }))}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Categories * (select at least one)</Label>
-                        <div className="flex flex-wrap gap-2">
-                          {["Cultural", "Adventure", "Wildlife", "City Tours", "Hiking", "Photography", "Historical", "Eco-Tourism"].map((cat) => (
-                            <button
-                              key={cat}
-                              type="button"
-                              className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
-                                formData.tour_package.categories.includes(cat)
-                                  ? "bg-primary text-primary-foreground border-primary"
-                                  : "bg-background hover:bg-muted"
-                              }`}
-                              onClick={() => {
-                                const cats = formData.tour_package.categories;
-                                setFormData(prev => ({
-                                  ...prev,
                                   tour_package: {
                                     ...prev.tour_package,
                                     categories: cats.includes(cat)
@@ -1781,8 +1796,6 @@ export default function HostApplication() {
                           )}
                         </div>
                       </div>
-                    </div>
-                  )}
                 </div>
 
                 <div className="flex justify-between pt-6">
@@ -1791,27 +1804,30 @@ export default function HostApplication() {
                   </Button>
                   <Button
                     onClick={() => {
-                      // If package is enabled, validate required fields
-                      if (formData.tour_package.enabled) {
-                        const missingFields = [];
-                        if (!formData.tour_package.title) missingFields.push('Package Title');
-                        if (!formData.tour_package.city) missingFields.push('City');
-                        if (formData.tour_package.categories.length === 0) missingFields.push('At least one category');
-                        if (!formData.tour_package.tour_type) missingFields.push('Tour Type');
-                        if (!formData.tour_package.duration) missingFields.push('Duration');
-                        if (!formData.tour_package.description || formData.tour_package.description.length < 50) missingFields.push('Description (min 50 chars)');
-                        if (!formData.tour_package.daily_itinerary || formData.tour_package.daily_itinerary.length < 100) missingFields.push('Daily Itinerary (min 100 chars)');
-                        if (!formData.tour_package.price_per_adult) missingFields.push('Price per Adult');
-                        
-                        if (missingFields.length > 0) {
-                          toast({
-                            variant: "destructive",
-                            title: "Missing required fields",
-                            description: `Please provide: ${missingFields.join(', ')}.`,
-                          });
-                          return;
-                        }
+                      // Validate required fields for tour package
+                      const missingFields = [];
+                      if (!formData.tour_package.title) missingFields.push('Package Title');
+                      if (!formData.tour_package.city) missingFields.push('City');
+                      if (formData.tour_package.categories.length === 0) missingFields.push('At least one category');
+                      if (!formData.tour_package.tour_type) missingFields.push('Tour Type');
+                      if (!formData.tour_package.duration) missingFields.push('Duration');
+                      if (!formData.tour_package.description || formData.tour_package.description.length < 50) missingFields.push('Description (min 50 chars)');
+                      if (!formData.tour_package.daily_itinerary || formData.tour_package.daily_itinerary.length < 100) missingFields.push('Daily Itinerary (min 100 chars)');
+                      if (!formData.tour_package.price_per_adult) missingFields.push('Price per Adult');
+                      
+                      if (missingFields.length > 0) {
+                        toast({
+                          variant: "destructive",
+                          title: "Missing required fields",
+                          description: `Please provide: ${missingFields.join(', ')}.`,
+                        });
+                        return;
                       }
+                      // Set enabled to true since they filled out the form
+                      setFormData(prev => ({
+                        ...prev,
+                        tour_package: { ...prev.tour_package, enabled: true }
+                      }));
                       setCurrentStep(currentStep + 1);
                     }}
                   >
