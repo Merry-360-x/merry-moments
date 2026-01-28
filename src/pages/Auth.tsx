@@ -83,30 +83,42 @@ const Auth = () => {
         const { error } = await signIn(email, password);
         if (error) throw error;
         
-        // Show toast and navigate immediately - don't wait
+        // Show toast
         toast({ 
           title: t("auth.toast.welcomeBack"), 
           description: t("auth.toast.loggedIn"),
           duration: 2000
         });
         
-        // Navigate immediately for instant feedback
-        navigate(redirectTo ?? "/", { replace: true });
+        // User is now authenticated, navigate will happen via useEffect
+        // when user state updates
       } else {
         if (!fullName.trim()) {
           throw new Error(t("auth.errors.fullNameRequired"));
         }
         const { error } = await signUp(email, password, fullName);
         if (error) throw error;
-        toast({ 
-          title: t("auth.toast.checkEmail"), 
-          description: t("auth.toast.confirmEmail"),
-          duration: 6000
-        });
-        // Don't navigate - user needs to confirm email first
-        setEmail("");
-        setPassword("");
-        setFullName("");
+        
+        // Check if user is now signed in (email confirmation disabled)
+        // The useEffect will handle navigation if user is set
+        if (!user) {
+          // Email confirmation required
+          toast({ 
+            title: t("auth.toast.checkEmail"), 
+            description: t("auth.toast.confirmEmail"),
+            duration: 6000
+          });
+          setEmail("");
+          setPassword("");
+          setFullName("");
+        } else {
+          // Signed in immediately
+          toast({ 
+            title: "Welcome!", 
+            description: "Your account has been created successfully.",
+            duration: 2000
+          });
+        }
       }
     } catch (error: unknown) {
       logError("auth.emailPassword", error);

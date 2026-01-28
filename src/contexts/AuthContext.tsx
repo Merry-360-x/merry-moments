@@ -264,7 +264,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signUp = async (email: string, password: string, fullName: string) => {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -272,14 +272,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         data: { full_name: fullName },
       },
     });
+    
+    // If email confirmation is disabled, user is signed in immediately
+    if (!error && data.session) {
+      setSession(data.session);
+      setUser(data.session.user);
+      setIsLoading(false);
+      
+      // Fetch roles in background
+      void fetchRoles(data.session.user.id);
+    }
+    
     return { error };
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+    
+    if (!error && data.session) {
+      // Immediately update state for instant UI feedback
+      setSession(data.session);
+      setUser(data.session.user);
+      setIsLoading(false);
+      
+      // Fetch roles in background
+      void fetchRoles(data.session.user.id);
+    }
+    
     return { error };
   };
 
