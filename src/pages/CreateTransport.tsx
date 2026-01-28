@@ -46,16 +46,19 @@ export default function CreateTransport() {
   const [uploading, setUploading] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [draftLoaded, setDraftLoaded] = useState(false);
 
   const STORAGE_KEY = 'create_transport_progress';
 
-  // Load saved progress from localStorage on mount
+  // Load saved progress from localStorage on mount (only once)
   useEffect(() => {
+    if (draftLoaded) return;
+    
     const savedData = localStorage.getItem(STORAGE_KEY);
     if (savedData) {
       try {
         const parsed = JSON.parse(savedData);
-        setFormData(parsed.formData || formData);
+        if (parsed.formData) setFormData(parsed.formData);
         setLastSaved(new Date(parsed.timestamp));
         
         toast({
@@ -63,21 +66,49 @@ export default function CreateTransport() {
           description: "Your transport listing draft has been restored.",
           duration: 3000,
         });
+        console.log('[CreateTransport] Draft restored');
       } catch (e) {
         console.error("Failed to restore transport progress:", e);
       }
     }
-  }, []);
+    setDraftLoaded(true);
+  }, [draftLoaded]);
 
-  // Save progress to localStorage whenever form data changes
+  // Save progress to localStorage whenever form data changes (only after load)
   useEffect(() => {
-    const dataToSave = {
-      formData,
-      timestamp: new Date().toISOString(),
+    if (!draftLoaded) return;
+    
+    // Only save if there's meaningful content
+    if (!formData.title && !formData.provider_name) return;
+    
+    const timer = setTimeout(() => {
+      const dataToSave = {
+        formData,
+        timestamp: new Date().toISOString(),
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+      setLastSaved(new Date());
+      console.log('[CreateTransport] Auto-saved draft');
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [formData, draftLoaded]);
+
+  // Save on page unload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (!formData.title && !formData.provider_name) return;
+      
+      const dataToSave = {
+        formData,
+        timestamp: new Date().toISOString(),
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+      console.log('[CreateTransport] Saved on page unload');
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
-    setLastSaved(new Date());
-    console.log('[CreateTransport] Auto-saved draft');
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [formData]);
 
   const handleSaveDraft = () => {

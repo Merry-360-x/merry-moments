@@ -97,12 +97,18 @@ Some components are non-refundable once booked, including but not limited to:
   const [customPolicyFile, setCustomPolicyFile] = useState<File | null>(null);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [draftLoaded, setDraftLoaded] = useState(false);
 
-  // Load draft on mount
+  // Use a stable storage key - always use user ID if available, otherwise anonymous
+  const getStorageKey = () => user?.id ? `tour-package-draft-${user.id}` : 'tour-package-draft-anonymous';
+
+  // Load draft on mount (only once)
   useEffect(() => {
-    const draftKey = user?.id ? `tour-package-draft-${user.id}` : 'tour-package-draft-anonymous';
+    if (draftLoaded) return; // Already loaded
     
+    const draftKey = getStorageKey();
     const savedDraft = localStorage.getItem(draftKey);
+    
     if (savedDraft) {
       try {
         const draft = JSON.parse(savedDraft);
@@ -118,16 +124,19 @@ Some components are non-refundable once booked, including but not limited to:
         if (draft.customPolicyText) setCustomPolicyText(draft.customPolicyText);
         setLastSaved(new Date(draft.timestamp));
         toast({ title: "Draft restored", description: "Your previous work has been restored" });
-        console.log('[CreateTourPackage] Draft restored');
+        console.log('[CreateTourPackage] Draft restored from', draftKey);
       } catch (err) {
         console.error('Failed to load draft:', err);
       }
     }
-  }, [user?.id]); // Only load once when user changes
+    setDraftLoaded(true);
+  }, [user?.id, draftLoaded]);
 
-  // Auto-save on form changes (debounced)
+  // Auto-save on form changes (debounced) - only after initial load
   useEffect(() => {
-    const draftKey = user?.id ? `tour-package-draft-${user.id}` : 'tour-package-draft-anonymous';
+    if (!draftLoaded) return; // Don't save until we've tried to load
+    
+    const draftKey = getStorageKey();
     
     // Only save if there's meaningful content
     if (!formData.title && !formData.description) return;
@@ -148,14 +157,41 @@ Some components are non-refundable once booked, including but not limited to:
       };
       localStorage.setItem(draftKey, JSON.stringify(draft));
       setLastSaved(new Date());
-      console.log('[CreateTourPackage] Auto-saved draft');
-    }, 2000); // Debounce 2 seconds
+      console.log('[CreateTourPackage] Auto-saved draft to', draftKey);
+    }, 1000); // Debounce 1 second (faster)
 
     return () => clearTimeout(timer);
+  }, [formData, groupDiscounts, pricingTiers, selectedNonRefundable, customNonRefundable1, customNonRefundable2, coverImage, galleryImages, selectedPolicies, customPolicyText, user?.id, draftLoaded]);
+
+  // Also save immediately when leaving the page
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (!formData.title && !formData.description) return;
+      
+      const draftKey = getStorageKey();
+      const draft = {
+        formData,
+        groupDiscounts,
+        pricingTiers,
+        selectedNonRefundable,
+        customNonRefundable1,
+        customNonRefundable2,
+        coverImage,
+        galleryImages,
+        selectedPolicies,
+        customPolicyText,
+        timestamp: new Date().toISOString(),
+      };
+      localStorage.setItem(draftKey, JSON.stringify(draft));
+      console.log('[CreateTourPackage] Saved on page unload');
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [formData, groupDiscounts, pricingTiers, selectedNonRefundable, customNonRefundable1, customNonRefundable2, coverImage, galleryImages, selectedPolicies, customPolicyText, user?.id]);
 
   const saveDraft = () => {
-    const draftKey = user?.id ? `tour-package-draft-${user.id}` : 'tour-package-draft-anonymous';
+    const draftKey = getStorageKey();
     const draft = {
       formData,
       groupDiscounts,
@@ -183,7 +219,7 @@ Some components are non-refundable once booked, including but not limited to:
   };
 
   const clearDraft = () => {
-    const draftKey = user?.id ? `tour-package-draft-${user.id}` : 'tour-package-draft-anonymous';
+    const draftKey = getStorageKey();
     localStorage.removeItem(draftKey);
   };
 

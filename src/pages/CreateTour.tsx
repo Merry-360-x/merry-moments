@@ -58,12 +58,18 @@ export default function CreateTour() {
   const [touched, setTouched] = useState<Set<string>>(new Set());
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [draftLoaded, setDraftLoaded] = useState(false);
 
-  // Load draft on mount
+  // Use a stable storage key
+  const getStorageKey = () => user?.id ? `tour-draft-${user.id}` : 'tour-draft-anonymous';
+
+  // Load draft on mount (only once)
   useEffect(() => {
-    const draftKey = user?.id ? `tour-draft-${user.id}` : 'tour-draft-anonymous';
+    if (draftLoaded) return;
     
+    const draftKey = getStorageKey();
     const savedDraft = localStorage.getItem(draftKey);
+    
     if (savedDraft) {
       try {
         const draft = JSON.parse(savedDraft);
@@ -71,16 +77,19 @@ export default function CreateTour() {
         if (draft.images) setImages(draft.images);
         setLastSaved(new Date(draft.timestamp));
         toast({ title: "Draft restored", description: "Your previous work has been restored" });
-        console.log('[CreateTour] Draft restored');
+        console.log('[CreateTour] Draft restored from', draftKey);
       } catch (err) {
         console.error('Failed to load draft:', err);
       }
     }
-  }, [user?.id]); // Only load once when user changes
+    setDraftLoaded(true);
+  }, [user?.id, draftLoaded]);
 
-  // Auto-save on form changes
+  // Auto-save on form changes (only after load)
   useEffect(() => {
-    const draftKey = user?.id ? `tour-draft-${user.id}` : 'tour-draft-anonymous';
+    if (!draftLoaded) return;
+    
+    const draftKey = getStorageKey();
     
     // Only save if there's meaningful content
     if (!formData.title && !formData.description) return;
@@ -93,14 +102,33 @@ export default function CreateTour() {
       };
       localStorage.setItem(draftKey, JSON.stringify(draft));
       setLastSaved(new Date());
-      console.log('[CreateTour] Auto-saved draft');
-    }, 2000); // Debounce 2 seconds
+      console.log('[CreateTour] Auto-saved draft to', draftKey);
+    }, 1000); // Debounce 1 second
 
     return () => clearTimeout(timer);
+  }, [formData, images, user?.id, draftLoaded]);
+
+  // Save on page unload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (!formData.title && !formData.description) return;
+      
+      const draftKey = getStorageKey();
+      const draft = {
+        formData,
+        images,
+        timestamp: new Date().toISOString(),
+      };
+      localStorage.setItem(draftKey, JSON.stringify(draft));
+      console.log('[CreateTour] Saved on page unload');
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [formData, images, user?.id]);
 
   const saveDraft = () => {
-    const draftKey = user?.id ? `tour-draft-${user.id}` : 'tour-draft-anonymous';
+    const draftKey = getStorageKey();
     const draft = {
       formData,
       images,
@@ -120,7 +148,7 @@ export default function CreateTour() {
   };
 
   const clearDraft = () => {
-    const draftKey = user?.id ? `tour-draft-${user.id}` : 'tour-draft-anonymous';
+    const draftKey = getStorageKey();
     localStorage.removeItem(draftKey);
   };
 

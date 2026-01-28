@@ -134,6 +134,7 @@ export default function HostApplication() {
   const [idPhotoUploadOpen, setIdPhotoUploadOpen] = useState(false);
   const [selfieUploadOpen, setSelfieUploadOpen] = useState(false);
   const [licenseUploadOpen, setLicenseUploadOpen] = useState(false);
+  const [draftLoaded, setDraftLoaded] = useState(false);
 
   const STORAGE_KEY = 'host_application_progress';
 
@@ -175,8 +176,10 @@ export default function HostApplication() {
   // Use 'as any' to bypass TypeScript union type checking - each field is service-specific
   const serviceData = getCurrentServiceData() as any;
 
-  // Load saved progress from localStorage on mount
+  // Load saved progress from localStorage on mount (only once)
   useEffect(() => {
+    if (draftLoaded) return;
+    
     const savedData = localStorage.getItem(STORAGE_KEY);
     if (savedData) {
       try {
@@ -218,12 +221,16 @@ export default function HostApplication() {
         console.error('[HostApplication] Failed to restore progress:', e);
       }
     }
-  }, []);
+    setDraftLoaded(true);
+  }, [draftLoaded]);
 
-  // Save progress to localStorage whenever form data or step changes
+  // Save progress to localStorage whenever form data or step changes (only after load)
   useEffect(() => {
-    // Save for any user (even unauthenticated if they somehow get here)
-    // Also save if they have an existing app (so they can see their progress if they reapply later)
+    if (!draftLoaded) return; // Don't save until we've loaded
+    
+    // Only save if there's meaningful content (at least service type selected or name entered)
+    if (formData.service_types.length === 0 && !formData.full_name) return;
+    
     const dataToSave = {
       formData,
       currentStep,
@@ -231,6 +238,24 @@ export default function HostApplication() {
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
     console.log('[HostApplication] Saved progress to localStorage', { step: currentStep });
+  }, [formData, currentStep, draftLoaded]);
+
+  // Save on page unload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (formData.service_types.length === 0 && !formData.full_name) return;
+      
+      const dataToSave = {
+        formData,
+        currentStep,
+        timestamp: new Date().toISOString(),
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+      console.log('[HostApplication] Saved on page unload');
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [formData, currentStep]);
 
   // Clear saved progress when application is submitted
