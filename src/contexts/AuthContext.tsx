@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { recoverSessionFromUrl, verifyAndRefreshSession } from "@/lib/auth-recovery";
+import type { Database } from "@/integrations/supabase/types";
 
 type AuthContextType = {
   user: User | null;
@@ -16,7 +17,17 @@ type AuthContextType = {
   isFinancialStaff: boolean;
   isOperationsStaff: boolean;
   isCustomerSupport: boolean;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
+  signUp: (
+    email: string,
+    password: string,
+    fullName: string,
+    options?: {
+      firstName?: string;
+      lastName?: string;
+      phoneNumber?: string;
+      redirectTo?: string;
+    }
+  ) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshRoles: () => Promise<void>;
@@ -263,13 +274,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const signUp = async (email: string, password: string, fullName: string) => {
+  const signUp = async (
+    email: string,
+    password: string,
+    fullName: string,
+    options?: { firstName?: string; lastName?: string; phoneNumber?: string; redirectTo?: string }
+  ) => {
+    const baseUrl = window.location.origin;
+    const finalRedirect = options?.redirectTo ?? "/";
+    const emailRedirectTo = `${baseUrl}/auth/callback?redirect=${encodeURIComponent(finalRedirect)}`;
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: window.location.origin,
-        data: { full_name: fullName },
+        emailRedirectTo,
+        data: {
+          full_name: fullName,
+          first_name: options?.firstName,
+          last_name: options?.lastName,
+          phone_number: options?.phoneNumber,
+        },
       },
     });
     
@@ -281,6 +306,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       // Fetch roles in background
       void fetchRoles(data.session.user.id);
+
+      // Best-effort profile upsert (non-blocking)
+      const profile: Database["public"]["Tables"]["profiles"]["Insert"] = {
+        user_id: data.session.user.id,
+        full_name: fullName,
+        phone: options?.phoneNumber ?? null,
+      };
+
+      void (async () => {
+        try {
+          const { error: profileError } = await supabase
+            .from("profiles")
+            .upsert(profile, { onConflict: "user_id" });
+          if (profileError) {
+            console.warn("[AuthContext] Failed to upsert profile:", profileError.message);
+          }
+        } catch (err) {
+          console.warn("[AuthContext] Failed to upsert profile:", err);
+        }
+      })();
     }
     
     return { error };

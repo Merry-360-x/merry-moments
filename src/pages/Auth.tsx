@@ -108,7 +108,12 @@ const Auth = () => {
           throw new Error("Phone number is required");
         }
         const fullName = `${firstName.trim()} ${lastName.trim()}`;
-        const { error } = await signUp(email, password, fullName);
+        const { error } = await signUp(email, password, fullName, {
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          phoneNumber: phoneNumber.trim(),
+          redirectTo: redirectTo ?? "/",
+        });
         if (error) throw error;
         
         // Check if user is now signed in (email confirmation disabled)

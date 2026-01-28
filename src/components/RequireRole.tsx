@@ -6,7 +6,14 @@ export default function RequireRole({
   allowed,
   children,
 }: {
-  allowed: Array<"admin" | "staff" | "host">;
+  allowed: Array<
+    | "admin"
+    | "staff"
+    | "host"
+    | "financial_staff"
+    | "operations_staff"
+    | "customer_support"
+  >;
   children: ReactElement;
 }) {
   const { user, isLoading, roles, rolesLoading } = useAuth();
