@@ -119,7 +119,15 @@ Some components are non-refundable once booked, including but not limited to:
         const draft = JSON.parse(savedDraft);
         if (draft.formData) setFormData(draft.formData);
         if (draft.groupDiscounts) setGroupDiscounts(draft.groupDiscounts);
-        if (draft.pricingTiers) setPricingTiers(draft.pricingTiers);
+        // Migrate old pricing tiers to include room_type
+        if (draft.pricingTiers) {
+          const migratedTiers = draft.pricingTiers.map((tier: any) => ({
+            group_size: tier.group_size || 1,
+            room_type: tier.room_type || "double_twin",
+            price_per_person: tier.price_per_person || 0,
+          }));
+          setPricingTiers(migratedTiers);
+        }
         if (draft.selectedNonRefundable) setSelectedNonRefundable(draft.selectedNonRefundable);
         if (draft.customNonRefundable1) setCustomNonRefundable1(draft.customNonRefundable1);
         if (draft.customNonRefundable2) setCustomNonRefundable2(draft.customNonRefundable2);
@@ -940,7 +948,7 @@ Some components are non-refundable once booked, including but not limited to:
                       <div>
                         <Label className="text-xs font-normal mb-1.5 block">Room Type</Label>
                         <Select
-                          value={tier.room_type}
+                          value={tier.room_type || "double_twin"}
                           onValueChange={(val: "double_twin" | "single") => {
                             const next = [...pricingTiers];
                             next[index].room_type = val;
@@ -984,7 +992,7 @@ Some components are non-refundable once booked, including but not limited to:
                       </Button>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {tier.group_size} {tier.group_size === 1 ? 'person' : 'people'} • {roomTypeLabels[tier.room_type]} • {formData.currency} {tier.price_per_person.toLocaleString()} /person
+                      {tier.group_size} {tier.group_size === 1 ? 'person' : 'people'} • {roomTypeLabels[tier.room_type] || 'Double/Twin Room (shared)'} • {formData.currency} {tier.price_per_person.toLocaleString()} /person
                     </p>
                   </div>
                 ))}
