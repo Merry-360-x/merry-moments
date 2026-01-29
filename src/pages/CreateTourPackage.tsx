@@ -347,7 +347,7 @@ Some components are non-refundable once booked, including but not limited to:
         host_id: user.id,
         title: formData.title.trim(),
         category: formData.categories[0] || 'Cultural',
-        tour_type: formData.tour_types.join(' & '),
+        tour_type: formData.tour_types[0] || 'Private', // Use first selected type for DB constraint
         description: formData.description.trim(),
         country: "Rwanda",
         city: formData.city.trim(),
@@ -398,7 +398,10 @@ Some components are non-refundable once booked, including but not limited to:
 
       // Update categories array separately (after migration is applied)
       if (newPackage && formData.categories.length > 0) {
-        await supabase.from("tour_packages").update({ categories: formData.categories } as any).eq("id", (newPackage as any).id);
+        await supabase.from("tour_packages").update({ 
+          categories: formData.categories,
+          tour_types: formData.tour_types, // Store all selected tour types
+        } as any).eq("id", (newPackage as any).id);
       }
 
       toast({ title: "Success!", description: "Tour package created successfully" });
