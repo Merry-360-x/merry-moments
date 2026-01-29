@@ -306,14 +306,21 @@ export default function CreateTour() {
             </div>
 
             <div>
-              <Label className="text-sm font-normal mb-1.5 block">Description * <span className="text-xs text-muted-foreground">(min 20 chars)</span></Label>
+              <Label className="text-sm font-normal mb-1.5 block">
+                Description * 
+                <span className={`text-xs ml-1 ${formData.description.length > 0 && formData.description.length < 20 ? 'text-red-500' : 'text-muted-foreground'}`}>
+                  ({formData.description.length}/20 chars min)
+                </span>
+              </Label>
               <Textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 onBlur={() => handleBlur('description')}
                 placeholder="Describe your tour experience..."
                 rows={4}
-                className={cn(errors.description && "border-destructive")}
+                className={cn(
+                  (errors.description || (formData.description.length > 0 && formData.description.length < 20)) && "border-destructive"
+                )}
               />
               {errors.description && <p className="text-xs text-destructive mt-1">{errors.description}</p>}
             </div>

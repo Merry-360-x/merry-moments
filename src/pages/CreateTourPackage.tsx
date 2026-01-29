@@ -484,12 +484,18 @@ Some components are non-refundable once booked, including but not limited to:
             </div>
 
             <div>
-              <Label className="text-sm font-normal mb-1.5 block">Description * <span className="text-xs text-muted-foreground">(min 50 chars)</span></Label>
+              <Label className="text-sm font-normal mb-1.5 block">
+                Description * 
+                <span className={`text-xs ml-1 ${formData.description.length > 0 && formData.description.length < 50 ? 'text-red-500' : 'text-muted-foreground'}`}>
+                  ({formData.description.length}/50 chars min)
+                </span>
+              </Label>
               <Textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="Provide a compelling description..."
                 rows={4}
+                className={formData.description.length > 0 && formData.description.length < 50 ? 'border-red-500 focus-visible:ring-red-500' : ''}
               />
             </div>
 
@@ -521,12 +527,18 @@ Some components are non-refundable once booked, including but not limited to:
             <h2 className="text-base font-medium pb-2 border-b">Itinerary</h2>
 
             <div>
-              <Label className="text-sm font-normal mb-1.5 block">Daily Itinerary * <span className="text-xs text-muted-foreground">(min 100 chars)</span></Label>
+              <Label className="text-sm font-normal mb-1.5 block">
+                Daily Itinerary * 
+                <span className={`text-xs ml-1 ${formData.daily_itinerary.length > 0 && formData.daily_itinerary.length < 100 ? 'text-red-500' : 'text-muted-foreground'}`}>
+                  ({formData.daily_itinerary.length}/100 chars min)
+                </span>
+              </Label>
               <Textarea
                 value={formData.daily_itinerary}
                 onChange={(e) => setFormData({ ...formData, daily_itinerary: e.target.value })}
                 placeholder="Day 1: ..., Day 2: ..."
                 rows={6}
+                className={formData.daily_itinerary.length > 0 && formData.daily_itinerary.length < 100 ? 'border-red-500 focus-visible:ring-red-500' : ''}
               />
             </div>
 
