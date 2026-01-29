@@ -82,8 +82,31 @@ export default async function handler(req, res) {
     // PawaPay returns an array for deposits endpoint
     const depositData = Array.isArray(pawaPayData) ? pawaPayData[0] : pawaPayData;
     const pawapayStatus = depositData?.status;
+    const failureReason = depositData?.failureReason;
 
-    console.log(`PawaPay status for ${depositId}: ${pawapayStatus}`);
+    console.log(`PawaPay status for ${depositId}: ${pawapayStatus}`, failureReason || '');
+
+    // Extract human-readable failure message
+    let failureMessage = null;
+    if (failureReason) {
+      const code = failureReason.failureCode || failureReason.code;
+      const message = failureReason.failureMessage || failureReason.errorMessage;
+      
+      // Map common failure codes to user-friendly messages
+      if (code === 'INSUFFICIENT_BALANCE' || code === 'PAYER_LIMIT_REACHED') {
+        failureMessage = 'Insufficient balance. Please top up your mobile money account and try again.';
+      } else if (code === 'PAYER_NOT_FOUND' || code === 'INVALID_PAYER') {
+        failureMessage = 'Mobile money account not found. Please check your phone number.';
+      } else if (code === 'TRANSACTION_DECLINED' || code === 'USER_DECLINED') {
+        failureMessage = 'Payment was declined. Please try again.';
+      } else if (code === 'TIMEOUT' || code === 'EXPIRED') {
+        failureMessage = 'Payment request expired. Please try again.';
+      } else if (message) {
+        failureMessage = message;
+      } else {
+        failureMessage = 'Payment could not be completed. Please try again.';
+      }
+    }
 
     // If we have a booking ID and Supabase credentials, update the booking
     if (bookingId && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
@@ -126,6 +149,7 @@ export default async function handler(req, res) {
         pawapayStatus,
         bookingStatus,
         paymentStatus,
+        failureMessage,
         depositData
       });
     }

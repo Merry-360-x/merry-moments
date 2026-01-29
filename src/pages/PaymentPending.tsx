@@ -20,6 +20,7 @@ export default function PaymentPending() {
   const [status, setStatus] = useState<"pending" | "completed" | "failed">("pending");
   const [pollCount, setPollCount] = useState(0);
   const [timeLeft, setTimeLeft] = useState(300); // 5 minutes timeout
+  const [failureReason, setFailureReason] = useState<string | null>(null);
 
   // Poll for payment status - check both database AND PawaPay directly
   useEffect(() => {
@@ -43,6 +44,7 @@ export default function PaymentPending() {
         
         // If still pending and we have depositId, check PawaPay directly
         // This handles cases where callback didn't fire
+        let failureMsg = null;
         if (paymentStatus === "pending" && depositId) {
           try {
             const checkUrl = `/api/pawapay-check-status?depositId=${depositId}&bookingId=${bookingId}`;
@@ -51,6 +53,7 @@ export default function PaymentPending() {
             
             if (data.success && data.paymentStatus) {
               paymentStatus = data.paymentStatus;
+              failureMsg = data.failureMessage;
               console.log("PawaPay direct check result:", data);
             }
           } catch (pawapayErr) {
@@ -69,6 +72,9 @@ export default function PaymentPending() {
             navigate("/booking-success?mode=booking&payment=confirmed");
           }, 2000);
         } else if (paymentStatus === "failed" || paymentStatus === "cancelled") {
+          if (failureMsg) {
+            setFailureReason(failureMsg);
+          }
           setStatus("failed");
         }
       } catch (e) {
@@ -112,12 +118,24 @@ export default function PaymentPending() {
   };
 
   const handleRetry = () => {
-    navigate(-1);
+    // Navigate back to checkout page to retry payment
+    navigate("/checkout");
   };
 
   const handleCancel = () => {
     navigate("/");
   };
+
+  // When timeout expires, show appropriate message and redirect after delay
+  useEffect(() => {
+    if (status === "failed" && timeLeft <= 0) {
+      toast({
+        title: "Payment Timeout",
+        description: "The payment was not completed in time. Returning to checkout.",
+        variant: "destructive",
+      });
+    }
+  }, [status, timeLeft, toast]);
 
   return (
     <div className="min-h-screen">
@@ -183,19 +201,24 @@ export default function PaymentPending() {
           {status === "failed" && (
             <>
               <h1 className="text-2xl font-light mb-2">Payment Not Completed</h1>
-              <p className="text-muted-foreground mb-8">
-                {timeLeft <= 0 
-                  ? "The payment request has expired. Please try again."
-                  : "The payment was not completed. Please try again."
+              <p className="text-muted-foreground mb-4">
+                {failureReason 
+                  ? failureReason
+                  : timeLeft <= 0 
+                    ? "The payment request has expired."
+                    : "The payment was not completed."
                 }
+              </p>
+              <p className="text-sm text-muted-foreground mb-8">
+                Please return to checkout to try again with a different payment method or ensure sufficient balance.
               </p>
               
               <div className="flex flex-col gap-3">
                 <Button onClick={handleRetry} className="bg-foreground text-background hover:bg-foreground/90">
-                  Try Again
+                  Return to Checkout
                 </Button>
                 <Button variant="ghost" onClick={handleCancel} className="text-muted-foreground">
-                  Cancel
+                  Cancel Booking
                 </Button>
               </div>
             </>
