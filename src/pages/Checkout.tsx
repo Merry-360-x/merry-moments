@@ -30,7 +30,11 @@ import {
   Tag,
   Shield,
   AlertCircle,
-  Smartphone
+  Smartphone,
+  Building2,
+  Clock,
+  Mail,
+  X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -75,6 +79,8 @@ export default function CheckoutNew() {
   // Payment state
   const [phoneNumber, setPhoneNumber] = useState("");
   const [countryCode, setCountryCode] = useState("+250");
+  const [paymentMethod, setPaymentMethod] = useState<'mtn' | 'airtel' | 'card' | 'bank'>('mtn');
+  const [showContactModal, setShowContactModal] = useState(false);
   
   // Discount
   const [appliedDiscount, setAppliedDiscount] = useState<any>(null);
@@ -311,14 +317,14 @@ export default function CheckoutNew() {
         const bookingData: any = {
           user_id: user?.id || null,
           status: "pending",
-          payment_status: "pending",
+          payment_status: paymentMethod === 'card' || paymentMethod === 'bank' ? "awaiting_callback" : "pending",
           total_price: finalAmount,
           currency: displayCurrency,
           guest_name: formData.fullName,
           guest_email: formData.email,
-          guest_phone: fullPhone,
-          special_requests: formData.notes || null,
-          number_of_guests: item.quantity,
+          guest_phone: (paymentMethod === 'mtn' || paymentMethod === 'airtel') ? fullPhone : (formData.phone || null),
+          special_requests: formData.notes ? `${formData.notes}\n\nPayment Method: ${paymentMethod === 'card' ? 'Credit Card' : paymentMethod === 'bank' ? 'Bank Transfer' : paymentMethod.toUpperCase()}` : `Payment Method: ${paymentMethod === 'card' ? 'Credit Card' : paymentMethod === 'bank' ? 'Bank Transfer' : paymentMethod.toUpperCase()}`,
+          guests: item.quantity,
           created_at: new Date().toISOString(),
         };
 
@@ -343,7 +349,17 @@ export default function CheckoutNew() {
         bookingIds.push(booking.id);
       }
 
-      // Initiate PawaPay payment
+      // For card/bank transfer, just create booking and show confirmation
+      if (paymentMethod === 'card' || paymentMethod === 'bank') {
+        await clearCart();
+        localStorage.removeItem("applied_discount");
+        
+        // Redirect to booking success with a message about expecting a call
+        navigate(`/booking-success?bookingId=${bookingIds[0]}&method=${paymentMethod}`);
+        return;
+      }
+
+      // Initiate PawaPay payment for mobile money
       const paymentResponse = await fetch("/api/pawapay-create-payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -355,6 +371,7 @@ export default function CheckoutNew() {
           description: `Merry Moments - ${cartItems.length} item(s)`,
           payerEmail: formData.email,
           payerName: formData.fullName,
+          provider: paymentMethod === 'airtel' ? 'AIRTEL' : 'MTN',
         }),
       });
 
@@ -536,82 +553,147 @@ export default function CheckoutNew() {
               {currentStep === 'payment' && (
                 <div className="space-y-6">
                   <div>
-                    <h2 className="text-xl font-semibold mb-1">Mobile Money Payment</h2>
-                    <p className="text-sm text-muted-foreground">Pay securely with MTN or Airtel Money</p>
+                    <h2 className="text-xl font-semibold mb-1">Choose Payment Method</h2>
+                    <p className="text-sm text-muted-foreground">Select your preferred payment option</p>
                   </div>
 
                   {/* Payment Method Selector */}
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="border-2 border-primary rounded-xl p-4 bg-primary/5">
+                    {/* MTN Mobile Money */}
+                    <button
+                      onClick={() => setPaymentMethod('mtn')}
+                      className={cn(
+                        "border-2 rounded-xl p-4 text-left transition-all",
+                        paymentMethod === 'mtn' 
+                          ? "border-primary bg-primary/5" 
+                          : "border-border hover:border-primary/50"
+                      )}
+                    >
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-lg bg-yellow-400 flex items-center justify-center">
                           <span className="font-bold text-sm text-black">MTN</span>
                         </div>
                         <div>
                           <p className="font-medium">MTN Mobile Money</p>
-                          <p className="text-xs text-muted-foreground">Rwanda</p>
+                          <p className="text-xs text-muted-foreground">Rwanda, Uganda, etc.</p>
                         </div>
                       </div>
-                    </div>
-                    <div className="border rounded-xl p-4 opacity-50 cursor-not-allowed">
+                    </button>
+                    
+                    {/* Airtel Money */}
+                    <button
+                      onClick={() => setPaymentMethod('airtel')}
+                      className={cn(
+                        "border-2 rounded-xl p-4 text-left transition-all",
+                        paymentMethod === 'airtel' 
+                          ? "border-primary bg-primary/5" 
+                          : "border-border hover:border-primary/50"
+                      )}
+                    >
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-lg bg-red-500 flex items-center justify-center">
                           <span className="font-bold text-xs text-white">Airtel</span>
                         </div>
                         <div>
                           <p className="font-medium">Airtel Money</p>
-                          <p className="text-xs text-muted-foreground">Coming soon</p>
+                          <p className="text-xs text-muted-foreground">Rwanda, Kenya, etc.</p>
                         </div>
                       </div>
-                    </div>
+                    </button>
+                    
+                    {/* Credit Card */}
+                    <button
+                      onClick={() => { setPaymentMethod('card'); setShowContactModal(true); }}
+                      className={cn(
+                        "border-2 rounded-xl p-4 text-left transition-all",
+                        paymentMethod === 'card' 
+                          ? "border-primary bg-primary/5" 
+                          : "border-border hover:border-primary/50"
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                          <CreditCard className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <p className="font-medium">Credit / Debit Card</p>
+                          <p className="text-xs text-muted-foreground">Visa, Mastercard</p>
+                        </div>
+                      </div>
+                    </button>
+                    
+                    {/* Bank Transfer */}
+                    <button
+                      onClick={() => { setPaymentMethod('bank'); setShowContactModal(true); }}
+                      className={cn(
+                        "border-2 rounded-xl p-4 text-left transition-all",
+                        paymentMethod === 'bank' 
+                          ? "border-primary bg-primary/5" 
+                          : "border-border hover:border-primary/50"
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-emerald-500 flex items-center justify-center">
+                          <Building2 className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <p className="font-medium">Bank Transfer</p>
+                          <p className="text-xs text-muted-foreground">Direct bank payment</p>
+                        </div>
+                      </div>
+                    </button>
                   </div>
 
-                  {/* Phone Number Input */}
-                  <div>
-                    <Label htmlFor="phone">Phone Number *</Label>
-                    <div className="flex gap-2 mt-1.5">
-                      <select
-                        value={countryCode}
-                        onChange={(e) => setCountryCode(e.target.value)}
-                        className="h-11 px-3 rounded-lg border bg-background text-sm"
-                      >
-                        <option value="+250">🇷🇼 +250</option>
-                        <option value="+254">🇰🇪 +254</option>
-                        <option value="+256">🇺🇬 +256</option>
-                        <option value="+255">🇹🇿 +255</option>
-                      </select>
-                      <div className="relative flex-1">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input
-                          id="phone"
-                          type="tel"
-                          value={phoneNumber}
-                          onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
-                          placeholder="78XXXXXXX"
-                          className="pl-10 h-11"
-                        />
+                  {/* Phone Number Input - only for mobile money */}
+                  {(paymentMethod === 'mtn' || paymentMethod === 'airtel') && (
+                    <>
+                      <div>
+                        <Label htmlFor="phone">Phone Number *</Label>
+                        <div className="flex gap-2 mt-1.5">
+                          <select
+                            value={countryCode}
+                            onChange={(e) => setCountryCode(e.target.value)}
+                            className="h-11 px-3 rounded-lg border bg-background text-sm"
+                          >
+                            <option value="+250">🇷🇼 +250</option>
+                            <option value="+254">🇰🇪 +254</option>
+                            <option value="+256">🇺🇬 +256</option>
+                            <option value="+255">🇹🇿 +255</option>
+                          </select>
+                          <div className="relative flex-1">
+                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <Input
+                              id="phone"
+                              type="tel"
+                              value={phoneNumber}
+                              onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
+                              placeholder="78XXXXXXX"
+                              className="pl-10 h-11"
+                            />
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1.5">
+                          You'll receive a payment prompt on this number
+                        </p>
                       </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1.5">
-                      You'll receive a payment prompt on this number
-                    </p>
-                  </div>
 
-                  {/* Info Box */}
-                  <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50 rounded-xl p-4">
-                    <div className="flex gap-3">
-                      <Smartphone className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-                      <div className="text-sm">
-                        <p className="font-medium text-blue-700 dark:text-blue-300 mb-1">How it works</p>
-                        <ol className="text-blue-600 dark:text-blue-400 space-y-1 list-decimal list-inside">
-                          <li>Click "Pay Now" below</li>
-                          <li>You'll receive a payment prompt on your phone</li>
-                          <li>Enter your PIN to confirm</li>
-                          <li>We'll confirm your booking automatically</li>
-                        </ol>
+                      {/* Info Box */}
+                      <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50 rounded-xl p-4">
+                        <div className="flex gap-3">
+                          <Smartphone className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                          <div className="text-sm">
+                            <p className="font-medium text-blue-700 dark:text-blue-300 mb-1">How it works</p>
+                            <ol className="text-blue-600 dark:text-blue-400 space-y-1 list-decimal list-inside">
+                              <li>Click "Review Order" below</li>
+                              <li>You'll receive a payment prompt on your phone</li>
+                              <li>Enter your PIN to confirm</li>
+                              <li>We'll confirm your booking automatically</li>
+                            </ol>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    </>
+                  )}
 
                   <div className="flex gap-3">
                     <Button 
@@ -626,7 +708,7 @@ export default function CheckoutNew() {
                       size="lg" 
                       className="flex-1"
                       onClick={() => goToStep('confirm')}
-                      disabled={!isPaymentValid}
+                      disabled={(paymentMethod === 'mtn' || paymentMethod === 'airtel') && !isPaymentValid}
                     >
                       Review Order
                       <ArrowRight className="w-4 h-4 ml-2" />
@@ -680,10 +762,47 @@ export default function CheckoutNew() {
                     </div>
                     <div className="bg-muted/30 rounded-xl p-4">
                       <h4 className="text-sm font-medium mb-2">Payment Method</h4>
-                      <p className="text-sm">Mobile Money</p>
-                      <p className="text-sm text-muted-foreground">{countryCode} {phoneNumber}</p>
+                      <p className="text-sm">
+                        {paymentMethod === 'mtn' && 'MTN Mobile Money'}
+                        {paymentMethod === 'airtel' && 'Airtel Money'}
+                        {paymentMethod === 'card' && 'Credit / Debit Card'}
+                        {paymentMethod === 'bank' && 'Bank Transfer'}
+                      </p>
+                      {(paymentMethod === 'mtn' || paymentMethod === 'airtel') && (
+                        <p className="text-sm text-muted-foreground">{countryCode} {phoneNumber}</p>
+                      )}
+                      {(paymentMethod === 'card' || paymentMethod === 'bank') && (
+                        <p className="text-sm text-muted-foreground">Agent will call you</p>
+                      )}
                     </div>
                   </div>
+
+                  {/* Card/Bank notice */}
+                  {(paymentMethod === 'card' || paymentMethod === 'bank') && (
+                    <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl p-4">
+                      <div className="flex gap-3">
+                        <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                        <div className="text-sm">
+                          <p className="font-medium text-amber-700 dark:text-amber-300 mb-1">
+                            Expect a call within 5 minutes
+                          </p>
+                          <p className="text-amber-600 dark:text-amber-400">
+                            After clicking "Confirm Booking", our payment team will call you at <span className="font-medium">{formData.email}</span> to complete your {paymentMethod === 'card' ? 'card' : 'bank transfer'} payment securely.
+                          </p>
+                          <div className="mt-2 pt-2 border-t border-amber-200 dark:border-amber-800/50 space-y-1">
+                            <p className="flex items-center gap-2">
+                              <Phone className="w-4 h-4" />
+                              <a href="tel:+250792527083" className="font-medium hover:underline">+250 792 527 083</a>
+                            </p>
+                            <p className="flex items-center gap-2">
+                              <Mail className="w-4 h-4" />
+                              <a href="mailto:support@merry360x.com" className="font-medium hover:underline">support@merry360x.com</a>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Error */}
                   {paymentError && (
@@ -812,6 +931,85 @@ export default function CheckoutNew() {
           </div>
         </div>
       </div>
+
+      {/* Contact Modal for Card/Bank Transfer */}
+      {showContactModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-card rounded-2xl shadow-2xl max-w-md w-full p-6 relative animate-in fade-in zoom-in duration-200">
+            <button
+              onClick={() => setShowContactModal(false)}
+              className="absolute top-4 right-4 p-2 rounded-full hover:bg-muted transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                <Clock className="w-8 h-8 text-primary" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">
+                {paymentMethod === 'card' ? 'Credit Card Payment' : 'Bank Transfer'}
+              </h3>
+              <p className="text-muted-foreground text-sm">
+                Our team will contact you within <span className="font-semibold text-foreground">5 minutes</span> to complete your payment securely.
+              </p>
+            </div>
+            
+            <div className="space-y-4 mb-6">
+              <div className="bg-muted/50 rounded-xl p-4">
+                <p className="text-sm font-medium mb-1">What happens next?</p>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li>• A payment specialist will call you</li>
+                  <li>• They'll guide you through the secure payment</li>
+                  <li>• Your booking will be confirmed immediately</li>
+                </ul>
+              </div>
+              
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 p-3 rounded-lg border">
+                  <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                    <Phone className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Call us directly</p>
+                    <a href="tel:+250792527083" className="font-medium text-foreground hover:text-primary">
+                      +250 792 527 083
+                    </a>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3 p-3 rounded-lg border">
+                  <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                    <Mail className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Email support</p>
+                    <a href="mailto:support@merry360x.com" className="font-medium text-foreground hover:text-primary">
+                      support@merry360x.com
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => { setShowContactModal(false); setPaymentMethod('mtn'); }}
+              >
+                Use Mobile Money
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={() => setShowContactModal(false)}
+              >
+                I Understand
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Footer />
     </div>
