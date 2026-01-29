@@ -1797,7 +1797,7 @@ For support, contact: support@merry360x.com
                                         ? supabase.from("transport_vehicles").select("id, title, vehicle_type").in("id", transportIds).then(r => r.data || [])
                                         : Promise.resolve([]),
                                       hostIds.length > 0
-                                        ? supabase.from("profiles").select("id, full_name").in("id", hostIds).then(r => r.data || [])
+                                        ? supabase.from("profiles").select("user_id, full_name").in("user_id", hostIds).then(r => r.data || [])
                                         : Promise.resolve([])
                                     ]);
                                     
@@ -1814,7 +1814,7 @@ For support, contact: support@merry360x.com
                                         enriched.transport_vehicles = vehicles.find(v => v.id === item.transport_id) || null;
                                       }
                                       if (item.host_id) {
-                                        enriched.profiles = hosts.find(h => h.id === item.host_id) || null;
+                                        enriched.profiles = hosts.find(h => h.user_id === item.host_id) || null;
                                       }
                                       return enriched;
                                     });
@@ -3047,7 +3047,7 @@ For support, contact: support@merry360x.com
                                         ? supabase.from("transport_vehicles").select("id, title, vehicle_type").in("id", transportIds).then(r => r.data || [])
                                         : Promise.resolve([]),
                                       hostIds.length > 0
-                                        ? supabase.from("profiles").select("id, full_name").in("id", hostIds).then(r => r.data || [])
+                                        ? supabase.from("profiles").select("user_id, full_name").in("user_id", hostIds).then(r => r.data || [])
                                         : Promise.resolve([])
                                     ]);
                                     
@@ -3064,7 +3064,7 @@ For support, contact: support@merry360x.com
                                         enriched.transport_vehicles = vehicles.find(v => v.id === item.transport_id) || null;
                                       }
                                       if (item.host_id) {
-                                        enriched.profiles = hosts.find(h => h.id === item.host_id) || null;
+                                        enriched.profiles = hosts.find(h => h.user_id === item.host_id) || null;
                                       }
                                       return enriched;
                                     });

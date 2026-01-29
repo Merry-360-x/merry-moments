@@ -97,7 +97,7 @@ export default function CheckoutNew() {
       (supabase
         .from("profiles")
         .select("full_name, phone")
-        .eq("id", user.id)
+        .eq("user_id", user.id)
         .maybeSingle() as any)
         .then(({ data, error }: any) => {
           if (error) {
