@@ -21,15 +21,50 @@ export default function PaymentPending() {
   const [pollCount, setPollCount] = useState(0);
   const [timeLeft, setTimeLeft] = useState(300); // 5 minutes timeout
   const [failureReason, setFailureReason] = useState<string | null>(null);
+  const [checkingStatus, setCheckingStatus] = useState(false);
 
   // Poll for payment status - check both database AND PawaPay directly
   useEffect(() => {
     if (!checkoutId || status !== "pending") return;
 
     const checkStatus = async () => {
-      if (!checkoutId) return;
+      if (!checkoutId || checkingStatus) return;
+      
+      setCheckingStatus(true);
       try {
-        // Check checkout_requests table for status
+        // ALWAYS check PawaPay directly first if we have depositId
+        // This catches failures immediately (insufficient funds, etc)
+        let paymentStatus = null;
+        let failureMsg = null;
+        
+        if (depositId) {
+          try {
+            const checkUrl = `/api/pawapay-check-status?depositId=${depositId}&checkoutId=${checkoutId}`;
+            const response = await fetch(checkUrl);
+            const data = await response.json();
+            
+            console.log("PawaPay check result:", data);
+            
+            if (data.success) {
+              paymentStatus = data.paymentStatus;
+              failureMsg = data.failureMessage;
+              
+              // PawaPay statuses: SUBMITTED, ACCEPTED, COMPLETED, FAILED, REJECTED, CANCELLED
+              // Immediately handle failures
+              if (data.pawapayStatus === "FAILED" || data.pawapayStatus === "REJECTED" || data.pawapayStatus === "CANCELLED") {
+                console.log("Payment failed:", data.pawapayStatus, failureMsg);
+                setFailureReason(failureMsg || "Payment failed. Please try again.");
+                setStatus("failed");
+                setCheckingStatus(false);
+                return;
+              }
+            }
+          } catch (pawapayErr) {
+            console.warn("Could not check PawaPay directly:", pawapayErr);
+          }
+        }
+        
+        // Also check database as fallback
         const { data: checkouts, error } = await supabase
           .from("checkout_requests")
           .select("payment_status")
@@ -38,26 +73,10 @@ export default function PaymentPending() {
         if (error) throw error;
         
         const record = (checkouts as any)?.[0];
-        if (!record) return;
-
-        let paymentStatus = record?.payment_status;
-        
-        // If still pending and we have depositId, check PawaPay directly
-        // This handles cases where callback didn't fire
-        let failureMsg = null;
-        if (paymentStatus === "pending" && depositId) {
-          try {
-            const checkUrl = `/api/pawapay-check-status?depositId=${depositId}&checkoutId=${checkoutId}`;
-            const response = await fetch(checkUrl);
-            const data = await response.json();
-            
-            if (data.success && data.paymentStatus) {
-              paymentStatus = data.paymentStatus;
-              failureMsg = data.failureMessage;
-              console.log("PawaPay direct check result:", data);
-            }
-          } catch (pawapayErr) {
-            console.warn("Could not check PawaPay directly:", pawapayErr);
+        if (record) {
+          // Use database status if we don't have PawaPay status
+          if (!paymentStatus) {
+            paymentStatus = record.payment_status;
           }
         }
         
@@ -79,19 +98,41 @@ export default function PaymentPending() {
         }
       } catch (e) {
         console.error("Error checking payment status:", e);
+      } finally {
+        setCheckingStatus(false);
       }
     };
 
-    // Initial check
+    // Initial check immediately
     checkStatus();
 
-    // Poll every 5 seconds
+    // Aggressive polling for first 30 seconds (every 2 seconds)
+    // Then slower polling after that (every 5 seconds)
+    let pollInterval = 2000; // Start with 2 seconds
+    
     const interval = setInterval(() => {
-      setPollCount((c) => c + 1);
+      setPollCount((c) => {
+        const newCount = c + 1;
+        // After 15 polls (30 seconds), slow down to 5 second intervals
+        if (newCount === 15) {
+          clearInterval(interval);
+          const slowerInterval = setInterval(() => {
+            checkStatus();
+          }, 5000);
+          // Store for cleanup
+          (interval as any)._slower = slowerInterval;
+        }
+        return newCount;
+      });
       checkStatus();
-    }, 5000);
+    }, pollInterval);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      if ((interval as any)._slower) {
+        clearInterval((interval as any)._slower);
+      }
+    };
   }, [checkoutId, depositId, status, navigate, toast]);
 
   // Countdown timer

@@ -325,10 +325,15 @@ export default function CheckoutNew() {
       // Create a single checkout request with all cart items in metadata
       const checkoutData: any = {
         user_id: user?.id || null,
+        name: formData.fullName,
+        email: formData.email,
+        phone: (paymentMethod === 'mtn' || paymentMethod === 'airtel') ? fullPhone : (formData.phone || null),
+        message: formData.notes || null,
         total_amount: Math.round(total),
         currency: displayCurrency,
         payment_status: paymentMethod === 'card' || paymentMethod === 'bank' ? 'awaiting_callback' : 'pending',
         payment_method: paymentMethod === 'card' ? 'card' : paymentMethod === 'bank' ? 'bank_transfer' : 'mobile_money',
+        items: cartItemsWithPrices,
         metadata: {
           items: cartItemsWithPrices,
           guest_info: {
