@@ -151,13 +151,60 @@ export default function CheckoutNew() {
 
   // Fetch cart items
   const { data: cartItems = [], isLoading } = useQuery({
-    queryKey: ["checkout_cart", user?.id, guestCart.map(i => i.id).join(",")],
+    queryKey: ["checkout_cart", user?.id, guestCart.map(i => i.id).join(","), searchParams.toString()],
     queryFn: async () => {
+      // Check if this is a direct booking from URL params
+      const mode = searchParams.get("mode");
+      const propertyId = searchParams.get("propertyId");
+      
+      if (mode === "booking" && propertyId) {
+        return await fetchDirectBooking(propertyId);
+      }
+      
+      // Otherwise fetch from cart
       const cartSource = user ? await fetchUserCart() : await fetchGuestCart();
       return cartSource;
     },
     enabled: !authLoading,
   });
+
+  async function fetchDirectBooking(propertyId: string): Promise<CartItem[]> {
+    // Fetch the property details directly
+    const { data: property, error } = await supabase
+      .from('properties')
+      .select('id, title, price_per_night, currency, images, location')
+      .eq('id', propertyId)
+      .single();
+    
+    if (error || !property) {
+      console.error("Failed to load property for direct booking:", error);
+      return [];
+    }
+    
+    // Calculate nights from checkIn/checkOut params
+    const checkIn = searchParams.get("checkIn");
+    const checkOut = searchParams.get("checkOut");
+    let nights = 1;
+    
+    if (checkIn && checkOut) {
+      const start = new Date(checkIn);
+      const end = new Date(checkOut);
+      nights = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+    }
+    
+    // Return as a cart item
+    return [{
+      id: `direct-${property.id}`,
+      item_type: 'property',
+      reference_id: property.id,
+      quantity: nights,
+      title: property.title,
+      price: property.price_per_night,
+      currency: property.currency || 'RWF',
+      image: property.images?.[0],
+      meta: property.location
+    }];
+  }
 
   async function fetchUserCart(): Promise<CartItem[]> {
     const { data, error } = await (supabase
@@ -326,6 +373,15 @@ export default function CheckoutNew() {
         };
       });
       
+      // Get booking details if this is a direct booking
+      const mode = searchParams.get("mode");
+      const bookingDetails = mode === "booking" ? {
+        property_id: searchParams.get("propertyId"),
+        check_in: searchParams.get("checkIn"),
+        check_out: searchParams.get("checkOut"),
+        guests: Number(searchParams.get("guests")) || 1,
+      } : null;
+      
       // Create a single checkout request with all cart items in metadata
       const checkoutData: any = {
         user_id: user?.id || null,
@@ -340,6 +396,7 @@ export default function CheckoutNew() {
         items: cartItemsWithPrices,
         metadata: {
           items: cartItemsWithPrices,
+          booking_details: bookingDetails,
           guest_info: {
             name: formData.fullName,
             email: formData.email,
@@ -742,6 +799,10 @@ export default function CheckoutNew() {
                   <div className="divide-y rounded-xl border overflow-hidden">
                     {cartItems.map((item) => {
                       const itemPrice = convertAmount(item.price * item.quantity, item.currency, displayCurrency, usdRates) ?? item.price * item.quantity;
+                      const mode = searchParams.get("mode");
+                      const checkIn = searchParams.get("checkIn");
+                      const checkOut = searchParams.get("checkOut");
+                      const guests = searchParams.get("guests");
                       
                       return (
                         <div key={item.id} className="flex gap-4 p-4">
@@ -756,7 +817,12 @@ export default function CheckoutNew() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <h4 className="font-medium truncate">{item.title}</h4>
-                            <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {mode === 'booking' && checkIn && checkOut && item.item_type === 'property' 
+                                ? `${new Date(checkIn).toLocaleDateString()} - ${new Date(checkOut).toLocaleDateString()} • ${guests || 1} guest(s) • ${item.quantity} night(s)`
+                                : `Qty: ${item.quantity}`
+                              }
+                            </p>
                           </div>
                           <div className="text-right">
                             <p className="font-medium">{formatMoney(itemPrice, displayCurrency)}</p>
