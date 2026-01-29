@@ -180,10 +180,10 @@ export default function CheckoutNew() {
   }
 
   async function enrichCartItems(items: any[]): Promise<CartItem[]> {
-    const tourIds = items.filter(i => i.item_type === 'tour').map(i => i.reference_id);
-    const packageIds = items.filter(i => i.item_type === 'tour_package').map(i => i.reference_id);
-    const propertyIds = items.filter(i => i.item_type === 'property').map(i => i.reference_id);
-    const vehicleIds = items.filter(i => i.item_type === 'transport_vehicle').map(i => i.reference_id);
+    const tourIds = items.filter(i => i.item_type === 'tour').map(i => String(i.reference_id));
+    const packageIds = items.filter(i => i.item_type === 'tour_package').map(i => String(i.reference_id));
+    const propertyIds = items.filter(i => i.item_type === 'property').map(i => String(i.reference_id));
+    const vehicleIds = items.filter(i => i.item_type === 'transport_vehicle').map(i => String(i.reference_id));
 
     const [tours, packages, properties, vehicles] = await Promise.all([
       tourIds.length ? supabase.from('tours').select('id, title, price_per_person, currency, images, duration_days').in('id', tourIds).then(r => r.data || []) : [],
@@ -193,15 +193,19 @@ export default function CheckoutNew() {
     ]) as any[];
 
     const maps: Record<string, Map<string, any>> = {
-      tour: new Map(tours.map((t: any) => [t.id, t] as [string, any])),
-      tour_package: new Map(packages.map((p: any) => [p.id, p] as [string, any])),
-      property: new Map(properties.map((p: any) => [p.id, p] as [string, any])),
-      transport_vehicle: new Map(vehicles.map((v: any) => [v.id, v] as [string, any])),
+      tour: new Map(tours.map((t: any) => [String(t.id), t] as [string, any])),
+      tour_package: new Map(packages.map((p: any) => [String(p.id), p] as [string, any])),
+      property: new Map(properties.map((p: any) => [String(p.id), p] as [string, any])),
+      transport_vehicle: new Map(vehicles.map((v: any) => [String(v.id), v] as [string, any])),
     };
 
     return items.map(item => {
-      const data: any = maps[item.item_type]?.get(item.reference_id);
-      if (!data) return null;
+      const refId = String(item.reference_id);
+      const data: any = maps[item.item_type]?.get(refId);
+      if (!data) {
+        console.warn(`Checkout item not found: ${item.item_type} ${refId}`);
+        return null;
+      }
 
       const getDetails = () => {
         switch (item.item_type) {
