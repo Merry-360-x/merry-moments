@@ -647,7 +647,7 @@ export default function Dashboard() {
                           if (!user?.email) return;
                           setResetting(true);
                           try {
-                            const redirectTo = `${window.location.origin}/auth?mode=login`;
+                            const redirectTo = `${window.location.origin}/reset-password`;
                             const { error } = await supabase.auth.resetPasswordForEmail(user.email, { redirectTo });
                             if (error) throw error;
                             toast({ title: "Password reset email sent", description: "Check your inbox." });

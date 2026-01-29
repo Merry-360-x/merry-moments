@@ -18,16 +18,46 @@ const ResetPassword = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isValidToken, setIsValidToken] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [isChecking, setIsChecking] = useState(true);
   const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
     // Check if we have a valid recovery token from the URL
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      setIsChecking(true);
+      
+      // Check for hash fragment with recovery token
+      const hashFragment = window.location.hash;
+      if (hashFragment) {
+        const params = new URLSearchParams(hashFragment.substring(1));
+        const accessToken = params.get('access_token');
+        const type = params.get('type');
+        
+        if (accessToken && type === 'recovery') {
+          console.log('[ResetPassword] Found recovery token, processing...');
+          
+          // Let Supabase process the hash - it auto-detects and sets the session
+          // Wait a moment for Supabase to handle it
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          
+          // Clean up the URL hash
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+      }
+      
+      // Now check if session was established
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error('[ResetPassword] Session error:', error);
+      }
+      
       if (session) {
+        console.log('[ResetPassword] Valid session found');
         setIsValidToken(true);
       } else {
+        console.log('[ResetPassword] No valid session');
         toast({
           variant: "destructive",
           title: "Invalid or expired link",
@@ -35,6 +65,8 @@ const ResetPassword = () => {
         });
         setTimeout(() => navigate("/forgot-password"), 3000);
       }
+      
+      setIsChecking(false);
     };
 
     checkSession();
@@ -114,7 +146,7 @@ const ResetPassword = () => {
     );
   }
 
-  if (!isValidToken) {
+  if (isChecking || !isValidToken) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-background to-muted/20 p-4">
         <div className="w-full max-w-md space-y-8">
@@ -124,6 +156,7 @@ const ResetPassword = () => {
 
           <Card className="shadow-2xl">
             <CardHeader className="text-center">
+              <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
               <CardTitle className="text-2xl">Validating link...</CardTitle>
               <CardDescription>Please wait while we verify your reset link.</CardDescription>
             </CardHeader>
