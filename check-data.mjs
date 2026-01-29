@@ -1,20 +1,38 @@
 import { createClient } from '@supabase/supabase-js';
-const url = 'https://wmcjdwgllbwjpfanofbn.supabase.co';
-const key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndtY2pkd2dsbGJ3anBmYW5vZmJuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczNTY0Njg5MCwiZXhwIjoyMDUxMjIyODkwfQ.VYP_37AhLuXGOXzRMGzN-R9xqYBpd_-L0wD7YG8kR3w';
-const client = createClient(url, key);
+import 'dotenv/config';
 
-console.log('Checking database content...\n');
+const supabase = createClient(
+  process.env.VITE_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
-const { data: props, error: pe } = await client.from('properties').select('id, title, is_published');
-console.log('Properties:', props?.length || 0, pe ? `ERROR: ${pe.message}` : '');
-if (props) props.slice(0, 3).forEach(p => console.log(`  - ${p.title} (published: ${p.is_published})`));
-
-const { data: tours, error: te } = await client.from('tour_packages').select('id, title, status');
-console.log('\nTour Packages:', tours?.length || 0, te ? `ERROR: ${te.message}` : '');
-if (tours) tours.slice(0, 3).forEach(t => consimport { createClient } from '@supabase/su
-const { data: roles, errorconst url = 'https://wmcjdwgllbwjpfanofbn.supabase.ce'const key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJp ?const cl ${re.message}` : '');
-if (roles) {
-  const counts = {};
-  roles.forEach(r => counts[r.role] = (counts[r.role] || 0) + 1);
-  Object.entries(counts).forEach(([role, count]) => console.log(`  ${role}: ${count}`));
+async function check() {
+  console.log('Checking all database data...\n');
+  
+  const { data: admins } = await supabase.from('user_roles').select('user_id').eq('role', 'admin');
+  console.log('Admin users:', admins?.length || 0);
+  
+  const { data: hosts } = await supabase.from('user_roles').select('user_id').eq('role', 'host');
+  console.log('Host users:', hosts?.length || 0);
+  
+  const { data: bookings } = await supabase.from('bookings').select('id, status').limit(10);
+  console.log('Bookings:', bookings?.length || 0);
+  if (bookings?.length) bookings.forEach(b => console.log('  -', b.id.slice(0,8), b.status));
+  
+  const { data: tours } = await supabase.from('tours').select('id, title, is_published').limit(10);
+  console.log('Tours:', tours?.length || 0);
+  if (tours?.length) tours.forEach(t => console.log('  -', t.title, '| published:', t.is_published));
+  
+  const { data: pkgs } = await supabase.from('tour_packages').select('id, title, status').limit(10);
+  console.log('Tour packages:', pkgs?.length || 0);
+  if (pkgs?.length) pkgs.forEach(p => console.log('  -', p.title, '| status:', p.status));
+  
+  const { data: props } = await supabase.from('properties').select('id, title, is_published').limit(10);
+  console.log('Properties:', props?.length || 0);
+  if (props?.length) props.forEach(p => console.log('  -', p.title, '| published:', p.is_published));
+  
+  const { data: vehicles } = await supabase.from('transport_vehicles').select('id, title').limit(5);
+  console.log('Transport vehicles:', vehicles?.length || 0);
 }
+
+check();

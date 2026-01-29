@@ -3223,26 +3223,18 @@ export default function HostDashboard() {
             <Card className="p-6 mb-8">
               <h3 className="font-semibold mb-4">Quick Actions</h3>
               <div className="flex flex-wrap gap-3">
-                {hostServiceTypes.includes('accommodation') && (
-                  <Button onClick={openPropertyWizard}>
-                    <Plus className="w-4 h-4 mr-2" /> Add Property
-                  </Button>
-                )}
-                {hostServiceTypes.includes('tour') && (
-                  <Button variant="outline" onClick={() => navigate("/create-tour")}>
-                    <Plus className="w-4 h-4 mr-2" /> Create Tour
-                  </Button>
-                )}
-                {hostServiceTypes.includes('tour_package') && (
-                  <Button variant="outline" onClick={() => navigate("/create-tour-package")}>
-                    <Plus className="w-4 h-4 mr-2" /> Create Tour Package
-                  </Button>
-                )}
-                {hostServiceTypes.includes('transport') && (
-                  <Button variant="outline" onClick={() => navigate("/create-transport")}>
-                    <Car className="w-4 h-4 mr-2" /> Add Vehicle
-                  </Button>
-                )}
+                <Button onClick={openPropertyWizard}>
+                  <Plus className="w-4 h-4 mr-2" /> Add Property
+                </Button>
+                <Button variant="outline" onClick={() => navigate("/create-tour")}>
+                  <Plus className="w-4 h-4 mr-2" /> Create Tour
+                </Button>
+                <Button variant="outline" onClick={() => navigate("/create-tour-package")}>
+                  <Plus className="w-4 h-4 mr-2" /> Create Tour Package
+                </Button>
+                <Button variant="outline" onClick={() => navigate("/create-transport")}>
+                  <Car className="w-4 h-4 mr-2" /> Add Vehicle
+                </Button>
               </div>
             </Card>
 
@@ -3300,10 +3292,34 @@ export default function HostDashboard() {
 
           {/* Tours */}
           <TabsContent value="tours">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div className="text-sm text-muted-foreground">
+                Create <span className="font-medium text-foreground">Tours</span> or <span className="font-medium text-foreground">Tour Packages</span> to offer experiences.
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => navigate("/create-tour")}>
+                  <Plus className="w-4 h-4 mr-2" /> Create Tour
+                </Button>
+                <Button onClick={() => navigate("/create-tour-package")}>
+                  <Plus className="w-4 h-4 mr-2" /> Create Tour Package
+                </Button>
+              </div>
+            </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {(tours || []).map((t) => <TourCard key={t.id} tour={t} />)}
               {(tours || []).length === 0 && (
-                <p className="text-muted-foreground col-span-full text-center py-8">No tours yet</p>
+                <div className="col-span-full text-center py-12">
+                  <MapPin className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground mb-4">No tours yet</p>
+                  <div className="flex gap-2 justify-center">
+                    <Button variant="outline" onClick={() => navigate("/create-tour")}>
+                      <Plus className="w-4 h-4 mr-2" /> Create Tour
+                    </Button>
+                    <Button onClick={() => navigate("/create-tour-package")}>
+                      <Plus className="w-4 h-4 mr-2" /> Create Tour Package
+                    </Button>
+                  </div>
+                </div>
               )}
             </div>
           </TabsContent>
