@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import Logo from "@/components/Logo";
-import { Eye, EyeOff, CheckCircle2, Lock } from "lucide-react";
+import { Eye, EyeOff, CheckCircle2, Lock, AlertCircle } from "lucide-react";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
+import { Link } from "react-router-dom";
 
 const ResetPassword = () => {
   const [password, setPassword] = useState("");
@@ -19,10 +20,31 @@ const ResetPassword = () => {
   const [isValidToken, setIsValidToken] = useState(false);
   const [success, setSuccess] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
+    // Check for error in URL params first
+    const error = searchParams.get('error');
+    const errorCode = searchParams.get('error_code');
+    const errorDescription = searchParams.get('error_description');
+    
+    if (error || errorCode) {
+      console.log('[ResetPassword] Error in URL:', error, errorCode, errorDescription);
+      setIsChecking(false);
+      
+      if (errorCode === 'otp_expired') {
+        setErrorMessage('This password reset link has expired. Please request a new one.');
+      } else if (errorCode === 'access_denied') {
+        setErrorMessage('This link is invalid or has already been used. Please request a new one.');
+      } else {
+        setErrorMessage(errorDescription?.replace(/\+/g, ' ') || 'Invalid reset link. Please request a new one.');
+      }
+      return;
+    }
+    
     // Check if we have a valid recovery token from the URL
     const checkSession = async () => {
       setIsChecking(true);
@@ -162,6 +184,43 @@ const ResetPassword = () => {
                 Your password has been updated. Redirecting you to login...
               </CardDescription>
             </CardHeader>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error if there was an error in the URL
+  if (errorMessage) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-background to-muted/20 p-4">
+        <div className="w-full max-w-md space-y-8">
+          <div className="flex justify-center">
+            <Logo />
+          </div>
+
+          <Card className="shadow-2xl">
+            <CardHeader className="text-center">
+              <div className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
+              </div>
+              <CardTitle className="text-2xl">Link Expired</CardTitle>
+              <CardDescription className="text-base">
+                {errorMessage}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Link to="/forgot-password" className="block">
+                <Button className="w-full">
+                  Request New Reset Link
+                </Button>
+              </Link>
+              <Link to="/auth" className="block">
+                <Button variant="outline" className="w-full">
+                  Back to Login
+                </Button>
+              </Link>
+            </CardContent>
           </Card>
         </div>
       </div>
