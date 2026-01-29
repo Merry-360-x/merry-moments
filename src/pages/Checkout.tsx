@@ -19,6 +19,7 @@ import { Check, ArrowRight, ArrowLeft, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { checkAvailability } from "@/lib/availability-check";
 import { initiatePawaPayPayment, isPawaPayMethod, validatePawaPayAmount, PAWAPAY_MIN_AMOUNT_RWF } from "@/lib/pawapay";
+import { calculateGuestTotal, PLATFORM_FEES } from "@/lib/fees";
 
 const isoToday = () => new Date().toISOString().slice(0, 10);
 
@@ -313,7 +314,10 @@ export default function Checkout() {
     try {
       const nightly = Number(property?.price_per_night ?? 0);
       const currency = String(property?.currency ?? "RWF");
-      const total = nights * nightly;
+      const baseTotal = nights * nightly;
+      
+      // Apply 7% platform fee for accommodations
+      const { guestTotal: total, platformFee } = calculateGuestTotal(baseTotal, 'accommodation');
 
       // Validate minimum amount for mobile money
       if (isPawaPayMethod(paymentMethod)) {
@@ -336,6 +340,8 @@ export default function Checkout() {
         check_out: checkOut,
         guests: Math.max(1, Number(guests || 1)),
         total_price: total,
+        base_price: baseTotal, // Store base price before fee
+        platform_fee: platformFee, // Store platform fee amount
         currency,
         status: "pending_confirmation",
         payment_status: "pending",
@@ -518,7 +524,13 @@ export default function Checkout() {
             const cin = new Date(checkIn);
             const cout = new Date(checkOut);
             const nights = Math.max(1, Math.ceil((cout.getTime() - cin.getTime()) / 86400000));
-            bookingPayload.total_price = nights * (prop.price_per_night || 0);
+            const basePrice = nights * (prop.price_per_night || 0);
+            
+            // Apply 7% platform fee for accommodations
+            const { guestTotal, platformFee } = calculateGuestTotal(basePrice, 'accommodation');
+            bookingPayload.total_price = guestTotal;
+            bookingPayload.base_price = basePrice;
+            bookingPayload.platform_fee = platformFee;
           }
         } else if (item.item_type === "tour") {
           const { data: tour } = await supabase
@@ -544,7 +556,11 @@ export default function Checkout() {
               pricePerPerson = pricePerPerson * (1 - tour.group_discount_6_10 / 100);
             }
             
-            bookingPayload.total_price = pricePerPerson * guestCount;
+            // Tours: no guest fee (0%), but provider pays 10%
+            const basePrice = pricePerPerson * guestCount;
+            bookingPayload.total_price = basePrice; // No extra fee for guests
+            bookingPayload.base_price = basePrice;
+            bookingPayload.platform_fee = 0;
           }
         } else if (item.item_type === "transport") {
           const { data: vehicle } = await supabase
@@ -718,7 +734,13 @@ export default function Checkout() {
   const bookingTitle = property ? String(property.title ?? property.name ?? "Accommodation") : "Accommodation";
   const currency = String(property?.currency ?? "RWF");
   const nightly = Number(property?.price_per_night ?? 0);
-  const bookingTotal = nights > 0 ? nights * nightly : 0;
+  const bookingBaseTotal = nights > 0 ? nights * nightly : 0;
+  
+  // Calculate booking total with 7% platform fee for accommodation
+  const accommodationFee = useMemo(() => {
+    return calculateGuestTotal(bookingBaseTotal, 'accommodation');
+  }, [bookingBaseTotal]);
+  const bookingTotal = accommodationFee.guestTotal;
 
   const paymentMethods = [
     {
@@ -846,16 +868,32 @@ export default function Checkout() {
           {/* Booking Summary - Minimal */}
           {mode === "booking" && property && (
             <div className="mb-10 pb-8 border-b border-muted-foreground/10">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">{bookingTitle}</p>
-                  <p className="text-xs text-muted-foreground/70">
-                    {checkIn} → {checkOut} · {nights}n · {Math.max(1, guests)}g
+              <div className="space-y-2">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">{bookingTitle}</p>
+                    <p className="text-xs text-muted-foreground/70">
+                      {checkIn} → {checkOut} · {nights}n · {Math.max(1, guests)}g
+                    </p>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {formatMoneyWithConversion(bookingBaseTotal, currency, preferredCurrency, usdRates)}
                   </p>
                 </div>
-                <p className="text-lg font-medium">
-                  {formatMoneyWithConversion(bookingTotal, currency, preferredCurrency, usdRates)}
-                </p>
+                {accommodationFee.platformFee > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Service fee ({PLATFORM_FEES.accommodation.guestFeePercent}%)</span>
+                    <span className="text-muted-foreground">
+                      {formatMoneyWithConversion(accommodationFee.platformFee, currency, preferredCurrency, usdRates)}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between pt-2 border-t border-muted-foreground/10">
+                  <span className="font-medium">Total</span>
+                  <span className="text-lg font-medium">
+                    {formatMoneyWithConversion(bookingTotal, currency, preferredCurrency, usdRates)}
+                  </span>
+                </div>
               </div>
             </div>
           )}

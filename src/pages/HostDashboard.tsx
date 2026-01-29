@@ -19,6 +19,7 @@ import { isVideoUrl } from "@/lib/media";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { formatMoney } from "@/lib/money";
 import { AMENITIES, AMENITIES_BY_CATEGORY } from "@/lib/amenities";
+import { calculateHostEarnings, PLATFORM_FEES } from "@/lib/fees";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
@@ -890,9 +891,29 @@ export default function HostDashboard() {
   };
 
   // Stats - use safe defaults
-  const totalEarnings = (bookings || [])
-    .filter((b) => b.status === "confirmed" || b.status === "completed")
-    .reduce((sum, b) => sum + Number(b.total_price), 0);
+  // Calculate earnings after platform fees
+  const confirmedBookings = (bookings || []).filter((b) => b.status === "confirmed" || b.status === "completed");
+  
+  // Gross earnings (what guests paid)
+  const totalGrossEarnings = confirmedBookings.reduce((sum, b) => sum + Number(b.total_price), 0);
+  
+  // Net earnings after platform fees (3% for properties, 10% for tours)
+  const totalNetEarnings = confirmedBookings.reduce((sum, b) => {
+    const amount = Number(b.total_price);
+    if (b.booking_type === 'property' || b.property_id) {
+      // Property: host pays 3%
+      const { netEarnings } = calculateHostEarnings(amount, 'accommodation');
+      return sum + netEarnings;
+    } else if (b.booking_type === 'tour' || b.tour_id) {
+      // Tour: provider pays 10%
+      const { netEarnings } = calculateHostEarnings(amount, 'tour');
+      return sum + netEarnings;
+    }
+    return sum + amount; // Transport or other - no fee for now
+  }, 0);
+  
+  // Keep totalEarnings as net earnings for display
+  const totalEarnings = totalNetEarnings;
   const pendingBookings = (bookings || []).filter((b) => b.status === "pending").length;
   const publishedProperties = (properties || []).filter((p) => p.is_published).length;
 
@@ -3179,8 +3200,9 @@ export default function HostDashboard() {
                     <DollarSign className="w-5 h-5 text-green-600" />
           </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Total Earnings</p>
+                    <p className="text-sm text-muted-foreground">Net Earnings</p>
                     <p className="text-xl font-bold">{formatMoney(totalEarnings, "RWF")}</p>
+                    <p className="text-xs text-muted-foreground">After platform fees</p>
                   </div>
                 </div>
               </Card>
@@ -3235,6 +3257,28 @@ export default function HostDashboard() {
                 <Button variant="outline" onClick={() => navigate("/create-transport")}>
                   <Car className="w-4 h-4 mr-2" /> Add Vehicle
                 </Button>
+              </div>
+            </Card>
+
+            {/* Platform Fees Info */}
+            <Card className="p-4 mb-8 bg-muted/30">
+              <div className="flex items-start gap-3">
+                <Info className="w-5 h-5 text-muted-foreground mt-0.5 shrink-0" />
+                <div>
+                  <h4 className="font-medium text-sm mb-2">Platform Fees</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-muted-foreground">
+                    <div>
+                      <p className="font-medium text-foreground">Accommodations</p>
+                      <p>• Guest pays: +{PLATFORM_FEES.accommodation.guestFeePercent}% service fee</p>
+                      <p>• You receive: {100 - PLATFORM_FEES.accommodation.hostFeePercent}% of your price</p>
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">Tours</p>
+                      <p>• Guest pays: No extra fee</p>
+                      <p>• You receive: {100 - PLATFORM_FEES.tour.providerFeePercent}% of your price</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </Card>
 
@@ -3510,6 +3554,10 @@ export default function HostDashboard() {
                     : 1;
                   const isBulkOrder = orderItemCount > 1;
                   
+                  // Calculate net earnings after platform fee
+                  const serviceType = itemType === 'property' ? 'accommodation' : itemType === 'tour' ? 'tour' : 'transport';
+                  const { netEarnings, feePercent } = calculateHostEarnings(b.total_price, serviceType as 'accommodation' | 'tour' | 'transport');
+                  
                   return (
                   <Card key={b.id} className="p-4">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -3534,7 +3582,10 @@ export default function HostDashboard() {
                         </div>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <span>{b.guests_count} guests</span>
-                          <span className="font-medium text-foreground">{formatMoney(b.total_price, b.currency)}</span>
+                          <span className="font-medium text-foreground">{formatMoney(netEarnings, b.currency)}</span>
+                          {feePercent > 0 && (
+                            <span className="text-xs text-muted-foreground">(after {feePercent}% fee)</span>
+                          )}
                         </div>
                         {b.is_guest_booking && (
                           <div className="mt-2 p-2 bg-muted/50 rounded-lg text-sm">
@@ -3811,11 +3862,11 @@ export default function HostDashboard() {
               </div>
 
               {/* Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <Card className="p-4">
                   <div className="flex items-center gap-3 mb-2">
-                    <DollarSign className="w-5 h-5 text-green-600" />
-                    <span className="text-sm font-medium text-muted-foreground">Total Revenue</span>
+                    <DollarSign className="w-5 h-5 text-muted-foreground" />
+                    <span className="text-sm font-medium text-muted-foreground">Gross Revenue</span>
                   </div>
                   <p className="text-2xl font-bold">
                     {formatMoney(
@@ -3828,6 +3879,29 @@ export default function HostDashboard() {
                       bookings[0]?.currency || "USD"
                     )}
                   </p>
+                </Card>
+                
+                <Card className="p-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <DollarSign className="w-5 h-5 text-green-600" />
+                    <span className="text-sm font-medium text-muted-foreground">Net Earnings</span>
+                  </div>
+                  <p className="text-2xl font-bold text-green-600">
+                    {formatMoney(
+                      bookings
+                        .filter(b => {
+                          const bookingDate = new Date(b.created_at);
+                          return bookingDate >= new Date(reportStartDate) && bookingDate <= new Date(reportEndDate);
+                        })
+                        .reduce((sum, b) => {
+                          const itemType = b.property_id ? 'accommodation' : b.tour_id ? 'tour' : 'transport';
+                          const { netEarnings } = calculateHostEarnings(Number(b.total_price), itemType as 'accommodation' | 'tour' | 'transport');
+                          return sum + netEarnings;
+                        }, 0),
+                      bookings[0]?.currency || "USD"
+                    )}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">After platform fees</p>
                 </Card>
 
                 <Card className="p-4">
