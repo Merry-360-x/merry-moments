@@ -43,6 +43,27 @@ export default function TripCart() {
   const [appliedDiscount, setAppliedDiscount] = useState<any>(null);
   const [validatingCode, setValidatingCode] = useState(false);
 
+  // Persist applied discount to localStorage for checkout
+  useEffect(() => {
+    if (appliedDiscount) {
+      localStorage.setItem("applied_discount", JSON.stringify(appliedDiscount));
+    } else {
+      localStorage.removeItem("applied_discount");
+    }
+  }, [appliedDiscount]);
+
+  // Load applied discount from localStorage on mount
+  useEffect(() => {
+    const savedDiscount = localStorage.getItem("applied_discount");
+    if (savedDiscount) {
+      try {
+        setAppliedDiscount(JSON.parse(savedDiscount));
+      } catch (e) {
+        localStorage.removeItem("applied_discount");
+      }
+    }
+  }, []);
+
   // Optimized query with parallel fetching and caching
   const { data: cartItems = [], isLoading } = useQuery({
     queryKey: ["trip_cart", user?.id, guestCart.map(i => i.id).join(",")],
@@ -650,7 +671,7 @@ export default function TripCart() {
 
                 {/* Action Buttons */}
                 <div className="space-y-2">
-                  <Link to="/checkout?mode=cart" className="block">
+                  <Link to={`/checkout?mode=cart${appliedDiscount ? `&discountCode=${appliedDiscount.code}` : ''}`} className="block">
                     <Button size="lg" className="w-full">Proceed to Checkout</Button>
                   </Link>
                   <Button variant="outline" size="lg" onClick={handleClearCart} className="w-full">

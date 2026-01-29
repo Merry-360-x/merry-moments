@@ -15,7 +15,7 @@ import { useFxRates } from "@/hooks/useFxRates";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useTripCart } from "@/hooks/useTripCart";
 import { useQuery } from "@tanstack/react-query";
-import { Check, ArrowRight, ArrowLeft } from "lucide-react";
+import { Check, ArrowRight, ArrowLeft, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { checkAvailability } from "@/lib/availability-check";
 import { initiatePawaPayPayment, isPawaPayMethod, validatePawaPayAmount, PAWAPAY_MIN_AMOUNT_RWF } from "@/lib/pawapay";
@@ -57,6 +57,73 @@ export default function Checkout() {
   const [message, setMessage] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<string>("mtn_momo");
   const [paymentStatus, setPaymentStatus] = useState<"idle" | "processing" | "success" | "failed">("idle");
+  
+  // Discount code state
+  const [discountCode, setDiscountCode] = useState("");
+  const [appliedDiscount, setAppliedDiscount] = useState<any>(null);
+  const [validatingCode, setValidatingCode] = useState(false);
+
+  // Load applied discount from localStorage on mount (passed from TripCart)
+  useEffect(() => {
+    const savedDiscount = localStorage.getItem("applied_discount");
+    if (savedDiscount) {
+      try {
+        const discount = JSON.parse(savedDiscount);
+        setAppliedDiscount(discount);
+        setDiscountCode(discount.code || "");
+      } catch (e) {
+        localStorage.removeItem("applied_discount");
+      }
+    }
+  }, []);
+
+  // Validate and apply discount code
+  const applyDiscountCode = async () => {
+    if (!discountCode.trim()) return;
+    
+    setValidatingCode(true);
+    try {
+      const { data, error } = await supabase
+        .from("discount_codes")
+        .select("*")
+        .eq("code", discountCode.toUpperCase().trim())
+        .eq("is_active", true)
+        .single();
+      
+      if (error || !data) {
+        toast({ variant: "destructive", title: "Invalid Code", description: "Discount code not found or expired" });
+        setValidatingCode(false);
+        return;
+      }
+      
+      // Check if expired
+      if (data.valid_until && new Date(data.valid_until) < new Date()) {
+        toast({ variant: "destructive", title: "Expired", description: "This discount code has expired" });
+        setValidatingCode(false);
+        return;
+      }
+      
+      // Check max uses
+      if (data.max_uses && data.current_uses >= data.max_uses) {
+        toast({ variant: "destructive", title: "Limit Reached", description: "This discount code has reached its usage limit" });
+        setValidatingCode(false);
+        return;
+      }
+      
+      setAppliedDiscount(data);
+      localStorage.setItem("applied_discount", JSON.stringify(data));
+      toast({ title: "Success", description: `Discount code applied: ${data.discount_type === 'percentage' ? data.discount_value + '%' : data.currency + ' ' + data.discount_value} off` });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Error", description: "Failed to validate discount code" });
+    }
+    setValidatingCode(false);
+  };
+
+  const removeDiscount = () => {
+    setAppliedDiscount(null);
+    setDiscountCode("");
+    localStorage.removeItem("applied_discount");
+  };
 
   // Load saved progress from localStorage on mount
   useEffect(() => {
@@ -510,8 +577,27 @@ export default function Checkout() {
       }
 
       // Calculate total amount for cart checkout
-      const totalAmount = bookingsToCreate.reduce((sum, b) => sum + (b.total_price || 0), 0);
+      let totalAmount = bookingsToCreate.reduce((sum, b) => sum + (b.total_price || 0), 0);
       const cartCurrency = bookingsToCreate[0]?.currency || "RWF";
+
+      // Apply discount if present
+      let discountAmount = 0;
+      if (appliedDiscount) {
+        if (appliedDiscount.discount_type === 'percentage') {
+          discountAmount = totalAmount * (appliedDiscount.discount_value / 100);
+        } else {
+          // Fixed discount - use value directly if same currency
+          discountAmount = appliedDiscount.discount_value;
+        }
+        
+        // Check minimum amount requirement
+        if (appliedDiscount.minimum_amount && totalAmount < appliedDiscount.minimum_amount) {
+          discountAmount = 0;
+        }
+        
+        // Apply discount to total
+        totalAmount = Math.max(0, totalAmount - discountAmount);
+      }
 
       // Validate minimum amount for mobile money
       if (isPawaPayMethod(paymentMethod)) {
@@ -584,6 +670,7 @@ export default function Checkout() {
             // Don't navigate away - go to payment pending page
             await clearCart();
             localStorage.removeItem("checkout_progress");
+            localStorage.removeItem("applied_discount");
             navigate(`/payment-pending?bookingId=${primaryBookingId}&depositId=${pawaPayResult.depositId}&phone=${encodeURIComponent(paymentPhone)}`);
           } else {
             setPaymentStatus("failed");
@@ -617,6 +704,7 @@ export default function Checkout() {
       await clearCart();
       // Clear saved progress after successful submission
       localStorage.removeItem("checkout_progress");
+      localStorage.removeItem("applied_discount");
       navigate("/booking-success?mode=cart");
     } catch (e) {
       logError("checkout.cart.submit", e);
@@ -631,6 +719,42 @@ export default function Checkout() {
   const currency = String(property?.currency ?? "RWF");
   const nightly = Number(property?.price_per_night ?? 0);
   const bookingTotal = nights > 0 ? nights * nightly : 0;
+
+  // Calculate cart totals for display (with discount)
+  const cartDisplayTotals = useMemo(() => {
+    if (mode !== "cart") return { subtotal: 0, discount: 0, total: 0, currency: "RWF" };
+    
+    let subtotal = 0;
+    const cartCurrency = preferredCurrency || "RWF";
+    
+    guestCart.forEach((item) => {
+      const itemPrice = item.price || 0;
+      const quantity = item.quantity || 1;
+      subtotal += itemPrice * quantity;
+    });
+    
+    // Calculate discount
+    let discountAmount = 0;
+    if (appliedDiscount) {
+      if (appliedDiscount.discount_type === 'percentage') {
+        discountAmount = subtotal * (appliedDiscount.discount_value / 100);
+      } else {
+        discountAmount = appliedDiscount.discount_value;
+      }
+      
+      // Check minimum amount requirement
+      if (appliedDiscount.minimum_amount && subtotal < appliedDiscount.minimum_amount) {
+        discountAmount = 0;
+      }
+    }
+    
+    return {
+      subtotal,
+      discount: discountAmount,
+      total: Math.max(0, subtotal - discountAmount),
+      currency: cartCurrency
+    };
+  }, [mode, guestCart, preferredCurrency, appliedDiscount]);
 
   const paymentMethods = [
     {
@@ -819,6 +943,49 @@ export default function Checkout() {
                   />
                 </div>
               </div>
+              
+              {/* Discount Code Section */}
+              {mode === "cart" && (
+                <div className="pt-6 border-t border-muted-foreground/10">
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">Discount Code</Label>
+                  {!appliedDiscount ? (
+                    <div className="flex gap-2 mt-2">
+                      <Input
+                        placeholder="Enter code"
+                        value={discountCode}
+                        onChange={(e) => setDiscountCode(e.target.value.toUpperCase())}
+                        className="flex-1 border-0 border-b rounded-none px-0 focus-visible:ring-0 focus-visible:border-foreground"
+                        disabled={validatingCode}
+                      />
+                      <Button 
+                        type="button"
+                        onClick={applyDiscountCode} 
+                        disabled={!discountCode.trim() || validatingCode}
+                        variant="outline"
+                        size="sm"
+                      >
+                        {validatingCode ? "..." : "Apply"}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-3 mt-2">
+                      <Tag className="w-4 h-4 text-green-600 dark:text-green-400" />
+                      <span className="text-sm font-medium text-green-900 dark:text-green-100 flex-1">
+                        {appliedDiscount.code} ({appliedDiscount.discount_type === 'percentage' ? appliedDiscount.discount_value + '%' : appliedDiscount.currency + ' ' + appliedDiscount.discount_value} off)
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={removeDiscount}
+                        className="h-6 px-2 text-red-600 hover:text-red-700"
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -894,6 +1061,29 @@ export default function Checkout() {
                     <span className="font-medium text-lg">
                       {formatMoneyWithConversion(bookingTotal, currency, preferredCurrency, usdRates)}
                     </span>
+                  </div>
+                )}
+                {mode === "cart" && (
+                  <div className="space-y-2 pt-4">
+                    <div className="flex justify-between py-1">
+                      <span className="text-muted-foreground text-sm">Subtotal</span>
+                      <span className="text-sm">{formatMoneyWithConversion(cartDisplayTotals.subtotal, cartDisplayTotals.currency, preferredCurrency, usdRates)}</span>
+                    </div>
+                    {appliedDiscount && cartDisplayTotals.discount > 0 && (
+                      <div className="flex justify-between py-1 text-green-600 dark:text-green-400">
+                        <span className="text-sm flex items-center gap-1">
+                          <Tag className="w-3 h-3" />
+                          Discount ({appliedDiscount.code})
+                        </span>
+                        <span className="text-sm">-{formatMoneyWithConversion(cartDisplayTotals.discount, cartDisplayTotals.currency, preferredCurrency, usdRates)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between py-2 pt-2 border-t border-muted-foreground/10">
+                      <span className="font-medium">Total</span>
+                      <span className="font-medium text-lg">
+                        {formatMoneyWithConversion(cartDisplayTotals.total, cartDisplayTotals.currency, preferredCurrency, usdRates)}
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>
