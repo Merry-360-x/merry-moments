@@ -21,13 +21,14 @@ export default function PaymentPending() {
   const [pollCount, setPollCount] = useState(0);
   const [timeLeft, setTimeLeft] = useState(300); // 5 minutes timeout
 
-  // Poll for payment status
+  // Poll for payment status - check both database AND PawaPay directly
   useEffect(() => {
     if (!bookingId || status !== "pending") return;
 
     const checkStatus = async () => {
       if (!bookingId) return;
       try {
+        // First, check database for status (in case callback already updated it)
         const { data: bookings, error } = await supabase
           .from("bookings")
           .select("payment_status, status")
@@ -38,7 +39,25 @@ export default function PaymentPending() {
         const record = (bookings as any)?.[0];
         if (!record) return;
 
-        const paymentStatus = record?.payment_status;
+        let paymentStatus = record?.payment_status;
+        
+        // If still pending and we have depositId, check PawaPay directly
+        // This handles cases where callback didn't fire
+        if (paymentStatus === "pending" && depositId) {
+          try {
+            const checkUrl = `/api/pawapay-check-status?depositId=${depositId}&bookingId=${bookingId}`;
+            const response = await fetch(checkUrl);
+            const data = await response.json();
+            
+            if (data.success && data.paymentStatus) {
+              paymentStatus = data.paymentStatus;
+              console.log("PawaPay direct check result:", data);
+            }
+          } catch (pawapayErr) {
+            console.warn("Could not check PawaPay directly:", pawapayErr);
+          }
+        }
+        
         if (paymentStatus === "paid" || paymentStatus === "completed") {
           setStatus("completed");
           toast({
@@ -67,7 +86,7 @@ export default function PaymentPending() {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [bookingId, status, navigate, toast]);
+  }, [bookingId, depositId, status, navigate, toast]);
 
   // Countdown timer
   useEffect(() => {
