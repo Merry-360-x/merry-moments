@@ -11,7 +11,7 @@ export default function BookingSuccess() {
   const [params] = useSearchParams();
   const mode = params.get("mode") || "booking";
   const method = params.get("method"); // 'card' or 'bank' or null
-  const bookingId = params.get("bookingId");
+  const bookingId = params.get("bookingId") || params.get("checkoutId");
 
   useEffect(() => {
     // Scroll to top on mount

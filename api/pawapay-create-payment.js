@@ -32,13 +32,13 @@ function safeNum(x) {
  * 
  * POST /api/pawapay-create-payment
  * Body: {
- *   bookingId: string,
+ *   checkoutId: string,
  *   amount: number,
  *   currency: string (e.g., "RWF"),
  *   phoneNumber: string,
- *   customerName: string,
- *   customerEmail: string,
- *   paymentMethod: string (e.g., "mtn_momo", "airtel_money")
+ *   payerName: string,
+ *   payerEmail: string,
+ *   provider: string (e.g., "MTN" or "AIRTEL")
  * }
  */
 export default async function handler(req, res) {
@@ -71,17 +71,22 @@ export default async function handler(req, res) {
 
   try {
     const {
-      bookingId,
+      checkoutId,
+      bookingId, // legacy support
       amount,
       phoneNumber,
-      customerName,
-      customerEmail,
-      paymentMethod
+      payerName,
+      payerEmail,
+      provider,
+      description
     } = req.body || {};
 
+    // Support both checkoutId and bookingId for backwards compatibility
+    const orderId = checkoutId || bookingId;
+
     // Validation
-    if (!bookingId) {
-      return json(res, 400, { error: "Booking ID is required" });
+    if (!orderId) {
+      return json(res, 400, { error: "Checkout ID is required" });
     }
 
     const numAmount = safeNum(amount);
@@ -93,37 +98,39 @@ export default async function handler(req, res) {
       return json(res, 400, { error: "Phone number is required" });
     }
 
-    // Map payment method to PawaPay correspondent
+    // Map provider to PawaPay correspondent
     const correspondentMap = {
+      "MTN": "MTN_MOMO_RWA",
+      "AIRTEL": "AIRTEL_RWA",
       "mtn_momo": "MTN_MOMO_RWA",
       "airtel_money": "AIRTEL_RWA",
     };
 
-    const correspondent = correspondentMap[paymentMethod];
+    const correspondent = correspondentMap[provider];
     if (!correspondent) {
-      return json(res, 400, { error: `Unsupported payment method: ${paymentMethod}` });
+      return json(res, 400, { error: `Unsupported payment provider: ${provider}` });
     }
 
-    // Fetch booking details from database to get the correct currency
-    const { data: booking, error: bookingError } = await supabase
-      .from("bookings")
+    // Fetch checkout details from database
+    const { data: checkout, error: checkoutError } = await supabase
+      .from("checkout_requests")
       .select("*")
-      .eq("id", bookingId)
+      .eq("id", orderId)
       .single();
 
-    if (bookingError || !booking) {
-      console.error("Booking not found:", bookingError);
-      return json(res, 404, { error: "Booking not found" });
+    if (checkoutError || !checkout) {
+      console.error("Checkout not found:", checkoutError);
+      return json(res, 404, { error: "Checkout not found" });
     }
 
     // Rwanda mobile money uses RWF - convert if needed
     // For now, always use RWF for mobile money in Rwanda
     const currency = "RWF";
     
-    // Convert amount to RWF if booking is in USD (approximate rate)
+    // Convert amount to RWF if checkout is in USD (approximate rate)
     let rwfAmount = numAmount;
-    if (booking.currency === "USD") {
-      rwfAmount = Math.round(numAmount * 1300); // Approximate USD to RWF rate
+    if (checkout.currency === "USD") {
+      rwfAmount = Math.round(numAmount * 1350); // Approximate USD to RWF rate
     }
 
     // Generate unique deposit ID - must be a valid UUID
@@ -151,11 +158,11 @@ export default async function handler(req, res) {
         }
       },
       customerTimestamp: new Date().toISOString(),
-      statementDescription: "Merry360x Booking",
+      statementDescription: description || "Merry360x Order",
       metadata: [
-        { fieldName: "bookingId", fieldValue: bookingId },
-        { fieldName: "customerName", fieldValue: safeStr(customerName, 100) },
-        { fieldName: "customerEmail", fieldValue: safeStr(customerEmail, 100), isPII: true }
+        { fieldName: "checkoutId", fieldValue: orderId },
+        { fieldName: "customerName", fieldValue: safeStr(payerName, 100) },
+        { fieldName: "customerEmail", fieldValue: safeStr(payerEmail, 100), isPII: true }
       ]
     };
 
@@ -194,19 +201,19 @@ export default async function handler(req, res) {
       });
     }
 
-    // Update booking with payment details
+    // Update checkout request with payment details
     const { error: updateError } = await supabase
-      .from("bookings")
+      .from("checkout_requests")
       .update({
-        payment_method: paymentMethod,
+        payment_method: provider === 'MTN' ? 'mtn_momo' : 'airtel_money',
         payment_status: "pending",
-        payment_reference: depositId,
+        dpo_transaction_id: depositId, // Reuse this field for PawaPay deposit ID
         updated_at: new Date().toISOString()
       })
-      .eq("id", bookingId);
+      .eq("id", orderId);
 
     if (updateError) {
-      console.error("Failed to update booking:", updateError);
+      console.error("Failed to update checkout:", updateError);
     }
 
     // Create payment transaction record (may fail if table doesn't exist, but that's ok)
@@ -214,13 +221,13 @@ export default async function handler(req, res) {
       await supabase
         .from("payment_transactions")
         .insert({
-          booking_id: bookingId,
+          checkout_id: orderId,
           provider: "pawapay",
           transaction_id: depositId,
           amount: rwfAmount,
           currency,
           status: pawaPayData.status || "SUBMITTED",
-          payment_method: paymentMethod,
+          payment_method: provider === 'MTN' ? 'mtn_momo' : 'airtel_money',
           phone_number: msisdn,
           provider_response: pawaPayData,
           created_at: new Date().toISOString()
@@ -235,7 +242,7 @@ export default async function handler(req, res) {
       status: pawaPayData.status,
       message: "Payment initiated. Please complete the transaction on your phone.",
       data: {
-        bookingId,
+        checkoutId: orderId,
         depositId,
         amount: rwfAmount,
         currency,

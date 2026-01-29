@@ -24,14 +24,15 @@ function json(res, status, body) {
  * Vercel serverless function to check payment status from PawaPay
  * This provides an alternative to callbacks - directly querying PawaPay
  * 
- * GET /api/pawapay-check-status?depositId=xxx&bookingId=xxx
+ * GET /api/pawapay-check-status?depositId=xxx&checkoutId=xxx
  */
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     return json(res, 405, { error: "Method not allowed" });
   }
 
-  const { depositId, bookingId } = req.query;
+  const { depositId, checkoutId, bookingId } = req.query;
+  const orderId = checkoutId || bookingId; // Support both
 
   if (!depositId) {
     return json(res, 400, { error: "Missing depositId parameter" });
@@ -108,46 +109,40 @@ export default async function handler(req, res) {
       }
     }
 
-    // If we have a booking ID and Supabase credentials, update the booking
-    if (bookingId && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+    // If we have an order ID and Supabase credentials, update the checkout
+    if (orderId && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
       const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
       // Map PawaPay status to our system
-      let bookingStatus = "pending_confirmation";
       let paymentStatus = "pending";
 
       if (pawapayStatus === "COMPLETED") {
-        bookingStatus = "confirmed";
         paymentStatus = "paid";
       } else if (pawapayStatus === "FAILED" || pawapayStatus === "REJECTED" || pawapayStatus === "CANCELLED") {
-        bookingStatus = "pending_confirmation";
         paymentStatus = "failed";
       } else if (pawapayStatus === "SUBMITTED" || pawapayStatus === "ACCEPTED") {
-        bookingStatus = "pending_confirmation";
         paymentStatus = "pending";
       }
 
-      // Update the booking
+      // Update the checkout request
       const { error: updateError } = await supabase
-        .from("bookings")
+        .from("checkout_requests")
         .update({
-          status: bookingStatus,
           payment_status: paymentStatus,
           updated_at: new Date().toISOString()
         })
-        .eq("id", bookingId);
+        .eq("id", orderId);
 
       if (updateError) {
-        console.error("Failed to update booking:", updateError);
+        console.error("Failed to update checkout:", updateError);
       } else {
-        console.log(`Booking ${bookingId} updated: status=${bookingStatus}, payment=${paymentStatus}`);
+        console.log(`Checkout ${orderId} updated: payment=${paymentStatus}`);
       }
 
       return json(res, 200, {
         success: true,
         depositId,
         pawapayStatus,
-        bookingStatus,
         paymentStatus,
         failureMessage,
         depositData

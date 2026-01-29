@@ -13,7 +13,7 @@ export default function PaymentPending() {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const bookingId = params.get("bookingId");
+  const checkoutId = params.get("checkoutId") || params.get("bookingId"); // Support both
   const depositId = params.get("depositId");
   const phone = params.get("phone") || "";
   
@@ -24,20 +24,20 @@ export default function PaymentPending() {
 
   // Poll for payment status - check both database AND PawaPay directly
   useEffect(() => {
-    if (!bookingId || status !== "pending") return;
+    if (!checkoutId || status !== "pending") return;
 
     const checkStatus = async () => {
-      if (!bookingId) return;
+      if (!checkoutId) return;
       try {
-        // First, check database for status (in case callback already updated it)
-        const { data: bookings, error } = await supabase
-          .from("bookings")
-          .select("payment_status, status")
-          .eq("id", bookingId as never);
+        // Check checkout_requests table for status
+        const { data: checkouts, error } = await supabase
+          .from("checkout_requests")
+          .select("payment_status")
+          .eq("id", checkoutId as never);
 
         if (error) throw error;
         
-        const record = (bookings as any)?.[0];
+        const record = (checkouts as any)?.[0];
         if (!record) return;
 
         let paymentStatus = record?.payment_status;
@@ -47,7 +47,7 @@ export default function PaymentPending() {
         let failureMsg = null;
         if (paymentStatus === "pending" && depositId) {
           try {
-            const checkUrl = `/api/pawapay-check-status?depositId=${depositId}&bookingId=${bookingId}`;
+            const checkUrl = `/api/pawapay-check-status?depositId=${depositId}&checkoutId=${checkoutId}`;
             const response = await fetch(checkUrl);
             const data = await response.json();
             
@@ -65,7 +65,7 @@ export default function PaymentPending() {
           setStatus("completed");
           toast({
             title: "Payment Successful!",
-            description: "Your booking has been confirmed.",
+            description: "Your order has been confirmed.",
           });
           // Navigate to success after short delay
           setTimeout(() => {
@@ -92,7 +92,7 @@ export default function PaymentPending() {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [bookingId, depositId, status, navigate, toast]);
+  }, [checkoutId, depositId, status, navigate, toast]);
 
   // Countdown timer
   useEffect(() => {

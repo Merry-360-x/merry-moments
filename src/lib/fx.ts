@@ -31,27 +31,40 @@ export async function getUsdRates(): Promise<FxRates | null> {
   const cached = readCache();
   if (cached && Date.now() - cached.at < FX_CACHE_TTL_MS) return cached.rates;
 
-  // Use forexexchangeapi.com for reliable currency conversion
-  const API_KEY = "fxr_live_3da9aa929dd0fc95c4adaed34e34e16e7e07";
+  // Use exchangerate-api.com - free tier with generous limits
+  // Fallback to static rates if API fails
+  const STATIC_RATES: FxRates = {
+    USD: 1,
+    RWF: 1350,
+    EUR: 0.92,
+    GBP: 0.79,
+    KES: 129,
+    UGX: 3700,
+    TZS: 2500,
+    ZAR: 18.5,
+    NGN: 1550,
+    GHS: 15.5,
+  };
   
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 4500);
-    const res = await fetch(`https://api.forexexchangeapi.com/latest?api_key=${API_KEY}&base=USD`, { signal: ctrl.signal });
+    // Use open.er-api.com - no API key needed, 10k requests/month free
+    const res = await fetch(`https://open.er-api.com/v6/latest/USD`, { signal: ctrl.signal });
     clearTimeout(t);
-    if (!res.ok) return cached?.rates ?? null;
+    if (!res.ok) return cached?.rates ?? STATIC_RATES;
     const json: unknown = await res.json();
     const rates =
       json && typeof json === "object" && "rates" in json
         ? (((json as Record<string, unknown>).rates ?? null) as FxRates | null)
         : null;
-    if (!rates || typeof rates !== "object") return cached?.rates ?? null;
+    if (!rates || typeof rates !== "object") return cached?.rates ?? STATIC_RATES;
     // Ensure USD base exists
     rates.USD = 1;
     writeCache(rates);
     return rates;
   } catch {
-    return cached?.rates ?? null;
+    return cached?.rates ?? STATIC_RATES;
   }
 }
 

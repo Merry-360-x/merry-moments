@@ -98,8 +98,12 @@ export default function CheckoutNew() {
         .from("profiles")
         .select("full_name, phone")
         .eq("id", user.id)
-        .single() as any)
-        .then(({ data }: any) => {
+        .maybeSingle() as any)
+        .then(({ data, error }: any) => {
+          if (error) {
+            console.warn("Could not load profile:", error.message);
+            return;
+          }
           if (data) {
             setFormData(prev => ({
               ...prev,
@@ -293,18 +297,16 @@ export default function CheckoutNew() {
     setPaymentError(null);
     
     try {
-      // Create booking records for each item
-      const bookingIds: string[] = [];
       const fullPhone = `${countryCode}${phoneNumber.replace(/^0+/, '')}`;
       
-      for (const item of cartItems) {
+      // Build cart items metadata with calculated prices
+      const cartItemsWithPrices = cartItems.map(item => {
         const itemTotal = item.price * item.quantity;
         const converted = convertAmount(itemTotal, item.currency, displayCurrency, usdRates) ?? itemTotal;
         const isAccommodation = item.item_type === 'property';
         const feeResult = isAccommodation 
           ? calculateGuestTotal(converted, 'accommodation') 
           : { guestTotal: converted, platformFee: 0 };
-        const itemWithFee = feeResult.guestTotal;
         
         // Apply proportional discount
         let itemDiscount = 0;
@@ -312,50 +314,52 @@ export default function CheckoutNew() {
           itemDiscount = (converted / subtotal) * discount;
         }
         
-        const finalAmount = itemWithFee - itemDiscount;
-        
-        const bookingData: any = {
-          user_id: user?.id || null,
-          status: "pending",
-          payment_status: paymentMethod === 'card' || paymentMethod === 'bank' ? "awaiting_callback" : "pending",
-          total_price: finalAmount,
-          currency: displayCurrency,
-          guest_name: formData.fullName,
-          guest_email: formData.email,
-          guest_phone: (paymentMethod === 'mtn' || paymentMethod === 'airtel') ? fullPhone : (formData.phone || null),
-          special_requests: formData.notes ? `${formData.notes}\n\nPayment Method: ${paymentMethod === 'card' ? 'Credit Card' : paymentMethod === 'bank' ? 'Bank Transfer' : paymentMethod.toUpperCase()}` : `Payment Method: ${paymentMethod === 'card' ? 'Credit Card' : paymentMethod === 'bank' ? 'Bank Transfer' : paymentMethod.toUpperCase()}`,
-          guests: item.quantity,
-          created_at: new Date().toISOString(),
+        return {
+          ...item,
+          calculated_price: feeResult.guestTotal - itemDiscount,
+          platform_fee: feeResult.platformFee,
+          discount_applied: itemDiscount,
         };
+      });
+      
+      // Create a single checkout request with all cart items in metadata
+      const checkoutData: any = {
+        user_id: user?.id || null,
+        total_amount: Math.round(total),
+        currency: displayCurrency,
+        payment_status: paymentMethod === 'card' || paymentMethod === 'bank' ? 'awaiting_callback' : 'pending',
+        payment_method: paymentMethod === 'card' ? 'card' : paymentMethod === 'bank' ? 'bank_transfer' : 'mobile_money',
+        metadata: {
+          items: cartItemsWithPrices,
+          guest_info: {
+            name: formData.fullName,
+            email: formData.email,
+            phone: (paymentMethod === 'mtn' || paymentMethod === 'airtel') ? fullPhone : (formData.phone || null),
+          },
+          special_requests: formData.notes || null,
+          discount_code: appliedDiscount?.code || null,
+          discount_amount: discount,
+          payment_provider: paymentMethod === 'mtn' ? 'MTN' : paymentMethod === 'airtel' ? 'AIRTEL' : paymentMethod.toUpperCase(),
+        },
+        created_at: new Date().toISOString(),
+      };
 
-        // Set the appropriate foreign key based on item type
-        if (item.item_type === 'tour') {
-          bookingData.tour_id = item.reference_id;
-        } else if (item.item_type === 'tour_package') {
-          bookingData.tour_package_id = item.reference_id;
-        } else if (item.item_type === 'property') {
-          bookingData.property_id = item.reference_id;
-        } else if (item.item_type === 'transport_vehicle') {
-          bookingData.vehicle_id = item.reference_id;
-        }
+      const { data: checkout, error: checkoutError } = await (supabase
+        .from("checkout_requests")
+        .insert(checkoutData)
+        .select("id")
+        .single() as any);
 
-        const { data: booking, error: bookingError } = await (supabase
-          .from("bookings")
-          .insert(bookingData)
-          .select("id")
-          .single() as any);
+      if (checkoutError) throw checkoutError;
+      const checkoutId = checkout.id;
 
-        if (bookingError) throw bookingError;
-        bookingIds.push(booking.id);
-      }
-
-      // For card/bank transfer, just create booking and show confirmation
+      // For card/bank transfer, just create checkout and show confirmation
       if (paymentMethod === 'card' || paymentMethod === 'bank') {
         await clearCart();
         localStorage.removeItem("applied_discount");
         
         // Redirect to booking success with a message about expecting a call
-        navigate(`/booking-success?bookingId=${bookingIds[0]}&method=${paymentMethod}`);
+        navigate(`/booking-success?checkoutId=${checkoutId}&method=${paymentMethod}`);
         return;
       }
 
@@ -364,7 +368,7 @@ export default function CheckoutNew() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          bookingIds,
+          checkoutId,
           amount: Math.round(total),
           currency: displayCurrency === 'RWF' ? 'RWF' : 'RWF', // PawaPay needs RWF
           phoneNumber: fullPhone,
@@ -386,7 +390,7 @@ export default function CheckoutNew() {
       localStorage.removeItem("applied_discount");
 
       // Redirect to payment pending
-      navigate(`/payment-pending?bookingId=${bookingIds[0]}&depositId=${paymentData.depositId}`);
+      navigate(`/payment-pending?checkoutId=${checkoutId}&depositId=${paymentData.depositId}`);
       
     } catch (error: any) {
       console.error("Payment error:", error);
