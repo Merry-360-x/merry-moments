@@ -720,42 +720,6 @@ export default function Checkout() {
   const nightly = Number(property?.price_per_night ?? 0);
   const bookingTotal = nights > 0 ? nights * nightly : 0;
 
-  // Calculate cart totals for display (with discount)
-  const cartDisplayTotals = useMemo(() => {
-    if (mode !== "cart") return { subtotal: 0, discount: 0, total: 0, currency: "RWF" };
-    
-    let subtotal = 0;
-    const cartCurrency = preferredCurrency || "RWF";
-    
-    guestCart.forEach((item) => {
-      const itemPrice = item.price || 0;
-      const quantity = item.quantity || 1;
-      subtotal += itemPrice * quantity;
-    });
-    
-    // Calculate discount
-    let discountAmount = 0;
-    if (appliedDiscount) {
-      if (appliedDiscount.discount_type === 'percentage') {
-        discountAmount = subtotal * (appliedDiscount.discount_value / 100);
-      } else {
-        discountAmount = appliedDiscount.discount_value;
-      }
-      
-      // Check minimum amount requirement
-      if (appliedDiscount.minimum_amount && subtotal < appliedDiscount.minimum_amount) {
-        discountAmount = 0;
-      }
-    }
-    
-    return {
-      subtotal,
-      discount: discountAmount,
-      total: Math.max(0, subtotal - discountAmount),
-      currency: cartCurrency
-    };
-  }, [mode, guestCart, preferredCurrency, appliedDiscount]);
-
   const paymentMethods = [
     {
       id: "mtn_momo",
@@ -1063,27 +1027,22 @@ export default function Checkout() {
                     </span>
                   </div>
                 )}
+                {mode === "cart" && appliedDiscount && (
+                  <div className="flex justify-between py-2 pt-4 text-green-600 dark:text-green-400">
+                    <span className="text-sm flex items-center gap-1">
+                      <Tag className="w-3 h-3" />
+                      Discount Applied
+                    </span>
+                    <span className="text-sm font-medium">
+                      {appliedDiscount.code} ({appliedDiscount.discount_type === 'percentage' ? appliedDiscount.discount_value + '%' : appliedDiscount.currency + ' ' + appliedDiscount.discount_value} off)
+                    </span>
+                  </div>
+                )}
                 {mode === "cart" && (
-                  <div className="space-y-2 pt-4">
-                    <div className="flex justify-between py-1">
-                      <span className="text-muted-foreground text-sm">Subtotal</span>
-                      <span className="text-sm">{formatMoneyWithConversion(cartDisplayTotals.subtotal, cartDisplayTotals.currency, preferredCurrency, usdRates)}</span>
-                    </div>
-                    {appliedDiscount && cartDisplayTotals.discount > 0 && (
-                      <div className="flex justify-between py-1 text-green-600 dark:text-green-400">
-                        <span className="text-sm flex items-center gap-1">
-                          <Tag className="w-3 h-3" />
-                          Discount ({appliedDiscount.code})
-                        </span>
-                        <span className="text-sm">-{formatMoneyWithConversion(cartDisplayTotals.discount, cartDisplayTotals.currency, preferredCurrency, usdRates)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between py-2 pt-2 border-t border-muted-foreground/10">
-                      <span className="font-medium">Total</span>
-                      <span className="font-medium text-lg">
-                        {formatMoneyWithConversion(cartDisplayTotals.total, cartDisplayTotals.currency, preferredCurrency, usdRates)}
-                      </span>
-                    </div>
+                  <div className="py-2 pt-4">
+                    <p className="text-sm text-muted-foreground text-center">
+                      Final amount will be calculated from your cart items.
+                    </p>
                   </div>
                 )}
               </div>
