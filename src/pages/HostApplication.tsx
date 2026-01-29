@@ -1738,7 +1738,12 @@ export default function HostApplication() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label>Description * (min 50 chars)</Label>
+                        <Label>
+                          Description * 
+                          <span className={`text-xs ml-1 ${formData.tour_package.description.length > 0 && formData.tour_package.description.length < 50 ? 'text-red-500' : 'text-muted-foreground'}`}>
+                            ({formData.tour_package.description.length}/50 chars min)
+                          </span>
+                        </Label>
                         <Textarea
                           placeholder="Provide a compelling description of your tour package..."
                           rows={4}
@@ -1747,11 +1752,17 @@ export default function HostApplication() {
                             ...prev,
                             tour_package: { ...prev.tour_package, description: e.target.value }
                           }))}
+                          className={formData.tour_package.description.length > 0 && formData.tour_package.description.length < 50 ? 'border-red-500 focus-visible:ring-red-500' : ''}
                         />
                       </div>
 
                       <div className="space-y-2">
-                        <Label>Daily Itinerary * (min 100 chars)</Label>
+                        <Label>
+                          Daily Itinerary * 
+                          <span className={`text-xs ml-1 ${formData.tour_package.daily_itinerary.length > 0 && formData.tour_package.daily_itinerary.length < 100 ? 'text-red-500' : 'text-muted-foreground'}`}>
+                            ({formData.tour_package.daily_itinerary.length}/100 chars min)
+                          </span>
+                        </Label>
                         <Textarea
                           placeholder="Day 1: Arrival and welcome...&#10;Day 2: Gorilla trekking...&#10;Day 3: Departure..."
                           rows={6}
@@ -1760,6 +1771,7 @@ export default function HostApplication() {
                             ...prev,
                             tour_package: { ...prev.tour_package, daily_itinerary: e.target.value }
                           }))}
+                          className={formData.tour_package.daily_itinerary.length > 0 && formData.tour_package.daily_itinerary.length < 100 ? 'border-red-500 focus-visible:ring-red-500' : ''}
                         />
                       </div>
 
@@ -2227,8 +2239,11 @@ export default function HostApplication() {
                           rows={4}
                           value={formData.tour_guide_bio}
                           onChange={(e) => updateField("tour_guide_bio", e.target.value)}
+                          className={formData.tour_guide_bio.length > 0 && formData.tour_guide_bio.length < 100 ? 'border-red-500 focus-visible:ring-red-500' : ''}
                         />
-                        <p className="text-xs text-muted-foreground">Minimum 100 characters</p>
+                        <p className={`text-xs ${formData.tour_guide_bio.length > 0 && formData.tour_guide_bio.length < 100 ? 'text-red-500 font-medium' : 'text-muted-foreground'}`}>
+                          ({formData.tour_guide_bio.length}/100 chars min)
+                        </p>
                       </div>
                       
                       <div className="md:col-span-2 space-y-2">

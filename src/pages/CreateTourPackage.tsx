@@ -659,8 +659,11 @@ Some components are non-refundable once booked, including but not limited to:
                         onChange={(e) => setCustomPolicyText(e.target.value)}
                         placeholder="Write your custom cancellation policy (minimum 20 characters)..."
                         rows={4}
-                        className="text-sm"
+                        className={`text-sm ${customPolicyText.length > 0 && customPolicyText.length < 20 ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
                       />
+                      <p className={`text-xs ${customPolicyText.length > 0 && customPolicyText.length < 20 ? 'text-red-500 font-medium' : 'text-muted-foreground'}`}>
+                        ({customPolicyText.length}/20 chars min)
+                      </p>
                       
                       <div className="border-t pt-3">
                         <Label className="text-xs font-normal mb-2 block">Or Upload Policy PDF (Optional)</Label>
