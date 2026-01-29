@@ -71,8 +71,13 @@ Some components are non-refundable once booked, including but not limited to:
   // Group discounts as an array of tiers
   const [groupDiscounts, setGroupDiscounts] = useState<Array<{min_people: number, max_people: number | null, discount_percentage: number}>>([]);
 
-  // Flexible per-person pricing by group size (e.g., 1/2/4/6 people)
-  const [pricingTiers, setPricingTiers] = useState<Array<{ group_size: number; price_per_person: number }>>([]);
+  // Flexible per-person pricing by group size and room type
+  const [pricingTiers, setPricingTiers] = useState<Array<{ group_size: number; room_type: "double_twin" | "single"; price_per_person: number }>>([]);
+
+  const roomTypeLabels: Record<string, string> = {
+    double_twin: "Double/Twin Room (shared)",
+    single: "Single Room (private)",
+  };
 
   const nonRefundableOptions = [
     "National park and conservation permits",
@@ -908,53 +913,79 @@ Some components are non-refundable once booked, including but not limited to:
             </div>
 
             <div className="space-y-3">
-              <Label className="text-sm font-medium">Group Pricing (Optional)</Label>
+              <Label className="text-sm font-medium">Accommodation-Based Pricing (Optional)</Label>
               <p className="text-xs text-muted-foreground">
-                Add per-person prices for specific group sizes (e.g., 1/2/4/6 people) like your brochure.
+                Set per-person prices for different group sizes and room types (e.g., 4 people in double/twin rooms vs single rooms).
               </p>
 
               <div className="space-y-3">
                 {pricingTiers.map((tier, index) => (
-                  <div key={index} className="grid grid-cols-[1fr_1fr_auto] gap-3 items-end">
-                    <div>
-                      <Label className="text-xs font-normal mb-1.5 block">Group Size</Label>
-                      <Input
-                        type="number"
-                        value={tier.group_size}
-                        onChange={(e) => {
-                          const next = [...pricingTiers];
-                          next[index].group_size = Math.max(1, parseInt(e.target.value) || 1);
-                          setPricingTiers(next);
-                        }}
-                        min="1"
-                        max={formData.max_guests}
-                        className="h-10"
-                      />
+                  <div key={index} className="p-3 border rounded-lg bg-muted/30 space-y-3">
+                    <div className="grid grid-cols-[1fr_1fr] gap-3">
+                      <div>
+                        <Label className="text-xs font-normal mb-1.5 block">Group Size (people)</Label>
+                        <Input
+                          type="number"
+                          value={tier.group_size}
+                          onChange={(e) => {
+                            const next = [...pricingTiers];
+                            next[index].group_size = Math.max(1, parseInt(e.target.value) || 1);
+                            setPricingTiers(next);
+                          }}
+                          min="1"
+                          max={formData.max_guests}
+                          className="h-10"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs font-normal mb-1.5 block">Room Type</Label>
+                        <Select
+                          value={tier.room_type}
+                          onValueChange={(val: "double_twin" | "single") => {
+                            const next = [...pricingTiers];
+                            next[index].room_type = val;
+                            setPricingTiers(next);
+                          }}
+                        >
+                          <SelectTrigger className="h-10">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="double_twin">Double/Twin (shared)</SelectItem>
+                            <SelectItem value="single">Single (private)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                    <div>
-                      <Label className="text-xs font-normal mb-1.5 block">Price per Person</Label>
-                      <Input
-                        type="number"
-                        value={tier.price_per_person}
-                        onChange={(e) => {
-                          const next = [...pricingTiers];
-                          next[index].price_per_person = Math.max(0, parseFloat(e.target.value) || 0);
-                          setPricingTiers(next);
-                        }}
-                        min="0"
-                        step="0.01"
-                        className="h-10"
-                      />
+                    <div className="flex gap-3 items-end">
+                      <div className="flex-1">
+                        <Label className="text-xs font-normal mb-1.5 block">Price per Person ({formData.currency})</Label>
+                        <Input
+                          type="number"
+                          value={tier.price_per_person}
+                          onChange={(e) => {
+                            const next = [...pricingTiers];
+                            next[index].price_per_person = Math.max(0, parseFloat(e.target.value) || 0);
+                            setPricingTiers(next);
+                          }}
+                          min="0"
+                          step="0.01"
+                          className="h-10"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setPricingTiers(pricingTiers.filter((_, i) => i !== index))}
+                        className="h-10 text-destructive hover:text-destructive"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
                     </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setPricingTiers(pricingTiers.filter((_, i) => i !== index))}
-                      className="h-10"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      {tier.group_size} {tier.group_size === 1 ? 'person' : 'people'} • {roomTypeLabels[tier.room_type]} • {formData.currency} {tier.price_per_person.toLocaleString()} /person
+                    </p>
                   </div>
                 ))}
 
@@ -962,15 +993,15 @@ Some components are non-refundable once booked, including but not limited to:
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setPricingTiers([...pricingTiers, { group_size: 1, price_per_person: 0 }])}
+                  onClick={() => setPricingTiers([...pricingTiers, { group_size: 2, room_type: "double_twin", price_per_person: 0 }])}
                   className="w-full"
                 >
                   + Add Pricing Tier
                 </Button>
 
-                {pricingTiers.length > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    Tip: Add a tier for group size <span className="font-medium">1</span> to represent the “Single person” price.
+                {pricingTiers.length === 0 && (
+                  <p className="text-xs text-muted-foreground italic">
+                    Example: 6 people (double/twin) = $2,775/person, 4 people (single) = $3,265/person
                   </p>
                 )}
               </div>
