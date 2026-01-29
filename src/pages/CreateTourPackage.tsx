@@ -961,7 +961,7 @@ Some components are non-refundable once booked, including but not limited to:
                             setPricingTiers(next);
                           }}
                           min="1"
-                          max={formData.max_guests}
+                          step="1"
                           className="h-10"
                         />
                       </div>
@@ -999,7 +999,7 @@ Some components are non-refundable once booked, including but not limited to:
                             setPricingTiers(next);
                           }}
                           min="0"
-                          step="0.01"
+                          step="1"
                           className="h-10"
                         />
                       </div>
