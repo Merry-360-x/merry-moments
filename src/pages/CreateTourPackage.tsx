@@ -52,7 +52,7 @@ Some components are non-refundable once booked, including but not limited to:
   const [formData, setFormData] = useState({
     title: "",
     categories: [] as string[],
-    tour_type: "",
+    tour_types: [] as string[],
     description: "",
     city: "",
     duration: "",
@@ -228,7 +228,7 @@ Some components are non-refundable once booked, including but not limited to:
     const policyValid = selectedPolicies.length === 0 || 
       (!selectedPolicies.includes('custom') || (customPolicyText.trim().length >= 20 || customPolicyFile !== null));
     
-    return formData.title.trim() && formData.categories.length > 0 && formData.tour_type &&
+    return formData.title.trim() && formData.categories.length > 0 && formData.tour_types.length > 0 &&
       formData.description.trim().length >= 50 && formData.city.trim() &&
       formData.duration.trim() && formData.daily_itinerary.trim().length >= 100 &&
       formData.meeting_point.trim() && policyValid &&
@@ -329,7 +329,7 @@ Some components are non-refundable once booked, including but not limited to:
         host_id: user.id,
         title: formData.title.trim(),
         category: formData.categories[0] || 'Cultural',
-        tour_type: formData.tour_type,
+        tour_type: formData.tour_types.join(' & '),
         description: formData.description.trim(),
         country: "Rwanda",
         city: formData.city.trim(),
@@ -454,13 +454,33 @@ Some components are non-refundable once booked, including but not limited to:
             </div>
 
             <div>
-              <Label className="text-sm font-normal mb-1.5 block">Tour Type *</Label>
-              <Select value={formData.tour_type} onValueChange={(v) => setFormData({ ...formData, tour_type: v })}>
-                <SelectTrigger className="h-10"><SelectValue placeholder="Select" /></SelectTrigger>
-                <SelectContent>
-                  {tourTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Label className="text-sm font-normal mb-1.5 block">Tour Type * <span className="text-xs text-muted-foreground">(select all that apply)</span></Label>
+              <div className="flex flex-wrap gap-3 mt-2">
+                {tourTypes.map((t) => (
+                  <label
+                    key={t}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer transition-colors ${
+                      formData.tour_types.includes(t)
+                        ? "bg-primary/10 border-primary text-primary"
+                        : "bg-card border-border hover:border-primary/50"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={formData.tour_types.includes(t)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setFormData({ ...formData, tour_types: [...formData.tour_types, t] });
+                        } else {
+                          setFormData({ ...formData, tour_types: formData.tour_types.filter((x) => x !== t) });
+                        }
+                      }}
+                      className="sr-only"
+                    />
+                    {t}
+                  </label>
+                ))}
+              </div>
             </div>
 
             <div>
