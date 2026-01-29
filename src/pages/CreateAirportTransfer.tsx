@@ -39,7 +39,7 @@ interface Route {
 }
 
 export default function CreateAirportTransfer() {
-  const { user, isHost } = useAuth();
+  const { user, isHost, isLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -203,6 +203,35 @@ export default function CreateAirportTransfer() {
       setSubmitting(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-20 text-center">
+          <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!user || !isHost) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-20 text-center">
+          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
+          <p className="text-muted-foreground mb-6">
+            You must be a host to create airport transfer services.
+          </p>
+          <Button onClick={() => navigate("/become-host")}>Become a Host</Button>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

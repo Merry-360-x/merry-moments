@@ -22,7 +22,7 @@ const categories = ["Cultural", "Adventure", "Wildlife", "City Tours", "Hiking",
 const tourTypes = ["Private", "Group"];
 
 export default function CreateTourPackage() {
-  const { user, isHost } = useAuth();
+  const { user, isHost, isLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -392,6 +392,19 @@ Some components are non-refundable once booked, including but not limited to:
       setUploading(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-20 text-center">
+          <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   if (!user) {
     return (
