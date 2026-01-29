@@ -1,10 +1,9 @@
-import { useMemo, useEffect } from "react";
+import { useMemo, useEffect, useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Link } from "react-router-dom";
-import { useTranslation } from "react-i18next";
+import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,9 +13,22 @@ import { formatMoney } from "@/lib/money";
 import { useTripCart } from "@/hooks/useTripCart";
 import { useFxRates } from "@/hooks/useFxRates";
 import { convertAmount } from "@/lib/fx";
-import { Trash2, Tag } from "lucide-react";
-import { useState } from "react";
-import { Input } from "@/components/ui/input";
+import { calculateGuestTotal, PLATFORM_FEES } from "@/lib/fees";
+import { 
+  Trash2, 
+  Tag, 
+  ShoppingBag, 
+  ArrowRight, 
+  Minus, 
+  Plus,
+  MapPin,
+  Calendar,
+  Users,
+  Home,
+  Car,
+  Loader2
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface CartItem {
   id: string;
@@ -31,11 +43,11 @@ interface CartItem {
 }
 
 export default function TripCart() {
-  const { t } = useTranslation();
+  const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const { currency: preferredCurrency } = usePreferences();
-  const { guestCart, removeFromCart, clearCart } = useTripCart();
+  const { guestCart, removeFromCart, clearCart, updateQuantity } = useTripCart();
   const { usdRates } = useFxRates();
   
   // Discount code state
@@ -64,267 +76,95 @@ export default function TripCart() {
     }
   }, []);
 
-  // Optimized query with parallel fetching and caching
+  // Fetch cart items with details
   const { data: cartItems = [], isLoading } = useQuery({
     queryKey: ["trip_cart", user?.id, guestCart.map(i => i.id).join(",")],
     queryFn: async () => {
-      if (user) {
-        // Authenticated user - fetch from database
-        const { data, error } = await supabase
-          .from("trip_cart_items")
-          .select(`
-            id,
-            item_type,
-            reference_id,
-            quantity,
-            created_at
-          `)
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false });
-
-        if (error) throw error;
-        
-        if (!data || data.length === 0) return [];
-
-        // Batch fetch all items by type for better performance
-        const tourIds = data.filter(d => d.item_type === 'tour').map(d => d.reference_id);
-        const packageIds = data.filter(d => d.item_type === 'tour_package').map(d => d.reference_id);
-        const propertyIds = data.filter(d => d.item_type === 'property').map(d => d.reference_id);
-        const vehicleIds = data.filter(d => d.item_type === 'transport_vehicle').map(d => d.reference_id);
-        const routeIds = data.filter(d => d.item_type === 'transport_route').map(d => d.reference_id);
-
-        // Fetch all data in parallel batches
-        const [tours, packages, properties, vehicles, routes] = await Promise.all([
-          tourIds.length > 0 
-            ? supabase.from('tours').select('id, title, price_per_person, currency, images, duration_days').in('id', tourIds).then(r => r.data || [])
-            : Promise.resolve([]),
-          packageIds.length > 0
-            ? supabase.from('tour_packages').select('id, title, price_per_adult, currency, cover_image, gallery_images, duration').in('id', packageIds).then(r => r.data || [])
-            : Promise.resolve([]),
-          propertyIds.length > 0
-            ? supabase.from('properties').select('id, title, price_per_night, currency, images, location').in('id', propertyIds).then(r => r.data || [])
-            : Promise.resolve([]),
-          vehicleIds.length > 0
-            ? supabase.from('transport_vehicles').select('id, title, price_per_day, currency, image_url, vehicle_type, seats').in('id', vehicleIds).then(r => r.data || [])
-            : Promise.resolve([]),
-          routeIds.length > 0
-            ? supabase.from('transport_routes').select('id, from_location, to_location, base_price, currency').in('id', routeIds).then(r => r.data || [])
-            : Promise.resolve([])
-        ]);
-
-        // Create lookup maps for O(1) access
-        const tourMap = new Map(tours.map(t => [t.id, t]));
-        const packageMap = new Map(packages.map(p => [p.id, p]));
-        const propertyMap = new Map(properties.map(p => [p.id, p]));
-        const vehicleMap = new Map(vehicles.map(v => [v.id, v]));
-        const routeMap = new Map(routes.map(r => [r.id, r]));
-
-        // Map cart items to their details using lookup maps for O(1) access
-        const items = data.map((item) => {
-          let details: any = null;
-
-          if (item.item_type === "tour") {
-            const tour = tourMap.get(item.reference_id);
-            if (tour) {
-              details = {
-                title: tour.title,
-                price: tour.price_per_person,
-                currency: tour.currency || "RWF",
-                image: tour.images?.[0],
-                meta: `${tour.duration_days} day${tour.duration_days === 1 ? "" : "s"}`,
-              };
-            }
-          } else if (item.item_type === "tour_package") {
-            const pkg = packageMap.get(item.reference_id);
-            if (pkg) {
-              const durationDays = parseInt(pkg.duration) || 1;
-              details = {
-                title: pkg.title,
-                price: pkg.price_per_adult,
-                currency: pkg.currency || "RWF",
-                image: pkg.cover_image || (Array.isArray(pkg.gallery_images) && pkg.gallery_images[0]) || null,
-                meta: `Tour Package • ${durationDays} day${durationDays === 1 ? "" : "s"}`,
-              };
-            }
-          } else if (item.item_type === "property") {
-            const property = propertyMap.get(item.reference_id);
-            if (property) {
-              details = {
-                title: property.title,
-                price: property.price_per_night,
-                currency: property.currency || "RWF",
-                image: property.images?.[0],
-                meta: property.location,
-              };
-            }
-          } else if (item.item_type === "transport_vehicle") {
-            const vehicle = vehicleMap.get(item.reference_id);
-            if (vehicle) {
-              details = {
-                title: vehicle.title,
-                price: vehicle.price_per_day,
-                currency: vehicle.currency || "RWF",
-                image: vehicle.image_url,
-                meta: `${vehicle.vehicle_type} • ${vehicle.seats} seats`,
-              };
-            }
-          } else if (item.item_type === "transport_route") {
-            const route = routeMap.get(item.reference_id);
-            if (route) {
-              details = {
-                title: `${route.from_location} → ${route.to_location}`,
-                price: route.base_price,
-                currency: route.currency || "RWF",
-                meta: "Route",
-              };
-            }
-          }
-
-          if (!details) return null;
-
-          return {
-            id: item.id,
-            item_type: item.item_type,
-            reference_id: item.reference_id,
-            quantity: item.quantity,
-            ...details,
-          } as CartItem;
-        });
-
-        return items.filter(Boolean) as CartItem[];
-      } else {
-        // Guest user - batch fetch from localStorage references
-        if (guestCart.length === 0) return [];
-
-        // Batch fetch all items by type for better performance
-        const tourIds = guestCart.filter(i => i.item_type === 'tour').map(i => i.reference_id);
-        const packageIds = guestCart.filter(i => i.item_type === 'tour_package').map(i => i.reference_id);
-        const propertyIds = guestCart.filter(i => i.item_type === 'property').map(i => i.reference_id);
-        const vehicleIds = guestCart.filter(i => i.item_type === 'transport_vehicle').map(i => i.reference_id);
-        const routeIds = guestCart.filter(i => i.item_type === 'transport_route').map(i => i.reference_id);
-
-        // Fetch all data in parallel batches
-        const [tours, packages, properties, vehicles, routes] = await Promise.all([
-          tourIds.length > 0 
-            ? supabase.from('tours').select('id, title, price_per_person, currency, images, duration_days').in('id', tourIds).then(r => r.data || [])
-            : Promise.resolve([]),
-          packageIds.length > 0
-            ? supabase.from('tour_packages').select('id, title, price_per_adult, currency, cover_image, gallery_images, duration').in('id', packageIds).then(r => r.data || [])
-            : Promise.resolve([]),
-          propertyIds.length > 0
-            ? supabase.from('properties').select('id, title, price_per_night, currency, images, location').in('id', propertyIds).then(r => r.data || [])
-            : Promise.resolve([]),
-          vehicleIds.length > 0
-            ? supabase.from('transport_vehicles').select('id, title, price_per_day, currency, image_url, vehicle_type, seats').in('id', vehicleIds).then(r => r.data || [])
-            : Promise.resolve([]),
-          routeIds.length > 0
-            ? supabase.from('transport_routes').select('id, from_location, to_location, base_price, currency').in('id', routeIds).then(r => r.data || [])
-            : Promise.resolve([])
-        ]);
-
-        // Create lookup maps for O(1) access
-        const tourMap = new Map(tours.map(t => [t.id, t]));
-        const packageMap = new Map(packages.map(p => [p.id, p]));
-        const propertyMap = new Map(properties.map(p => [p.id, p]));
-        const vehicleMap = new Map(vehicles.map(v => [v.id, v]));
-        const routeMap = new Map(routes.map(r => [r.id, r]));
-
-        const items = guestCart.map((item) => {
-          let details: any = null;
-
-          if (item.item_type === "tour") {
-            const tour = tourMap.get(item.reference_id);
-            if (tour) {
-              details = {
-                title: tour.title,
-                price: tour.price_per_person,
-                currency: tour.currency || "RWF",
-                image: tour.images?.[0],
-                meta: `${tour.duration_days} day${tour.duration_days === 1 ? "" : "s"}`,
-              };
-            }
-          } else if (item.item_type === "tour_package") {
-            const pkg = packageMap.get(item.reference_id);
-            if (pkg) {
-              const durationDays = parseInt(pkg.duration) || 1;
-              details = {
-                title: pkg.title,
-                price: pkg.price_per_adult,
-                currency: pkg.currency || "RWF",
-                image: pkg.cover_image || (Array.isArray(pkg.gallery_images) && pkg.gallery_images[0]) || null,
-                meta: `Tour Package • ${durationDays} day${durationDays === 1 ? "" : "s"}`,
-              };
-            }
-          } else if (item.item_type === "property") {
-            const property = propertyMap.get(item.reference_id);
-            if (property) {
-              details = {
-                title: property.title,
-                price: property.price_per_night,
-                currency: property.currency || "RWF",
-                image: property.images?.[0],
-                meta: property.location,
-              };
-            }
-          } else if (item.item_type === "transport_vehicle") {
-            const vehicle = vehicleMap.get(item.reference_id);
-            if (vehicle) {
-              details = {
-                title: vehicle.title,
-                price: vehicle.price_per_day,
-                currency: vehicle.currency || "RWF",
-                image: vehicle.image_url,
-                meta: `${vehicle.vehicle_type} • ${vehicle.seats} seats`,
-              };
-            }
-          } else if (item.item_type === "transport_route") {
-            const route = routeMap.get(item.reference_id);
-            if (route) {
-              details = {
-                title: `${route.from_location} → ${route.to_location}`,
-                price: route.base_price,
-                currency: route.currency || "RWF",
-                meta: "Route",
-              };
-            }
-          }
-
-          if (!details) return null;
-
-          return {
-            id: item.id,
-            item_type: item.item_type,
-            reference_id: item.reference_id,
-            quantity: item.quantity,
-            ...details,
-          } as CartItem;
-        });
-
-        return items.filter(Boolean) as CartItem[];
-      }
+      const cartSource = user ? await fetchUserCart() : await fetchGuestCart();
+      return cartSource;
     },
-    staleTime: 30_000, // 30 seconds - keep data reasonably fresh
-    gcTime: 5 * 60 * 1000, // 5 minutes cache
     enabled: !authLoading,
-    refetchOnMount: true, // Always refetch on mount to show latest cart
-    refetchOnWindowFocus: false, // Don't refetch on window focus
   });
 
-  // Manual cleanup only - no auto-cleanup to prevent accidental data loss
-  // Items can be manually removed using the remove button
+  async function fetchUserCart(): Promise<CartItem[]> {
+    const { data, error } = await (supabase
+      .from("trip_cart_items")
+      .select("id, item_type, reference_id, quantity, created_at")
+      .eq("user_id", user!.id)
+      .order("created_at", { ascending: false }) as any);
+
+    if (error || !data?.length) return [];
+    return enrichCartItems(data);
+  }
+
+  async function fetchGuestCart(): Promise<CartItem[]> {
+    if (guestCart.length === 0) return [];
+    return enrichCartItems(guestCart.map(g => ({
+      id: g.id,
+      item_type: g.item_type,
+      reference_id: g.reference_id,
+      quantity: g.quantity,
+    })));
+  }
+
+  async function enrichCartItems(items: any[]): Promise<CartItem[]> {
+    const tourIds = items.filter(i => i.item_type === 'tour').map(i => i.reference_id);
+    const packageIds = items.filter(i => i.item_type === 'tour_package').map(i => i.reference_id);
+    const propertyIds = items.filter(i => i.item_type === 'property').map(i => i.reference_id);
+    const vehicleIds = items.filter(i => i.item_type === 'transport_vehicle').map(i => i.reference_id);
+
+    const [tours, packages, properties, vehicles] = await Promise.all([
+      tourIds.length ? supabase.from('tours').select('id, title, price_per_person, currency, images, duration_days').in('id', tourIds).then(r => r.data || []) : [],
+      packageIds.length ? supabase.from('tour_packages').select('id, title, price_per_adult, currency, cover_image, gallery_images, duration').in('id', packageIds).then(r => r.data || []) : [],
+      propertyIds.length ? supabase.from('properties').select('id, title, price_per_night, currency, images, location').in('id', propertyIds).then(r => r.data || []) : [],
+      vehicleIds.length ? supabase.from('transport_vehicles').select('id, title, price_per_day, currency, image_url, vehicle_type, seats').in('id', vehicleIds).then(r => r.data || []) : [],
+    ]) as any[];
+
+    const maps: Record<string, Map<string, any>> = {
+      tour: new Map(tours.map((t: any) => [t.id, t] as [string, any])),
+      tour_package: new Map(packages.map((p: any) => [p.id, p] as [string, any])),
+      property: new Map(properties.map((p: any) => [p.id, p] as [string, any])),
+      transport_vehicle: new Map(vehicles.map((v: any) => [v.id, v] as [string, any])),
+    };
+
+    return items.map(item => {
+      const data: any = maps[item.item_type]?.get(item.reference_id);
+      if (!data) return null;
+
+      const getDetails = () => {
+        switch (item.item_type) {
+          case 'tour':
+            return { title: data.title, price: data.price_per_person, currency: data.currency || 'RWF', image: data.images?.[0], meta: `${data.duration_days} days` };
+          case 'tour_package':
+            return { title: data.title, price: data.price_per_adult, currency: data.currency || 'RWF', image: data.cover_image || data.gallery_images?.[0], meta: `${parseInt(data.duration) || 1} days` };
+          case 'property':
+            return { title: data.title, price: data.price_per_night, currency: data.currency || 'RWF', image: data.images?.[0], meta: data.location };
+          case 'transport_vehicle':
+            return { title: data.title, price: data.price_per_day, currency: data.currency || 'RWF', image: data.image_url, meta: `${data.vehicle_type} • ${data.seats} seats` };
+          default:
+            return null;
+        }
+      };
+
+      const details = getDetails();
+      if (!details) return null;
+
+      return { id: item.id, item_type: item.item_type, reference_id: item.reference_id, quantity: item.quantity, ...details } as CartItem;
+    }).filter(Boolean) as CartItem[];
+  }
 
   // Validate discount code
   const applyDiscountCode = async () => {
     if (!discountCode.trim()) return;
-    
     setValidatingCode(true);
+    
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase
         .from("discount_codes")
         .select("*")
         .eq("code", discountCode.toUpperCase().trim())
         .eq("is_active", true)
-        .single();
+        .single() as any);
       
       if (error || !data) {
         toast({ variant: "destructive", title: "Invalid Code", description: "Discount code not found or expired" });
@@ -332,14 +172,12 @@ export default function TripCart() {
         return;
       }
       
-      // Check if expired
       if (data.valid_until && new Date(data.valid_until) < new Date()) {
         toast({ variant: "destructive", title: "Expired", description: "This discount code has expired" });
         setValidatingCode(false);
         return;
       }
       
-      // Check max uses
       if (data.max_uses && data.current_uses >= data.max_uses) {
         toast({ variant: "destructive", title: "Limit Reached", description: "This discount code has reached its usage limit" });
         setValidatingCode(false);
@@ -347,79 +185,85 @@ export default function TripCart() {
       }
       
       setAppliedDiscount(data);
-      toast({ title: "Success", description: `Discount code applied: ${data.discount_type === 'percentage' ? data.discount_value + '%' : data.currency + ' ' + data.discount_value} off` });
-    } catch (err) {
+      toast({ title: "Discount Applied!", description: `${data.discount_type === 'percentage' ? data.discount_value + '%' : data.currency + ' ' + data.discount_value} off` });
+    } catch {
       toast({ variant: "destructive", title: "Error", description: "Failed to validate discount code" });
     }
     setValidatingCode(false);
   };
 
-  // Calculate totals with discount
-  const { total, totalCurrency, discount, finalTotal } = useMemo(() => {
-    let amount = 0;
-    let currency: string = preferredCurrency || "RWF";
+  // Calculate totals with platform fees
+  const { subtotal, serviceFees, discount, total, currency: displayCurrency } = useMemo(() => {
+    let subtotalAmount = 0;
+    let feesAmount = 0;
+    const curr = preferredCurrency || "RWF";
 
     cartItems.forEach((item) => {
       const itemTotal = item.price * item.quantity;
-      const converted = convertAmount(itemTotal, item.currency, preferredCurrency || "RWF", usdRates);
-      if (converted !== null) {
-        amount += converted;
-        currency = preferredCurrency || "RWF";
-      } else {
-        amount += itemTotal;
-        currency = item.currency;
+      const converted = convertAmount(itemTotal, item.currency, curr, usdRates) ?? itemTotal;
+      subtotalAmount += converted;
+      
+      // Calculate platform fees based on item type
+      if (item.item_type === 'property') {
+        const { platformFee } = calculateGuestTotal(converted, 'accommodation');
+        feesAmount += platformFee;
       }
+      // Tours: no guest fee
     });
 
     // Calculate discount
     let discountAmount = 0;
     if (appliedDiscount) {
       if (appliedDiscount.discount_type === 'percentage') {
-        discountAmount = amount * (appliedDiscount.discount_value / 100);
+        discountAmount = subtotalAmount * (appliedDiscount.discount_value / 100);
       } else {
-        // Fixed discount - convert to cart currency if needed
-        const converted = convertAmount(
-          appliedDiscount.discount_value,
-          appliedDiscount.currency,
-          currency,
-          usdRates
-        );
-        discountAmount = converted !== null ? converted : 0;
+        const converted = convertAmount(appliedDiscount.discount_value, appliedDiscount.currency, curr, usdRates);
+        discountAmount = converted ?? 0;
       }
-      
-      // Check minimum amount requirement
-      if (appliedDiscount.minimum_amount && amount < appliedDiscount.minimum_amount) {
+      if (appliedDiscount.minimum_amount && subtotalAmount < appliedDiscount.minimum_amount) {
         discountAmount = 0;
       }
     }
 
-    const final = amount - discountAmount;
-    return { total: amount, totalCurrency: currency, discount: discountAmount, finalTotal: final };
+    return {
+      subtotal: subtotalAmount,
+      serviceFees: feesAmount,
+      discount: discountAmount,
+      total: subtotalAmount + feesAmount - discountAmount,
+      currency: curr,
+    };
   }, [cartItems, preferredCurrency, usdRates, appliedDiscount]);
 
-  const getItemLink = (item: CartItem) => {
-    switch (item.item_type) {
-      case "property":
-        return `/properties/${item.reference_id}`;
-      case "tour":
-      case "tour_package":
-        return "/tours";
-      case "transport_vehicle":
-      case "transport_route":
-        return "/transport";
-      default:
-        return null;
+  const getItemIcon = (type: string) => {
+    switch (type) {
+      case 'property': return <Home className="w-4 h-4" />;
+      case 'tour':
+      case 'tour_package': return <MapPin className="w-4 h-4" />;
+      case 'transport_vehicle': return <Car className="w-4 h-4" />;
+      default: return <ShoppingBag className="w-4 h-4" />;
     }
   };
 
   const handleClearCart = async () => {
     await clearCart();
+    setAppliedDiscount(null);
+    setDiscountCode("");
   };
 
-  if (authLoading) {
+  const handleProceedToCheckout = () => {
+    const params = new URLSearchParams({ mode: 'cart' });
+    if (appliedDiscount) params.set('discountCode', appliedDiscount.code);
+    navigate(`/checkout?${params.toString()}`);
+  };
+
+  if (authLoading || isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="flex items-center justify-center py-32">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+        <Footer />
       </div>
     );
   }
@@ -427,164 +271,126 @@ export default function TripCart() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
+      
+      <div className="max-w-6xl mx-auto px-4 py-8 md:py-12">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl md:text-4xl font-light tracking-tight">Your Trip</h1>
+          <p className="text-muted-foreground mt-1">
+            {cartItems.length === 0 ? "Your cart is empty" : `${cartItems.length} item${cartItems.length !== 1 ? 's' : ''} in your cart`}
+          </p>
+        </div>
 
-      <div className="container mx-auto px-4 lg:px-8 py-12">
-        <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">{t("actions.tripCart")}</h1>
-        <p className="text-muted-foreground mb-8">{t("tripCart.subtitle")}</p>
-
-        {!user && cartItems.length > 0 && (
-          <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 mb-6">
-            <p className="text-sm text-foreground">
-              <strong>You're browsing as a guest.</strong>{" "}
-              <Link to="/auth?redirect=/trip-cart" className="text-primary hover:underline">
-                Sign in
-              </Link>{" "}
-              to save your cart across devices.
-            </p>
-          </div>
-        )}
-
-        {isLoading ? (
-          <div className="bg-card rounded-xl shadow-card p-12 text-center">
-            <div className="flex flex-col items-center gap-4">
-              <div className="relative">
-                <img 
-                  src="/brand/merry-logo.svg" 
-                  alt="Merry Logo" 
-                  className="w-16 h-16 opacity-50"
-                />
-                <div className="absolute -top-2 -right-2 w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-              </div>
-              <p className="text-muted-foreground font-medium">Loading your cart…</p>
+        {cartItems.length === 0 ? (
+          /* Empty State */
+          <div className="text-center py-16">
+            <div className="w-20 h-20 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-6">
+              <ShoppingBag className="w-10 h-10 text-muted-foreground" />
             </div>
-          </div>
-        ) : cartItems.length === 0 ? (
-          <div className="space-y-4">
-            {/* Show warning if guest cart has items but none loaded */}
-            {!user && guestCart.length > 0 && (
-              <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-5">
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900 flex items-center justify-center">
-                    <svg className="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-sm font-semibold text-amber-900 dark:text-amber-100 mb-1">
-                      Cart items couldn't be loaded
-                    </h3>
-                    <p className="text-sm text-amber-800 dark:text-amber-200 mb-3">
-                      You have {guestCart.length} item{guestCart.length > 1 ? 's' : ''} in your cart, but they couldn't be loaded. 
-                      This usually means the items no longer exist or aren't published.
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={handleClearCart}
-                        className="border-amber-300 text-amber-900 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-100 dark:hover:bg-amber-900"
-                      >
-                        <Trash2 className="w-3 h-3 mr-1" />
-                        Clear cart
-                      </Button>
-                      <Link to="/accommodations">
-                        <Button size="sm" variant="default">
-                          Browse properties
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            <div className="bg-card rounded-xl shadow-card p-8 text-center">
-              <p className="text-muted-foreground mb-6">{t("tripCart.empty")}</p>
-              <Link to="/accommodations">
-                <Button>{t("tripCart.browse")}</Button>
+            <h2 className="text-xl font-medium mb-2">Your cart is empty</h2>
+            <p className="text-muted-foreground mb-8 max-w-md mx-auto">
+              Start exploring our amazing tours, stays, and transport options to plan your perfect trip.
+            </p>
+            <div className="flex flex-wrap justify-center gap-3">
+              <Link to="/tours">
+                <Button variant="outline">Explore Tours</Button>
+              </Link>
+              <Link to="/stays">
+                <Button variant="outline">Find Stays</Button>
+              </Link>
+              <Link to="/transport">
+                <Button variant="outline">Book Transport</Button>
               </Link>
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left side - Cart items (2 columns) */}
+          /* Cart Content */
+          <div className="grid lg:grid-cols-3 gap-8">
+            {/* Cart Items */}
             <div className="lg:col-span-2 space-y-4">
               {cartItems.map((item) => {
-                const itemLink = getItemLink(item);
-                const itemPrice = convertAmount(item.price, item.currency, preferredCurrency || "RWF", usdRates) ?? item.price;
-                const displayCurrency = convertAmount(item.price, item.currency, preferredCurrency || "RWF", usdRates) !== null
-                  ? (preferredCurrency || "RWF")
-                  : item.currency;
-
+                const itemPrice = convertAmount(item.price, item.currency, displayCurrency, usdRates) ?? item.price;
+                const isAccommodation = item.item_type === 'property';
+                const { platformFee } = isAccommodation ? calculateGuestTotal(itemPrice, 'accommodation') : { platformFee: 0 };
+                
                 return (
-                  <div key={item.id} className="bg-card rounded-xl shadow-card p-4 flex flex-col md:flex-row gap-4 hover:shadow-lg transition-shadow">
-                    {/* Image */}
-                    <div className="w-full md:w-32 h-32 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
-                      {item.image ? (
-                        itemLink ? (
-                          <Link to={itemLink}>
-                            <img src={item.image} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
-                          </Link>
+                  <div 
+                    key={item.id} 
+                    className="group bg-card rounded-2xl border border-border/50 overflow-hidden hover:border-border transition-colors"
+                  >
+                    <div className="flex flex-col sm:flex-row">
+                      {/* Image */}
+                      <div className="sm:w-40 md:w-48 h-32 sm:h-auto bg-muted relative shrink-0">
+                        {item.image ? (
+                          <img 
+                            src={item.image} 
+                            alt={item.title} 
+                            className="w-full h-full object-cover"
+                          />
                         ) : (
-                          <img src={item.image} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
-                        )
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                          No image
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Details */}
-                    <div className="flex-1 flex flex-col justify-between">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          {itemLink ? (
-                            <Link to={itemLink} className="font-semibold text-lg text-foreground hover:text-primary hover:underline">
-                              {item.title}
-                            </Link>
-                          ) : (
-                            <h3 className="font-semibold text-lg text-foreground">{item.title}</h3>
-                          )}
-                          {item.item_type === "tour" && (
-                            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
-                              Tour
-                            </Badge>
-                          )}
-                          {item.item_type === "tour_package" && (
-                            <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800">
-                              Package
-                            </Badge>
-                          )}
-                        </div>
-                        {item.meta && (
-                          <p className="text-sm text-muted-foreground mt-1">{item.meta}</p>
-                        )}
-                        <p className="text-xs text-muted-foreground mt-1 capitalize">{item.item_type.replace("_", " ")}</p>
-                      </div>
-
-                      <div className="flex items-center justify-between mt-3">
-                        <div className="text-sm">
-                          <span className="text-muted-foreground">Qty: </span>
-                          <span className="font-medium">{item.quantity}</span>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="text-right">
-                            <div className="font-bold text-lg text-foreground">
-                              {formatMoney(itemPrice * item.quantity, displayCurrency)}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {formatMoney(itemPrice, displayCurrency)} each
-                            </div>
+                          <div className="w-full h-full flex items-center justify-center">
+                            {getItemIcon(item.item_type)}
                           </div>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => removeFromCart(item.id)}
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                        )}
+                        {/* Type Badge */}
+                        <div className="absolute top-2 left-2">
+                          <span className={cn(
+                            "text-xs font-medium px-2 py-1 rounded-full",
+                            item.item_type === 'property' && "bg-emerald-500/90 text-white",
+                            item.item_type === 'tour' && "bg-blue-500/90 text-white",
+                            item.item_type === 'tour_package' && "bg-purple-500/90 text-white",
+                            item.item_type === 'transport_vehicle' && "bg-orange-500/90 text-white",
+                          )}>
+                            {item.item_type === 'tour_package' ? 'Package' : item.item_type.replace('_', ' ').replace('transport ', '')}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Content */}
+                      <div className="flex-1 p-4 flex flex-col justify-between">
+                        <div>
+                          <h3 className="font-medium text-lg line-clamp-1">{item.title}</h3>
+                          {item.meta && (
+                            <p className="text-sm text-muted-foreground mt-0.5">{item.meta}</p>
+                          )}
+                        </div>
+                        
+                        <div className="flex items-end justify-between mt-4">
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center border rounded-lg">
+                              <button 
+                                onClick={() => updateQuantity?.(item.id, Math.max(1, item.quantity - 1))}
+                                className="p-2 hover:bg-muted transition-colors"
+                                disabled={item.quantity <= 1}
+                              >
+                                <Minus className="w-4 h-4" />
+                              </button>
+                              <span className="px-3 text-sm font-medium">{item.quantity}</span>
+                              <button 
+                                onClick={() => updateQuantity?.(item.id, item.quantity + 1)}
+                                className="p-2 hover:bg-muted transition-colors"
+                              >
+                                <Plus className="w-4 h-4" />
+                              </button>
+                            </div>
+                            <button 
+                              onClick={() => removeFromCart(item.id)}
+                              className="p-2 text-muted-foreground hover:text-destructive transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                          
+                          <div className="text-right">
+                            <p className="text-lg font-semibold">
+                              {formatMoney((itemPrice + platformFee) * item.quantity, displayCurrency)}
+                            </p>
+                            {isAccommodation && platformFee > 0 && (
+                              <p className="text-xs text-muted-foreground">
+                                incl. {PLATFORM_FEES.accommodation.guestFeePercent}% service fee
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -593,15 +399,15 @@ export default function TripCart() {
               })}
             </div>
 
-            {/* Right side - Price summary (1 column, sticky) */}
+            {/* Order Summary */}
             <div className="lg:col-span-1">
-              <div className="bg-card rounded-xl shadow-card p-5 sticky top-24">
-                <h2 className="text-xl font-bold text-foreground mb-4">Order Summary</h2>
+              <div className="bg-card rounded-2xl border border-border/50 p-6 sticky top-24">
+                <h2 className="text-lg font-semibold mb-6">Order Summary</h2>
                 
-                {/* Discount Code Input */}
-                <div className="mb-4 pb-4 border-b">
-                  <label className="text-sm font-medium text-muted-foreground mb-2 block">
-                    Have a discount code?
+                {/* Discount Code */}
+                <div className="mb-6">
+                  <label className="text-sm text-muted-foreground mb-2 block">
+                    Discount Code
                   </label>
                   {!appliedDiscount ? (
                     <div className="flex gap-2">
@@ -609,75 +415,94 @@ export default function TripCart() {
                         placeholder="Enter code"
                         value={discountCode}
                         onChange={(e) => setDiscountCode(e.target.value.toUpperCase())}
-                        className="flex-1"
+                        className="flex-1 h-10"
                         disabled={validatingCode}
+                        onKeyDown={(e) => e.key === 'Enter' && applyDiscountCode()}
                       />
                       <Button 
                         onClick={applyDiscountCode} 
                         disabled={!discountCode.trim() || validatingCode}
                         variant="outline"
-                        size="sm"
+                        className="h-10 px-4"
                       >
-                        {validatingCode ? "..." : "Apply"}
+                        {validatingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : "Apply"}
                       </Button>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
+                    <div className="flex items-center gap-2 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800/50 rounded-lg px-3 py-2">
                       <Tag className="w-4 h-4 text-green-600 dark:text-green-400" />
-                      <span className="text-sm font-medium text-green-900 dark:text-green-100 flex-1">
+                      <span className="text-sm font-medium text-green-700 dark:text-green-300 flex-1">
                         {appliedDiscount.code}
                       </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setAppliedDiscount(null);
-                          setDiscountCode("");
-                        }}
-                        className="h-6 px-2"
+                      <button
+                        onClick={() => { setAppliedDiscount(null); setDiscountCode(""); }}
+                        className="text-xs text-muted-foreground hover:text-foreground"
                       >
                         Remove
-                      </Button>
+                      </button>
                     </div>
                   )}
                 </div>
 
-                {/* Price breakdown */}
-                <div className="space-y-3 mb-4">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Items ({cartItems.length}):</span>
-                    <span className="font-medium">{formatMoney(total, totalCurrency)}</span>
+                {/* Price Breakdown */}
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span>{formatMoney(subtotal, displayCurrency)}</span>
                   </div>
-                  {appliedDiscount && discount > 0 && (
-                    <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
-                      <span>Discount:</span>
-                      <span className="font-medium">-{formatMoney(discount, totalCurrency)}</span>
+                  {serviceFees > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Service fees</span>
+                      <span>{formatMoney(serviceFees, displayCurrency)}</span>
                     </div>
                   )}
-                  {appliedDiscount && appliedDiscount.minimum_amount && total < appliedDiscount.minimum_amount && (
+                  {discount > 0 && (
+                    <div className="flex justify-between text-green-600 dark:text-green-400">
+                      <span>Discount</span>
+                      <span>-{formatMoney(discount, displayCurrency)}</span>
+                    </div>
+                  )}
+                  {appliedDiscount && appliedDiscount.minimum_amount && subtotal < appliedDiscount.minimum_amount && (
                     <p className="text-xs text-amber-600 dark:text-amber-400">
-                      Minimum {formatMoney(appliedDiscount.minimum_amount, appliedDiscount.currency)} required
+                      Min. {formatMoney(appliedDiscount.minimum_amount, appliedDiscount.currency)} required for discount
                     </p>
                   )}
                 </div>
 
                 {/* Total */}
-                <div className="pt-3 border-t mb-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-lg font-bold text-foreground">Total:</span>
-                    <span className="text-2xl font-bold text-primary">{formatMoney(finalTotal, totalCurrency)}</span>
-                  </div>
+                <div className="flex justify-between items-baseline py-4 mt-4 border-t">
+                  <span className="font-semibold">Total</span>
+                  <span className="text-2xl font-bold">{formatMoney(total, displayCurrency)}</span>
                 </div>
 
-                {/* Action Buttons */}
-                <div className="space-y-2">
-                  <Link to={`/checkout?mode=cart${appliedDiscount ? `&discountCode=${appliedDiscount.code}` : ''}`} className="block">
-                    <Button size="lg" className="w-full">Proceed to Checkout</Button>
-                  </Link>
-                  <Button variant="outline" size="lg" onClick={handleClearCart} className="w-full">
-                    <Trash2 className="w-4 h-4 mr-2" />
+                {/* Actions */}
+                <div className="space-y-3 mt-6">
+                  <Button 
+                    size="lg" 
+                    className="w-full h-12 text-base"
+                    onClick={handleProceedToCheckout}
+                  >
+                    Checkout
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={handleClearCart} 
+                    className="w-full text-muted-foreground hover:text-destructive"
+                  >
                     Clear Cart
                   </Button>
+                </div>
+
+                {/* Trust Badges */}
+                <div className="mt-6 pt-6 border-t">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    Secure checkout with PawaPay
+                  </div>
                 </div>
               </div>
             </div>
