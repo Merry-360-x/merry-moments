@@ -29,24 +29,46 @@ const ResetPassword = () => {
       
       // Check for hash fragment with recovery token
       const hashFragment = window.location.hash;
+      console.log('[ResetPassword] Hash fragment:', hashFragment ? 'present' : 'none');
+      
       if (hashFragment) {
         const params = new URLSearchParams(hashFragment.substring(1));
         const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
         const type = params.get('type');
         
+        console.log('[ResetPassword] Token type:', type);
+        
         if (accessToken && type === 'recovery') {
-          console.log('[ResetPassword] Found recovery token, processing...');
+          console.log('[ResetPassword] Found recovery token, setting session...');
           
-          // Let Supabase process the hash - it auto-detects and sets the session
-          // Wait a moment for Supabase to handle it
-          await new Promise(resolve => setTimeout(resolve, 1500));
-          
-          // Clean up the URL hash
-          window.history.replaceState(null, '', window.location.pathname);
+          try {
+            // Explicitly set the session with the tokens from the URL
+            const { data, error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken || '',
+            });
+            
+            if (error) {
+              console.error('[ResetPassword] Error setting session:', error);
+              throw error;
+            }
+            
+            if (data.session) {
+              console.log('[ResetPassword] Session set successfully');
+              // Clean up the URL hash
+              window.history.replaceState(null, '', window.location.pathname);
+              setIsValidToken(true);
+              setIsChecking(false);
+              return;
+            }
+          } catch (err) {
+            console.error('[ResetPassword] Failed to set session:', err);
+          }
         }
       }
       
-      // Now check if session was established
+      // Fallback: check if session already exists
       const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error) {
