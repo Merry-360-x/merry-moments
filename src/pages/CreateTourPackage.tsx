@@ -103,6 +103,7 @@ Some components are non-refundable once booked, including but not limited to:
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
+  const [includeRoomType, setIncludeRoomType] = useState(false);
 
   // Use a stable storage key - always use user ID if available, otherwise anonymous
   const getStorageKey = () => user?.id ? `tour-package-draft-${user.id}` : 'tour-package-draft-anonymous';
@@ -135,6 +136,7 @@ Some components are non-refundable once booked, including but not limited to:
         if (draft.galleryImages) setGalleryImages(draft.galleryImages);
         if (draft.selectedPolicies) setSelectedPolicies(draft.selectedPolicies);
         if (draft.customPolicyText) setCustomPolicyText(draft.customPolicyText);
+        if (draft.includeRoomType !== undefined) setIncludeRoomType(draft.includeRoomType);
         setLastSaved(new Date(draft.timestamp));
         toast({ title: "Draft restored", description: "Your previous work has been restored" });
         console.log('[CreateTourPackage] Draft restored from', draftKey);
@@ -159,6 +161,7 @@ Some components are non-refundable once booked, including but not limited to:
         formData,
         groupDiscounts,
         pricingTiers,
+        includeRoomType,
         selectedNonRefundable,
         customNonRefundable1,
         customNonRefundable2,
@@ -186,6 +189,7 @@ Some components are non-refundable once booked, including but not limited to:
         formData,
         groupDiscounts,
         pricingTiers,
+        includeRoomType,
         selectedNonRefundable,
         customNonRefundable1,
         customNonRefundable2,
@@ -209,6 +213,7 @@ Some components are non-refundable once booked, including but not limited to:
       formData,
       groupDiscounts,
       pricingTiers,
+      includeRoomType,
       selectedNonRefundable,
       customNonRefundable1,
       customNonRefundable2,
@@ -921,15 +926,27 @@ Some components are non-refundable once booked, including but not limited to:
             </div>
 
             <div className="space-y-3">
-              <Label className="text-sm font-medium">Accommodation-Based Pricing (Optional)</Label>
-              <p className="text-xs text-muted-foreground">
-                Set per-person prices for different group sizes and room types (e.g., 4 people in double/twin rooms vs single rooms).
-              </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm font-medium">Group Pricing (Optional)</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Set per-person prices for different group sizes.
+                  </p>
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={includeRoomType}
+                  onCheckedChange={(checked) => setIncludeRoomType(!!checked)}
+                />
+                <span>Include room/accommodation type (for multi-day tours with lodging)</span>
+              </label>
 
               <div className="space-y-3">
                 {pricingTiers.map((tier, index) => (
                   <div key={index} className="p-3 border rounded-lg bg-muted/30 space-y-3">
-                    <div className="grid grid-cols-[1fr_1fr] gap-3">
+                    <div className={`grid gap-3 ${includeRoomType ? 'grid-cols-[1fr_1fr]' : 'grid-cols-1'}`}>
                       <div>
                         <Label className="text-xs font-normal mb-1.5 block">Group Size (people)</Label>
                         <Input
@@ -945,25 +962,27 @@ Some components are non-refundable once booked, including but not limited to:
                           className="h-10"
                         />
                       </div>
-                      <div>
-                        <Label className="text-xs font-normal mb-1.5 block">Room Type</Label>
-                        <Select
-                          value={tier.room_type || "double_twin"}
-                          onValueChange={(val: "double_twin" | "single") => {
-                            const next = [...pricingTiers];
-                            next[index].room_type = val;
-                            setPricingTiers(next);
-                          }}
-                        >
-                          <SelectTrigger className="h-10">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="double_twin">Double/Twin (shared)</SelectItem>
-                            <SelectItem value="single">Single (private)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                      {includeRoomType && (
+                        <div>
+                          <Label className="text-xs font-normal mb-1.5 block">Room Type</Label>
+                          <Select
+                            value={tier.room_type || "double_twin"}
+                            onValueChange={(val: "double_twin" | "single") => {
+                              const next = [...pricingTiers];
+                              next[index].room_type = val;
+                              setPricingTiers(next);
+                            }}
+                          >
+                            <SelectTrigger className="h-10">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="double_twin">Double/Twin (shared)</SelectItem>
+                              <SelectItem value="single">Single (private)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
                     </div>
                     <div className="flex gap-3 items-end">
                       <div className="flex-1">
@@ -992,7 +1011,7 @@ Some components are non-refundable once booked, including but not limited to:
                       </Button>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {tier.group_size} {tier.group_size === 1 ? 'person' : 'people'} • {roomTypeLabels[tier.room_type] || 'Double/Twin Room (shared)'} • {formData.currency} {tier.price_per_person.toLocaleString()} /person
+                      {tier.group_size} {tier.group_size === 1 ? 'person' : 'people'}{includeRoomType ? ` • ${roomTypeLabels[tier.room_type] || 'Double/Twin Room (shared)'}` : ''} • {formData.currency} {tier.price_per_person.toLocaleString()} /person
                     </p>
                   </div>
                 ))}
