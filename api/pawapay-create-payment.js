@@ -198,11 +198,23 @@ export default async function handler(req, res) {
       });
     }
 
+    // Log the full response for debugging
+    console.log("PawaPay full response object:", JSON.stringify(pawaPayData, null, 2));
+
     if (!pawaPayResponse.ok) {
       console.error("PawaPay API error:", pawaPayData);
+      
+      // Return detailed error to help debug
       return json(res, pawaPayResponse.status, { 
         error: pawaPayData.errorMessage || "Payment initiation failed",
-        code: pawaPayData.errorCode
+        code: pawaPayData.errorCode,
+        details: pawaPayData,
+        debugInfo: {
+          phone: msisdn,
+          amount: rwfAmount,
+          correspondent,
+          depositId
+        }
       });
     }
 
