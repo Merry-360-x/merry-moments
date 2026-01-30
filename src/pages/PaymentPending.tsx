@@ -5,144 +5,170 @@ import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, CheckCircle, XCircle, Smartphone } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Smartphone, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// PawaPay status mapping
+const PAWAPAY_STATUS = {
+  SUBMITTED: "submitted",
+  ACCEPTED: "accepted",
+  COMPLETED: "completed",
+  FAILED: "failed",
+  REJECTED: "rejected",
+  CANCELLED: "cancelled",
+} as const;
+
+const isFinalStatus = (status: string) => {
+  return ["completed", "failed", "rejected", "cancelled", "paid"].includes(status?.toLowerCase() || "");
+};
+
+const isSuccessStatus = (status: string) => {
+  return ["completed", "paid"].includes(status?.toLowerCase() || "");
+};
+
+const isFailureStatus = (status: string) => {
+  return ["failed", "rejected", "cancelled"].includes(status?.toLowerCase() || "");
+};
 
 export default function PaymentPending() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const checkoutId = params.get("checkoutId") || params.get("bookingId"); // Support both
+  const checkoutId = params.get("checkoutId") || params.get("bookingId");
   const depositId = params.get("depositId");
-  const phone = params.get("phone") || "";
   
   const [status, setStatus] = useState<"pending" | "completed" | "failed">("pending");
   const [pollCount, setPollCount] = useState(0);
   const [timeLeft, setTimeLeft] = useState(300); // 5 minutes timeout
   const [failureReason, setFailureReason] = useState<string | null>(null);
   const [checkingStatus, setCheckingStatus] = useState(false);
+  const [amount, setAmount] = useState<number | null>(null);
+  const [currency, setCurrency] = useState<string>("RWF");
 
-  // Poll for payment status - check both database AND PawaPay directly
+  // Poll for payment status with intelligent intervals
   useEffect(() => {
-    if (!checkoutId || status !== "pending") return;
+    if (!checkoutId || isFinalStatus(status)) return;
 
     const checkStatus = async () => {
-      if (!checkoutId || checkingStatus) return;
+      if (checkingStatus) return;
       
       setCheckingStatus(true);
       try {
-        // ALWAYS check PawaPay directly first if we have depositId
-        // This catches failures immediately (insufficient funds, etc)
         let paymentStatus = null;
         let failureMsg = null;
-        
+        let pawapayStatus = null;
+
+        // Check PawaPay API directly for real-time status
         if (depositId) {
           try {
-            const checkUrl = `/api/pawapay-check-status?depositId=${depositId}&checkoutId=${checkoutId}`;
-            const response = await fetch(checkUrl);
+            const response = await fetch(`/api/pawapay-check-status?depositId=${depositId}&checkoutId=${checkoutId}`);
             const data = await response.json();
             
-            console.log("PawaPay check result:", data);
+            console.log(`[${new Date().toISOString()}] PawaPay status:`, data);
             
             if (data.success) {
+              pawapayStatus = data.pawapayStatus;
               paymentStatus = data.paymentStatus;
               failureMsg = data.failureMessage;
-              
-              // PawaPay statuses: SUBMITTED, ACCEPTED, COMPLETED, FAILED, REJECTED, CANCELLED
-              // Immediately handle failures
-              if (data.pawapayStatus === "FAILED" || data.pawapayStatus === "REJECTED" || data.pawapayStatus === "CANCELLED") {
-                console.log("Payment failed:", data.pawapayStatus, failureMsg);
-                setFailureReason(failureMsg || "Payment failed. Please try again.");
-                setStatus("failed");
-                setCheckingStatus(false);
-                return;
-              }
             }
-          } catch (pawapayErr) {
-            console.warn("Could not check PawaPay directly:", pawapayErr);
+          } catch (err) {
+            console.warn("PawaPay check error:", err);
           }
         }
-        
-        // Also check database as fallback
-        const { data: checkouts, error } = await supabase
-          .from("checkout_requests")
-          .select("payment_status")
-          .eq("id", checkoutId as never);
 
-        if (error) throw error;
-        
-        const record = (checkouts as any)?.[0];
-        if (record) {
-          // Use database status if we don't have PawaPay status
-          if (!paymentStatus) {
-            paymentStatus = record.payment_status;
+        // Also check database for webhook updates
+        const { data: checkouts } = await supabase
+          .from("checkout_requests")
+          .select("payment_status, total_amount, currency")
+          .eq("id", checkoutId as never)
+          .single();
+
+        if (checkouts) {
+          // Database might have been updated by webhook
+          const dbStatus = (checkouts as any).payment_status;
+          setAmount((checkouts as any).total_amount);
+          setCurrency((checkouts as any).currency || "RWF");
+          
+          // Prioritize database status if it's more final than PawaPay status
+          if (isFinalStatus(dbStatus) && !isFinalStatus(paymentStatus || "")) {
+            paymentStatus = dbStatus;
+          } else if (!paymentStatus) {
+            paymentStatus = dbStatus;
           }
         }
-        
-        if (paymentStatus === "paid" || paymentStatus === "completed") {
+
+        // Handle different statuses
+        if (isSuccessStatus(paymentStatus || "")) {
+          console.log("Payment completed successfully");
           setStatus("completed");
           toast({
             title: "Payment Successful!",
-            description: "Your order has been confirmed.",
+            description: "Redirecting to confirmation page...",
           });
-          // Navigate to success after short delay
           setTimeout(() => {
-            navigate("/booking-success?mode=booking&payment=confirmed");
-          }, 2000);
-        } else if (paymentStatus === "failed" || paymentStatus === "cancelled") {
-          if (failureMsg) {
-            setFailureReason(failureMsg);
-          }
+            navigate(`/booking-success?checkoutId=${checkoutId}&payment=confirmed`);
+          }, 1500);
+        } else if (isFailureStatus(paymentStatus || "")) {
+          console.log("Payment failed:", paymentStatus, failureMsg);
           setStatus("failed");
+          setFailureReason(failureMsg || null);
+          // Navigate to failure page with details
+          setTimeout(() => {
+            const params = new URLSearchParams({
+              checkoutId: checkoutId || "",
+              reason: failureMsg || paymentStatus || "Payment was not completed",
+            });
+            if (amount) params.set("amount", String(amount));
+            if (currency) params.set("currency", currency);
+            navigate(`/payment-failed?${params.toString()}`);
+          }, 1500);
         }
-      } catch (e) {
-        console.error("Error checking payment status:", e);
+      } catch (error) {
+        console.error("Status check error:", error);
       } finally {
         setCheckingStatus(false);
       }
     };
 
-    // Initial check immediately
+    // Initial check
     checkStatus();
 
-    // Aggressive polling for first 30 seconds (every 2 seconds)
-    // Then slower polling after that (every 5 seconds)
-    let pollInterval = 2000; // Start with 2 seconds
-    
-    const interval = setInterval(() => {
-      setPollCount((c) => {
-        const newCount = c + 1;
-        // After 15 polls (30 seconds), slow down to 5 second intervals
-        if (newCount === 15) {
-          clearInterval(interval);
-          const slowerInterval = setInterval(() => {
-            checkStatus();
-          }, 5000);
-          // Store for cleanup
-          (interval as any)._slower = slowerInterval;
-        }
-        return newCount;
-      });
-      checkStatus();
-    }, pollInterval);
-
-    return () => {
-      clearInterval(interval);
-      if ((interval as any)._slower) {
-        clearInterval((interval as any)._slower);
-      }
+    // Polling strategy:
+    // First 30 seconds: every 2 seconds (aggressive)
+    // 30s - 2 min: every 3 seconds
+    // 2 - 5 min: every 5 seconds
+    const getInterval = () => {
+      if (pollCount < 15) return 2000; // 0-30s: 2s intervals
+      if (pollCount < 40) return 3000; // 30s-2min: 3s intervals
+      return 5000; // 2min+: 5s intervals
     };
-  }, [checkoutId, depositId, status, navigate, toast]);
 
-  // Countdown timer
+    const interval = setInterval(() => {
+      checkStatus();
+      setPollCount(c => c + 1);
+    }, getInterval());
+
+    return () => clearInterval(interval);
+  }, [checkoutId, depositId, status, pollCount, checkingStatus, navigate, toast]);
+
+  // Countdown timer with timeout handling
   useEffect(() => {
     if (status !== "pending" || timeLeft <= 0) return;
 
     const timer = setInterval(() => {
       setTimeLeft((t) => {
         if (t <= 1) {
+          // Timeout - redirect to failure page
           setStatus("failed");
+          setFailureReason("Payment timeout - please try again");
+          const params = new URLSearchParams({
+            checkoutId: checkoutId || "",
+            reason: "Payment took too long to complete. Please try again.",
+          });
+          if (amount) params.set("amount", String(amount));
+          if (currency) params.set("currency", currency);
+          navigate(`/payment-failed?${params.toString()}`);
           return 0;
         }
         return t - 1;
@@ -150,7 +176,7 @@ export default function PaymentPending() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [status, timeLeft]);
+  }, [status, timeLeft, checkoutId, amount, currency, navigate]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -159,24 +185,40 @@ export default function PaymentPending() {
   };
 
   const handleRetry = () => {
-    // Navigate back to checkout page to retry payment
     navigate("/checkout");
   };
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
+    // Try to cancel the payment in the database
+    if (checkoutId) {
+      try {
+        await supabase
+          .from("checkout_requests")
+          .update({ payment_status: "cancelled" })
+          .eq("id", checkoutId as never);
+      } catch (err) {
+        console.error("Error canceling payment:", err);
+      }
+    }
     navigate("/");
   };
 
-  // When timeout expires, show appropriate message and redirect after delay
-  useEffect(() => {
-    if (status === "failed" && timeLeft <= 0) {
-      toast({
-        title: "Payment Timeout",
-        description: "The payment was not completed in time. Returning to checkout.",
-        variant: "destructive",
-      });
-    }
-  }, [status, timeLeft, toast]);
+  if (!checkoutId) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <XCircle className="w-16 h-16 text-red-500 mx-auto" />
+            <h2 className="text-2xl font-semibold">Invalid Payment Session</h2>
+            <p className="text-gray-600">No checkout information found.</p>
+            <Button onClick={() => navigate("/")}>Return Home</Button>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">
@@ -212,7 +254,7 @@ export default function PaymentPending() {
             <>
               <h1 className="text-2xl font-light mb-2">Waiting for Payment</h1>
               <p className="text-muted-foreground mb-6">
-                Check your phone <span className="font-medium">{phone}</span> and enter your PIN to approve
+                Check your phone and enter your PIN to approve the payment
               </p>
               
               {/* Timer */}
@@ -225,6 +267,21 @@ export default function PaymentPending() {
               <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 <span>Checking payment status...</span>
+              </div>
+              
+              {/* Instructions */}
+              <div className="mt-8 p-4 bg-muted/50 rounded-lg text-sm">
+                <div className="flex items-start gap-3">
+                  <Smartphone className="w-5 h-5 text-primary mt-0.5" />
+                  <div className="text-left">
+                    <p className="font-medium mb-2">Complete payment on your phone:</p>
+                    <ol className="space-y-1 text-muted-foreground">
+                      <li>1. Check for USSD prompt or SMS</li>
+                      <li>2. Enter your mobile money PIN</li>
+                      <li>3. Confirm the payment</li>
+                    </ol>
+                  </div>
+                </div>
               </div>
             </>
           )}

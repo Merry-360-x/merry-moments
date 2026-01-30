@@ -97,10 +97,7 @@ export default async function handler(req, res) {
       case "CANCELLED":
         newPaymentStatus = "failed";
         shouldNotify = true;
-        console.log(`❌ Payment ${status} for checkout ${checkout.id}`);
-        if (failureReason) {
-          console.log(`   Reason:`, failureReason);
-        }
+        console.log(`❌ Payment ${status} for checkout ${checkout.id}${failureReason ? ` - ${failureReason}` : ''}`);
         break;
       
       case "SUBMITTED":
@@ -113,16 +110,17 @@ export default async function handler(req, res) {
         console.warn(`⚠️ Unknown status: ${status}`);
     }
 
-    // Update checkout request
+    // Prepare update payload
+    const currentMetadata = checkout.metadata || {};
     const updateData = {
       payment_status: newPaymentStatus,
       updated_at: new Date().toISOString(),
       metadata: {
-        ...checkout.metadata,
+        ...currentMetadata,
         pawapay_webhook: {
           status,
           depositId,
-          failureReason,
+          failureReason: failureReason || null,
           received_at: new Date().toISOString(),
           created,
           lastUpdated
@@ -130,14 +128,33 @@ export default async function handler(req, res) {
       }
     };
 
-    const { error: updateError } = await supabase
+    // If failed, also store the failure reason in a dedicated field
+    if (newPaymentStatus === "failed" && failureReason) {
+      updateData.payment_error = failureReason;
+    }
+
+    // Atomic update with optimistic locking
+    const { data: updated, error: updateError } = await supabase
       .from("checkout_requests")
       .update(updateData)
-      .eq("id", checkout.id);
+      .eq("id", checkout.id)
+      .eq("payment_status", checkout.payment_status) // Only update if status hasn't changed
+      .select("id, payment_status")
+      .single();
 
     if (updateError) {
       console.error("❌ Failed to update checkout:", updateError);
+      // Check if it was a concurrent update
+      if (updateError.code === 'PGRST116') {
+        console.log("⚠️ Payment status already updated by another process");
+        return json(res, 200, { ok: true, message: "Already processed" });
+      }
       return json(res, 500, { error: "Update failed" });
+    }
+
+    if (!updated) {
+      console.log("⚠️ Payment status already changed, skipping update");
+      return json(res, 200, { ok: true, message: "Already processed" });
     }
 
     console.log(`✅ Checkout ${checkout.id} updated: ${checkout.payment_status} → ${newPaymentStatus}`);

@@ -88,15 +88,17 @@ export default async function handler(req, res) {
       
       // Map common failure codes to user-friendly messages
       if (code === 'INSUFFICIENT_BALANCE' || code === 'PAYER_LIMIT_REACHED' || code === 'INSUFFICIENT_FUNDS') {
-        failureMessage = '💳 Insufficient balance. Please recharge your mobile money account and try again.';
+        failureMessage = 'Insufficient balance. Please recharge your mobile money account and try again.';
       } else if (code === 'PAYER_NOT_FOUND' || code === 'INVALID_PAYER') {
-        failureMessage = '📱 Mobile money account not found. Please check your phone number.';
-      } else if (code === 'TRANSACTION_DECLINED' || code === 'USER_DECLINED') {
-        failureMessage = '❌ Payment was declined. Please try again or use a different payment method.';
+        failureMessage = 'Mobile money account not found. Please check your phone number.';
+      } else if (code === 'TRANSACTION_DECLINED' || code === 'USER_DECLINED' || code === 'DECLINED') {
+        failureMessage = 'Payment was declined. Please try again or use a different payment method.';
       } else if (code === 'TIMEOUT' || code === 'EXPIRED') {
-        failureMessage = '⏱️ Payment request expired. Please try again.';
+        failureMessage = 'Payment request expired. Please try again.';
       } else if (code === 'DUPLICATE_TRANSACTION') {
-        failureMessage = '⚠️ Duplicate transaction detected. Please wait or contact support.';
+        failureMessage = 'Duplicate transaction detected. Please wait or contact support.';
+      } else if (code === 'CANCELLED' || code === 'USER_CANCELLED') {
+        failureMessage = 'Payment was cancelled. Please try again if you wish to complete the booking.';
       } else if (message) {
         failureMessage = message;
       } else {
@@ -105,8 +107,12 @@ export default async function handler(req, res) {
     }
     
     // Also check if status itself indicates failure
-    if (!failureMessage && (pawapayStatus === 'FAILED' || pawapayStatus === 'REJECTED')) {
-      failureMessage = 'Payment could not be completed. Please try again or use a different payment method.';
+    if (!failureMessage) {
+      if (pawapayStatus === 'FAILED' || pawapayStatus === 'REJECTED') {
+        failureMessage = 'Payment could not be completed. Please try again or use a different payment method.';
+      } else if (pawapayStatus === 'CANCELLED') {
+        failureMessage = 'Payment was cancelled. Please try again if you wish to complete the booking.';
+      }
     }
 
     // If we have an order ID and Supabase credentials, update the checkout
