@@ -921,85 +921,28 @@ const Accommodations = () => {
                   ))}
                 </div>
                 
-                <div className="border-t border-border pt-8 mb-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-medium text-foreground">All accommodations</h3>
-                    {/* Mobile scroll hint */}
-                    <span className="sm:hidden text-xs text-muted-foreground flex items-center gap-1 animate-pulse">
-                      Swipe →
-                    </span>
-                  </div>
+                <div className="border-t border-border pt-6 md:pt-8 mb-3 md:mb-4">
+                  <h3 className="text-base md:text-lg font-medium text-foreground">All accommodations</h3>
                 </div>
               </div>
             )}
             
-            {/* Mobile: horizontal scroll with wider cards */}
-            <div className="sm:hidden">
-              {propertiesLoading ? (
+            {/* All screens: 3-column grid */}
+            {propertiesLoading ? (
+              <div className="col-span-full">
                 <LoadingSpinner message={t("common.loading")} />
-              ) : isError ? (
-                <div className="py-16 text-center">
-                  <p className="text-muted-foreground">{t("common.couldNotLoadProperties")}</p>
-                </div>
-              ) : properties.length === 0 ? (
-                <div className="py-16 text-center">
-                  <p className="text-muted-foreground">{t("accommodations.noMatches")}</p>
-                </div>
-              ) : (
-                <div className="grid grid-flow-col auto-cols-[75%] gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide -mx-4 px-4">
-                  {properties.map((property) => (
-                    <div key={property.id} className="snap-start">
-                      <PropertyCard
-                        id={property.id}
-                        image={property.images?.[0] ?? null}
-                        images={property.images ?? null}
-                        title={property.title}
-                        location={property.location}
-                        rating={Number(property.rating) || 0}
-                        reviews={property.review_count || 0}
-                        price={Number(property.price_per_night)}
-                        currency={property.currency}
-                        type={property.property_type}
-                      bedrooms={(property as { bedrooms?: number | null }).bedrooms ?? null}
-                      bathrooms={(property as { bathrooms?: number | null }).bathrooms ?? null}
-                      beds={(property as { beds?: number | null }).beds ?? null}
-                        maxGuests={(property as { max_guests?: number | null }).max_guests ?? null}
-                        checkInTime={(property as { check_in_time?: string | null }).check_in_time ?? null}
-                        checkOutTime={(property as { check_out_time?: string | null }).check_out_time ?? null}
-                        smokingAllowed={(property as { smoking_allowed?: boolean | null }).smoking_allowed ?? null}
-                        eventsAllowed={(property as { events_allowed?: boolean | null }).events_allowed ?? null}
-                        petsAllowed={(property as { pets_allowed?: boolean | null }).pets_allowed ?? null}
-                        isFavorited={favoritesSet.has(property.id)}
-                        onToggleFavorite={async () => {
-                          const isFav = favoritesSet.has(property.id);
-                          const changed = await toggleFavorite(String(property.id), isFav);
-                          if (changed) {
-                            await qc.invalidateQueries({ queryKey: ["favorites", "ids", user?.id] });
-                          }
-                        }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Tablet/Desktop */}
-            <div className="hidden sm:grid grid-cols-2 xl:grid-cols-3 gap-6">
-              {propertiesLoading ? (
-                <div className="col-span-full">
-                  <LoadingSpinner message={t("common.loading")} />
-                </div>
-              ) : isError ? (
-                <div className="col-span-full py-16 text-center">
-                  <p className="text-muted-foreground">{t("common.couldNotLoadProperties")}</p>
-                </div>
-              ) : properties.length === 0 ? (
-                <div className="col-span-full py-16 text-center">
-                  <p className="text-muted-foreground">{t("accommodations.noMatches")}</p>
-                </div>
-              ) : (
-                properties.map((property) => (
+              </div>
+            ) : isError ? (
+              <div className="col-span-full py-16 text-center">
+                <p className="text-muted-foreground">{t("common.couldNotLoadProperties")}</p>
+              </div>
+            ) : properties.length === 0 ? (
+              <div className="col-span-full py-16 text-center">
+                <p className="text-muted-foreground">{t("accommodations.noMatches")}</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-2 md:gap-4 lg:gap-6">
+                {properties.map((property) => (
                   <PropertyCard
                     key={property.id}
                     id={property.id}
@@ -1030,9 +973,9 @@ const Accommodations = () => {
                       }
                     }}
                   />
-                ))
-              )}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

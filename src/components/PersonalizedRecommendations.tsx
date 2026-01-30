@@ -121,21 +121,54 @@ export function PersonalizedRecommendations({
     <div className={className}>
       {/* Properties recommendations */}
       {properties.length > 0 && (
-        <div className="mb-16">
-          <div className="mb-8">
+        <div className="mb-12 md:mb-16">
+          <div className="mb-4 md:mb-8">
             <div className="flex items-center gap-2 mb-2">
               <div className="h-1 w-12 bg-gradient-to-r from-primary to-primary/50 rounded-full" />
-              <Sparkles className="w-5 h-5 text-primary/80" />
+              <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-primary/80" />
             </div>
-            <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent">
-              {title || (user ? 'Recommended For You' : 'Popular Stays')}
-            </h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent">
+                {title || (user ? 'Recommended For You' : 'Popular Stays')}
+              </h2>
+              <span className="md:hidden text-xs text-muted-foreground flex items-center gap-1 animate-pulse">
+                Swipe →
+              </span>
+            </div>
             {user && (
-              <p className="text-sm text-muted-foreground mt-2">Handpicked based on your preferences</p>
+              <p className="text-xs md:text-sm text-muted-foreground mt-1 md:mt-2">Handpicked based on your preferences</p>
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {/* Mobile: Horizontal scroll */}
+          <div className="md:hidden">
+            <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide -mx-4 px-4">
+              {properties.map((property) => (
+                <div 
+                  key={property.id} 
+                  className="snap-start shrink-0 w-[75%]"
+                >
+                  <div className="group relative overflow-hidden rounded-xl transition-all duration-300">
+                    <PropertyCard {...mapToPropertyProps(property)} />
+                    {property.reasons && property.reasons.length > 0 && (
+                      <div className="absolute top-2 right-2 z-10">
+                        <Badge 
+                          variant="secondary" 
+                          className="bg-white/95 dark:bg-gray-900/95 text-gray-900 dark:text-white backdrop-blur-sm border-0 shadow-lg text-[10px] py-0.5 px-2 font-medium"
+                        >
+                          <TrendingUp className="w-2.5 h-2.5 mr-1" />
+                          {property.reasons[0]}
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Desktop: Grid */}
+          <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-5">
             {properties.map((property) => (
               <div 
                 key={property.id} 
@@ -166,20 +199,53 @@ export function PersonalizedRecommendations({
       {/* Tours recommendations */}
       {tours.length > 0 && (
         <div>
-          <div className="mb-8">
+          <div className="mb-4 md:mb-8">
             <div className="flex items-center gap-2 mb-2">
               <div className="h-1 w-12 bg-gradient-to-r from-rose-500 to-rose-300 rounded-full" />
-              <Heart className="w-5 h-5 text-rose-500/80" />
+              <Heart className="w-4 h-4 md:w-5 md:h-5 text-rose-500/80" />
             </div>
-            <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent">
-              {user ? 'Tours You Might Love' : 'Popular Tours'}
-            </h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent">
+                {user ? 'Tours You Might Love' : 'Popular Tours'}
+              </h2>
+              <span className="md:hidden text-xs text-muted-foreground flex items-center gap-1 animate-pulse">
+                Swipe →
+              </span>
+            </div>
             {user && (
-              <p className="text-sm text-muted-foreground mt-2">Curated adventures just for you</p>
+              <p className="text-xs md:text-sm text-muted-foreground mt-1 md:mt-2">Curated adventures just for you</p>
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {/* Mobile: Horizontal scroll */}
+          <div className="md:hidden">
+            <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide -mx-4 px-4">
+              {tours.map((tour) => (
+                <div 
+                  key={tour.id} 
+                  className="snap-start shrink-0 w-[75%]"
+                >
+                  <div className="group relative overflow-hidden rounded-xl transition-all duration-300">
+                    <TourPromoCard {...mapToTourProps(tour)} />
+                    {tour.reasons && tour.reasons.length > 0 && (
+                      <div className="absolute top-2 right-2 z-10">
+                        <Badge 
+                          variant="secondary" 
+                          className="bg-white/95 dark:bg-gray-900/95 text-gray-900 dark:text-white backdrop-blur-sm border-0 shadow-lg text-[10px] py-0.5 px-2 font-medium"
+                        >
+                          <TrendingUp className="w-2.5 h-2.5 mr-1" />
+                          {tour.reasons[0]}
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Desktop: Grid */}
+          <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-5">
             {tours.map((tour) => (
               <div 
                 key={tour.id} 
