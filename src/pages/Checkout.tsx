@@ -8,9 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
-
-// Version 2.0 - All phone column issues fixed
-console.log("🚀 Checkout v2.0 loaded - phone column fix applied");
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { usePreferences } from "@/hooks/usePreferences";
