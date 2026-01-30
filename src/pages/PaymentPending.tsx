@@ -80,15 +80,21 @@ export default function PaymentPending() {
         // Also check database for webhook updates
         const { data: checkouts } = await supabase
           .from("checkout_requests")
-          .select("payment_status, total_amount, currency")
+          .select("payment_status, total_amount, currency, payment_error")
           .eq("id", checkoutId as never)
           .single();
 
         if (checkouts) {
           // Database might have been updated by webhook
           const dbStatus = (checkouts as any).payment_status;
+          const dbError = (checkouts as any).payment_error;
           setAmount((checkouts as any).total_amount);
           setCurrency((checkouts as any).currency || "RWF");
+          
+          // Use database error if available and we don't have one from PawaPay API
+          if (dbError && !failureMsg) {
+            failureMsg = dbError;
+          }
           
           // Prioritize database status if it's more final than PawaPay status
           if (isFinalStatus(dbStatus) && !isFinalStatus(paymentStatus || "")) {
