@@ -65,7 +65,7 @@ export default async function handler(req, res) {
     // Find the checkout request by depositId (stored in dpo_transaction_id field)
     const { data: checkouts, error: fetchError } = await supabase
       .from("checkout_requests")
-      .select("id, payment_status, email, name, total_amount, currency")
+      .select("id, user_id, payment_status, email, name, phone, total_amount, currency, metadata")
       .eq("dpo_transaction_id", depositId)
       .limit(1);
 
@@ -83,11 +83,13 @@ export default async function handler(req, res) {
     const checkout = checkouts[0];
     let newPaymentStatus = checkout.payment_status;
     let shouldNotify = false;
+    let shouldCreateBookings = false;
 
     // Map PawaPay status to our system
     switch (status) {
       case "COMPLETED":
         newPaymentStatus = "paid";
+        shouldCreateBookings = true;
         shouldNotify = true;
         console.log(`✅ Payment COMPLETED for checkout ${checkout.id}`);
         break;
@@ -159,6 +161,60 @@ export default async function handler(req, res) {
 
     console.log(`✅ Checkout ${checkout.id} updated: ${checkout.payment_status} → ${newPaymentStatus}`);
 
+    // Create bookings when payment is completed
+    if (shouldCreateBookings && checkout.metadata?.items) {
+      console.log("📦 Creating bookings from checkout items...");
+      const items = checkout.metadata.items;
+      const bookingDetails = checkout.metadata.booking_details;
+      
+      for (const item of items) {
+        try {
+          const bookingData = {
+            guest_id: checkout.user_id,
+            order_id: checkout.id,
+            total_price: item.calculated_price || item.price,
+            currency: checkout.currency || 'RWF',
+            status: 'confirmed',
+            payment_status: 'paid',
+            payment_method: 'mobile_money',
+            guests_count: bookingDetails?.guests || item.metadata?.guests || 1,
+          };
+
+          // Handle different item types
+          if (item.item_type === 'property') {
+            bookingData.property_id = item.reference_id;
+            bookingData.check_in = bookingDetails?.check_in || item.metadata?.check_in;
+            bookingData.check_out = bookingDetails?.check_out || item.metadata?.check_out;
+          } else if (item.item_type === 'tour' || item.item_type === 'tour_package') {
+            bookingData.tour_id = item.reference_id;
+            // For tours, use check_in date as the tour date
+            bookingData.check_in = bookingDetails?.check_in || item.metadata?.check_in || new Date().toISOString().split('T')[0];
+            bookingData.check_out = bookingDetails?.check_out || item.metadata?.check_out || new Date().toISOString().split('T')[0];
+          } else if (item.item_type === 'transport_vehicle') {
+            bookingData.transport_id = item.reference_id;
+            bookingData.check_in = bookingDetails?.check_in || item.metadata?.check_in || new Date().toISOString().split('T')[0];
+            bookingData.check_out = bookingDetails?.check_out || item.metadata?.check_out || new Date().toISOString().split('T')[0];
+          }
+
+          console.log("📝 Creating booking:", bookingData);
+
+          const { data: booking, error: bookingError } = await supabase
+            .from("bookings")
+            .insert(bookingData)
+            .select("id")
+            .single();
+
+          if (bookingError) {
+            console.error("❌ Failed to create booking:", bookingError);
+          } else {
+            console.log(`✅ Booking created: ${booking.id}`);
+          }
+        } catch (bookingErr) {
+          console.error("❌ Booking creation error:", bookingErr);
+        }
+      }
+    }
+
     // TODO: Send email notification if payment completed or failed
     if (shouldNotify && checkout.email) {
       console.log(`📧 Should notify ${checkout.email} about ${newPaymentStatus} payment`);
@@ -169,7 +225,8 @@ export default async function handler(req, res) {
     return json(res, 200, { 
       ok: true, 
       checkoutId: checkout.id,
-      status: newPaymentStatus
+      status: newPaymentStatus,
+      bookingsCreated: shouldCreateBookings
     });
 
   } catch (error) {
