@@ -7,15 +7,26 @@ import { logError, uiErrorMessage } from "@/lib/ui-errors";
 
 export type CartItemType = "tour" | "tour_package" | "property" | "transport_vehicle" | "transport_route" | "transport_service";
 
+export interface CartItemMetadata {
+  check_in?: string;
+  check_out?: string;
+  guests?: number;
+  nights?: number;
+  start_date?: string;
+  end_date?: string;
+}
+
 export interface GuestCartItem {
   id: string;
   item_type: CartItemType;
   reference_id: string;
   quantity: number;
   created_at: string;
+  metadata?: CartItemMetadata;
 }
 
 const GUEST_CART_KEY = "merry360_guest_cart";
+const CART_METADATA_KEY = "merry360_cart_metadata";
 
 // Get guest cart from localStorage
 export function getGuestCart(): GuestCartItem[] {
@@ -25,6 +36,31 @@ export function getGuestCart(): GuestCartItem[] {
     return stored ? JSON.parse(stored) : [];
   } catch {
     return [];
+  }
+}
+
+// Get cart item metadata from localStorage
+export function getCartItemMetadata(referenceId: string): CartItemMetadata | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = localStorage.getItem(CART_METADATA_KEY);
+    const allMetadata = stored ? JSON.parse(stored) : {};
+    return allMetadata[referenceId] || null;
+  } catch {
+    return null;
+  }
+}
+
+// Save cart item metadata to localStorage
+export function saveCartItemMetadata(referenceId: string, metadata: CartItemMetadata): void {
+  if (typeof window === "undefined") return;
+  try {
+    const stored = localStorage.getItem(CART_METADATA_KEY);
+    const allMetadata = stored ? JSON.parse(stored) : {};
+    allMetadata[referenceId] = metadata;
+    localStorage.setItem(CART_METADATA_KEY, JSON.stringify(allMetadata));
+  } catch {
+    console.error("Failed to save cart metadata");
   }
 }
 
@@ -91,7 +127,12 @@ export function useTripCart() {
   }, [user, qc, toast]);
 
   const addToCart = useCallback(
-    async (itemType: CartItemType, referenceId: string, quantity = 1) => {
+    async (itemType: CartItemType, referenceId: string, quantity = 1, metadata?: CartItemMetadata) => {
+      // Save metadata to localStorage regardless of auth status
+      if (metadata) {
+        saveCartItemMetadata(referenceId, metadata);
+      }
+      
       if (user) {
         try {
           // Check for duplicates
@@ -158,6 +199,7 @@ export function useTripCart() {
           reference_id: referenceId,
           quantity,
           created_at: new Date().toISOString(),
+          metadata,
         };
 
         setGuestCart((prev) => {

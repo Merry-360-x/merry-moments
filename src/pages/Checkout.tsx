@@ -12,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { usePreferences } from "@/hooks/usePreferences";
 import { formatMoney } from "@/lib/money";
-import { useTripCart } from "@/hooks/useTripCart";
+import { useTripCart, CartItemMetadata, getCartItemMetadata } from "@/hooks/useTripCart";
 import { useFxRates } from "@/hooks/useFxRates";
 import { convertAmount } from "@/lib/fx";
 import { calculateGuestTotal, calculateHostEarnings, PLATFORM_FEES } from "@/lib/fees";
@@ -48,6 +48,7 @@ interface CartItem {
   currency: string;
   image?: string;
   meta?: string;
+  metadata?: CartItemMetadata;
 }
 
 type Step = 'details' | 'payment' | 'confirm';
@@ -204,6 +205,8 @@ export default function CheckoutNew() {
       nights = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
     }
     
+    const guests = parseInt(searchParams.get("guests") || "1", 10);
+    
     // Return as a cart item
     return [{
       id: `direct-${property.id}`,
@@ -214,7 +217,13 @@ export default function CheckoutNew() {
       price: property.price_per_night,
       currency: property.currency || 'RWF',
       image: property.images?.[0],
-      meta: property.location
+      meta: property.location,
+      metadata: {
+        check_in: checkIn || undefined,
+        check_out: checkOut || undefined,
+        nights,
+        guests,
+      }
     }];
   }
 
@@ -266,6 +275,9 @@ export default function CheckoutNew() {
         return null;
       }
 
+      // Get metadata from localStorage for properties
+      const metadata = item.item_type === 'property' ? getCartItemMetadata(refId) : undefined;
+
       const getDetails = () => {
         switch (item.item_type) {
           case 'tour':
@@ -284,7 +296,7 @@ export default function CheckoutNew() {
       const details = getDetails();
       if (!details) return null;
 
-      return { id: item.id, item_type: item.item_type, reference_id: item.reference_id, quantity: item.quantity, ...details } as CartItem;
+      return { id: item.id, item_type: item.item_type, reference_id: item.reference_id, quantity: item.quantity, metadata, ...details } as CartItem;
     }).filter(Boolean) as CartItem[];
   }
 
@@ -295,11 +307,15 @@ export default function CheckoutNew() {
     const curr = preferredCurrency || "RWF";
 
     cartItems.forEach((item) => {
-      const itemTotal = item.price * item.quantity;
+      // For properties, use nights from metadata; for other items use quantity
+      const isProperty = item.item_type === 'property';
+      const nights = isProperty && item.metadata?.nights ? item.metadata.nights : 1;
+      const multiplier = isProperty ? nights : item.quantity;
+      const itemTotal = item.price * multiplier;
       const converted = convertAmount(itemTotal, item.currency, curr, usdRates) ?? itemTotal;
       subtotalAmount += converted;
       
-      if (item.item_type === 'property') {
+      if (isProperty) {
         const { platformFee } = calculateGuestTotal(converted, 'accommodation');
         feesAmount += platformFee;
       }
@@ -1077,7 +1093,10 @@ export default function CheckoutNew() {
               {/* Items Preview */}
               <div className="space-y-3 mb-4">
                 {cartItems.slice(0, 3).map((item) => {
-                  const itemPrice = convertAmount(item.price * item.quantity, item.currency, displayCurrency, usdRates) ?? item.price * item.quantity;
+                  const isProperty = item.item_type === 'property';
+                  const nights = isProperty && item.metadata?.nights ? item.metadata.nights : item.quantity;
+                  const multiplier = isProperty ? nights : item.quantity;
+                  const itemPrice = convertAmount(item.price * multiplier, item.currency, displayCurrency, usdRates) ?? item.price * multiplier;
                   
                   return (
                     <div key={item.id} className="flex items-center gap-3">
@@ -1092,7 +1111,13 @@ export default function CheckoutNew() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{item.title}</p>
-                        <p className="text-xs text-muted-foreground">×{item.quantity}</p>
+                        {isProperty && item.metadata?.check_in && item.metadata?.check_out ? (
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(item.metadata.check_in).toLocaleDateString()} - {new Date(item.metadata.check_out).toLocaleDateString()} ({nights} {nights === 1 ? 'night' : 'nights'})
+                          </p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">×{item.quantity}</p>
+                        )}
                       </div>
                       <p className="text-sm font-medium">{formatMoney(itemPrice, displayCurrency)}</p>
                     </div>

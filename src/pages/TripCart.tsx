@@ -4,8 +4,9 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -26,9 +27,13 @@ import {
   Users,
   Home,
   Car,
-  Loader2
+  Loader2,
+  Clock,
+  Pencil,
+  X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getCartItemMetadata, saveCartItemMetadata, CartItemMetadata } from "@/hooks/useTripCart";
 
 interface CartItem {
   id: string;
@@ -40,6 +45,7 @@ interface CartItem {
   currency: string;
   image?: string;
   meta?: string;
+  metadata?: CartItemMetadata;
 }
 
 export default function TripCart() {
@@ -49,11 +55,18 @@ export default function TripCart() {
   const { currency: preferredCurrency } = usePreferences();
   const { guestCart, removeFromCart, clearCart, updateQuantity } = useTripCart();
   const { usdRates } = useFxRates();
+  const queryClient = useQueryClient();
   
   // Discount code state
   const [discountCode, setDiscountCode] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState<any>(null);
   const [validatingCode, setValidatingCode] = useState(false);
+  
+  // Edit dates modal state
+  const [editingItem, setEditingItem] = useState<CartItem | null>(null);
+  const [editCheckIn, setEditCheckIn] = useState("");
+  const [editCheckOut, setEditCheckOut] = useState("");
+  const [editGuests, setEditGuests] = useState(1);
 
   // Persist applied discount to localStorage for checkout
   useEffect(() => {
@@ -153,7 +166,17 @@ export default function TripCart() {
       const details = getDetails();
       if (!details) return null;
 
-      return { id: item.id, item_type: item.item_type, reference_id: item.reference_id, quantity: item.quantity, ...details } as CartItem;
+      // Get metadata from localStorage
+      const metadata = getCartItemMetadata(String(item.reference_id));
+
+      return { 
+        id: item.id, 
+        item_type: item.item_type, 
+        reference_id: item.reference_id, 
+        quantity: item.quantity, 
+        metadata,
+        ...details 
+      } as CartItem;
     }).filter(Boolean) as CartItem[];
   }
 
@@ -196,6 +219,48 @@ export default function TripCart() {
     setValidatingCode(false);
   };
 
+  // Open edit dates modal
+  const handleEditDates = (item: CartItem) => {
+    setEditingItem(item);
+    setEditCheckIn(item.metadata?.check_in || "");
+    setEditCheckOut(item.metadata?.check_out || "");
+    setEditGuests(item.metadata?.guests || 1);
+  };
+
+  // Save edited dates
+  const handleSaveDates = () => {
+    if (!editingItem) return;
+    
+    if (!editCheckIn || !editCheckOut) {
+      toast({ variant: "destructive", title: "Missing Dates", description: "Please select both check-in and check-out dates" });
+      return;
+    }
+    
+    const checkInDate = new Date(editCheckIn);
+    const checkOutDate = new Date(editCheckOut);
+    
+    if (checkOutDate <= checkInDate) {
+      toast({ variant: "destructive", title: "Invalid Dates", description: "Check-out date must be after check-in date" });
+      return;
+    }
+    
+    const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Save to localStorage
+    saveCartItemMetadata(editingItem.reference_id, {
+      check_in: editCheckIn,
+      check_out: editCheckOut,
+      guests: editGuests,
+      nights,
+    });
+    
+    // Refresh cart data
+    queryClient.invalidateQueries({ queryKey: ["trip_cart"] });
+    
+    toast({ title: "Dates Updated", description: `${nights} night${nights > 1 ? 's' : ''} from ${checkInDate.toLocaleDateString()} to ${checkOutDate.toLocaleDateString()}` });
+    setEditingItem(null);
+  };
+
   // Calculate totals with platform fees
   const { subtotal, serviceFees, discount, total, currency: displayCurrency } = useMemo(() => {
     let subtotalAmount = 0;
@@ -203,12 +268,16 @@ export default function TripCart() {
     const curr = preferredCurrency || "RWF";
 
     cartItems.forEach((item) => {
-      const itemTotal = item.price * item.quantity;
+      // For properties, use nights from metadata; for other items use quantity
+      const isProperty = item.item_type === 'property';
+      const nights = isProperty && item.metadata?.nights ? item.metadata.nights : 1;
+      const multiplier = isProperty ? nights : item.quantity;
+      const itemTotal = item.price * multiplier;
       const converted = convertAmount(itemTotal, item.currency, curr, usdRates) ?? itemTotal;
       subtotalAmount += converted;
       
       // Calculate platform fees based on item type
-      if (item.item_type === 'property') {
+      if (isProperty) {
         const { platformFee } = calculateGuestTotal(converted, 'accommodation');
         feesAmount += platformFee;
       }
@@ -313,8 +382,11 @@ export default function TripCart() {
             {/* Cart Items */}
             <div className="lg:col-span-2 space-y-4">
               {cartItems.map((item) => {
-                const itemPrice = convertAmount(item.price, item.currency, displayCurrency, usdRates) ?? item.price;
+                const pricePerUnit = convertAmount(item.price, item.currency, displayCurrency, usdRates) ?? item.price;
                 const isAccommodation = item.item_type === 'property';
+                // For properties, multiply by nights from metadata
+                const nights = item.metadata?.nights || item.quantity;
+                const itemPrice = isAccommodation ? pricePerUnit * nights : pricePerUnit;
                 const { platformFee } = isAccommodation ? calculateGuestTotal(itemPrice, 'accommodation') : { platformFee: 0 };
                 
                 return (
@@ -355,7 +427,52 @@ export default function TripCart() {
                         <div>
                           <h3 className="font-medium text-lg line-clamp-1">{item.title}</h3>
                           {item.meta && (
-                            <p className="text-sm text-muted-foreground mt-0.5">{item.meta}</p>
+                            <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1">
+                              <MapPin className="w-3 h-3" />
+                              {item.meta}
+                            </p>
+                          )}
+                          
+                          {/* Show dates and stay info for properties */}
+                          {item.item_type === 'property' && (
+                            <div className="mt-2">
+                              {item.metadata?.check_in && item.metadata?.check_out ? (
+                                <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                                  <span className="flex items-center gap-1">
+                                    <Calendar className="w-3 h-3" />
+                                    {new Date(item.metadata.check_in).toLocaleDateString()} - {new Date(item.metadata.check_out).toLocaleDateString()}
+                                  </span>
+                                  {item.metadata.nights && (
+                                    <span className="flex items-center gap-1">
+                                      <Clock className="w-3 h-3" />
+                                      {item.metadata.nights} night{item.metadata.nights > 1 ? 's' : ''}
+                                    </span>
+                                  )}
+                                  {item.metadata.guests && (
+                                    <span className="flex items-center gap-1">
+                                      <Users className="w-3 h-3" />
+                                      {item.metadata.guests} guest{item.metadata.guests > 1 ? 's' : ''}
+                                    </span>
+                                  )}
+                                  <button
+                                    onClick={() => handleEditDates(item)}
+                                    className="flex items-center gap-1 text-primary hover:underline"
+                                  >
+                                    <Pencil className="w-3 h-3" />
+                                    Edit
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => handleEditDates(item)}
+                                  className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 hover:underline"
+                                >
+                                  <Calendar className="w-3 h-3" />
+                                  Add dates to continue
+                                  <Pencil className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
                           )}
                         </div>
                         
@@ -387,8 +504,13 @@ export default function TripCart() {
                           
                           <div className="text-right">
                             <p className="text-lg font-semibold">
-                              {formatMoney((itemPrice + platformFee) * item.quantity, displayCurrency)}
+                              {formatMoney(itemPrice + platformFee, displayCurrency)}
                             </p>
+                            {isAccommodation && item.metadata?.nights && (
+                              <p className="text-xs text-muted-foreground">
+                                {formatMoney(pricePerUnit, displayCurrency)}/night × {nights} nights
+                              </p>
+                            )}
                             {isAccommodation && platformFee > 0 && (
                               <p className="text-xs text-muted-foreground">
                                 incl. {PLATFORM_FEES.accommodation.guestFeePercent}% service fee
@@ -513,6 +635,123 @@ export default function TripCart() {
           </div>
         )}
       </div>
+
+      {/* Edit Dates Modal */}
+      {editingItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-card rounded-2xl border shadow-xl w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="font-semibold text-lg">Edit Booking Dates</h3>
+              <button
+                onClick={() => setEditingItem(null)}
+                className="p-2 hover:bg-muted rounded-full transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-4 space-y-4">
+              {/* Property Info */}
+              <div className="flex items-center gap-3 pb-4 border-b">
+                <div className="w-16 h-16 rounded-lg bg-muted overflow-hidden shrink-0">
+                  {editingItem.image ? (
+                    <img src={editingItem.image} alt={editingItem.title} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Home className="w-6 h-6 text-muted-foreground" />
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <h4 className="font-medium line-clamp-1">{editingItem.title}</h4>
+                  <p className="text-sm text-muted-foreground">{formatMoney(editingItem.price, editingItem.currency)}/night</p>
+                </div>
+              </div>
+              
+              {/* Date Inputs */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="check-in">Check-in</Label>
+                  <Input
+                    id="check-in"
+                    type="date"
+                    value={editCheckIn}
+                    onChange={(e) => setEditCheckIn(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="w-full"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="check-out">Check-out</Label>
+                  <Input
+                    id="check-out"
+                    type="date"
+                    value={editCheckOut}
+                    onChange={(e) => setEditCheckOut(e.target.value)}
+                    min={editCheckIn || new Date().toISOString().split('T')[0]}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+              
+              {/* Guests */}
+              <div className="space-y-2">
+                <Label htmlFor="guests">Guests</Label>
+                <div className="flex items-center border rounded-lg w-fit">
+                  <button 
+                    onClick={() => setEditGuests(Math.max(1, editGuests - 1))}
+                    className="p-2 hover:bg-muted transition-colors"
+                    disabled={editGuests <= 1}
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
+                  <span className="px-4 text-sm font-medium">{editGuests}</span>
+                  <button 
+                    onClick={() => setEditGuests(editGuests + 1)}
+                    className="p-2 hover:bg-muted transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              
+              {/* Summary */}
+              {editCheckIn && editCheckOut && new Date(editCheckOut) > new Date(editCheckIn) && (
+                <div className="bg-muted/50 rounded-lg p-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">
+                      {Math.ceil((new Date(editCheckOut).getTime() - new Date(editCheckIn).getTime()) / (1000 * 60 * 60 * 24))} nights × {formatMoney(editingItem.price, editingItem.currency)}
+                    </span>
+                    <span className="font-medium">
+                      {formatMoney(
+                        editingItem.price * Math.ceil((new Date(editCheckOut).getTime() - new Date(editCheckIn).getTime()) / (1000 * 60 * 60 * 24)),
+                        editingItem.currency
+                      )}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="p-4 border-t flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setEditingItem(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={handleSaveDates}
+                disabled={!editCheckIn || !editCheckOut}
+              >
+                Save Dates
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Footer />
     </div>

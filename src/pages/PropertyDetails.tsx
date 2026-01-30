@@ -395,7 +395,14 @@ export default function PropertyDetails() {
 
   const addPropertyToTripCart = async () => {
     if (!data || !propertyId) return;
-    await addToCart("property", data.id);
+    // Include booking metadata (dates, guests, nights)
+    const metadata = {
+      check_in: checkIn ? String(checkIn) : undefined,
+      check_out: checkOut ? String(checkOut) : undefined,
+      guests: guests,
+      nights: nights,
+    };
+    await addToCart("property", data.id, 1, metadata);
   };
 
   const { data: inCartRow } = useQuery({
