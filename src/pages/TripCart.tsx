@@ -46,6 +46,8 @@ interface CartItem {
   image?: string;
   meta?: string;
   metadata?: CartItemMetadata;
+  weekly_discount?: number;
+  monthly_discount?: number;
 }
 
 export default function TripCart() {
@@ -129,7 +131,7 @@ export default function TripCart() {
     const [tours, packages, properties, vehicles] = await Promise.all([
       tourIds.length ? supabase.from('tours').select('id, title, price_per_person, currency, images, duration_days').in('id', tourIds).then(r => { console.log('Tours loaded:', r.data?.length); return r.data || []; }) : [],
       packageIds.length ? supabase.from('tour_packages').select('id, title, price_per_adult, currency, cover_image, gallery_images, duration').in('id', packageIds).then(r => { console.log('Packages loaded:', r.data?.length); return r.data || []; }) : [],
-      propertyIds.length ? supabase.from('properties').select('id, title, price_per_night, currency, images, location').in('id', propertyIds).then(r => { console.log('Properties loaded:', r.data?.length); return r.data || []; }) : [],
+      propertyIds.length ? supabase.from('properties').select('id, title, price_per_night, currency, images, location, weekly_discount, monthly_discount').in('id', propertyIds).then(r => { console.log('Properties loaded:', r.data?.length); return r.data || []; }) : [],
       vehicleIds.length ? supabase.from('transport_vehicles').select('id, title, price_per_day, currency, image_url, vehicle_type, seats').in('id', vehicleIds).then(r => { console.log('Vehicles loaded:', r.data?.length); return r.data || []; }) : [],
     ]) as any[];
 
@@ -155,7 +157,15 @@ export default function TripCart() {
           case 'tour_package':
             return { title: data.title, price: data.price_per_adult, currency: data.currency || 'RWF', image: data.cover_image || data.gallery_images?.[0], meta: `${parseInt(data.duration) || 1} days` };
           case 'property':
-            return { title: data.title, price: data.price_per_night, currency: data.currency || 'RWF', image: data.images?.[0], meta: data.location };
+            return { 
+              title: data.title, 
+              price: data.price_per_night, 
+              currency: data.currency || 'RWF', 
+              image: data.images?.[0], 
+              meta: data.location,
+              weekly_discount: data.weekly_discount,
+              monthly_discount: data.monthly_discount
+            };
           case 'transport_vehicle':
             return { title: data.title, price: data.price_per_day, currency: data.currency || 'RWF', image: data.image_url, meta: `${data.vehicle_type} • ${data.seats} seats` };
           default:
@@ -386,7 +396,15 @@ export default function TripCart() {
                 const isAccommodation = item.item_type === 'property';
                 // For properties, multiply by nights from metadata
                 const nights = item.metadata?.nights || item.quantity;
-                const itemPrice = isAccommodation ? pricePerUnit * nights : pricePerUnit;
+                
+                // Calculate stay discount for properties
+                const stayDiscount = isAccommodation && nights 
+                  ? (nights >= 28 && item.monthly_discount ? item.monthly_discount : nights >= 7 && item.weekly_discount ? item.weekly_discount : 0)
+                  : 0;
+                
+                const basePrice = isAccommodation ? pricePerUnit * nights : pricePerUnit;
+                const discountAmount = basePrice * (stayDiscount / 100);
+                const itemPrice = basePrice - discountAmount;
                 const { platformFee } = isAccommodation ? calculateGuestTotal(itemPrice, 'accommodation') : { platformFee: 0 };
                 
                 return (
@@ -507,9 +525,16 @@ export default function TripCart() {
                               {formatMoney(itemPrice + platformFee, displayCurrency)}
                             </p>
                             {isAccommodation && item.metadata?.nights && (
-                              <p className="text-xs text-muted-foreground">
-                                {formatMoney(pricePerUnit, displayCurrency)}/night × {nights} nights
-                              </p>
+                              <>
+                                <p className="text-xs text-muted-foreground">
+                                  {formatMoney(pricePerUnit, displayCurrency)}/night × {nights} nights
+                                </p>
+                                {stayDiscount > 0 && (
+                                  <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                                    {stayDiscount}% {nights >= 28 ? 'monthly' : 'weekly'} discount applied
+                                  </p>
+                                )}
+                              </>
                             )}
                             {isAccommodation && platformFee > 0 && (
                               <p className="text-xs text-muted-foreground">
