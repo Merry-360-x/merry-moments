@@ -436,6 +436,18 @@ export default function CheckoutNew() {
 
   // Process payment
   const handlePayment = async () => {
+    // Check if user is signed in
+    if (!user) {
+      setPaymentError("Please sign in to complete your booking");
+      toast({
+        variant: "destructive",
+        title: "Sign in required",
+        description: "You need to be signed in to book. Please sign in and try again.",
+      });
+      setIsProcessing(false);
+      return;
+    }
+    
     setIsProcessing(true);
     setPaymentError(null);
     
@@ -1070,9 +1082,18 @@ export default function CheckoutNew() {
                   {paymentError && (
                     <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 flex gap-3">
                       <AlertCircle className="w-5 h-5 text-destructive shrink-0" />
-                      <div>
-                        <p className="font-medium text-destructive">Payment Failed</p>
+                      <div className="flex-1">
+                        <p className="font-medium text-destructive">
+                          {paymentError.includes("sign in") ? "Sign In Required" : "Payment Failed"}
+                        </p>
                         <p className="text-sm text-destructive/80">{paymentError}</p>
+                        {paymentError.includes("sign in") && (
+                          <Link to="/auth" className="inline-block mt-2">
+                            <Button size="sm" variant="destructive">
+                              Sign In to Book
+                            </Button>
+                          </Link>
+                        )}
                       </div>
                     </div>
                   )}
