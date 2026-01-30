@@ -107,15 +107,12 @@ export default function FinancialStaffDashboard() {
       }
       return data as unknown as Metrics;
     },
-    refetchInterval: 10000, // Refresh every 10 seconds
-    refetchOnWindowFocus: true,
-    staleTime: 0,
+    staleTime: 30000, // Cache for 30 seconds
   });
 
   const { data: bookings = [], refetch: refetchBookings } = useQuery({
     queryKey: ["financial_bookings"],
     queryFn: async () => {
-      console.log('[FinancialStaff] Fetching bookings...');
       const { data, error } = await supabase
         .from("bookings")
         .select("id, guest_id, guest_name, guest_email, guest_phone, status, payment_status, payment_method, total_price, currency, created_at, updated_at")
@@ -125,12 +122,9 @@ export default function FinancialStaffDashboard() {
         console.error('[FinancialStaff] Bookings error:', error);
         throw error;
       }
-      console.log('[FinancialStaff] Bookings fetched:', data?.length || 0);
       return (data ?? []) as BookingRow[];
     },
-    refetchInterval: 10000, // Refresh every 10 seconds
-    refetchOnWindowFocus: true,
-    staleTime: 0,
+    staleTime: 30000, // Cache for 30 seconds - real-time handles updates
   });
 
   const markAsPaid = async (bookingId: string) => {

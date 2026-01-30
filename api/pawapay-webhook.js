@@ -49,8 +49,8 @@ function generateConfirmationEmail(checkout, items, bookingIds) {
     <!-- Logo Header -->
     <tr>
       <td style="padding: 32px 24px; text-align: center; border-bottom: 1px solid #f3f4f6;">
-        <img src="https://merry360x.com/brand/logo.png" alt="Merry360" width="60" height="60" style="display: block; margin: 0 auto 12px auto;">
-        <h1 style="margin: 0; color: #dc2626; font-size: 22px; font-weight: 700;">Merry360</h1>
+        <img src="https://merry360x.com/brand/logo.png" alt="Merry360X" width="60" height="60" style="display: block; margin: 0 auto 12px auto;">
+        <h1 style="margin: 0; color: #dc2626; font-size: 22px; font-weight: 700;">Merry360X</h1>
       </td>
     </tr>
     
@@ -105,7 +105,7 @@ function generateConfirmationEmail(checkout, items, bookingIds) {
         <p style="margin: 0; color: #9ca3af; font-size: 12px;">
           Questions? <a href="mailto:support@merry360x.com" style="color: #ef4444; text-decoration: none;">support@merry360x.com</a>
         </p>
-        <p style="margin: 8px 0 0 0; color: #6b7280; font-size: 11px;">© 2026 Merry360 Experience</p>
+        <p style="margin: 8px 0 0 0; color: #6b7280; font-size: 11px;">© 2026 Merry360X</p>
       </td>
     </tr>
   </table>
@@ -163,7 +163,7 @@ function generateReceiptPDF(checkout, items, bookingIds) {
 </head>
 <body>
   <div class="header">
-    <div class="logo">Merry360</div>
+    <div class="logo">Merry360X</div>
     <div class="receipt-title">Payment Receipt</div>
     <div class="receipt-number">${receiptNumber}</div>
   </div>
@@ -190,7 +190,7 @@ function generateReceiptPDF(checkout, items, bookingIds) {
   </div>
   
   <div class="footer">
-    <p>Thank you for booking with Merry360 Experience</p>
+    <p>Thank you for booking with Merry360X</p>
     <p>support@merry360x.com | merry360x.com</p>
     <div class="order-ref">Order: ${checkout.id}</div>
   </div>
@@ -224,7 +224,7 @@ async function sendConfirmationEmail(checkout, items, bookingIds) {
       },
       body: JSON.stringify({
         sender: {
-          name: "Merry360",
+          name: "Merry360X",
           email: "davyncidavy@gmail.com",
         },
         to: [
