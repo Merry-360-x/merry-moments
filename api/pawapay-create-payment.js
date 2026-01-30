@@ -218,6 +218,45 @@ export default async function handler(req, res) {
       });
     }
 
+    // Check if payment was immediately rejected
+    const initialStatus = pawaPayData.status;
+    if (initialStatus === 'REJECTED' || initialStatus === 'FAILED') {
+      console.error(`⚠️ Payment immediately ${initialStatus} by PawaPay!`);
+      console.error("This usually means:");
+      console.error("1. Correspondent not activated for production account");
+      console.error("2. Invalid phone number format");
+      console.error("3. Account permissions issue");
+      console.error("Correspondent:", correspondent);
+      console.error("Phone:", msisdn);
+      console.error("Amount:", rwfAmount, currency);
+      
+      // Still update database but mark as failed
+      await supabase
+        .from("checkout_requests")
+        .update({
+          payment_method: provider === 'MTN' ? 'mtn_momo' : 'airtel_money',
+          payment_status: "failed",
+          payment_error: `Payment ${initialStatus.toLowerCase()}: Account not activated for ${correspondent}`,
+          dpo_transaction_id: depositId,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", orderId);
+      
+      return json(res, 200, {
+        success: false,
+        error: `Payment ${initialStatus.toLowerCase()}`,
+        message: `Your ${provider} mobile money payment could not be processed. This service may not be activated yet. Please try a different payment method or contact support.`,
+        depositId,
+        status: initialStatus,
+        data: {
+          checkoutId: orderId,
+          depositId,
+          correspondent,
+          reason: "CORRESPONDENT_NOT_ACTIVATED"
+        }
+      });
+    }
+
     // Update checkout request with payment details
     const { error: updateError } = await supabase
       .from("checkout_requests")

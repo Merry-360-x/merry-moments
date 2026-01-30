@@ -76,7 +76,8 @@ export default async function handler(req, res) {
     const pawapayStatus = depositData?.status;
     const failureReason = depositData?.failureReason;
 
-    console.log(`PawaPay status for ${depositId}: ${pawapayStatus}`, failureReason || '');
+    console.log(`📊 PawaPay raw response for ${depositId}:`, JSON.stringify(depositData, null, 2));
+    console.log(`📊 Extracted status: ${pawapayStatus}, failureReason:`, failureReason || 'none');
 
     // Extract human-readable failure message
     let failureMessage = null;

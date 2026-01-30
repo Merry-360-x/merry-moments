@@ -465,6 +465,24 @@ export default function CheckoutNew() {
       const paymentData = await paymentResponse.json();
       console.log("PawaPay API response:", paymentData);
 
+      // Check if payment was immediately rejected (correspondent not activated)
+      if (paymentData.success === false || paymentData.status === 'REJECTED' || paymentData.status === 'FAILED') {
+        console.error("Payment rejected immediately:", paymentData);
+        
+        const errorMsg = paymentData.message || 
+          "Mobile money payment is not available at the moment. Please try a different payment method or contact support.";
+        
+        setPaymentError(errorMsg);
+        setIsProcessing(false);
+        
+        toast({
+          title: "Payment Not Available",
+          description: errorMsg,
+          variant: "destructive",
+        });
+        return;
+      }
+
       if (!paymentResponse.ok) {
         console.error("PawaPay error details:", paymentData);
         throw new Error(paymentData.error || paymentData.message || "Payment initiation failed");
