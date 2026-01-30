@@ -439,6 +439,14 @@ export default function CheckoutNew() {
       }
 
       // Initiate PawaPay payment for mobile money
+      console.log("Initiating PawaPay payment:", {
+        checkoutId,
+        amount: Math.round(total),
+        currency: displayCurrency,
+        phoneNumber: fullPhone,
+        provider: paymentMethod === 'airtel' ? 'AIRTEL' : 'MTN',
+      });
+
       const paymentResponse = await fetch("/api/pawapay-create-payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -455,9 +463,11 @@ export default function CheckoutNew() {
       });
 
       const paymentData = await paymentResponse.json();
+      console.log("PawaPay API response:", paymentData);
 
       if (!paymentResponse.ok) {
-        throw new Error(paymentData.error || "Payment initiation failed");
+        console.error("PawaPay error details:", paymentData);
+        throw new Error(paymentData.error || paymentData.message || "Payment initiation failed");
       }
 
       // Clear cart
