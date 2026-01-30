@@ -528,16 +528,31 @@ export default function CheckoutNew() {
         return;
       }
 
+      // Convert total to RWF for PawaPay (mobile money only supports RWF)
+      let paymentAmount = total;
+      if (displayCurrency !== 'RWF') {
+        const rwfAmount = convertAmount(total, displayCurrency, 'RWF', usdRates);
+        if (!rwfAmount) {
+          throw new Error(`Unable to convert ${displayCurrency} to RWF. Please try again.`);
+        }
+        paymentAmount = rwfAmount;
+        console.log("💱 Converted amount to RWF:", {
+          from: displayCurrency,
+          original: total,
+          rwf: paymentAmount
+        });
+      }
+      
       // Validate amount before initiating payment
-      const paymentAmount = Math.round(total);
-      if (paymentAmount < 100) {
+      const finalAmount = Math.round(paymentAmount);
+      if (finalAmount < 100) {
         throw new Error("Minimum payment amount is 100 RWF");
       }
 
       // Initiate PawaPay payment for mobile money
       console.log("🔄 Initiating PawaPay payment:", {
         checkoutId,
-        amount: paymentAmount,
+        amount: finalAmount,
         currency: 'RWF',
         phoneNumber: fullPhone,
         provider: paymentMethod === 'airtel' ? 'AIRTEL' : 'MTN',
@@ -548,7 +563,7 @@ export default function CheckoutNew() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           checkoutId,
-          amount: paymentAmount,
+          amount: finalAmount,
           currency: 'RWF',
           phoneNumber: fullPhone,
           description: `Merry360x Booking - ${cartItems.length} item(s)`,
