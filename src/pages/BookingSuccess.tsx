@@ -24,20 +24,20 @@ export default function BookingSuccess() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <div className="container mx-auto px-4 py-16">
+      <div className="container mx-auto px-3 md:px-4 py-8 md:py-16">
         <div className="max-w-md mx-auto">
-          <Card className="p-6 text-center">
-            <div className="flex justify-center mb-4">
-              <div className={`rounded-full p-3 ${isManualPayment ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-green-100 dark:bg-green-900/30'}`}>
+          <Card className="p-4 md:p-6 text-center">
+            <div className="flex justify-center mb-3 md:mb-4">
+              <div className={`rounded-full p-2.5 md:p-3 ${isManualPayment ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-green-100 dark:bg-green-900/30'}`}>
                 {isManualPayment ? (
-                  <Clock className="h-12 w-12 text-amber-600 dark:text-amber-400" />
+                  <Clock className="h-8 w-8 md:h-12 md:w-12 text-amber-600 dark:text-amber-400" />
                 ) : (
-                  <CheckCircle className="h-12 w-12 text-green-600 dark:text-green-400" />
+                  <CheckCircle className="h-8 w-8 md:h-12 md:w-12 text-green-600 dark:text-green-400" />
                 )}
               </div>
             </div>
 
-            <h1 className="text-xl font-semibold text-foreground mb-2">
+            <h1 className="text-lg md:text-xl font-semibold text-foreground mb-1 md:mb-2">
               {isManualPayment 
                 ? "Booking Received!" 
                 : mode === "booking" 
@@ -45,65 +45,65 @@ export default function BookingSuccess() {
                   : "Order Confirmed!"}
             </h1>
 
-            <p className="text-sm text-muted-foreground mb-6">
+            <p className="text-xs md:text-sm text-muted-foreground mb-4 md:mb-6">
               {isManualPayment 
                 ? "Your booking has been reserved" 
                 : "We've received your booking"}
-              {bookingId && <span className="block text-xs mt-1">Booking ID: {bookingId.slice(0, 8)}...</span>}
+              {bookingId && <span className="block text-[10px] md:text-xs mt-1">ID: {bookingId.slice(0, 8)}...</span>}
             </p>
 
             {isManualPayment ? (
               <>
                 {/* Manual Payment Instructions */}
-                <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-6">
+                <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 md:p-4 mb-4 md:mb-6">
                   <div className="flex items-center justify-center gap-2 mb-2">
                     {method === 'card' ? (
-                      <CreditCard className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                      <CreditCard className="h-4 w-4 md:h-5 md:w-5 text-amber-600 dark:text-amber-400" />
                     ) : (
-                      <Building2 className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                      <Building2 className="h-4 w-4 md:h-5 md:w-5 text-amber-600 dark:text-amber-400" />
                     )}
-                    <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
-                      {method === 'card' ? 'Credit Card Payment' : 'Bank Transfer'}
+                    <p className="text-xs md:text-sm font-semibold text-amber-900 dark:text-amber-100">
+                      {method === 'card' ? 'Card Payment' : 'Bank Transfer'}
                     </p>
                   </div>
-                  <div className="bg-amber-100 dark:bg-amber-900/40 rounded-lg p-3 mb-3">
-                    <p className="text-2xl font-bold text-amber-800 dark:text-amber-200 flex items-center justify-center gap-2">
-                      <Clock className="h-5 w-5" />
-                      Expect a call in 5 minutes
+                  <div className="bg-amber-100 dark:bg-amber-900/40 rounded-lg p-2.5 md:p-3 mb-2 md:mb-3">
+                    <p className="text-lg md:text-2xl font-bold text-amber-800 dark:text-amber-200 flex items-center justify-center gap-2">
+                      <Clock className="h-4 w-4 md:h-5 md:w-5" />
+                      Call in 5 min
                     </p>
                   </div>
-                  <p className="text-xs text-amber-700 dark:text-amber-300">
-                    Our payment specialist will contact you to complete your {method === 'card' ? 'card' : 'bank transfer'} payment securely.
+                  <p className="text-[10px] md:text-xs text-amber-700 dark:text-amber-300">
+                    We'll call to complete your payment
                   </p>
                 </div>
 
-                <div className="bg-muted/50 rounded-lg p-4 mb-6">
-                  <h3 className="text-sm font-semibold text-foreground mb-3">
-                    Can't wait? Contact us directly
+                <div className="bg-muted/50 rounded-lg p-3 md:p-4 mb-4 md:mb-6">
+                  <h3 className="text-xs md:text-sm font-semibold text-foreground mb-2 md:mb-3">
+                    Contact us directly
                   </h3>
-                  <div className="space-y-3">
+                  <div className="space-y-2 md:space-y-3">
                     <a
                       href="tel:+250793903663"
-                      className="flex items-center gap-3 p-3 rounded-lg border bg-background hover:bg-muted/50 transition-colors"
+                      className="flex items-center gap-2 md:gap-3 p-2 md:p-3 rounded-lg border bg-background hover:bg-muted/50 transition-colors"
                     >
-                      <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                        <Phone className="h-5 w-5 text-green-600 dark:text-green-400" />
+                      <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                        <Phone className="h-4 w-4 md:h-5 md:w-5 text-green-600 dark:text-green-400" />
                       </div>
                       <div className="text-left">
-                        <div className="font-medium text-sm">Call Support</div>
-                        <div className="text-sm text-muted-foreground">+250 793 903 663</div>
+                        <div className="font-medium text-xs md:text-sm">Call Support</div>
+                        <div className="text-xs text-muted-foreground">+250 793 903 663</div>
                       </div>
                     </a>
                     <a
                       href="mailto:support@merry360x.com"
-                      className="flex items-center gap-3 p-3 rounded-lg border bg-background hover:bg-muted/50 transition-colors"
+                      className="flex items-center gap-2 md:gap-3 p-2 md:p-3 rounded-lg border bg-background hover:bg-muted/50 transition-colors"
                     >
-                      <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                        <Mail className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                      <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                        <Mail className="h-4 w-4 md:h-5 md:w-5 text-blue-600 dark:text-blue-400" />
                       </div>
                       <div className="text-left">
-                        <div className="font-medium text-sm">Email Support</div>
-                        <div className="text-sm text-muted-foreground">support@merry360x.com</div>
+                        <div className="font-medium text-xs md:text-sm">Email</div>
+                        <div className="text-[10px] md:text-xs text-muted-foreground truncate">support@merry360x.com</div>
                       </div>
                     </a>
                   </div>

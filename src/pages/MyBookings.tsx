@@ -353,12 +353,12 @@ const MyBookings = () => {
               return (
               <div
                 key={booking.id}
-                className="bg-card rounded-xl p-6 shadow-card flex flex-col md:flex-row gap-6"
+                className="bg-card rounded-xl p-4 md:p-6 shadow-card flex flex-col gap-4 md:gap-6"
               >
-                <div className="flex-1">
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5 md:gap-2 mb-1">
                         <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                           isTour ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' :
                           isTransport ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' :
@@ -379,11 +379,11 @@ const MyBookings = () => {
                           </span>
                         )}
                       </div>
-                      <h3 className="text-lg font-semibold text-foreground">
+                      <h3 className="text-base md:text-lg font-semibold text-foreground line-clamp-2">
                         {getTitle()}
                       </h3>
-                      <p className="text-sm text-muted-foreground flex items-center gap-1">
-                        <MapPin className="w-4 h-4" />
+                      <p className="text-xs md:text-sm text-muted-foreground flex items-center gap-1 truncate">
+                        <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
                         {getLocation()}
                       </p>
                       {!isTour && !isTransport && (booking.status === "confirmed" || booking.status === "completed") ? (
@@ -400,7 +400,7 @@ const MyBookings = () => {
                       ) : null}
                     </div>
                     <span
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      className={`px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[10px] md:text-xs font-medium whitespace-nowrap flex-shrink-0 ${
                         booking.status === "confirmed"
                           ? "bg-green-100 text-green-700"
                           : booking.status === "cancelled"
@@ -412,29 +412,29 @@ const MyBookings = () => {
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                  <div className="grid grid-cols-2 gap-3 md:gap-4 mt-3 md:mt-4">
                     <div>
-                      <p className="text-xs text-muted-foreground">{t("bookings.labels.checkIn")}</p>
-                      <p className="font-medium text-foreground">
+                      <p className="text-[10px] md:text-xs text-muted-foreground">{t("bookings.labels.checkIn")}</p>
+                      <p className="text-sm md:text-base font-medium text-foreground">
                         {new Date(booking.check_in).toLocaleDateString()}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">{t("bookings.labels.checkOut")}</p>
-                      <p className="font-medium text-foreground">
+                      <p className="text-[10px] md:text-xs text-muted-foreground">{t("bookings.labels.checkOut")}</p>
+                      <p className="text-sm md:text-base font-medium text-foreground">
                         {new Date(booking.check_out).toLocaleDateString()}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">{t("bookings.labels.guests")}</p>
-                      <p className="font-medium text-foreground flex items-center gap-1">
-                        <Users className="w-4 h-4" />
+                      <p className="text-[10px] md:text-xs text-muted-foreground">{t("bookings.labels.guests")}</p>
+                      <p className="text-sm md:text-base font-medium text-foreground flex items-center gap-1">
+                        <Users className="w-3.5 h-3.5 md:w-4 md:h-4" />
                         {booking.guests}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">{t("bookings.labels.total")}</p>
-                      <p className="font-semibold text-primary">
+                      <p className="text-[10px] md:text-xs text-muted-foreground">{t("bookings.labels.total")}</p>
+                      <p className="text-sm md:text-base font-semibold text-primary">
                         {formatMoneyWithConversion(
                           Number(booking.total_price),
                           String(booking.currency ?? "USD"),
@@ -447,28 +447,28 @@ const MyBookings = () => {
                 </div>
 
                 {(booking.status === "pending" || booking.status === "confirmed") && (
-                  <div className="flex md:flex-col justify-end gap-2">
+                  <div className="flex justify-end gap-2 pt-2 border-t md:border-0 md:pt-0">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => openCancelDialog(booking)}
-                      className="gap-1"
+                      className="gap-1 text-xs md:text-sm h-8 md:h-9"
                     >
-                      <XCircle className="w-4 h-4" />
+                      <XCircle className="w-3.5 h-3.5 md:w-4 md:h-4" />
                       {t("common.cancel")}
                     </Button>
                   </div>
                 )}
 
                 {canReview(booking) && (
-                  <div className="flex md:flex-col justify-end gap-2">
+                  <div className="flex justify-end gap-2 pt-2 border-t md:border-0 md:pt-0">
                     {reviewedBookingIds.has(String(booking.id)) ? (
-                      <Button variant="outline" size="sm" disabled>
+                      <Button variant="outline" size="sm" disabled className="text-xs md:text-sm h-8 md:h-9">
                         Reviewed
                       </Button>
                     ) : (
-                      <Button size="sm" onClick={() => openReview(booking)}>
-                        Leave a review
+                      <Button size="sm" onClick={() => openReview(booking)} className="text-xs md:text-sm h-8 md:h-9">
+                        Leave review
                       </Button>
                     )}
                   </div>

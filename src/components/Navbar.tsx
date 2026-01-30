@@ -165,13 +165,13 @@ const Navbar = () => {
         <div
           className="w-full border-b border-border/60"
         >
-          <div className="container mx-auto px-4 lg:px-8 py-2">
+          <div className="container mx-auto px-3 md:px-4 lg:px-8 py-1.5 md:py-2">
             <div className="mx-auto max-w-4xl">
-              <div className="rounded-full border border-border/70 bg-background px-4 py-2 shadow-sm flex items-center justify-center gap-3 text-center">
-                <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary shrink-0">
-                  <Megaphone className="w-4 h-4" />
+              <div className="rounded-full border border-border/70 bg-background px-2.5 md:px-4 py-1.5 md:py-2 shadow-sm flex items-center justify-center gap-2 md:gap-3 text-center">
+                <span className="inline-flex items-center justify-center w-6 h-6 md:w-8 md:h-8 rounded-full bg-primary/10 text-primary shrink-0">
+                  <Megaphone className="w-3 h-3 md:w-4 md:h-4" />
                 </span>
-                <span className="text-sm font-semibold text-foreground">
+                <span className="text-[11px] md:text-sm font-semibold text-foreground line-clamp-1">
                   {(activeAd?.message ?? fallbackAd.message) as string}
                 </span>
                 {activeAd?.cta_label && activeAd?.cta_url && (
@@ -179,7 +179,7 @@ const Navbar = () => {
                     <span className="hidden sm:inline-block w-1 h-1 rounded-full bg-muted-foreground/40" />
                     <a
                       href={activeAd.cta_url}
-                      className="text-sm font-semibold text-primary hover:underline underline-offset-4"
+                      className="text-[11px] md:text-sm font-semibold text-primary hover:underline underline-offset-4 whitespace-nowrap"
                       target="_blank"
                       rel="noreferrer"
                     >

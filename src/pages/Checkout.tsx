@@ -813,31 +813,31 @@ export default function CheckoutNew() {
 
               {/* Step 2: Payment */}
               {currentStep === 'payment' && (
-                <div className="space-y-6">
+                <div className="space-y-4 md:space-y-6">
                   <div>
-                    <h2 className="text-xl font-semibold mb-1">Choose Payment Method</h2>
-                    <p className="text-sm text-muted-foreground">Select your preferred payment option</p>
+                    <h2 className="text-lg md:text-xl font-semibold mb-1">Payment Method</h2>
+                    <p className="text-xs md:text-sm text-muted-foreground">Select your preferred option</p>
                   </div>
 
                   {/* Payment Method Selector */}
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2 md:gap-3">
                     {/* MTN Mobile Money */}
                     <button
                       onClick={() => setPaymentMethod('mtn')}
                       className={cn(
-                        "border-2 rounded-xl p-4 text-left transition-all",
+                        "border-2 rounded-lg md:rounded-xl p-2.5 md:p-4 text-left transition-all",
                         paymentMethod === 'mtn' 
                           ? "border-primary bg-primary/5" 
                           : "border-border hover:border-primary/50"
                       )}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-yellow-400 flex items-center justify-center">
-                          <span className="font-bold text-sm text-black">MTN</span>
+                      <div className="flex items-center gap-2 md:gap-3">
+                        <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-yellow-400 flex items-center justify-center flex-shrink-0">
+                          <span className="font-bold text-[10px] md:text-sm text-black">MTN</span>
                         </div>
-                        <div>
-                          <p className="font-medium">MTN Mobile Money</p>
-                          <p className="text-xs text-muted-foreground">Rwanda, Uganda, etc.</p>
+                        <div className="min-w-0">
+                          <p className="font-medium text-xs md:text-base truncate">MTN MoMo</p>
+                          <p className="text-[10px] md:text-xs text-muted-foreground hidden sm:block">Rwanda</p>
                         </div>
                       </div>
                     </button>
@@ -846,19 +846,19 @@ export default function CheckoutNew() {
                     <button
                       onClick={() => setPaymentMethod('airtel')}
                       className={cn(
-                        "border-2 rounded-xl p-4 text-left transition-all",
+                        "border-2 rounded-lg md:rounded-xl p-2.5 md:p-4 text-left transition-all",
                         paymentMethod === 'airtel' 
                           ? "border-primary bg-primary/5" 
                           : "border-border hover:border-primary/50"
                       )}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-red-500 flex items-center justify-center">
-                          <span className="font-bold text-xs text-white">Airtel</span>
+                      <div className="flex items-center gap-2 md:gap-3">
+                        <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-red-500 flex items-center justify-center flex-shrink-0">
+                          <span className="font-bold text-[10px] md:text-xs text-white">Airtel</span>
                         </div>
-                        <div>
-                          <p className="font-medium">Airtel Money</p>
-                          <p className="text-xs text-muted-foreground">Rwanda, Kenya, etc.</p>
+                        <div className="min-w-0">
+                          <p className="font-medium text-xs md:text-base truncate">Airtel Money</p>
+                          <p className="text-[10px] md:text-xs text-muted-foreground hidden sm:block">Rwanda</p>
                         </div>
                       </div>
                     </button>
@@ -867,19 +867,19 @@ export default function CheckoutNew() {
                     <button
                       onClick={() => { setPaymentMethod('card'); setShowContactModal(true); }}
                       className={cn(
-                        "border-2 rounded-xl p-4 text-left transition-all",
+                        "border-2 rounded-lg md:rounded-xl p-2.5 md:p-4 text-left transition-all",
                         paymentMethod === 'card' 
                           ? "border-primary bg-primary/5" 
                           : "border-border hover:border-primary/50"
                       )}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                          <CreditCard className="w-5 h-5 text-white" />
+                      <div className="flex items-center gap-2 md:gap-3">
+                        <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                          <CreditCard className="w-4 h-4 md:w-5 md:h-5 text-white" />
                         </div>
-                        <div>
-                          <p className="font-medium">Credit / Debit Card</p>
-                          <p className="text-xs text-muted-foreground">Visa, Mastercard</p>
+                        <div className="min-w-0">
+                          <p className="font-medium text-xs md:text-base truncate">Card</p>
+                          <p className="text-[10px] md:text-xs text-muted-foreground hidden sm:block">Visa, MC</p>
                         </div>
                       </div>
                     </button>
@@ -888,19 +888,19 @@ export default function CheckoutNew() {
                     <button
                       onClick={() => { setPaymentMethod('bank'); setShowContactModal(true); }}
                       className={cn(
-                        "border-2 rounded-xl p-4 text-left transition-all",
+                        "border-2 rounded-lg md:rounded-xl p-2.5 md:p-4 text-left transition-all",
                         paymentMethod === 'bank' 
                           ? "border-primary bg-primary/5" 
                           : "border-border hover:border-primary/50"
                       )}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-emerald-500 flex items-center justify-center">
-                          <Building2 className="w-5 h-5 text-white" />
+                      <div className="flex items-center gap-2 md:gap-3">
+                        <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-emerald-500 flex items-center justify-center flex-shrink-0">
+                          <Building2 className="w-4 h-4 md:w-5 md:h-5 text-white" />
                         </div>
-                        <div>
-                          <p className="font-medium">Bank Transfer</p>
-                          <p className="text-xs text-muted-foreground">Direct bank payment</p>
+                        <div className="min-w-0">
+                          <p className="font-medium text-xs md:text-base truncate">Bank</p>
+                          <p className="text-[10px] md:text-xs text-muted-foreground hidden sm:block">Transfer</p>
                         </div>
                       </div>
                     </button>
