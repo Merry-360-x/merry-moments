@@ -84,6 +84,9 @@ export default function CheckoutNew() {
   
   // Discount
   const [appliedDiscount, setAppliedDiscount] = useState<any>(null);
+  const [discountCodeInput, setDiscountCodeInput] = useState("");
+  const [discountLoading, setDiscountLoading] = useState(false);
+  const [discountError, setDiscountError] = useState<string | null>(null);
 
   // Load user data
   useEffect(() => {
@@ -323,6 +326,64 @@ export default function CheckoutNew() {
       displayCurrency: curr,
     };
   }, [cartItems, preferredCurrency, usdRates, appliedDiscount]);
+
+  // Apply discount code
+  const handleApplyDiscount = async () => {
+    if (!discountCodeInput.trim()) {
+      setDiscountError("Please enter a discount code");
+      return;
+    }
+    
+    setDiscountLoading(true);
+    setDiscountError(null);
+    
+    try {
+      const { data, error } = await supabase
+        .from("discount_codes")
+        .select("*")
+        .eq("code", discountCodeInput.trim().toUpperCase())
+        .eq("is_active", true)
+        .single();
+      
+      if (error || !data) {
+        setDiscountError("Invalid or expired discount code");
+        return;
+      }
+      
+      // Check if code has uses remaining
+      if (data.max_uses && data.uses >= data.max_uses) {
+        setDiscountError("This discount code has been fully used");
+        return;
+      }
+      
+      // Check expiry
+      if (data.expires_at && new Date(data.expires_at) < new Date()) {
+        setDiscountError("This discount code has expired");
+        return;
+      }
+      
+      setAppliedDiscount(data);
+      localStorage.setItem("applied_discount", JSON.stringify(data));
+      setDiscountCodeInput("");
+      toast({
+        title: "Discount applied!",
+        description: data.discount_type === 'percentage' 
+          ? `${data.discount_value}% off your order`
+          : `${formatMoney(data.discount_value, displayCurrency)} off your order`,
+      });
+    } catch (err) {
+      console.error("Discount error:", err);
+      setDiscountError("Failed to apply discount code");
+    } finally {
+      setDiscountLoading(false);
+    }
+  };
+
+  const handleRemoveDiscount = () => {
+    setAppliedDiscount(null);
+    localStorage.removeItem("applied_discount");
+    toast({ title: "Discount removed" });
+  };
 
   // Step validation
   const isDetailsValid = formData.fullName.trim() && formData.email.trim();
@@ -1039,6 +1100,61 @@ export default function CheckoutNew() {
                 })}
                 {cartItems.length > 3 && (
                   <p className="text-sm text-muted-foreground">+{cartItems.length - 3} more items</p>
+                )}
+              </div>
+
+              {/* Discount Code Input */}
+              <div className="border-t pt-4 pb-2">
+                {appliedDiscount ? (
+                  <div className="flex items-center justify-between bg-green-50 dark:bg-green-950/30 p-3 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Tag className="w-4 h-4 text-green-600 dark:text-green-400" />
+                      <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                        {appliedDiscount.code}
+                      </span>
+                      <span className="text-xs text-green-600 dark:text-green-400">
+                        ({appliedDiscount.discount_type === 'percentage' 
+                          ? `${appliedDiscount.discount_value}% off` 
+                          : `${formatMoney(appliedDiscount.discount_value, displayCurrency)} off`})
+                      </span>
+                    </div>
+                    <button
+                      onClick={handleRemoveDiscount}
+                      className="text-red-500 hover:text-red-600 text-xs font-medium"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <Input
+                        value={discountCodeInput}
+                        onChange={(e) => {
+                          setDiscountCodeInput(e.target.value.toUpperCase());
+                          setDiscountError(null);
+                        }}
+                        placeholder="Discount code"
+                        className="flex-1 h-10 text-sm uppercase"
+                      />
+                      <Button
+                        onClick={handleApplyDiscount}
+                        variant="outline"
+                        size="sm"
+                        disabled={discountLoading || !discountCodeInput.trim()}
+                        className="h-10 px-4"
+                      >
+                        {discountLoading ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          "Apply"
+                        )}
+                      </Button>
+                    </div>
+                    {discountError && (
+                      <p className="text-xs text-red-500">{discountError}</p>
+                    )}
+                  </div>
                 )}
               </div>
 
