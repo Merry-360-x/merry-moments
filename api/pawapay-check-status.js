@@ -131,6 +131,13 @@ export default async function handler(req, res) {
         paymentStatus = "pending";
       }
 
+      // Fetch full checkout to get items for booking creation
+      const { data: checkoutData, error: checkoutFetchError } = await supabase
+        .from("checkout_requests")
+        .select("id, user_id, payment_status, metadata, currency")
+        .eq("id", orderId)
+        .single();
+
       // Update the checkout request
       const { error: updateError } = await supabase
         .from("checkout_requests")
@@ -144,6 +151,69 @@ export default async function handler(req, res) {
         console.error("Failed to update checkout:", updateError);
       } else {
         console.log(`Checkout ${orderId} updated: payment=${paymentStatus}`);
+      }
+
+      // Create bookings if payment completed and not already created
+      if (paymentStatus === "paid" && checkoutData && checkoutData.payment_status !== "paid") {
+        console.log("📦 Creating bookings from checkout items (via status check)...");
+        const items = checkoutData.metadata?.items || [];
+        const bookingDetails = checkoutData.metadata?.booking_details;
+        
+        for (const item of items) {
+          try {
+            // Check if booking already exists
+            const { data: existingBooking } = await supabase
+              .from("bookings")
+              .select("id")
+              .eq("order_id", orderId)
+              .eq(item.item_type === 'property' ? "property_id" : item.item_type === 'transport_vehicle' ? "transport_id" : "tour_id", item.reference_id)
+              .limit(1);
+
+            if (existingBooking && existingBooking.length > 0) {
+              console.log(`⏭️ Booking already exists for item ${item.reference_id}`);
+              continue;
+            }
+
+            const bookingData = {
+              guest_id: checkoutData.user_id,
+              order_id: checkoutData.id,
+              total_price: item.calculated_price || item.price,
+              currency: checkoutData.currency || 'RWF',
+              status: 'confirmed',
+              payment_status: 'paid',
+              payment_method: 'mobile_money',
+              guests_count: bookingDetails?.guests || item.metadata?.guests || 1,
+            };
+
+            if (item.item_type === 'property') {
+              bookingData.property_id = item.reference_id;
+              bookingData.check_in = bookingDetails?.check_in || item.metadata?.check_in;
+              bookingData.check_out = bookingDetails?.check_out || item.metadata?.check_out;
+            } else if (item.item_type === 'tour' || item.item_type === 'tour_package') {
+              bookingData.tour_id = item.reference_id;
+              bookingData.check_in = bookingDetails?.check_in || item.metadata?.check_in || new Date().toISOString().split('T')[0];
+              bookingData.check_out = bookingDetails?.check_out || item.metadata?.check_out || new Date().toISOString().split('T')[0];
+            } else if (item.item_type === 'transport_vehicle') {
+              bookingData.transport_id = item.reference_id;
+              bookingData.check_in = bookingDetails?.check_in || item.metadata?.check_in || new Date().toISOString().split('T')[0];
+              bookingData.check_out = bookingDetails?.check_out || item.metadata?.check_out || new Date().toISOString().split('T')[0];
+            }
+
+            const { data: booking, error: bookingError } = await supabase
+              .from("bookings")
+              .insert(bookingData)
+              .select("id")
+              .single();
+
+            if (bookingError) {
+              console.error("❌ Failed to create booking:", bookingError);
+            } else {
+              console.log(`✅ Booking created: ${booking.id}`);
+            }
+          } catch (bookingErr) {
+            console.error("❌ Booking creation error:", bookingErr);
+          }
+        }
       }
 
       return json(res, 200, {
