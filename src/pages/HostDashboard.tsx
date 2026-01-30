@@ -3262,28 +3262,6 @@ export default function HostDashboard() {
               </div>
             </Card>
 
-            {/* Platform Fees Info */}
-            <Card className="p-4 mb-8 bg-muted/30">
-              <div className="flex items-start gap-3">
-                <Info className="w-5 h-5 text-muted-foreground mt-0.5 shrink-0" />
-                <div>
-                  <h4 className="font-medium text-sm mb-2">Platform Fees</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-muted-foreground">
-                    <div>
-                      <p className="font-medium text-foreground">Accommodations</p>
-                      <p>• Guest pays: +{PLATFORM_FEES.accommodation.guestFeePercent}% service fee</p>
-                      <p>• You receive: {100 - PLATFORM_FEES.accommodation.hostFeePercent}% of your price</p>
-                    </div>
-                    <div>
-                      <p className="font-medium text-foreground">Tours</p>
-                      <p>• Guest pays: No extra fee</p>
-                      <p>• You receive: {100 - PLATFORM_FEES.tour.providerFeePercent}% of your price</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </Card>
-
             {/* Recent Bookings */}
             <Card className="p-4">
               <h3 className="font-semibold mb-4">Recent Bookings</h3>
