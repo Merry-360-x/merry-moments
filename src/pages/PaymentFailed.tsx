@@ -1,19 +1,29 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { XCircle, AlertCircle, RotateCcw, Home, Phone, HelpCircle } from "lucide-react";
+import { XCircle, AlertCircle, RotateCcw, Home, Phone, HelpCircle, Loader2 } from "lucide-react";
+import { createClient } from "@supabase/supabase-js";
+import { useToast } from "@/hooks/use-toast";
+
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
 
 export default function PaymentFailed() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  const { toast } = useToast();
   
   const reason = params.get("reason") || "unknown";
   const checkoutId = params.get("checkoutId");
   const amount = params.get("amount");
   const currency = params.get("currency") || "RWF";
+  
+  const [isRetrying, setIsRetrying] = useState(false);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -100,8 +110,104 @@ export default function PaymentFailed() {
 
   const failureInfo = getFailureInfo();
 
-  const handleRetry = () => {
-    navigate("/checkout");
+  const handleRetry = async () => {
+    if (!checkoutId) {
+      toast({
+        title: "Error",
+        description: "Missing checkout information. Please start a new booking.",
+        variant: "destructive",
+      });
+      navigate("/");
+      return;
+    }
+
+    setIsRetrying(true);
+
+    try {
+      // Fetch the checkout request details
+      const { data: checkout, error: fetchError } = await supabase
+        .from("checkout_requests")
+        .select("*")
+        .eq("id", checkoutId)
+        .single();
+
+      if (fetchError || !checkout) {
+        console.error("Failed to fetch checkout:", fetchError);
+        toast({
+          title: "Error",
+          description: "Could not load booking details. Please start a new booking.",
+          variant: "destructive",
+        });
+        navigate("/");
+        return;
+      }
+
+      // Extract payment details from the checkout
+      const metadata = checkout.metadata || {};
+      const paymentProvider = metadata.payment_provider || 'MTN';
+      const phoneNumber = checkout.phone_number;
+      const totalAmount = checkout.total_amount;
+
+      if (!phoneNumber) {
+        toast({
+          title: "Error",
+          description: "Missing phone number. Please start a new booking.",
+          variant: "destructive",
+        });
+        navigate("/");
+        return;
+      }
+
+      // Reinitiate payment with PawaPay
+      console.log("🔄 Retrying payment for checkout:", checkoutId);
+      
+      const paymentResponse = await fetch("/api/pawapay-create-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          checkoutId,
+          amount: Math.round(totalAmount),
+          currency: 'RWF',
+          phoneNumber: phoneNumber,
+          description: `Merry360x Booking Retry - ${checkoutId.slice(0, 8)}`,
+          payerEmail: checkout.email,
+          payerName: checkout.name,
+          provider: paymentProvider.toUpperCase(),
+        }),
+      });
+
+      const paymentData = await paymentResponse.json();
+      
+      if (!paymentResponse.ok || !paymentData.depositId) {
+        console.error("Payment retry failed:", paymentData);
+        toast({
+          title: "Payment Failed",
+          description: paymentData.message || "Could not retry payment. Please try again.",
+          variant: "destructive",
+        });
+        setIsRetrying(false);
+        return;
+      }
+
+      console.log("✅ Payment retry initiated:", paymentData.depositId);
+
+      // Redirect to payment pending
+      toast({
+        title: "Payment Initiated",
+        description: "Check your phone to complete the payment",
+      });
+
+      navigate(`/payment-pending?checkoutId=${checkoutId}&depositId=${paymentData.depositId}`);
+      
+    } catch (error: any) {
+      console.error("Retry error:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to retry payment. Please try again.",
+        variant: "destructive",
+      });
+      setIsRetrying(false);
+    }
   };
 
   const handleBackHome = () => {
@@ -183,9 +289,19 @@ export default function PaymentFailed() {
                   onClick={handleRetry}
                   className="w-full"
                   size="lg"
+                  disabled={isRetrying}
                 >
-                  <RotateCcw className="w-4 h-4 mr-2" />
-                  Try Again
+                  {isRetrying ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <RotateCcw className="w-4 h-4 mr-2" />
+                      Try Again
+                    </>
+                  )}
                 </Button>
               )}
               
@@ -194,6 +310,7 @@ export default function PaymentFailed() {
                 variant="outline"
                 className="w-full"
                 size="lg"
+                disabled={isRetrying}
               >
                 <Phone className="w-4 h-4 mr-2" />
                 Contact Support
@@ -204,6 +321,7 @@ export default function PaymentFailed() {
                 variant="ghost"
                 className="w-full"
                 size="lg"
+                disabled={isRetrying}
               >
                 <Home className="w-4 h-4 mr-2" />
                 Back to Home
