@@ -1,7 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MessageCircle, ChevronLeft, ArrowRight, Bot, Headset } from "lucide-react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { MessageCircle, ChevronLeft, Bot, Headset, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,7 +25,7 @@ export default function SupportCenterLauncher() {
 
   // AI chat
   const [messages, setMessages] = useState<ChatMsg[]>([
-    { role: "assistant", content: "Hi! I’m your Merry360X Trip Advisor. Tell me where you’re going and your budget." },
+    { role: "assistant", content: "Hi! I'm your Merry360X Trip Advisor. Tell me where you're going and your budget." },
   ]);
   const [draft, setDraft] = useState("");
   const [aiSending, setAiSending] = useState(false);
@@ -112,94 +111,89 @@ export default function SupportCenterLauncher() {
 
   return (
     <>
+      {/* Floating button */}
       <button
         type="button"
-        className="fixed bottom-5 right-5 z-50 h-12 w-12 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:bg-primary/90"
+        className="fixed bottom-5 right-5 z-50 h-12 w-12 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:bg-primary/90 transition-transform hover:scale-105"
         aria-label="Help"
         onClick={() => {
-          setOpen(true);
-          setStep("home");
+          setOpen(!open);
+          if (!open) setStep("home");
         }}
       >
-        <MessageCircle className="h-5 w-5" />
+        {open ? <X className="h-5 w-5" /> : <MessageCircle className="h-5 w-5" />}
       </button>
 
-      <Dialog
-        open={open}
-        onOpenChange={(v) => {
-          setOpen(v);
-          if (!v) setStep("home");
-        }}
-      >
-        <DialogContent className="p-0 w-[95vw] max-w-xl overflow-hidden">
+      {/* Popup card */}
+      {open && (
+        <div className="fixed bottom-20 right-5 z-50 w-72 bg-card rounded-2xl shadow-2xl border border-border overflow-hidden animate-in slide-in-from-bottom-2 fade-in duration-200">
           {step === "home" ? (
-            <div className="p-8">
-              <div className="mx-auto mb-6 h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
-                <MessageCircle className="h-7 w-7 text-primary" />
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-foreground">How can we help?</div>
-                <div className="mt-2 text-muted-foreground">Choose the service you need</div>
+            <div className="p-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-semibold text-foreground">How can we help?</span>
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="text-muted-foreground hover:text-foreground p-1"
+                  aria-label="Close"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
 
-              <div className="mt-8 space-y-5">
+              <div className="space-y-2">
                 <button
                   type="button"
                   onClick={() => setStep("ai")}
-                  className="w-full rounded-2xl p-6 text-left text-white shadow-md hover:shadow-lg transition bg-gradient-to-r from-rose-500 to-pink-600"
+                  className="w-full flex items-center gap-3 p-3 rounded-xl text-left hover:bg-muted transition-colors group"
                 >
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center">
-                        <Bot className="h-6 w-6 text-white" />
-                      </div>
-                      <div>
-                        <div className="text-xl font-bold">AI Trip Advisor</div>
-                        <div className="mt-1 text-white/90 text-sm">
-                          Get recommendations, plan trips, explore Rwanda
-                        </div>
-                      </div>
-                    </div>
-                    <ArrowRight className="h-6 w-6 text-white/90" />
+                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center shrink-0">
+                    <Bot className="h-4 w-4 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-foreground">AI Trip Advisor</div>
+                    <div className="text-xs text-muted-foreground truncate">Plan trips, get recommendations</div>
                   </div>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setStep("support")}
-                  className="w-full rounded-2xl p-6 text-left text-white shadow-md hover:shadow-lg transition bg-gradient-to-r from-blue-500 to-indigo-600"
+                  className="w-full flex items-center gap-3 p-3 rounded-xl text-left hover:bg-muted transition-colors group"
                 >
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center">
-                        <Headset className="h-6 w-6 text-white" />
-                      </div>
-                      <div>
-                        <div className="text-xl font-bold">Customer Support</div>
-                        <div className="mt-1 text-white/90 text-sm">Get help with bookings, payments, or issues</div>
-                      </div>
-                    </div>
-                    <ArrowRight className="h-6 w-6 text-white/90" />
+                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
+                    <Headset className="h-4 w-4 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-foreground">Customer Support</div>
+                    <div className="text-xs text-muted-foreground truncate">Bookings, payments, issues</div>
                   </div>
                 </button>
               </div>
             </div>
           ) : step === "ai" ? (
-            <div className="flex flex-col h-[75vh]">
-              <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
-                <Button variant="ghost" size="icon" onClick={() => setStep("home")} aria-label="Back">
-                  <ChevronLeft className="h-5 w-5" />
+            <div className="flex flex-col h-80">
+              <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/30">
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setStep("home")} aria-label="Back">
+                  <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <div className="font-semibold text-foreground">AI Trip Advisor</div>
-                <div className="ml-auto text-xs text-muted-foreground">Website data only</div>
+                <div className="text-sm font-medium text-foreground">AI Trip Advisor</div>
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="ml-auto text-muted-foreground hover:text-foreground p-1"
+                  aria-label="Close"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
 
-              <ScrollArea className="flex-1 px-4 py-4">
-                <div className="space-y-3">
+              <ScrollArea className="flex-1 px-3 py-2">
+                <div className="space-y-2">
                   {messages.map((m, idx) => (
                     <div
                       key={idx}
-                      className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                      className={`max-w-[90%] rounded-xl px-3 py-2 text-xs leading-relaxed ${
                         m.role === "user"
                           ? "ml-auto bg-primary text-primary-foreground"
                           : "bg-muted text-foreground"
@@ -209,7 +203,7 @@ export default function SupportCenterLauncher() {
                     </div>
                   ))}
                   {aiSending ? (
-                    <div className="max-w-[85%] rounded-2xl px-4 py-3 text-sm bg-muted text-foreground">
+                    <div className="max-w-[90%] rounded-xl px-3 py-2 text-xs bg-muted text-foreground">
                       Thinking…
                     </div>
                   ) : null}
@@ -217,12 +211,13 @@ export default function SupportCenterLauncher() {
                 </div>
               </ScrollArea>
 
-              <div className="p-4 border-t border-border">
-                <div className="flex gap-2">
+              <div className="p-2 border-t border-border">
+                <div className="flex gap-1.5">
                   <Input
+                    className="h-8 text-xs"
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
-                    placeholder="Ask about stays, tours, or transport…"
+                    placeholder="Ask about stays, tours…"
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
@@ -230,26 +225,34 @@ export default function SupportCenterLauncher() {
                       }
                     }}
                   />
-                  <Button onClick={() => void sendAi()} disabled={aiSending || !draft.trim()}>
+                  <Button size="sm" className="h-8 px-3 text-xs" onClick={() => void sendAi()} disabled={aiSending || !draft.trim()}>
                     Send
                   </Button>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="p-6">
-              <div className="flex items-center gap-2 mb-6">
-                <Button variant="ghost" size="icon" onClick={() => setStep("home")} aria-label="Back">
-                  <ChevronLeft className="h-5 w-5" />
+            <div className="flex flex-col max-h-96">
+              <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/30">
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setStep("home")} aria-label="Back">
+                  <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <div className="font-semibold text-foreground">Customer Support</div>
+                <div className="text-sm font-medium text-foreground">Customer Support</div>
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="ml-auto text-muted-foreground hover:text-foreground p-1"
+                  aria-label="Close"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
 
-              <div className="space-y-4">
+              <div className="p-3 space-y-3 overflow-y-auto">
                 <div>
-                  <Label>Category</Label>
+                  <Label className="text-xs">Category</Label>
                   <select
-                    className="mt-1 w-full h-10 rounded-md border border-border bg-background px-3 text-sm"
+                    className="mt-1 w-full h-8 rounded-md border border-border bg-background px-2 text-xs"
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
                   >
@@ -264,22 +267,22 @@ export default function SupportCenterLauncher() {
                 </div>
 
                 <div>
-                  <Label>Subject</Label>
-                  <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="What’s the issue?" />
+                  <Label className="text-xs">Subject</Label>
+                  <Input className="h-8 text-xs" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="What's the issue?" />
                 </div>
 
                 <div>
-                  <Label>Message</Label>
+                  <Label className="text-xs">Message</Label>
                   <Textarea
                     value={body}
                     onChange={(e) => setBody(e.target.value)}
-                    placeholder="Write details so we can help fast…"
-                    className="min-h-[140px]"
+                    placeholder="Write details…"
+                    className="min-h-[80px] text-xs"
                   />
                 </div>
 
                 <Button
-                  className="w-full"
+                  className="w-full h-8 text-xs"
                   onClick={() => void sendTicket()}
                   disabled={sendingTicket || !canSendTicket}
                 >
@@ -287,15 +290,15 @@ export default function SupportCenterLauncher() {
                 </Button>
 
                 {!user ? (
-                  <div className="text-xs text-muted-foreground text-center">
-                    You’ll be asked to sign in before sending a support message.
+                  <div className="text-[10px] text-muted-foreground text-center">
+                    You'll be asked to sign in first.
                   </div>
                 ) : null}
               </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
     </>
   );
 }
