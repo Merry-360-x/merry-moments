@@ -92,13 +92,13 @@ const MyBookings = () => {
     queryKey: ["bookings", user?.id],
     enabled: Boolean(user?.id),
     queryFn: async () => {
+      // Note: transport_vehicles join removed - no FK relationship exists
       const { data, error } = await supabase
         .from("bookings")
         .select(`
           *, 
           properties(title, location, property_type, address, cancellation_policy),
-          tour_packages(title, city, country, duration, cancellation_policy_type, custom_cancellation_policy),
-          transport_vehicles(title, vehicle_type, seats)
+          tour_packages(title, city, country, duration, cancellation_policy_type, custom_cancellation_policy)
         `)
         .eq("guest_id", user!.id)
         .order("created_at", { ascending: false });
