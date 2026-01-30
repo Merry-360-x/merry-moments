@@ -1022,7 +1022,7 @@ export default function CheckoutNew() {
                           <div className="mt-2 pt-2 border-t border-amber-200 dark:border-amber-800/50 space-y-1">
                             <p className="flex items-center gap-2">
                               <Phone className="w-4 h-4" />
-                              <a href="tel:+250792527083" className="font-medium hover:underline">+250 792 527 083</a>
+                              <a href="tel:+250793903663" className="font-medium hover:underline">+250 793 903 663</a>
                             </p>
                             <p className="flex items-center gap-2">
                               <Mail className="w-4 h-4" />

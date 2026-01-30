@@ -528,8 +528,8 @@ export default function TourDetails() {
                 <Button
                   className="w-full"
                   size="lg"
-                  onClick={() => {
-                    addToCart("tour", String(tour.id), 1);
+                  onClick={async () => {
+                    await addToCart("tour", String(tour.id), 1);
                     navigate("/trip-cart");
                   }}
                 >
@@ -540,7 +540,7 @@ export default function TourDetails() {
                   className="w-full"
                   variant="outline"
                   size="lg"
-                  onClick={() => addToCart("tour", String(tour.id), 1)}
+                  onClick={async () => await addToCart("tour", String(tour.id), 1)}
                 >
                   Add to Trip Cart
                 </Button>

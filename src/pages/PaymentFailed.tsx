@@ -109,7 +109,7 @@ export default function PaymentFailed() {
   };
 
   const handleContactSupport = () => {
-    window.location.href = "tel:+250792527083";
+    window.location.href = "tel:+250793903663";
   };
 
   return (
@@ -214,8 +214,8 @@ export default function PaymentFailed() {
             <div className="mt-6 pt-6 border-t text-center">
               <p className="text-xs text-muted-foreground mb-2">Need help?</p>
               <div className="flex flex-col gap-1">
-                <a href="tel:+250792527083" className="text-xs text-primary hover:underline">
-                  📞 +250 792 527 083
+                <a href="tel:+250793903663" className="text-xs text-primary hover:underline">
+                  +250 793 903 663
                 </a>
                 <a href="mailto:support@merry360x.com" className="text-xs text-primary hover:underline">
                   ✉️ support@merry360x.com
