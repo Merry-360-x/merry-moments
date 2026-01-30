@@ -6,6 +6,7 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 // PawaPay API settings
 const PAWAPAY_API_KEY = process.env.PAWAPAY_API_KEY;
 const PAWAPAY_BASE_URL = process.env.PAWAPAY_BASE_URL || "https://api.pawapay.cloud";
+const PAWAPAY_TEST_MODE = process.env.PAWAPAY_TEST_MODE === "true";
 
 function json(res, status, body) {
   res.statusCode = status;
@@ -167,6 +168,9 @@ export default async function handler(req, res) {
     };
 
     console.log("Creating PawaPay deposit:", JSON.stringify(pawaPayRequest, null, 2));
+    console.log("Phone number being sent:", msisdn);
+    console.log("Amount:", rwfAmount, currency);
+    console.log("Provider:", correspondent);
 
     // Call PawaPay API
     const pawaPayResponse = await fetch(`${PAWAPAY_BASE_URL}/deposits`, {
@@ -181,6 +185,7 @@ export default async function handler(req, res) {
     const responseText = await pawaPayResponse.text();
     console.log("PawaPay response status:", pawaPayResponse.status);
     console.log("PawaPay response:", responseText);
+    console.log("PawaPay API URL:", PAWAPAY_BASE_URL);
 
     let pawaPayData;
     try {
@@ -214,6 +219,26 @@ export default async function handler(req, res) {
 
     if (updateError) {
       console.error("Failed to update checkout:", updateError);
+    }
+
+    // TEST MODE: Auto-complete payment after 5 seconds for testing
+    if (PAWAPAY_TEST_MODE) {
+      console.log("TEST MODE: Will auto-complete payment in 5 seconds");
+      setTimeout(async () => {
+        try {
+          const supabaseAsync = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+          await supabaseAsync
+            .from("checkout_requests")
+            .update({
+              payment_status: "paid",
+              updated_at: new Date().toISOString()
+            })
+            .eq("id", orderId);
+          console.log("TEST MODE: Payment auto-completed for", orderId);
+        } catch (err) {
+          console.error("TEST MODE: Failed to auto-complete:", err);
+        }
+      }, 5000);
     }
 
     // Create payment transaction record (may fail if table doesn't exist, but that's ok)
