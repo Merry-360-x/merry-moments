@@ -177,7 +177,8 @@ export default async function handler(req, res) {
         }
       },
       customerTimestamp: new Date().toISOString(),
-      statementDescription: description || "Merry360x Order",
+      // PawaPay requires statement description to be 22 chars or less
+      statementDescription: "Merry360x",
       metadata: [
         { fieldName: "checkoutId", fieldValue: orderId },
         { fieldName: "customerName", fieldValue: safeStr(payerName, 100) },
