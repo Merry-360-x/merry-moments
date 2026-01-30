@@ -156,9 +156,18 @@ export default function CheckoutNew() {
       // Check if this is a direct booking from URL params
       const mode = searchParams.get("mode");
       const propertyId = searchParams.get("propertyId");
+      const requireTripCart = searchParams.get("requireTripCart");
       
       if (mode === "booking" && propertyId) {
-        return await fetchDirectBooking(propertyId);
+        const directBooking = await fetchDirectBooking(propertyId);
+        
+        // If requireTripCart is set, merge with cart items (for add-ons)
+        if (requireTripCart === "1") {
+          const cartSource = user ? await fetchUserCart() : await fetchGuestCart();
+          return [...directBooking, ...cartSource];
+        }
+        
+        return directBooking;
       }
       
       // Otherwise fetch from cart
