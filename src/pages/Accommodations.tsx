@@ -836,13 +836,19 @@ const Accommodations = () => {
             {/* Smart Recommendations Section */}
             {!searchParams.get("q") && !hostId && recommendations && recommendations.length > 0 && (
               <div className="mb-8">
-                <h2 className="text-xl font-semibold mb-4 text-foreground">
-                  {user ? "Recommended for you" : "Popular picks"}
-                </h2>
+                <div className="flex items-center justify-between mb-3 sm:mb-4">
+                  <h2 className="text-lg sm:text-xl font-semibold text-foreground">
+                    {user ? "Recommended for you" : "Popular picks"}
+                  </h2>
+                  {/* Mobile scroll hint */}
+                  <span className="sm:hidden text-xs text-muted-foreground flex items-center gap-1 animate-pulse">
+                    Swipe →
+                  </span>
+                </div>
                 
                 {/* Mobile recommendations */}
                 <div className="sm:hidden">
-                  <div className="grid grid-flow-col auto-cols-[46%] gap-4 overflow-x-auto pb-2 snap-x snap-mandatory">
+                  <div className="grid grid-flow-col auto-cols-[75%] gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide -mx-4 px-4">
                     {recommendations.slice(0, 4).map((property) => (
                       <div key={`rec-mobile-${property.id}`} className="snap-start">
                         <PropertyCard
@@ -916,12 +922,18 @@ const Accommodations = () => {
                 </div>
                 
                 <div className="border-t border-border pt-8 mb-4">
-                  <h3 className="text-lg font-medium mb-4 text-foreground">All accommodations</h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-medium text-foreground">All accommodations</h3>
+                    {/* Mobile scroll hint */}
+                    <span className="sm:hidden text-xs text-muted-foreground flex items-center gap-1 animate-pulse">
+                      Swipe →
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
             
-            {/* Mobile: 2.5-column horizontal scroll */}
+            {/* Mobile: horizontal scroll with wider cards */}
             <div className="sm:hidden">
               {propertiesLoading ? (
                 <LoadingSpinner message={t("common.loading")} />
@@ -934,7 +946,7 @@ const Accommodations = () => {
                   <p className="text-muted-foreground">{t("accommodations.noMatches")}</p>
                 </div>
               ) : (
-                <div className="grid grid-flow-col auto-cols-[46%] gap-4 overflow-x-auto pb-2 snap-x snap-mandatory">
+                <div className="grid grid-flow-col auto-cols-[75%] gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide -mx-4 px-4">
                   {properties.map((property) => (
                     <div key={property.id} className="snap-start">
                       <PropertyCard

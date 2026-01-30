@@ -285,42 +285,43 @@ const Tours = () => {
                   )}
                 </div>
 
-                <div className="p-4">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <h3 className="font-semibold text-foreground line-clamp-1">{tour.title}</h3>
+                <div className="p-3 md:p-4">
+                  <div className="flex items-start justify-between gap-1.5 md:gap-2 mb-1.5 md:mb-2">
+                    <div className="flex items-center gap-1.5 md:gap-2 flex-1 min-w-0">
+                      <h3 className="font-semibold text-sm md:text-base text-foreground line-clamp-1">{tour.title}</h3>
                       {tour.source === "tour_packages" ? (
-                        <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800 shrink-0">
+                        <Badge variant="outline" className="text-[10px] md:text-xs bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800 shrink-0 px-1.5 py-0.5">
                           Package
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800 shrink-0">
+                        <Badge variant="outline" className="text-[10px] md:text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800 shrink-0 px-1.5 py-0.5">
                           Tour
                         </Badge>
                       )}
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Star className="w-4 h-4 fill-primary text-primary" />
-                      <span className="text-sm font-medium">{Number(tour.rating ?? 0).toFixed(1)}</span>
-                      <span className="text-sm text-muted-foreground">({tour.review_count ?? 0})</span>
+                    <div className="flex items-center gap-0.5 md:gap-1 shrink-0">
+                      <Star className="w-3.5 h-3.5 md:w-4 md:h-4 fill-primary text-primary" />
+                      <span className="text-xs md:text-sm font-medium">{Number(tour.rating ?? 0).toFixed(1)}</span>
+                      <span className="text-xs md:text-sm text-muted-foreground">({tour.review_count ?? 0})</span>
                     </div>
                   </div>
 
-                  <p className="text-sm text-muted-foreground mb-2">{extractNeighborhood(tour.location)}</p>
-                  <p className="text-xs text-muted-foreground mb-3">
+                  <p className="text-xs md:text-sm text-muted-foreground mb-1.5 md:mb-2">{extractNeighborhood(tour.location)}</p>
+                  <p className="text-[10px] md:text-xs text-muted-foreground mb-2 md:mb-3">
                     {tour.difficulty} · {tour.duration_days} day{tour.duration_days === 1 ? "" : "s"}
                   </p>
 
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center justify-between gap-2 md:gap-3">
                     <div className="text-foreground">
-                      <span className="font-bold">
+                      <span className="font-bold text-sm md:text-base">
                         {formatMoney(Number(tour.price_per_person), String(tour.currency ?? "RWF"))}
                       </span>
-                      <span className="text-sm text-muted-foreground"> / person</span>
+                      <span className="text-[10px] md:text-sm text-muted-foreground"> / person</span>
                     </div>
                     <Button 
                       variant="outline" 
                       size="sm"
+                      className="text-xs h-8 px-2.5 md:px-3"
                       onClick={(e) => {
                         e.stopPropagation();
                         addToCart(tour);

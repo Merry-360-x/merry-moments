@@ -460,6 +460,24 @@ const Navbar = () => {
                   )}
                 </button>
                 <div className="flex items-center gap-2">
+                  {/* Currency Selector - Mobile */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        className="h-10 px-3 rounded-full border border-border bg-background flex items-center gap-1 text-sm font-medium"
+                        aria-label="Currency"
+                      >
+                        {getCurrencySymbol(currency)}
+                        <ChevronDown className="w-3 h-3" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="center" className="w-32">
+                      <DropdownMenuItem onClick={() => setCurrency("RWF")}>RWF</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setCurrency("USD")}>USD</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setCurrency("EUR")}>EUR</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setCurrency("GBP")}>GBP</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <Link to="/favorites" onClick={() => setMobileMenuOpen(false)}>
                     <button
                       type="button"
