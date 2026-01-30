@@ -171,7 +171,9 @@ export default async function handler(req, res) {
         try {
           const bookingData = {
             guest_id: checkout.user_id,
-            guest_email: checkout.email,
+            guest_name: checkout.name || null,
+            guest_email: checkout.email || null,
+            guest_phone: checkout.phone || null,
             order_id: checkout.id,
             total_price: item.calculated_price || item.price,
             currency: checkout.currency || 'RWF',
