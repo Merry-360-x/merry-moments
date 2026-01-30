@@ -128,8 +128,7 @@ export default function FinancialStaffDashboard() {
       console.log('[FinancialStaff] Bookings fetched:', data?.length || 0);
       return (data ?? []) as BookingRow[];
     },
-    },
-    refetchInterval: 30000,
+    refetchInterval: 10000, // Refresh every 10 seconds
     refetchOnWindowFocus: true,
     staleTime: 0,
   });
