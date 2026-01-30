@@ -198,7 +198,7 @@ async function sendConfirmationEmail(checkout, items, bookingIds) {
       body: JSON.stringify({
         sender: {
           name: "Merry Moments",
-          email: "bookings@merry360x.com",
+          email: "davyncidavy@gmail.com",
         },
         to: [
           {
@@ -206,7 +206,7 @@ async function sendConfirmationEmail(checkout, items, bookingIds) {
             name: guestName,
           },
         ],
-        subject: `✅ Booking Confirmed - Thank you, ${guestName}!`,
+        subject: `Booking Confirmed - Thank you, ${guestName}!`,
         htmlContent: html,
       }),
     });
