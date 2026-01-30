@@ -513,7 +513,6 @@ export default function CheckoutNew() {
         currency: 'RWF', // Always store in RWF
         payment_status: paymentMethod === 'card' || paymentMethod === 'bank' ? 'awaiting_callback' : 'pending',
         payment_method: paymentMethod === 'card' ? 'card' : paymentMethod === 'bank' ? 'bank_transfer' : 'mobile_money',
-        items: cartItemsWithPrices,
         metadata: {
           items: cartItemsWithPrices,
           booking_details: bookingDetails,
@@ -527,8 +526,12 @@ export default function CheckoutNew() {
           discount_amount: discount,
           payment_provider: paymentMethod === 'mtn' ? 'MTN' : paymentMethod === 'airtel' ? 'AIRTEL' : paymentMethod.toUpperCase(),
         },
-        created_at: new Date().toISOString(),
       };
+
+      console.log("📝 Creating checkout with data:", {
+        ...checkoutData,
+        metadata: { ...checkoutData.metadata, items: `[${cartItemsWithPrices.length} items]` }
+      });
 
       const { data: checkout, error: checkoutError } = await (supabase
         .from("checkout_requests")
@@ -536,7 +539,10 @@ export default function CheckoutNew() {
         .select("id")
         .single() as any);
 
-      if (checkoutError) throw checkoutError;
+      if (checkoutError) {
+        console.error("❌ Checkout insert error:", checkoutError);
+        throw checkoutError;
+      }
       const checkoutId = checkout.id;
 
       // For card/bank transfer, just create checkout and show confirmation
