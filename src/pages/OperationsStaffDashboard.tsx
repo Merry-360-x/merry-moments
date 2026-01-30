@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,9 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { FileText, Home, Plane, MapPin, CheckCircle, XCircle, Clock, CalendarCheck, Eye } from "lucide-react";
+import { FileText, Home, Plane, MapPin, CheckCircle, XCircle, Clock, CalendarCheck, Eye, Bell } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useNotificationBadge, NotificationBadge } from "@/hooks/useNotificationBadge";
 
 type HostApplication = {
   id: string;
@@ -109,7 +110,7 @@ type Booking = {
 
 export default function OperationsStaffDashboard() {
   const { toast } = useToast();
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<"overview" | "applications" | "accommodations" | "tours" | "transport" | "bookings">("overview");
   const [selectedApplication, setSelectedApplication] = useState<HostApplication | null>(null);
@@ -123,6 +124,70 @@ export default function OperationsStaffDashboard() {
   const [tourDetailsOpen, setTourDetailsOpen] = useState(false);
   const [selectedTransport, setSelectedTransport] = useState<Transport | null>(null);
   const [transportDetailsOpen, setTransportDetailsOpen] = useState(false);
+
+  // Notification badge hook
+  const { getCount, hasNew, markAsSeen, updateNotificationCount } = useNotificationBadge("operations-staff");
+
+  // Real-time subscriptions
+  useEffect(() => {
+    if (!user) return;
+
+    const channels: ReturnType<typeof supabase.channel>[] = [];
+
+    // Subscribe to host_applications changes
+    const applicationsChannel = supabase
+      .channel('operations-applications-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'host_applications' }, () => {
+        console.log('[OperationsStaff] Applications change detected - refetching...');
+        queryClient.invalidateQueries({ queryKey: ['operations_applications'] });
+      })
+      .subscribe();
+    channels.push(applicationsChannel);
+
+    // Subscribe to properties changes
+    const propertiesChannel = supabase
+      .channel('operations-properties-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'properties' }, () => {
+        console.log('[OperationsStaff] Properties change detected - refetching...');
+        queryClient.invalidateQueries({ queryKey: ['operations_properties'] });
+      })
+      .subscribe();
+    channels.push(propertiesChannel);
+
+    // Subscribe to tours changes
+    const toursChannel = supabase
+      .channel('operations-tours-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tour_packages' }, () => {
+        console.log('[OperationsStaff] Tours change detected - refetching...');
+        queryClient.invalidateQueries({ queryKey: ['operations_tours'] });
+      })
+      .subscribe();
+    channels.push(toursChannel);
+
+    // Subscribe to transport changes
+    const transportChannel = supabase
+      .channel('operations-transport-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transport_vehicles' }, () => {
+        console.log('[OperationsStaff] Transport change detected - refetching...');
+        queryClient.invalidateQueries({ queryKey: ['operations_transport'] });
+      })
+      .subscribe();
+    channels.push(transportChannel);
+
+    // Subscribe to bookings changes
+    const bookingsChannel = supabase
+      .channel('operations-bookings-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => {
+        console.log('[OperationsStaff] Bookings change detected - refetching...');
+        queryClient.invalidateQueries({ queryKey: ['operations_bookings'] });
+      })
+      .subscribe();
+    channels.push(bookingsChannel);
+
+    return () => {
+      channels.forEach(channel => supabase.removeChannel(channel));
+    };
+  }, [user, queryClient]);
 
   const { data: applications = [] } = useQuery({
     queryKey: ["operations_applications"],

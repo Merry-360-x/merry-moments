@@ -14,10 +14,11 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
-import { CalendarDays, Camera, Heart, LogOut, Mail, Shield, Star } from "lucide-react";
+import { CalendarDays, Camera, Heart, LogOut, Mail, Shield, Star, Bell } from "lucide-react";
 import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { extractNeighborhood } from "@/lib/location";
+import { useNotificationBadge, NotificationBadge } from "@/hooks/useNotificationBadge";
 
 type ProfileRow = {
   user_id: string;
@@ -141,6 +142,49 @@ export default function Dashboard() {
       return (data as SavedRow[] | null) ?? [];
     },
   });
+
+  // Real-time subscriptions for user dashboard
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channels: ReturnType<typeof supabase.channel>[] = [];
+
+    // Subscribe to bookings changes for this user
+    const bookingsChannel = supabase
+      .channel('user-bookings-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings', filter: `guest_id=eq.${user.id}` }, () => {
+        console.log('[Dashboard] Bookings change detected - refetching...');
+        queryClient.invalidateQueries({ queryKey: ['bookings', 'list', user.id] });
+        queryClient.invalidateQueries({ queryKey: ['bookings', 'counts', user.id] });
+      })
+      .subscribe();
+    channels.push(bookingsChannel);
+
+    // Subscribe to favorites changes
+    const favoritesChannel = supabase
+      .channel('user-favorites-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'favorites', filter: `user_id=eq.${user.id}` }, () => {
+        console.log('[Dashboard] Favorites change detected - refetching...');
+        queryClient.invalidateQueries({ queryKey: ['favorites', 'list', user.id] });
+        queryClient.invalidateQueries({ queryKey: ['favorites', 'count', user.id] });
+      })
+      .subscribe();
+    channels.push(favoritesChannel);
+
+    // Subscribe to cart changes
+    const cartChannel = supabase
+      .channel('user-cart-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_cart_items', filter: `user_id=eq.${user.id}` }, () => {
+        console.log('[Dashboard] Cart change detected - refetching...');
+        queryClient.invalidateQueries({ queryKey: ['trip_cart_items', 'count', user.id] });
+      })
+      .subscribe();
+    channels.push(cartChannel);
+
+    return () => {
+      channels.forEach(channel => supabase.removeChannel(channel));
+    };
+  }, [user?.id, queryClient]);
 
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");

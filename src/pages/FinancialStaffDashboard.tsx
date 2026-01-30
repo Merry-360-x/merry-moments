@@ -12,7 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatMoney } from "@/lib/money";
 import { supabase } from "@/integrations/supabase/client";
-import { DollarSign, TrendingUp, CreditCard, Wallet, Calendar, Download, CheckCircle } from "lucide-react";
+import { DollarSign, TrendingUp, CreditCard, Wallet, Calendar, Download, CheckCircle, Bell } from "lucide-react";
+import { useNotificationBadge, NotificationBadge } from "@/hooks/useNotificationBadge";
 import { useToast } from "@/hooks/use-toast";
 
 type BookingRow = {
@@ -51,6 +52,42 @@ export default function FinancialStaffDashboard() {
   const [selectedBooking, setSelectedBooking] = useState<BookingRow | null>(null);
   const [bookingDetailsOpen, setBookingDetailsOpen] = useState(false);
 
+  // Notification badge hook
+  const { getCount, hasNew, markAsSeen, updateNotificationCount } = useNotificationBadge("financial-staff");
+
+  // Real-time subscriptions
+  useEffect(() => {
+    if (!user) return;
+
+    const channels: ReturnType<typeof supabase.channel>[] = [];
+
+    // Subscribe to bookings changes
+    const bookingsChannel = supabase
+      .channel('financial-bookings-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => {
+        console.log('[FinancialStaff] Bookings change detected - refetching...');
+        queryClient.invalidateQueries({ queryKey: ['financial_bookings'] });
+        queryClient.invalidateQueries({ queryKey: ['financial_metrics'] });
+      })
+      .subscribe();
+    channels.push(bookingsChannel);
+
+    // Subscribe to checkout_requests for payment tracking
+    const checkoutChannel = supabase
+      .channel('financial-checkout-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'checkout_requests' }, () => {
+        console.log('[FinancialStaff] Checkout request change detected');
+        queryClient.invalidateQueries({ queryKey: ['financial_bookings'] });
+        queryClient.invalidateQueries({ queryKey: ['financial_metrics'] });
+      })
+      .subscribe();
+    channels.push(checkoutChannel);
+
+    return () => {
+      channels.forEach(channel => supabase.removeChannel(channel));
+    };
+  }, [user, queryClient]);
+
   const { data: metrics, refetch: refetchMetrics } = useQuery({
     queryKey: ["financial_metrics"],
     queryFn: async () => {
@@ -70,7 +107,7 @@ export default function FinancialStaffDashboard() {
       }
       return data as unknown as Metrics;
     },
-    refetchInterval: 30000,
+    refetchInterval: 10000, // Refresh every 10 seconds
     refetchOnWindowFocus: true,
     staleTime: 0,
   });
@@ -81,7 +118,7 @@ export default function FinancialStaffDashboard() {
       console.log('[FinancialStaff] Fetching bookings...');
       const { data, error } = await supabase
         .from("bookings")
-        .select("id, guest_id, guest_name, guest_email, guest_phone, status, payment_status, payment_method, total_price, currency, created_at")
+        .select("id, guest_id, guest_name, guest_email, guest_phone, status, payment_status, payment_method, total_price, currency, created_at, updated_at")
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) {
@@ -90,6 +127,7 @@ export default function FinancialStaffDashboard() {
       }
       console.log('[FinancialStaff] Bookings fetched:', data?.length || 0);
       return (data ?? []) as BookingRow[];
+    },
     },
     refetchInterval: 30000,
     refetchOnWindowFocus: true,

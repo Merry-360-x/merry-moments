@@ -1,16 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, MessageSquare, Mail, AlertCircle, Eye } from "lucide-react";
+import { Users, MessageSquare, Mail, AlertCircle, Eye, Bell } from "lucide-react";
 import { formatMoney } from "@/lib/money";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNotificationBadge, NotificationBadge } from "@/hooks/useNotificationBadge";
 
 type User = {
   id: string;
@@ -54,12 +56,58 @@ type Booking = {
 };
 
 export default function CustomerSupportDashboard() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<"overview" | "users" | "tickets" | "bookings">("overview");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
   const [userDetailsOpen, setUserDetailsOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [bookingDetailsOpen, setBookingDetailsOpen] = useState(false);
+
+  // Notification badge hook
+  const { getCount, hasNew, markAsSeen, updateNotificationCount } = useNotificationBadge("customer-support");
+
+  // Real-time subscriptions
+  useEffect(() => {
+    if (!user) return;
+
+    const channels: ReturnType<typeof supabase.channel>[] = [];
+
+    // Subscribe to profiles changes (new users)
+    const profilesChannel = supabase
+      .channel('support-profiles-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+        console.log('[CustomerSupport] Profiles change detected - refetching...');
+        queryClient.invalidateQueries({ queryKey: ['support_users'] });
+      })
+      .subscribe();
+    channels.push(profilesChannel);
+
+    // Subscribe to bookings changes
+    const bookingsChannel = supabase
+      .channel('support-bookings-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => {
+        console.log('[CustomerSupport] Bookings change detected - refetching...');
+        queryClient.invalidateQueries({ queryKey: ['support_bookings'] });
+      })
+      .subscribe();
+    channels.push(bookingsChannel);
+
+    // Subscribe to property_reviews changes (for user feedback)
+    const reviewsChannel = supabase
+      .channel('support-reviews-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'property_reviews' }, () => {
+        console.log('[CustomerSupport] Reviews change detected');
+        queryClient.invalidateQueries({ queryKey: ['support_reviews'] });
+      })
+      .subscribe();
+    channels.push(reviewsChannel);
+
+    return () => {
+      channels.forEach(channel => supabase.removeChannel(channel));
+    };
+  }, [user, queryClient]);
 
   const { data: users = [] } = useQuery({
     queryKey: ["support_users"],

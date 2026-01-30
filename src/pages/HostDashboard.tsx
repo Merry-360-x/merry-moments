@@ -24,6 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useNotificationBadge, NotificationBadge } from "@/hooks/useNotificationBadge";
 import {
   Home,
   Calendar,
@@ -545,6 +546,67 @@ export default function HostDashboard() {
       setIsLoading(false);
     }
   }, [isHost, user, fetchData, authLoading, rolesLoading]);
+
+  // Real-time subscriptions for host dashboard data
+  useEffect(() => {
+    if (!user) return;
+
+    const channels: ReturnType<typeof supabase.channel>[] = [];
+
+    // Subscribe to bookings changes for this host's properties/tours/transport
+    const bookingsChannel = supabase
+      .channel('host-bookings-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, (payload) => {
+        console.log('[HostDashboard] Booking change detected - refetching...', payload);
+        fetchData();
+      })
+      .subscribe();
+    channels.push(bookingsChannel);
+
+    // Subscribe to property_reviews for this host
+    const reviewsChannel = supabase
+      .channel('host-reviews-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'property_reviews' }, () => {
+        console.log('[HostDashboard] Review change detected');
+        fetchData();
+      })
+      .subscribe();
+    channels.push(reviewsChannel);
+
+    // Subscribe to properties changes (in case admin updates status)
+    const propertiesChannel = supabase
+      .channel('host-properties-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'properties' }, () => {
+        console.log('[HostDashboard] Properties change detected');
+        fetchData();
+      })
+      .subscribe();
+    channels.push(propertiesChannel);
+
+    // Subscribe to tour_packages changes
+    const toursChannel = supabase
+      .channel('host-tours-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tour_packages' }, () => {
+        console.log('[HostDashboard] Tour packages change detected');
+        fetchData();
+      })
+      .subscribe();
+    channels.push(toursChannel);
+
+    // Subscribe to transport_vehicles changes
+    const vehiclesChannel = supabase
+      .channel('host-vehicles-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transport_vehicles' }, () => {
+        console.log('[HostDashboard] Vehicles change detected');
+        fetchData();
+      })
+      .subscribe();
+    channels.push(vehiclesChannel);
+
+    return () => {
+      channels.forEach(channel => supabase.removeChannel(channel));
+    };
+  }, [user, fetchData]);
 
   // Property CRUD
   const updateProperty = async (id: string, updates: Partial<Property>) => {

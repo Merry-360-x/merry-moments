@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -20,14 +20,20 @@ import {
   Clock,
   XCircle,
   Eye,
-  MousePointerClick
+  MousePointerClick,
+  Bell
 } from "lucide-react";
+import { useNotificationBadge, NotificationBadge } from "@/hooks/useNotificationBadge";
 
 const AffiliateDashboard = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [copiedLink, setCopiedLink] = useState(false);
+
+  // Notification badge hook
+  const { getCount, hasNew, markAsSeen, updateNotificationCount } = useNotificationBadge("affiliate");
 
   // Fetch affiliate data
   const { data: affiliate, isLoading } = useQuery({
@@ -63,7 +69,9 @@ const AffiliateDashboard = () => {
       if (error) throw error;
       return data || [];
     },
-    enabled: !!affiliate
+    enabled: !!affiliate,
+    refetchInterval: 30000, // Refresh every 30 seconds
+    staleTime: 0,
   });
 
   // Fetch commissions
@@ -81,8 +89,41 @@ const AffiliateDashboard = () => {
       if (error) throw error;
       return data || [];
     },
-    enabled: !!affiliate
+    enabled: !!affiliate,
+    refetchInterval: 30000,
+    staleTime: 0,
   });
+
+  // Real-time subscriptions
+  useEffect(() => {
+    if (!affiliate?.id) return;
+
+    const channels: ReturnType<typeof supabase.channel>[] = [];
+
+    // Subscribe to referrals changes
+    const referralsChannel = supabase
+      .channel('affiliate-referrals-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'affiliate_referrals' }, () => {
+        console.log('[AffiliateDashboard] Referrals change detected - refetching...');
+        queryClient.invalidateQueries({ queryKey: ['affiliate-referrals', affiliate.id] });
+      })
+      .subscribe();
+    channels.push(referralsChannel);
+
+    // Subscribe to commissions changes
+    const commissionsChannel = supabase
+      .channel('affiliate-commissions-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'affiliate_commissions' }, () => {
+        console.log('[AffiliateDashboard] Commissions change detected - refetching...');
+        queryClient.invalidateQueries({ queryKey: ['affiliate-commissions', affiliate.id] });
+      })
+      .subscribe();
+    channels.push(commissionsChannel);
+
+    return () => {
+      channels.forEach(channel => supabase.removeChannel(channel));
+    };
+  }, [affiliate?.id, queryClient]);
 
   useEffect(() => {
     if (!user && !isLoading) {
