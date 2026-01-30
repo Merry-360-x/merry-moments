@@ -217,10 +217,12 @@ export default async function handler(req, res) {
     }
 
     // Log the full response for debugging
-    console.log("PawaPay full response object:", JSON.stringify(pawaPayData, null, 2));
+    console.log("📥 PawaPay full response:", JSON.stringify(pawaPayData, null, 2));
+    console.log("📥 Response status:", pawaPayResponse.status);
+    console.log("📥 Response keys:", Object.keys(pawaPayData || {}));
 
     if (!pawaPayResponse.ok) {
-      console.error("PawaPay API error:", pawaPayData);
+      console.error("❌ PawaPay API error:", pawaPayData);
       
       // Return detailed error to help debug
       return json(res, pawaPayResponse.status, { 
@@ -239,20 +241,57 @@ export default async function handler(req, res) {
     // Check if payment was immediately rejected
     const initialStatus = pawaPayData.status;
     const rejectionReason = pawaPayData.failureReason;
+    const rejectionCode = pawaPayData.rejectionReason?.rejectionCode || 
+                          pawaPayData.failureReason?.failureCode ||
+                          pawaPayData.correspondentError?.code ||
+                          null;
+    
+    console.log("📊 Payment status check:", {
+      status: initialStatus,
+      hasFailureReason: !!rejectionReason,
+      failureReason: rejectionReason,
+      rejectionCode: rejectionCode,
+      fullResponse: pawaPayData
+    });
     
     if (initialStatus === 'REJECTED' || initialStatus === 'FAILED') {
       console.error(`⚠️ Payment immediately ${initialStatus} by PawaPay!`);
-      console.error("PawaPay rejection details:", JSON.stringify(rejectionReason, null, 2));
+      console.error("Full PawaPay response:", JSON.stringify(pawaPayData, null, 2));
       console.error("Correspondent:", correspondent);
       console.error("Phone:", msisdn);
       console.error("Amount:", rwfAmount, currency);
       
-      // Extract the actual failure reason from PawaPay
-      let failureCode = rejectionReason?.failureCode || rejectionReason?.code || 'UNKNOWN';
-      let failureMsg = rejectionReason?.failureMessage || rejectionReason?.message || `Payment ${initialStatus.toLowerCase()}`;
+      // Extract the actual failure reason from PawaPay - check ALL possible locations
+      let failureCode = pawaPayData.rejectionReason?.rejectionCode ||
+                        pawaPayData.failureReason?.failureCode || 
+                        pawaPayData.failureReason?.code ||
+                        pawaPayData.correspondentError?.code ||
+                        pawaPayData.errorCode ||
+                        'UNKNOWN';
       
-      console.error(`Failure Code: ${failureCode}`);
-      console.error(`Failure Message: ${failureMsg}`);
+      let failureMsg = pawaPayData.rejectionReason?.rejectionMessage ||
+                       pawaPayData.failureReason?.failureMessage || 
+                       pawaPayData.failureReason?.message ||
+                       pawaPayData.correspondentError?.message ||
+                       pawaPayData.errorMessage ||
+                       pawaPayData.message ||
+                       `Payment ${initialStatus.toLowerCase()}`;
+      
+      console.error(`Extracted Failure Code: ${failureCode}`);
+      console.error(`Extracted Failure Message: ${failureMsg}`);
+      
+      // User-friendly messages for common codes
+      const userMessages = {
+        'PAYER_NOT_FOUND': 'The phone number is not registered for mobile money. Please check the number and try again.',
+        'PAYER_LIMIT_REACHED': 'Transaction limit reached on your mobile money account. Please try a smaller amount or try again later.',
+        'INSUFFICIENT_BALANCE': 'Insufficient balance in your mobile money account.',
+        'TRANSACTION_DECLINED': 'The transaction was declined. Please try again or use a different payment method.',
+        'DUPLICATE_TRANSACTION': 'A similar transaction was recently made. Please wait a few minutes before trying again.',
+        'INVALID_PAYER': 'Invalid phone number format. Please enter a valid Rwanda mobile number.',
+        'UNKNOWN': 'Payment could not be completed. Please try again or contact support.'
+      };
+      
+      const userMessage = userMessages[failureCode] || failureMsg;
       
       // Update database with actual failure reason
       await supabase
@@ -269,7 +308,7 @@ export default async function handler(req, res) {
       return json(res, 200, {
         success: false,
         error: `Payment ${initialStatus.toLowerCase()}`,
-        message: failureMsg,
+        message: userMessage,
         failureCode: failureCode,
         depositId,
         status: initialStatus,
@@ -278,7 +317,8 @@ export default async function handler(req, res) {
           depositId,
           correspondent,
           reason: failureCode,
-          details: rejectionReason
+          details: pawaPayData,
+          rawFailureReason: rejectionReason
         }
       });
     }
