@@ -30,46 +30,11 @@ function formatDate(dateStr) {
   });
 }
 
-// Generate booking confirmation email HTML
+// Generate booking confirmation email HTML (minimalistic)
 function generateConfirmationEmail(checkout, items, bookingIds) {
   const guestName = checkout.name || "Guest";
   const totalAmount = formatMoney(checkout.total_amount, checkout.currency);
-  const bookingDetails = checkout.metadata?.booking_details || {};
-  const bookingDate = new Date().toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
   const receiptNumber = `MRY-${Date.now().toString(36).toUpperCase()}`;
-  
-  const itemsHtml = items.map((item, index) => {
-    const itemName = item.title || item.name || "Booking Item";
-    const itemPrice = formatMoney(item.calculated_price || item.price, checkout.currency);
-    const checkIn = formatDate(bookingDetails.check_in || item.metadata?.check_in);
-    const checkOut = formatDate(bookingDetails.check_out || item.metadata?.check_out);
-    const guests = bookingDetails.guests || item.metadata?.guests || 1;
-    
-    let itemType = "Booking";
-    if (item.item_type === "property") itemType = "Accommodation";
-    else if (item.item_type === "tour" || item.item_type === "tour_package") itemType = "Tour";
-    else if (item.item_type === "transport_vehicle") itemType = "Transport";
-    
-    return `
-      <tr>
-        <td style="padding: 14px 16px; border-bottom: 1px solid #f3f4f6;">
-          <strong style="color: #1f2937; font-size: 15px;">${itemName}</strong>
-          <div style="color: #9ca3af; font-size: 13px; margin-top: 4px;">${itemType}</div>
-        </td>
-        <td style="padding: 14px 16px; border-bottom: 1px solid #f3f4f6; color: #6b7280; font-size: 14px;">
-          ${checkIn}<br>to ${checkOut}
-          <div style="color: #9ca3af; font-size: 13px; margin-top: 4px;">${guests} guest${guests > 1 ? "s" : ""}</div>
-        </td>
-        <td style="padding: 14px 16px; border-bottom: 1px solid #f3f4f6; text-align: right; font-weight: 600; color: #1f2937; font-size: 15px;">
-          ${itemPrice}
-        </td>
-      </tr>
-    `;
-  }).join("");
 
   return `
 <!DOCTYPE html>
@@ -77,133 +42,164 @@ function generateConfirmationEmail(checkout, items, bookingIds) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Booking Confirmation - Merry360 Experience</title>
 </head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f8fafc; line-height: 1.5;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f8fafc;">
+  <table width="100%" cellspacing="0" cellpadding="0" style="max-width: 500px; margin: 0 auto; background-color: #ffffff;">
     
-    <!-- Header -->
+    <!-- Logo Header -->
     <tr>
-      <td style="background-color: #dc2626; padding: 28px 24px; text-align: center;">
-        <h1 style="margin: 0; color: #ffffff; font-size: 26px; font-weight: 700; letter-spacing: -0.5px;">Merry360 Experience</h1>
-        <p style="margin: 6px 0 0 0; color: rgba(255,255,255,0.85); font-size: 14px; font-weight: 400;">Premium Accommodations & Tours</p>
+      <td style="padding: 32px 24px; text-align: center; border-bottom: 1px solid #f3f4f6;">
+        <img src="https://merry360x.com/brand/logo.png" alt="Merry360" width="60" height="60" style="display: block; margin: 0 auto 12px auto;">
+        <h1 style="margin: 0; color: #dc2626; font-size: 22px; font-weight: 700;">Merry360</h1>
       </td>
     </tr>
     
-    <!-- Success Banner -->
+    <!-- Success Message -->
     <tr>
-      <td style="padding: 32px 24px 24px 24px; text-align: center; background: linear-gradient(180deg, #fef2f2 0%, #ffffff 100%);">
-        <div style="display: inline-block; background-color: #22c55e; border-radius: 50%; width: 56px; height: 56px; line-height: 56px; margin-bottom: 16px;">
-          <span style="font-size: 28px; color: #ffffff;">✓</span>
+      <td style="padding: 32px 24px; text-align: center;">
+        <div style="background-color: #22c55e; border-radius: 50%; width: 48px; height: 48px; line-height: 48px; margin: 0 auto 16px auto;">
+          <span style="font-size: 24px; color: #fff;">✓</span>
         </div>
-        <h2 style="margin: 0 0 8px 0; color: #1f2937; font-size: 22px; font-weight: 700;">Booking Confirmed</h2>
-        <p style="margin: 0; color: #6b7280; font-size: 15px;">Thank you, <strong>${guestName}</strong>! Your reservation is all set.</p>
+        <h2 style="margin: 0 0 8px 0; color: #1f2937; font-size: 20px;">Booking Confirmed</h2>
+        <p style="margin: 0; color: #6b7280; font-size: 15px;">Hi ${guestName}, your payment was successful.</p>
       </td>
     </tr>
     
-    <!-- Booking Details Card -->
+    <!-- Receipt Summary -->
     <tr>
       <td style="padding: 0 24px 24px 24px;">
-        <div style="border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
-          <div style="background-color: #fafafa; padding: 14px 16px; border-bottom: 1px solid #e5e7eb;">
-            <strong style="color: #374151; font-size: 15px;">Booking Details</strong>
-          </div>
-          <table width="100%" cellspacing="0" cellpadding="0">
-            <thead>
-              <tr style="background-color: #f9fafb;">
-                <th style="padding: 12px 16px; text-align: left; color: #6b7280; font-weight: 500; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Item</th>
-                <th style="padding: 12px 16px; text-align: left; color: #6b7280; font-weight: 500; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Dates</th>
-                <th style="padding: 12px 16px; text-align: right; color: #6b7280; font-weight: 500; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Price</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${itemsHtml}
-            </tbody>
-            <tfoot>
-              <tr style="background-color: #f9fafb;">
-                <td colspan="2" style="padding: 16px; font-weight: 700; color: #1f2937; font-size: 16px;">Total Paid</td>
-                <td style="padding: 16px; text-align: right; font-weight: 700; color: #dc2626; font-size: 18px;">${totalAmount}</td>
-              </tr>
-            </tfoot>
+        <div style="background-color: #f9fafb; border-radius: 12px; padding: 20px;">
+          <table width="100%" cellspacing="0" cellpadding="0" style="font-size: 14px;">
+            <tr>
+              <td style="color: #6b7280; padding: 6px 0;">Receipt #</td>
+              <td style="text-align: right; color: #1f2937; font-weight: 600;">${receiptNumber}</td>
+            </tr>
+            <tr>
+              <td style="color: #6b7280; padding: 6px 0;">Amount Paid</td>
+              <td style="text-align: right; color: #dc2626; font-weight: 700; font-size: 16px;">${totalAmount}</td>
+            </tr>
+            <tr>
+              <td style="color: #6b7280; padding: 6px 0;">Status</td>
+              <td style="text-align: right;">
+                <span style="background: #dcfce7; color: #166534; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600;">PAID</span>
+              </td>
+            </tr>
           </table>
         </div>
       </td>
     </tr>
     
-    <!-- Receipt Card -->
+    <!-- Download Receipt Button -->
     <tr>
-      <td style="padding: 0 24px 24px 24px;">
-        <div style="border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
-          <div style="background-color: #dc2626; padding: 14px 16px;">
-            <strong style="color: #ffffff; font-size: 15px;">Payment Receipt</strong>
-          </div>
-          <div style="padding: 20px;">
-            <table width="100%" cellspacing="0" cellpadding="0" style="font-size: 14px;">
-              <tr>
-                <td style="padding: 8px 0; color: #6b7280;">Receipt Number</td>
-                <td style="padding: 8px 0; text-align: right; color: #1f2937; font-weight: 600; font-family: 'Courier New', monospace;">${receiptNumber}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; color: #6b7280;">Date</td>
-                <td style="padding: 8px 0; text-align: right; color: #1f2937; font-weight: 500;">${bookingDate}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; color: #6b7280;">Payment Method</td>
-                <td style="padding: 8px 0; text-align: right; color: #1f2937; font-weight: 500;">Mobile Money</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; color: #6b7280;">Amount</td>
-                <td style="padding: 8px 0; text-align: right; color: #1f2937; font-weight: 700; font-size: 16px;">${totalAmount}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; color: #6b7280;">Status</td>
-                <td style="padding: 8px 0; text-align: right;">
-                  <span style="background-color: #dcfce7; color: #166534; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;">PAID</span>
-                </td>
-              </tr>
-              <tr>
-                <td colspan="2" style="padding-top: 16px; border-top: 1px dashed #e5e7eb; margin-top: 12px;">
-                  <div style="text-align: center; padding-top: 8px;">
-                    <span style="color: #9ca3af; font-size: 12px;">Order Reference</span>
-                    <div style="color: #374151; font-family: 'Courier New', monospace; font-size: 11px; margin-top: 4px; word-break: break-all;">${checkout.id}</div>
-                  </div>
-                </td>
-              </tr>
-            </table>
-          </div>
-        </div>
-      </td>
-    </tr>
-    
-    <!-- CTA Button -->
-    <tr>
-      <td style="padding: 8px 24px 32px 24px; text-align: center;">
-        <a href="https://merry360x.com/my-bookings" style="display: inline-block; background-color: #dc2626; color: #ffffff; text-decoration: none; padding: 14px 36px; border-radius: 8px; font-weight: 600; font-size: 15px;">
-          View My Bookings
+      <td style="padding: 0 24px 32px 24px; text-align: center;">
+        <p style="margin: 0 0 16px 0; color: #6b7280; font-size: 13px;">📎 Your receipt is attached to this email</p>
+        <a href="https://merry360x.com/my-bookings" style="display: inline-block; background-color: #dc2626; color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: 600; font-size: 14px;">
+          View Booking
         </a>
-        <p style="margin: 16px 0 0 0; color: #9ca3af; font-size: 13px;">Save this email as your receipt</p>
       </td>
     </tr>
     
     <!-- Footer -->
     <tr>
-      <td style="background-color: #1f2937; padding: 28px 24px; text-align: center;">
-        <p style="margin: 0; color: #ffffff; font-size: 16px; font-weight: 600;">Merry360 Experience</p>
-        <p style="margin: 8px 0 16px 0; color: #9ca3af; font-size: 13px;">Premium Accommodations & Tours in Africa</p>
-        <p style="margin: 0 0 4px 0; color: #6b7280; font-size: 13px;">Need help? Contact us at</p>
-        <a href="mailto:support@merry360x.com" style="color: #ef4444; text-decoration: none; font-weight: 600; font-size: 14px;">support@merry360x.com</a>
-        <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #374151;">
-          <p style="margin: 0; color: #6b7280; font-size: 11px;">
-            © 2026 Merry360 Experience. All rights reserved.<br>
-            This email serves as your official booking confirmation and payment receipt.
-          </p>
-        </div>
+      <td style="background-color: #1f2937; padding: 20px 24px; text-align: center;">
+        <p style="margin: 0; color: #9ca3af; font-size: 12px;">
+          Questions? <a href="mailto:support@merry360x.com" style="color: #ef4444; text-decoration: none;">support@merry360x.com</a>
+        </p>
+        <p style="margin: 8px 0 0 0; color: #6b7280; font-size: 11px;">© 2026 Merry360 Experience</p>
       </td>
     </tr>
   </table>
 </body>
 </html>
   `;
+}
+
+// Generate PDF receipt as base64
+function generateReceiptPDF(checkout, items, bookingIds) {
+  const guestName = checkout.name || "Guest";
+  const guestEmail = checkout.email || "";
+  const guestPhone = checkout.phone || checkout.phone_number || "";
+  const totalAmount = formatMoney(checkout.total_amount, checkout.currency);
+  const bookingDate = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  const receiptNumber = `MRY-${Date.now().toString(36).toUpperCase()}`;
+  const bookingDetails = checkout.metadata?.booking_details || {};
+  
+  const itemsList = items.map(item => {
+    const itemName = item.title || item.name || "Booking";
+    const itemPrice = formatMoney(item.calculated_price || item.price, checkout.currency);
+    const checkIn = formatDate(bookingDetails.check_in || item.metadata?.check_in);
+    const checkOut = formatDate(bookingDetails.check_out || item.metadata?.check_out);
+    return `${itemName} | ${checkIn} to ${checkOut} | ${itemPrice}`;
+  }).join('\n');
+
+  // HTML receipt that can be printed as PDF
+  const receiptHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Receipt - ${receiptNumber}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #1f2937; padding: 40px; max-width: 600px; margin: 0 auto; }
+    .header { text-align: center; border-bottom: 2px solid #dc2626; padding-bottom: 24px; margin-bottom: 24px; }
+    .logo { font-size: 28px; font-weight: bold; color: #dc2626; }
+    .receipt-title { font-size: 12px; color: #6b7280; margin-top: 8px; text-transform: uppercase; letter-spacing: 2px; }
+    .receipt-number { font-size: 16px; font-weight: 600; margin-top: 4px; }
+    .section { margin-bottom: 24px; }
+    .section-title { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f3f4f6; }
+    .row:last-child { border-bottom: none; }
+    .label { color: #6b7280; }
+    .value { font-weight: 500; text-align: right; }
+    .total-row { background: #f9fafb; padding: 12px; border-radius: 8px; margin-top: 16px; }
+    .total-label { font-size: 14px; color: #1f2937; }
+    .total-value { font-size: 20px; font-weight: 700; color: #dc2626; }
+    .paid-badge { background: #dcfce7; color: #166534; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; display: inline-block; }
+    .footer { text-align: center; margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb; }
+    .footer p { font-size: 11px; color: #9ca3af; margin: 4px 0; }
+    .order-ref { font-family: monospace; font-size: 10px; color: #9ca3af; word-break: break-all; margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">Merry360</div>
+    <div class="receipt-title">Payment Receipt</div>
+    <div class="receipt-number">${receiptNumber}</div>
+  </div>
+  
+  <div class="section">
+    <div class="section-title">Customer Details</div>
+    <div class="row"><span class="label">Name</span><span class="value">${guestName}</span></div>
+    <div class="row"><span class="label">Email</span><span class="value">${guestEmail}</span></div>
+    ${guestPhone ? `<div class="row"><span class="label">Phone</span><span class="value">${guestPhone}</span></div>` : ''}
+  </div>
+  
+  <div class="section">
+    <div class="section-title">Payment Details</div>
+    <div class="row"><span class="label">Date</span><span class="value">${bookingDate}</span></div>
+    <div class="row"><span class="label">Method</span><span class="value">Mobile Money</span></div>
+    <div class="row"><span class="label">Status</span><span class="value"><span class="paid-badge">PAID</span></span></div>
+  </div>
+  
+  <div class="total-row">
+    <div class="row" style="border: none;">
+      <span class="total-label">Total Amount</span>
+      <span class="total-value">${totalAmount}</span>
+    </div>
+  </div>
+  
+  <div class="footer">
+    <p>Thank you for booking with Merry360 Experience</p>
+    <p>support@merry360x.com | merry360x.com</p>
+    <div class="order-ref">Order: ${checkout.id}</div>
+  </div>
+</body>
+</html>
+  `;
+
+  // Return as base64 for email attachment
+  return Buffer.from(receiptHtml).toString('base64');
 }
 
 // Send confirmation email using Brevo API
@@ -214,7 +210,9 @@ async function sendConfirmationEmail(checkout, items, bookingIds) {
   }
 
   const html = generateConfirmationEmail(checkout, items, bookingIds);
+  const receiptBase64 = generateReceiptPDF(checkout, items, bookingIds);
   const guestName = checkout.name || "Guest";
+  const receiptNumber = `MRY-${Date.now().toString(36).toUpperCase()}`;
 
   try {
     const response = await fetch("https://api.brevo.com/v3/smtp/email", {
@@ -226,7 +224,7 @@ async function sendConfirmationEmail(checkout, items, bookingIds) {
       },
       body: JSON.stringify({
         sender: {
-          name: "Merry360 Experience",
+          name: "Merry360",
           email: "davyncidavy@gmail.com",
         },
         to: [
@@ -235,8 +233,14 @@ async function sendConfirmationEmail(checkout, items, bookingIds) {
             name: guestName,
           },
         ],
-        subject: `Booking Confirmed - ${guestName} | Merry360 Experience`,
+        subject: `Booking Confirmed - ${receiptNumber}`,
         htmlContent: html,
+        attachment: [
+          {
+            content: receiptBase64,
+            name: `Receipt-${receiptNumber}.html`,
+          },
+        ],
       }),
     });
 
