@@ -1,21 +1,21 @@
 export type FxRates = Record<string, number>;
 
 // Fixed exchange rates based on BNR rates (30-Jan-26)
-// All rates are: 1 unit of foreign currency = X RWF
+// Using SELL rates: How much RWF you pay per 1 unit of foreign currency
 const FIXED_RATES: FxRates = {
-  USD: 1455.05,      // Average of 1450.05 buy / 1460.05 sell
-  EUR: 1735.074373,  // Average of 1729.112123 buy / 1741.036622 sell
-  GBP: 2000.912008,  // Average of 1994.036258 buy / 2007.787757 sell
-  CNY: 209.381420,   // Average of 208.66147 buy / 210.100465 sell
-  CNH: 209.471181,   // Average of 208.751373 buy / 210.190988 sell
+  USD: 1460.05,      // BNR Sell rate
+  EUR: 1741.036622,  // BNR Sell rate
+  GBP: 2007.787757,  // BNR Sell rate
+  CNY: 210.100465,   // BNR Sell rate
+  CNH: 210.190988,   // BNR Sell rate
   RWF: 1,            // Base currency
-  // Additional common currencies (estimated)
-  KES: 11.3,
-  UGX: 0.39,
-  TZS: 0.58,
-  ZAR: 78.64,
-  NGN: 0.94,
-  GHS: 93.94,
+  // Additional common currencies (estimated, using typical sell rates)
+  KES: 11.5,
+  UGX: 0.40,
+  TZS: 0.60,
+  ZAR: 80.0,
+  NGN: 0.95,
+  GHS: 95.0,
 };
 
 export async function getUsdRates(): Promise<FxRates | null> {
