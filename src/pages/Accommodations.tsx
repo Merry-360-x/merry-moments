@@ -941,7 +941,7 @@ const Accommodations = () => {
                 <p className="text-muted-foreground">{t("accommodations.noMatches")}</p>
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-2 md:gap-4 lg:gap-6">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4 lg:gap-6">
                 {properties.map((property) => (
                   <PropertyCard
                     key={property.id}
