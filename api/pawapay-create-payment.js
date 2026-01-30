@@ -124,33 +124,13 @@ export default async function handler(req, res) {
       return json(res, 404, { error: "Checkout not found" });
     }
 
-    // PawaPay only supports RWF for Rwanda mobile money
-    // Convert any currency to RWF using BNR SELL rates (30-Jan-26)
-    // SELL rate = How much RWF customers pay per 1 unit of foreign currency
-    const EXCHANGE_RATES_TO_RWF = {
-      "RWF": 1,
-      "USD": 1460.05,
-      "EUR": 1741.036622,
-      "GBP": 2007.787757,
-      "CNY": 210.100465,
-      "CNH": 210.190988,
-      "KES": 11.5,
-      "UGX": 0.40,
-      "TZS": 0.60,
-      "ZAR": 80.0,
-      "NGN": 0.95,
-      "GHS": 95.0,
-    };
+    // All checkouts are stored in RWF, PawaPay only supports RWF
+    const currency = "RWF";
+    const rwfAmount = Math.round(numAmount);
     
-    const currency = "RWF"; // PawaPay only supports RWF
-    const checkoutCurrency = (checkout.currency || "RWF").toUpperCase();
-    const exchangeRate = EXCHANGE_RATES_TO_RWF[checkoutCurrency] || 1;
-    const rwfAmount = Math.round(numAmount * exchangeRate);
-    
-    console.log("💱 Currency conversion:", {
-      originalCurrency: checkoutCurrency,
-      originalAmount: numAmount,
-      exchangeRate,
+    console.log("💰 Payment details:", {
+      checkoutCurrency: checkout.currency,
+      amount: numAmount,
       rwfAmount
     });
 

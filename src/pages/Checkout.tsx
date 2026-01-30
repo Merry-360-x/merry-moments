@@ -481,6 +481,21 @@ export default function CheckoutNew() {
         guests: Number(searchParams.get("guests")) || 1,
       } : null;
       
+      // Convert total to RWF for storage (all checkouts stored in RWF)
+      let totalInRwf = total;
+      if (displayCurrency !== 'RWF') {
+        const converted = convertAmount(total, displayCurrency, 'RWF', usdRates);
+        if (!converted) {
+          throw new Error(`Unable to convert ${displayCurrency} to RWF. Please try again.`);
+        }
+        totalInRwf = converted;
+        console.log("💱 Converted checkout total to RWF:", {
+          from: displayCurrency,
+          original: total,
+          rwf: totalInRwf
+        });
+      }
+      
       // Create a single checkout request with all cart items in metadata
       const checkoutData: any = {
         user_id: user?.id || null,
@@ -488,8 +503,8 @@ export default function CheckoutNew() {
         email: formData.email,
         phone: (paymentMethod === 'mtn' || paymentMethod === 'airtel') ? fullPhone : (formData.phone || null),
         message: formData.notes || null,
-        total_amount: Math.round(total),
-        currency: displayCurrency,
+        total_amount: Math.round(totalInRwf),
+        currency: 'RWF', // Always store in RWF
         payment_status: paymentMethod === 'card' || paymentMethod === 'bank' ? 'awaiting_callback' : 'pending',
         payment_method: paymentMethod === 'card' ? 'card' : paymentMethod === 'bank' ? 'bank_transfer' : 'mobile_money',
         items: cartItemsWithPrices,
@@ -528,23 +543,10 @@ export default function CheckoutNew() {
         return;
       }
 
-      // Convert total to RWF for PawaPay (mobile money only supports RWF)
-      let paymentAmount = total;
-      if (displayCurrency !== 'RWF') {
-        const rwfAmount = convertAmount(total, displayCurrency, 'RWF', usdRates);
-        if (!rwfAmount) {
-          throw new Error(`Unable to convert ${displayCurrency} to RWF. Please try again.`);
-        }
-        paymentAmount = rwfAmount;
-        console.log("💱 Converted amount to RWF:", {
-          from: displayCurrency,
-          original: total,
-          rwf: paymentAmount
-        });
-      }
+      // Checkout is already in RWF, so use totalInRwf directly
+      const finalAmount = Math.round(totalInRwf);
       
       // Validate amount before initiating payment
-      const finalAmount = Math.round(paymentAmount);
       if (finalAmount < 100) {
         throw new Error("Minimum payment amount is 100 RWF");
       }
