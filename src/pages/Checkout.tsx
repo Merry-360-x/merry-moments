@@ -357,7 +357,20 @@ export default function CheckoutNew() {
     setPaymentError(null);
     
     try {
-      const fullPhone = `${countryCode}${phoneNumber.replace(/^0+/, '')}`;
+      // Clean phone number - remove leading zeros and country code if user entered it
+      let cleanedPhone = phoneNumber.replace(/^0+/, ''); // Remove leading zeros
+      // If user entered 250XXXXXXXX, strip the 250 since we add it from countryCode
+      if (cleanedPhone.startsWith('250') && cleanedPhone.length === 12) {
+        cleanedPhone = cleanedPhone.substring(3);
+      }
+      const fullPhone = `${countryCode}${cleanedPhone}`;
+      
+      console.log("📱 Phone number processing:", {
+        raw: phoneNumber,
+        cleaned: cleanedPhone,
+        countryCode,
+        fullPhone
+      });
       
       // Build cart items metadata with calculated prices
       const cartItemsWithPrices = cartItems.map(item => {

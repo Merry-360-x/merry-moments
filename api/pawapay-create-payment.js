@@ -137,14 +137,32 @@ export default async function handler(req, res) {
     // Generate unique deposit ID - must be a valid UUID
     const depositId = crypto.randomUUID();
 
-    // Format phone number (remove +, spaces, dashes)
-    const cleanPhone = phoneNumber.replace(/[\s\-+]/g, "");
+    // Format phone number properly for PawaPay (needs 250XXXXXXXXX format)
+    let cleanPhone = phoneNumber.replace(/[\s\-+]/g, "");
+    
+    // Remove duplicate country code if present (e.g., 250250792...)
+    if (cleanPhone.startsWith("250250")) {
+      cleanPhone = cleanPhone.substring(3);
+    }
     
     // Ensure phone starts with country code (250 for Rwanda)
     let msisdn = cleanPhone;
     if (!msisdn.startsWith("250") && msisdn.length === 9) {
       msisdn = "250" + msisdn;
     }
+    
+    // Validate final phone format (should be 250 + 9 digits = 12 digits)
+    if (msisdn.length !== 12 || !msisdn.startsWith("250")) {
+      console.error("❌ Invalid phone format:", { original: phoneNumber, cleaned: cleanPhone, msisdn });
+      return json(res, 400, {
+        success: false,
+        error: "Invalid phone number",
+        message: `Phone number format is incorrect. Please enter a valid Rwanda number (e.g., 78XXXXXXX)`,
+        debugInfo: { phoneNumber, cleanPhone, msisdn }
+      });
+    }
+    
+    console.log("📱 Phone number processed:", { original: phoneNumber, final: msisdn });
 
     // Create PawaPay deposit request
     const pawaPayRequest = {
