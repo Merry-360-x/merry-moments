@@ -127,7 +127,7 @@ export default function PaymentFailed() {
       // Fetch the checkout request details
       const { data: checkout, error: fetchError } = await supabase
         .from("checkout_requests")
-        .select("*")
+        .select("id, name, email, phone_number, total_amount, metadata")
         .eq("id", checkoutId)
         .single();
 
