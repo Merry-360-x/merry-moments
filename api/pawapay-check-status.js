@@ -2,17 +2,8 @@ import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-// Determine if we're using sandbox or production
-const USE_SANDBOX = process.env.PAWAPAY_SANDBOX === "true" || !process.env.PAWAPAY_API_TOKEN;
-
-const PAWAPAY_BASE_URL = USE_SANDBOX
-  ? "https://api.sandbox.pawapay.cloud"
-  : "https://api.pawapay.cloud";
-
-const PAWAPAY_API_TOKEN = USE_SANDBOX
-  ? process.env.PAWAPAY_SANDBOX_TOKEN || process.env.PAWAPAY_API_TOKEN
-  : process.env.PAWAPAY_API_TOKEN;
+const PAWAPAY_API_KEY = process.env.PAWAPAY_API_KEY;
+const PAWAPAY_BASE_URL = process.env.PAWAPAY_BASE_URL || "https://api.pawapay.cloud";
 
 function json(res, status, body) {
   res.statusCode = status;
@@ -38,7 +29,7 @@ export default async function handler(req, res) {
     return json(res, 400, { error: "Missing depositId parameter" });
   }
 
-  if (!PAWAPAY_API_TOKEN) {
+  if (!PAWAPAY_API_KEY) {
     console.error("Missing PawaPay API token");
     return json(res, 500, { error: "Server configuration error" });
   }
@@ -52,7 +43,7 @@ export default async function handler(req, res) {
     const response = await fetch(pawapayUrl, {
       method: "GET",
       headers: {
-        "Authorization": `Bearer ${PAWAPAY_API_TOKEN}`,
+        "Authorization": `Bearer ${PAWAPAY_API_KEY}`,
         "Content-Type": "application/json"
       }
     });
