@@ -438,11 +438,17 @@ export default function CheckoutNew() {
         return;
       }
 
+      // Validate amount before initiating payment
+      const paymentAmount = Math.round(total);
+      if (paymentAmount < 100) {
+        throw new Error("Minimum payment amount is 100 RWF");
+      }
+
       // Initiate PawaPay payment for mobile money
-      console.log("Initiating PawaPay payment:", {
+      console.log("🔄 Initiating PawaPay payment:", {
         checkoutId,
-        amount: Math.round(total),
-        currency: displayCurrency,
+        amount: paymentAmount,
+        currency: 'RWF',
         phoneNumber: fullPhone,
         provider: paymentMethod === 'airtel' ? 'AIRTEL' : 'MTN',
       });
@@ -452,10 +458,10 @@ export default function CheckoutNew() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           checkoutId,
-          amount: Math.round(total),
-          currency: displayCurrency === 'RWF' ? 'RWF' : 'RWF', // PawaPay needs RWF
+          amount: paymentAmount,
+          currency: 'RWF',
           phoneNumber: fullPhone,
-          description: `Merry Moments - ${cartItems.length} item(s)`,
+          description: `Merry360x Booking - ${cartItems.length} item(s)`,
           payerEmail: formData.email,
           payerName: formData.fullName,
           provider: paymentMethod === 'airtel' ? 'AIRTEL' : 'MTN',
@@ -463,20 +469,24 @@ export default function CheckoutNew() {
       });
 
       const paymentData = await paymentResponse.json();
-      console.log("PawaPay API response:", paymentData);
+      console.log("📥 PawaPay API response:", paymentData);
 
-      // Check if payment was immediately rejected (correspondent not activated)
+      // Check if payment was immediately rejected
       if (paymentData.success === false || paymentData.status === 'REJECTED' || paymentData.status === 'FAILED') {
-        console.error("Payment rejected immediately:", paymentData);
+        console.error("❌ Payment rejected:", paymentData);
         
-        const errorMsg = paymentData.message || 
-          "Mobile money payment is not available at the moment. Please try a different payment method or contact support.";
+        // Extract detailed error information
+        const failureCode = paymentData.failureCode || paymentData.data?.reason;
+        const errorMsg = paymentData.message || "Payment could not be processed";
+        
+        console.error("Failure code:", failureCode);
+        console.error("Error message:", errorMsg);
         
         setPaymentError(errorMsg);
         setIsProcessing(false);
         
         toast({
-          title: "Payment Not Available",
+          title: "Payment Failed",
           description: errorMsg,
           variant: "destructive",
         });
@@ -484,13 +494,27 @@ export default function CheckoutNew() {
       }
 
       if (!paymentResponse.ok) {
-        console.error("PawaPay error details:", paymentData);
+        console.error("❌ PawaPay API error:", paymentData);
         throw new Error(paymentData.error || paymentData.message || "Payment initiation failed");
       }
+
+      // Ensure we have a depositId
+      if (!paymentData.depositId) {
+        console.error("❌ Missing depositId in response:", paymentData);
+        throw new Error("Invalid payment response - missing deposit ID");
+      }
+
+      console.log("✅ Payment initiated successfully:", paymentData.depositId);
 
       // Clear cart
       await clearCart();
       localStorage.removeItem("applied_discount");
+
+      // Show success message
+      toast({
+        title: "Payment Initiated",
+        description: "Check your phone to complete the payment",
+      });
 
       // Redirect to payment pending
       navigate(`/payment-pending?checkoutId=${checkoutId}&depositId=${paymentData.depositId}`);
