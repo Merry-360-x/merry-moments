@@ -1,7 +1,230 @@
 import { createClient } from "@supabase/supabase-js";
+import nodemailer from "nodemailer";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+// Brevo SMTP Configuration
+const BREVO_SMTP_HOST = "smtp-relay.brevo.com";
+const BREVO_SMTP_PORT = 587;
+const BREVO_SMTP_USER = process.env.BREVO_SMTP_USER;
+const BREVO_SMTP_KEY = process.env.BREVO_SMTP_KEY;
+
+// Create email transporter
+function createEmailTransporter() {
+  if (!BREVO_SMTP_USER || !BREVO_SMTP_KEY) {
+    console.warn("⚠️ Brevo SMTP credentials not configured");
+    return null;
+  }
+  
+  return nodemailer.createTransport({
+    host: BREVO_SMTP_HOST,
+    port: BREVO_SMTP_PORT,
+    secure: false,
+    auth: {
+      user: BREVO_SMTP_USER,
+      pass: BREVO_SMTP_KEY,
+    },
+  });
+}
+
+// Format currency
+function formatMoney(amount, currency = "RWF") {
+  const num = Number(amount) || 0;
+  if (currency === "RWF") {
+    return `${num.toLocaleString()} RWF`;
+  }
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: currency,
+  }).format(num);
+}
+
+// Format date
+function formatDate(dateStr) {
+  if (!dateStr) return "N/A";
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+// Generate booking confirmation email HTML
+function generateConfirmationEmail(checkout, items, bookingIds) {
+  const guestName = checkout.name || "Guest";
+  const totalAmount = formatMoney(checkout.total_amount, checkout.currency);
+  const bookingDetails = checkout.metadata?.booking_details || {};
+  
+  const itemsHtml = items.map((item, index) => {
+    const itemName = item.title || item.name || "Booking Item";
+    const itemPrice = formatMoney(item.calculated_price || item.price, checkout.currency);
+    const checkIn = formatDate(bookingDetails.check_in || item.metadata?.check_in);
+    const checkOut = formatDate(bookingDetails.check_out || item.metadata?.check_out);
+    const guests = bookingDetails.guests || item.metadata?.guests || 1;
+    
+    let itemType = "Booking";
+    if (item.item_type === "property") itemType = "Accommodation";
+    else if (item.item_type === "tour" || item.item_type === "tour_package") itemType = "Tour";
+    else if (item.item_type === "transport_vehicle") itemType = "Transport";
+    
+    return `
+      <tr>
+        <td style="padding: 16px; border-bottom: 1px solid #e5e7eb;">
+          <strong style="color: #1f2937;">${itemName}</strong>
+          <br><span style="color: #6b7280; font-size: 14px;">${itemType}</span>
+        </td>
+        <td style="padding: 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280;">
+          ${checkIn} → ${checkOut}
+          <br><span style="font-size: 14px;">${guests} guest${guests > 1 ? "s" : ""}</span>
+        </td>
+        <td style="padding: 16px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: 600; color: #1f2937;">
+          ${itemPrice}
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Booking Confirmation</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+    <!-- Header -->
+    <tr>
+      <td style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); padding: 32px; text-align: center;">
+        <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">Merry Moments</h1>
+        <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">Your booking is confirmed!</p>
+      </td>
+    </tr>
+    
+    <!-- Confirmation Badge -->
+    <tr>
+      <td style="padding: 32px 24px 16px 24px; text-align: center;">
+        <div style="display: inline-block; background-color: #dcfce7; border-radius: 50%; width: 64px; height: 64px; line-height: 64px;">
+          <span style="font-size: 32px;">✓</span>
+        </div>
+        <h2 style="margin: 16px 0 8px 0; color: #1f2937; font-size: 24px;">Payment Successful!</h2>
+        <p style="margin: 0; color: #6b7280;">Thank you for your booking, ${guestName}!</p>
+      </td>
+    </tr>
+    
+    <!-- Order Summary -->
+    <tr>
+      <td style="padding: 24px;">
+        <div style="background-color: #f9fafb; border-radius: 12px; padding: 24px;">
+          <h3 style="margin: 0 0 16px 0; color: #1f2937; font-size: 18px; border-bottom: 2px solid #e5e7eb; padding-bottom: 12px;">
+            📋 Booking Details
+          </h3>
+          
+          <table width="100%" cellspacing="0" cellpadding="0" style="font-size: 15px;">
+            <thead>
+              <tr style="background-color: #f3f4f6;">
+                <th style="padding: 12px 16px; text-align: left; color: #6b7280; font-weight: 600;">Item</th>
+                <th style="padding: 12px 16px; text-align: left; color: #6b7280; font-weight: 600;">Dates</th>
+                <th style="padding: 12px 16px; text-align: right; color: #6b7280; font-weight: 600;">Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="2" style="padding: 16px; font-weight: 700; color: #1f2937; font-size: 16px;">Total Paid</td>
+                <td style="padding: 16px; text-align: right; font-weight: 700; color: #ef4444; font-size: 18px;">${totalAmount}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </td>
+    </tr>
+    
+    <!-- Payment Receipt -->
+    <tr>
+      <td style="padding: 0 24px 24px 24px;">
+        <div style="background-color: #fef3c7; border-radius: 12px; padding: 20px; border-left: 4px solid #f59e0b;">
+          <h4 style="margin: 0 0 12px 0; color: #92400e; font-size: 16px;">🧾 Payment Receipt</h4>
+          <table width="100%" cellspacing="0" cellpadding="0" style="font-size: 14px; color: #78350f;">
+            <tr>
+              <td style="padding: 4px 0;">Payment Method:</td>
+              <td style="text-align: right; font-weight: 600;">Mobile Money</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0;">Amount Paid:</td>
+              <td style="text-align: right; font-weight: 600;">${totalAmount}</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0;">Status:</td>
+              <td style="text-align: right;"><span style="background-color: #22c55e; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">PAID</span></td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0;">Order ID:</td>
+              <td style="text-align: right; font-family: monospace; font-size: 12px;">${checkout.id?.slice(0, 8)}...</td>
+            </tr>
+          </table>
+        </div>
+      </td>
+    </tr>
+    
+    <!-- CTA Button -->
+    <tr>
+      <td style="padding: 0 24px 32px 24px; text-align: center;">
+        <a href="https://merry360x.com/my-bookings" style="display: inline-block; background-color: #ef4444; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
+          View My Bookings
+        </a>
+      </td>
+    </tr>
+    
+    <!-- Footer -->
+    <tr>
+      <td style="background-color: #1f2937; padding: 24px; text-align: center;">
+        <p style="margin: 0 0 8px 0; color: #9ca3af; font-size: 14px;">Questions? Contact us at</p>
+        <a href="mailto:support@merry360x.com" style="color: #ef4444; text-decoration: none; font-weight: 600;">support@merry360x.com</a>
+        <p style="margin: 16px 0 0 0; color: #6b7280; font-size: 12px;">
+          © 2026 Merry Moments. All rights reserved.<br>
+          Discover the warmth of African hospitality.
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+}
+
+// Send confirmation email
+async function sendConfirmationEmail(checkout, items, bookingIds) {
+  const transporter = createEmailTransporter();
+  if (!transporter) {
+    console.log("⚠️ Email transporter not available, skipping email");
+    return false;
+  }
+
+  const html = generateConfirmationEmail(checkout, items, bookingIds);
+  const guestName = checkout.name || "Guest";
+
+  try {
+    const info = await transporter.sendMail({
+      from: '"Merry Moments" <bookings@merry360x.com>',
+      to: checkout.email,
+      subject: `✅ Booking Confirmed - Thank you, ${guestName}!`,
+      html: html,
+    });
+
+    console.log(`📧 Confirmation email sent to ${checkout.email}: ${info.messageId}`);
+    return true;
+  } catch (error) {
+    console.error("❌ Failed to send confirmation email:", error.message);
+    return false;
+  }
+}
 
 function json(res, status, body) {
   res.statusCode = status;
@@ -162,6 +385,7 @@ export default async function handler(req, res) {
     console.log(`✅ Checkout ${checkout.id} updated: ${checkout.payment_status} → ${newPaymentStatus}`);
 
     // Create bookings when payment is completed
+    let createdBookingIds = [];
     if (shouldCreateBookings && checkout.metadata?.items) {
       console.log("📦 Creating bookings from checkout items...");
       const items = checkout.metadata.items;
@@ -214,6 +438,7 @@ export default async function handler(req, res) {
             console.error("❌ Failed to create booking:", bookingError);
           } else {
             console.log(`✅ Booking created: ${booking.id}`);
+            createdBookingIds.push(booking.id);
           }
         } catch (bookingErr) {
           console.error("❌ Booking creation error:", bookingErr);
@@ -221,10 +446,11 @@ export default async function handler(req, res) {
       }
     }
 
-    // TODO: Send email notification if payment completed or failed
-    if (shouldNotify && checkout.email) {
-      console.log(`📧 Should notify ${checkout.email} about ${newPaymentStatus} payment`);
-      // Implement email notification here using your email service
+    // Send email notification if payment completed
+    if (shouldNotify && checkout.email && newPaymentStatus === "paid") {
+      console.log(`📧 Sending confirmation email to ${checkout.email}...`);
+      const items = checkout.metadata?.items || [];
+      await sendConfirmationEmail(checkout, items, createdBookingIds);
     }
 
     // Acknowledge webhook (VERY IMPORTANT - always return 200)
