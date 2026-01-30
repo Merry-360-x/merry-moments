@@ -180,17 +180,20 @@ export default async function handler(req, res) {
             guests_count: bookingDetails?.guests || item.metadata?.guests || 1,
           };
 
-          // Handle different item types
+          // Handle different item types and set booking_type
           if (item.item_type === 'property') {
+            bookingData.booking_type = 'property';
             bookingData.property_id = item.reference_id;
             bookingData.check_in = bookingDetails?.check_in || item.metadata?.check_in;
             bookingData.check_out = bookingDetails?.check_out || item.metadata?.check_out;
           } else if (item.item_type === 'tour' || item.item_type === 'tour_package') {
+            bookingData.booking_type = 'tour';
             bookingData.tour_id = item.reference_id;
             // For tours, use check_in date as the tour date
             bookingData.check_in = bookingDetails?.check_in || item.metadata?.check_in || new Date().toISOString().split('T')[0];
             bookingData.check_out = bookingDetails?.check_out || item.metadata?.check_out || new Date().toISOString().split('T')[0];
           } else if (item.item_type === 'transport_vehicle') {
+            bookingData.booking_type = 'transport';
             bookingData.transport_id = item.reference_id;
             bookingData.check_in = bookingDetails?.check_in || item.metadata?.check_in || new Date().toISOString().split('T')[0];
             bookingData.check_out = bookingDetails?.check_out || item.metadata?.check_out || new Date().toISOString().split('T')[0];
