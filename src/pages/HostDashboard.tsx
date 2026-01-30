@@ -19,7 +19,7 @@ import { isVideoUrl } from "@/lib/media";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { formatMoney } from "@/lib/money";
 import { AMENITIES, AMENITIES_BY_CATEGORY } from "@/lib/amenities";
-import { calculateHostEarnings, PLATFORM_FEES } from "@/lib/fees";
+import { calculateHostEarningsFromGuestTotal, PLATFORM_FEES } from "@/lib/fees";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
@@ -897,19 +897,21 @@ export default function HostDashboard() {
   // Gross earnings (what guests paid)
   const totalGrossEarnings = confirmedBookings.reduce((sum, b) => sum + Number(b.total_price), 0);
   
-  // Net earnings after platform fees (3% for properties, 10% for tours)
+  // Net earnings after platform fees
+  // For accommodation: base_price = guest_paid / 1.07, host gets base_price - 3%
+  // For tours: base_price = guest_paid (0% guest fee), host gets base_price - 10%
   const totalNetEarnings = confirmedBookings.reduce((sum, b) => {
-    const amount = Number(b.total_price);
+    const guestPaid = Number(b.total_price);
     if (b.booking_type === 'property' || b.property_id) {
-      // Property: host pays 3%
-      const { netEarnings } = calculateHostEarnings(amount, 'accommodation');
-      return sum + netEarnings;
+      // Property: guest paid 107%, host pays 3% of base price
+      const { hostNetEarnings } = calculateHostEarningsFromGuestTotal(guestPaid, 'accommodation');
+      return sum + hostNetEarnings;
     } else if (b.booking_type === 'tour' || b.tour_id) {
-      // Tour: provider pays 10%
-      const { netEarnings } = calculateHostEarnings(amount, 'tour');
-      return sum + netEarnings;
+      // Tour: guest paid 100%, provider pays 10% of base price
+      const { hostNetEarnings } = calculateHostEarningsFromGuestTotal(guestPaid, 'tour');
+      return sum + hostNetEarnings;
     }
-    return sum + amount; // Transport or other - no fee for now
+    return sum + guestPaid; // Transport or other - no fee for now
   }, 0);
   
   // Keep totalEarnings as net earnings for display
@@ -3556,7 +3558,8 @@ export default function HostDashboard() {
                   
                   // Calculate net earnings after platform fee
                   const serviceType = itemType === 'property' ? 'accommodation' : itemType === 'tour' ? 'tour' : 'transport';
-                  const { netEarnings, feePercent } = calculateHostEarnings(b.total_price, serviceType as 'accommodation' | 'tour' | 'transport');
+                  const { hostNetEarnings, hostFee } = calculateHostEarningsFromGuestTotal(Number(b.total_price), serviceType as 'accommodation' | 'tour' | 'transport');
+                  const feePercent = serviceType === 'accommodation' ? PLATFORM_FEES.accommodation.hostFeePercent : serviceType === 'tour' ? PLATFORM_FEES.tour.providerFeePercent : 0;
                   
                   return (
                   <Card key={b.id} className="p-4">
@@ -3582,7 +3585,7 @@ export default function HostDashboard() {
                         </div>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <span>{b.guests} guests</span>
-                          <span className="font-medium text-foreground">{formatMoney(netEarnings, b.currency)}</span>
+                          <span className="font-medium text-foreground">{formatMoney(hostNetEarnings, b.currency)}</span>
                           {feePercent > 0 && (
                             <span className="text-xs text-muted-foreground">(after {feePercent}% fee)</span>
                           )}
@@ -3895,8 +3898,8 @@ export default function HostDashboard() {
                         })
                         .reduce((sum, b) => {
                           const itemType = b.property_id ? 'accommodation' : b.tour_id ? 'tour' : 'transport';
-                          const { netEarnings } = calculateHostEarnings(Number(b.total_price), itemType as 'accommodation' | 'tour' | 'transport');
-                          return sum + netEarnings;
+                          const { hostNetEarnings } = calculateHostEarningsFromGuestTotal(Number(b.total_price), itemType as 'accommodation' | 'tour' | 'transport');
+                          return sum + hostNetEarnings;
                         }, 0),
                       bookings[0]?.currency || "USD"
                     )}

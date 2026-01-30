@@ -18,7 +18,7 @@ import { formatMoney } from "@/lib/money";
 import { useTripCart, CartItemMetadata, getCartItemMetadata } from "@/hooks/useTripCart";
 import { useFxRates } from "@/hooks/useFxRates";
 import { convertAmount } from "@/lib/fx";
-import { calculateGuestTotal, calculateHostEarnings, PLATFORM_FEES } from "@/lib/fees";
+import { calculateGuestTotal, PLATFORM_FEES } from "@/lib/fees";
 import { 
   ArrowLeft, 
   ArrowRight, 

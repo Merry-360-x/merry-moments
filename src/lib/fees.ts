@@ -16,13 +16,13 @@
 export const PLATFORM_FEES = {
   // Accommodation fees
   accommodation: {
-    guestFeePercent: 7, // Added to guest's total
+    guestFeePercent: 7,  // Added to guest's total
     hostFeePercent: 3,   // Deducted from host's earnings
   },
   
   // Tour fees
   tour: {
-    guestFeePercent: 0,   // No extra charge for guest
+    guestFeePercent: 0,    // No extra charge for guest
     providerFeePercent: 10, // Deducted from provider's earnings
   },
   
@@ -31,7 +31,15 @@ export const PLATFORM_FEES = {
     guestFeePercent: 0,
     providerFeePercent: 0,
   },
-};
+} as const;
+
+// Helper to get provider fee percent for any service type
+export function getHostOrProviderFeePercent(serviceType: 'accommodation' | 'tour' | 'transport'): number {
+  if (serviceType === 'accommodation') {
+    return PLATFORM_FEES.accommodation.hostFeePercent;
+  }
+  return PLATFORM_FEES[serviceType].providerFeePercent;
+}
 
 /**
  * Calculate the guest total with platform fee added
@@ -76,10 +84,7 @@ export function calculateHostEarnings(
   netEarnings: number;
   feePercent: number;
 } {
-  const feeConfig = PLATFORM_FEES[serviceType];
-  const feePercent = serviceType === 'accommodation' 
-    ? feeConfig.hostFeePercent 
-    : (feeConfig as any).providerFeePercent || 0;
+  const feePercent = getHostOrProviderFeePercent(serviceType);
   const platformFee = (basePrice * feePercent) / 100;
   const netEarnings = basePrice - platformFee;
   
@@ -99,8 +104,77 @@ export function getGuestFeePercent(serviceType: 'accommodation' | 'tour' | 'tran
 }
 
 export function getProviderFeePercent(serviceType: 'accommodation' | 'tour' | 'transport'): number {
-  const config = PLATFORM_FEES[serviceType];
-  return serviceType === 'accommodation' 
-    ? config.hostFeePercent 
-    : (config as any).providerFeePercent || 0;
+  return getHostOrProviderFeePercent(serviceType);
+}
+
+/**
+ * Extract base price from the guest-paid total
+ * Reverses the guest fee calculation to get the original price
+ * 
+ * @param guestPaidTotal - The amount the guest paid (including any guest fee)
+ * @param serviceType - 'accommodation' | 'tour' | 'transport'
+ * @returns The original base price before guest fees were added
+ */
+export function extractBasePrice(
+  guestPaidTotal: number,
+  serviceType: 'accommodation' | 'tour' | 'transport'
+): number {
+  const guestFeePercent = PLATFORM_FEES[serviceType].guestFeePercent;
+  // If guest paid 107% of base, then base = guestPaid / 1.07
+  return guestPaidTotal / (1 + guestFeePercent / 100);
+}
+
+/**
+ * Calculate what the host/provider receives from a guest-paid amount
+ * This is the proper way to calculate host earnings when you only have
+ * the total amount paid by the guest.
+ * 
+ * Example for Accommodation (base price 100):
+ * - Guest paid: 107 (100 + 7% fee)
+ * - Base price: 107 / 1.07 = 100
+ * - Host fee: 3% of 100 = 3
+ * - Host receives: 100 - 3 = 97
+ * - Platform earns: 7 (from guest) + 3 (from host) = 10
+ * 
+ * Example for Tour (base price 100):
+ * - Guest paid: 100 (no guest fee)
+ * - Base price: 100
+ * - Provider fee: 10% of 100 = 10
+ * - Provider receives: 100 - 10 = 90
+ * - Platform earns: 10
+ * 
+ * @param guestPaidTotal - The total amount the guest paid
+ * @param serviceType - 'accommodation' | 'tour' | 'transport'
+ */
+export function calculateHostEarningsFromGuestTotal(
+  guestPaidTotal: number,
+  serviceType: 'accommodation' | 'tour' | 'transport'
+): {
+  guestPaidTotal: number;
+  basePrice: number;
+  guestFee: number;
+  hostFee: number;
+  hostNetEarnings: number;
+  platformTotalEarnings: number;
+} {
+  const guestFeePercent = PLATFORM_FEES[serviceType].guestFeePercent;
+  const hostFeePercent = getHostOrProviderFeePercent(serviceType);
+  
+  // Extract base price from guest paid amount
+  const basePrice = guestPaidTotal / (1 + guestFeePercent / 100);
+  
+  // Calculate fees
+  const guestFee = guestPaidTotal - basePrice; // What guest paid extra
+  const hostFee = (basePrice * hostFeePercent) / 100; // What host pays to platform
+  const hostNetEarnings = basePrice - hostFee; // What host actually receives
+  const platformTotalEarnings = guestFee + hostFee; // Platform's total take
+  
+  return {
+    guestPaidTotal,
+    basePrice,
+    guestFee,
+    hostFee,
+    hostNetEarnings,
+    platformTotalEarnings,
+  };
 }
