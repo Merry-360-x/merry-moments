@@ -1,32 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
-import nodemailer from "nodemailer";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// Brevo SMTP Configuration
-const BREVO_SMTP_HOST = "smtp-relay.brevo.com";
-const BREVO_SMTP_PORT = 587;
-const BREVO_SMTP_USER = process.env.BREVO_SMTP_USER;
-const BREVO_SMTP_KEY = process.env.BREVO_SMTP_KEY;
-
-// Create email transporter
-function createEmailTransporter() {
-  if (!BREVO_SMTP_USER || !BREVO_SMTP_KEY) {
-    console.warn("⚠️ Brevo SMTP credentials not configured");
-    return null;
-  }
-  
-  return nodemailer.createTransport({
-    host: BREVO_SMTP_HOST,
-    port: BREVO_SMTP_PORT,
-    secure: false,
-    auth: {
-      user: BREVO_SMTP_USER,
-      pass: BREVO_SMTP_KEY,
-    },
-  });
-}
+// Brevo API Configuration
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
 
 // Format currency
 function formatMoney(amount, currency = "RWF") {
@@ -199,11 +177,10 @@ function generateConfirmationEmail(checkout, items, bookingIds) {
   `;
 }
 
-// Send confirmation email
+// Send confirmation email using Brevo API
 async function sendConfirmationEmail(checkout, items, bookingIds) {
-  const transporter = createEmailTransporter();
-  if (!transporter) {
-    console.log("⚠️ Email transporter not available, skipping email");
+  if (!BREVO_API_KEY) {
+    console.log("⚠️ Brevo API key not configured, skipping email");
     return false;
   }
 
@@ -211,15 +188,38 @@ async function sendConfirmationEmail(checkout, items, bookingIds) {
   const guestName = checkout.name || "Guest";
 
   try {
-    const info = await transporter.sendMail({
-      from: '"Merry Moments" <bookings@merry360x.com>',
-      to: checkout.email,
-      subject: `✅ Booking Confirmed - Thank you, ${guestName}!`,
-      html: html,
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "accept": "application/json",
+        "api-key": BREVO_API_KEY,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        sender: {
+          name: "Merry Moments",
+          email: "bookings@merry360x.com",
+        },
+        to: [
+          {
+            email: checkout.email,
+            name: guestName,
+          },
+        ],
+        subject: `✅ Booking Confirmed - Thank you, ${guestName}!`,
+        htmlContent: html,
+      }),
     });
 
-    console.log(`📧 Confirmation email sent to ${checkout.email}: ${info.messageId}`);
-    return true;
+    const result = await response.json();
+    
+    if (response.ok) {
+      console.log(`📧 Confirmation email sent to ${checkout.email}: ${result.messageId}`);
+      return true;
+    } else {
+      console.error("❌ Brevo API error:", result);
+      return false;
+    }
   } catch (error) {
     console.error("❌ Failed to send confirmation email:", error.message);
     return false;
