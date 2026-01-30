@@ -436,6 +436,8 @@ export default function CheckoutNew() {
     setIsProcessing(true);
     setPaymentError(null);
     
+    console.log("🔄 Checkout v2.0 - Processing payment with phone field");
+    
     try {
       // Clean phone number for mobile money payments only
       let fullPhone = null;
