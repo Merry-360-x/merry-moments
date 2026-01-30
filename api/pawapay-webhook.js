@@ -171,13 +171,14 @@ export default async function handler(req, res) {
         try {
           const bookingData = {
             guest_id: checkout.user_id,
+            guest_email: checkout.email,
             order_id: checkout.id,
             total_price: item.calculated_price || item.price,
             currency: checkout.currency || 'RWF',
             status: 'confirmed',
             payment_status: 'paid',
             payment_method: 'mobile_money',
-            guests_count: bookingDetails?.guests || item.metadata?.guests || 1,
+            guests: bookingDetails?.guests || item.metadata?.guests || 1,
           };
 
           // Handle different item types and set booking_type

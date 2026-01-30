@@ -25,15 +25,17 @@ interface Booking {
   property_id: string;
   tour_id?: string | null;
   transport_id?: string | null;
+  booking_type?: 'property' | 'tour' | 'transport' | null;
   check_in: string;
   check_out: string;
-  guests_count: number;
+  guests: number;
   total_price: number;
   currency: string;
   status: string;
   payment_status?: string | null;
   payment_method?: string | null;
   created_at: string;
+  order_id?: string | null;
   properties?: {
     title: string;
     location: string;
@@ -41,16 +43,22 @@ interface Booking {
     address?: string | null;
     cancellation_policy?: string | null;
   } | null;
-  tours?: {
-    title: string;
-    location: string;
-    cancellation_policy_type?: string | null;
-    custom_cancellation_policy?: string | null;
-  } | null;
   tour_packages?: {
     title: string;
     city: string;
     country: string;
+    duration?: string | null;
+    cancellation_policy_type?: string | null;
+    custom_cancellation_policy?: string | null;
+  } | null;
+  transport_vehicles?: {
+    title: string;
+    vehicle_type: string;
+    seats: number;
+  } | null;
+  tours?: {
+    title: string;
+    location: string;
     cancellation_policy_type?: string | null;
     custom_cancellation_policy?: string | null;
   } | null;
@@ -88,7 +96,9 @@ const MyBookings = () => {
         .from("bookings")
         .select(`
           *, 
-          properties(title, location, property_type, address, cancellation_policy)
+          properties(title, location, property_type, address, cancellation_policy),
+          tour_packages(title, city, country, duration, cancellation_policy_type, custom_cancellation_policy),
+          transport_vehicles(title, vehicle_type, seats)
         `)
         .eq("guest_id", user!.id)
         .order("created_at", { ascending: false });
@@ -294,7 +304,35 @@ const MyBookings = () => {
           </div>
         ) : (
           <div className="grid gap-6">
-            {bookings.map((booking) => (
+            {bookings.map((booking) => {
+              // Determine booking type and get appropriate data
+              const bookingType = booking.booking_type || 'property';
+              const isTour = bookingType === 'tour';
+              const isTransport = bookingType === 'transport';
+              
+              const getTitle = () => {
+                if (isTour && booking.tour_packages?.title) return booking.tour_packages.title;
+                if (isTransport && booking.transport_vehicles?.title) return booking.transport_vehicles.title;
+                return booking.properties?.title || t("bookings.unknownProperty");
+              };
+              
+              const getLocation = () => {
+                if (isTour && booking.tour_packages) {
+                  return `${booking.tour_packages.city}, ${booking.tour_packages.country}`;
+                }
+                if (isTransport && booking.transport_vehicles) {
+                  return `${booking.transport_vehicles.vehicle_type} • ${booking.transport_vehicles.seats} seats`;
+                }
+                return extractNeighborhood(booking.properties?.location);
+              };
+              
+              const getTypeLabel = () => {
+                if (isTour) return 'Tour';
+                if (isTransport) return 'Transport';
+                return 'Stay';
+              };
+              
+              return (
               <div
                 key={booking.id}
                 className="bg-card rounded-xl p-6 shadow-card flex flex-col md:flex-row gap-6"
@@ -302,25 +340,46 @@ const MyBookings = () => {
                 <div className="flex-1">
                   <div className="flex items-start justify-between mb-2">
                     <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                          isTour ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' :
+                          isTransport ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' :
+                          'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                        }`}>
+                          {getTypeLabel()}
+                        </span>
+                        {booking.payment_status && (
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                            booking.payment_status === 'paid' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' :
+                            booking.payment_status === 'failed' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' :
+                            booking.payment_status === 'refunded' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' :
+                            'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'
+                          }`}>
+                            {booking.payment_status === 'paid' ? 'Paid' : 
+                             booking.payment_status === 'failed' ? 'Payment Failed' :
+                             booking.payment_status === 'refunded' ? 'Refunded' : 'Pending Payment'}
+                          </span>
+                        )}
+                      </div>
                       <h3 className="text-lg font-semibold text-foreground">
-                        {booking.properties?.title || t("bookings.unknownProperty")}
+                        {getTitle()}
                       </h3>
                       <p className="text-sm text-muted-foreground flex items-center gap-1">
                         <MapPin className="w-4 h-4" />
-                        {extractNeighborhood(booking.properties?.location)}
+                        {getLocation()}
                       </p>
-                      {booking.status === "confirmed" || booking.status === "completed" ? (
+                      {!isTour && !isTransport && (booking.status === "confirmed" || booking.status === "completed") ? (
                         booking.properties?.address ? (
                           <p className="text-sm text-foreground mt-1">
                             <span className="text-muted-foreground">Address:</span>{" "}
                             <span className="font-medium">{booking.properties.address}</span>
                           </p>
                         ) : null
-                      ) : (
+                      ) : !isTour && !isTransport ? (
                         <p className="text-xs text-muted-foreground mt-1">
                           Exact address will be shared after your booking is confirmed.
                         </p>
-                      )}
+                      ) : null}
                     </div>
                     <span
                       className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -352,7 +411,7 @@ const MyBookings = () => {
                       <p className="text-xs text-muted-foreground">{t("bookings.labels.guests")}</p>
                       <p className="font-medium text-foreground flex items-center gap-1">
                         <Users className="w-4 h-4" />
-                        {booking.guests_count}
+                        {booking.guests}
                       </p>
                     </div>
                     <div>
@@ -397,7 +456,8 @@ const MyBookings = () => {
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -431,7 +491,7 @@ const MyBookings = () => {
                     </p>
                     <p className="flex items-center gap-2">
                       <Users className="w-4 h-4" />
-                      {bookingToCancel.guests_count} guest{bookingToCancel.guests_count > 1 ? 's' : ''}
+                      {bookingToCancel.guests} guest{bookingToCancel.guests > 1 ? 's' : ''}
                     </p>
                   </div>
                 </div>

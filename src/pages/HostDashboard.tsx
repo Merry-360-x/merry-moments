@@ -169,7 +169,7 @@ interface Booking {
   id: string;
   check_in: string;
   check_out: string;
-  guests_count: number;
+  guests: number;
   total_price: number;
   currency: string;
   status: string;
@@ -3294,7 +3294,7 @@ export default function HostDashboard() {
               <div>
                         <p className="font-medium">{b.check_in} → {b.check_out}</p>
                         <p className="text-sm text-muted-foreground">
-                          {b.guests_count} guests · {formatMoney(b.total_price, b.currency)}
+                          {b.guests} guests · {formatMoney(b.total_price, b.currency)}
                           {b.is_guest_booking && b.guest_name && (
                             <span className="ml-2 text-xs">• Guest: {b.guest_name}</span>
                           )}
@@ -3581,7 +3581,7 @@ export default function HostDashboard() {
                           <span className="font-medium">{b.check_in} → {b.check_out}</span>
                         </div>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span>{b.guests_count} guests</span>
+                          <span>{b.guests} guests</span>
                           <span className="font-medium text-foreground">{formatMoney(netEarnings, b.currency)}</span>
                           {feePercent > 0 && (
                             <span className="text-xs text-muted-foreground">(after {feePercent}% fee)</span>
