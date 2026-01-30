@@ -64,6 +64,21 @@ export default function SupportCenterLauncher() {
         message: body.trim(),
       });
       if (error) throw error;
+
+      // Send email notification to support team (fire and forget)
+      fetch("/api/support-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          category,
+          subject: subject.trim(),
+          message: body.trim(),
+          userId: user.id,
+          userEmail: user.email,
+          userName: user.user_metadata?.full_name || user.user_metadata?.name || null,
+        }),
+      }).catch(() => {}); // Silent fail - ticket is already saved
+
       toast({ title: "Sent", description: "Support received your message." });
       resetTicket();
       setStep("home");
