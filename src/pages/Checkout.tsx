@@ -403,7 +403,7 @@ export default function CheckoutNew() {
 
   // Step validation
   const isDetailsValid = formData.fullName.trim() && formData.email.trim();
-  const isPaymentValid = phoneNumber.length >= 9;
+  const isPaymentValid = (paymentMethod === 'card' || paymentMethod === 'bank') || phoneNumber.length >= 9;
 
   const goToStep = (step: Step) => {
     if (step === 'payment' && !isDetailsValid) {
@@ -411,7 +411,10 @@ export default function CheckoutNew() {
       return;
     }
     if (step === 'confirm' && !isPaymentValid) {
-      toast({ variant: "destructive", title: "Please enter your phone number" });
+      const message = (paymentMethod === 'mtn' || paymentMethod === 'airtel') 
+        ? "Please enter your phone number" 
+        : "Please select a payment method";
+      toast({ variant: "destructive", title: message });
       return;
     }
     setCurrentStep(step);
@@ -434,20 +437,23 @@ export default function CheckoutNew() {
     setPaymentError(null);
     
     try {
-      // Clean phone number - remove leading zeros and country code if user entered it
-      let cleanedPhone = phoneNumber.replace(/^0+/, ''); // Remove leading zeros
-      // If user entered 250XXXXXXXX, strip the 250 since we add it from countryCode
-      if (cleanedPhone.startsWith('250') && cleanedPhone.length === 12) {
-        cleanedPhone = cleanedPhone.substring(3);
+      // Clean phone number for mobile money payments only
+      let fullPhone = null;
+      if (paymentMethod === 'mtn' || paymentMethod === 'airtel') {
+        let cleanedPhone = phoneNumber.replace(/^0+/, ''); // Remove leading zeros
+        // If user entered 250XXXXXXXX, strip the 250 since we add it from countryCode
+        if (cleanedPhone.startsWith('250') && cleanedPhone.length === 12) {
+          cleanedPhone = cleanedPhone.substring(3);
+        }
+        fullPhone = `${countryCode}${cleanedPhone}`;
+        
+        console.log("📱 Phone number processing:", {
+          raw: phoneNumber,
+          cleaned: cleanedPhone,
+          countryCode,
+          fullPhone
+        });
       }
-      const fullPhone = `${countryCode}${cleanedPhone}`;
-      
-      console.log("📱 Phone number processing:", {
-        raw: phoneNumber,
-        cleaned: cleanedPhone,
-        countryCode,
-        fullPhone
-      });
       
       // Build cart items metadata with calculated prices
       const cartItemsWithPrices = cartItems.map(item => {
@@ -501,7 +507,7 @@ export default function CheckoutNew() {
         user_id: user?.id || null,
         name: formData.fullName,
         email: formData.email,
-        phone: (paymentMethod === 'mtn' || paymentMethod === 'airtel') ? fullPhone : (formData.phone || null),
+        phone_number: fullPhone || formData.phone || null,
         message: formData.notes || null,
         total_amount: Math.round(totalInRwf),
         currency: 'RWF', // Always store in RWF
@@ -514,7 +520,7 @@ export default function CheckoutNew() {
           guest_info: {
             name: formData.fullName,
             email: formData.email,
-            phone: (paymentMethod === 'mtn' || paymentMethod === 'airtel') ? fullPhone : (formData.phone || null),
+            phone: fullPhone || formData.phone || null,
           },
           special_requests: formData.notes || null,
           discount_code: appliedDiscount?.code || null,
