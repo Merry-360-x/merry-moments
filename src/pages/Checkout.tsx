@@ -507,7 +507,7 @@ export default function CheckoutNew() {
         user_id: user?.id || null,
         name: formData.fullName,
         email: formData.email,
-        phone_number: fullPhone || formData.phone || null,
+        phone: fullPhone || formData.phone || null,
         message: formData.notes || null,
         total_amount: Math.round(totalInRwf),
         currency: 'RWF', // Always store in RWF

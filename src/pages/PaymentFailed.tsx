@@ -127,7 +127,7 @@ export default function PaymentFailed() {
       // Fetch the checkout request details
       const { data: checkout, error: fetchError } = await supabase
         .from("checkout_requests")
-        .select("id, name, email, phone_number, total_amount, metadata")
+        .select("id, name, email, phone, total_amount, metadata")
         .eq("id", checkoutId)
         .single();
 
@@ -145,7 +145,7 @@ export default function PaymentFailed() {
       // Extract payment details from the checkout
       const metadata = checkout.metadata || {};
       const paymentProvider = metadata.payment_provider || 'MTN';
-      const phoneNumber = checkout.phone_number;
+      const phoneNumber = checkout.phone;
       const totalAmount = checkout.total_amount;
 
       if (!phoneNumber) {
