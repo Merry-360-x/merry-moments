@@ -88,23 +88,6 @@ const MyBookings = () => {
     }
   }, [user, authLoading, navigate]);
 
-  // Real-time subscription for bookings
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const channel = supabase
-      .channel('mybookings-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings', filter: `guest_id=eq.${user.id}` }, (payload) => {
-        console.log('[MyBookings] Booking change detected - refetching...', payload);
-        refetchBookings();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id, refetchBookings]);
-
   const { data: bookings = [], isLoading, refetch: refetchBookings } = useQuery({
     queryKey: ["bookings", user?.id],
     enabled: Boolean(user?.id),
@@ -123,7 +106,25 @@ const MyBookings = () => {
       return (data as Booking[]) ?? [];
     },
     placeholderData: [],
+    staleTime: 30000, // Cache for 30 seconds
   });
+
+  // Real-time subscription for bookings
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel('mybookings-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings', filter: `guest_id=eq.${user.id}` }, () => {
+        console.log('[MyBookings] Booking change detected - invalidating...');
+        qc.invalidateQueries({ queryKey: ["bookings", user.id] });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, qc]);
 
   const { data: reviewedBookingIds = new Set() } = useQuery({
     queryKey: ["reviewed-bookings", user?.id],
