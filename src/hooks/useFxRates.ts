@@ -3,20 +3,11 @@ import { getUsdRates, type FxRates } from "@/lib/fx";
 
 export function useFxRates() {
   const [rates, setRates] = useState<FxRates | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    let alive = true;
-    (async () => {
-      setLoading(true);
-      const r = await getUsdRates();
-      if (!alive) return;
-      setRates(r);
-      setLoading(false);
-    })();
-    return () => {
-      alive = false;
-    };
+    // Get fixed rates synchronously
+    getUsdRates().then(r => setRates(r));
   }, []);
 
   return { usdRates: rates, fxLoading: loading };
