@@ -52,7 +52,7 @@ type SupportChatProps = {
   onStatusChange?: (status: string) => void;
 };
 
-const EMOJI_LIST = ["👍", "👎", "❤️", "😊", "😢", "😮", "🎉", "🙏", "✅", "❌", "⚠️", "📎", "💡", "🔥", "👀", "🤔"];
+const EMOJI_LIST = ["�", "🤣", "😆", "😄", "😁", "😊", "🥰", "😍", "🤩", "😎", "🥳", "🤪", "😜", "😝", "🤗", "🤭", "👍", "👎", "❤️", "💖", "💯", "🎉", "🎊", "🙌", "👏", "🙏", "✅", "❌", "⚠️", "📎", "💡", "🔥", "✨", "⭐", "💪", "👀", "🤔", "😮", "😢", "🥺"];
 
 export function SupportChat({ ticket, userType, onClose, onStatusChange }: SupportChatProps) {
   const { user } = useAuth();
@@ -383,7 +383,7 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+      <ScrollArea className="flex-1 p-4 max-h-[600px] overflow-y-auto" ref={scrollRef}>
         <div className="space-y-4">
           {/* Initial ticket message - always from customer (left side) */}
           <div className="flex gap-2">
