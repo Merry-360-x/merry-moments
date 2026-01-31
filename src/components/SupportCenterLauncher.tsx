@@ -156,25 +156,43 @@ export default function SupportCenterLauncher() {
   useEffect(() => {
     if (!activeTicket) return;
 
-    const channel = supabase
-      .channel(`chat-${activeTicket.id}`)
+    // Messages channel
+    const messagesChannel = supabase
+      .channel(`ticket-messages-${activeTicket.id}`, {
+        config: {
+          broadcast: { self: true },
+        },
+      })
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "support_ticket_messages", filter: `ticket_id=eq.${activeTicket.id}` },
         (payload) => {
+          console.log('[CustomerChat] New message received:', payload.new);
           const newMsg = payload.new as Message;
-          // Always add new messages instantly
           setMessages((prev) => {
             const exists = prev.some(m => m.id === newMsg.id);
             if (exists) {
-              return prev.map(m => m.id.startsWith('temp-') ? newMsg : m);
+              console.log('[CustomerChat] Message already exists, replacing optimistic');
+              return prev.map(m => m.id.startsWith('temp-') && m.created_at === newMsg.created_at ? newMsg : m);
             }
+            console.log('[CustomerChat] Adding new message to list');
             return [...prev, newMsg];
           });
         }
       )
+      .subscribe((status) => {
+        console.log('[CustomerChat] Messages channel status:', status);
+      });
+
+    // Presence channel for typing
+    const presenceChannel = supabase
+      .channel(`ticket-presence-${activeTicket.id}`, {
+        config: {
+          presence: { key: user?.id || 'anonymous' },
+        },
+      })
       .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState();
+        const state = presenceChannel.presenceState();
         const staffPresence = Object.values(state).find((presences: any) => {
           return presences.some((p: any) => p.user_type === 'staff' && p.typing);
         });
@@ -189,8 +207,9 @@ export default function SupportCenterLauncher() {
         if (wasTyping) setStaffTyping(false);
       })
       .subscribe(async (status) => {
+        console.log('[CustomerChat] Presence channel status:', status);
         if (status === 'SUBSCRIBED' && user) {
-          await channel.track({
+          await presenceChannel.track({
             user_id: user.id,
             user_type: 'customer',
             typing: false,
@@ -200,7 +219,9 @@ export default function SupportCenterLauncher() {
       });
 
     return () => {
-      supabase.removeChannel(channel);
+      console.log('[CustomerChat] Cleaning up channels');
+      supabase.removeChannel(messagesChannel);
+      supabase.removeChannel(presenceChannel);
     };
   }, [activeTicket, user?.id]);
 
@@ -222,7 +243,7 @@ export default function SupportCenterLauncher() {
   // Broadcast typing status
   const broadcastTyping = (isTyping: boolean) => {
     if (!activeTicket) return;
-    const channel = supabase.channel(`chat-${activeTicket.id}`);
+    const channel = supabase.channel(`ticket-presence-${activeTicket.id}`);
     channel.track({
       user_id: user?.id,
       user_type: 'customer',

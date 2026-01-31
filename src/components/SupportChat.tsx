@@ -111,29 +111,44 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
 
     void fetchMessages();
 
-    // Real-time subscription for messages and typing indicators
-    const channel = supabase
-      .channel(`support-chat-${ticket.id}`)
+    // Real-time subscription for messages
+    const messagesChannel = supabase
+      .channel(`ticket-messages-${ticket.id}`, {
+        config: {
+          broadcast: { self: true },
+        },
+      })
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "support_ticket_messages", filter: `ticket_id=eq.${ticket.id}` },
         (payload) => {
+          console.log('[SupportChat] New message received:', payload.new);
           const newMsg = payload.new as Message;
-          // Always add new messages to the list (remove check for sender_id)
           setMessages((prev) => {
-            // Check if message already exists (from optimistic update)
+            // Check if message already exists
             const exists = prev.some(m => m.id === newMsg.id);
             if (exists) {
-              // Replace optimistic message with real one
-              return prev.map(m => m.id.startsWith('temp-') ? newMsg : m);
+              console.log('[SupportChat] Message already exists, replacing optimistic');
+              return prev.map(m => m.id.startsWith('temp-') && m.created_at === newMsg.created_at ? newMsg : m);
             }
+            console.log('[SupportChat] Adding new message to list');
             return [...prev, newMsg];
           });
         }
       )
+      .subscribe((status) => {
+        console.log('[SupportChat] Messages channel status:', status);
+      });
+
+    // Separate channel for presence/typing
+    const presenceChannel = supabase
+      .channel(`ticket-presence-${ticket.id}`, {
+        config: {
+          presence: { key: user?.id || 'anonymous' },
+        },
+      })
       .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState();
-        // Check if other user is typing
+        const state = presenceChannel.presenceState();
         const otherPresence = Object.values(state).find((presences: any) => {
           return presences.some((p: any) => p.user_id !== user?.id && p.typing);
         });
@@ -148,9 +163,9 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
         if (wasTyping) setOtherUserTyping(false);
       })
       .subscribe(async (status) => {
+        console.log('[SupportChat] Presence channel status:', status);
         if (status === 'SUBSCRIBED' && user) {
-          // Track presence
-          await channel.track({
+          await presenceChannel.track({
             user_id: user.id,
             user_type: userType,
             typing: false,
@@ -160,7 +175,9 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
       });
 
     return () => {
-      supabase.removeChannel(channel);
+      console.log('[SupportChat] Cleaning up channels');
+      supabase.removeChannel(messagesChannel);
+      supabase.removeChannel(presenceChannel);
     };
   }, [ticket.id, user?.id, userType]);
 
@@ -173,7 +190,7 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
 
   // Broadcast typing status
   const broadcastTyping = (isTyping: boolean) => {
-    const channel = supabase.channel(`support-chat-${ticket.id}`);
+    const channel = supabase.channel(`ticket-presence-${ticket.id}`);
     channel.track({
       user_id: user?.id,
       user_type: userType,
