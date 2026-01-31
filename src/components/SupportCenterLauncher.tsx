@@ -176,7 +176,17 @@ export default function SupportCenterLauncher() {
               return prev.map(m => m.id.startsWith('temp-') && m.created_at === newMsg.created_at ? newMsg : m);
             }
             console.log('[CustomerChat] Adding new message to list');
-            return [...prev, newMsg];
+            const updated = [...prev, newMsg];
+            // Trigger immediate scroll
+            setTimeout(() => {
+              if (scrollRef.current) {
+                scrollRef.current.scrollTo({
+                  top: scrollRef.current.scrollHeight,
+                  behavior: 'smooth'
+                });
+              }
+            }, 50);
+            return updated;
           });
         }
       )
@@ -225,10 +235,18 @@ export default function SupportCenterLauncher() {
     };
   }, [activeTicket, user?.id]);
 
-  // Auto-scroll on new messages
+  // Auto-scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      // Use setTimeout to ensure DOM has updated
+      setTimeout(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTo({
+            top: scrollRef.current.scrollHeight,
+            behavior: 'smooth'
+          });
+        }
+      }, 100);
     }
   }, [messages, staffTyping]);
 
@@ -697,8 +715,9 @@ export default function SupportCenterLauncher() {
 
                     {messages.map((msg) => {
                       const isMe = msg.sender_id === user?.id;
+                      const isNew = msg.id.startsWith('temp-') || (new Date().getTime() - new Date(msg.created_at).getTime() < 3000);
                       return (
-                        <div key={msg.id} className={`flex gap-2 ${isMe ? "flex-row-reverse" : ""}`}>
+                        <div key={msg.id} className={`flex gap-2 ${isMe ? "flex-row-reverse" : ""} ${isNew ? "animate-in fade-in slide-in-from-bottom-2 duration-300" : ""}`}>
                           <div className={`h-7 w-7 rounded-full flex items-center justify-center shrink-0 ${
                             isMe ? "bg-primary" : "bg-gradient-to-br from-blue-500 to-indigo-600"
                           }`}>

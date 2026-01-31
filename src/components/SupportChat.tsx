@@ -132,7 +132,17 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
               return prev.map(m => m.id.startsWith('temp-') && m.created_at === newMsg.created_at ? newMsg : m);
             }
             console.log('[SupportChat] Adding new message to list');
-            return [...prev, newMsg];
+            const updated = [...prev, newMsg];
+            // Trigger immediate scroll
+            setTimeout(() => {
+              if (scrollRef.current) {
+                scrollRef.current.scrollTo({
+                  top: scrollRef.current.scrollHeight,
+                  behavior: 'smooth'
+                });
+              }
+            }, 50);
+            return updated;
           });
         }
       )
@@ -181,10 +191,18 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
     };
   }, [ticket.id, user?.id, userType]);
 
-  // Auto-scroll
+  // Auto-scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      // Use setTimeout to ensure DOM has updated
+      setTimeout(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTo({
+            top: scrollRef.current.scrollHeight,
+            behavior: 'smooth'
+          });
+        }
+      }, 100);
     }
   }, [messages, otherUserTyping]);
 
@@ -404,8 +422,9 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
           {messages.map((msg) => {
             // Customer messages always go left, Staff messages always go right
             const isStaff = msg.sender_type === "staff";
+            const isNew = msg.id.startsWith('temp-') || (new Date().getTime() - new Date(msg.created_at).getTime() < 3000);
             return (
-              <div key={msg.id} className={`flex gap-2 ${isStaff ? "flex-row-reverse" : ""}`}>
+              <div key={msg.id} className={`flex gap-2 ${isStaff ? "flex-row-reverse" : ""} ${isNew ? "animate-in fade-in slide-in-from-bottom-2 duration-300" : ""}`}>
                 <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${
                   isStaff 
                     ? "bg-gradient-to-br from-blue-500 to-indigo-600" 
