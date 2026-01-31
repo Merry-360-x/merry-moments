@@ -76,6 +76,8 @@ export default function SupportCenterLauncher() {
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const lastSeenMessageIdRef = useRef<string | null>(null);
+  const messagesChannelRef = useRef<any>(null);
+  const presenceChannelRef = useRef<any>(null);
 
   // Get user's display name
   useEffect(() => {
@@ -235,6 +237,9 @@ export default function SupportCenterLauncher() {
         console.log('[CustomerChat] Messages channel status:', status);
       });
 
+    // Store ref for broadcasting
+    messagesChannelRef.current = messagesChannel;
+
     // Presence channel for typing
     const presenceChannel = supabase
       .channel(`ticket-presence-${activeTicket.id}`, {
@@ -269,10 +274,15 @@ export default function SupportCenterLauncher() {
         }
       });
 
+    // Store ref for broadcasting
+    presenceChannelRef.current = presenceChannel;
+
     return () => {
       console.log('[CustomerChat] Cleaning up channels');
       supabase.removeChannel(messagesChannel);
       supabase.removeChannel(presenceChannel);
+      messagesChannelRef.current = null;
+      presenceChannelRef.current = null;
     };
   }, [activeTicket, user?.id]);
 
@@ -316,14 +326,14 @@ export default function SupportCenterLauncher() {
 
   // Broadcast typing status
   const broadcastTyping = (isTyping: boolean) => {
-    if (!activeTicket) return;
-    const channel = supabase.channel(`ticket-presence-${activeTicket.id}`);
-    channel.track({
-      user_id: user?.id,
-      user_type: 'customer',
-      typing: isTyping,
-      online_at: new Date().toISOString(),
-    });
+    if (presenceChannelRef.current && user) {
+      presenceChannelRef.current.track({
+        user_id: user.id,
+        user_type: 'customer',
+        typing: isTyping,
+        online_at: new Date().toISOString(),
+      });
+    }
   };
 
   // Handle typing with faster response
@@ -434,9 +444,8 @@ export default function SupportCenterLauncher() {
       ));
 
       // Broadcast message for instant delivery to staff
-      if (ticketId) {
-        const messagesChannel = supabase.channel(`ticket-messages-${ticketId}`);
-        await messagesChannel.send({
+      if (messagesChannelRef.current) {
+        await messagesChannelRef.current.send({
           type: 'broadcast',
           event: 'new-message',
           payload: savedMsg

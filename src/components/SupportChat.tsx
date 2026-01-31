@@ -68,6 +68,8 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
   const [userName, setUserName] = useState<string>("");
   const [otherUserTyping, setOtherUserTyping] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const messagesChannelRef = useRef<any>(null);
+  const presenceChannelRef = useRef<any>(null);
 
   // Get user's display name
   useEffect(() => {
@@ -178,6 +180,9 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
         console.log('[SupportChat] Messages channel status:', status);
       });
 
+    // Store ref for broadcasting
+    messagesChannelRef.current = messagesChannel;
+
     // Separate channel for presence/typing
     const presenceChannel = supabase
       .channel(`ticket-presence-${ticket.id}`, {
@@ -212,10 +217,15 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
         }
       });
 
+    // Store ref for broadcasting
+    presenceChannelRef.current = presenceChannel;
+
     return () => {
       console.log('[SupportChat] Cleaning up channels');
       supabase.removeChannel(messagesChannel);
       supabase.removeChannel(presenceChannel);
+      messagesChannelRef.current = null;
+      presenceChannelRef.current = null;
     };
   }, [ticket.id, user?.id, userType]);
 
@@ -250,13 +260,14 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
 
   // Broadcast typing status
   const broadcastTyping = (isTyping: boolean) => {
-    const channel = supabase.channel(`ticket-presence-${ticket.id}`);
-    channel.track({
-      user_id: user?.id,
-      user_type: userType,
-      typing: isTyping,
-      online_at: new Date().toISOString(),
-    });
+    if (presenceChannelRef.current && user) {
+      presenceChannelRef.current.track({
+        user_id: user.id,
+        user_type: userType,
+        typing: isTyping,
+        online_at: new Date().toISOString(),
+      });
+    }
   };
 
   // Handle typing with faster response
@@ -331,12 +342,13 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
       ));
 
       // Broadcast message for instant delivery to other party
-      const messagesChannel = supabase.channel(`ticket-messages-${ticket.id}`);
-      await messagesChannel.send({
-        type: 'broadcast',
-        event: 'new-message',
-        payload: savedMsg
-      });
+      if (messagesChannelRef.current) {
+        await messagesChannelRef.current.send({
+          type: 'broadcast',
+          event: 'new-message',
+          payload: savedMsg
+        });
+      }
 
       // Update ticket status if staff is replying
       if (userType === "staff" && ticket.status === "open") {
