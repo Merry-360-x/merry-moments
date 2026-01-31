@@ -16,6 +16,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import {
@@ -48,6 +49,9 @@ import {
   AlertCircle,
   Mail,
   UserX,
+  Headset,
+  Send,
+  Clock,
 } from "lucide-react";
 
 type HostApplicationStatus = "draft" | "pending" | "approved" | "rejected";
@@ -1316,11 +1320,31 @@ export default function AdminDashboard() {
     setResponseDraft("");
   };
 
+  // Parse response to extract responder name
+  const parseResponse = (response?: string | null) => {
+    if (!response) return { name: null as string | null, message: "" };
+    const match = response.match(/^Support:\s*(.+)\n([\s\S]*)$/);
+    if (match) {
+      return { name: match[1].trim(), message: match[2].trim() };
+    }
+    return { name: null as string | null, message: response };
+  };
+
   const submitTicketResponse = async () => {
     if (!respondingTicket || !responseDraft.trim()) return;
     setSendingResponse(true);
     try {
-      const responderName = user?.user_metadata?.full_name || user?.email || "Support";
+      // Fetch the staff member's name from profiles table
+      let responderName = "Support Team";
+      if (user?.id) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("user_id", user.id)
+          .single();
+        responderName = profile?.full_name || user?.email?.split("@")[0] || "Support Team";
+      }
+      
       const formattedResponse = `Support: ${responderName}\n${responseDraft.trim()}`;
       const { error } = await supabase
         .from("support_tickets")
@@ -3268,8 +3292,10 @@ For support, contact: support@merry360x.com
               </div>
 
               <div className="space-y-3">
-                {tickets.map((t) => (
-                  <div key={t.id} className="border rounded-lg p-4">
+                {tickets.map((t) => {
+                  const parsed = parseResponse(t.response);
+                  return (
+                  <div key={t.id} className="border rounded-lg p-4 hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => openRespondDialog(t)}>
                     <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
@@ -3281,38 +3307,41 @@ For support, contact: support@merry360x.com
                             </Badge>
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground mb-2">{t.message}</p>
+                        <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{t.message}</p>
                         {t.response && (
-                          <div className="bg-muted/50 p-2 rounded text-sm">
-                            <span className="font-medium">Response:</span> {t.response}
+                          <div className="bg-green-50 dark:bg-green-950/30 p-2 rounded text-sm border-l-2 border-green-500">
+                            <span className="font-medium text-green-700 dark:text-green-400">
+                              {parsed.name || "Support"}:
+                            </span>{" "}
+                            <span className="text-muted-foreground line-clamp-1">{parsed.message}</span>
                           </div>
                         )}
                         <p className="text-xs text-muted-foreground mt-2">
                           {new Date(t.created_at).toLocaleString()} · User: {t.user_id?.slice(0, 8) || 'Guest'}...
                         </p>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                        <Button size="sm" variant="outline" onClick={() => openRespondDialog(t)}>
+                          <Eye className="h-4 w-4 mr-1" />
+                          View
+                        </Button>
                         {t.status !== "resolved" && t.status !== "closed" && (
-                          <>
-                            <Button size="sm" onClick={() => openRespondDialog(t)}>
-                              Respond
-                            </Button>
-                            <Select onValueChange={(v) => updateTicketStatus(t.id, v)}>
-                              <SelectTrigger className="w-32 h-8">
-                                <SelectValue placeholder="Status" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="in_progress">In Progress</SelectItem>
-                                <SelectItem value="resolved">Resolved</SelectItem>
-                                <SelectItem value="closed">Close</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </>
+                          <Select onValueChange={(v) => updateTicketStatus(t.id, v)}>
+                            <SelectTrigger className="w-32 h-8">
+                              <SelectValue placeholder="Status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="in_progress">In Progress</SelectItem>
+                              <SelectItem value="resolved">Resolved</SelectItem>
+                              <SelectItem value="closed">Close</SelectItem>
+                            </SelectContent>
+                          </Select>
                         )}
                       </div>
                   </div>
                 </div>
-              ))}
+                  );
+                })}
                 {tickets.length === 0 && (
                   <p className="text-muted-foreground text-center py-8">No support tickets found</p>
                 )}
@@ -3640,37 +3669,121 @@ For support, contact: support@merry360x.com
           </TabsContent>
         </Tabs>
 
-        {/* Support Response Dialog */}
+        {/* Support Response Dialog - Chat Style */}
         <Dialog open={!!respondingTicket} onOpenChange={(open) => !open && setRespondingTicket(null)}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Reply to Ticket</DialogTitle>
-              <DialogDescription>Send a quick response to the customer.</DialogDescription>
+          <DialogContent className="max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
+            <DialogHeader className="shrink-0 pb-2 border-b">
+              <DialogTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5 text-primary" />
+                {respondingTicket?.subject}
+              </DialogTitle>
+              <div className="flex items-center gap-2 mt-1">
+                <Badge variant="outline" className="text-xs">{respondingTicket?.category || "general"}</Badge>
+                <Badge className={respondingTicket?.status === "resolved" ? "bg-green-100 text-green-800" : respondingTicket?.status === "in_progress" ? "bg-yellow-100 text-yellow-800" : "bg-blue-100 text-blue-800"}>
+                  {respondingTicket?.status}
+                </Badge>
+              </div>
             </DialogHeader>
+            
             {respondingTicket && (
-              <div className="space-y-4">
-                <div className="text-sm font-medium">{respondingTicket.subject}</div>
-                <div className="bg-muted rounded-lg p-3">
-                  <div className="text-[11px] text-muted-foreground mb-1">Customer message</div>
-                  <div className="text-sm whitespace-pre-wrap">{respondingTicket.message}</div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Your response</label>
-                  <Textarea
-                    className="mt-1 min-h-[120px]"
-                    value={responseDraft}
-                    onChange={(e) => setResponseDraft(e.target.value)}
-                    placeholder="Type your response..."
-                  />
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setRespondingTicket(null)}>
-                    Cancel
-                  </Button>
-                  <Button onClick={submitTicketResponse} disabled={sendingResponse || !responseDraft.trim()}>
-                    {sendingResponse ? "Sending..." : "Send"}
-                  </Button>
-                </div>
+              <div className="flex flex-col flex-1 min-h-0">
+                {/* Conversation Area */}
+                <ScrollArea className="flex-1 p-4">
+                  <div className="space-y-4">
+                    {/* Customer message */}
+                    <div className="flex gap-3">
+                      <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center shrink-0">
+                        <span className="text-xs text-primary-foreground font-medium">
+                          {respondingTicket.user_id?.slice(0, 2).toUpperCase() || "U"}
+                        </span>
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-xs text-muted-foreground mb-1">
+                          Customer · {new Date(respondingTicket.created_at).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </div>
+                        <div className="bg-muted rounded-lg p-3">
+                          <div className="text-sm whitespace-pre-wrap">{respondingTicket.message}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Existing response if any */}
+                    {respondingTicket.response && (() => {
+                      const parsed = parseResponse(respondingTicket.response);
+                      return (
+                        <div className="flex gap-3">
+                          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
+                            <Headset className="h-4 w-4 text-white" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="text-xs text-muted-foreground mb-1">
+                              <span className="text-blue-600 dark:text-blue-400 font-medium">
+                                {parsed.name || "Support Team"}
+                              </span>{" "}
+                              responded
+                            </div>
+                            <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-3 border border-green-200 dark:border-green-800">
+                              <div className="text-sm whitespace-pre-wrap">{parsed.message}</div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Awaiting response indicator */}
+                    {!respondingTicket.response && respondingTicket.status !== "resolved" && (
+                      <div className="flex items-center gap-2 py-2">
+                        <div className="flex-1 h-px bg-border" />
+                        <div className="text-xs text-muted-foreground flex items-center gap-1 px-2">
+                          <Clock className="h-3 w-3" />
+                          Awaiting your response
+                        </div>
+                        <div className="flex-1 h-px bg-border" />
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+
+                {/* Response Input */}
+                {!respondingTicket.response && respondingTicket.status !== "resolved" && respondingTicket.status !== "closed" ? (
+                  <div className="shrink-0 border-t p-3 bg-muted/30">
+                    <div className="flex gap-2">
+                      <Textarea
+                        className="flex-1 min-h-[80px] resize-none"
+                        value={responseDraft}
+                        onChange={(e) => setResponseDraft(e.target.value)}
+                        placeholder="Type your response..."
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2 mt-2">
+                      <Button variant="outline" size="sm" onClick={() => setRespondingTicket(null)}>
+                        Cancel
+                      </Button>
+                      <Button size="sm" onClick={submitTicketResponse} disabled={sendingResponse || !responseDraft.trim()}>
+                        {sendingResponse ? "Sending..." : <>
+                          <Send className="h-4 w-4 mr-1" />
+                          Send Response
+                        </>}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="shrink-0 border-t p-3 bg-muted/30">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">
+                        {respondingTicket.status === "resolved" ? "✓ This ticket has been resolved" : "This ticket is closed"}
+                      </span>
+                      <Button variant="outline" size="sm" onClick={() => setRespondingTicket(null)}>
+                        Close
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </DialogContent>

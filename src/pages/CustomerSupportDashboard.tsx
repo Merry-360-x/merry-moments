@@ -6,12 +6,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, MessageSquare, Mail, AlertCircle, Eye, Bell } from "lucide-react";
+import { Users, MessageSquare, Mail, AlertCircle, Eye, Bell, Headset, Send, Clock } from "lucide-react";
 import { formatMoney } from "@/lib/money";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNotificationBadge, NotificationBadge } from "@/hooks/useNotificationBadge";
@@ -204,11 +205,31 @@ export default function CustomerSupportDashboard() {
     staleTime: 0,
   });
 
+  // Parse response to extract responder name
+  const parseResponse = (response?: string | null) => {
+    if (!response) return { name: null as string | null, message: "" };
+    const match = response.match(/^Support:\s*(.+)\n([\s\S]*)$/);
+    if (match) {
+      return { name: match[1].trim(), message: match[2].trim() };
+    }
+    return { name: null as string | null, message: response };
+  };
+
   // Respond to ticket function
   const respondToTicket = async () => {
     if (!selectedTicket || !ticketResponse.trim()) return;
     try {
-      const responderName = user?.user_metadata?.full_name || user?.email || "Support";
+      // Fetch the staff member's name from profiles table
+      let responderName = "Support Team";
+      if (user?.id) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("user_id", user.id)
+          .single();
+        responderName = profile?.full_name || user?.email?.split("@")[0] || "Support Team";
+      }
+      
       const formattedResponse = `Support: ${responderName}\n${ticketResponse.trim()}`;
       const { error } = await supabase
         .from("support_tickets")
@@ -667,67 +688,118 @@ export default function CustomerSupportDashboard() {
           </TabsContent>
         </Tabs>
 
-        {/* Ticket Details Dialog */}
+        {/* Ticket Details Dialog - Chat Style */}
         <Dialog open={ticketDetailsOpen} onOpenChange={setTicketDetailsOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Ticket Details</DialogTitle>
-              <DialogDescription>
-                View and respond to support ticket
-              </DialogDescription>
+          <DialogContent className="max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
+            <DialogHeader className="shrink-0 pb-2 border-b">
+              <DialogTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5 text-primary" />
+                {selectedTicket?.subject}
+              </DialogTitle>
+              <div className="flex items-center gap-2 mt-1">
+                <Badge variant="outline" className="text-xs">{selectedTicket?.category || "general"}</Badge>
+                <Badge className={selectedTicket?.status === "resolved" ? "bg-green-100 text-green-800" : selectedTicket?.status === "in_progress" ? "bg-yellow-100 text-yellow-800" : "bg-blue-100 text-blue-800"}>
+                  {selectedTicket?.status}
+                </Badge>
+                <span className="text-xs text-muted-foreground ml-auto">
+                  User: {selectedTicket?.user_id?.slice(0, 8)}...
+                </span>
+              </div>
             </DialogHeader>
+            
             {selectedTicket && (
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline">{selectedTicket.category || "general"}</Badge>
-                  <Badge
-                    className={
-                      selectedTicket.status === "resolved"
-                        ? "bg-green-100 text-green-800"
-                        : selectedTicket.status === "in_progress"
-                        ? "bg-yellow-100 text-yellow-800"
-                        : "bg-blue-100 text-blue-800"
-                    }
-                  >
-                    {selectedTicket.status}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground ml-auto">
-                    {new Date(selectedTicket.created_at).toLocaleString()}
-                  </span>
-                </div>
+              <div className="flex flex-col flex-1 min-h-0">
+                {/* Conversation Area */}
+                <ScrollArea className="flex-1 p-4">
+                  <div className="space-y-4">
+                    {/* Customer message */}
+                    <div className="flex gap-3">
+                      <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center shrink-0">
+                        <span className="text-xs text-primary-foreground font-medium">
+                          {selectedTicket.user_id?.slice(0, 2).toUpperCase() || "U"}
+                        </span>
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-xs text-muted-foreground mb-1">
+                          Customer · {new Date(selectedTicket.created_at).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </div>
+                        <div className="bg-muted rounded-lg p-3">
+                          <div className="text-sm whitespace-pre-wrap">{selectedTicket.message}</div>
+                        </div>
+                      </div>
+                    </div>
 
-                <div>
-                  <h3 className="font-semibold text-lg">{selectedTicket.subject}</h3>
-                  <p className="text-xs text-muted-foreground mt-1">User ID: {selectedTicket.user_id}</p>
-                </div>
+                    {/* Existing response if any */}
+                    {selectedTicket.response && (() => {
+                      const parsed = parseResponse(selectedTicket.response);
+                      return (
+                        <div className="flex gap-3">
+                          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
+                            <Headset className="h-4 w-4 text-white" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="text-xs text-muted-foreground mb-1">
+                              <span className="text-blue-600 dark:text-blue-400 font-medium">
+                                {parsed.name || "Support Team"}
+                              </span>{" "}
+                              responded
+                            </div>
+                            <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-3 border border-green-200 dark:border-green-800">
+                              <div className="text-sm whitespace-pre-wrap">{parsed.message}</div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
 
-                <div className="bg-muted rounded-lg p-4">
-                  <p className="text-sm font-medium text-muted-foreground mb-2">Customer Message:</p>
-                  <p className="text-sm whitespace-pre-wrap">{selectedTicket.message}</p>
-                </div>
-
-                {selectedTicket.response ? (
-                  <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-4 border border-green-200 dark:border-green-800">
-                    <p className="text-sm font-medium text-green-700 dark:text-green-400 mb-2">Your Response:</p>
-                    <p className="text-sm whitespace-pre-wrap">{selectedTicket.response}</p>
+                    {/* Awaiting response indicator */}
+                    {!selectedTicket.response && selectedTicket.status !== "resolved" && (
+                      <div className="flex items-center gap-2 py-2">
+                        <div className="flex-1 h-px bg-border" />
+                        <div className="text-xs text-muted-foreground flex items-center gap-1 px-2">
+                          <Clock className="h-3 w-3" />
+                          Awaiting your response
+                        </div>
+                        <div className="flex-1 h-px bg-border" />
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-sm font-medium">Your Response</label>
+                </ScrollArea>
+
+                {/* Response Input */}
+                {!selectedTicket.response && selectedTicket.status !== "resolved" && selectedTicket.status !== "closed" ? (
+                  <div className="shrink-0 border-t p-3 bg-muted/30">
+                    <div className="flex gap-2">
                       <Textarea
+                        className="flex-1 min-h-[80px] resize-none"
                         value={ticketResponse}
                         onChange={(e) => setTicketResponse(e.target.value)}
-                        placeholder="Type your response to the customer..."
-                        className="mt-1 min-h-[120px]"
+                        placeholder="Type your response..."
                       />
                     </div>
-                    <div className="flex gap-2">
-                      <Button onClick={respondToTicket} disabled={!ticketResponse.trim()}>
+                    <div className="flex justify-between items-center gap-2 mt-2">
+                      <Button variant="outline" size="sm" onClick={() => updateTicketStatus(selectedTicket.id, "in_progress")}>
+                        Mark In Progress
+                      </Button>
+                      <Button size="sm" onClick={respondToTicket} disabled={!ticketResponse.trim()}>
+                        <Send className="h-4 w-4 mr-1" />
                         Send Response
                       </Button>
-                      <Button variant="outline" onClick={() => updateTicketStatus(selectedTicket.id, "in_progress")}>
-                        Mark In Progress
+                    </div>
+                  </div>
+                ) : (
+                  <div className="shrink-0 border-t p-3 bg-muted/30">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">
+                        {selectedTicket.status === "resolved" ? "✓ This ticket has been resolved" : "This ticket is closed"}
+                      </span>
+                      <Button variant="outline" size="sm" onClick={() => setTicketDetailsOpen(false)}>
+                        Close
                       </Button>
                     </div>
                   </div>
