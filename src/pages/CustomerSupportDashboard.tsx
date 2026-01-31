@@ -8,6 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Users, MessageSquare, Mail, AlertCircle, Eye, Bell } from "lucide-react";
 import { formatMoney } from "@/lib/money";
@@ -34,8 +36,10 @@ type SupportTicket = {
   user_id: string;
   subject: string;
   message: string;
+  category?: string;
   status: string;
   priority: string;
+  response?: string;
   created_at: string;
   user_email?: string;
 };
@@ -64,6 +68,9 @@ export default function CustomerSupportDashboard() {
   const [userDetailsOpen, setUserDetailsOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [bookingDetailsOpen, setBookingDetailsOpen] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
+  const [ticketDetailsOpen, setTicketDetailsOpen] = useState(false);
+  const [ticketResponse, setTicketResponse] = useState("");
 
   // Notification badge hook
   const { getCount, hasNew, markAsSeen, updateNotificationCount } = useNotificationBadge("customer-support");
@@ -93,6 +100,16 @@ export default function CustomerSupportDashboard() {
       })
       .subscribe();
     channels.push(bookingsChannel);
+
+    // Subscribe to support_tickets changes
+    const ticketsChannel = supabase
+      .channel('support-tickets-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, () => {
+        console.log('[CustomerSupport] Tickets change detected - refetching...');
+        queryClient.invalidateQueries({ queryKey: ['support_tickets'] });
+      })
+      .subscribe();
+    channels.push(ticketsChannel);
 
     // Subscribe to property_reviews changes (for user feedback)
     const reviewsChannel = supabase
@@ -151,15 +168,78 @@ export default function CustomerSupportDashboard() {
     staleTime: 0,
   });
 
-  // Mock support tickets (you'll need to create this table)
-  const { data: tickets = [] } = useQuery({
+  // Support tickets - fetch from database
+  const { data: tickets = [], refetch: refetchTickets } = useQuery({
     queryKey: ["support_tickets"],
     queryFn: async () => {
-      // For now, returning empty array since table doesn't exist yet
-      // When you create the support_tickets table, this will work
-      return [] as SupportTicket[];
+      const { data, error } = await supabase
+        .from("support_tickets")
+        .select("id, user_id, subject, message, category, status, priority, response, created_at")
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (error) {
+        // If table doesn't exist, return empty array
+        if (error.message?.includes("does not exist") || error.code === "42P01" || error.code === "PGRST204") {
+          console.warn("support_tickets table not yet created");
+          return [];
+        }
+        throw error;
+      }
+      // Map to expected format
+      return (data ?? []).map((t) => ({
+        id: t.id,
+        user_id: t.user_id,
+        subject: t.subject,
+        message: t.message,
+        category: t.category,
+        status: t.status || "open",
+        priority: t.priority || "normal",
+        response: t.response,
+        created_at: t.created_at,
+        user_email: "", // Will be enriched if needed
+      })) as SupportTicket[];
     },
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
+
+  // Respond to ticket function
+  const respondToTicket = async () => {
+    if (!selectedTicket || !ticketResponse.trim()) return;
+    try {
+      const { error } = await supabase
+        .from("support_tickets")
+        .update({
+          response: ticketResponse.trim(),
+          status: "resolved",
+          responded_by: user?.id,
+          responded_at: new Date().toISOString(),
+        } as never)
+        .eq("id", selectedTicket.id);
+      if (error) throw error;
+      setTicketDetailsOpen(false);
+      setTicketResponse("");
+      setSelectedTicket(null);
+      refetchTickets();
+    } catch (e) {
+      console.error("Failed to respond to ticket:", e);
+    }
+  };
+
+  // Update ticket status
+  const updateTicketStatus = async (ticketId: string, status: string) => {
+    try {
+      const { error } = await supabase
+        .from("support_tickets")
+        .update({ status } as never)
+        .eq("id", ticketId);
+      if (error) throw error;
+      refetchTickets();
+    } catch (e) {
+      console.error("Failed to update ticket status:", e);
+    }
+  };
 
   const filteredUsers = users.filter(user => {
     if (!searchQuery) return true;
@@ -512,60 +592,70 @@ export default function CustomerSupportDashboard() {
                     <MessageSquare className="h-16 w-16 mx-auto mb-4 opacity-20" />
                     <p className="text-lg font-medium">No Support Tickets</p>
                     <p className="text-sm mt-2">
-                      Support ticket system is not yet configured.
-                    </p>
-                    <p className="text-xs mt-1 text-muted-foreground">
-                      Contact your administrator to set up the support_tickets table.
+                      No tickets have been submitted yet.
                     </p>
                   </div>
                 ) : (
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>ID</TableHead>
                         <TableHead>Subject</TableHead>
-                        <TableHead>User</TableHead>
+                        <TableHead>Category</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Priority</TableHead>
                         <TableHead>Created</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {tickets.map((ticket) => (
                         <TableRow key={ticket.id}>
-                          <TableCell className="font-mono text-xs">
-                            {ticket.id.slice(0, 8)}...
+                          <TableCell className="font-medium max-w-[200px] truncate">{ticket.subject}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              {ticket.category || "general"}
+                            </Badge>
                           </TableCell>
-                          <TableCell className="font-medium">{ticket.subject}</TableCell>
-                          <TableCell>{ticket.user_email}</TableCell>
                           <TableCell>
                             <Badge
-                              variant={
-                                ticket.status === "closed"
-                                  ? "outline"
+                              className={
+                                ticket.status === "resolved"
+                                  ? "bg-green-100 text-green-800"
                                   : ticket.status === "in_progress"
-                                  ? "default"
-                                  : "secondary"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : "bg-blue-100 text-blue-800"
                               }
                             >
                               {ticket.status}
                             </Badge>
                           </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={
-                                ticket.priority === "high"
-                                  ? "destructive"
-                                  : ticket.priority === "medium"
-                                  ? "default"
-                                  : "secondary"
-                              }
-                            >
-                              {ticket.priority}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-sm">
+                          <TableCell className="text-sm text-muted-foreground">
                             {new Date(ticket.created_at).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 text-xs"
+                                onClick={() => {
+                                  setSelectedTicket(ticket);
+                                  setTicketDetailsOpen(true);
+                                }}
+                              >
+                                <Eye className="w-3 h-3 mr-1" />
+                                View
+                              </Button>
+                              {ticket.status !== "resolved" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-xs"
+                                  onClick={() => updateTicketStatus(ticket.id, "in_progress")}
+                                >
+                                  In Progress
+                                </Button>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -576,6 +666,76 @@ export default function CustomerSupportDashboard() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Ticket Details Dialog */}
+        <Dialog open={ticketDetailsOpen} onOpenChange={setTicketDetailsOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Ticket Details</DialogTitle>
+              <DialogDescription>
+                View and respond to support ticket
+              </DialogDescription>
+            </DialogHeader>
+            {selectedTicket && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">{selectedTicket.category || "general"}</Badge>
+                  <Badge
+                    className={
+                      selectedTicket.status === "resolved"
+                        ? "bg-green-100 text-green-800"
+                        : selectedTicket.status === "in_progress"
+                        ? "bg-yellow-100 text-yellow-800"
+                        : "bg-blue-100 text-blue-800"
+                    }
+                  >
+                    {selectedTicket.status}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground ml-auto">
+                    {new Date(selectedTicket.created_at).toLocaleString()}
+                  </span>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-lg">{selectedTicket.subject}</h3>
+                  <p className="text-xs text-muted-foreground mt-1">User ID: {selectedTicket.user_id}</p>
+                </div>
+
+                <div className="bg-muted rounded-lg p-4">
+                  <p className="text-sm font-medium text-muted-foreground mb-2">Customer Message:</p>
+                  <p className="text-sm whitespace-pre-wrap">{selectedTicket.message}</p>
+                </div>
+
+                {selectedTicket.response ? (
+                  <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-4 border border-green-200 dark:border-green-800">
+                    <p className="text-sm font-medium text-green-700 dark:text-green-400 mb-2">Your Response:</p>
+                    <p className="text-sm whitespace-pre-wrap">{selectedTicket.response}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-sm font-medium">Your Response</label>
+                      <Textarea
+                        value={ticketResponse}
+                        onChange={(e) => setTicketResponse(e.target.value)}
+                        placeholder="Type your response to the customer..."
+                        className="mt-1 min-h-[120px]"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button onClick={respondToTicket} disabled={!ticketResponse.trim()}>
+                        Send Response
+                      </Button>
+                      <Button variant="outline" onClick={() => updateTicketStatus(selectedTicket.id, "in_progress")}>
+                        Mark In Progress
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* User Details Dialog */}
         <Dialog open={userDetailsOpen} onOpenChange={setUserDetailsOpen}>
