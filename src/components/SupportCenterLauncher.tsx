@@ -74,6 +74,8 @@ export default function SupportCenterLauncher() {
   const [userName, setUserName] = useState<string>("Customer");
   const [staffTyping, setStaffTyping] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const lastSeenMessageIdRef = useRef<string | null>(null);
 
   // Get user's display name
   useEffect(() => {
@@ -176,6 +178,12 @@ export default function SupportCenterLauncher() {
               return prev.map(m => m.id.startsWith('temp-') && m.created_at === newMsg.created_at ? newMsg : m);
             }
             console.log('[CustomerChat] Adding new message to list');
+            
+            // Increment unread count if window is closed and message is from staff
+            if (!open && newMsg.sender_type === 'staff') {
+              setUnreadCount(prev => prev + 1);
+            }
+            
             const updated = [...prev, newMsg];
             // Trigger immediate scroll
             setTimeout(() => {
@@ -254,6 +262,7 @@ export default function SupportCenterLauncher() {
   useEffect(() => {
     if (step === "chat") {
       void initializeChat();
+      setUnreadCount(0); // Clear unread count when entering chat
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
@@ -508,10 +517,16 @@ export default function SupportCenterLauncher() {
             setStep("home");
             setActiveTicket(null);
             setMessages([]);
+            setUnreadCount(0); // Clear unread count when opening
           }
         }}
       >
         {open ? <X className="h-5 w-5" /> : <MessageCircle className="h-5 w-5" />}
+        {!open && unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
       </button>
 
       {/* Popup */}
