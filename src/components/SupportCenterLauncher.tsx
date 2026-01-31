@@ -166,18 +166,18 @@ export default function SupportCenterLauncher() {
         },
       })
       .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "support_ticket_messages", filter: `ticket_id=eq.${activeTicket.id}` },
-        (payload) => {
-          console.log('[CustomerChat] New message received:', payload.new);
-          const newMsg = payload.new as Message;
+        'broadcast',
+        { event: 'new-message' },
+        ({ payload }) => {
+          console.log('[CustomerChat] Broadcast message received:', payload);
+          const newMsg = payload as Message;
           setMessages((prev) => {
             const exists = prev.some(m => m.id === newMsg.id);
             if (exists) {
-              console.log('[CustomerChat] Message already exists, replacing optimistic');
-              return prev.map(m => m.id.startsWith('temp-') && m.created_at === newMsg.created_at ? newMsg : m);
+              console.log('[CustomerChat] Message already exists, skipping');
+              return prev;
             }
-            console.log('[CustomerChat] Adding new message to list');
+            console.log('[CustomerChat] Adding broadcast message instantly');
             
             // Increment unread count if window is closed and message is from staff
             if (!open && newMsg.sender_type === 'staff') {
@@ -185,7 +185,6 @@ export default function SupportCenterLauncher() {
             }
             
             const updated = [...prev, newMsg];
-            // Trigger immediate scroll
             setTimeout(() => {
               if (scrollRef.current) {
                 scrollRef.current.scrollTo({
@@ -195,6 +194,29 @@ export default function SupportCenterLauncher() {
               }
             }, 50);
             return updated;
+          });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "support_ticket_messages", filter: `ticket_id=eq.${activeTicket.id}` },
+        (payload) => {
+          console.log('[CustomerChat] DB change received:', payload.new);
+          const newMsg = payload.new as Message;
+          setMessages((prev) => {
+            const exists = prev.some(m => m.id === newMsg.id);
+            if (exists) {
+              console.log('[CustomerChat] Message already exists from broadcast, skipping DB change');
+              return prev;
+            }
+            console.log('[CustomerChat] Adding message from DB change');
+            
+            // Increment unread count if window is closed and message is from staff
+            if (!open && newMsg.sender_type === 'staff') {
+              setUnreadCount(prev => prev + 1);
+            }
+            
+            return [...prev, newMsg];
           });
         }
       )
@@ -399,6 +421,16 @@ export default function SupportCenterLauncher() {
       setMessages((prev) => prev.map((m) => 
         m.id === optimisticMsg.id ? (savedMsg as Message) : m
       ));
+
+      // Broadcast message for instant delivery to staff
+      if (ticketId) {
+        const messagesChannel = supabase.channel(`ticket-messages-${ticketId}`);
+        await messagesChannel.send({
+          type: 'broadcast',
+          event: 'new-message',
+          payload: savedMsg
+        });
+      }
 
       setReplyTo(null);
       setAttachments([]);

@@ -119,19 +119,19 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
         },
       })
       .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "support_ticket_messages", filter: `ticket_id=eq.${ticket.id}` },
-        (payload) => {
-          console.log('[SupportChat] New message received:', payload.new);
-          const newMsg = payload.new as Message;
+        'broadcast',
+        { event: 'new-message' },
+        ({ payload }) => {
+          console.log('[SupportChat] Broadcast message received:', payload);
+          const newMsg = payload as Message;
           setMessages((prev) => {
-            // Check if message already exists
+            // Check if message already exists (avoid duplicates)
             const exists = prev.some(m => m.id === newMsg.id);
             if (exists) {
-              console.log('[SupportChat] Message already exists, replacing optimistic');
-              return prev.map(m => m.id.startsWith('temp-') && m.created_at === newMsg.created_at ? newMsg : m);
+              console.log('[SupportChat] Message already exists, skipping');
+              return prev;
             }
-            console.log('[SupportChat] Adding new message to list');
+            console.log('[SupportChat] Adding broadcast message instantly');
             const updated = [...prev, newMsg];
             // Trigger immediate scroll
             setTimeout(() => {
@@ -143,6 +143,24 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
               }
             }, 50);
             return updated;
+          });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "support_ticket_messages", filter: `ticket_id=eq.${ticket.id}` },
+        (payload) => {
+          console.log('[SupportChat] DB change received:', payload.new);
+          const newMsg = payload.new as Message;
+          setMessages((prev) => {
+            // Check if message already exists
+            const exists = prev.some(m => m.id === newMsg.id);
+            if (exists) {
+              console.log('[SupportChat] Message already exists from broadcast, skipping DB change');
+              return prev;
+            }
+            console.log('[SupportChat] Adding message from DB change');
+            return [...prev, newMsg];
           });
         }
       )
@@ -301,6 +319,14 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
       setMessages((prev) => prev.map((m) => 
         m.id === optimisticMsg.id ? (savedMsg as Message) : m
       ));
+
+      // Broadcast message for instant delivery to other party
+      const messagesChannel = supabase.channel(`ticket-messages-${ticket.id}`);
+      await messagesChannel.send({
+        type: 'broadcast',
+        event: 'new-message',
+        payload: savedMsg
+      });
 
       // Update ticket status if staff is replying
       if (userType === "staff" && ticket.status === "open") {
