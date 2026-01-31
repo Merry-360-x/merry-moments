@@ -213,8 +213,6 @@ type SupportTicketRow = {
   status: string;
   priority: string | null;
   response: string | null;
-  responded_by: string | null;
-  responded_at: string | null;
   created_at: string;
 };
 
@@ -876,7 +874,7 @@ export default function AdminDashboard() {
     queryFn: async () => {
       let q = supabase
         .from("support_tickets")
-        .select("id, user_id, subject, message, category, status, priority, response, responded_by, responded_at, created_at")
+        .select("id, user_id, subject, message, category, status, priority, response, created_at")
         .order("created_at", { ascending: false })
         .limit(300); // Increase limit
       if (ticketStatus && ticketStatus !== "all") q = q.eq("status", ticketStatus);
