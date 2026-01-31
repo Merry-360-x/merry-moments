@@ -243,7 +243,7 @@ export default function SupportCenterLauncher() {
     };
   }, [activeTicket, user?.id]);
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll to bottom on new messages and typing indicator
   useEffect(() => {
     if (scrollRef.current) {
       // Use setTimeout to ensure DOM has updated
@@ -257,6 +257,20 @@ export default function SupportCenterLauncher() {
       }, 100);
     }
   }, [messages, staffTyping]);
+
+  // Separate effect to immediately scroll when typing starts
+  useEffect(() => {
+    if (staffTyping && scrollRef.current) {
+      setTimeout(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTo({
+            top: scrollRef.current.scrollHeight,
+            behavior: 'smooth'
+          });
+        }
+      }, 50);
+    }
+  }, [staffTyping]);
 
   // Initialize chat when step changes
   useEffect(() => {
@@ -279,7 +293,7 @@ export default function SupportCenterLauncher() {
     });
   };
 
-  // Handle typing with debounce
+  // Handle typing with faster response
   const handleTyping = (value: string) => {
     setDraft(value);
     
@@ -290,9 +304,10 @@ export default function SupportCenterLauncher() {
         clearTimeout(typingTimeoutRef.current);
       }
       
+      // Faster timeout (1 second instead of 2)
       typingTimeoutRef.current = setTimeout(() => {
         broadcastTyping(false);
-      }, 2000);
+      }, 1000);
     } else {
       broadcastTyping(false);
       if (typingTimeoutRef.current) {
@@ -792,6 +807,27 @@ export default function SupportCenterLauncher() {
                               <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
                               <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
                               <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Typing indicator */}
+                    {staffTyping && (
+                      <div className="flex gap-2 animate-in fade-in slide-in-from-bottom-1 duration-200">
+                        <div className="h-7 w-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
+                          <Headset className="h-3.5 w-3.5 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-[10px] mb-1 font-semibold text-blue-600 dark:text-blue-400">
+                            Support is typing...
+                          </div>
+                          <div className="rounded-2xl px-3 py-1.5 text-xs inline-block bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200 dark:border-blue-800">
+                            <div className="flex gap-1">
+                              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
                             </div>
                           </div>
                         </div>

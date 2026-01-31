@@ -191,7 +191,7 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
     };
   }, [ticket.id, user?.id, userType]);
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll to bottom on new messages and typing indicator
   useEffect(() => {
     if (scrollRef.current) {
       // Use setTimeout to ensure DOM has updated
@@ -206,6 +206,20 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
     }
   }, [messages, otherUserTyping]);
 
+  // Separate effect to immediately scroll when typing starts
+  useEffect(() => {
+    if (otherUserTyping && scrollRef.current) {
+      setTimeout(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTo({
+            top: scrollRef.current.scrollHeight,
+            behavior: 'smooth'
+          });
+        }
+      }, 50);
+    }
+  }, [otherUserTyping]);
+
   // Broadcast typing status
   const broadcastTyping = (isTyping: boolean) => {
     const channel = supabase.channel(`ticket-presence-${ticket.id}`);
@@ -217,11 +231,11 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
     });
   };
 
-  // Handle typing with debounce
+  // Handle typing with faster response
   const handleTyping = (value: string) => {
     setDraft(value);
     
-    // Broadcast typing started
+    // Broadcast typing started immediately
     if (value.length > 0) {
       broadcastTyping(true);
       
@@ -230,10 +244,10 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
         clearTimeout(typingTimeoutRef.current);
       }
       
-      // Set timeout to stop typing indicator
+      // Set timeout to stop typing indicator (1 second for faster feel)
       typingTimeoutRef.current = setTimeout(() => {
         broadcastTyping(false);
-      }, 2000);
+      }, 1000);
     } else {
       broadcastTyping(false);
       if (typingTimeoutRef.current) {
@@ -478,7 +492,7 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
 
           {/* Typing indicator */}
           {otherUserTyping && (
-            <div className={`flex gap-2 ${userType === "staff" ? "" : "flex-row-reverse"}`}>
+            <div className={`flex gap-2 ${userType === "staff" ? "" : "flex-row-reverse"} animate-in fade-in slide-in-from-bottom-1 duration-200`}>
               <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${
                 userType === "staff" 
                   ? "bg-gradient-to-br from-orange-500 to-red-600" 
@@ -487,11 +501,14 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
                 {userType === "staff" ? <User className="h-4 w-4 text-white" /> : <Headset className="h-4 w-4 text-white" />}
               </div>
               <div className={`flex-1 ${userType === "staff" ? "" : "text-right"}`}>
-                <div className="rounded-2xl px-3 py-2 text-sm inline-block bg-muted/60 animate-pulse">
-                  <div className="flex gap-1">
-                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                <div className="text-[11px] mb-1 font-semibold text-blue-600 dark:text-blue-400">
+                  {userType === "staff" ? "Customer" : "Support"} is typing...
+                </div>
+                <div className="rounded-2xl px-4 py-2 text-sm inline-block bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200 dark:border-blue-800">
+                  <div className="flex gap-1.5">
+                    <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                    <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                    <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
                   </div>
                 </div>
               </div>
