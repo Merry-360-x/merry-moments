@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { SupportChat } from "@/components/SupportChat";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -688,123 +689,28 @@ export default function CustomerSupportDashboard() {
           </TabsContent>
         </Tabs>
 
-        {/* Ticket Details Dialog - Chat Style */}
+        {/* Ticket Chat Dialog */}
         <Dialog open={ticketDetailsOpen} onOpenChange={setTicketDetailsOpen}>
-          <DialogContent className="max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
-            <DialogHeader className="shrink-0 pb-2 border-b">
-              <DialogTitle className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5 text-primary" />
-                {selectedTicket?.subject}
-              </DialogTitle>
-              <div className="flex items-center gap-2 mt-1">
-                <Badge variant="outline" className="text-xs">{selectedTicket?.category || "general"}</Badge>
-                <Badge className={selectedTicket?.status === "resolved" ? "bg-green-100 text-green-800" : selectedTicket?.status === "in_progress" ? "bg-yellow-100 text-yellow-800" : "bg-blue-100 text-blue-800"}>
-                  {selectedTicket?.status}
-                </Badge>
-                <span className="text-xs text-muted-foreground ml-auto">
-                  User: {selectedTicket?.user_id?.slice(0, 8)}...
-                </span>
-              </div>
-            </DialogHeader>
-            
+          <DialogContent className="max-w-lg max-h-[85vh] p-0 overflow-hidden">
             {selectedTicket && (
-              <div className="flex flex-col flex-1 min-h-0">
-                {/* Conversation Area */}
-                <ScrollArea className="flex-1 p-4">
-                  <div className="space-y-4">
-                    {/* Customer message */}
-                    <div className="flex gap-3">
-                      <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center shrink-0">
-                        <span className="text-xs text-primary-foreground font-medium">
-                          {selectedTicket.user_id?.slice(0, 2).toUpperCase() || "U"}
-                        </span>
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-xs text-muted-foreground mb-1">
-                          Customer · {new Date(selectedTicket.created_at).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </div>
-                        <div className="bg-muted rounded-lg p-3">
-                          <div className="text-sm whitespace-pre-wrap">{selectedTicket.message}</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Existing response if any */}
-                    {selectedTicket.response && (() => {
-                      const parsed = parseResponse(selectedTicket.response);
-                      return (
-                        <div className="flex gap-3">
-                          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
-                            <Headset className="h-4 w-4 text-white" />
-                          </div>
-                          <div className="flex-1">
-                            <div className="text-xs text-muted-foreground mb-1">
-                              <span className="text-blue-600 dark:text-blue-400 font-medium">
-                                {parsed.name || "Support Team"}
-                              </span>{" "}
-                              responded
-                            </div>
-                            <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-3 border border-green-200 dark:border-green-800">
-                              <div className="text-sm whitespace-pre-wrap">{parsed.message}</div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })()}
-
-                    {/* Awaiting response indicator */}
-                    {!selectedTicket.response && selectedTicket.status !== "resolved" && (
-                      <div className="flex items-center gap-2 py-2">
-                        <div className="flex-1 h-px bg-border" />
-                        <div className="text-xs text-muted-foreground flex items-center gap-1 px-2">
-                          <Clock className="h-3 w-3" />
-                          Awaiting your response
-                        </div>
-                        <div className="flex-1 h-px bg-border" />
-                      </div>
-                    )}
-                  </div>
-                </ScrollArea>
-
-                {/* Response Input */}
-                {!selectedTicket.response && selectedTicket.status !== "resolved" && selectedTicket.status !== "closed" ? (
-                  <div className="shrink-0 border-t p-3 bg-muted/30">
-                    <div className="flex gap-2">
-                      <Textarea
-                        className="flex-1 min-h-[80px] resize-none"
-                        value={ticketResponse}
-                        onChange={(e) => setTicketResponse(e.target.value)}
-                        placeholder="Type your response..."
-                      />
-                    </div>
-                    <div className="flex justify-between items-center gap-2 mt-2">
-                      <Button variant="outline" size="sm" onClick={() => updateTicketStatus(selectedTicket.id, "in_progress")}>
-                        Mark In Progress
-                      </Button>
-                      <Button size="sm" onClick={respondToTicket} disabled={!ticketResponse.trim()}>
-                        <Send className="h-4 w-4 mr-1" />
-                        Send Response
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="shrink-0 border-t p-3 bg-muted/30">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">
-                        {selectedTicket.status === "resolved" ? "✓ This ticket has been resolved" : "This ticket is closed"}
-                      </span>
-                      <Button variant="outline" size="sm" onClick={() => setTicketDetailsOpen(false)}>
-                        Close
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <SupportChat
+                ticket={{
+                  id: selectedTicket.id,
+                  user_id: selectedTicket.user_id,
+                  subject: selectedTicket.subject,
+                  message: selectedTicket.message,
+                  category: selectedTicket.category,
+                  status: selectedTicket.status,
+                  priority: selectedTicket.priority,
+                  created_at: selectedTicket.created_at,
+                }}
+                userType="staff"
+                onClose={() => setTicketDetailsOpen(false)}
+                onStatusChange={(status) => {
+                  setSelectedTicket((prev) => prev ? { ...prev, status } : null);
+                  refetchTickets();
+                }}
+              />
             )}
           </DialogContent>
         </Dialog>
