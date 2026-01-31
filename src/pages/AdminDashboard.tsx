@@ -10,6 +10,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -337,6 +338,9 @@ export default function AdminDashboard() {
   const [userSearch, setUserSearch] = useState("");
   const [bookingStatus, setBookingStatus] = useState<"all" | string>("all");
   const [ticketStatus, setTicketStatus] = useState<"all" | string>("all");
+  const [respondingTicket, setRespondingTicket] = useState<SupportTicketRow | null>(null);
+  const [responseDraft, setResponseDraft] = useState("");
+  const [sendingResponse, setSendingResponse] = useState(false);
   const [roleToAdd, setRoleToAdd] = useState<Record<string, string>>({});
   const [selectedBooking, setSelectedBooking] = useState<BookingRow | null>(null);
   const [orderBookings, setOrderBookings] = useState<BookingRow[]>([]);
@@ -1307,23 +1311,34 @@ export default function AdminDashboard() {
     }
   };
 
-  const respondToTicket = async (ticket: SupportTicketRow) => {
-    const response = window.prompt("Your response:");
-    if (!response) return;
+  const openRespondDialog = (ticket: SupportTicketRow) => {
+    setRespondingTicket(ticket);
+    setResponseDraft("");
+  };
+
+  const submitTicketResponse = async () => {
+    if (!respondingTicket || !responseDraft.trim()) return;
+    setSendingResponse(true);
     try {
+      const responderName = user?.user_metadata?.full_name || user?.email || "Support";
+      const formattedResponse = `Support: ${responderName}\n${responseDraft.trim()}`;
       const { error } = await supabase
         .from("support_tickets")
         .update({
-          response,
+          response: formattedResponse,
           status: "resolved",
         } as never)
-        .eq("id", ticket.id);
+        .eq("id", respondingTicket.id);
       if (error) throw error;
       toast({ title: "Response sent" });
+      setRespondingTicket(null);
+      setResponseDraft("");
       await Promise.all([refetchTickets(), refetchMetrics()]);
     } catch (e) {
       logError("admin.respondToTicket", e);
       toast({ variant: "destructive", title: "Failed", description: uiErrorMessage(e, "Please try again.") });
+    } finally {
+      setSendingResponse(false);
     }
   };
 
@@ -3279,7 +3294,7 @@ For support, contact: support@merry360x.com
                       <div className="flex gap-2">
                         {t.status !== "resolved" && t.status !== "closed" && (
                           <>
-                            <Button size="sm" onClick={() => respondToTicket(t)}>
+                            <Button size="sm" onClick={() => openRespondDialog(t)}>
                               Respond
                             </Button>
                             <Select onValueChange={(v) => updateTicketStatus(t.id, v)}>
@@ -3624,6 +3639,42 @@ For support, contact: support@merry360x.com
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Support Response Dialog */}
+        <Dialog open={!!respondingTicket} onOpenChange={(open) => !open && setRespondingTicket(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Reply to Ticket</DialogTitle>
+              <DialogDescription>Send a quick response to the customer.</DialogDescription>
+            </DialogHeader>
+            {respondingTicket && (
+              <div className="space-y-4">
+                <div className="text-sm font-medium">{respondingTicket.subject}</div>
+                <div className="bg-muted rounded-lg p-3">
+                  <div className="text-[11px] text-muted-foreground mb-1">Customer message</div>
+                  <div className="text-sm whitespace-pre-wrap">{respondingTicket.message}</div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Your response</label>
+                  <Textarea
+                    className="mt-1 min-h-[120px]"
+                    value={responseDraft}
+                    onChange={(e) => setResponseDraft(e.target.value)}
+                    placeholder="Type your response..."
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setRespondingTicket(null)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={submitTicketResponse} disabled={sendingResponse || !responseDraft.trim()}>
+                    {sendingResponse ? "Sending..." : "Send"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Document Viewer Modal */}
         <Dialog open={!!viewingDocument} onOpenChange={(open) => !open && setViewingDocument(null)}>

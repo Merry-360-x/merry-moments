@@ -208,10 +208,12 @@ export default function CustomerSupportDashboard() {
   const respondToTicket = async () => {
     if (!selectedTicket || !ticketResponse.trim()) return;
     try {
+      const responderName = user?.user_metadata?.full_name || user?.email || "Support";
+      const formattedResponse = `Support: ${responderName}\n${ticketResponse.trim()}`;
       const { error } = await supabase
         .from("support_tickets")
         .update({
-          response: ticketResponse.trim(),
+          response: formattedResponse,
           status: "resolved",
         } as never)
         .eq("id", selectedTicket.id);

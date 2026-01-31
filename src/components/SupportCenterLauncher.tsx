@@ -180,6 +180,17 @@ export default function SupportCenterLauncher() {
     return "bg-blue-100 text-blue-700";
   };
 
+  const parseResponse = (response?: string | null) => {
+    if (!response) return { name: null as string | null, message: "" };
+    const match = response.match(/^Support:\s*(.+)\n([\s\S]*)$/);
+    if (match) {
+      return { name: match[1].trim(), message: match[2].trim() };
+    }
+    return { name: null as string | null, message: response };
+  };
+
+  const responseMeta = selectedTicket ? parseResponse(selectedTicket.response) : null;
+
   // Dynamic sizing
   const popupWidth = expanded ? "w-96" : "w-80";
   const popupHeight = expanded ? "max-h-[600px]" : "max-h-[450px]";
@@ -462,10 +473,15 @@ export default function SupportCenterLauncher() {
                         </div>
                         <div className="flex-1">
                           <div className="text-[10px] text-muted-foreground mb-1">
-                            <span className="text-blue-600 dark:text-blue-400 font-medium">Support Team</span> joined the conversation
+                            <span className="text-blue-600 dark:text-blue-400 font-medium">
+                              {responseMeta?.name || "Support Team"}
+                            </span>{" "}
+                            joined the conversation
                           </div>
                           <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-2.5 border border-green-200 dark:border-green-800">
-                            <div className="text-xs text-foreground whitespace-pre-wrap">{selectedTicket.response}</div>
+                            <div className="text-xs text-foreground whitespace-pre-wrap">
+                              {responseMeta?.message || selectedTicket.response}
+                            </div>
                           </div>
                         </div>
                       </div>
