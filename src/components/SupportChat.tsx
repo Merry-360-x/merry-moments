@@ -291,22 +291,16 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
       {/* Messages */}
       <ScrollArea className="flex-1 p-4" ref={scrollRef}>
         <div className="space-y-4">
-          {/* Initial ticket message */}
-          <div className={`flex gap-2 ${userType === "customer" ? "flex-row-reverse" : ""}`}>
-            <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${
-              userType === "customer" ? "bg-primary" : "bg-gradient-to-br from-orange-500 to-red-600"
-            }`}>
-              {userType === "customer" ? <Headset className="h-4 w-4 text-white" /> : <User className="h-4 w-4 text-white" />}
+          {/* Initial ticket message - always from customer (left side) */}
+          <div className="flex gap-2">
+            <div className="h-8 w-8 rounded-full flex items-center justify-center shrink-0 bg-gradient-to-br from-orange-500 to-red-600">
+              <User className="h-4 w-4 text-white" />
             </div>
-            <div className={`flex-1 ${userType === "customer" ? "text-right" : ""}`}>
-              <div className="text-[11px] text-muted-foreground mb-1">
-                {userType === "customer" ? "Customer" : "You"} · {formatTime(ticket.created_at)}
+            <div className="flex-1">
+              <div className="text-[11px] mb-1 font-semibold text-orange-600 dark:text-orange-400">
+                Customer · <span className="font-normal text-muted-foreground">{formatTime(ticket.created_at)}</span>
               </div>
-              <div className={`rounded-2xl px-3 py-2 text-sm inline-block text-left max-w-[85%] ${
-                userType === "customer"
-                  ? "bg-muted text-foreground rounded-tl-sm"
-                  : "bg-primary text-primary-foreground rounded-tr-sm"
-              }`}>
+              <div className="rounded-2xl px-3 py-2 text-sm inline-block text-left max-w-[85%] bg-muted text-foreground rounded-tl-sm">
                 <div className="whitespace-pre-wrap">{ticket.message}</div>
               </div>
             </div>
@@ -314,36 +308,33 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
 
           {/* Chat messages */}
           {messages.map((msg) => {
-            const isMe = msg.sender_id === user?.id;
+            // Customer messages always go left, Staff messages always go right
+            const isStaff = msg.sender_type === "staff";
             return (
-              <div key={msg.id} className={`flex gap-2 ${isMe ? "flex-row-reverse" : ""}`}>
+              <div key={msg.id} className={`flex gap-2 ${isStaff ? "flex-row-reverse" : ""}`}>
                 <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${
-                  msg.sender_type === "staff" 
+                  isStaff 
                     ? "bg-gradient-to-br from-blue-500 to-indigo-600" 
                     : "bg-gradient-to-br from-orange-500 to-red-600"
                 }`}>
-                  {msg.sender_type === "staff" ? <Headset className="h-4 w-4 text-white" /> : <User className="h-4 w-4 text-white" />}
+                  {isStaff ? <Headset className="h-4 w-4 text-white" /> : <User className="h-4 w-4 text-white" />}
                 </div>
-                <div className={`flex-1 ${isMe ? "text-right" : ""}`}>
+                <div className={`flex-1 ${isStaff ? "text-right" : ""}`}>
                   {/* Reply indicator */}
                   {msg.reply_to && (
-                    <div className={`text-[11px] text-muted-foreground mb-1 flex items-center gap-1 ${isMe ? "justify-end" : ""}`}>
+                    <div className={`text-[11px] text-muted-foreground mb-1 flex items-center gap-1 ${isStaff ? "justify-end" : ""}`}>
                       <Reply className="h-3 w-3" />
                       <span className="max-w-[150px] truncate">{msg.reply_to.message}</span>
                     </div>
                   )}
                   
-                  <div className={`text-[11px] text-muted-foreground mb-1`}>
-                    <span className={msg.sender_type === "staff" ? "text-blue-600 dark:text-blue-400 font-medium" : "text-orange-600 dark:text-orange-400 font-medium"}>
-                      {isMe ? "You" : msg.sender_name || (msg.sender_type === "staff" ? "Support" : "Customer")}
-                    </span> · {formatTime(msg.created_at)}
+                  <div className={`text-[11px] mb-1 font-semibold ${isStaff ? "text-blue-600 dark:text-blue-400" : "text-orange-600 dark:text-orange-400"}`}>
+                    {msg.sender_name || (isStaff ? "Support Team" : "Customer")} · <span className="font-normal text-muted-foreground">{formatTime(msg.created_at)}</span>
                   </div>
                   
                   <div className={`rounded-2xl px-3 py-2 text-sm inline-block text-left max-w-[85%] ${
-                    isMe 
+                    isStaff 
                       ? "bg-primary text-primary-foreground rounded-tr-sm" 
-                      : msg.sender_type === "staff"
-                      ? "bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-tl-sm"
                       : "bg-muted text-foreground rounded-tl-sm"
                   }`}>
                     <div className="whitespace-pre-wrap">{msg.message}</div>
@@ -362,7 +353,7 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
                   </div>
                   
                   {/* Reply button */}
-                  {!isMe && !isClosed && (
+                  {!isClosed && (
                     <button className="text-[11px] text-muted-foreground hover:text-foreground mt-1 flex items-center gap-1" onClick={() => setReplyTo(msg)}>
                       <Reply className="h-3 w-3" /> Reply
                     </button>
