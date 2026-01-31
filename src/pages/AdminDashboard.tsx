@@ -213,6 +213,8 @@ type SupportTicketRow = {
   status: string;
   priority: string | null;
   response: string | null;
+  responded_by: string | null;
+  responded_at: string | null;
   created_at: string;
 };
 
@@ -874,7 +876,7 @@ export default function AdminDashboard() {
     queryFn: async () => {
       let q = supabase
         .from("support_tickets")
-        .select("id, user_id, subject, message, category, status, priority, response, created_at")
+        .select("id, user_id, subject, message, category, status, priority, response, responded_by, responded_at, created_at")
         .order("created_at", { ascending: false })
         .limit(300); // Increase limit
       if (ticketStatus && ticketStatus !== "all") q = q.eq("status", ticketStatus);
@@ -889,7 +891,7 @@ export default function AdminDashboard() {
       }
       return (data ?? []) as SupportTicketRow[];
     },
-    enabled: tab === "support" || tab === "overview", // Also for overview
+    enabled: true, // Always enabled to show in overview
     staleTime: 1000 * 30, // 30 seconds
     gcTime: 1000 * 60 * 10, // 10 minutes cache retention
     refetchOnWindowFocus: true,
@@ -1316,8 +1318,6 @@ export default function AdminDashboard() {
         .update({
           response,
           status: "resolved",
-          responded_by: user?.id,
-          responded_at: new Date().toISOString(),
         } as never)
         .eq("id", ticket.id);
       if (error) throw error;

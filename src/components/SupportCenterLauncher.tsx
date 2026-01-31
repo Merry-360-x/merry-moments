@@ -419,8 +419,9 @@ export default function SupportCenterLauncher() {
               </div>
 
               <ScrollArea className="flex-1 p-3">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
+                <div className="space-y-3">
+                  {/* Header */}
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Badge className={`text-[10px] ${statusColor(selectedTicket.status)}`}>
                       {selectedTicket.status}
                     </Badge>
@@ -429,40 +430,56 @@ export default function SupportCenterLauncher() {
                     </Badge>
                   </div>
 
-                  <div>
-                    <div className="text-sm font-semibold text-foreground">{selectedTicket.subject}</div>
-                    <div className="text-[10px] text-muted-foreground mt-1">
-                      {new Date(selectedTicket.created_at).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </div>
-                  </div>
+                  <div className="text-sm font-semibold text-foreground">{selectedTicket.subject}</div>
 
-                  <div className="bg-muted rounded-lg p-3">
-                    <div className="text-[10px] text-muted-foreground mb-1 font-medium">Your message:</div>
-                    <div className="text-xs text-foreground whitespace-pre-wrap">{selectedTicket.message}</div>
-                  </div>
-
-                  {selectedTicket.response ? (
-                    <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-3 border border-green-200 dark:border-green-800">
-                      <div className="text-[10px] text-green-700 dark:text-green-400 mb-1 font-medium flex items-center gap-1">
-                        <CheckCircle className="h-3 w-3" />
-                        Support Response:
+                  {/* Chat-like conversation */}
+                  <div className="space-y-3">
+                    {/* User message */}
+                    <div className="flex gap-2">
+                      <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center shrink-0">
+                        <span className="text-[10px] text-primary-foreground font-medium">You</span>
                       </div>
-                      <div className="text-xs text-foreground whitespace-pre-wrap">{selectedTicket.response}</div>
-                    </div>
-                  ) : (
-                    <div className="bg-yellow-50 dark:bg-yellow-950/30 rounded-lg p-3 border border-yellow-200 dark:border-yellow-800">
-                      <div className="text-[10px] text-yellow-700 dark:text-yellow-400 flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        Awaiting response from support team
+                      <div className="flex-1">
+                        <div className="text-[10px] text-muted-foreground mb-1">
+                          You · {new Date(selectedTicket.created_at).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </div>
+                        <div className="bg-primary/10 rounded-lg p-2.5">
+                          <div className="text-xs text-foreground whitespace-pre-wrap">{selectedTicket.message}</div>
+                        </div>
                       </div>
                     </div>
-                  )}
+
+                    {/* Support response */}
+                    {selectedTicket.response ? (
+                      <div className="flex gap-2">
+                        <div className="h-6 w-6 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
+                          <Headset className="h-3 w-3 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-[10px] text-muted-foreground mb-1">
+                            <span className="text-blue-600 dark:text-blue-400 font-medium">Support Team</span> joined the conversation
+                          </div>
+                          <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-2.5 border border-green-200 dark:border-green-800">
+                            <div className="text-xs text-foreground whitespace-pre-wrap">{selectedTicket.response}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 py-2">
+                        <div className="flex-1 h-px bg-border" />
+                        <div className="text-[10px] text-muted-foreground flex items-center gap-1 px-2">
+                          <Clock className="h-3 w-3" />
+                          Awaiting support response
+                        </div>
+                        <div className="flex-1 h-px bg-border" />
+                      </div>
+                    )}
+                  </div>
                 </div>
               </ScrollArea>
             </div>

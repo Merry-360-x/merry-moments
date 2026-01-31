@@ -213,8 +213,6 @@ export default function CustomerSupportDashboard() {
         .update({
           response: ticketResponse.trim(),
           status: "resolved",
-          responded_by: user?.id,
-          responded_at: new Date().toISOString(),
         } as never)
         .eq("id", selectedTicket.id);
       if (error) throw error;
