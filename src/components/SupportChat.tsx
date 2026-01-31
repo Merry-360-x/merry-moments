@@ -133,7 +133,7 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
             }
             console.log('[SupportChat] Adding broadcast message instantly');
             const updated = [...prev, newMsg];
-            // Trigger immediate scroll
+            // Trigger immediate scroll to new message
             setTimeout(() => {
               if (scrollRef.current) {
                 scrollRef.current.scrollTo({
@@ -141,7 +141,7 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
                   behavior: 'smooth'
                 });
               }
-            }, 50);
+            }, 10);
             return updated;
           });
         }
@@ -160,7 +160,17 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
               return prev;
             }
             console.log('[SupportChat] Adding message from DB change');
-            return [...prev, newMsg];
+            const updated = [...prev, newMsg];
+            // Immediate scroll to new message
+            setTimeout(() => {
+              if (scrollRef.current) {
+                scrollRef.current.scrollTo({
+                  top: scrollRef.current.scrollHeight,
+                  behavior: 'smooth'
+                });
+              }
+            }, 10);
+            return updated;
           });
         }
       )
@@ -591,7 +601,7 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
           <div className="flex gap-2 items-end">
             <div className="flex-1 relative">
               <Textarea
-                className="min-h-[50px] max-h-[100px] pr-20 resize-none text-sm rounded-2xl"
+                className="min-h-[50px] max-h-[100px] pr-20 resize-none text-base sm:text-sm rounded-2xl"
                 placeholder="Type your message..."
                 value={draft}
                 onChange={(e) => handleTyping(e.target.value)}

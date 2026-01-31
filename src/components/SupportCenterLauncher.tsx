@@ -185,6 +185,7 @@ export default function SupportCenterLauncher() {
             }
             
             const updated = [...prev, newMsg];
+            // Immediate scroll to new message
             setTimeout(() => {
               if (scrollRef.current) {
                 scrollRef.current.scrollTo({
@@ -192,7 +193,7 @@ export default function SupportCenterLauncher() {
                   behavior: 'smooth'
                 });
               }
-            }, 50);
+            }, 10);
             return updated;
           });
         }
@@ -216,7 +217,17 @@ export default function SupportCenterLauncher() {
               setUnreadCount(prev => prev + 1);
             }
             
-            return [...prev, newMsg];
+            const updated = [...prev, newMsg];
+            // Immediate scroll to new message
+            setTimeout(() => {
+              if (scrollRef.current) {
+                scrollRef.current.scrollTo({
+                  top: scrollRef.current.scrollHeight,
+                  behavior: 'smooth'
+                });
+              }
+            }, 10);
+            return updated;
           });
         }
       )
@@ -916,7 +927,7 @@ export default function SupportCenterLauncher() {
                 <div className="flex gap-1.5 items-end">
                   <div className="flex-1 relative">
                     <Textarea
-                      className="min-h-[40px] max-h-[80px] pr-16 resize-none text-xs rounded-2xl"
+                      className="min-h-[40px] max-h-[80px] pr-16 resize-none text-base sm:text-xs rounded-2xl"
                       placeholder="Type your message..."
                       value={draft}
                       onChange={(e) => handleTyping(e.target.value)}
