@@ -66,6 +66,8 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [userName, setUserName] = useState<string>("");
+  const [otherUserTyping, setOtherUserTyping] = useState(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Get user's display name
   useEffect(() => {
@@ -109,7 +111,7 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
 
     void fetchMessages();
 
-    // Real-time subscription
+    // Real-time subscription for messages and typing indicators
     const channel = supabase
       .channel(`support-chat-${ticket.id}`)
       .on(
@@ -117,24 +119,93 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
         { event: "INSERT", schema: "public", table: "support_ticket_messages", filter: `ticket_id=eq.${ticket.id}` },
         (payload) => {
           const newMsg = payload.new as Message;
-          if (newMsg.sender_id !== user?.id) {
-            setMessages((prev) => [...prev, newMsg]);
-          }
+          // Always add new messages to the list (remove check for sender_id)
+          setMessages((prev) => {
+            // Check if message already exists (from optimistic update)
+            const exists = prev.some(m => m.id === newMsg.id);
+            if (exists) {
+              // Replace optimistic message with real one
+              return prev.map(m => m.id.startsWith('temp-') ? newMsg : m);
+            }
+            return [...prev, newMsg];
+          });
         }
       )
-      .subscribe();
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        // Check if other user is typing
+        const otherPresence = Object.values(state).find((presences: any) => {
+          return presences.some((p: any) => p.user_id !== user?.id && p.typing);
+        });
+        setOtherUserTyping(!!otherPresence);
+      })
+      .on('presence', { event: 'join' }, ({ newPresences }) => {
+        const typing = newPresences.some((p: any) => p.user_id !== user?.id && p.typing);
+        if (typing) setOtherUserTyping(true);
+      })
+      .on('presence', { event: 'leave' }, ({ leftPresences }) => {
+        const wasTyping = leftPresences.some((p: any) => p.user_id !== user?.id && p.typing);
+        if (wasTyping) setOtherUserTyping(false);
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED' && user) {
+          // Track presence
+          await channel.track({
+            user_id: user.id,
+            user_type: userType,
+            typing: false,
+            online_at: new Date().toISOString(),
+          });
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [ticket.id, user?.id]);
+  }, [ticket.id, user?.id, userType]);
 
   // Auto-scroll
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, otherUserTyping]);
+
+  // Broadcast typing status
+  const broadcastTyping = (isTyping: boolean) => {
+    const channel = supabase.channel(`support-chat-${ticket.id}`);
+    channel.track({
+      user_id: user?.id,
+      user_type: userType,
+      typing: isTyping,
+      online_at: new Date().toISOString(),
+    });
+  };
+
+  // Handle typing with debounce
+  const handleTyping = (value: string) => {
+    setDraft(value);
+    
+    // Broadcast typing started
+    if (value.length > 0) {
+      broadcastTyping(true);
+      
+      // Clear existing timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      
+      // Set timeout to stop typing indicator
+      typingTimeoutRef.current = setTimeout(() => {
+        broadcastTyping(false);
+      }, 2000);
+    } else {
+      broadcastTyping(false);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    }
+  };
 
   // Send message
   const sendMessage = async () => {
@@ -143,6 +214,12 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
     const messageText = draft.trim();
     setSending(true);
     setDraft("");
+    
+    // Stop typing indicator
+    broadcastTyping(false);
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
 
     try {
       const newMessage: Partial<Message> = {
@@ -363,8 +440,30 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
             );
           })}
 
+          {/* Typing indicator */}
+          {otherUserTyping && (
+            <div className={`flex gap-2 ${userType === "staff" ? "" : "flex-row-reverse"}`}>
+              <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${
+                userType === "staff" 
+                  ? "bg-gradient-to-br from-orange-500 to-red-600" 
+                  : "bg-gradient-to-br from-blue-500 to-indigo-600"
+              }`}>
+                {userType === "staff" ? <User className="h-4 w-4 text-white" /> : <Headset className="h-4 w-4 text-white" />}
+              </div>
+              <div className={`flex-1 ${userType === "staff" ? "" : "text-right"}`}>
+                <div className="rounded-2xl px-3 py-2 text-sm inline-block bg-muted/60 animate-pulse">
+                  <div className="flex gap-1">
+                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Waiting indicator */}
-          {messages.length > 0 && messages[messages.length - 1]?.sender_type !== "staff" && userType === "customer" && !isClosed && (
+          {!otherUserTyping && messages.length > 0 && messages[messages.length - 1]?.sender_type !== "staff" && userType === "customer" && !isClosed && (
             <div className="flex gap-2">
               <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
                 <Headset className="h-4 w-4 text-white" />
@@ -416,7 +515,7 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
                 className="min-h-[50px] max-h-[100px] pr-20 resize-none text-sm rounded-2xl"
                 placeholder="Type your message..."
                 value={draft}
-                onChange={(e) => setDraft(e.target.value)}
+                onChange={(e) => handleTyping(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();

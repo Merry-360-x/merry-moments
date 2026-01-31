@@ -72,6 +72,8 @@ export default function SupportCenterLauncher() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [userName, setUserName] = useState<string>("Customer");
+  const [staffTyping, setStaffTyping] = useState(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Get user's display name
   useEffect(() => {
@@ -161,13 +163,41 @@ export default function SupportCenterLauncher() {
         { event: "INSERT", schema: "public", table: "support_ticket_messages", filter: `ticket_id=eq.${activeTicket.id}` },
         (payload) => {
           const newMsg = payload.new as Message;
-          // Don't add if it's our own message (already added optimistically)
-          if (newMsg.sender_id !== user?.id) {
-            setMessages((prev) => [...prev, newMsg]);
-          }
+          // Always add new messages instantly
+          setMessages((prev) => {
+            const exists = prev.some(m => m.id === newMsg.id);
+            if (exists) {
+              return prev.map(m => m.id.startsWith('temp-') ? newMsg : m);
+            }
+            return [...prev, newMsg];
+          });
         }
       )
-      .subscribe();
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        const staffPresence = Object.values(state).find((presences: any) => {
+          return presences.some((p: any) => p.user_type === 'staff' && p.typing);
+        });
+        setStaffTyping(!!staffPresence);
+      })
+      .on('presence', { event: 'join' }, ({ newPresences }) => {
+        const typing = newPresences.some((p: any) => p.user_type === 'staff' && p.typing);
+        if (typing) setStaffTyping(true);
+      })
+      .on('presence', { event: 'leave' }, ({ leftPresences }) => {
+        const wasTyping = leftPresences.some((p: any) => p.user_type === 'staff' && p.typing);
+        if (wasTyping) setStaffTyping(false);
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED' && user) {
+          await channel.track({
+            user_id: user.id,
+            user_type: 'customer',
+            typing: false,
+            online_at: new Date().toISOString(),
+          });
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);
@@ -179,7 +209,7 @@ export default function SupportCenterLauncher() {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, staffTyping]);
 
   // Initialize chat when step changes
   useEffect(() => {
@@ -189,6 +219,40 @@ export default function SupportCenterLauncher() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
+  // Broadcast typing status
+  const broadcastTyping = (isTyping: boolean) => {
+    if (!activeTicket) return;
+    const channel = supabase.channel(`chat-${activeTicket.id}`);
+    channel.track({
+      user_id: user?.id,
+      user_type: 'customer',
+      typing: isTyping,
+      online_at: new Date().toISOString(),
+    });
+  };
+
+  // Handle typing with debounce
+  const handleTyping = (value: string) => {
+    setDraft(value);
+    
+    if (value.length > 0) {
+      broadcastTyping(true);
+      
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      
+      typingTimeoutRef.current = setTimeout(() => {
+        broadcastTyping(false);
+      }, 2000);
+    } else {
+      broadcastTyping(false);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    }
+  };
+
   // Send message
   const sendMessage = async () => {
     if (!user || (!draft.trim() && attachments.length === 0)) return;
@@ -196,6 +260,12 @@ export default function SupportCenterLauncher() {
     const messageText = draft.trim();
     setSending(true);
     setDraft("");
+    
+    // Stop typing indicator
+    broadcastTyping(false);
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
 
     try {
       let ticketId = activeTicket?.id;
@@ -655,8 +725,26 @@ export default function SupportCenterLauncher() {
                       );
                     })}
 
-                    {/* Typing/waiting indicator */}
-                    {messages.length > 0 && messages[messages.length - 1]?.sender_id === user?.id && (
+                    {/* Typing indicator */}
+                    {staffTyping && (
+                      <div className="flex gap-2">
+                        <div className="h-7 w-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
+                          <Headset className="h-3.5 w-3.5 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="rounded-2xl px-2.5 py-1.5 text-xs inline-block bg-muted/60 animate-pulse">
+                            <div className="flex gap-1">
+                              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Waiting indicator */}
+                    {!staffTyping && messages.length > 0 && messages[messages.length - 1]?.sender_id === user?.id && (
                       <div className="flex gap-2">
                         <div className="h-7 w-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
                           <Headset className="h-3.5 w-3.5 text-white" />
@@ -708,7 +796,7 @@ export default function SupportCenterLauncher() {
                       className="min-h-[40px] max-h-[80px] pr-16 resize-none text-xs rounded-2xl"
                       placeholder="Type your message..."
                       value={draft}
-                      onChange={(e) => setDraft(e.target.value)}
+                      onChange={(e) => handleTyping(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
                           e.preventDefault();
