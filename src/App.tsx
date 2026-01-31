@@ -155,6 +155,7 @@ const App = () => (
               <Route path="/login" element={<AuthModeRedirect mode="login" />} />
               <Route path="/signup" element={<AuthModeRedirect mode="signup" />} />
               <Route path="/accommodations" element={<Accommodations />} />
+              <Route path="/stays" element={<Navigate to="/accommodations" replace />} />
               <Route path="/tours" element={<Tours />} />
               <Route path="/tours/:id" element={<TourDetails />} />
               <Route path="/search" element={<SearchResults />} />
