@@ -119,7 +119,12 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
         config: {
           broadcast: { self: true },
         },
-      })
+      });
+    
+    // Store ref immediately for broadcasting
+    messagesChannelRef.current = messagesChannel;
+    
+    messagesChannel
       .on(
         'broadcast',
         { event: 'new-message' },
@@ -180,16 +185,18 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
         console.log('[SupportChat] Messages channel status:', status);
       });
 
-    // Store ref for broadcasting
-    messagesChannelRef.current = messagesChannel;
-
     // Separate channel for presence/typing
     const presenceChannel = supabase
       .channel(`ticket-presence-${ticket.id}`, {
         config: {
           presence: { key: user?.id || 'anonymous' },
         },
-      })
+      });
+    
+    // Store ref immediately for broadcasting
+    presenceChannelRef.current = presenceChannel;
+    
+    presenceChannel
       .on('presence', { event: 'sync' }, () => {
         const state = presenceChannel.presenceState();
         const otherPresence = Object.values(state).find((presences: any) => {
@@ -216,9 +223,6 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
           });
         }
       });
-
-    // Store ref for broadcasting
-    presenceChannelRef.current = presenceChannel;
 
     return () => {
       console.log('[SupportChat] Cleaning up channels');

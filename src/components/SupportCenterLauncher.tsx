@@ -166,7 +166,12 @@ export default function SupportCenterLauncher() {
         config: {
           broadcast: { self: true },
         },
-      })
+      });
+    
+    // Store ref immediately for broadcasting
+    messagesChannelRef.current = messagesChannel;
+    
+    messagesChannel
       .on(
         'broadcast',
         { event: 'new-message' },
@@ -237,16 +242,18 @@ export default function SupportCenterLauncher() {
         console.log('[CustomerChat] Messages channel status:', status);
       });
 
-    // Store ref for broadcasting
-    messagesChannelRef.current = messagesChannel;
-
     // Presence channel for typing
     const presenceChannel = supabase
       .channel(`ticket-presence-${activeTicket.id}`, {
         config: {
           presence: { key: user?.id || 'anonymous' },
         },
-      })
+      });
+    
+    // Store ref immediately for broadcasting
+    presenceChannelRef.current = presenceChannel;
+    
+    presenceChannel
       .on('presence', { event: 'sync' }, () => {
         const state = presenceChannel.presenceState();
         const staffPresence = Object.values(state).find((presences: any) => {
@@ -273,9 +280,6 @@ export default function SupportCenterLauncher() {
           });
         }
       });
-
-    // Store ref for broadcasting
-    presenceChannelRef.current = presenceChannel;
 
     return () => {
       console.log('[CustomerChat] Cleaning up channels');
