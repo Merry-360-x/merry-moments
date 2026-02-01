@@ -257,9 +257,8 @@ export default function HostDashboard() {
   const [tab, setTab] = useState("overview");
   const [isLoading, setIsLoading] = useState(true);
   
-  // Payout states
+  // Payout states (combined into single dialog)
   const [showPayoutDialog, setShowPayoutDialog] = useState(false);
-  const [showPayoutSetupDialog, setShowPayoutSetupDialog] = useState(false);
   const [payoutInfo, setPayoutInfo] = useState<{
     method: string | null;
     phone: string | null;
@@ -276,7 +275,6 @@ export default function HostDashboard() {
   });
   const [payoutAmount, setPayoutAmount] = useState('');
   const [requestingPayout, setRequestingPayout] = useState(false);
-  const [savingPayoutInfo, setSavingPayoutInfo] = useState(false);
   const [payoutHistory, setPayoutHistory] = useState<any[]>([]);
   
   // Financial reports date range
@@ -682,6 +680,15 @@ export default function HostDashboard() {
         if (payouts) {
           setPayoutHistory(payouts);
         }
+
+        // Show payout dialog only once per session if no payout method exists
+        const hasSeenPayoutPrompt = sessionStorage.getItem('hasSeenPayoutPrompt');
+        if (!profile?.payout_method && !hasSeenPayoutPrompt) {
+          sessionStorage.setItem('hasSeenPayoutPrompt', 'true');
+          setTimeout(() => {
+            setShowPayoutDialog(true);
+          }, 1500);
+        }
       } catch (e) {
         console.error('Failed to fetch payout info:', e);
       }
@@ -689,43 +696,7 @@ export default function HostDashboard() {
     fetchPayoutInfo();
   }, [user]);
 
-  // Save payout info
-  const savePayoutInfo = async () => {
-    if (!user) return;
-    setSavingPayoutInfo(true);
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          payout_method: payoutForm.method,
-          payout_phone: payoutForm.method === 'mobile_money' ? payoutForm.phone : null,
-          payout_bank_name: payoutForm.method === 'bank_transfer' ? payoutForm.bank_name : null,
-          payout_bank_account: payoutForm.method === 'bank_transfer' ? payoutForm.bank_account : null,
-          payout_account_name: payoutForm.account_name || null,
-        })
-        .eq('id', user.id);
-
-      if (error) throw error;
-
-      setPayoutInfo({
-        method: payoutForm.method,
-        phone: payoutForm.phone,
-        bank_name: payoutForm.bank_name,
-        bank_account: payoutForm.bank_account,
-        account_name: payoutForm.account_name,
-      });
-      
-      toast({ title: 'Saved', description: 'Payout information updated successfully.' });
-      setShowPayoutSetupDialog(false);
-    } catch (e) {
-      logError('host.payout.saveInfo', e);
-      toast({ variant: 'destructive', title: 'Failed to save', description: uiErrorMessage(e) });
-    } finally {
-      setSavingPayoutInfo(false);
-    }
-  };
-
-  // Request payout
+  // Request payout (saves payout info if needed and sends email notification)
   const requestPayout = async () => {
     if (!user) return;
     
@@ -745,12 +716,47 @@ export default function HostDashboard() {
       return;
     }
 
+    // Validate payout form
+    if (payoutForm.method === 'mobile_money' && !payoutForm.phone) {
+      toast({ variant: 'destructive', title: 'Phone required', description: 'Please enter your mobile money phone number.' });
+      return;
+    }
+    if (payoutForm.method === 'bank_transfer' && (!payoutForm.bank_name || !payoutForm.bank_account)) {
+      toast({ variant: 'destructive', title: 'Bank details required', description: 'Please enter your bank name and account number.' });
+      return;
+    }
+
     setRequestingPayout(true);
     try {
-      const payoutDetails = payoutInfo?.method === 'mobile_money'
-        ? { phone: payoutInfo.phone, account_name: payoutInfo.account_name }
-        : { bank_name: payoutInfo?.bank_name, bank_account: payoutInfo?.bank_account, account_name: payoutInfo?.account_name };
+      // First, save/update payout info to profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          payout_method: payoutForm.method,
+          payout_phone: payoutForm.method === 'mobile_money' ? payoutForm.phone : null,
+          payout_bank_name: payoutForm.method === 'bank_transfer' ? payoutForm.bank_name : null,
+          payout_bank_account: payoutForm.method === 'bank_transfer' ? payoutForm.bank_account : null,
+          payout_account_name: payoutForm.account_name || null,
+        })
+        .eq('user_id', user.id);
 
+      if (profileError) throw profileError;
+
+      // Update local state
+      setPayoutInfo({
+        method: payoutForm.method,
+        phone: payoutForm.phone,
+        bank_name: payoutForm.bank_name,
+        bank_account: payoutForm.bank_account,
+        account_name: payoutForm.account_name,
+      });
+
+      // Create payout details object
+      const payoutDetails = payoutForm.method === 'mobile_money'
+        ? { phone: payoutForm.phone, account_name: payoutForm.account_name }
+        : { bank_name: payoutForm.bank_name, bank_account: payoutForm.bank_account, account_name: payoutForm.account_name };
+
+      // Insert payout request
       const { error } = await supabase
         .from('host_payouts')
         .insert({
@@ -758,11 +764,39 @@ export default function HostDashboard() {
           amount,
           currency: 'RWF',
           status: 'pending',
-          payout_method: payoutInfo?.method || 'mobile_money',
+          payout_method: payoutForm.method,
           payout_details: payoutDetails,
         });
 
       if (error) throw error;
+
+      // Send email notification to admin
+      try {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('full_name, email')
+          .eq('user_id', user.id)
+          .single();
+
+        await fetch('/api/payout-notification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            hostName: profileData?.full_name || user.email?.split('@')[0] || 'Host',
+            hostEmail: profileData?.email || user.email,
+            amount,
+            currency: 'RWF',
+            method: payoutForm.method,
+            phone: payoutForm.phone,
+            bankName: payoutForm.bank_name,
+            bankAccount: payoutForm.bank_account,
+            accountName: payoutForm.account_name,
+          }),
+        });
+      } catch (emailError) {
+        console.error('Failed to send notification email:', emailError);
+        // Don't fail the payout request if email fails
+      }
 
       toast({ title: 'Request submitted', description: 'Your payout request is being processed. We\'ll notify you once it\'s complete.' });
       setShowPayoutDialog(false);
@@ -1166,19 +1200,9 @@ export default function HostDashboard() {
     .reduce((sum, p) => sum + Number(p.amount), 0);
   const availableForPayout = Math.max(0, totalEarnings - pendingPayoutAmount - completedPayoutAmount);
 
-  // Check if payout info is set up
-  const hasPayoutInfo = payoutInfo?.method && (
-    (payoutInfo.method === 'mobile_money' && payoutInfo.phone) ||
-    (payoutInfo.method === 'bank_transfer' && payoutInfo.bank_account)
-  );
-
-  // Handle payout button click
+  // Handle payout button click - always open combined dialog
   const handlePayoutClick = () => {
-    if (!hasPayoutInfo) {
-      setShowPayoutSetupDialog(true);
-    } else {
-      setShowPayoutDialog(true);
-    }
+    setShowPayoutDialog(true);
   };
 
   // Wizard steps
@@ -3473,7 +3497,7 @@ export default function HostDashboard() {
                   size="sm" 
                   className="w-full mt-3 gap-2" 
                   onClick={handlePayoutClick}
-                  disabled={availableForPayout < 5000}
+                  disabled={availableForPayout <= 0}
                 >
                   <Banknote className="w-4 h-4" />
                   Request Payout
@@ -4304,6 +4328,71 @@ END OF REPORT
                 </Button>
               </div>
 
+              {/* Payout History */}
+              <div className="mt-8">
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <Wallet className="w-5 h-5" />
+                  Payout History
+                </h3>
+                {payoutHistory.length === 0 ? (
+                  <div className="text-center text-muted-foreground py-8 border rounded-lg">
+                    <Wallet className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p>No payout requests yet</p>
+                    <p className="text-sm">Request your first payout from the earnings card above</p>
+                  </div>
+                ) : (
+                  <div className="border rounded-lg overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Method</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Notes</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {payoutHistory.map((payout) => (
+                          <TableRow key={payout.id}>
+                            <TableCell className="text-sm">
+                              {new Date(payout.created_at).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              {payout.currency} {payout.amount?.toLocaleString()}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="capitalize">
+                                {payout.payout_method?.replace("_", " ")}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={
+                                  payout.status === "completed"
+                                    ? "default"
+                                    : payout.status === "pending"
+                                    ? "secondary"
+                                    : payout.status === "processing"
+                                    ? "outline"
+                                    : "destructive"
+                                }
+                                className="capitalize"
+                              >
+                                {payout.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
+                              {payout.admin_notes || (payout.status === "pending" ? "Awaiting review" : "-")}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+
               {/* Info Notice */}
               <div className="mt-6 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                 <div className="flex gap-3">
@@ -4322,96 +4411,7 @@ END OF REPORT
         </Tabs>
       </div>
 
-      {/* Payout Setup Dialog */}
-      <Dialog open={showPayoutSetupDialog} onOpenChange={setShowPayoutSetupDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Wallet className="w-5 h-5" />
-              Set Up Payout Method
-            </DialogTitle>
-            <DialogDescription>
-              Add your payout details to receive your earnings. This is required before requesting payouts.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Payout Method</Label>
-              <Select 
-                value={payoutForm.method} 
-                onValueChange={(v) => setPayoutForm(f => ({ ...f, method: v as 'mobile_money' | 'bank_transfer' }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="mobile_money">📱 Mobile Money (MTN/Airtel)</SelectItem>
-                  <SelectItem value="bank_transfer">🏦 Bank Transfer</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {payoutForm.method === 'mobile_money' ? (
-              <div className="space-y-2">
-                <Label>Mobile Money Number</Label>
-                <Input 
-                  placeholder="078xxxxxxx"
-                  value={payoutForm.phone}
-                  onChange={(e) => setPayoutForm(f => ({ ...f, phone: e.target.value }))}
-                />
-                <p className="text-xs text-muted-foreground">Enter your MTN or Airtel Money number</p>
-              </div>
-            ) : (
-              <>
-                <div className="space-y-2">
-                  <Label>Bank Name</Label>
-                  <Input 
-                    placeholder="e.g., Bank of Kigali"
-                    value={payoutForm.bank_name}
-                    onChange={(e) => setPayoutForm(f => ({ ...f, bank_name: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Account Number</Label>
-                  <Input 
-                    placeholder="Enter account number"
-                    value={payoutForm.bank_account}
-                    onChange={(e) => setPayoutForm(f => ({ ...f, bank_account: e.target.value }))}
-                  />
-                </div>
-              </>
-            )}
-
-            <div className="space-y-2">
-              <Label>Account Holder Name</Label>
-              <Input 
-                placeholder="Full name as registered"
-                value={payoutForm.account_name}
-                onChange={(e) => setPayoutForm(f => ({ ...f, account_name: e.target.value }))}
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPayoutSetupDialog(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={savePayoutInfo} 
-              disabled={savingPayoutInfo || 
-                (payoutForm.method === 'mobile_money' && !payoutForm.phone) ||
-                (payoutForm.method === 'bank_transfer' && (!payoutForm.bank_name || !payoutForm.bank_account))
-              }
-            >
-              {savingPayoutInfo ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-              Save Payout Info
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Request Payout Dialog */}
+      {/* Combined Payout Request Dialog */}
       <Dialog open={showPayoutDialog} onOpenChange={setShowPayoutDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -4420,41 +4420,59 @@ END OF REPORT
               Request Payout
             </DialogTitle>
             <DialogDescription>
-              Request a payout to your {payoutInfo?.method === 'mobile_money' ? 'mobile money' : 'bank account'}.
+              Enter your payout details and the amount you'd like to withdraw.
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
-            {/* Payout info summary */}
-            <div className="bg-muted/50 rounded-lg p-3 text-sm">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-muted-foreground">Payout to:</span>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="h-6 text-xs"
-                  onClick={() => {
-                    setShowPayoutDialog(false);
-                    setShowPayoutSetupDialog(true);
-                  }}
-                >
-                  Edit
-                </Button>
-              </div>
-              {payoutInfo?.method === 'mobile_money' ? (
-                <p className="font-medium">📱 {payoutInfo.phone}</p>
-              ) : (
-                <p className="font-medium">🏦 {payoutInfo?.bank_name} - ****{payoutInfo?.bank_account?.slice(-4)}</p>
-              )}
-              {payoutInfo?.account_name && (
-                <p className="text-muted-foreground">{payoutInfo.account_name}</p>
-              )}
-            </div>
-
             {/* Available balance */}
             <div className="bg-green-50 dark:bg-green-950/20 rounded-lg p-3">
               <p className="text-sm text-muted-foreground">Available for payout</p>
               <p className="text-2xl font-bold text-green-600">{formatMoney(availableForPayout, 'RWF')}</p>
+            </div>
+
+            {/* Payout Method Selection */}
+            <div className="space-y-3">
+              <Label>Payout Method</Label>
+              <Select 
+                value={payoutForm.method} 
+                onValueChange={(v) => setPayoutForm(f => ({ ...f, method: v as 'mobile_money' | 'bank_transfer' }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select method" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mobile_money">📱 Mobile Money</SelectItem>
+                  <SelectItem value="bank_transfer">🏦 Bank Transfer</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {payoutForm.method === 'mobile_money' ? (
+                <Input 
+                  placeholder="Phone number (078...)" 
+                  value={payoutForm.phone}
+                  onChange={(e) => setPayoutForm(f => ({ ...f, phone: e.target.value }))}
+                />
+              ) : (
+                <>
+                  <Input 
+                    placeholder="Bank name"
+                    value={payoutForm.bank_name}
+                    onChange={(e) => setPayoutForm(f => ({ ...f, bank_name: e.target.value }))}
+                  />
+                  <Input 
+                    placeholder="Account number"
+                    value={payoutForm.bank_account}
+                    onChange={(e) => setPayoutForm(f => ({ ...f, bank_account: e.target.value }))}
+                  />
+                </>
+              )}
+
+              <Input 
+                placeholder="Account holder name"
+                value={payoutForm.account_name}
+                onChange={(e) => setPayoutForm(f => ({ ...f, account_name: e.target.value }))}
+              />
             </div>
 
             {/* Amount input */}
@@ -4498,10 +4516,17 @@ END OF REPORT
             </Button>
             <Button 
               onClick={requestPayout} 
-              disabled={requestingPayout || !payoutAmount || parseFloat(payoutAmount) < 5000 || parseFloat(payoutAmount) > availableForPayout}
+              disabled={
+                requestingPayout || 
+                !payoutAmount || 
+                parseFloat(payoutAmount) < 5000 || 
+                parseFloat(payoutAmount) > availableForPayout ||
+                (payoutForm.method === 'mobile_money' && !payoutForm.phone) ||
+                (payoutForm.method === 'bank_transfer' && (!payoutForm.bank_name || !payoutForm.bank_account))
+              }
             >
               {requestingPayout ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-              Request Payout
+              Submit Request
             </Button>
           </DialogFooter>
         </DialogContent>

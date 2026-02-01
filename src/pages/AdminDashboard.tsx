@@ -53,6 +53,9 @@ import {
   Headset,
   Send,
   Clock,
+  Banknote,
+  Loader2,
+  User,
 } from "lucide-react";
 
 type HostApplicationStatus = "draft" | "pending" | "approved" | "rejected";
@@ -304,6 +307,7 @@ type TabValue =
   | "transport"
   | "bookings"
   | "payments"
+  | "payouts"
   | "reviews"
   | "support"
   | "safety"
@@ -385,6 +389,10 @@ export default function AdminDashboard() {
   const [selectedUser, setSelectedUser] = useState<AdminUserRow | null>(null);
   const [userDetailsOpen, setUserDetailsOpen] = useState(false);
 
+  // Payouts state
+  const [payoutFilter, setPayoutFilter] = useState<"all" | "pending" | "processing" | "completed" | "rejected">("all");
+  const [processingPayout, setProcessingPayout] = useState<string | null>(null);
+
   // Set up real-time subscriptions for instant updates
   useEffect(() => {
     if (!user) return;
@@ -430,6 +438,15 @@ export default function AdminDashboard() {
       })
       .subscribe();
     channels.push(bookingsChannel);
+
+    // Subscribe to host_payouts changes
+    const payoutsChannel = supabase
+      .channel('admin-payouts-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'host_payouts' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['admin-host_payouts'] });
+      })
+      .subscribe();
+    channels.push(payoutsChannel);
 
     // Subscribe to host_applications changes
     const applicationsChannel = supabase
@@ -850,6 +867,64 @@ export default function AdminDashboard() {
     refetchOnWindowFocus: true,
     placeholderData: (previousData) => previousData,
   });
+
+  // Host Payouts query
+  const { data: payouts = [], refetch: refetchPayouts } = useQuery({
+    queryKey: ["admin-host_payouts", payoutFilter],
+    queryFn: async () => {
+      let query = supabase
+        .from("host_payouts")
+        .select("*, profiles:host_id(id, full_name, email)")
+        .order("created_at", { ascending: false });
+      
+      if (payoutFilter !== "all") {
+        query = query.eq("status", payoutFilter);
+      }
+      
+      const { data, error } = await query;
+      if (error) {
+        console.error("Error fetching payouts:", error);
+        return [];
+      }
+      return data || [];
+    },
+    enabled: tab === "payouts" || tab === "overview",
+    staleTime: 1000 * 20,
+    refetchOnWindowFocus: true,
+  });
+
+  // Process payout function
+  const processPayout = async (payoutId: string, action: "completed" | "rejected", notes?: string) => {
+    setProcessingPayout(payoutId);
+    try {
+      const { error } = await supabase
+        .from("host_payouts")
+        .update({
+          status: action,
+          admin_notes: notes || null,
+          processed_by: user?.id,
+          processed_at: new Date().toISOString(),
+        })
+        .eq("id", payoutId);
+
+      if (error) throw error;
+
+      toast({
+        title: action === "completed" ? "Payout Approved" : "Payout Rejected",
+        description: `The payout has been ${action === "completed" ? "approved and marked as completed" : "rejected"}.`,
+      });
+      refetchPayouts();
+    } catch (error) {
+      console.error("Error processing payout:", error);
+      toast({
+        title: "Error",
+        description: "Failed to process payout. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessingPayout(null);
+    }
+  };
 
   // Reviews - direct query with enhanced loading
   const { data: reviews = [], refetch: refetchReviews } = useQuery({
@@ -1643,6 +1718,14 @@ For support, contact: support@merry360x.com
               {bookings.filter(b => b.payment_status !== 'paid' && b.status === 'confirmed').length > 0 && (
                 <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-xs h-5 min-w-[20px] rounded-full">
                   {bookings.filter(b => b.payment_status !== 'paid' && b.status === 'confirmed').length}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="payouts" className="gap-1">
+              <Banknote className="w-4 h-4" /> Payouts
+              {payouts.filter((p: any) => p.status === 'pending').length > 0 && (
+                <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-xs h-5 min-w-[20px] rounded-full">
+                  {payouts.filter((p: any) => p.status === 'pending').length}
                 </Badge>
               )}
             </TabsTrigger>
@@ -3198,6 +3281,148 @@ For support, contact: support@merry360x.com
                   <p className="text-muted-foreground">No revenue data yet</p>
                 )}
               </div>
+            </Card>
+          </TabsContent>
+
+          {/* PAYOUTS TAB */}
+          <TabsContent value="payouts">
+            <Card>
+              <CardHeader>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Banknote className="h-5 w-5" />
+                      Host Payout Requests
+                    </CardTitle>
+                    <CardDescription>Manage and process host payout requests</CardDescription>
+                  </div>
+                  <Select value={payoutFilter} onValueChange={(v: any) => setPayoutFilter(v)}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Filter by status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Payouts</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="processing">Processing</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Host</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Method</TableHead>
+                      <TableHead>Details</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {payouts.map((payout: any) => (
+                      <TableRow key={payout.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <User className="h-4 w-4 text-muted-foreground" />
+                            <div>
+                              <p className="font-medium">{payout.profiles?.full_name || "Unknown"}</p>
+                              <p className="text-xs text-muted-foreground">{payout.profiles?.email}</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-semibold">
+                            {payout.currency} {payout.amount?.toLocaleString()}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="capitalize">
+                            {payout.payout_method?.replace("_", " ")}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {payout.payout_method === "mobile_money" ? (
+                            <span className="text-sm">{payout.payout_details?.phone}</span>
+                          ) : (
+                            <div className="text-sm">
+                              <p>{payout.payout_details?.bank_name}</p>
+                              <p className="text-muted-foreground">{payout.payout_details?.account_number}</p>
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              payout.status === "completed"
+                                ? "default"
+                                : payout.status === "pending"
+                                ? "secondary"
+                                : payout.status === "processing"
+                                ? "outline"
+                                : "destructive"
+                            }
+                            className="capitalize"
+                          >
+                            {payout.status === "pending" && <Clock className="h-3 w-3 mr-1" />}
+                            {payout.status === "rejected" && <XCircle className="h-3 w-3 mr-1" />}
+                            {payout.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm text-muted-foreground">
+                            {new Date(payout.created_at).toLocaleDateString()}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {payout.status === "pending" && (
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => processPayout(payout.id, "completed")}
+                                disabled={processingPayout === payout.id}
+                              >
+                                {processingPayout === payout.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <CheckCircle className="h-4 w-4 mr-1" />
+                                )}
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => processPayout(payout.id, "rejected", "Rejected by admin")}
+                                disabled={processingPayout === payout.id}
+                              >
+                                <XCircle className="h-4 w-4 mr-1" />
+                                Reject
+                              </Button>
+                            </div>
+                          )}
+                          {payout.status !== "pending" && (
+                            <span className="text-sm text-muted-foreground">
+                              {payout.processed_at && new Date(payout.processed_at).toLocaleDateString()}
+                            </span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {payouts.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                          No payout requests found
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
             </Card>
           </TabsContent>
 
