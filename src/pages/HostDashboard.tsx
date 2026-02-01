@@ -92,7 +92,18 @@ import {
   FileText,
   Loader2,
   Calendar as CalendarIcon,
+  Banknote,
+  Wallet,
+  AlertCircle,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 // Types
 interface Property {
@@ -245,6 +256,28 @@ export default function HostDashboard() {
 
   const [tab, setTab] = useState("overview");
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Payout states
+  const [showPayoutDialog, setShowPayoutDialog] = useState(false);
+  const [showPayoutSetupDialog, setShowPayoutSetupDialog] = useState(false);
+  const [payoutInfo, setPayoutInfo] = useState<{
+    method: string | null;
+    phone: string | null;
+    bank_name: string | null;
+    bank_account: string | null;
+    account_name: string | null;
+  } | null>(null);
+  const [payoutForm, setPayoutForm] = useState({
+    method: 'mobile_money' as 'mobile_money' | 'bank_transfer',
+    phone: '',
+    bank_name: '',
+    bank_account: '',
+    account_name: '',
+  });
+  const [payoutAmount, setPayoutAmount] = useState('');
+  const [requestingPayout, setRequestingPayout] = useState(false);
+  const [savingPayoutInfo, setSavingPayoutInfo] = useState(false);
+  const [payoutHistory, setPayoutHistory] = useState<any[]>([]);
   
   // Financial reports date range
   const [reportStartDate, setReportStartDate] = useState(() => {
@@ -607,6 +640,149 @@ export default function HostDashboard() {
       channels.forEach(channel => supabase.removeChannel(channel));
     };
   }, [user, fetchData]);
+
+  // Fetch payout info on mount
+  useEffect(() => {
+    if (!user) return;
+    const fetchPayoutInfo = async () => {
+      try {
+        // Fetch profile payout info
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('payout_method, payout_phone, payout_bank_name, payout_bank_account, payout_account_name')
+          .eq('id', user.id)
+          .single();
+        
+        if (profile) {
+          setPayoutInfo({
+            method: profile.payout_method,
+            phone: profile.payout_phone,
+            bank_name: profile.payout_bank_name,
+            bank_account: profile.payout_bank_account,
+            account_name: profile.payout_account_name,
+          });
+          // Pre-fill form
+          setPayoutForm({
+            method: (profile.payout_method as 'mobile_money' | 'bank_transfer') || 'mobile_money',
+            phone: profile.payout_phone || '',
+            bank_name: profile.payout_bank_name || '',
+            bank_account: profile.payout_bank_account || '',
+            account_name: profile.payout_account_name || '',
+          });
+        }
+
+        // Fetch payout history
+        const { data: payouts } = await supabase
+          .from('host_payouts')
+          .select('*')
+          .eq('host_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(10);
+        
+        if (payouts) {
+          setPayoutHistory(payouts);
+        }
+      } catch (e) {
+        console.error('Failed to fetch payout info:', e);
+      }
+    };
+    fetchPayoutInfo();
+  }, [user]);
+
+  // Save payout info
+  const savePayoutInfo = async () => {
+    if (!user) return;
+    setSavingPayoutInfo(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          payout_method: payoutForm.method,
+          payout_phone: payoutForm.method === 'mobile_money' ? payoutForm.phone : null,
+          payout_bank_name: payoutForm.method === 'bank_transfer' ? payoutForm.bank_name : null,
+          payout_bank_account: payoutForm.method === 'bank_transfer' ? payoutForm.bank_account : null,
+          payout_account_name: payoutForm.account_name || null,
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      setPayoutInfo({
+        method: payoutForm.method,
+        phone: payoutForm.phone,
+        bank_name: payoutForm.bank_name,
+        bank_account: payoutForm.bank_account,
+        account_name: payoutForm.account_name,
+      });
+      
+      toast({ title: 'Saved', description: 'Payout information updated successfully.' });
+      setShowPayoutSetupDialog(false);
+    } catch (e) {
+      logError('host.payout.saveInfo', e);
+      toast({ variant: 'destructive', title: 'Failed to save', description: uiErrorMessage(e) });
+    } finally {
+      setSavingPayoutInfo(false);
+    }
+  };
+
+  // Request payout
+  const requestPayout = async () => {
+    if (!user) return;
+    
+    const amount = parseFloat(payoutAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast({ variant: 'destructive', title: 'Invalid amount', description: 'Please enter a valid payout amount.' });
+      return;
+    }
+
+    if (amount > availableForPayout) {
+      toast({ variant: 'destructive', title: 'Insufficient balance', description: `Maximum available: ${formatMoney(availableForPayout, 'RWF')}` });
+      return;
+    }
+
+    if (amount < 5000) {
+      toast({ variant: 'destructive', title: 'Minimum payout', description: 'Minimum payout amount is 5,000 RWF' });
+      return;
+    }
+
+    setRequestingPayout(true);
+    try {
+      const payoutDetails = payoutInfo?.method === 'mobile_money'
+        ? { phone: payoutInfo.phone, account_name: payoutInfo.account_name }
+        : { bank_name: payoutInfo?.bank_name, bank_account: payoutInfo?.bank_account, account_name: payoutInfo?.account_name };
+
+      const { error } = await supabase
+        .from('host_payouts')
+        .insert({
+          host_id: user.id,
+          amount,
+          currency: 'RWF',
+          status: 'pending',
+          payout_method: payoutInfo?.method || 'mobile_money',
+          payout_details: payoutDetails,
+        });
+
+      if (error) throw error;
+
+      toast({ title: 'Request submitted', description: 'Your payout request is being processed. We\'ll notify you once it\'s complete.' });
+      setShowPayoutDialog(false);
+      setPayoutAmount('');
+      
+      // Refresh payout history
+      const { data: payouts } = await supabase
+        .from('host_payouts')
+        .select('*')
+        .eq('host_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      if (payouts) setPayoutHistory(payouts);
+    } catch (e) {
+      logError('host.payout.request', e);
+      toast({ variant: 'destructive', title: 'Failed to submit request', description: uiErrorMessage(e) });
+    } finally {
+      setRequestingPayout(false);
+    }
+  };
 
   // Property CRUD
   const updateProperty = async (id: string, updates: Partial<Property>) => {
@@ -980,6 +1156,30 @@ export default function HostDashboard() {
   const totalEarnings = totalNetEarnings;
   const pendingBookings = (bookings || []).filter((b) => b.status === "pending").length;
   const publishedProperties = (properties || []).filter((p) => p.is_published).length;
+
+  // Calculate available for payout (confirmed bookings - pending payouts)
+  const pendingPayoutAmount = payoutHistory
+    .filter(p => p.status === 'pending' || p.status === 'processing')
+    .reduce((sum, p) => sum + Number(p.amount), 0);
+  const completedPayoutAmount = payoutHistory
+    .filter(p => p.status === 'completed')
+    .reduce((sum, p) => sum + Number(p.amount), 0);
+  const availableForPayout = Math.max(0, totalEarnings - pendingPayoutAmount - completedPayoutAmount);
+
+  // Check if payout info is set up
+  const hasPayoutInfo = payoutInfo?.method && (
+    (payoutInfo.method === 'mobile_money' && payoutInfo.phone) ||
+    (payoutInfo.method === 'bank_transfer' && payoutInfo.bank_account)
+  );
+
+  // Handle payout button click
+  const handlePayoutClick = () => {
+    if (!hasPayoutInfo) {
+      setShowPayoutSetupDialog(true);
+    } else {
+      setShowPayoutDialog(true);
+    }
+  };
 
   // Wizard steps
   const totalSteps = 5;
@@ -3263,12 +3463,26 @@ export default function HostDashboard() {
                   <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
                     <DollarSign className="w-5 h-5 text-green-600" />
           </div>
-                  <div>
+                  <div className="flex-1">
                     <p className="text-sm text-muted-foreground">Net Earnings</p>
                     <p className="text-xl font-bold">{formatMoney(totalEarnings, "RWF")}</p>
                     <p className="text-xs text-muted-foreground">After platform fees</p>
                   </div>
                 </div>
+                <Button 
+                  size="sm" 
+                  className="w-full mt-3 gap-2" 
+                  onClick={handlePayoutClick}
+                  disabled={availableForPayout < 5000}
+                >
+                  <Banknote className="w-4 h-4" />
+                  Request Payout
+                </Button>
+                {availableForPayout > 0 && (
+                  <p className="text-xs text-center text-muted-foreground mt-2">
+                    Available: {formatMoney(availableForPayout, "RWF")}
+                  </p>
+                )}
               </Card>
               <Card className="p-4">
                 <div className="flex items-center gap-3">
@@ -4107,6 +4321,191 @@ END OF REPORT
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Payout Setup Dialog */}
+      <Dialog open={showPayoutSetupDialog} onOpenChange={setShowPayoutSetupDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wallet className="w-5 h-5" />
+              Set Up Payout Method
+            </DialogTitle>
+            <DialogDescription>
+              Add your payout details to receive your earnings. This is required before requesting payouts.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Payout Method</Label>
+              <Select 
+                value={payoutForm.method} 
+                onValueChange={(v) => setPayoutForm(f => ({ ...f, method: v as 'mobile_money' | 'bank_transfer' }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mobile_money">📱 Mobile Money (MTN/Airtel)</SelectItem>
+                  <SelectItem value="bank_transfer">🏦 Bank Transfer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {payoutForm.method === 'mobile_money' ? (
+              <div className="space-y-2">
+                <Label>Mobile Money Number</Label>
+                <Input 
+                  placeholder="078xxxxxxx"
+                  value={payoutForm.phone}
+                  onChange={(e) => setPayoutForm(f => ({ ...f, phone: e.target.value }))}
+                />
+                <p className="text-xs text-muted-foreground">Enter your MTN or Airtel Money number</p>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label>Bank Name</Label>
+                  <Input 
+                    placeholder="e.g., Bank of Kigali"
+                    value={payoutForm.bank_name}
+                    onChange={(e) => setPayoutForm(f => ({ ...f, bank_name: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Account Number</Label>
+                  <Input 
+                    placeholder="Enter account number"
+                    value={payoutForm.bank_account}
+                    onChange={(e) => setPayoutForm(f => ({ ...f, bank_account: e.target.value }))}
+                  />
+                </div>
+              </>
+            )}
+
+            <div className="space-y-2">
+              <Label>Account Holder Name</Label>
+              <Input 
+                placeholder="Full name as registered"
+                value={payoutForm.account_name}
+                onChange={(e) => setPayoutForm(f => ({ ...f, account_name: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPayoutSetupDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={savePayoutInfo} 
+              disabled={savingPayoutInfo || 
+                (payoutForm.method === 'mobile_money' && !payoutForm.phone) ||
+                (payoutForm.method === 'bank_transfer' && (!payoutForm.bank_name || !payoutForm.bank_account))
+              }
+            >
+              {savingPayoutInfo ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Save Payout Info
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Request Payout Dialog */}
+      <Dialog open={showPayoutDialog} onOpenChange={setShowPayoutDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Banknote className="w-5 h-5" />
+              Request Payout
+            </DialogTitle>
+            <DialogDescription>
+              Request a payout to your {payoutInfo?.method === 'mobile_money' ? 'mobile money' : 'bank account'}.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Payout info summary */}
+            <div className="bg-muted/50 rounded-lg p-3 text-sm">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-muted-foreground">Payout to:</span>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-6 text-xs"
+                  onClick={() => {
+                    setShowPayoutDialog(false);
+                    setShowPayoutSetupDialog(true);
+                  }}
+                >
+                  Edit
+                </Button>
+              </div>
+              {payoutInfo?.method === 'mobile_money' ? (
+                <p className="font-medium">📱 {payoutInfo.phone}</p>
+              ) : (
+                <p className="font-medium">🏦 {payoutInfo?.bank_name} - ****{payoutInfo?.bank_account?.slice(-4)}</p>
+              )}
+              {payoutInfo?.account_name && (
+                <p className="text-muted-foreground">{payoutInfo.account_name}</p>
+              )}
+            </div>
+
+            {/* Available balance */}
+            <div className="bg-green-50 dark:bg-green-950/20 rounded-lg p-3">
+              <p className="text-sm text-muted-foreground">Available for payout</p>
+              <p className="text-2xl font-bold text-green-600">{formatMoney(availableForPayout, 'RWF')}</p>
+            </div>
+
+            {/* Amount input */}
+            <div className="space-y-2">
+              <Label>Payout Amount (RWF)</Label>
+              <Input 
+                type="number"
+                placeholder="Enter amount"
+                value={payoutAmount}
+                onChange={(e) => setPayoutAmount(e.target.value)}
+                min={5000}
+                max={availableForPayout}
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Min: 5,000 RWF</span>
+                <Button 
+                  variant="link" 
+                  size="sm" 
+                  className="h-auto p-0 text-xs"
+                  onClick={() => setPayoutAmount(availableForPayout.toString())}
+                >
+                  Request all
+                </Button>
+              </div>
+            </div>
+
+            {/* Pending payouts notice */}
+            {pendingPayoutAmount > 0 && (
+              <div className="flex items-start gap-2 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg p-3 text-sm">
+                <AlertCircle className="w-4 h-4 text-yellow-600 shrink-0 mt-0.5" />
+                <p className="text-yellow-800 dark:text-yellow-200">
+                  You have {formatMoney(pendingPayoutAmount, 'RWF')} in pending payouts being processed.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPayoutDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={requestPayout} 
+              disabled={requestingPayout || !payoutAmount || parseFloat(payoutAmount) < 5000 || parseFloat(payoutAmount) > availableForPayout}
+            >
+              {requestingPayout ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Request Payout
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Footer />
     </div>
