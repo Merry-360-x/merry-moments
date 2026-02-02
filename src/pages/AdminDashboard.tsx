@@ -363,7 +363,7 @@ export default function AdminDashboard() {
     currency: string;
   } | null>(null);
 
-  const [legalContentType, setLegalContentType] = useState<'privacy_policy' | 'terms_and_conditions'>('privacy_policy');
+  const [legalContentType, setLegalContentType] = useState<'privacy_policy' | 'terms_and_conditions' | 'safety_guidelines' | 'refund_policy'>('privacy_policy');
   const [legalContent, setLegalContent] = useState('');
   const [savingLegal, setSavingLegal] = useState(false);
 
@@ -1644,9 +1644,15 @@ For support, contact: support@merry360x.com
       if (error) throw error;
 
       await refetchLegalContent();
+      const typeLabels: Record<string, string> = {
+        privacy_policy: 'Privacy Policy',
+        terms_and_conditions: 'Terms and Conditions',
+        safety_guidelines: 'Safety Guidelines',
+        refund_policy: 'Refund & Cancellation Policy'
+      };
       toast({
         title: "Success",
-        description: `${legalContentType === 'privacy_policy' ? 'Privacy Policy' : 'Terms and Conditions'} updated successfully`,
+        description: `${typeLabels[legalContentType]} updated successfully`,
       });
     } catch (e) {
       logError(e, "saveLegalContent");
@@ -3815,7 +3821,7 @@ For support, contact: support@merry360x.com
                 <h3 className="text-lg font-semibold">Manage Legal Content</h3>
                 <Select
                   value={legalContentType}
-                  onValueChange={(v: 'privacy_policy' | 'terms_and_conditions') => setLegalContentType(v)}
+                  onValueChange={(v: 'privacy_policy' | 'terms_and_conditions' | 'safety_guidelines' | 'refund_policy') => setLegalContentType(v)}
                 >
                   <SelectTrigger className="w-[200px]">
                     <SelectValue />
@@ -3823,6 +3829,8 @@ For support, contact: support@merry360x.com
                   <SelectContent>
                     <SelectItem value="privacy_policy">Privacy Policy</SelectItem>
                     <SelectItem value="terms_and_conditions">Terms & Conditions</SelectItem>
+                    <SelectItem value="safety_guidelines">Safety Guidelines</SelectItem>
+                    <SelectItem value="refund_policy">Refund & Cancellation</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -3837,13 +3845,15 @@ For support, contact: support@merry360x.com
               <div className="space-y-4">
                 <div>
                   <label className="text-sm font-medium mb-2 block">
-                    {legalContentType === 'privacy_policy' ? 'Privacy Policy' : 'Terms and Conditions'} Content
+                    {legalContentType === 'privacy_policy' ? 'Privacy Policy' : 
+                     legalContentType === 'terms_and_conditions' ? 'Terms and Conditions' :
+                     legalContentType === 'safety_guidelines' ? 'Safety Guidelines' : 'Refund & Cancellation Policy'} Content
                   </label>
                   <textarea
                     className="w-full min-h-[400px] p-4 rounded-md border border-input bg-background text-sm font-mono"
                     value={legalContent}
                     onChange={(e) => setLegalContent(e.target.value)}
-                    placeholder={`Enter ${legalContentType === 'privacy_policy' ? 'Privacy Policy' : 'Terms and Conditions'} content here...\n\nEach paragraph separated by double line breaks will become a section.`}
+                    placeholder={`Enter content here...\n\nEach paragraph separated by double line breaks will become a section.`}
                   />
                 </div>
 
