@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { usePreferences } from "@/hooks/usePreferences";
 import { formatMoney } from "@/lib/money";
-import { useTripCart } from "@/hooks/useTripCart";
+import { useTripCart, getGuestCart, getCartItemMetadata, saveCartItemMetadata, CartItemMetadata } from "@/hooks/useTripCart";
 import { useFxRates } from "@/hooks/useFxRates";
 import { convertAmount } from "@/lib/fx";
 import { calculateGuestTotal, PLATFORM_FEES } from "@/lib/fees";
@@ -33,7 +33,6 @@ import {
   X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getCartItemMetadata, saveCartItemMetadata, CartItemMetadata } from "@/hooks/useTripCart";
 
 interface CartItem {
   id: string;
@@ -113,8 +112,10 @@ export default function TripCart() {
   }
 
   async function fetchGuestCart(): Promise<CartItem[]> {
-    if (guestCart.length === 0) return [];
-    return enrichCartItems(guestCart.map(g => ({
+    // Read directly from localStorage to avoid stale state issues
+    const freshGuestCart = getGuestCart();
+    if (freshGuestCart.length === 0) return [];
+    return enrichCartItems(freshGuestCart.map(g => ({
       id: g.id,
       item_type: g.item_type,
       reference_id: g.reference_id,
