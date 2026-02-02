@@ -23,7 +23,7 @@ const Index = () => {
 
       {/* Hero Section */}
       <section
-        className="relative min-h-[70vh] flex items-center justify-center overflow-hidden bg-black"
+        className="relative min-h-[70vh] flex items-center justify-center overflow-hidden"
       >
         {/* Video Background - Cloudinary optimized */}
         <video
@@ -32,7 +32,7 @@ const Index = () => {
           loop
           playsInline
           preload="auto"
-          className="absolute inset-0 w-full h-full object-contain z-[1]"
+          className="absolute inset-0 w-full h-full object-cover z-[1]"
         >
           <source src={HERO_VIDEO_URL} type="video/mp4" />
         </video>
