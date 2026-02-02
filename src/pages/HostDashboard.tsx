@@ -3654,12 +3654,12 @@ export default function HostDashboard() {
               <div className="text-sm text-muted-foreground">
                 Create <span className="font-medium text-foreground">Routes</span> like “Airport → Gisenyi” or rent out vehicles.
           </div>
-              <div className="flex gap-2 justify-end">
-                <Button variant="outline" onClick={() => setShowRouteWizard(true)}>
-                  <Plus className="w-4 h-4 mr-2" /> Add Route
+              <div className="flex flex-wrap gap-2 justify-end">
+                <Button variant="outline" onClick={() => navigate("/create-transport")}>
+                  <Plus className="w-4 h-4 mr-2" /> Car Rental
                 </Button>
-                <Button onClick={() => navigate("/create-transport")}>
-                  <Plus className="w-4 h-4 mr-2" /> Add Vehicle
+                <Button variant="outline" onClick={() => navigate("/create-airport-transfer")}>
+                  <Plus className="w-4 h-4 mr-2" /> Airport Transfer
                 </Button>
             </div>
             </div>
