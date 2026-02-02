@@ -6,8 +6,50 @@ const Footer = () => {
   const { t } = useTranslation();
   return (
     <footer className="bg-background border-t border-border">
-      <div className="container mx-auto px-4 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div className="container mx-auto px-4 lg:px-8 py-6 md:py-12">
+        {/* Mobile: Horizontal compact layout */}
+        <div className="md:hidden">
+          {/* Quick links row */}
+          <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground mb-4">
+            <Link to="/accommodations" className="hover:text-primary transition-colors">
+              {t("nav.accommodations")}
+            </Link>
+            <Link to="/tours" className="hover:text-primary transition-colors">
+              {t("nav.tours")}
+            </Link>
+            <Link to="/transport" className="hover:text-primary transition-colors">
+              {t("nav.transport")}
+            </Link>
+            <Link to="/become-host" className="hover:text-primary transition-colors">
+              {t("actions.becomeHost")}
+            </Link>
+          </div>
+          {/* Support links row */}
+          <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground mb-4">
+            <Link to="/help" className="hover:text-primary transition-colors">
+              {t("footer.help")}
+            </Link>
+            <Link to="/safety-guidelines" className="hover:text-primary transition-colors">
+              Safety
+            </Link>
+            <Link to="/refund-policy" className="hover:text-primary transition-colors">
+              Refunds
+            </Link>
+            <Link to="/privacy-policy" className="hover:text-primary transition-colors">
+              Privacy
+            </Link>
+            <Link to="/terms-and-conditions" className="hover:text-primary transition-colors">
+              Terms
+            </Link>
+          </div>
+          {/* Copyright */}
+          <div className="text-center text-xs text-muted-foreground pt-4 border-t border-border">
+            <p>{t("footer.copyright", { year: new Date().getFullYear() })}</p>
+          </div>
+        </div>
+
+        {/* Desktop: Full grid layout */}
+        <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Brand */}
           <div>
             <Logo />
@@ -98,8 +140,8 @@ const Footer = () => {
           </div>
         </div>
 
-        {/* Bottom */}
-        <div className="mt-12 pt-8 border-t border-border flex flex-col md:flex-row items-center justify-between gap-4">
+        {/* Bottom - Desktop only */}
+        <div className="hidden md:flex mt-12 pt-8 border-t border-border flex-row items-center justify-between gap-4">
           <p className="text-sm text-muted-foreground">
             {t("footer.copyright", { year: new Date().getFullYear() })}
           </p>
