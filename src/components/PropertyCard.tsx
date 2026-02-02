@@ -148,7 +148,13 @@ const PropertyCard = ({
             <span className="text-[8px] font-medium">{rating}</span>
           </div>
         </div>
-        <p className="text-[8px] md:text-sm text-muted-foreground mb-1 md:mb-3 line-clamp-1">{extractNeighborhood(location)}</p>
+        <p className="text-[8px] md:text-sm text-muted-foreground mb-0.5 md:mb-1 line-clamp-1">{extractNeighborhood(location)}</p>
+        {/* Mobile: Show beds compact */}
+        {(beds || bedrooms) && (
+          <p className="md:hidden text-[8px] text-muted-foreground mb-1">
+            {beds ? `${beds} bed${beds > 1 ? 's' : ''}` : bedrooms ? `${bedrooms} bedroom${bedrooms > 1 ? 's' : ''}` : ''}
+          </p>
+        )}
         {/* Hide details on mobile for compact view */}
         <div className="hidden md:block">
           {(bedrooms || beds || bathrooms) ? (
