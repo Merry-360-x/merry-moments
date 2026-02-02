@@ -312,6 +312,7 @@ export default function Dashboard() {
                   accept="image/*"
                   multiple={false}
                   maxFiles={1}
+                  autoStart={true}
                   value={profile?.avatar_url ? [profile.avatar_url] : []}
                   onChange={async (urls) => {
                     const next = urls[0] ?? "";

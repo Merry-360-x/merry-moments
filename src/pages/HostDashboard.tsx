@@ -1531,6 +1531,7 @@ export default function HostDashboard() {
                 folder="merry360/properties"
                 accept="image/*,video/*"
                 multiple
+                autoStart={true}
                 value={form.images || []}
                 onChange={(urls) => {
                   setForm((f) => ({ ...f, images: urls }));
@@ -2969,6 +2970,7 @@ export default function HostDashboard() {
                   accept="image/*,video/*"
                   multiple
                   maxFiles={20}
+                  autoStart={true}
                   value={propertyForm.images}
                   onChange={(urls) => {
                     setPropertyForm((f) => ({ ...f, images: urls }));
@@ -3384,6 +3386,7 @@ export default function HostDashboard() {
                   accept="image/*,video/*"
                   multiple
                   maxFiles={20}
+                  autoStart={true}
                   value={vehicleForm.media}
                   onChange={(urls) => setVehicleForm((f) => ({ ...f, media: urls }))}
                   open={vehicleUploadDialogOpen}

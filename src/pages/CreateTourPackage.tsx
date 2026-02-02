@@ -96,10 +96,14 @@ Some components are non-refundable once booked, including but not limited to:
   const [coverDialogOpen, setCoverDialogOpen] = useState(false);
   const [galleryDialogOpen, setGalleryDialogOpen] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string>("");
+  const [uploadingPdf, setUploadingPdf] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [selectedPolicies, setSelectedPolicies] = useState<string[]>([]);
   const [customPolicyText, setCustomPolicyText] = useState("");
   const [customPolicyFile, setCustomPolicyFile] = useState<File | null>(null);
+  const [customPolicyUrl, setCustomPolicyUrl] = useState<string>("");
+  const [uploadingCustomPolicy, setUploadingCustomPolicy] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
@@ -254,7 +258,7 @@ Some components are non-refundable once booked, including but not limited to:
       // Note: coverImage, pdfFile, and cancellation_policy are now optional - can be uploaded later
   };
 
-  const handlePdfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePdfChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.type !== "application/pdf" || file.size > 10 * 1024 * 1024) {
@@ -262,10 +266,23 @@ Some components are non-refundable once booked, including but not limited to:
         return;
       }
       setPdfFile(file);
+      
+      // Upload immediately
+      setUploadingPdf(true);
+      try {
+        const { url } = await uploadFile(file, { folder: "tour-itineraries" });
+        setPdfUrl(url);
+        toast({ title: "PDF uploaded successfully" });
+      } catch (error) {
+        toast({ title: "PDF upload failed", description: String(error), variant: "destructive" });
+        setPdfFile(null);
+      } finally {
+        setUploadingPdf(false);
+      }
     }
   };
 
-  const handleCustomPolicyFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCustomPolicyFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.type !== "application/pdf" || file.size > 5 * 1024 * 1024) {
@@ -273,6 +290,19 @@ Some components are non-refundable once booked, including but not limited to:
         return;
       }
       setCustomPolicyFile(file);
+      
+      // Upload immediately
+      setUploadingCustomPolicy(true);
+      try {
+        const { url } = await uploadFile(file, { folder: "cancellation-policies" });
+        setCustomPolicyUrl(url);
+        toast({ title: "Policy PDF uploaded successfully" });
+      } catch (error) {
+        toast({ title: "Policy PDF upload failed", description: String(error), variant: "destructive" });
+        setCustomPolicyFile(null);
+      } finally {
+        setUploadingCustomPolicy(false);
+      }
     }
   };
 
@@ -282,43 +312,7 @@ Some components are non-refundable once booked, including but not limited to:
     setUploading(true);
 
     try {
-      let pdfUrl = null;
-      if (pdfFile) {
-        try {
-          toast({ title: "Uploading itinerary PDF...", description: "Please wait" });
-          const { url } = await uploadFile(pdfFile, { folder: "tour-itineraries" });
-          pdfUrl = url;
-          toast({ title: "PDF uploaded successfully!" });
-        } catch (uploadError) {
-          console.error("PDF upload error:", uploadError);
-          toast({ 
-            title: "PDF upload failed", 
-            description: uploadError instanceof Error ? uploadError.message : "Please try again", 
-            variant: "destructive" 
-          });
-          setUploading(false);
-          return;
-        }
-      }
-
-      let customPolicyUrl = null;
-      if (customPolicyFile) {
-        try {
-          toast({ title: "Uploading policy PDF...", description: "Please wait" });
-          const { url } = await uploadFile(customPolicyFile, { folder: "cancellation-policies" });
-          customPolicyUrl = url;
-          toast({ title: "Policy PDF uploaded successfully!" });
-        } catch (uploadError) {
-          console.error("Policy PDF upload error:", uploadError);
-          toast({ 
-            title: "Policy PDF upload failed", 
-            description: uploadError instanceof Error ? uploadError.message : "Please try again", 
-            variant: "destructive" 
-          });
-          setUploading(false);
-          return;
-        }
-      }
+      // Use already uploaded PDF URLs (uploaded immediately when files were selected)
 
       // Build combined cancellation policy
       let combinedPolicy = '';
@@ -1144,6 +1138,7 @@ Some components are non-refundable once booked, including but not limited to:
                 accept="image/*"
                 multiple={false}
                 maxFiles={1}
+                autoStart={true}
                 value={coverImage ? [coverImage] : []}
                 onChange={(urls) => setCoverImage(urls[0] || "")}
                 open={coverDialogOpen}
@@ -1176,6 +1171,7 @@ Some components are non-refundable once booked, including but not limited to:
                 accept="image/*"
                 multiple={true}
                 maxFiles={10}
+                autoStart={true}
                 value={galleryImages}
                 onChange={setGalleryImages}
                 open={galleryDialogOpen}

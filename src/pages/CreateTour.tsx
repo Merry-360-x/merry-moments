@@ -52,6 +52,8 @@ export default function CreateTour() {
   const [images, setImages] = useState<string[]>([]);
   const [cloudinaryDialogOpen, setCloudinaryDialogOpen] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string>("");
+  const [uploadingPdf, setUploadingPdf] = useState(false);
   const [pdfMetadata, setPdfMetadata] = useState<any>(null);
   const [uploading, setUploading] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -189,7 +191,7 @@ export default function CreateTour() {
       formData.categories.length > 0 && images.length > 0;
   };
 
-  const handlePdfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePdfChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const validation = validatePDF(file);
@@ -198,6 +200,19 @@ export default function CreateTour() {
         return;
       }
       setPdfFile(file);
+      
+      // Upload immediately
+      setUploadingPdf(true);
+      try {
+        const { url } = await uploadFile(file, { folder: "tour-itineraries" });
+        setPdfUrl(url);
+        toast({ title: "PDF uploaded successfully" });
+      } catch (error) {
+        toast({ title: "PDF upload failed", description: String(error), variant: "destructive" });
+        setPdfFile(null);
+      } finally {
+        setUploadingPdf(false);
+      }
     }
   };
 
@@ -207,16 +222,7 @@ export default function CreateTour() {
     setUploading(true);
 
     try {
-      let pdfUrl = null;
-      if (pdfFile) {
-        try {
-          const { url } = await uploadFile(pdfFile, { folder: "tour-itineraries" });
-          pdfUrl = url;
-        } catch {
-          toast({ title: "PDF upload failed", description: "Continuing without PDF", variant: "default" });
-        }
-      }
-
+      // Use already uploaded PDF URL
       const tourData: Database['public']['Tables']['tours']['Insert'] = {
         title: formData.title.trim(),
         description: formData.description.trim() || null,
@@ -497,6 +503,7 @@ export default function CreateTour() {
                 accept="image/*"
                 multiple={true}
                 maxFiles={10}
+                autoStart={true}
                 value={images}
                 onChange={(urls) => {
                   setImages(urls);
