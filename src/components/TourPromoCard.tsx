@@ -19,6 +19,7 @@ export type TourPromoCardProps = {
   reviewCount?: number | null;
   category?: string | null;
   durationDays?: number | null;
+  source?: 'tours' | 'tour_packages';
 };
 
 export default function TourPromoCard(props: TourPromoCardProps) {
@@ -28,6 +29,8 @@ export default function TourPromoCard(props: TourPromoCardProps) {
   const gallery = (props.images ?? []).filter(Boolean);
   const from = String(props.currency ?? preferredCurrency ?? "RWF");
   const displayPrice = formatMoneyWithConversion(Number(props.price ?? 0), from, preferredCurrency, usdRates);
+  // Determine item type - use source if provided, default to 'tour'
+  const itemType = props.source === 'tour_packages' ? 'tour_package' : 'tour';
   return (
     <Link to={`/tours/${props.id}`} className="block" aria-label={props.title}>
       <div className="group rounded-lg md:rounded-xl overflow-hidden bg-card shadow-card hover:shadow-lg transition-all duration-300">
@@ -46,7 +49,7 @@ export default function TourPromoCard(props: TourPromoCardProps) {
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              void addToCart("tour", props.id, 1);
+              void addToCart(itemType, props.id, 1);
             }}
           >
             Add to Trip
@@ -60,7 +63,7 @@ export default function TourPromoCard(props: TourPromoCardProps) {
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              void addToCart("tour", props.id, 1);
+              void addToCart(itemType, props.id, 1);
             }}
           >
             +

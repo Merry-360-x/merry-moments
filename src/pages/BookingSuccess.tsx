@@ -83,7 +83,7 @@ export default function BookingSuccess() {
                   </h3>
                   <div className="space-y-2 md:space-y-3">
                     <a
-                      href="tel:+250793903663"
+                      href="tel:+250796214719"
                       className="flex items-center gap-2 md:gap-3 p-2 md:p-3 rounded-lg border bg-background hover:bg-muted/50 transition-colors"
                     >
                       <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
@@ -91,7 +91,7 @@ export default function BookingSuccess() {
                       </div>
                       <div className="text-left">
                         <div className="font-medium text-xs md:text-sm">Call Support</div>
-                        <div className="text-xs text-muted-foreground">+250 793 903 663</div>
+                        <div className="text-xs text-muted-foreground">+250 796 214 719</div>
                       </div>
                     </a>
                     <a
@@ -130,13 +130,13 @@ export default function BookingSuccess() {
                   </h3>
                   <div className="space-y-2">
                     <a
-                      href="tel:+250793903663"
+                      href="tel:+250796214719"
                       className="flex items-center gap-3 text-sm text-foreground hover:text-primary transition-colors"
                     >
                       <Phone className="h-4 w-4 text-muted-foreground" />
                       <div>
                         <div className="font-medium">Call Support</div>
-                        <div className="text-xs text-muted-foreground">+250 793 903 663</div>
+                        <div className="text-xs text-muted-foreground">+250 796 214 719</div>
                       </div>
                     </a>
                     <a

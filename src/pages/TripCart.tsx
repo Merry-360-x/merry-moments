@@ -522,23 +522,12 @@ export default function TripCart() {
                           
                           <div className="text-right">
                             <p className="text-sm md:text-lg font-semibold">
-                              {formatMoney(itemPrice + platformFee, displayCurrency)}
+                              {formatMoney(itemPrice, displayCurrency)}
                             </p>
                             {isAccommodation && item.metadata?.nights && (
-                              <>
-                                <p className="text-[10px] md:text-xs text-muted-foreground">
-                                  {formatMoney(pricePerUnit, displayCurrency)}/night × {nights}n
-                                </p>
-                                {stayDiscount > 0 && (
-                                  <p className="text-[10px] md:text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                                    {stayDiscount}% off
-                                  </p>
-                                )}
-                              </>
-                            )}
-                            {isAccommodation && platformFee > 0 && (
                               <p className="text-[10px] md:text-xs text-muted-foreground">
-                                +{PLATFORM_FEES.accommodation.guestFeePercent}% fee
+                                {formatMoney(pricePerUnit, displayCurrency)}/night × {nights}n
+                                {stayDiscount > 0 && <span className="text-emerald-600 dark:text-emerald-400 ml-1">({stayDiscount}% off)</span>}
                               </p>
                             )}
                           </div>

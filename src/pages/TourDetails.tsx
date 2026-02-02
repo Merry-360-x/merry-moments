@@ -13,6 +13,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import ListingImageCarousel from "@/components/ListingImageCarousel";
 import ImageGallery from "@/components/ImageGallery";
 import { formatMoney } from "@/lib/money";
@@ -369,14 +374,29 @@ export default function TourDetails() {
                     >
                       View
                     </a>
-                    <a
-                      href={tour.itinerary_pdf_url}
-                      download
+                    <button
+                      onClick={async () => {
+                        try {
+                          const response = await fetch(tour.itinerary_pdf_url);
+                          const blob = await response.blob();
+                          const url = window.URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `${tour.title?.replace(/[^a-z0-9]/gi, '_') || 'itinerary'}.pdf`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          window.URL.revokeObjectURL(url);
+                        } catch (error) {
+                          // Fallback: open in new tab if download fails
+                          window.open(tour.itinerary_pdf_url, '_blank');
+                        }
+                      }}
                       className="px-4 py-2 bg-foreground text-background rounded-lg text-sm font-medium hover:bg-foreground/90 transition-colors inline-flex items-center gap-2"
                     >
                       <Download className="w-4 h-4" />
                       Download
-                    </a>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -388,22 +408,20 @@ export default function TourDetails() {
                 <CardHeader>
                   <div className="flex items-center gap-2">
                     <CardTitle className="text-xl">Cancellation & Refund Policy</CardTitle>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button className="text-muted-foreground hover:text-foreground transition-colors">
-                            <Info className="w-4 h-4" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs">
-                          <p className="text-xs">
-                            Please review the cancellation policy carefully before booking. 
-                            Refunds are subject to the terms specified below. Some items may be non-refundable 
-                            due to advance bookings or permits.
-                          </p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button className="text-muted-foreground hover:text-foreground transition-colors">
+                          <Info className="w-4 h-4" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="max-w-xs">
+                        <p className="text-xs">
+                          Please review the cancellation policy carefully before booking. 
+                          Refunds are subject to the terms specified below. Some items may be non-refundable 
+                          due to advance bookings or permits.
+                        </p>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">

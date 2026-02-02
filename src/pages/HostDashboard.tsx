@@ -149,6 +149,29 @@ interface Tour {
   is_published: boolean | null;
   created_at: string;
   source?: "tours" | "tour_packages"; // Track where this came from
+  // Tour package specific fields
+  city?: string | null;
+  duration?: string | null;
+  categories?: string[] | null;
+  tour_type?: string | null;
+  daily_itinerary?: string | null;
+  included_services?: string[] | null;
+  excluded_services?: string[] | null;
+  meeting_point?: string | null;
+  what_to_bring?: string | null;
+  cancellation_policy?: string | null;
+  non_refundable_items?: string[] | null;
+  min_guests?: number | null;
+  max_guests?: number | null;
+  max_participants?: number | null;
+  group_discount_6_10?: number | null;
+  group_discount_11_15?: number | null;
+  group_discount_16_plus?: number | null;
+  itinerary_pdf_url?: string | null;
+  status?: string | null;
+  host_id?: string | null;
+  cover_image?: string | null;
+  gallery_images?: string[] | null;
 }
 
 interface Vehicle {
@@ -1617,18 +1640,19 @@ export default function HostDashboard() {
       let updates: any = {
         title: form.title,
         description: form.description,
-        price_per_person: form.price_per_person,
         currency: form.currency,
       };
 
       // Common fields for both tours and packages
       if (tour.source === "tours") {
+        updates.price_per_person = form.price_per_person;
         updates.location = form.location;
         updates.duration_days = form.duration_days;
         updates.max_participants = form.max_participants;
         updates.categories = form.categories;
       } else {
-        // Tour package specific fields
+        // Tour package specific fields - use price_per_adult for tour_packages table
+        updates.price_per_adult = form.price_per_person;
         updates.city = form.city;
         updates.duration = form.duration;
         updates.categories = form.categories;

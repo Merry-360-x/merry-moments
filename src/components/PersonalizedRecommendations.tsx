@@ -94,6 +94,7 @@ export function PersonalizedRecommendations({
     reviewCount: item.review_count || null,
     category: item.category || null,
     durationDays: item.duration_days || null,
+    source: item.source as 'tours' | 'tour_packages' | undefined,
   });
 
   if (isLoading) {

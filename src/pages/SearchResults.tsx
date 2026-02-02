@@ -133,6 +133,7 @@ export default function SearchResults() {
     reviewCount: item.review_count || null,
     category: item.category || null,
     durationDays: item.duration_days || null,
+    source: item.searchType === 'tour_package' ? 'tour_packages' as const : 'tours' as const,
   });
 
   const mapToTransportProps = (item: any) => ({

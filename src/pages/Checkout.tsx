@@ -946,7 +946,7 @@ export default function CheckoutNew() {
                           <div className="text-sm">
                             <p className="font-medium text-blue-700 dark:text-blue-300 mb-1">How it works</p>
                             <ol className="text-blue-600 dark:text-blue-400 space-y-1 list-decimal list-inside">
-                              <li>Click "Review Order" below</li>
+                              <li>Click "Review Booking" below</li>
                               <li>You'll receive a payment prompt on your phone</li>
                               <li>Enter your PIN to confirm</li>
                               <li>We'll confirm your booking automatically</li>
@@ -972,7 +972,7 @@ export default function CheckoutNew() {
                       onClick={() => goToStep('confirm')}
                       disabled={(paymentMethod === 'mtn' || paymentMethod === 'airtel') && !isPaymentValid}
                     >
-                      Review Order
+                      Review Booking
                       <ArrowRight className="w-4 h-4 ml-2" />
                     </Button>
                   </div>
@@ -1063,7 +1063,7 @@ export default function CheckoutNew() {
                           <div className="mt-2 pt-2 border-t border-amber-200 dark:border-amber-800/50 space-y-1">
                             <p className="flex items-center gap-2">
                               <Phone className="w-4 h-4" />
-                              <a href="tel:+250793903663" className="font-medium hover:underline">+250 793 903 663</a>
+                              <a href="tel:+250796214719" className="font-medium hover:underline">+250 796 214 719</a>
                             </p>
                             <p className="flex items-center gap-2">
                               <Mail className="w-4 h-4" />
@@ -1316,8 +1316,8 @@ export default function CheckoutNew() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Call us directly</p>
-                    <a href="tel:+250792527083" className="font-medium text-foreground hover:text-primary">
-                      +250 792 527 083
+                    <a href="tel:+250796214719" className="font-medium text-foreground hover:text-primary">
+                      +250 796 214 719
                     </a>
                   </div>
                 </div>
