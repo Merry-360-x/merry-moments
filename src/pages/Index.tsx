@@ -9,7 +9,6 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { TrendingUp } from "lucide-react";
 
-import heroImage from "@/assets/hero-resort.jpg";
 import merryVideo from "@/assets/merry.mp4";
 
 const Index = () => {
@@ -25,12 +24,6 @@ const Index = () => {
       <section
         className="relative min-h-[70vh] flex items-center justify-center overflow-hidden"
       >
-        {/* Fallback background image */}
-        <div 
-          className="absolute inset-0 w-full h-full bg-cover bg-center"
-          style={{ backgroundImage: `url(${heroImage})` }}
-        />
-        
         {/* Video Background */}
         <video
           autoPlay
@@ -39,11 +32,6 @@ const Index = () => {
           playsInline
           preload="auto"
           className="absolute inset-0 w-full h-full object-cover z-[1]"
-          poster={heroImage}
-          onError={(e) => {
-            // Hide video and show fallback image on error
-            e.currentTarget.style.display = 'none';
-          }}
         >
           <source src={merryVideo} type="video/mp4" />
         </video>
