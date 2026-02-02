@@ -21,10 +21,9 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      {/* Hero Section - 16:9 aspect ratio (1920x1080) */}
+      {/* Hero Section */}
       <section
-        className="relative min-h-[100vh] max-h-[1080px] flex items-center justify-center overflow-hidden mx-2"
-        style={{ aspectRatio: '16/9' }}
+        className="relative min-h-[70vh] flex items-center justify-center overflow-hidden"
       >
         {/* Video Background - Cloudinary optimized */}
         <video
@@ -34,6 +33,7 @@ const Index = () => {
           playsInline
           preload="auto"
           className="absolute inset-0 w-full h-full object-cover z-[1]"
+          style={{ objectPosition: 'center center' }}
         >
           <source src={HERO_VIDEO_URL} type="video/mp4" />
         </video>
