@@ -60,7 +60,7 @@ const Index = () => {
           {/* Search Bar */}
           <HeroSearch />
 
-          {/* Affiliate CTA */}
+          {/* Referral CTA */}
           <div className="mt-8 flex justify-center">
             <Button
               onClick={() => navigate('/affiliate-signup')}
@@ -69,7 +69,7 @@ const Index = () => {
               className="bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20 hover:text-white transition-all shadow-lg"
             >
               <TrendingUp className="w-5 h-5 mr-2" />
-              Earn 10% Commission - Join Affiliate Program
+              Refer an Operator & Earn 10%
             </Button>
           </div>
         </div>

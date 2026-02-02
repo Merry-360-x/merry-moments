@@ -187,8 +187,8 @@ const AffiliateDashboard = () => {
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h1 className="text-3xl font-bold">Affiliate Dashboard</h1>
-                <p className="text-muted-foreground">Track your performance and earnings</p>
+                <h1 className="text-3xl font-bold">Referral Dashboard</h1>
+                <p className="text-muted-foreground">Track your referrals and earnings</p>
               </div>
               {getStatusBadge(affiliate.status)}
             </div>
@@ -297,7 +297,7 @@ const AffiliateDashboard = () => {
                   <Card>
                     <CardHeader>
                       <CardTitle>Performance Overview</CardTitle>
-                      <CardDescription>Your affiliate statistics</CardDescription>
+                      <CardDescription>Your referral statistics</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="flex items-center justify-between py-2 border-b">

@@ -149,7 +149,7 @@ export default function AffiliatePortal() {
 
       toast({
         title: "Success!",
-        description: "Your affiliate account has been created",
+        description: "Your referral account has been created",
       });
 
       await fetchAffiliateData();
@@ -158,7 +158,7 @@ export default function AffiliatePortal() {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to create affiliate account",
+        description: "Failed to create referral account",
       });
     } finally {
       setCreatingAccount(false);
@@ -171,7 +171,7 @@ export default function AffiliatePortal() {
       setCopied(true);
       toast({
         title: "Copied!",
-        description: "Affiliate link copied to clipboard",
+        description: "Referral link copied to clipboard",
       });
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
@@ -283,7 +283,7 @@ export default function AffiliatePortal() {
       <Navbar />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Affiliate Dashboard</h1>
+          <h1 className="text-3xl font-bold mb-2">Referral Dashboard</h1>
           <p className="text-muted-foreground">Track your referrals and earnings</p>
         </div>
 
@@ -325,9 +325,9 @@ export default function AffiliatePortal() {
           </Card>
         </div>
 
-        {/* Affiliate Link Card */}
+        {/* Referral Link Card */}
         <Card className="p-6 mb-8">
-          <h2 className="text-lg font-semibold mb-4">Your Affiliate Link</h2>
+          <h2 className="text-lg font-semibold mb-4">Your Referral Link</h2>
           <div className="space-y-4">
             <div>
               <Label>Share this link with tour operators</Label>
@@ -343,7 +343,7 @@ export default function AffiliatePortal() {
             </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Badge variant="outline">{affiliate.affiliate_code}</Badge>
-              <span>Your unique affiliate code</span>
+              <span>Your unique referral code</span>
             </div>
           </div>
         </Card>

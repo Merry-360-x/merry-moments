@@ -1745,7 +1745,7 @@ For support, contact: support@merry360x.com
               <FileText className="w-4 h-4" /> Legal Content
             </TabsTrigger>
             <TabsTrigger value="affiliates" className="gap-1">
-              <Users className="w-4 h-4" /> Affiliates
+              <Users className="w-4 h-4" /> Referrals
             </TabsTrigger>
           </TabsList>
 
@@ -3879,13 +3879,13 @@ For support, contact: support@merry360x.com
             </Card>
           </TabsContent>
 
-          {/* AFFILIATES TAB */}
+          {/* REFERRALS TAB */}
           <TabsContent value="affiliates">
             <Card>
               <CardHeader>
-                <CardTitle>Affiliate Management</CardTitle>
+                <CardTitle>Referral Program</CardTitle>
                 <CardDescription>
-                  Manage affiliate applications and monitor performance
+                  Manage referrer applications and monitor performance
                 </CardDescription>
               </CardHeader>
               <CardContent>

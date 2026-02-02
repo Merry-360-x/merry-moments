@@ -27,7 +27,7 @@ const AffiliateSignup = () => {
     if (!user) {
       toast({
         title: "Authentication required",
-        description: "Please sign in to join our affiliate program",
+        description: "Please sign in to join our referral program",
         variant: "destructive"
       });
       navigate("/auth");
@@ -47,7 +47,7 @@ const AffiliateSignup = () => {
       if (existing) {
         toast({
           title: "Already registered",
-          description: `You're already an affiliate with ${existing.status} status`,
+          description: `You're already a referrer with ${existing.status} status`,
           variant: "default"
         });
         navigate("/affiliate-dashboard");
@@ -100,9 +100,9 @@ const AffiliateSignup = () => {
         <div className="container max-w-4xl mx-auto">
           {/* Header */}
           <div className="text-center mb-12">
-            <h1 className="text-4xl font-bold mb-4">Join Our Affiliate Program</h1>
+            <h1 className="text-4xl font-bold mb-4">Refer an Operator & Earn</h1>
             <p className="text-lg text-muted-foreground">
-              Earn commissions by promoting Rwanda's best travel experiences
+              Earn 10% commission by referring new operators to Merry Moments
             </p>
           </div>
 
@@ -150,7 +150,7 @@ const AffiliateSignup = () => {
             <CardHeader>
               <CardTitle>Apply Now</CardTitle>
               <CardDescription>
-                Fill out this form to join our affiliate program. We'll review your application within 24-48 hours.
+                Fill out this form to join our referral program. We'll review your application within 24-48 hours.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -183,9 +183,9 @@ const AffiliateSignup = () => {
                   </h3>
                   <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
                     <li>Get approved and receive your unique referral link</li>
-                    <li>Share the link on your website, blog, or social media</li>
-                    <li>Earn 10% commission when someone books through your link</li>
-                    <li>Track performance in your affiliate dashboard</li>
+                    <li>Share the link with potential operators</li>
+                    <li>Earn 10% commission when they list and get bookings</li>
+                    <li>Track performance in your referral dashboard</li>
                     <li>Request payouts when you reach minimum threshold</li>
                   </ul>
                 </div>

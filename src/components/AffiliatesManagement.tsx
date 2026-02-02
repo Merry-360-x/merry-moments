@@ -118,7 +118,7 @@ export const AffiliatesManagement = () => {
 
     toast({
       title: "Status updated",
-      description: `Affiliate status changed to ${status}`
+      description: `Referrer status changed to ${status}`
     });
 
     qc.invalidateQueries({ queryKey: ['admin-affiliates'] });
@@ -167,7 +167,7 @@ export const AffiliatesManagement = () => {
   };
 
   if (isLoading) {
-    return <div className="text-center py-8">Loading affiliates...</div>;
+    return <div className="text-center py-8">Loading referrers...</div>;
   }
 
   return (
@@ -177,7 +177,7 @@ export const AffiliatesManagement = () => {
         <Card className="p-4">
           <div className="flex items-center gap-2 text-muted-foreground mb-1">
             <Users className="w-4 h-4" />
-            <span className="text-sm">Total Affiliates</span>
+            <span className="text-sm">Total Referrers</span>
           </div>
           <p className="text-2xl font-bold">{stats?.totalAffiliates || 0}</p>
           <p className="text-xs text-muted-foreground mt-1">
@@ -234,14 +234,14 @@ export const AffiliatesManagement = () => {
         <TabsContent value={filter} className="mt-4">
           {affiliates.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              No affiliates found
+              No referrers found
             </div>
           ) : (
             <div className="border rounded-lg overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Affiliate</TableHead>
+                    <TableHead>Referrer</TableHead>
                     <TableHead>Referral Code</TableHead>
                     <TableHead>Commission Rate</TableHead>
                     <TableHead>Status</TableHead>
