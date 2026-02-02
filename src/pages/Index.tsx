@@ -21,9 +21,10 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      {/* Hero Section */}
+      {/* Hero Section - 16:9 aspect ratio (1920x1080) */}
       <section
-        className="relative min-h-[70vh] flex items-center justify-center overflow-hidden"
+        className="relative min-h-[100vh] max-h-[1080px] flex items-center justify-center overflow-hidden"
+        style={{ aspectRatio: '16/9' }}
       >
         {/* Video Background - Cloudinary optimized */}
         <video
