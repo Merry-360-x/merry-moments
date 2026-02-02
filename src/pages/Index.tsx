@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { TrendingUp } from "lucide-react";
 
 import heroImage from "@/assets/hero-resort.jpg";
-import merryVideo from "@/assets/Merry.mp4";
+import merryVideo from "@/assets/merry.mp4";
 
 const Index = () => {
   const { user } = useAuth();
