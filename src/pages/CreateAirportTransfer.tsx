@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Upload, X, Plane } from "lucide-react";
+import { Loader2, Upload, X, Plane, Save } from "lucide-react";
 import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
@@ -76,6 +76,116 @@ export default function CreateAirportTransfer() {
   const [ownerIdDialogOpen, setOwnerIdDialogOpen] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [draftLoaded, setDraftLoaded] = useState(false);
+
+  // Use a stable storage key per user
+  const getStorageKey = useCallback(() => user?.id ? `airport-transfer-draft-${user.id}` : 'airport-transfer-draft-anonymous', [user?.id]);
+
+  // Load draft on mount (only once)
+  useEffect(() => {
+    if (draftLoaded) return;
+    
+    const draftKey = getStorageKey();
+    const savedDraft = localStorage.getItem(draftKey);
+    
+    if (savedDraft) {
+      try {
+        const draft = JSON.parse(savedDraft);
+        if (draft.formData) setFormData(draft.formData);
+        if (draft.selectedRoutes) setSelectedRoutes(draft.selectedRoutes);
+        if (draft.exteriorImages) setExteriorImages(draft.exteriorImages);
+        if (draft.interiorImages) setInteriorImages(draft.interiorImages);
+        if (draft.insuranceDoc) setInsuranceDoc(draft.insuranceDoc);
+        if (draft.registrationDoc) setRegistrationDoc(draft.registrationDoc);
+        if (draft.roadworthinessDoc) setRoadworthinessDoc(draft.roadworthinessDoc);
+        if (draft.ownerIdDoc) setOwnerIdDoc(draft.ownerIdDoc);
+        setLastSaved(new Date(draft.timestamp));
+        toast({ title: "Draft restored", description: "Your previous work has been restored" });
+      } catch (err) {
+        console.error('Failed to load draft:', err);
+      }
+    }
+    setDraftLoaded(true);
+  }, [user?.id, draftLoaded, getStorageKey, toast]);
+
+  // Auto-save on form changes (only after load)
+  useEffect(() => {
+    if (!draftLoaded) return;
+    
+    const draftKey = getStorageKey();
+    
+    // Only save if there's meaningful content
+    if (!formData.title && !formData.car_brand) return;
+    
+    const timer = setTimeout(() => {
+      const draft = {
+        formData,
+        selectedRoutes,
+        exteriorImages,
+        interiorImages,
+        insuranceDoc,
+        registrationDoc,
+        roadworthinessDoc,
+        ownerIdDoc,
+        timestamp: new Date().toISOString(),
+      };
+      localStorage.setItem(draftKey, JSON.stringify(draft));
+      setLastSaved(new Date());
+    }, 1000); // Debounce 1 second
+
+    return () => clearTimeout(timer);
+  }, [formData, selectedRoutes, exteriorImages, interiorImages, insuranceDoc, registrationDoc, roadworthinessDoc, ownerIdDoc, user?.id, draftLoaded, getStorageKey]);
+
+  // Save on page unload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (!formData.title && !formData.car_brand) return;
+      
+      const draftKey = getStorageKey();
+      const draft = {
+        formData,
+        selectedRoutes,
+        exteriorImages,
+        interiorImages,
+        insuranceDoc,
+        registrationDoc,
+        roadworthinessDoc,
+        ownerIdDoc,
+        timestamp: new Date().toISOString(),
+      };
+      localStorage.setItem(draftKey, JSON.stringify(draft));
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [formData, selectedRoutes, exteriorImages, interiorImages, insuranceDoc, registrationDoc, roadworthinessDoc, ownerIdDoc, user?.id, getStorageKey]);
+
+  const clearDraft = () => {
+    const draftKey = getStorageKey();
+    localStorage.removeItem(draftKey);
+  };
+
+  const handleSaveDraft = () => {
+    setIsSaving(true);
+    const draftKey = getStorageKey();
+    const draft = {
+      formData,
+      selectedRoutes,
+      exteriorImages,
+      interiorImages,
+      insuranceDoc,
+      registrationDoc,
+      roadworthinessDoc,
+      ownerIdDoc,
+      timestamp: new Date().toISOString(),
+    };
+    localStorage.setItem(draftKey, JSON.stringify(draft));
+    setLastSaved(new Date());
+    toast({ title: "Draft saved", description: "Your progress has been saved locally" });
+    setTimeout(() => setIsSaving(false), 500);
+  };
 
   useEffect(() => {
     fetchRoutes();
@@ -191,6 +301,7 @@ export default function CreateAirportTransfer() {
         description: "Your airport transfer service has been created",
       });
 
+      clearDraft();
       navigate("/host-dashboard");
     } catch (error) {
       console.error("Error creating airport transfer:", error);
@@ -568,23 +679,38 @@ export default function CreateAirportTransfer() {
             </div>
 
             {/* Submit */}
-            <div className="flex justify-end gap-4">
-              <Button type="button" variant="outline" onClick={() => navigate("/host-dashboard")}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={submitting}>
-                {submitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  <>
-                    <Plane className="w-4 h-4 mr-2" />
-                    Create Service
-                  </>
+            <div className="flex justify-between items-center">
+              <div className="text-sm text-muted-foreground">
+                {lastSaved && (
+                  <span>Last saved: {lastSaved.toLocaleTimeString()}</span>
                 )}
-              </Button>
+              </div>
+              <div className="flex gap-4">
+                <Button type="button" variant="outline" onClick={() => navigate("/host-dashboard")}>
+                  Cancel
+                </Button>
+                <Button type="button" variant="secondary" onClick={handleSaveDraft} disabled={isSaving}>
+                  {isSaving ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4 mr-2" />
+                  )}
+                  Save Draft
+                </Button>
+                <Button type="submit" disabled={submitting}>
+                  {submitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Plane className="w-4 h-4 mr-2" />
+                      Create Service
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </form>
         </div>
