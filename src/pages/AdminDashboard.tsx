@@ -1632,24 +1632,27 @@ For support, contact: support@merry360x.com
         .filter(s => s.trim())
         .map((text, index) => ({ id: index + 1, text: text.trim() }));
 
-      const { error } = await supabase
-        .from("legal_content")
-        .update({
-          content: { sections },
-          last_updated_by: user?.id,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("content_type", legalContentType);
-
-      if (error) throw error;
-
-      await refetchLegalContent();
       const typeLabels: Record<string, string> = {
         privacy_policy: 'Privacy Policy',
         terms_and_conditions: 'Terms and Conditions',
         safety_guidelines: 'Safety Guidelines',
         refund_policy: 'Refund & Cancellation Policy'
       };
+
+      // Use upsert to create or update the record
+      const { error } = await supabase
+        .from("legal_content")
+        .upsert({
+          content_type: legalContentType,
+          title: typeLabels[legalContentType],
+          content: { sections },
+          last_updated_by: user?.id,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'content_type' });
+
+      if (error) throw error;
+
+      await refetchLegalContent();
       toast({
         title: "Success",
         description: `${typeLabels[legalContentType]} updated successfully`,
