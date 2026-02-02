@@ -9,8 +9,9 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { TrendingUp } from "lucide-react";
 
-// Cloudinary optimized video URL with transformations for faster loading
-const HERO_VIDEO_URL = "https://res.cloudinary.com/dxdblhmbm/video/upload/q_auto,f_auto,w_1920/merry360x/merry-hero-banner.mp4";
+// Cloudinary optimized video URLs - different sizes for mobile vs desktop
+const HERO_VIDEO_MOBILE = "https://res.cloudinary.com/dxdblhmbm/video/upload/q_auto,f_auto,w_720,c_fill,ar_9:16,g_center/merry360x/merry-hero-banner.mp4";
+const HERO_VIDEO_DESKTOP = "https://res.cloudinary.com/dxdblhmbm/video/upload/q_auto,f_auto,w_1920/merry360x/merry-hero-banner.mp4";
 
 const Index = () => {
   const { user } = useAuth();
@@ -23,19 +24,30 @@ const Index = () => {
 
       {/* Hero Section */}
       <section
-        className="relative min-h-[70vh] flex items-center justify-center overflow-hidden"
+        className="relative min-h-[60vh] md:min-h-[70vh] flex items-center justify-center overflow-hidden"
       >
-        {/* Video Background - Cloudinary optimized */}
+        {/* Video Background - Mobile optimized (9:16 aspect ratio) */}
         <video
           autoPlay
           muted
           loop
           playsInline
           preload="auto"
-          className="absolute inset-0 w-full h-full object-cover z-[1]"
-          style={{ objectPosition: 'center center' }}
+          className="absolute inset-0 w-full h-full object-cover z-[1] md:hidden"
         >
-          <source src={HERO_VIDEO_URL} type="video/mp4" />
+          <source src={HERO_VIDEO_MOBILE} type="video/mp4" />
+        </video>
+        
+        {/* Video Background - Desktop optimized */}
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          className="absolute inset-0 w-full h-full object-cover z-[1] hidden md:block"
+        >
+          <source src={HERO_VIDEO_DESKTOP} type="video/mp4" />
         </video>
 
         {/* Overlay */}
