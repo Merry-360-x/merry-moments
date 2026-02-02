@@ -53,6 +53,8 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
+import SafetyGuidelines from "./pages/SafetyGuidelines";
+import RefundPolicy from "./pages/RefundPolicy";
 import AffiliateSignup from "./pages/AffiliateSignup";
 import AffiliateDashboard from "./pages/AffiliateDashboard";
 import AffiliatePortal from "./pages/AffiliatePortal";
@@ -336,6 +338,8 @@ const App = () => (
               <Route path="/cookies" element={<InfoPage kind="cookies" />} />
               <Route path="/terms" element={<InfoPage kind="terms" />} />
               <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
+              <Route path="/safety-guidelines" element={<SafetyGuidelines />} />
+              <Route path="/refund-policy" element={<RefundPolicy />} />
               <Route path="/connection-test" element={<ConnectionTest />} />
               <Route path="/affiliate-signup" element={<AffiliateSignup />} />
               <Route path="/affiliate-dashboard" element={<AffiliateDashboard />} />

@@ -75,8 +75,13 @@ const Footer = () => {
                 </Link>
               </li>
               <li>
-                <Link to="/safety" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                  {t("footer.safety")}
+                <Link to="/safety-guidelines" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                  Safety Guidelines
+                </Link>
+              </li>
+              <li>
+                <Link to="/refund-policy" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                  Refund & Cancellation Policy
                 </Link>
               </li>
               <li>
