@@ -597,7 +597,9 @@ export default function CreateAirportTransfer() {
         accept="image/*"
         open={exteriorDialogOpen}
         onOpenChange={setExteriorDialogOpen}
-        onSuccess={(url) => setExteriorImages([...exteriorImages, url])}
+        value={exteriorImages}
+        onChange={setExteriorImages}
+        autoStart={true}
         multiple
       />
 
@@ -607,7 +609,9 @@ export default function CreateAirportTransfer() {
         accept="image/*"
         open={interiorDialogOpen}
         onOpenChange={setInteriorDialogOpen}
-        onSuccess={(url) => setInteriorImages([...interiorImages, url])}
+        value={interiorImages}
+        onChange={setInteriorImages}
+        autoStart={true}
         multiple
       />
 
@@ -617,7 +621,10 @@ export default function CreateAirportTransfer() {
         accept=".pdf,image/*"
         open={insuranceDialogOpen}
         onOpenChange={setInsuranceDialogOpen}
-        onSuccess={(url) => setInsuranceDoc(url)}
+        value={insuranceDoc ? [insuranceDoc] : []}
+        onChange={(urls) => setInsuranceDoc(urls[0] || "")}
+        autoStart={true}
+        maxFiles={1}
       />
 
       <CloudinaryUploadDialog
@@ -626,7 +633,10 @@ export default function CreateAirportTransfer() {
         accept=".pdf,image/*"
         open={registrationDialogOpen}
         onOpenChange={setRegistrationDialogOpen}
-        onSuccess={(url) => setRegistrationDoc(url)}
+        value={registrationDoc ? [registrationDoc] : []}
+        onChange={(urls) => setRegistrationDoc(urls[0] || "")}
+        autoStart={true}
+        maxFiles={1}
       />
 
       <CloudinaryUploadDialog
@@ -635,7 +645,10 @@ export default function CreateAirportTransfer() {
         accept=".pdf,image/*"
         open={roadworthinessDialogOpen}
         onOpenChange={setRoadworthinessDialogOpen}
-        onSuccess={(url) => setRoadworthinessDoc(url)}
+        value={roadworthinessDoc ? [roadworthinessDoc] : []}
+        onChange={(urls) => setRoadworthinessDoc(urls[0] || "")}
+        autoStart={true}
+        maxFiles={1}
       />
 
       <CloudinaryUploadDialog
@@ -644,7 +657,10 @@ export default function CreateAirportTransfer() {
         accept=".pdf,image/*"
         open={ownerIdDialogOpen}
         onOpenChange={setOwnerIdDialogOpen}
-        onSuccess={(url) => setOwnerIdDoc(url)}
+        value={ownerIdDoc ? [ownerIdDoc] : []}
+        onChange={(urls) => setOwnerIdDoc(urls[0] || "")}
+        autoStart={true}
+        maxFiles={1}
       />
 
       <Footer />
