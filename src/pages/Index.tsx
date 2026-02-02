@@ -50,28 +50,39 @@ const Index = () => {
           <source src={HERO_VIDEO_DESKTOP} type="video/mp4" />
         </video>
 
-        {/* Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-foreground/10 via-foreground/20 to-foreground/50 z-[2]" />
+        {/* Overlay - enhanced gradient for better text visibility */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/30 to-black/60 z-[2]" />
 
         {/* Content */}
-        <div className="relative z-10 container mx-auto px-4 py-20 text-center">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-primary-foreground mb-8 italic animate-fade-in">
+        <div className="relative z-10 container mx-auto px-4 py-12 md:py-20 text-center flex flex-col items-center justify-center">
+          {/* Badge */}
+          <div className="mb-4 md:mb-6 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/15 backdrop-blur-md border border-white/20">
+            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+            <span className="text-xs md:text-sm font-medium text-white/90">Book local. Travel better.</span>
+          </div>
+          
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 md:mb-6 leading-tight animate-fade-in drop-shadow-lg">
             {t("index.heroTitle")}
           </h1>
+          
+          <p className="text-sm md:text-base text-white/80 max-w-md mx-auto mb-6 md:mb-8 px-2">
+            Discover unique stays, authentic experiences & seamless transport across Rwanda
+          </p>
 
           {/* Search Bar */}
           <HeroSearch />
 
           {/* Referral CTA */}
-          <div className="mt-8 flex justify-center">
+          <div className="mt-6 md:mt-8 flex justify-center">
             <Button
               onClick={() => navigate('/affiliate-signup')}
               variant="outline"
-              size="lg"
-              className="bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20 hover:text-white transition-all shadow-lg"
+              size="default"
+              className="bg-white/10 backdrop-blur-md border-white/30 text-white hover:bg-white/20 hover:text-white transition-all shadow-lg text-sm md:text-base px-4 md:px-6"
             >
-              <TrendingUp className="w-5 h-5 mr-2" />
-              Refer an Operator & Earn 10%
+              <TrendingUp className="w-4 h-4 md:w-5 md:h-5 mr-2" />
+              <span className="hidden sm:inline">Refer an Operator & Earn 10%</span>
+              <span className="sm:hidden">Earn 10% Referral</span>
             </Button>
           </div>
         </div>
