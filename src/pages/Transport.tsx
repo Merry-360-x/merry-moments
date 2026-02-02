@@ -1,9 +1,9 @@
-import { Car, Search, MapPin, Frown, ArrowLeftRight, Plane, Building2, Map, Key } from "lucide-react";
+import { Car, Search, MapPin, Frown, ArrowLeftRight, Plane, Building2, Map, Key, Users, Fuel, Settings, Calendar, Shield, ChevronRight } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,6 +15,7 @@ import { useTripCart } from "@/hooks/useTripCart";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useFxRates } from "@/hooks/useFxRates";
 import { convertAmount } from "@/lib/fx";
+import { Badge } from "@/components/ui/badge";
 
 // Transport service categories
 const transportCategories = [
@@ -25,10 +26,39 @@ const transportCategories = [
 ];
 
 type TransportServiceRow = Pick<Tables<"transport_services">, "id" | "title" | "description">;
-type TransportVehicleRow = Pick<
-  Tables<"transport_vehicles">,
-  "id" | "title" | "provider_name" | "vehicle_type" | "seats" | "price_per_day" | "currency" | "driver_included" | "image_url" | "media"
->;
+
+// Extended vehicle type with all car rental fields
+interface TransportVehicleRow {
+  id: string;
+  title: string;
+  provider_name: string | null;
+  vehicle_type: string | null;
+  seats: number | null;
+  price_per_day: number | null;
+  daily_price?: number | null;
+  weekly_price?: number | null;
+  monthly_price?: number | null;
+  currency: string | null;
+  driver_included: boolean | null;
+  image_url: string | null;
+  media: string[] | null;
+  // New car rental fields
+  car_brand?: string | null;
+  car_model?: string | null;
+  car_year?: number | null;
+  car_type?: string | null;
+  transmission?: string | null;
+  fuel_type?: string | null;
+  drive_train?: string | null;
+  key_features?: string[] | null;
+  exterior_images?: string[] | null;
+  interior_images?: string[] | null;
+  // Documents (for verification badge)
+  insurance_document_url?: string | null;
+  registration_document_url?: string | null;
+  roadworthiness_certificate_url?: string | null;
+}
+
 type TransportRouteRow = Pick<Tables<"transport_routes">, "id" | "from_location" | "to_location" | "base_price" | "currency">;
 
 const Transport = () => {
@@ -80,7 +110,15 @@ const Transport = () => {
     queryFn: async (): Promise<TransportVehicleRow[]> => {
       let q = supabase
         .from("transport_vehicles")
-        .select("id, title, provider_name, vehicle_type, seats, price_per_day, currency, driver_included, image_url, media")
+        .select(`
+          id, title, provider_name, vehicle_type, seats, 
+          price_per_day, daily_price, weekly_price, monthly_price, 
+          currency, driver_included, image_url, media,
+          car_brand, car_model, car_year, car_type,
+          transmission, fuel_type, drive_train, key_features,
+          exterior_images, interior_images,
+          insurance_document_url, registration_document_url, roadworthiness_certificate_url
+        `)
         .or("is_published.eq.true,is_published.is.null")
         .order("created_at", { ascending: false });
       const vt = searchParams.get("vehicle");
@@ -350,51 +388,140 @@ const Transport = () => {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {vehicles.map((v) => (
-                    <div
-                      key={v.id}
-                      className="group rounded-xl overflow-hidden bg-card shadow-card hover:shadow-lg transition-all duration-300 animate-fade-in"
-                    >
-                      <div className="relative aspect-[4/3] overflow-hidden">
-                        {(v.media?.length || v.image_url) ? (
-                          <ListingImageCarousel
-                            images={(v.media && v.media.length ? v.media : [v.image_url]) as Array<string | null | undefined>}
-                            alt={v.title}
-                            className="w-full h-full"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-muted via-muted/70 to-muted/40" />
-                        )}
-                        <span className="absolute bottom-3 left-3 px-3 py-1 rounded-full bg-background/90 backdrop-blur-sm text-xs font-medium">
-                          {v.vehicle_type}
-                        </span>
-                      </div>
-
-                      <div className="p-4">
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <h3 className="font-semibold text-foreground line-clamp-1">{v.provider_name ?? v.title}</h3>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-2">
-                          {v.driver_included ? "Driver included" : "Self drive"} · {v.seats} seats
-                        </p>
-
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="text-foreground">
-                            <span className="font-bold">
-                              {displayMoney(Number(v.price_per_day), String(v.currency ?? "USD"))}
+                  {vehicles.map((v) => {
+                    // Determine if verified (has all required docs)
+                    const isVerified = !!(v.insurance_document_url && v.registration_document_url && v.roadworthiness_certificate_url);
+                    // Get all images
+                    const allImages = [
+                      ...(v.exterior_images || []),
+                      ...(v.interior_images || []),
+                      ...(v.media || []),
+                      v.image_url
+                    ].filter(Boolean) as string[];
+                    // Car title
+                    const carTitle = v.car_brand && v.car_model 
+                      ? `${v.car_brand} ${v.car_model}${v.car_year ? ` ${v.car_year}` : ''}`
+                      : v.title;
+                    
+                    return (
+                      <div
+                        key={v.id}
+                        className="group rounded-xl overflow-hidden bg-card shadow-card hover:shadow-lg transition-all duration-300 animate-fade-in"
+                      >
+                        {/* Image Carousel */}
+                        <div className="relative aspect-[4/3] overflow-hidden">
+                          {allImages.length > 0 ? (
+                            <ListingImageCarousel
+                              images={allImages}
+                              alt={carTitle}
+                              className="w-full h-full"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-muted via-muted/70 to-muted/40 flex items-center justify-center">
+                              <Car className="w-16 h-16 text-muted-foreground/50" />
+                            </div>
+                          )}
+                          {/* Car type badge */}
+                          <span className="absolute bottom-3 left-3 px-3 py-1 rounded-full bg-background/90 backdrop-blur-sm text-xs font-medium">
+                            {v.car_type || v.vehicle_type}
+                          </span>
+                          {/* Verified badge */}
+                          {isVerified && (
+                            <span className="absolute top-3 right-3 px-2 py-1 rounded-full bg-green-500/90 text-white text-xs font-medium flex items-center gap-1">
+                              <Shield className="w-3 h-3" />
+                              Verified
                             </span>
-                            <span className="text-sm text-muted-foreground"> / day</span>
+                          )}
+                        </div>
+
+                        <div className="p-4 space-y-3">
+                          {/* Title & Provider */}
+                          <div>
+                            <h3 className="font-semibold text-foreground line-clamp-1">{carTitle}</h3>
+                            {v.provider_name && (
+                              <p className="text-xs text-muted-foreground">{v.provider_name}</p>
+                            )}
                           </div>
+
+                          {/* Specs Row */}
+                          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                            {v.seats && (
+                              <span className="flex items-center gap-1">
+                                <Users className="w-3 h-3" />
+                                {v.seats} seats
+                              </span>
+                            )}
+                            {v.transmission && (
+                              <span className="flex items-center gap-1">
+                                <Settings className="w-3 h-3" />
+                                {v.transmission}
+                              </span>
+                            )}
+                            {v.fuel_type && (
+                              <span className="flex items-center gap-1">
+                                <Fuel className="w-3 h-3" />
+                                {v.fuel_type}
+                              </span>
+                            )}
+                            {v.drive_train && (
+                              <span className="bg-muted px-2 py-0.5 rounded">
+                                {v.drive_train}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Key Features */}
+                          {v.key_features && v.key_features.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {v.key_features.slice(0, 4).map((feature) => (
+                                <Badge key={feature} variant="secondary" className="text-xs py-0">
+                                  {feature}
+                                </Badge>
+                              ))}
+                              {v.key_features.length > 4 && (
+                                <Badge variant="outline" className="text-xs py-0">
+                                  +{v.key_features.length - 4} more
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Driver included */}
+                          <p className="text-sm text-muted-foreground">
+                            {v.driver_included ? "✓ Driver included" : "Self drive"}
+                          </p>
+
+                          {/* Pricing */}
+                          <div className="space-y-1 pt-2 border-t border-border">
+                            <div className="flex items-baseline justify-between">
+                              <span className="text-foreground font-bold text-lg">
+                                {displayMoney(Number(v.daily_price || v.price_per_day), String(v.currency ?? "USD"))}
+                              </span>
+                              <span className="text-sm text-muted-foreground">/ day</span>
+                            </div>
+                            {(v.weekly_price || v.monthly_price) && (
+                              <div className="flex gap-3 text-xs text-muted-foreground">
+                                {v.weekly_price && (
+                                  <span>{displayMoney(Number(v.weekly_price), String(v.currency ?? "USD"))}/week</span>
+                                )}
+                                {v.monthly_price && (
+                                  <span>{displayMoney(Number(v.monthly_price), String(v.currency ?? "USD"))}/month</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Action */}
                           <Button
-                            variant="outline"
+                            className="w-full"
                             onClick={() => addToCart({ item_type: "transport_vehicle", reference_id: v.id })}
                           >
                             Rent Now
                           </Button>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

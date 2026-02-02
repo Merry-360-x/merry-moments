@@ -9,21 +9,108 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, X, Save, Loader2 } from "lucide-react";
+import { Upload, X, Save, Loader2, Car, Camera, FileText, Shield, Fuel, Settings, DollarSign } from "lucide-react";
 import { uploadFile } from "@/lib/uploads";
+import { Checkbox } from "@/components/ui/checkbox";
 
-const vehicleTypes = [
-  "Sedan",
+// Car types
+const carTypes = [
   "SUV",
+  "Sedan",
+  "Hatchback",
+  "Coupe",
+  "Convertible",
   "Van",
   "Minibus",
   "Bus",
+  "Pickup Truck",
   "Luxury Car",
-  "4x4",
-  "Motorcycle",
+  "Sports Car",
+  "Crossover",
 ];
+
+// Transmission types
+const transmissionTypes = [
+  { value: "Automatic", label: "Automatic" },
+  { value: "Manual", label: "Manual" },
+  { value: "Hybrid", label: "Hybrid (CVT)" },
+];
+
+// Fuel types
+const fuelTypes = [
+  { value: "Petrol", label: "Petrol/Gasoline" },
+  { value: "Diesel", label: "Diesel" },
+  { value: "Electric", label: "Electric" },
+  { value: "Hybrid", label: "Hybrid" },
+];
+
+// Drivetrain types
+const drivetrainTypes = [
+  { value: "FWD", label: "FWD (Front-Wheel Drive)" },
+  { value: "RWD", label: "RWD (Rear-Wheel Drive)" },
+  { value: "AWD", label: "AWD (All-Wheel Drive)" },
+  { value: "4WD", label: "4WD (Four-Wheel Drive)" },
+];
+
+// Key features options
+const keyFeaturesOptions = [
+  "Air Conditioning",
+  "Bluetooth",
+  "GPS Navigation",
+  "Backup Camera",
+  "Cruise Control",
+  "Leather Seats",
+  "Sunroof/Moonroof",
+  "Heated Seats",
+  "Apple CarPlay",
+  "Android Auto",
+  "USB Ports",
+  "WiFi Hotspot",
+  "Parking Sensors",
+  "Keyless Entry",
+  "Push Button Start",
+  "Blind Spot Monitor",
+  "Lane Departure Warning",
+  "Automatic Emergency Braking",
+  "Roof Rack",
+  "Third Row Seating",
+];
+
+// Popular car brands
+const carBrands = [
+  "Toyota",
+  "Honda",
+  "Nissan",
+  "Mazda",
+  "Mitsubishi",
+  "Suzuki",
+  "Hyundai",
+  "Kia",
+  "Mercedes-Benz",
+  "BMW",
+  "Audi",
+  "Volkswagen",
+  "Ford",
+  "Chevrolet",
+  "Jeep",
+  "Land Rover",
+  "Range Rover",
+  "Porsche",
+  "Lexus",
+  "Infiniti",
+  "Subaru",
+  "Volvo",
+  "Peugeot",
+  "Renault",
+  "Isuzu",
+  "Other",
+];
+
+// Generate year options (current year down to 2000)
+const currentYear = new Date().getFullYear();
+const yearOptions = Array.from({ length: currentYear - 1999 }, (_, i) => currentYear - i);
 
 export default function CreateTransport() {
   const { user, isHost, isLoading } = useAuth();
@@ -31,18 +118,48 @@ export default function CreateTransport() {
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
+    // Basic info
     title: "",
-    vehicle_type: "",
     provider_name: "",
     description: "",
-    seats: 4,
-    price_per_day: 0,
+    
+    // Car details
+    car_brand: "",
+    car_model: "",
+    car_year: currentYear,
+    car_type: "",
+    
+    // Technical specs
+    seats: 5,
+    transmission: "",
+    fuel_type: "",
+    drive_train: "",
+    
+    // Pricing
+    daily_price: 0,
+    weekly_price: 0,
+    monthly_price: 0,
     currency: "RWF",
-    driver_included: true,
+    
+    // Service
+    driver_included: false,
+    
+    // Features
+    key_features: [] as string[],
   });
 
-  const [images, setImages] = useState<File[]>([]);
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  // Images
+  const [exteriorImages, setExteriorImages] = useState<File[]>([]);
+  const [exteriorPreviews, setExteriorPreviews] = useState<string[]>([]);
+  const [interiorImages, setInteriorImages] = useState<File[]>([]);
+  const [interiorPreviews, setInteriorPreviews] = useState<string[]>([]);
+  
+  // Documents
+  const [insuranceDoc, setInsuranceDoc] = useState<File | null>(null);
+  const [registrationDoc, setRegistrationDoc] = useState<File | null>(null);
+  const [roadworthinessDoc, setRoadworthinessDoc] = useState<File | null>(null);
+  const [ownerIdDoc, setOwnerIdDoc] = useState<File | null>(null);
+
   const [uploading, setUploading] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -50,7 +167,7 @@ export default function CreateTransport() {
 
   const STORAGE_KEY = 'create_transport_progress';
 
-  // Load saved progress from localStorage on mount (only once)
+  // Load saved progress from localStorage on mount
   useEffect(() => {
     if (draftLoaded) return;
     
@@ -63,23 +180,21 @@ export default function CreateTransport() {
         
         toast({
           title: "Progress Restored",
-          description: "Your transport listing draft has been restored.",
+          description: "Your car rental listing draft has been restored.",
           duration: 3000,
         });
-        console.log('[CreateTransport] Draft restored');
       } catch (e) {
         console.error("Failed to restore transport progress:", e);
       }
     }
     setDraftLoaded(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftLoaded]);
 
-  // Save progress to localStorage whenever form data changes (only after load)
+  // Auto-save progress
   useEffect(() => {
     if (!draftLoaded) return;
-    
-    // Only save if there's meaningful content
-    if (!formData.title && !formData.provider_name) return;
+    if (!formData.title && !formData.car_brand) return;
     
     const timer = setTimeout(() => {
       const dataToSave = {
@@ -88,28 +203,10 @@ export default function CreateTransport() {
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
       setLastSaved(new Date());
-      console.log('[CreateTransport] Auto-saved draft');
     }, 1000);
 
     return () => clearTimeout(timer);
   }, [formData, draftLoaded]);
-
-  // Save on page unload
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (!formData.title && !formData.provider_name) return;
-      
-      const dataToSave = {
-        formData,
-        timestamp: new Date().toISOString(),
-      };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
-      console.log('[CreateTransport] Saved on page unload');
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [formData]);
 
   const handleSaveDraft = () => {
     setIsSaving(true);
@@ -127,22 +224,50 @@ export default function CreateTransport() {
     localStorage.removeItem(STORAGE_KEY);
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle exterior images
+  const handleExteriorImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    setImages((prev) => [...prev, ...files]);
-
+    setExteriorImages((prev) => [...prev, ...files]);
     files.forEach((file) => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImagePreviews((prev) => [...prev, reader.result as string]);
+        setExteriorPreviews((prev) => [...prev, reader.result as string]);
       };
       reader.readAsDataURL(file);
     });
   };
 
-  const removeImage = (index: number) => {
-    setImages((prev) => prev.filter((_, i) => i !== index));
-    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  const removeExteriorImage = (index: number) => {
+    setExteriorImages((prev) => prev.filter((_, i) => i !== index));
+    setExteriorPreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Handle interior images
+  const handleInteriorImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    setInteriorImages((prev) => [...prev, ...files]);
+    files.forEach((file) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setInteriorPreviews((prev) => [...prev, reader.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeInteriorImage = (index: number) => {
+    setInteriorImages((prev) => prev.filter((_, i) => i !== index));
+    setInteriorPreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Toggle feature
+  const toggleFeature = (feature: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      key_features: prev.key_features.includes(feature)
+        ? prev.key_features.filter((f) => f !== feature)
+        : [...prev.key_features, feature],
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -151,16 +276,35 @@ export default function CreateTransport() {
     if (!user || !isHost) {
       toast({
         title: "Authorization Required",
-        description: "You must be a host to create transport services.",
+        description: "You must be a host to create car rental listings.",
         variant: "destructive",
       });
       return;
     }
 
-    if (!formData.title || !formData.vehicle_type) {
+    // Validation
+    if (!formData.car_brand || !formData.car_model || !formData.car_type) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all required fields.",
+        description: "Please fill in car brand, model, and type.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.daily_price) {
+      toast({
+        title: "Missing Pricing",
+        description: "Please set at least a daily rental price.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (exteriorImages.length === 0) {
+      toast({
+        title: "Missing Images",
+        description: "Please upload at least one exterior image of your vehicle.",
         variant: "destructive",
       });
       return;
@@ -169,50 +313,124 @@ export default function CreateTransport() {
     setUploading(true);
 
     try {
-      // Upload images
-      const uploadedImageUrls: string[] = [];
-      for (const image of images) {
+      // Upload exterior images
+      const exteriorUrls: string[] = [];
+      for (const image of exteriorImages) {
         try {
-          const result = await uploadFile(image, { folder: "transport" });
-          uploadedImageUrls.push(result.url);
+          const result = await uploadFile(image, { folder: "transport/exterior" });
+          exteriorUrls.push(result.url);
         } catch (err) {
-          console.error("Image upload failed:", err);
+          console.error("Exterior image upload failed:", err);
         }
       }
 
-      // Create transport service
+      // Upload interior images
+      const interiorUrls: string[] = [];
+      for (const image of interiorImages) {
+        try {
+          const result = await uploadFile(image, { folder: "transport/interior" });
+          interiorUrls.push(result.url);
+        } catch (err) {
+          console.error("Interior image upload failed:", err);
+        }
+      }
+
+      // Upload documents
+      let insuranceUrl = null;
+      let registrationUrl = null;
+      let roadworthinessUrl = null;
+      let ownerIdUrl = null;
+
+      if (insuranceDoc) {
+        try {
+          const result = await uploadFile(insuranceDoc, { folder: "transport/docs" });
+          insuranceUrl = result.url;
+        } catch (err) {
+          console.error("Insurance doc upload failed:", err);
+        }
+      }
+
+      if (registrationDoc) {
+        try {
+          const result = await uploadFile(registrationDoc, { folder: "transport/docs" });
+          registrationUrl = result.url;
+        } catch (err) {
+          console.error("Registration doc upload failed:", err);
+        }
+      }
+
+      if (roadworthinessDoc) {
+        try {
+          const result = await uploadFile(roadworthinessDoc, { folder: "transport/docs" });
+          roadworthinessUrl = result.url;
+        } catch (err) {
+          console.error("Roadworthiness doc upload failed:", err);
+        }
+      }
+
+      if (ownerIdDoc) {
+        try {
+          const result = await uploadFile(ownerIdDoc, { folder: "transport/docs" });
+          ownerIdUrl = result.url;
+        } catch (err) {
+          console.error("Owner ID doc upload failed:", err);
+        }
+      }
+
+      // Generate title if not provided
+      const title = formData.title || `${formData.car_brand} ${formData.car_model} ${formData.car_year}`;
+
+      // Create vehicle listing
       const { data, error } = await supabase
         .from("transport_vehicles")
         .insert({
-          title: formData.title,
-          vehicle_type: formData.vehicle_type,
+          title,
+          vehicle_type: formData.car_type,
           provider_name: formData.provider_name || null,
           seats: formData.seats,
-          price_per_day: formData.price_per_day,
+          price_per_day: formData.daily_price,
+          daily_price: formData.daily_price,
+          weekly_price: formData.weekly_price || null,
+          monthly_price: formData.monthly_price || null,
           currency: formData.currency,
           driver_included: formData.driver_included,
-          media: uploadedImageUrls,
-          image_url: uploadedImageUrls[0] || null,
+          car_brand: formData.car_brand,
+          car_model: formData.car_model,
+          car_year: formData.car_year,
+          car_type: formData.car_type,
+          transmission: formData.transmission || null,
+          fuel_type: formData.fuel_type || null,
+          drive_train: formData.drive_train || null,
+          exterior_images: exteriorUrls,
+          interior_images: interiorUrls,
+          media: [...exteriorUrls, ...interiorUrls],
+          image_url: exteriorUrls[0] || null,
+          key_features: formData.key_features,
+          insurance_document_url: insuranceUrl,
+          registration_document_url: registrationUrl,
+          roadworthiness_certificate_url: roadworthinessUrl,
+          owner_identification_url: ownerIdUrl,
+          service_type: "car_rental",
           created_by: user.id,
-          is_published: true, // Changed to true so vehicles are immediately visible
-        })
+          is_published: true,
+        } as any)
         .select()
         .single();
 
       if (error) throw error;
 
       toast({
-        title: "Transport Service Created!",
-        description: "Your transport service has been created successfully.",
+        title: "Car Listed Successfully!",
+        description: "Your vehicle is now available for rental.",
       });
 
       clearDraft();
       navigate("/host-dashboard");
     } catch (error) {
-      console.error("Failed to create transport service:", error);
+      console.error("Failed to create car listing:", error);
       toast({
         title: "Error",
-        description: "Failed to create transport service. Please try again.",
+        description: "Failed to create listing. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -240,7 +458,7 @@ export default function CreateTransport() {
         <div className="container mx-auto px-4 py-20 text-center">
           <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
           <p className="text-muted-foreground mb-6">
-            You must be a host to create transport services.
+            You must be a host to list vehicles for rental.
           </p>
           <Button onClick={() => navigate("/become-host")}>Become a Host</Button>
         </div>
@@ -253,37 +471,86 @@ export default function CreateTransport() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <h1 className="text-3xl font-bold mb-8">Create Transport Service</h1>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2">List Your Car for Rental</h1>
+          <p className="text-muted-foreground">
+            Fill in the details below to list your vehicle. Provide accurate information to help renters make informed decisions.
+          </p>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Vehicle Information */}
+          {/* Car Details */}
           <Card>
             <CardHeader>
-              <CardTitle>Vehicle Information</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Car className="w-5 h-5" />
+                Car Details
+              </CardTitle>
+              <CardDescription>Basic information about your vehicle</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="title">Vehicle Title *</Label>
-                <Input
-                  id="title"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="Toyota Land Cruiser - Airport Transfer"
-                  required
-                />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="carBrand">Car Brand *</Label>
+                  <Select
+                    value={formData.car_brand}
+                    onValueChange={(value) => setFormData({ ...formData, car_brand: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select brand" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      {carBrands.map((brand) => (
+                        <SelectItem key={brand} value={brand}>
+                          {brand}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="carModel">Model *</Label>
+                  <Input
+                    id="carModel"
+                    value={formData.car_model}
+                    onChange={(e) => setFormData({ ...formData, car_model: e.target.value })}
+                    placeholder="e.g., Camry, RAV4, Civic"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="carYear">Year *</Label>
+                  <Select
+                    value={formData.car_year.toString()}
+                    onValueChange={(value) => setFormData({ ...formData, car_year: parseInt(value) })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select year" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      {yearOptions.map((year) => (
+                        <SelectItem key={year} value={year.toString()}>
+                          {year}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div>
-                <Label htmlFor="vehicleType">Vehicle Type *</Label>
+                <Label htmlFor="carType">Car Type *</Label>
                 <Select
-                  value={formData.vehicle_type}
-                  onValueChange={(value) => setFormData({ ...formData, vehicle_type: value })}
+                  value={formData.car_type}
+                  onValueChange={(value) => setFormData({ ...formData, car_type: value })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select vehicle type" />
+                    <SelectValue placeholder="Select car type" />
                   </SelectTrigger>
                   <SelectContent>
-                    {vehicleTypes.map((type) => (
+                    {carTypes.map((type) => (
                       <SelectItem key={type} value={type}>
                         {type}
                       </SelectItem>
@@ -293,15 +560,12 @@ export default function CreateTransport() {
               </div>
 
               <div>
-                <Label htmlFor="seats">Number of Seats</Label>
+                <Label htmlFor="title">Listing Title (optional)</Label>
                 <Input
-                  id="seats"
-                  type="number"
-                  min="1"
-                  value={formData.seats}
-                  onChange={(e) =>
-                    setFormData({ ...formData, seats: parseInt(e.target.value) || 4 })
-                  }
+                  id="title"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  placeholder="Auto-generated from brand, model & year if left empty"
                 />
               </div>
 
@@ -311,40 +575,92 @@ export default function CreateTransport() {
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Describe your vehicle and service..."
+                  placeholder="Describe your vehicle, its condition, any special features..."
                   rows={3}
                 />
               </div>
             </CardContent>
           </Card>
 
-          {/* Service Details */}
+          {/* Technical Specifications */}
           <Card>
             <CardHeader>
-              <CardTitle>Service Details</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="w-5 h-5" />
+                Technical Specifications
+              </CardTitle>
+              <CardDescription>Engine and performance details</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="providerName">Provider/Company Name</Label>
-                <Input
-                  id="providerName"
-                  value={formData.provider_name}
-                  onChange={(e) => setFormData({ ...formData, provider_name: e.target.value })}
-                  placeholder="Optional - Your company name"
-                />
-              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <Label htmlFor="seats">Seating Capacity</Label>
+                  <Input
+                    id="seats"
+                    type="number"
+                    min="1"
+                    max="50"
+                    value={formData.seats}
+                    onChange={(e) => setFormData({ ...formData, seats: parseInt(e.target.value) || 5 })}
+                  />
+                </div>
 
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="driverIncluded"
-                  checked={formData.driver_included}
-                  onChange={(e) => setFormData({ ...formData, driver_included: e.target.checked })}
-                  className="h-4 w-4"
-                />
-                <Label htmlFor="driverIncluded" className="cursor-pointer">
-                  Driver included (uncheck for self-drive)
-                </Label>
+                <div>
+                  <Label>Transmission</Label>
+                  <Select
+                    value={formData.transmission}
+                    onValueChange={(value) => setFormData({ ...formData, transmission: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {transmissionTypes.map((t) => (
+                        <SelectItem key={t.value} value={t.value}>
+                          {t.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label>Fuel Type</Label>
+                  <Select
+                    value={formData.fuel_type}
+                    onValueChange={(value) => setFormData({ ...formData, fuel_type: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {fuelTypes.map((f) => (
+                        <SelectItem key={f.value} value={f.value}>
+                          {f.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label>Drivetrain</Label>
+                  <Select
+                    value={formData.drive_train}
+                    onValueChange={(value) => setFormData({ ...formData, drive_train: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {drivetrainTypes.map((d) => (
+                        <SelectItem key={d.value} value={d.value}>
+                          {d.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -352,26 +668,53 @@ export default function CreateTransport() {
           {/* Pricing */}
           <Card>
             <CardHeader>
-              <CardTitle>Pricing</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <DollarSign className="w-5 h-5" />
+                Rental Pricing
+              </CardTitle>
+              <CardDescription>Set your rental rates (weekly and monthly rates are optional)</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
-                  <Label htmlFor="pricePerDay">Price per Day *</Label>
+                  <Label htmlFor="dailyPrice">Daily Rate *</Label>
                   <Input
-                    id="pricePerDay"
+                    id="dailyPrice"
                     type="number"
                     min="0"
-                    value={formData.price_per_day}
-                    onChange={(e) =>
-                      setFormData({ ...formData, price_per_day: parseFloat(e.target.value) || 0 })
-                    }
+                    value={formData.daily_price || ""}
+                    onChange={(e) => setFormData({ ...formData, daily_price: parseFloat(e.target.value) || 0 })}
+                    placeholder="0"
                     required
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="currency">Currency</Label>
+                  <Label htmlFor="weeklyPrice">Weekly Rate</Label>
+                  <Input
+                    id="weeklyPrice"
+                    type="number"
+                    min="0"
+                    value={formData.weekly_price || ""}
+                    onChange={(e) => setFormData({ ...formData, weekly_price: parseFloat(e.target.value) || 0 })}
+                    placeholder="Optional"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="monthlyPrice">Monthly Rate</Label>
+                  <Input
+                    id="monthlyPrice"
+                    type="number"
+                    min="0"
+                    value={formData.monthly_price || ""}
+                    onChange={(e) => setFormData({ ...formData, monthly_price: parseFloat(e.target.value) || 0 })}
+                    placeholder="Optional"
+                  />
+                </div>
+
+                <div>
+                  <Label>Currency</Label>
                   <Select
                     value={formData.currency}
                     onValueChange={(value) => setFormData({ ...formData, currency: value })}
@@ -380,78 +723,294 @@ export default function CreateTransport() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="max-h-[300px]">
-                      <SelectItem value="RWF">(FRw) RWF - Rwandan Franc</SelectItem>
-                      <SelectItem value="USD">($) USD - US Dollar</SelectItem>
-                      <SelectItem value="EUR">(€) EUR - Euro</SelectItem>
-                      <SelectItem value="GBP">(£) GBP - British Pound</SelectItem>
-                      <SelectItem value="CNY">(¥) CNY - Chinese Yuan</SelectItem>
-                      <SelectItem value="JPY">(¥) JPY - Japanese Yen</SelectItem>
-                      <SelectItem value="CAD">($) CAD - Canadian Dollar</SelectItem>
-                      <SelectItem value="AUD">($) AUD - Australian Dollar</SelectItem>
-                      <SelectItem value="CHF">(Fr) CHF - Swiss Franc</SelectItem>
-                      <SelectItem value="INR">(₹) INR - Indian Rupee</SelectItem>
-                      <SelectItem value="ZAR">(R) ZAR - South African Rand</SelectItem>
-                      <SelectItem value="KES">(KSh) KES - Kenyan Shilling</SelectItem>
-                      <SelectItem value="UGX">(USh) UGX - Ugandan Shilling</SelectItem>
-                      <SelectItem value="TZS">(TSh) TZS - Tanzanian Shilling</SelectItem>
-                      <SelectItem value="AED">(د.إ) AED - UAE Dirham</SelectItem>
-                      <SelectItem value="SAR">(﷼) SAR - Saudi Riyal</SelectItem>
-                      <SelectItem value="BRL">(R$) BRL - Brazilian Real</SelectItem>
-                      <SelectItem value="MXN">($) MXN - Mexican Peso</SelectItem>
-                      <SelectItem value="SGD">($) SGD - Singapore Dollar</SelectItem>
-                      <SelectItem value="HKD">($) HKD - Hong Kong Dollar</SelectItem>
-                      <SelectItem value="NZD">($) NZD - New Zealand Dollar</SelectItem>
-                      <SelectItem value="SEK">(kr) SEK - Swedish Krona</SelectItem>
-                      <SelectItem value="NOK">(kr) NOK - Norwegian Krone</SelectItem>
-                      <SelectItem value="DKK">(kr) DKK - Danish Krone</SelectItem>
-                      <SelectItem value="PLN">(zł) PLN - Polish Zloty</SelectItem>
-                      <SelectItem value="THB">(฿) THB - Thai Baht</SelectItem>
-                      <SelectItem value="MYR">(RM) MYR - Malaysian Ringgit</SelectItem>
-                      <SelectItem value="IDR">(Rp) IDR - Indonesian Rupiah</SelectItem>
-                      <SelectItem value="PHP">(₱) PHP - Philippine Peso</SelectItem>
-                      <SelectItem value="KRW">(₩) KRW - South Korean Won</SelectItem>
+                      <SelectItem value="RWF">(FRw) RWF</SelectItem>
+                      <SelectItem value="USD">($) USD</SelectItem>
+                      <SelectItem value="EUR">(€) EUR</SelectItem>
+                      <SelectItem value="GBP">(£) GBP</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
+
+              <div className="flex items-center space-x-2 pt-2">
+                <Checkbox
+                  id="driverIncluded"
+                  checked={formData.driver_included}
+                  onCheckedChange={(checked) => setFormData({ ...formData, driver_included: !!checked })}
+                />
+                <Label htmlFor="driverIncluded" className="cursor-pointer">
+                  Driver included in rental (uncheck for self-drive)
+                </Label>
+              </div>
+
+              <div>
+                <Label htmlFor="providerName">Company/Business Name (optional)</Label>
+                <Input
+                  id="providerName"
+                  value={formData.provider_name}
+                  onChange={(e) => setFormData({ ...formData, provider_name: e.target.value })}
+                  placeholder="Your car rental company name"
+                />
+              </div>
             </CardContent>
           </Card>
 
-          {/* Images */}
+          {/* Key Features */}
           <Card>
             <CardHeader>
-              <CardTitle>Vehicle Images</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Fuel className="w-5 h-5" />
+                Key Features
+              </CardTitle>
+              <CardDescription>Select all features available in your vehicle</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {imagePreviews.map((preview, index) => (
-                    <div key={index} className="relative aspect-square">
-                      <img
-                        src={preview}
-                        alt={`Preview ${index + 1}`}
-                        className="w-full h-full object-cover rounded-lg"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeImage(index)}
-                        className="absolute top-2 right-2 p-1 bg-destructive text-destructive-foreground rounded-full"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                  <label className="aspect-square border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-muted">
-                    <Upload className="w-8 h-8 text-muted-foreground mb-2" />
-                    <span className="text-sm text-muted-foreground">Add Image</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={handleImageChange}
-                      className="hidden"
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {keyFeaturesOptions.map((feature) => (
+                  <div key={feature} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={feature}
+                      checked={formData.key_features.includes(feature)}
+                      onCheckedChange={() => toggleFeature(feature)}
                     />
-                  </label>
+                    <Label htmlFor={feature} className="text-sm cursor-pointer">
+                      {feature}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Exterior Images */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Camera className="w-5 h-5" />
+                Exterior Photos *
+              </CardTitle>
+              <CardDescription>Upload clear photos of the outside of your vehicle (front, back, sides)</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {exteriorPreviews.map((preview, index) => (
+                  <div key={index} className="relative aspect-square">
+                    <img
+                      src={preview}
+                      alt={`Exterior ${index + 1}`}
+                      className="w-full h-full object-cover rounded-lg"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeExteriorImage(index)}
+                      className="absolute top-2 right-2 p-1 bg-destructive text-destructive-foreground rounded-full"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                <label className="aspect-square border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-muted">
+                  <Upload className="w-8 h-8 text-muted-foreground mb-2" />
+                  <span className="text-sm text-muted-foreground">Add Exterior</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleExteriorImageChange}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Interior Images */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Camera className="w-5 h-5" />
+                Interior Photos
+              </CardTitle>
+              <CardDescription>Upload photos of the inside of your vehicle (dashboard, seats, trunk)</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {interiorPreviews.map((preview, index) => (
+                  <div key={index} className="relative aspect-square">
+                    <img
+                      src={preview}
+                      alt={`Interior ${index + 1}`}
+                      className="w-full h-full object-cover rounded-lg"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeInteriorImage(index)}
+                      className="absolute top-2 right-2 p-1 bg-destructive text-destructive-foreground rounded-full"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                <label className="aspect-square border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-muted">
+                  <Upload className="w-8 h-8 text-muted-foreground mb-2" />
+                  <span className="text-sm text-muted-foreground">Add Interior</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleInteriorImageChange}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Legal & Safety Documents */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="w-5 h-5" />
+                Legal & Safety Documents
+              </CardTitle>
+              <CardDescription>Upload verification documents (these will be reviewed by our team)</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Insurance */}
+                <div className="space-y-2">
+                  <Label>Insurance Document</Label>
+                  <div className="border-2 border-dashed border-border rounded-lg p-4">
+                    {insuranceDoc ? (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-5 h-5 text-primary" />
+                          <span className="text-sm truncate max-w-[150px]">{insuranceDoc.name}</span>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setInsuranceDoc(null)}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center cursor-pointer">
+                        <Upload className="w-6 h-6 text-muted-foreground mb-1" />
+                        <span className="text-sm text-muted-foreground">Upload Insurance</span>
+                        <input
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          onChange={(e) => setInsuranceDoc(e.target.files?.[0] || null)}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+
+                {/* Registration */}
+                <div className="space-y-2">
+                  <Label>Registration Document</Label>
+                  <div className="border-2 border-dashed border-border rounded-lg p-4">
+                    {registrationDoc ? (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-5 h-5 text-primary" />
+                          <span className="text-sm truncate max-w-[150px]">{registrationDoc.name}</span>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setRegistrationDoc(null)}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center cursor-pointer">
+                        <Upload className="w-6 h-6 text-muted-foreground mb-1" />
+                        <span className="text-sm text-muted-foreground">Upload Registration</span>
+                        <input
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          onChange={(e) => setRegistrationDoc(e.target.files?.[0] || null)}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+
+                {/* Roadworthiness */}
+                <div className="space-y-2">
+                  <Label>Roadworthiness Certificate</Label>
+                  <div className="border-2 border-dashed border-border rounded-lg p-4">
+                    {roadworthinessDoc ? (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-5 h-5 text-primary" />
+                          <span className="text-sm truncate max-w-[150px]">{roadworthinessDoc.name}</span>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setRoadworthinessDoc(null)}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center cursor-pointer">
+                        <Upload className="w-6 h-6 text-muted-foreground mb-1" />
+                        <span className="text-sm text-muted-foreground">Upload Certificate</span>
+                        <input
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          onChange={(e) => setRoadworthinessDoc(e.target.files?.[0] || null)}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+
+                {/* Owner ID */}
+                <div className="space-y-2">
+                  <Label>Owner/Business ID</Label>
+                  <div className="border-2 border-dashed border-border rounded-lg p-4">
+                    {ownerIdDoc ? (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-5 h-5 text-primary" />
+                          <span className="text-sm truncate max-w-[150px]">{ownerIdDoc.name}</span>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setOwnerIdDoc(null)}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center cursor-pointer">
+                        <Upload className="w-6 h-6 text-muted-foreground mb-1" />
+                        <span className="text-sm text-muted-foreground">Upload ID/Certificate</span>
+                        <input
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          onChange={(e) => setOwnerIdDoc(e.target.files?.[0] || null)}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -464,7 +1023,7 @@ export default function CreateTransport() {
                 Last saved: {lastSaved.toLocaleTimeString()}
               </p>
             )}
-            <div className="flex gap-4">
+            <div className="flex flex-wrap gap-4">
               <Button type="button" variant="outline" onClick={() => navigate(-1)}>
                 Cancel
               </Button>
@@ -476,8 +1035,8 @@ export default function CreateTransport() {
               >
                 {isSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</> : <><Save className="w-4 h-4 mr-2" />Save Draft</>}
               </Button>
-              <Button type="submit" disabled={uploading}>
-                {uploading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creating...</> : "Create Transport Service"}
+              <Button type="submit" disabled={uploading} className="flex-1 md:flex-none">
+                {uploading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creating Listing...</> : "List My Car"}
               </Button>
             </div>
           </div>
