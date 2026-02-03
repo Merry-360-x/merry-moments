@@ -30,6 +30,9 @@ type HostApplication = {
   profile_complete?: boolean;
   tour_license_url?: string;
   rdb_certificate_url?: string;
+  suspended?: boolean;
+  suspension_reason?: string;
+  suspended_at?: string;
   business_name?: string;
   business_tin?: string;
   hosting_location?: string;
@@ -569,8 +572,8 @@ export default function OperationsStaffDashboard() {
             <div className="grid gap-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Pending Applications</CardTitle>
-                  <CardDescription>Host applications requiring review</CardDescription>
+                  <CardTitle>Pending Hosts</CardTitle>
+                  <CardDescription>New hosts requiring review</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Table>

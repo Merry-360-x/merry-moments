@@ -74,6 +74,10 @@ type HostApplicationRow = {
   profile_complete?: boolean | null;
   tour_license_url?: string | null;
   rdb_certificate_url?: string | null;
+  suspended?: boolean | null;
+  suspension_reason?: string | null;
+  suspended_at?: string | null;
+  suspended_by?: string | null;
   business_name: string | null;
   business_tin: string | null;
   hosting_location: string | null;
@@ -1260,6 +1264,7 @@ export default function AdminDashboard() {
     const reason = customReason || window.prompt("Suspension reason:");
     if (!reason) return;
     try {
+      // Suspend the user profile
       const { error } = await supabase
         .from("profiles")
         .update({
@@ -1270,6 +1275,24 @@ export default function AdminDashboard() {
         } as never)
         .or(`id.eq.${userId},user_id.eq.${userId}`);
       if (error) throw error;
+
+      // Mark host as suspended in host_applications (so their listings won't show)
+      await supabase
+        .from('host_applications')
+        .update({ 
+          suspended: true,
+          suspension_reason: reason,
+          suspended_at: new Date().toISOString(),
+          suspended_by: user?.id,
+        } as never)
+        .eq('user_id', userId);
+
+      // Unpublish all their listings to hide immediately
+      await Promise.all([
+        supabase.from('properties').update({ is_published: false } as never).eq('host_id', userId),
+        supabase.from('tours').update({ is_published: false } as never).eq('created_by', userId),
+        supabase.from('transport_vehicles').update({ is_published: false } as never).eq('created_by', userId),
+      ]);
 
       // If applicationId provided, reject the application
       if (applicationId) {
@@ -1289,8 +1312,8 @@ export default function AdminDashboard() {
           .eq('role', 'host');
       }
 
-      toast({ title: "User suspended" });
-      await Promise.all([refetchUsers(), refetchMetrics(), refetchApplications()]);
+      toast({ title: "Host suspended", description: "Their listings have been hidden from the website." });
+      await Promise.all([refetchUsers(), refetchMetrics(), refetchApplications(), refetchProperties(), refetchTours(), refetchVehicles()]);
     } catch (e) {
       logError("admin.suspendUser", e);
       toast({ variant: "destructive", title: "Failed", description: uiErrorMessage(e, "Please try again.") });
@@ -1299,13 +1322,26 @@ export default function AdminDashboard() {
 
   const unsuspendUser = async (userId: string) => {
     try {
+      // Unsuspend the user profile
       const { error } = await supabase
         .from("profiles")
         .update({ is_suspended: false, suspension_reason: null, suspended_at: null, suspended_by: null } as never)
         .or(`id.eq.${userId},user_id.eq.${userId}`);
       if (error) throw error;
-      toast({ title: "User unsuspended" });
-      await Promise.all([refetchUsers(), refetchMetrics()]);
+      
+      // Unsuspend in host_applications
+      await supabase
+        .from('host_applications')
+        .update({ 
+          suspended: false,
+          suspension_reason: null,
+          suspended_at: null,
+          suspended_by: null,
+        } as never)
+        .eq('user_id', userId);
+
+      toast({ title: "User unsuspended", description: "They can now republish their listings." });
+      await Promise.all([refetchUsers(), refetchMetrics(), refetchApplications()]);
     } catch (e) {
       logError("admin.unsuspendUser", e);
       toast({ variant: "destructive", title: "Failed", description: uiErrorMessage(e, "Please try again.") });
@@ -1704,7 +1740,7 @@ For support, contact: support@merry360x.com
               <Megaphone className="w-4 h-4" /> Ads
             </TabsTrigger>
             <TabsTrigger value="host-applications" className="gap-1">
-              <UserPlus className="w-4 h-4" /> Host Applications
+              <UserPlus className="w-4 h-4" /> Hosts
               {applications.filter(a => a.status === 'pending').length > 0 && (
                 <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-xs">
                   {applications.filter(a => a.status === 'pending').length}
@@ -1840,7 +1876,7 @@ For support, contact: support@merry360x.com
 
               <Card className="p-4">
                 <h3 className="font-semibold mb-4 flex items-center gap-2">
-                  <UserPlus className="w-4 h-4" /> Pending Host Applications ({pendingApps.length})
+                  <UserPlus className="w-4 h-4" /> Pending Hosts ({pendingApps.length})
                 </h3>
                 {pendingApps.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No pending applications</p>
@@ -2251,14 +2287,14 @@ For support, contact: support@merry360x.com
             </div>
           </TabsContent>
 
-          {/* HOST APPLICATIONS TAB */}
+          {/* HOSTS TAB */}
           <TabsContent value="host-applications">
             <Card className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h2 className="text-lg font-semibold">Host Applications</h2>
+                  <h2 className="text-lg font-semibold">Hosts</h2>
                   <p className="text-sm text-muted-foreground">
-                    Review and approve host verification documents
+                    Review and manage host profiles and documents
                   </p>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => refetchApplications()}>
@@ -2270,7 +2306,7 @@ For support, contact: support@merry360x.com
               {applications.length === 0 ? (
                 <div className="text-center py-12">
                   <UserPlus className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-muted-foreground">No host applications yet</p>
+                  <p className="text-muted-foreground">No hosts yet</p>
                 </div>
               ) : (
                 <div className="space-y-6">
@@ -2518,14 +2554,14 @@ For support, contact: support@merry360x.com
                     </div>
                   )}
 
-                  {/* All Applications Table */}
+                  {/* All Hosts Table */}
                   <div>
-                    <h3 className="text-md font-semibold mb-3">All Applications</h3>
+                    <h3 className="text-md font-semibold mb-3">All Hosts</h3>
                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Applicant</TableHead>
+                            <TableHead>Host</TableHead>
                             <TableHead>Phone</TableHead>
                             <TableHead>Type</TableHead>
                             <TableHead>Status</TableHead>
@@ -2536,12 +2572,15 @@ For support, contact: support@merry360x.com
                         </TableHeader>
                         <TableBody>
                           {applications.map((app: any) => (
-                            <TableRow key={app.id}>
+                            <TableRow key={app.id} className={app.suspended ? 'bg-red-50' : ''}>
                               <TableCell>
                                 <div>
                                   <p className="font-medium">{app.full_name || '—'}</p>
                                   {app.business_name && (
                                     <p className="text-xs text-muted-foreground">{app.business_name}</p>
+                                  )}
+                                  {app.profiles?.email && (
+                                    <p className="text-xs text-muted-foreground">{app.profiles.email}</p>
                                   )}
                                 </div>
                               </TableCell>
@@ -2550,12 +2589,19 @@ For support, contact: support@merry360x.com
                                 <Badge variant="outline">{app.applicant_type || 'individual'}</Badge>
                               </TableCell>
                               <TableCell>
-                                <Badge className={statusColors[app.status] || 'bg-gray-100'}>
-                                  {app.status}
-                                </Badge>
+                                <div className="flex flex-col gap-1">
+                                  <Badge className={statusColors[app.status] || 'bg-gray-100'}>
+                                    {app.status}
+                                  </Badge>
+                                  {app.suspended && (
+                                    <Badge variant="destructive" className="text-xs">
+                                      🚫 Suspended
+                                    </Badge>
+                                  )}
+                                </div>
                               </TableCell>
                               <TableCell className="text-sm">
-                                <div className="flex gap-1">
+                                <div className="flex gap-1 flex-wrap">
                                   {app.national_id_photo_url ? (
                                     <Badge variant="outline" className="text-green-600">ID ✓</Badge>
                                   ) : (
@@ -2565,6 +2611,12 @@ For support, contact: support@merry360x.com
                                     <Badge variant="outline" className="text-green-600">Selfie ✓</Badge>
                                   ) : (
                                     <Badge variant="outline" className="text-gray-400">No Selfie</Badge>
+                                  )}
+                                  {app.tour_license_url && (
+                                    <Badge variant="outline" className="text-blue-600">License ✓</Badge>
+                                  )}
+                                  {app.rdb_certificate_url && (
+                                    <Badge variant="outline" className="text-purple-600">RDB ✓</Badge>
                                   )}
                                 </div>
                               </TableCell>
@@ -2608,6 +2660,31 @@ For support, contact: support@merry360x.com
                                     >
                                       <Eye className="w-3 h-3 mr-1" />
                                       Selfie
+                                    </Button>
+                                  )}
+                                  {/* Suspend/Unsuspend button for approved hosts */}
+                                  {app.status === 'approved' && !app.suspended && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-destructive border-destructive hover:bg-destructive/10"
+                                      onClick={() => suspendUser(app.user_id)}
+                                      title="Suspend this host"
+                                    >
+                                      <Ban className="w-3 h-3 mr-1" />
+                                      Suspend
+                                    </Button>
+                                  )}
+                                  {app.suspended && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-green-600 border-green-600 hover:bg-green-50"
+                                      onClick={() => unsuspendUser(app.user_id)}
+                                      title="Unsuspend this host"
+                                    >
+                                      <CheckCircle className="w-3 h-3 mr-1" />
+                                      Unsuspend
                                     </Button>
                                   )}
                                 </div>
