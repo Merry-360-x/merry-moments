@@ -70,6 +70,10 @@ type HostApplicationRow = {
   about: string | null;
   national_id_number: string | null;
   national_id_photo_url: string | null;
+  selfie_photo_url?: string | null;
+  profile_complete?: boolean | null;
+  tour_license_url?: string | null;
+  rdb_certificate_url?: string | null;
   business_name: string | null;
   business_tin: string | null;
   hosting_location: string | null;
@@ -98,6 +102,11 @@ type HostApplicationRow = {
   listing_vehicle_price_per_day: number | null;
   listing_vehicle_driver_included: boolean | null;
   listing_vehicle_provider_name: string | null;
+  // Profile info (joined)
+  profiles?: {
+    full_name: string | null;
+    email: string | null;
+  } | null;
   created_at: string;
   updated_at: string | null;
 };
@@ -619,8 +628,8 @@ export default function AdminDashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("host_applications")
-        // Use * so this query works even if some columns aren't present yet on the remote DB
-        .select("*")
+        // Fetch all columns and join with profiles to get email
+        .select("*, profiles:user_id(full_name, email)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as HostApplicationRow[];
@@ -4360,7 +4369,11 @@ For support, contact: support@merry360x.com
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-muted-foreground">Full Name</p>
-                      <p className="text-sm font-medium">{selectedApplication.full_name || 'N/A'}</p>
+                      <p className="text-sm font-medium">{selectedApplication.full_name || selectedApplication.profiles?.full_name || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Email</p>
+                      <p className="text-sm">{selectedApplication.profiles?.email || 'N/A'}</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Phone</p>
@@ -4373,6 +4386,24 @@ For support, contact: support@merry360x.com
                     <div>
                       <p className="text-sm text-muted-foreground">Status</p>
                       <Badge>{selectedApplication.status}</Badge>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Profile Completion</p>
+                      <Badge variant={selectedApplication.profile_complete ? "default" : "secondary"}>
+                        {selectedApplication.profile_complete ? 'Complete' : 'Incomplete'}
+                      </Badge>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-sm text-muted-foreground mb-2">Services Offered</p>
+                      <div className="flex gap-2 flex-wrap">
+                        {selectedApplication.service_types && selectedApplication.service_types.length > 0 ? (
+                          selectedApplication.service_types.map((service, idx) => (
+                            <Badge key={idx} variant="secondary" className="capitalize">{service}</Badge>
+                          ))
+                        ) : (
+                          <span className="text-sm text-muted-foreground">Not specified yet</span>
+                        )}
+                      </div>
                     </div>
                     <div className="col-span-2">
                       <p className="text-sm text-muted-foreground">National ID Number</p>
@@ -4504,20 +4535,67 @@ For support, contact: support@merry360x.com
                 {/* Documents */}
                 <div className="border-t pt-4">
                   <h3 className="font-semibold mb-3">Documents</h3>
-                  <div className="flex gap-2">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {selectedApplication.national_id_photo_url ? (
-                      <Button
-                        variant="outline"
-                        onClick={() => setViewingDocument({ 
-                          url: selectedApplication.national_id_photo_url!, 
-                          title: 'National ID' 
-                        })}
-                      >
-                        <Eye className="w-4 h-4 mr-2" />
-                        View National ID
-                      </Button>
+                      <div className="space-y-2">
+                        <p className="text-sm text-muted-foreground">National ID / Passport</p>
+                        <img
+                          src={selectedApplication.national_id_photo_url}
+                          alt="National ID"
+                          className="w-full h-32 object-cover rounded-md border cursor-pointer hover:opacity-80 transition"
+                          onClick={() => setViewingDocument({ 
+                            url: selectedApplication.national_id_photo_url!, 
+                            title: 'National ID' 
+                          })}
+                        />
+                      </div>
                     ) : (
-                      <p className="text-sm text-muted-foreground">No National ID uploaded</p>
+                      <div className="space-y-2">
+                        <p className="text-sm text-muted-foreground">National ID / Passport</p>
+                        <p className="text-sm text-muted-foreground italic">Not uploaded</p>
+                      </div>
+                    )}
+                    {selectedApplication.selfie_photo_url && (
+                      <div className="space-y-2">
+                        <p className="text-sm text-muted-foreground">Selfie Photo</p>
+                        <img
+                          src={selectedApplication.selfie_photo_url}
+                          alt="Selfie"
+                          className="w-full h-32 object-cover rounded-md border cursor-pointer hover:opacity-80 transition"
+                          onClick={() => setViewingDocument({ 
+                            url: selectedApplication.selfie_photo_url!, 
+                            title: 'Selfie Photo' 
+                          })}
+                        />
+                      </div>
+                    )}
+                    {selectedApplication.tour_license_url && (
+                      <div className="space-y-2">
+                        <p className="text-sm text-muted-foreground">Tour Guide License</p>
+                        <img
+                          src={selectedApplication.tour_license_url}
+                          alt="Tour License"
+                          className="w-full h-32 object-cover rounded-md border cursor-pointer hover:opacity-80 transition"
+                          onClick={() => setViewingDocument({ 
+                            url: selectedApplication.tour_license_url!, 
+                            title: 'Tour Guide License' 
+                          })}
+                        />
+                      </div>
+                    )}
+                    {selectedApplication.rdb_certificate_url && (
+                      <div className="space-y-2">
+                        <p className="text-sm text-muted-foreground">RDB Certificate</p>
+                        <img
+                          src={selectedApplication.rdb_certificate_url}
+                          alt="RDB Certificate"
+                          className="w-full h-32 object-cover rounded-md border cursor-pointer hover:opacity-80 transition"
+                          onClick={() => setViewingDocument({ 
+                            url: selectedApplication.rdb_certificate_url!, 
+                            title: 'RDB Certificate' 
+                          })}
+                        />
+                      </div>
                     )}
                   </div>
                 </div>

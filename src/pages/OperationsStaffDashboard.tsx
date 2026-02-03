@@ -27,6 +27,9 @@ type HostApplication = {
   national_id_number?: string;
   national_id_photo_url?: string;
   selfie_photo_url?: string;
+  profile_complete?: boolean;
+  tour_license_url?: string;
+  rdb_certificate_url?: string;
   business_name?: string;
   business_tin?: string;
   hosting_location?: string;
@@ -745,6 +748,10 @@ export default function OperationsStaffDashboard() {
                           <p className="font-medium">{selectedApplication.full_name || selectedApplication.profiles?.full_name || 'N/A'}</p>
                         </div>
                         <div>
+                          <p className="text-sm text-muted-foreground">Email</p>
+                          <p className="font-medium">{selectedApplication.profiles?.email || 'N/A'}</p>
+                        </div>
+                        <div>
                           <p className="text-sm text-muted-foreground">Phone</p>
                           <p className="font-medium">{selectedApplication.phone || 'N/A'}</p>
                         </div>
@@ -755,10 +762,31 @@ export default function OperationsStaffDashboard() {
                           </Badge>
                         </div>
                         <div>
+                          <p className="text-sm text-muted-foreground">Profile Status</p>
+                          <Badge variant={selectedApplication.profile_complete ? "default" : "secondary"}>
+                            {selectedApplication.profile_complete ? 'Complete' : 'Incomplete'}
+                          </Badge>
+                        </div>
+                        <div>
                           <p className="text-sm text-muted-foreground">National ID</p>
                           <p className="font-medium">{selectedApplication.national_id_number || 'N/A'}</p>
                         </div>
                       </div>
+                      
+                      {/* Service Types */}
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-2">Services Offered</p>
+                        <div className="flex gap-2 flex-wrap">
+                          {selectedApplication.service_types && selectedApplication.service_types.length > 0 ? (
+                            selectedApplication.service_types.map((service, idx) => (
+                              <Badge key={idx} variant="secondary" className="capitalize">{service}</Badge>
+                            ))
+                          ) : (
+                            <span className="text-sm text-muted-foreground">Not specified</span>
+                          )}
+                        </div>
+                      </div>
+                      
                       {selectedApplication.about && (
                         <div>
                           <p className="text-sm text-muted-foreground mb-1">About</p>
@@ -861,28 +889,56 @@ export default function OperationsStaffDashboard() {
                     )}
 
                     {/* Documents */}
-                    {(selectedApplication.national_id_photo_url || selectedApplication.selfie_photo_url) && (
+                    {(selectedApplication.national_id_photo_url || selectedApplication.selfie_photo_url || selectedApplication.tour_license_url || selectedApplication.rdb_certificate_url) && (
                       <div className="space-y-3">
                         <h3 className="font-semibold text-lg border-b pb-2">Documents</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {selectedApplication.national_id_photo_url && (
                             <div>
-                              <p className="text-sm text-muted-foreground mb-2">National ID Photo</p>
-                              <img 
-                                src={selectedApplication.national_id_photo_url} 
-                                alt="National ID"
-                                className="max-w-full h-auto rounded border"
-                              />
+                              <p className="text-sm text-muted-foreground mb-2">National ID / Passport</p>
+                              <a href={selectedApplication.national_id_photo_url} target="_blank" rel="noopener noreferrer">
+                                <img 
+                                  src={selectedApplication.national_id_photo_url} 
+                                  alt="National ID"
+                                  className="max-w-full h-40 object-cover rounded border hover:opacity-80 transition"
+                                />
+                              </a>
                             </div>
                           )}
                           {selectedApplication.selfie_photo_url && (
                             <div>
                               <p className="text-sm text-muted-foreground mb-2">Selfie Photo</p>
-                              <img 
-                                src={selectedApplication.selfie_photo_url} 
-                                alt="Selfie"
-                                className="max-w-full h-auto rounded border"
-                              />
+                              <a href={selectedApplication.selfie_photo_url} target="_blank" rel="noopener noreferrer">
+                                <img 
+                                  src={selectedApplication.selfie_photo_url} 
+                                  alt="Selfie"
+                                  className="max-w-full h-40 object-cover rounded border hover:opacity-80 transition"
+                                />
+                              </a>
+                            </div>
+                          )}
+                          {selectedApplication.tour_license_url && (
+                            <div>
+                              <p className="text-sm text-muted-foreground mb-2">Tour Guide License</p>
+                              <a href={selectedApplication.tour_license_url} target="_blank" rel="noopener noreferrer">
+                                <img 
+                                  src={selectedApplication.tour_license_url} 
+                                  alt="Tour License"
+                                  className="max-w-full h-40 object-cover rounded border hover:opacity-80 transition"
+                                />
+                              </a>
+                            </div>
+                          )}
+                          {selectedApplication.rdb_certificate_url && (
+                            <div>
+                              <p className="text-sm text-muted-foreground mb-2">RDB Certificate</p>
+                              <a href={selectedApplication.rdb_certificate_url} target="_blank" rel="noopener noreferrer">
+                                <img 
+                                  src={selectedApplication.rdb_certificate_url} 
+                                  alt="RDB Certificate"
+                                  className="max-w-full h-40 object-cover rounded border hover:opacity-80 transition"
+                                />
+                              </a>
                             </div>
                           )}
                         </div>
