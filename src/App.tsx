@@ -21,7 +21,7 @@ import Favorites from "./pages/Favorites";
 import NotFound from "./pages/NotFound";
 import RequireAuth from "@/components/RequireAuth";
 import RequireRole from "@/components/RequireRole";
-import HostApplication from "./pages/HostApplication";
+import BecomeHost from "./pages/BecomeHost";
 
 // Lazy load dashboard pages to prevent circular dependencies
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
@@ -173,7 +173,7 @@ const App = () => (
                 }
               />
               <Route path="/host" element={<Navigate to="/host-dashboard" replace />} />
-              <Route path="/become-host" element={<HostApplication />} />
+              <Route path="/become-host" element={<BecomeHost />} />
 
               <Route
                 path="/create-tour"

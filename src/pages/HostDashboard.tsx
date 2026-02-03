@@ -83,6 +83,7 @@ import {
   Presentation,
   Phone,
   PawPrint,
+  Compass,
   Music,
   Cigarette,
   CircleOff,
@@ -315,6 +316,23 @@ export default function HostDashboard() {
   const [routes, setRoutes] = useState<TransportRoute[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [hostServiceTypes, setHostServiceTypes] = useState<string[]>([]);
+  
+  // Profile completion tracking
+  const [hostProfile, setHostProfile] = useState<{
+    profile_complete: boolean;
+    service_types: string[];
+    national_id_photo_url: string | null;
+    tour_license_url?: string | null;
+    rdb_certificate_url?: string | null;
+  } | null>(null);
+  const [showProfileDialog, setShowProfileDialog] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    service_types: [] as string[],
+    national_id_photo_url: '',
+    tour_license_url: '',
+    rdb_certificate_url: '',
+  });
+  const [savingProfile, setSavingProfile] = useState(false);
 
   // Editing states
   const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null);
@@ -464,16 +482,31 @@ export default function HostDashboard() {
     setIsLoading(true);
     
     try {
-      // Fetch host application to get service_types
+      // Fetch host application to get service_types and profile completion status
       const { data: hostAppData } = await supabase
         .from("host_applications")
-        .select("service_types")
+        .select("*")
         .eq("user_id", user.id)
         .eq("status", "approved")
         .single();
       
-      if (hostAppData?.service_types) {
-        setHostServiceTypes(hostAppData.service_types);
+      if (hostAppData) {
+        const appData = hostAppData as any;
+        setHostServiceTypes(appData.service_types || []);
+        setHostProfile({
+          profile_complete: appData.profile_complete ?? false,
+          service_types: appData.service_types || [],
+          national_id_photo_url: appData.national_id_photo_url || null,
+          tour_license_url: appData.tour_license_url || null,
+          rdb_certificate_url: appData.rdb_certificate_url || null,
+        });
+        // Pre-fill profile form
+        setProfileForm({
+          service_types: appData.service_types || [],
+          national_id_photo_url: appData.national_id_photo_url || '',
+          tour_license_url: appData.tour_license_url || '',
+          rdb_certificate_url: appData.rdb_certificate_url || '',
+        });
       } else {
         // Default to all if no approved application found (shouldn't happen for hosts)
         setHostServiceTypes(['accommodation', 'tour', 'transport']);
@@ -3666,6 +3699,28 @@ export default function HostDashboard() {
               </div>
             </div>
 
+        {/* Profile Completion Warning Banner */}
+        {hostProfile && !hostProfile.profile_complete && (
+          <Card className="mb-6 border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
+            <div className="p-4 flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-amber-900 dark:text-amber-200">Complete Your Profile</h3>
+                <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                  Your host profile is incomplete. Complete your profile so that your listings can go online and be visible to guests.
+                </p>
+                <Button 
+                  size="sm" 
+                  className="mt-3"
+                  onClick={() => setShowProfileDialog(true)}
+                >
+                  Complete Profile Now
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
+
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="mb-6">
             <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -4713,6 +4768,181 @@ END OF REPORT
             >
               {requestingPayout ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Submit Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Profile Completion Dialog */}
+      <Dialog open={showProfileDialog} onOpenChange={setShowProfileDialog}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Complete Your Host Profile</DialogTitle>
+            <DialogDescription>
+              Select the services you want to offer and upload required documents to enable your listings.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            {/* Service Types Selection */}
+            <div className="space-y-3">
+              <Label className="text-base font-medium">What services will you offer?</Label>
+              <p className="text-sm text-muted-foreground">Select all that apply</p>
+              <div className="grid grid-cols-1 gap-3">
+                {[
+                  { id: 'accommodation', label: 'Accommodation', icon: Home, desc: 'Hotels, apartments, villas' },
+                  { id: 'tour', label: 'Tours & Experiences', icon: Compass, desc: 'Guided tours, activities' },
+                  { id: 'transport', label: 'Transport', icon: Car, desc: 'Car rentals, transfers' },
+                ].map(service => (
+                  <div
+                    key={service.id}
+                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                      profileForm.service_types.includes(service.id) 
+                        ? 'border-primary bg-primary/5' 
+                        : 'border-muted hover:border-muted-foreground/30'
+                    }`}
+                    onClick={() => {
+                      setProfileForm(prev => ({
+                        ...prev,
+                        service_types: prev.service_types.includes(service.id)
+                          ? prev.service_types.filter(s => s !== service.id)
+                          : [...prev.service_types, service.id]
+                      }));
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                        profileForm.service_types.includes(service.id) ? 'bg-primary text-primary-foreground' : 'bg-muted'
+                      }`}>
+                        <service.icon className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium">{service.label}</p>
+                        <p className="text-sm text-muted-foreground">{service.desc}</p>
+                      </div>
+                      {profileForm.service_types.includes(service.id) && (
+                        <CheckCircle className="w-5 h-5 text-primary" />
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Document Uploads - Based on Selected Services */}
+            {profileForm.service_types.length > 0 && (
+              <div className="space-y-4 border-t pt-4">
+                <Label className="text-base font-medium">Required Documents</Label>
+                
+                {/* ID for all service types */}
+                <div className="space-y-2">
+                  <Label className="text-sm">National ID / Passport</Label>
+                  <p className="text-xs text-muted-foreground">Required for identity verification</p>
+                  <CloudinaryUploadDialog
+                    onUploadComplete={(url) => setProfileForm(prev => ({ ...prev, national_id_photo_url: url }))}
+                    folder="host_documents"
+                    buttonLabel={profileForm.national_id_photo_url ? "Change ID" : "Upload ID"}
+                  />
+                  {profileForm.national_id_photo_url && (
+                    <p className="text-xs text-green-600 flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3" /> ID uploaded
+                    </p>
+                  )}
+                </div>
+
+                {/* Tour License - Required for tour providers */}
+                {profileForm.service_types.includes('tour') && (
+                  <div className="space-y-2">
+                    <Label className="text-sm">Tour Guide License</Label>
+                    <p className="text-xs text-muted-foreground">Required for tour operators</p>
+                    <CloudinaryUploadDialog
+                      onUploadComplete={(url) => setProfileForm(prev => ({ ...prev, tour_license_url: url }))}
+                      folder="tour_licenses"
+                      buttonLabel={profileForm.tour_license_url ? "Change License" : "Upload License"}
+                    />
+                    {profileForm.tour_license_url && (
+                      <p className="text-xs text-green-600 flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" /> License uploaded
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* RDB Certificate - Optional for tour providers */}
+                {profileForm.service_types.includes('tour') && (
+                  <div className="space-y-2">
+                    <Label className="text-sm">RDB Certificate (Optional)</Label>
+                    <p className="text-xs text-muted-foreground">Rwanda Development Board registration</p>
+                    <CloudinaryUploadDialog
+                      onUploadComplete={(url) => setProfileForm(prev => ({ ...prev, rdb_certificate_url: url }))}
+                      folder="rdb_certificates"
+                      buttonLabel={profileForm.rdb_certificate_url ? "Change Certificate" : "Upload Certificate"}
+                    />
+                    {profileForm.rdb_certificate_url && (
+                      <p className="text-xs text-green-600 flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" /> Certificate uploaded
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowProfileDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={async () => {
+                if (profileForm.service_types.length === 0) {
+                  toast({ variant: "destructive", title: "Select at least one service type" });
+                  return;
+                }
+                if (!profileForm.national_id_photo_url) {
+                  toast({ variant: "destructive", title: "Please upload your ID" });
+                  return;
+                }
+                if (profileForm.service_types.includes('tour') && !profileForm.tour_license_url) {
+                  toast({ variant: "destructive", title: "Please upload your tour license" });
+                  return;
+                }
+                
+                setSavingProfile(true);
+                try {
+                  const updateData: any = {
+                    service_types: profileForm.service_types,
+                    national_id_photo_url: profileForm.national_id_photo_url,
+                    profile_complete: true,
+                  };
+                  // Add optional fields if the columns exist (from migration)
+                  if (profileForm.tour_license_url) updateData.tour_license_url = profileForm.tour_license_url;
+                  if (profileForm.rdb_certificate_url) updateData.rdb_certificate_url = profileForm.rdb_certificate_url;
+                  
+                  const { error } = await supabase
+                    .from("host_applications")
+                    .update(updateData)
+                    .eq("user_id", user?.id)
+                    .eq("status", "approved");
+                  
+                  if (error) throw error;
+                  
+                  toast({ title: "Profile completed!", description: "Your listings can now go live." });
+                  setShowProfileDialog(false);
+                  setHostProfile(prev => prev ? { ...prev, profile_complete: true, service_types: profileForm.service_types } : null);
+                  setHostServiceTypes(profileForm.service_types);
+                  fetchData();
+                } catch (e) {
+                  logError("host-profile.save", e);
+                  toast({ variant: "destructive", title: "Failed to save", description: uiErrorMessage(e, "Please try again.") });
+                } finally {
+                  setSavingProfile(false);
+                }
+              }}
+              disabled={savingProfile || profileForm.service_types.length === 0}
+            >
+              {savingProfile ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Save Profile
             </Button>
           </DialogFooter>
         </DialogContent>
