@@ -2323,6 +2323,184 @@ export default function HostDashboard() {
     );
   };
 
+  // Vehicle Card Component with edit functionality
+  const VehicleCard = ({ vehicle }: { vehicle: Vehicle }) => {
+    const isEditing = editingVehicleId === vehicle.id;
+    const [form, setForm] = useState(vehicle);
+    const [editUploadOpen, setEditUploadOpen] = useState(false);
+
+    // Reset form when vehicle changes or exiting edit mode
+    useEffect(() => {
+      setForm(vehicle);
+    }, [vehicle, isEditing]);
+
+    const handleSave = async () => {
+      const success = await updateVehicle(vehicle.id, {
+        title: form.title,
+        provider_name: form.provider_name,
+        vehicle_type: form.vehicle_type,
+        seats: form.seats,
+        price_per_day: form.price_per_day,
+        currency: form.currency,
+        driver_included: form.driver_included,
+        media: form.media,
+        image_url: form.media?.[0] || null,
+        is_published: form.is_published,
+      });
+      if (success) setEditingVehicleId(null);
+    };
+
+    return (
+      <Card className="overflow-hidden">
+        <div className="h-44 bg-muted flex items-center justify-center relative">
+          {(form.media?.[0] || form.image_url) ? (
+            <img src={form.media?.[0] || form.image_url || ""} alt={form.title} className="w-full h-full object-cover" />
+          ) : (
+            <Car className="w-8 h-8 text-muted-foreground" />
+          )}
+          {!isEditing && (
+            <div className="absolute top-2 right-2">
+              {form.is_published ? (
+                <Badge className="bg-green-500">Live</Badge>
+              ) : (
+                <Badge variant="secondary">Draft</Badge>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="p-4 space-y-3">
+          {isEditing ? (
+            <>
+              <Input 
+                value={form.title} 
+                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} 
+                placeholder="Vehicle Title" 
+              />
+              <Input 
+                value={form.provider_name || ""} 
+                onChange={(e) => setForm((f) => ({ ...f, provider_name: e.target.value }))} 
+                placeholder="Provider Name (optional)" 
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs">Vehicle Type</Label>
+                  <Select value={form.vehicle_type} onValueChange={(v) => setForm((f) => ({ ...f, vehicle_type: v }))}>
+                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {vehicleTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Seats</Label>
+                  <Input 
+                    type="number" 
+                    value={form.seats} 
+                    onChange={(e) => setForm((f) => ({ ...f, seats: Number(e.target.value) }))} 
+                    min={1}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs">Price/Day</Label>
+                  <Input 
+                    type="number" 
+                    value={form.price_per_day} 
+                    onChange={(e) => setForm((f) => ({ ...f, price_per_day: Number(e.target.value) }))} 
+                    min={0}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Currency</Label>
+                  <Select value={form.currency || "RWF"} onValueChange={(v) => setForm((f) => ({ ...f, currency: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{currencies.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch 
+                  checked={form.driver_included || false} 
+                  onCheckedChange={(v) => setForm((f) => ({ ...f, driver_included: v }))} 
+                />
+                <span className="text-sm">Driver included</span>
+              </div>
+              <div>
+                <Label className="text-xs">Images ({(form.media || []).length})</Label>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {(form.media || []).map((img, i) => (
+                    <div key={i} className="relative w-14 h-14 rounded overflow-hidden group">
+                      <img src={img} className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, media: (f.media || []).filter((_, j) => j !== i) }))}
+                        className="absolute top-0 right-0 w-5 h-5 bg-red-600 text-white text-xs flex items-center justify-center hover:bg-red-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Remove"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setEditUploadOpen(true)}
+                    className="w-14 h-14 rounded border-2 border-dashed border-border flex items-center justify-center text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                    title="Add images"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center justify-between pt-2">
+                <div className="flex items-center gap-2">
+                  <Switch checked={form.is_published || false} onCheckedChange={(v) => setForm((f) => ({ ...f, is_published: v }))} />
+                  <span className="text-sm">{form.is_published ? "Live" : "Draft"}</span>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => setEditingVehicleId(null)}><X className="w-3 h-3" /></Button>
+                  <Button size="sm" onClick={handleSave}><Save className="w-3 h-3" /></Button>
+                </div>
+              </div>
+              <CloudinaryUploadDialog
+                title="Upload Vehicle Images"
+                folder="merry360/vehicles"
+                accept="image/*"
+                multiple
+                autoStart={true}
+                value={form.media || []}
+                onChange={(urls) => {
+                  setForm((f) => ({ ...f, media: urls }));
+                }}
+                open={editUploadOpen}
+                onOpenChange={setEditUploadOpen}
+              />
+            </>
+          ) : (
+            <>
+              <h3 className="font-semibold">{vehicle.title}</h3>
+              <p className="text-sm text-muted-foreground">{vehicle.vehicle_type} · {vehicle.seats} seats</p>
+              {vehicle.driver_included && (
+                <Badge variant="outline" className="text-xs">Driver included</Badge>
+              )}
+              <div className="flex items-center justify-between mt-3">
+                <span className="text-primary font-bold">{formatMoney(vehicle.price_per_day, vehicle.currency || "RWF")}/day</span>
+                <div className="flex gap-1">
+                  <Button size="sm" variant="ghost" onClick={() => setEditingVehicleId(vehicle.id)}><Edit className="w-3 h-3" /></Button>
+                  <Button size="sm" variant="ghost" onClick={() => updateVehicle(vehicle.id, { is_published: !vehicle.is_published })}>
+                    {vehicle.is_published ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                  </Button>
+                  <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteVehicle(vehicle.id)}><Trash2 className="w-3 h-3" /></Button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </Card>
+    );
+  };
+
   // Show loading while auth or roles are loading
   if (authLoading || rolesLoading) {
     return (
@@ -3808,26 +3986,7 @@ export default function HostDashboard() {
             <div className="text-sm font-semibold text-foreground mb-3">Vehicles</div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {(vehicles || []).map((v) => (
-                <Card key={v.id} className="overflow-hidden">
-                  <div className="h-44 bg-muted flex items-center justify-center">
-                    {(v.media?.[0] || v.image_url) ? (
-                      <img src={v.media?.[0] || v.image_url || ""} alt={v.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <Car className="w-8 h-8 text-muted-foreground" />
-          )}
-        </div>
-                  <div className="p-4">
-                    <h3 className="font-semibold">{v.title}</h3>
-                    <p className="text-sm text-muted-foreground">{v.vehicle_type} · {v.seats} seats</p>
-                    <div className="flex items-center justify-between mt-3">
-                      <span className="text-primary font-bold">{formatMoney(v.price_per_day, v.currency || "RWF")}/day</span>
-                      <div className="flex gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => setEditingVehicleId(v.id)}><Edit className="w-3 h-3" /></Button>
-                        <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteVehicle(v.id)}><Trash2 className="w-3 h-3" /></Button>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
+                <VehicleCard key={v.id} vehicle={v} />
               ))}
               {(vehicles || []).length === 0 && (
                 <p className="text-muted-foreground col-span-full text-center py-8">No vehicles yet</p>
