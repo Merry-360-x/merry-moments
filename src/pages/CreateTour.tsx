@@ -37,6 +37,7 @@ export default function CreateTour() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [hostProfileComplete, setHostProfileComplete] = useState(false);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -66,6 +67,21 @@ export default function CreateTour() {
 
   // Use a stable storage key
   const getStorageKey = () => user?.id ? `tour-draft-${user.id}` : 'tour-draft-anonymous';
+
+  // Fetch host profile completion status
+  useEffect(() => {
+    if (!user) return;
+    const checkProfile = async () => {
+      const { data } = await supabase
+        .from("host_applications")
+        .select("profile_complete")
+        .eq("user_id", user.id)
+        .eq("status", "approved")
+        .single();
+      setHostProfileComplete(data?.profile_complete ?? false);
+    };
+    checkProfile();
+  }, [user]);
 
   // Load draft on mount (only once)
   useEffect(() => {
@@ -238,7 +254,7 @@ export default function CreateTour() {
         images: images.length > 0 ? images : null,
         itinerary_pdf_url: pdfUrl || null,
         created_by: user.id || null,
-        is_published: true,
+        is_published: hostProfileComplete, // Only publish if profile is complete
       };
 
       const { error } = await supabase.from("tours").insert(tourData as any).select().single();
@@ -247,7 +263,11 @@ export default function CreateTour() {
       await queryClient.invalidateQueries({ queryKey: ["tours"] });
       await queryClient.invalidateQueries({ queryKey: ["featured-tours"] });
 
-      toast({ title: "Success!", description: "Tour created successfully" });
+      if (hostProfileComplete) {
+        toast({ title: "Tour Published!", description: "Your tour is now live and visible to guests." });
+      } else {
+        toast({ title: "Tour Saved as Draft", description: "Complete your host profile to publish it." });
+      }
       clearDraft();
       navigate("/host-dashboard");
     } catch (error: any) {

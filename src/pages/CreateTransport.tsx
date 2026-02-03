@@ -116,6 +116,7 @@ export default function CreateTransport() {
   const { user, isHost, isLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [hostProfileComplete, setHostProfileComplete] = useState(false);
 
   const [formData, setFormData] = useState({
     // Basic info
@@ -166,6 +167,21 @@ export default function CreateTransport() {
   const [draftLoaded, setDraftLoaded] = useState(false);
 
   const STORAGE_KEY = 'create_transport_progress';
+
+  // Fetch host profile completion status
+  useEffect(() => {
+    if (!user) return;
+    const checkProfile = async () => {
+      const { data } = await supabase
+        .from("host_applications")
+        .select("profile_complete")
+        .eq("user_id", user.id)
+        .eq("status", "approved")
+        .single();
+      setHostProfileComplete(data?.profile_complete ?? false);
+    };
+    checkProfile();
+  }, [user]);
 
   // Load saved progress from localStorage on mount
   useEffect(() => {
@@ -412,17 +428,24 @@ export default function CreateTransport() {
           owner_identification_url: ownerIdUrl,
           service_type: "car_rental",
           created_by: user.id,
-          is_published: true,
+          is_published: hostProfileComplete, // Only publish if profile is complete
         } as any)
         .select()
         .single();
 
       if (error) throw error;
 
-      toast({
-        title: "Car Listed Successfully!",
-        description: "Your vehicle is now available for rental.",
-      });
+      if (hostProfileComplete) {
+        toast({
+          title: "Car Listed Successfully!",
+          description: "Your vehicle is now live and available for rental.",
+        });
+      } else {
+        toast({
+          title: "Car Saved as Draft",
+          description: "Complete your host profile to publish it.",
+        });
+      }
 
       clearDraft();
       navigate("/host-dashboard");

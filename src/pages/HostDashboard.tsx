@@ -440,7 +440,7 @@ export default function HostDashboard() {
     price_per_day: 50000,
     currency: "RWF",
     media: [] as string[],
-    is_published: true,
+    is_published: true, // Default form state, actual value set on submit
   });
 
   // Load saved vehicle draft on mount
@@ -908,7 +908,7 @@ export default function HostDashboard() {
       images: propertyForm.images.length > 0 ? propertyForm.images : null,
       main_image: propertyForm.images.length > 0 ? propertyForm.images[0] : null,
       host_id: user!.id,
-      is_published: true,
+      is_published: hostProfile?.profile_complete ?? false, // Only publish if profile is complete
     };
 
     // Add optional columns only if they have values
@@ -949,7 +949,11 @@ export default function HostDashboard() {
       }
 
       setProperties((prev) => [newProp as Property, ...prev]);
-      toast({ title: "Property Created!", description: "Your property is now live on the homepage!" });
+      if (hostProfile?.profile_complete) {
+        toast({ title: "Property Created!", description: "Your property is now live on the homepage!" });
+      } else {
+        toast({ title: "Property Saved as Draft", description: "Complete your host profile to publish it." });
+      }
       localStorage.removeItem(PROPERTY_FORM_KEY); // Clear draft
       resetPropertyForm();
       setShowPropertyWizard(false);
@@ -1111,7 +1115,7 @@ export default function HostDashboard() {
       media: data.media && data.media.length > 0 ? data.media : null,
       image_url: data.media && data.media.length > 0 ? data.media[0] : null,
       created_by: user!.id,
-      is_published: typeof data.is_published === "boolean" ? data.is_published : true,
+      is_published: hostProfile?.profile_complete ?? false, // Only publish if profile is complete
     };
     
     const { error, data: newVehicle } = await supabase
@@ -1126,7 +1130,11 @@ export default function HostDashboard() {
     }
     setVehicles((prev) => [newVehicle as Vehicle, ...prev]);
     localStorage.removeItem(VEHICLE_FORM_KEY); // Clear draft
-    toast({ title: "Vehicle created" });
+    if (hostProfile?.profile_complete) {
+      toast({ title: "Vehicle created!", description: "Your vehicle is now live." });
+    } else {
+      toast({ title: "Vehicle saved as draft", description: "Complete your host profile to publish it." });
+    }
     return newVehicle;
   };
 
@@ -1542,8 +1550,15 @@ export default function HostDashboard() {
               </div>
               <div className="flex items-center justify-between pt-2">
                 <div className="flex items-center gap-2">
-                  <Switch checked={form.is_published} onCheckedChange={(v) => setForm((f) => ({ ...f, is_published: v }))} />
+                  <Switch 
+                    checked={form.is_published} 
+                    onCheckedChange={(v) => setForm((f) => ({ ...f, is_published: v }))} 
+                    disabled={!hostProfile?.profile_complete}
+                  />
                   <span className="text-sm">{form.is_published ? "Live" : "Draft"}</span>
+                  {!hostProfile?.profile_complete && (
+                    <span className="text-xs text-amber-600 ml-2">Complete profile to publish</span>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <Button size="sm" variant="outline" onClick={() => setEditingPropertyId(null)}><X className="w-3 h-3" /></Button>
@@ -2479,8 +2494,15 @@ export default function HostDashboard() {
               </div>
               <div className="flex items-center justify-between pt-2">
                 <div className="flex items-center gap-2">
-                  <Switch checked={form.is_published || false} onCheckedChange={(v) => setForm((f) => ({ ...f, is_published: v }))} />
+                  <Switch 
+                    checked={form.is_published || false} 
+                    onCheckedChange={(v) => setForm((f) => ({ ...f, is_published: v }))} 
+                    disabled={!hostProfile?.profile_complete}
+                  />
                   <span className="text-sm">{form.is_published ? "Live" : "Draft"}</span>
+                  {!hostProfile?.profile_complete && (
+                    <span className="text-xs text-amber-600 ml-2">Complete profile to publish</span>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <Button size="sm" variant="outline" onClick={() => setEditingVehicleId(null)}><X className="w-3 h-3" /></Button>
@@ -2512,7 +2534,17 @@ export default function HostDashboard() {
                 <span className="text-primary font-bold">{formatMoney(vehicle.price_per_day, vehicle.currency || "RWF")}/day</span>
                 <div className="flex gap-1">
                   <Button size="sm" variant="ghost" onClick={() => setEditingVehicleId(vehicle.id)}><Edit className="w-3 h-3" /></Button>
-                  <Button size="sm" variant="ghost" onClick={() => updateVehicle(vehicle.id, { is_published: !vehicle.is_published })}>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    onClick={() => {
+                      if (!hostProfile?.profile_complete && !vehicle.is_published) {
+                        toast({ variant: "destructive", title: "Complete your profile first", description: "You need to complete your host profile before publishing listings." });
+                        return;
+                      }
+                      updateVehicle(vehicle.id, { is_published: !vehicle.is_published });
+                    }}
+                  >
                     {vehicle.is_published ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
                   </Button>
                   <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteVehicle(vehicle.id)}><Trash2 className="w-3 h-3" /></Button>
