@@ -75,15 +75,11 @@ export default function BecomeHost() {
       const { error: appError } = await supabase.from("host_applications").insert(payload as any);
       if (appError) throw appError;
 
-      // Add host role to user
-      const { error: roleError } = await supabase.from("user_roles").insert({
-        user_id: user.id,
-        role: "host",
-      } as any);
-      
-      // Ignore duplicate role error
-      if (roleError && !roleError.message?.includes("duplicate")) {
-        console.warn("Role insert warning:", roleError);
+      // Add host role using RPC function (handles RLS properly)
+      const { error: roleError } = await supabase.rpc("become_host");
+      if (roleError) {
+        console.error("Role assignment error:", roleError);
+        // Don't fail - the application was created, admin can fix roles
       }
 
       // Track affiliate referral if applicable
