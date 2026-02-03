@@ -623,7 +623,7 @@ export default function TripCart() {
                     className="w-full h-12 text-base"
                     onClick={handleProceedToCheckout}
                   >
-                    Book Now
+                    Proceed to Payment
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                   <Button 
