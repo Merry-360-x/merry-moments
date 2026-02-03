@@ -99,18 +99,64 @@ export default async function handler(req, res) {
       return json(res, 400, { error: "Phone number is required" });
     }
 
-    // Map provider to PawaPay correspondent
+    // PawaPay correspondents by country and provider
+    // Rwanda (RWA)
+    // Kenya (KEN) 
+    // Uganda (UGA)
+    // Zambia (ZMB)
     const correspondentMap = {
+      // Rwanda
+      "MTN_250": "MTN_MOMO_RWA",
+      "AIRTEL_250": "AIRTEL_RWA",
+      "mtn_momo_250": "MTN_MOMO_RWA",
+      "airtel_money_250": "AIRTEL_RWA",
+      // Kenya
+      "MTN_254": "MTN_MOMO_KEN",
+      "AIRTEL_254": "AIRTEL_KEN",
+      "mtn_momo_254": "MTN_MOMO_KEN",
+      "airtel_money_254": "AIRTEL_KEN",
+      "MPESA_254": "MPESA_KEN",
+      "mpesa_254": "MPESA_KEN",
+      // Uganda
+      "MTN_256": "MTN_MOMO_UGA",
+      "AIRTEL_256": "AIRTEL_UGA",
+      "mtn_momo_256": "MTN_MOMO_UGA",
+      "airtel_money_256": "AIRTEL_UGA",
+      // Zambia
+      "MTN_260": "MTN_MOMO_ZMB",
+      "AIRTEL_260": "AIRTEL_ZMB",
+      "mtn_momo_260": "MTN_MOMO_ZMB",
+      "airtel_money_260": "AIRTEL_ZMB",
+      // Legacy fallback (Rwanda)
       "MTN": "MTN_MOMO_RWA",
       "AIRTEL": "AIRTEL_RWA",
       "mtn_momo": "MTN_MOMO_RWA",
       "airtel_money": "AIRTEL_RWA",
     };
 
-    const correspondent = correspondentMap[provider];
-    if (!correspondent) {
-      return json(res, 400, { error: `Unsupported payment provider: ${provider}` });
+    // Extract country code from phone number
+    let cleanPhone = phoneNumber.replace(/[\s\-+]/g, "");
+    let countryCode = "250"; // Default to Rwanda
+    
+    // Detect country from phone prefix
+    if (cleanPhone.startsWith("254")) {
+      countryCode = "254"; // Kenya
+    } else if (cleanPhone.startsWith("256")) {
+      countryCode = "256"; // Uganda
+    } else if (cleanPhone.startsWith("260")) {
+      countryCode = "260"; // Zambia
+    } else if (cleanPhone.startsWith("250")) {
+      countryCode = "250"; // Rwanda
     }
+    
+    const correspondentKey = `${provider}_${countryCode}`;
+    const correspondent = correspondentMap[correspondentKey] || correspondentMap[provider];
+    
+    if (!correspondent) {
+      return json(res, 400, { error: `Unsupported payment provider: ${provider} for country code ${countryCode}` });
+    }
+    
+    console.log("🌍 Payment country:", { countryCode, provider, correspondentKey, correspondent });
 
     // Fetch checkout details from database
     const { data: checkout, error: checkoutError } = await supabase
@@ -137,32 +183,47 @@ export default async function handler(req, res) {
     // Generate unique deposit ID - must be a valid UUID
     const depositId = crypto.randomUUID();
 
-    // Format phone number properly for PawaPay (needs 250XXXXXXXXX format)
-    let cleanPhone = phoneNumber.replace(/[\s\-+]/g, "");
+    // Format phone number properly for PawaPay
+    // Already have cleanPhone from country detection above
     
-    // Remove duplicate country code if present (e.g., 250250792...)
-    if (cleanPhone.startsWith("250250")) {
-      cleanPhone = cleanPhone.substring(3);
+    // Phone number validation by country
+    // Rwanda: 250 + 9 digits = 12 digits
+    // Kenya: 254 + 9 digits = 12 digits  
+    // Uganda: 256 + 9 digits = 12 digits
+    // Zambia: 260 + 9 digits = 12 digits
+    
+    const countryPhoneInfo = {
+      "250": { name: "Rwanda", length: 12, localLength: 9, example: "78XXXXXXX" },
+      "254": { name: "Kenya", length: 12, localLength: 9, example: "7XXXXXXXX" },
+      "256": { name: "Uganda", length: 12, localLength: 9, example: "7XXXXXXXX" },
+      "260": { name: "Zambia", length: 12, localLength: 9, example: "9XXXXXXXX" },
+    };
+    
+    const phoneInfo = countryPhoneInfo[countryCode] || countryPhoneInfo["250"];
+    
+    // Remove duplicate country code if present
+    if (cleanPhone.startsWith(countryCode + countryCode)) {
+      cleanPhone = cleanPhone.substring(countryCode.length);
     }
     
-    // Ensure phone starts with country code (250 for Rwanda)
+    // Ensure phone starts with country code
     let msisdn = cleanPhone;
-    if (!msisdn.startsWith("250") && msisdn.length === 9) {
-      msisdn = "250" + msisdn;
+    if (!msisdn.startsWith(countryCode) && msisdn.length === phoneInfo.localLength) {
+      msisdn = countryCode + msisdn;
     }
     
-    // Validate final phone format (should be 250 + 9 digits = 12 digits)
-    if (msisdn.length !== 12 || !msisdn.startsWith("250")) {
-      console.error("❌ Invalid phone format:", { original: phoneNumber, cleaned: cleanPhone, msisdn });
+    // Validate final phone format
+    if (msisdn.length !== phoneInfo.length || !msisdn.startsWith(countryCode)) {
+      console.error("❌ Invalid phone format:", { original: phoneNumber, cleaned: cleanPhone, msisdn, countryCode });
       return json(res, 400, {
         success: false,
         error: "Invalid phone number",
-        message: `Phone number format is incorrect. Please enter a valid Rwanda number (e.g., 78XXXXXXX)`,
-        debugInfo: { phoneNumber, cleanPhone, msisdn }
+        message: `Phone number format is incorrect. Please enter a valid ${phoneInfo.name} number (e.g., ${phoneInfo.example})`,
+        debugInfo: { phoneNumber, cleanPhone, msisdn, countryCode }
       });
     }
     
-    console.log("📱 Phone number processed:", { original: phoneNumber, final: msisdn });
+    console.log("📱 Phone number processed:", { original: phoneNumber, final: msisdn, country: phoneInfo.name });
 
     // Create PawaPay deposit request
     const pawaPayRequest = {

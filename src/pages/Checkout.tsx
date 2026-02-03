@@ -575,13 +575,21 @@ export default function CheckoutNew() {
         throw new Error("Minimum payment amount is 100 RWF");
       }
 
+      // Determine provider based on payment method and country
+      // For Kenya, MTN option shows M-Pesa
+      let provider = paymentMethod === 'airtel' ? 'AIRTEL' : 'MTN';
+      if (countryCode === '+254' && paymentMethod === 'mtn') {
+        provider = 'MPESA';
+      }
+
       // Initiate PawaPay payment for mobile money
       console.log("🔄 Initiating PawaPay payment:", {
         checkoutId,
         amount: finalAmount,
         currency: 'RWF',
         phoneNumber: fullPhone,
-        provider: paymentMethod === 'airtel' ? 'AIRTEL' : 'MTN',
+        provider,
+        country: countryCode,
       });
 
       const paymentResponse = await fetch("/api/pawapay-create-payment", {
@@ -595,7 +603,7 @@ export default function CheckoutNew() {
           description: `Merry360x Booking - ${cartItems.length} item(s)`,
           payerEmail: formData.email,
           payerName: formData.fullName,
-          provider: paymentMethod === 'airtel' ? 'AIRTEL' : 'MTN',
+          provider,
         }),
       });
 
@@ -821,7 +829,7 @@ export default function CheckoutNew() {
 
                   {/* Payment Method Selector */}
                   <div className="grid grid-cols-2 gap-2 md:gap-3">
-                    {/* MTN Mobile Money */}
+                    {/* MTN Mobile Money / M-Pesa for Kenya */}
                     <button
                       onClick={() => setPaymentMethod('mtn')}
                       className={cn(
@@ -832,12 +840,19 @@ export default function CheckoutNew() {
                       )}
                     >
                       <div className="flex items-center gap-2 md:gap-3">
-                        <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-yellow-400 flex items-center justify-center flex-shrink-0">
-                          <span className="font-bold text-[10px] md:text-sm text-black">MTN</span>
+                        <div className={cn(
+                          "w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center flex-shrink-0",
+                          countryCode === '+254' ? "bg-green-500" : "bg-yellow-400"
+                        )}>
+                          <span className={cn("font-bold text-[10px] md:text-sm", countryCode === '+254' ? "text-white" : "text-black")}>
+                            {countryCode === '+254' ? 'M-Pesa' : 'MTN'}
+                          </span>
                         </div>
                         <div className="min-w-0">
-                          <p className="font-medium text-xs md:text-base truncate">MTN MoMo</p>
-                          <p className="text-[10px] md:text-xs text-muted-foreground hidden sm:block">Rwanda</p>
+                          <p className="font-medium text-xs md:text-base truncate">
+                            {countryCode === '+254' ? 'M-Pesa' : 'MTN MoMo'}
+                          </p>
+                          <p className="text-[10px] md:text-xs text-muted-foreground hidden sm:block">Mobile Money</p>
                         </div>
                       </div>
                     </button>
@@ -858,7 +873,7 @@ export default function CheckoutNew() {
                         </div>
                         <div className="min-w-0">
                           <p className="font-medium text-xs md:text-base truncate">Airtel Money</p>
-                          <p className="text-[10px] md:text-xs text-muted-foreground hidden sm:block">Rwanda</p>
+                          <p className="text-[10px] md:text-xs text-muted-foreground hidden sm:block">Mobile Money</p>
                         </div>
                       </div>
                     </button>
@@ -920,7 +935,7 @@ export default function CheckoutNew() {
                             <option value="+250">🇷🇼 +250</option>
                             <option value="+254">🇰🇪 +254</option>
                             <option value="+256">🇺🇬 +256</option>
-                            <option value="+255">🇹🇿 +255</option>
+                            <option value="+260">🇿🇲 +260</option>
                           </select>
                           <div className="relative flex-1">
                             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -1034,7 +1049,7 @@ export default function CheckoutNew() {
                     <div className="bg-muted/30 rounded-xl p-4">
                       <h4 className="text-sm font-medium mb-2">Payment Method</h4>
                       <p className="text-sm">
-                        {paymentMethod === 'mtn' && 'MTN Mobile Money'}
+                        {paymentMethod === 'mtn' && (countryCode === '+254' ? 'M-Pesa' : 'MTN Mobile Money')}
                         {paymentMethod === 'airtel' && 'Airtel Money'}
                         {paymentMethod === 'card' && 'Credit / Debit Card'}
                         {paymentMethod === 'bank' && 'Bank Transfer'}
