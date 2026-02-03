@@ -95,6 +95,8 @@ Some components are non-refundable once booked, including but not limited to:
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
   const [coverDialogOpen, setCoverDialogOpen] = useState(false);
   const [galleryDialogOpen, setGalleryDialogOpen] = useState(false);
+  const [licenseUrl, setLicenseUrl] = useState<string>("");
+  const [licenseDialogOpen, setLicenseDialogOpen] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string>("");
   const [uploadingPdf, setUploadingPdf] = useState(false);
@@ -254,7 +256,7 @@ Some components are non-refundable once booked, including but not limited to:
       formData.description.trim().length >= 50 && formData.city.trim() &&
       formData.duration.trim() && formData.daily_itinerary.trim().length >= 100 &&
       formData.meeting_point.trim() && policyValid &&
-      parseFloat(formData.price_per_adult) > 0;
+      parseFloat(formData.price_per_adult) > 0 && licenseUrl.trim();
       // Note: coverImage, pdfFile, and cancellation_policy are now optional - can be uploaded later
   };
 
@@ -1183,6 +1185,41 @@ Some components are non-refundable once booked, including but not limited to:
               <Label className="text-sm font-normal mb-2 block">Itinerary PDF *</Label>
               <Input type="file" accept=".pdf" onChange={handlePdfChange} className="h-10 cursor-pointer" />
               {pdfFile && <p className="text-xs text-muted-foreground mt-1">{pdfFile.name}</p>}
+            </div>
+
+            <div>
+              <Label className="text-sm font-normal mb-2 block">Tour Guide License / Certificate *</Label>
+              <p className="text-xs text-muted-foreground mb-2">Upload your official tour guide license or certification (PDF or image)</p>
+              {licenseUrl ? (
+                <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
+                  <span className="text-sm flex-1 text-green-700 dark:text-green-300">✓ License uploaded</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setLicenseUrl("")}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <X className="w-4 h-4" /> Remove
+                  </Button>
+                </div>
+              ) : (
+                <Button type="button" variant="outline" size="sm" onClick={() => setLicenseDialogOpen(true)}>
+                  <Upload className="w-3.5 h-3.5 mr-1.5" /> Upload License
+                </Button>
+              )}
+              <CloudinaryUploadDialog
+                title="Upload Tour Guide License/Certificate"
+                folder="tour_licenses"
+                accept="image/*,application/pdf"
+                multiple={false}
+                maxFiles={1}
+                autoStart={true}
+                value={licenseUrl ? [licenseUrl] : []}
+                onChange={(urls) => setLicenseUrl(urls[0] || "")}
+                open={licenseDialogOpen}
+                onOpenChange={setLicenseDialogOpen}
+              />
             </div>
           </div>
 

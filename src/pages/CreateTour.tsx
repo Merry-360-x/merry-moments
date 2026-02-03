@@ -51,6 +51,8 @@ export default function CreateTour() {
 
   const [images, setImages] = useState<string[]>([]);
   const [cloudinaryDialogOpen, setCloudinaryDialogOpen] = useState(false);
+  const [licenseUrl, setLicenseUrl] = useState<string>("");
+  const [licenseDialogOpen, setLicenseDialogOpen] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string>("");
   const [uploadingPdf, setUploadingPdf] = useState(false);
@@ -188,7 +190,7 @@ export default function CreateTour() {
     return formData.title.trim() && formData.description.trim().length >= 20 &&
       formData.location.trim() && formData.price_per_person > 0 &&
       formData.duration_days >= 1 && formData.max_participants >= 1 &&
-      formData.categories.length > 0 && images.length > 0;
+      formData.categories.length > 0 && images.length > 0 && licenseUrl.trim();
   };
 
   const handlePdfChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -518,6 +520,41 @@ export default function CreateTour() {
               <Label className="text-sm font-normal mb-2 block">Itinerary PDF <span className="text-xs text-muted-foreground">(optional)</span></Label>
               <Input type="file" accept=".pdf" onChange={handlePdfChange} className="h-10 cursor-pointer" />
               {pdfFile && <p className="text-xs text-muted-foreground mt-1">{pdfFile.name}</p>}
+            </div>
+
+            <div>
+              <Label className="text-sm font-normal mb-2 block">Tour Guide License / Certificate *</Label>
+              <p className="text-xs text-muted-foreground mb-2">Upload your official tour guide license or certification (PDF or image)</p>
+              {licenseUrl ? (
+                <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
+                  <span className="text-sm flex-1 text-green-700 dark:text-green-300">✓ License uploaded</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setLicenseUrl("")}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <X className="w-4 h-4" /> Remove
+                  </Button>
+                </div>
+              ) : (
+                <Button type="button" variant="outline" size="sm" onClick={() => setLicenseDialogOpen(true)}>
+                  <Upload className="w-3.5 h-3.5 mr-1.5" /> Upload License
+                </Button>
+              )}
+              <CloudinaryUploadDialog
+                title="Upload Tour Guide License/Certificate"
+                folder="tour_licenses"
+                accept="image/*,application/pdf"
+                multiple={false}
+                maxFiles={1}
+                autoStart={true}
+                value={licenseUrl ? [licenseUrl] : []}
+                onChange={(urls) => setLicenseUrl(urls[0] || "")}
+                open={licenseDialogOpen}
+                onOpenChange={setLicenseDialogOpen}
+              />
             </div>
           </div>
 
