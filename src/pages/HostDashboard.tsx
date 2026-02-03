@@ -4927,11 +4927,18 @@ END OF REPORT
                   
                   if (error) throw error;
                   
-                  toast({ title: "Profile completed!", description: "Your listings can now go live." });
-                  setShowProfileDialog(false);
-                  setHostProfile(prev => prev ? { ...prev, profile_complete: true, service_types: profileForm.service_types } : null);
+                  // Update local state immediately - this will hide the warning banner
+                  setHostProfile(prev => prev ? { 
+                    ...prev, 
+                    profile_complete: true, 
+                    service_types: profileForm.service_types,
+                    national_id_photo_url: profileForm.national_id_photo_url,
+                    tour_license_url: profileForm.tour_license_url || null,
+                    rdb_certificate_url: profileForm.rdb_certificate_url || null,
+                  } : null);
                   setHostServiceTypes(profileForm.service_types);
-                  fetchData();
+                  setShowProfileDialog(false);
+                  toast({ title: "Profile completed!", description: "Your listings can now go live." });
                 } catch (e) {
                   logError("host-profile.save", e);
                   toast({ variant: "destructive", title: "Failed to save", description: uiErrorMessage(e, "Please try again.") });
