@@ -736,15 +736,6 @@ export default function HostDashboard() {
         if (payouts) {
           setPayoutHistory(payouts);
         }
-
-        // Show payout dialog only once per session if no payout method exists
-        const hasSeenPayoutPrompt = sessionStorage.getItem('hasSeenPayoutPrompt');
-        if (!profile?.payout_method && !hasSeenPayoutPrompt) {
-          sessionStorage.setItem('hasSeenPayoutPrompt', 'true');
-          setTimeout(() => {
-            setShowPayoutDialog(true);
-          }, 1500);
-        }
       } catch (e) {
         console.error('Failed to fetch payout info:', e);
       }
@@ -4839,8 +4830,11 @@ END OF REPORT
                   <Label className="text-sm">National ID / Passport</Label>
                   <p className="text-xs text-muted-foreground">Required for identity verification</p>
                   <CloudinaryUploadDialog
-                    onUploadComplete={(url) => setProfileForm(prev => ({ ...prev, national_id_photo_url: url }))}
+                    title="Upload National ID"
                     folder="host_documents"
+                    accept="image/*,.pdf"
+                    value={profileForm.national_id_photo_url ? [profileForm.national_id_photo_url] : []}
+                    onChange={(urls) => setProfileForm(prev => ({ ...prev, national_id_photo_url: urls[0] || '' }))}
                     buttonLabel={profileForm.national_id_photo_url ? "Change ID" : "Upload ID"}
                   />
                   {profileForm.national_id_photo_url && (
@@ -4856,8 +4850,11 @@ END OF REPORT
                     <Label className="text-sm">Tour Guide License</Label>
                     <p className="text-xs text-muted-foreground">Required for tour operators</p>
                     <CloudinaryUploadDialog
-                      onUploadComplete={(url) => setProfileForm(prev => ({ ...prev, tour_license_url: url }))}
+                      title="Upload Tour License"
                       folder="tour_licenses"
+                      accept="image/*,.pdf"
+                      value={profileForm.tour_license_url ? [profileForm.tour_license_url] : []}
+                      onChange={(urls) => setProfileForm(prev => ({ ...prev, tour_license_url: urls[0] || '' }))}
                       buttonLabel={profileForm.tour_license_url ? "Change License" : "Upload License"}
                     />
                     {profileForm.tour_license_url && (
@@ -4874,8 +4871,11 @@ END OF REPORT
                     <Label className="text-sm">RDB Certificate (Optional)</Label>
                     <p className="text-xs text-muted-foreground">Rwanda Development Board registration</p>
                     <CloudinaryUploadDialog
-                      onUploadComplete={(url) => setProfileForm(prev => ({ ...prev, rdb_certificate_url: url }))}
+                      title="Upload RDB Certificate"
                       folder="rdb_certificates"
+                      accept="image/*,.pdf"
+                      value={profileForm.rdb_certificate_url ? [profileForm.rdb_certificate_url] : []}
+                      onChange={(urls) => setProfileForm(prev => ({ ...prev, rdb_certificate_url: urls[0] || '' }))}
                       buttonLabel={profileForm.rdb_certificate_url ? "Change Certificate" : "Upload Certificate"}
                     />
                     {profileForm.rdb_certificate_url && (
