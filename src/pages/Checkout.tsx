@@ -131,6 +131,11 @@ export default function CheckoutNew() {
   const [paymentMethod, setPaymentMethod] = useState<string>('mtn_rwa'); // Default to MTN Rwanda
   const [showContactModal, setShowContactModal] = useState(false);
   
+  // Legal acknowledgment
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
+  const [acceptedCancellation, setAcceptedCancellation] = useState(false);
+  
   // Discount
   const [appliedDiscount, setAppliedDiscount] = useState<any>(null);
   const [discountCodeInput, setDiscountCodeInput] = useState("");
@@ -1154,6 +1159,56 @@ export default function CheckoutNew() {
                     </div>
                   )}
 
+                  {/* Legal Acknowledgment Checkboxes */}
+                  <div className="bg-muted/30 rounded-xl p-4 space-y-3">
+                    <h4 className="text-sm font-medium mb-3">Before you proceed</h4>
+                    
+                    <label className="flex items-start gap-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={acceptedTerms}
+                        onChange={(e) => setAcceptedTerms(e.target.checked)}
+                        className="mt-1 w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                      <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+                        I have read and agree to the{' '}
+                        <Link to="/terms-and-conditions" target="_blank" className="text-primary hover:underline font-medium">
+                          Terms and Conditions
+                        </Link>
+                      </span>
+                    </label>
+
+                    <label className="flex items-start gap-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={acceptedPrivacy}
+                        onChange={(e) => setAcceptedPrivacy(e.target.checked)}
+                        className="mt-1 w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                      <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+                        I have read and understood the{' '}
+                        <Link to="/privacy-policy" target="_blank" className="text-primary hover:underline font-medium">
+                          Privacy Policy
+                        </Link>
+                      </span>
+                    </label>
+
+                    <label className="flex items-start gap-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={acceptedCancellation}
+                        onChange={(e) => setAcceptedCancellation(e.target.checked)}
+                        className="mt-1 w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                      <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+                        I understand the{' '}
+                        <Link to="/refund-policy" target="_blank" className="text-primary hover:underline font-medium">
+                          Cancellation & Refund Policy
+                        </Link>
+                      </span>
+                    </label>
+                  </div>
+
                   {/* Error */}
                   {paymentError && (
                     <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 flex gap-3">
@@ -1188,7 +1243,7 @@ export default function CheckoutNew() {
                       size="lg" 
                       className="flex-1"
                       onClick={handlePayment}
-                      disabled={isProcessing}
+                      disabled={isProcessing || !acceptedTerms || !acceptedPrivacy || !acceptedCancellation}
                     >
                       {isProcessing ? (
                         <>
@@ -1203,6 +1258,13 @@ export default function CheckoutNew() {
                       )}
                     </Button>
                   </div>
+
+                  {/* Validation hint */}
+                  {(!acceptedTerms || !acceptedPrivacy || !acceptedCancellation) && (
+                    <p className="text-xs text-center text-muted-foreground">
+                      Please accept all terms and policies to proceed with payment
+                    </p>
+                  )}
 
                   {/* Security Note */}
                   <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-4">
