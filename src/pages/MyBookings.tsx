@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
-import { Calendar, MapPin, Users, XCircle, Star, AlertTriangle } from "lucide-react";
+import { Calendar, MapPin, Users, XCircle, Star, AlertTriangle, CalendarClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
@@ -19,6 +19,7 @@ import { useFxRates } from "@/hooks/useFxRates";
 import { usePreferences } from "@/hooks/usePreferences";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { BookingDateChangeDialog } from "@/components/BookingDateChangeDialog";
 
 interface Booking {
   id: string;
@@ -42,6 +43,7 @@ interface Booking {
     property_type: string;
     address?: string | null;
     cancellation_policy?: string | null;
+    price_per_night?: number;
   } | null;
   tour_packages?: {
     title: string;
@@ -50,6 +52,7 @@ interface Booking {
     duration?: string | null;
     cancellation_policy_type?: string | null;
     custom_cancellation_policy?: string | null;
+    price_per_person?: number;
   } | null;
   transport_vehicles?: {
     title: string;
@@ -81,6 +84,9 @@ const MyBookings = () => {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [bookingToCancel, setBookingToCancel] = useState<Booking | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [dateChangeDialogOpen, setDateChangeDialogOpen] = useState(false);
+  const [bookingToChange, setBookingToChange] = useState<Booking | null>(null);
+  const [bookingHostId, setBookingHostId] = useState<string>("");
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -97,8 +103,8 @@ const MyBookings = () => {
         .from("bookings")
         .select(`
           *, 
-          properties(title, location, property_type, address, cancellation_policy),
-          tour_packages(title, city, country, duration, cancellation_policy_type, custom_cancellation_policy)
+          properties(title, location, property_type, address, cancellation_policy, price_per_night),
+          tour_packages(title, city, country, duration, cancellation_policy_type, custom_cancellation_policy, price_per_person)
         `)
         .eq("guest_id", user!.id)
         .order("created_at", { ascending: false });
@@ -182,6 +188,56 @@ const MyBookings = () => {
   const openCancelDialog = (booking: Booking) => {
     setBookingToCancel(booking);
     setCancelDialogOpen(true);
+  };
+
+  const openDateChangeDialog = async (booking: Booking) => {
+    // Fetch host ID from the property, tour, or transport
+    try {
+      let hostId = "";
+      
+      if (booking.property_id) {
+        const { data } = await supabase
+          .from("properties")
+          .select("host_id")
+          .eq("id", booking.property_id)
+          .single();
+        hostId = data?.host_id || "";
+      } else if (booking.tour_id) {
+        const { data } = await supabase
+          .from("tour_packages")
+          .select("host_id")
+          .eq("id", booking.tour_id)
+          .single();
+        hostId = data?.host_id || "";
+      } else if (booking.transport_id) {
+        const { data } = await supabase
+          .from("transport_vehicles")
+          .select("host_id")
+          .eq("id", booking.transport_id)
+          .single();
+        hostId = data?.host_id || "";
+      }
+
+      if (!hostId) {
+        toast({
+          title: "Error",
+          description: "Unable to find host information",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setBookingHostId(hostId);
+      setBookingToChange(booking);
+      setDateChangeDialogOpen(true);
+    } catch (error) {
+      console.error("Error fetching host info:", error);
+      toast({
+        title: "Error",
+        description: "Failed to open date change dialog",
+        variant: "destructive",
+      });
+    }
   };
 
   const confirmCancellation = async () => {
@@ -451,6 +507,15 @@ const MyBookings = () => {
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => openDateChangeDialog(booking)}
+                      className="gap-1 text-xs md:text-sm h-8 md:h-9"
+                    >
+                      <CalendarClock className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                      Change Dates
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => openCancelDialog(booking)}
                       className="gap-1 text-xs md:text-sm h-8 md:h-9"
                     >
@@ -686,6 +751,20 @@ const MyBookings = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {bookingToChange && (
+        <BookingDateChangeDialog
+          booking={bookingToChange}
+          hostId={bookingHostId}
+          open={dateChangeDialogOpen}
+          onOpenChange={setDateChangeDialogOpen}
+          onSuccess={() => {
+            refetchBookings();
+            setBookingToChange(null);
+            setBookingHostId("");
+          }}
+        />
+      )}
 
       <Footer />
     </div>
