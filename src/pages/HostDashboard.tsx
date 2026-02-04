@@ -3988,52 +3988,6 @@ export default function HostDashboard() {
                 </div>
               </Card>
             </div>
-
-            {/* Quick Actions */}
-            <Card className="p-6 mb-8">
-              <h3 className="font-semibold mb-4">Quick Actions</h3>
-              <div className="flex flex-wrap gap-3">
-                <Button onClick={openPropertyWizard}>
-                  <Plus className="w-4 h-4 mr-2" /> Add Property
-                </Button>
-                <Button variant="outline" onClick={() => navigate("/create-tour")}>
-                  <Plus className="w-4 h-4 mr-2" /> Create Tour
-                </Button>
-                <Button variant="outline" onClick={() => navigate("/create-tour-package")}>
-                  <Plus className="w-4 h-4 mr-2" /> Create Tour Package
-                </Button>
-                <Button variant="outline" onClick={() => navigate("/create-transport")}>
-                  <Car className="w-4 h-4 mr-2" /> Add Vehicle
-                </Button>
-              </div>
-            </Card>
-
-            {/* Recent Bookings */}
-            <Card className="p-4">
-              <h3 className="font-semibold mb-4">Recent Bookings</h3>
-              {(bookings || []).length === 0 ? (
-                <p className="text-muted-foreground">No bookings yet</p>
-              ) : (
-                <div className="space-y-2">
-                  {(bookings || []).slice(0, 5).map((b) => (
-                    <div key={b.id} className="flex items-center justify-between p-3 border rounded-lg">
-              <div>
-                        <p className="font-medium">{b.check_in} → {b.check_out}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {b.guests} guests · {formatMoney(b.total_price, b.currency)}
-                          {b.is_guest_booking && b.guest_name && (
-                            <span className="ml-2 text-xs">• Guest: {b.guest_name}</span>
-                          )}
-                </p>
-              </div>
-                      <Badge className={b.status === "confirmed" ? "bg-green-500" : b.status === "pending" ? "bg-yellow-500" : "bg-gray-500"}>
-                        {b.status}
-                      </Badge>
-            </div>
-                  ))}
-          </div>
-              )}
-            </Card>
           </TabsContent>
 
           {/* Properties */}
