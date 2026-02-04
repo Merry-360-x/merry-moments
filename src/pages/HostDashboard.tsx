@@ -97,6 +97,7 @@ import {
   Wallet,
   AlertCircle,
   Camera,
+  BadgeCheck,
 } from "lucide-react";
 import {
   Dialog,
@@ -717,7 +718,7 @@ export default function HostDashboard() {
   const [profileChecked, setProfileChecked] = useState(false);
 
   // Auto-show profile completion dialog if profile is incomplete
-  // Only show once per page load after data is actually fetched
+  // Only show once per page load after data is actually fetched from database
   useEffect(() => {
     // Wait until loading is done AND we have hostProfile data from the fetch
     if (isLoading || !hostProfile || profileChecked) return;
@@ -725,9 +726,8 @@ export default function HostDashboard() {
     // Mark that we've checked
     setProfileChecked(true);
     
-    // If profile is complete, don't show dialog
+    // If profile is already complete in the database, never show the dialog
     if (hostProfile.profile_complete) {
-      console.log('[HostDashboard] Profile is complete, not showing dialog');
       return;
     }
     
@@ -735,12 +735,10 @@ export default function HostDashboard() {
     const dismissedKey = `profile_dialog_dismissed_${user?.id}`;
     const dismissed = sessionStorage.getItem(dismissedKey);
     if (dismissed) {
-      console.log('[HostDashboard] Dialog already dismissed this session');
       return;
     }
     
-    // Show dialog with slight delay
-    console.log('[HostDashboard] Profile incomplete, showing dialog');
+    // Show dialog with slight delay for incomplete profiles
     const timer = setTimeout(() => {
       setShowProfileDialog(true);
     }, 500);
@@ -3821,11 +3819,19 @@ export default function HostDashboard() {
 
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
-              <div>
-            <h1 className="text-2xl font-bold text-foreground">Host Dashboard</h1>
-            <p className="text-muted-foreground">Manage your properties, tours, and bookings</p>
-              </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold text-foreground">Host Dashboard</h1>
+              {hostProfile?.profile_complete && (
+                <Badge variant="default" className="bg-green-600 hover:bg-green-600 gap-1">
+                  <BadgeCheck className="w-3.5 h-3.5" />
+                  Verified
+                </Badge>
+              )}
             </div>
+            <p className="text-muted-foreground">Manage your properties, tours, and bookings</p>
+          </div>
+        </div>
 
         {/* Profile Completion Warning Banner */}
         {hostProfile && !hostProfile.profile_complete && (
