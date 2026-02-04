@@ -66,6 +66,9 @@ Some components are non-refundable once booked, including but not limited to:
     currency: "RWF",
     min_guests: 1,
     max_guests: 10,
+    has_differential_pricing: false,
+    price_for_citizens: "",
+    price_for_foreigners: "",
   });
 
   // Group discounts as an array of tiers
@@ -363,6 +366,9 @@ Some components are non-refundable once booked, including but not limited to:
         gallery_images: galleryImages.length > 0 ? galleryImages : null,
         itinerary_pdf_url: pdfUrl,
         status: (isHost ? "approved" : "draft"),
+        has_differential_pricing: formData.has_differential_pricing,
+        price_for_citizens: formData.has_differential_pricing && formData.price_for_citizens ? parseFloat(formData.price_for_citizens) : null,
+        price_for_foreigners: formData.has_differential_pricing && formData.price_for_foreigners ? parseFloat(formData.price_for_foreigners) : null,
       };
 
       const normalizedPricingTiers = Array.from(
@@ -898,6 +904,54 @@ Some components are non-refundable once booked, including but not limited to:
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            {/* Differential Pricing Section */}
+            <div className="p-4 rounded-xl border border-border bg-blue-50 dark:bg-blue-950/20">
+              <div className="flex items-center gap-3 mb-3">
+                <input
+                  type="checkbox"
+                  id="differential-pricing"
+                  checked={formData.has_differential_pricing}
+                  onChange={(e) => setFormData({ ...formData, has_differential_pricing: e.target.checked })}
+                  className="w-4 h-4 rounded border-gray-300"
+                />
+                <Label htmlFor="differential-pricing" className="text-sm font-medium cursor-pointer">
+                  Different prices for citizens and foreigners
+                </Label>
+              </div>
+              
+              {formData.has_differential_pricing && (
+                <div className="ml-7 mt-3 grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm">Price for Citizens/Residents</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formData.price_for_citizens}
+                      onChange={(e) => setFormData({ ...formData, price_for_citizens: e.target.value })}
+                      placeholder="Citizen price"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm">Price for Foreigners/Tourists</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formData.price_for_foreigners}
+                      onChange={(e) => setFormData({ ...formData, price_for_foreigners: e.target.value })}
+                      placeholder="Foreigner price"
+                      className="mt-1"
+                    />
+                  </div>
+                  <p className="col-span-2 text-xs text-muted-foreground">
+                    When enabled, guests will be asked if they're citizens/residents to show the appropriate price
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
