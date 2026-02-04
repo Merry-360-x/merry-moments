@@ -454,21 +454,55 @@ export default function PropertyDetails() {
   }, [guestCart, inCartRow?.id, isGuest, propertyId]);
 
   const { data: relatedTours = [] } = useQuery({
-    queryKey: ["related-tours", data?.location],
-    enabled: Boolean(data?.location),
+    queryKey: ["related-tours"],
     queryFn: async () => {
-      const loc = String(data?.location ?? "").trim();
-      const q = loc ? loc.split(",")[0] : "";
-      const base = supabase
+      // Get tours from tours table
+      const { data: toursData, error: toursError } = await supabase
         .from("tours")
         .select("id, title, location, price_per_person, currency, images, rating, review_count")
         .eq("is_published", true)
         .order("created_at", { ascending: false })
         .limit(6);
-
-      const { data: rows, error } = q ? await base.ilike("location", `%${q}%`) : await base;
-      if (error) throw error;
-      return (rows ?? []) as Array<{
+      
+      if (toursError) throw toursError;
+      
+      // Also get tour_packages
+      const { data: packagesData, error: packagesError } = await supabase
+        .from("tour_packages")
+        .select("id, title, location, adult_price, currency, images, rating, review_count")
+        .eq("status", "approved")
+        .order("created_at", { ascending: false })
+        .limit(6);
+      
+      if (packagesError) throw packagesError;
+      
+      // Combine and normalize both
+      const tours = (toursData ?? []).map(t => ({
+        id: t.id,
+        title: t.title,
+        location: t.location,
+        price_per_person: t.price_per_person,
+        currency: t.currency,
+        images: t.images,
+        rating: t.rating,
+        review_count: t.review_count,
+        source: "tours" as const
+      }));
+      
+      const packages = (packagesData ?? []).map(p => ({
+        id: p.id,
+        title: p.title,
+        location: p.location,
+        price_per_person: p.adult_price,
+        currency: p.currency,
+        images: p.images,
+        rating: p.rating,
+        review_count: p.review_count,
+        source: "tour_packages" as const
+      }));
+      
+      // Return combined list, prioritize packages
+      return [...packages, ...tours].slice(0, 6) as Array<{
         id: string;
         title: string;
         location: string | null;
@@ -477,6 +511,7 @@ export default function PropertyDetails() {
         images: string[] | null;
         rating: number | null;
         review_count: number | null;
+        source: "tours" | "tour_packages";
       }>;
     },
   });
@@ -720,13 +755,13 @@ export default function PropertyDetails() {
 
                 <div className="space-y-6">
                   <div>
-                    <div className="text-xs font-medium text-muted-foreground mb-2">Tours near this location</div>
+                    <div className="text-xs font-medium text-muted-foreground mb-2">Available tours</div>
                     {relatedTours.length === 0 ? (
                       <div className="text-sm text-muted-foreground">No tours found yet.</div>
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {relatedTours.slice(0, 4).map((t) => (
-                          <Link key={t.id} to="/tours" className="block">
+                          <Link key={t.id} to={t.source === "tour_packages" ? `/tours/${t.id}` : "/tours"} className="block">
                             <div className="rounded-xl border border-border overflow-hidden hover:shadow-md transition">
                               {t.images?.[0] ? (
                                 <img
