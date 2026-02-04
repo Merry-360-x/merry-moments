@@ -1787,8 +1787,13 @@ For support, contact: support@merry360x.com
             <TabsTrigger value="reviews" className="gap-1">
               <Star className="w-4 h-4" /> Reviews
             </TabsTrigger>
-            <TabsTrigger value="support" className="gap-1">
+            <TabsTrigger value="support" className="gap-1 relative">
               <MessageSquare className="w-4 h-4" /> Support
+              {(metrics?.tickets_open ?? 0) > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white animate-pulse">
+                  {(metrics?.tickets_open ?? 0) > 99 ? "99+" : metrics?.tickets_open}
+                </span>
+              )}
             </TabsTrigger>
             <TabsTrigger value="safety" className="gap-1">
               <Shield className="w-4 h-4" /> Safety
@@ -2018,11 +2023,22 @@ For support, contact: support@merry360x.com
             </Card>
 
             <div className="grid md:grid-cols-3 gap-4">
-              <Card className="p-4 border-l-4 border-l-yellow-500">
+              <Card 
+                className={`p-4 border-l-4 border-l-yellow-500 cursor-pointer hover:shadow-md transition-shadow ${(metrics?.tickets_open ?? 0) > 0 ? 'ring-2 ring-red-500 ring-opacity-50 animate-pulse' : ''}`}
+                onClick={() => setActiveTab("support")}
+              >
                 <h4 className="font-medium flex items-center gap-2">
                   <MessageSquare className="w-4 h-4" /> Open Tickets
+                  {(metrics?.tickets_open ?? 0) > 0 && (
+                    <span className="ml-auto flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
+                      {(metrics?.tickets_open ?? 0) > 99 ? "99+" : metrics?.tickets_open}
+                    </span>
+                  )}
                 </h4>
                 <p className="text-2xl font-bold">{metrics?.tickets_open ?? 0}</p>
+                {(metrics?.tickets_open ?? 0) > 0 && (
+                  <p className="text-xs text-red-600 mt-1">⚠️ Needs attention - Click to view</p>
+                )}
               </Card>
               <Card className="p-4 border-l-4 border-l-red-500">
                 <h4 className="font-medium flex items-center gap-2">
