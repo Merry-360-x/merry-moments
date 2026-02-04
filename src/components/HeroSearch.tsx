@@ -844,6 +844,19 @@ const HeroSearch = () => {
                         >
                           {t("heroSearch.quick.flexDays", { count: 2 })}
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const start = dateRange?.from || new Date();
+                            const end = new Date(start);
+                            end.setMonth(end.getMonth() + 1);
+                            setDateRange({ from: start, to: end });
+                            setDateFlexDays(0);
+                          }}
+                          className="px-3 py-1.5 rounded-full border border-border text-sm hover:bg-muted"
+                        >
+                          +1 month
+                        </button>
                       </div>
 
                       <Button
