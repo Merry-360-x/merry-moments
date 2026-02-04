@@ -624,22 +624,13 @@ export default function TourDetails() {
                       </span>
                     </div>
                   )}
-                  {hostProfile.email && (
-                    <div className="flex items-center gap-3 text-sm">
-                      <Mail className="w-5 h-5 text-primary flex-shrink-0" />
-                      <a href={`mailto:${hostProfile.email}`} className="text-primary hover:underline break-all">
-                        {hostProfile.email}
-                      </a>
-                    </div>
-                  )}
-                  {hostProfile.phone && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <Phone className="w-4 h-4 text-primary" />
-                      <a href={`tel:${hostProfile.phone}`} className="text-foreground hover:text-primary">
-                        {hostProfile.phone}
-                      </a>
-                    </div>
-                  )}
+                  {/* Contact info hidden - available after booking is confirmed */}
+                  <div className="flex items-center gap-3 text-sm bg-muted/50 p-3 rounded-lg">
+                    <Mail className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                    <span className="text-muted-foreground text-xs">
+                      Contact details available after booking confirmation
+                    </span>
+                  </div>
                 </div>
               </div>
             )}

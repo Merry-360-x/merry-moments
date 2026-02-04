@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
-import { Calendar, MapPin, Users, XCircle, Star, AlertTriangle, CalendarClock } from "lucide-react";
+import { Calendar, MapPin, Users, XCircle, Star, AlertTriangle, CalendarClock, Mail, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
@@ -65,6 +65,11 @@ interface Booking {
     cancellation_policy_type?: string | null;
     custom_cancellation_policy?: string | null;
   } | null;
+  host_profile?: {
+    full_name: string | null;
+    email: string | null;
+    phone: string | null;
+  } | null;
 }
 
 const MyBookings = () => {
@@ -103,13 +108,32 @@ const MyBookings = () => {
         .from("bookings")
         .select(`
           *, 
-          properties(title, location, property_type, address, cancellation_policy, price_per_night),
-          tour_packages(title, city, country, duration, cancellation_policy_type, custom_cancellation_policy, price_per_person)
+          properties(title, location, property_type, address, cancellation_policy, price_per_night, host_id),
+          tour_packages(title, city, country, duration, cancellation_policy_type, custom_cancellation_policy, price_per_person, host_id)
         `)
         .eq("guest_id", user!.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data as Booking[]) ?? [];
+      
+      // Fetch host profiles for confirmed/completed bookings
+      const bookingsWithHosts = await Promise.all(
+        (data || []).map(async (booking: any) => {
+          if (booking.status === 'confirmed' || booking.status === 'completed') {
+            const hostId = booking.properties?.host_id || booking.tour_packages?.host_id;
+            if (hostId) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('full_name, email, phone')
+                .eq('user_id', hostId)
+                .single();
+              return { ...booking, host_profile: profile };
+            }
+          }
+          return booking;
+        })
+      );
+      
+      return (bookingsWithHosts as Booking[]) ?? [];
     },
     placeholderData: [],
     staleTime: 30000, // Cache for 30 seconds
@@ -500,6 +524,34 @@ const MyBookings = () => {
                       </p>
                     </div>
                   </div>
+
+                  {/* Host Contact Info - Only shown for confirmed/completed bookings */}
+                  {(booking.status === "confirmed" || booking.status === "completed") && booking.host_profile && (
+                    <div className="mt-3 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                      <p className="text-xs font-medium text-green-800 dark:text-green-200 mb-2">📞 Host Contact</p>
+                      <div className="space-y-1.5">
+                        {booking.host_profile.full_name && (
+                          <p className="text-sm text-foreground font-medium">{booking.host_profile.full_name}</p>
+                        )}
+                        {booking.host_profile.email && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Mail className="w-3.5 h-3.5 text-green-600" />
+                            <a href={`mailto:${booking.host_profile.email}`} className="text-primary hover:underline">
+                              {booking.host_profile.email}
+                            </a>
+                          </div>
+                        )}
+                        {booking.host_profile.phone && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Phone className="w-3.5 h-3.5 text-green-600" />
+                            <a href={`tel:${booking.host_profile.phone}`} className="text-foreground hover:text-primary">
+                              {booking.host_profile.phone}
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {(booking.status === "pending" || booking.status === "confirmed") && (
