@@ -62,10 +62,14 @@ WITH CHECK (true);
 GRANT SELECT, INSERT ON support_ticket_logs TO authenticated;
 GRANT SELECT ON support_ticket_logs TO anon;
 
--- Function to automatically log ticket creation
+-- Function to automatically log ticket creation and send email notification
 CREATE OR REPLACE FUNCTION log_ticket_creation()
 RETURNS TRIGGER AS $$
+DECLARE
+  v_user_email TEXT;
+  v_user_name TEXT;
 BEGIN
+  -- Log the ticket creation
   INSERT INTO support_ticket_logs (
     ticket_id,
     user_id,
@@ -79,7 +83,41 @@ BEGIN
     NEW.status,
     'Ticket created'
   );
+  
+  -- Get user email and name for notification
+  SELECT email INTO v_user_email
+  FROM auth.users
+  WHERE id = NEW.user_id;
+  
+  SELECT full_name INTO v_user_name
+  FROM profiles
+  WHERE id = NEW.user_id;
+  
+  -- Send email notification to support team via Edge Function
+  -- This is done asynchronously and won't block ticket creation if it fails
+  PERFORM
+    net.http_post(
+      url := (SELECT current_setting('app.supabase_url', true) || '/functions/v1/send-ticket-email'),
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'Authorization', 'Bearer ' || (SELECT current_setting('app.supabase_anon_key', true))
+      ),
+      body := jsonb_build_object(
+        'category', COALESCE(NEW.category, 'general'),
+        'subject', NEW.subject,
+        'message', NEW.message,
+        'userId', NEW.user_id::text,
+        'userEmail', COALESCE(v_user_email, 'unknown@email.com'),
+        'userName', v_user_name
+      )
+    );
+  
   RETURN NEW;
+EXCEPTION
+  WHEN OTHERS THEN
+    -- If email sending fails, log it but don't prevent ticket creation
+    RAISE WARNING 'Failed to send ticket notification email: %', SQLERRM;
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
