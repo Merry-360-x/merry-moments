@@ -110,12 +110,15 @@ export function BookingDateChangeDialog({
       return;
     }
 
-    // Don't allow changes less than 24 hours before original check-in
-    const hoursDiff = (originalStart.getTime() - new Date().getTime()) / (1000 * 60 * 60);
-    if (hoursDiff < 24) {
+    // Don't allow changes after check-in has started
+    const now = new Date();
+    const checkInDate = new Date(booking.check_in);
+    checkInDate.setHours(0, 0, 0, 0); // Start of check-in day
+    
+    if (now >= checkInDate) {
       toast({
-        title: "Too late to change",
-        description: "Date changes must be requested at least 24 hours before check-in",
+        title: "Cannot change dates",
+        description: "Date changes cannot be made on or after the check-in date",
         variant: "destructive",
       });
       return;
