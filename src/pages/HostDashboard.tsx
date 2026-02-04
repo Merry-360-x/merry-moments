@@ -492,12 +492,21 @@ export default function HostDashboard() {
     
     try {
       // Fetch host application to get service_types and profile completion status
-      const { data: hostAppData } = await supabase
+      // Fetch all approved applications and prefer the one with profile_complete = true
+      const { data: hostAppDataArray, error: hostAppError } = await supabase
         .from("host_applications")
         .select("*")
         .eq("user_id", user.id)
         .eq("status", "approved")
-        .single();
+        .order("profile_complete", { ascending: false }) // true first
+        .order("created_at", { ascending: false })
+        .limit(1);
+      
+      const hostAppData = hostAppDataArray?.[0];
+      
+      if (hostAppError) {
+        console.error("[HostDashboard] Error fetching host application:", hostAppError);
+      }
       
       if (hostAppData) {
         const appData = hostAppData as any;
