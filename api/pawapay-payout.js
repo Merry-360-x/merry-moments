@@ -79,7 +79,7 @@ export default async function handler(req, res) {
         address: { value: formattedPhone },
       },
       customerTimestamp: new Date().toISOString(),
-      statementDescription: description || "Merry360x Host Payout",
+      statementDescription: "Merry360 Payout", // Max 22 chars
     };
 
     console.log("📤 Sending payout to PawaPay:", {
