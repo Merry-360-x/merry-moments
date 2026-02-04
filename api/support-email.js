@@ -162,8 +162,12 @@ export default async function handler(req, res) {
         },
         to: [
           {
-            email: SUPPORT_EMAIL,
+            email: "support@merry360x.com",
             name: "Merry360X Support",
+          },
+          {
+            email: "davydushimiyimana@gmail.com",
+            name: "Davy Dushimiyimana",
           },
         ],
         replyTo: {
