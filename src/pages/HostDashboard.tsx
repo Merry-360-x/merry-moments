@@ -180,6 +180,9 @@ interface Tour {
   host_id?: string | null;
   cover_image?: string | null;
   gallery_images?: string[] | null;
+  // National/International pricing
+  national_discount_percent?: number | null;
+  international_price_per_person?: number | null;
 }
 
 interface Vehicle {
@@ -622,6 +625,9 @@ export default function HostDashboard() {
         itinerary_pdf_url: pkg.itinerary_pdf_url,
         status: pkg.status,
         host_id: pkg.host_id,
+        // National/International pricing
+        national_discount_percent: pkg.national_discount_percent || 0,
+        international_price_per_person: pkg.international_price_per_adult,
       }));
       
       // Replace entire tours array (don't append to prevent stale data)
@@ -1803,6 +1809,9 @@ export default function HostDashboard() {
         updates.duration_days = form.duration_days;
         updates.max_participants = form.max_participants;
         updates.categories = form.categories;
+        // National/International pricing for tours table
+        updates.national_discount_percent = (form as any).national_discount_percent || 0;
+        updates.international_price_per_person = (form as any).international_price_per_person || null;
       } else {
         // Tour package specific fields - use price_per_adult for tour_packages table
         updates.price_per_adult = form.price_per_person;
@@ -1819,6 +1828,10 @@ export default function HostDashboard() {
         updates.non_refundable_items = form.non_refundable_items || [];
         updates.min_guests = form.min_guests;
         updates.max_guests = form.max_guests;
+        
+        // National/International pricing
+        updates.national_discount_percent = (form as any).national_discount_percent || 0;
+        updates.international_price_per_adult = (form as any).international_price_per_person || null;
         
         // Convert groupDiscounts array back to individual fields
         updates.group_discount_6_10 = 0;
@@ -2415,7 +2428,7 @@ export default function HostDashboard() {
               {/* Price */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <Label className="text-xs">Price per Person</Label>
+                  <Label className="text-xs">Price per Person (International)</Label>
                   <Input
                     type="number"
                     value={form.price_per_person}
@@ -2435,6 +2448,34 @@ export default function HostDashboard() {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+
+              {/* National/International Discount */}
+              <div className="space-y-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                <Label className="text-xs font-medium text-green-800">🇷🇼 Rwandan Citizen Discount</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs text-green-700">Discount (%)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      placeholder="e.g., 20"
+                      value={(form as any).national_discount_percent || ''}
+                      onChange={(e) => setForm({ ...form, national_discount_percent: e.target.value ? parseFloat(e.target.value) : null } as any)}
+                      className="mt-1 h-8 text-sm"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <p className="text-xs text-green-700 pb-2">
+                      {(form as any).national_discount_percent > 0 ? (
+                        <>National price: <strong>{formatMoney(form.price_per_person * (1 - ((form as any).national_discount_percent || 0) / 100), form.currency || "RWF")}</strong></>
+                      ) : (
+                        "Set a discount for local visitors"
+                      )}
+                    </p>
+                  </div>
                 </div>
               </div>
 
