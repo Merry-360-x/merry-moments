@@ -2418,8 +2418,12 @@ export default function HostDashboard() {
               <Input 
                 value={form.provider_name || ""} 
                 onChange={(e) => setForm((f) => ({ ...f, provider_name: e.target.value }))} 
-                placeholder="Provider Name (optional)" 
+                placeholder="Company/Business Name *" 
+                required
               />
+              <p className="text-xs text-muted-foreground">
+                Your registered business/company name
+              </p>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label className="text-xs">Vehicle Type</Label>
@@ -3549,13 +3553,17 @@ export default function HostDashboard() {
                   </div>
                 </div>
                   <div>
-                    <Label className="text-base font-medium">Provider / Company</Label>
+                    <Label className="text-base font-medium">Provider / Company Name *</Label>
                     <Input
                       value={vehicleForm.provider_name}
                       onChange={(e) => setVehicleForm((f) => ({ ...f, provider_name: e.target.value }))}
-                      placeholder="Optional"
+                      placeholder="Your registered business/company name"
                       className="mt-2 text-lg py-6"
+                      required
                     />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Enter your registered business/company name
+                    </p>
         </div>
                   <div className="flex items-center justify-between border rounded-xl p-4">
                     <div>

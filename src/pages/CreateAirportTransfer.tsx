@@ -370,12 +370,16 @@ export default function CreateAirportTransfer() {
               </div>
 
               <div>
-                <Label>Provider/Company Name</Label>
+                <Label>Provider/Company Name *</Label>
                 <Input
                   value={formData.provider_name}
                   onChange={(e) => setFormData({ ...formData, provider_name: e.target.value })}
-                  placeholder="Your business name (optional)"
+                  placeholder="Your registered business/company name"
+                  required
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Enter your registered business/company name
+                </p>
               </div>
             </div>
 

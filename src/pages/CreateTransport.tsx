@@ -767,13 +767,17 @@ export default function CreateTransport() {
               </div>
 
               <div>
-                <Label htmlFor="providerName">Company/Business Name (optional)</Label>
+                <Label htmlFor="providerName">Company/Business Name *</Label>
                 <Input
                   id="providerName"
                   value={formData.provider_name}
                   onChange={(e) => setFormData({ ...formData, provider_name: e.target.value })}
                   placeholder="Your car rental company name"
+                  required
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Enter your registered business/company name
+                </p>
               </div>
             </CardContent>
           </Card>
