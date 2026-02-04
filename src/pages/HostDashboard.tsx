@@ -98,6 +98,10 @@ import {
   AlertCircle,
   Camera,
   BadgeCheck,
+  CreditCard,
+  Smartphone,
+  Building,
+  Pencil,
 } from "lucide-react";
 import {
   Dialog,
@@ -302,6 +306,35 @@ export default function HostDashboard() {
   const [payoutAmount, setPayoutAmount] = useState('');
   const [requestingPayout, setRequestingPayout] = useState(false);
   const [payoutHistory, setPayoutHistory] = useState<any[]>([]);
+  
+  // Payout Methods (max 2)
+  type PayoutMethod = {
+    id: string;
+    method_type: 'mobile_money' | 'bank_transfer';
+    is_primary: boolean;
+    phone_number: string | null;
+    mobile_provider: string | null;
+    bank_name: string | null;
+    bank_account_number: string | null;
+    bank_account_name: string | null;
+    bank_swift_code: string | null;
+    nickname: string | null;
+  };
+  const [payoutMethods, setPayoutMethods] = useState<PayoutMethod[]>([]);
+  const [showAddPayoutMethod, setShowAddPayoutMethod] = useState(false);
+  const [editingPayoutMethod, setEditingPayoutMethod] = useState<PayoutMethod | null>(null);
+  const [payoutMethodForm, setPayoutMethodForm] = useState({
+    method_type: 'mobile_money' as 'mobile_money' | 'bank_transfer',
+    is_primary: false,
+    phone_number: '',
+    mobile_provider: 'MTN',
+    bank_name: '',
+    bank_account_number: '',
+    bank_account_name: '',
+    bank_swift_code: '',
+    nickname: '',
+  });
+  const [savingPayoutMethod, setSavingPayoutMethod] = useState(false);
   
   // Financial reports date range
   const [reportStartDate, setReportStartDate] = useState(() => {
@@ -794,6 +827,17 @@ export default function HostDashboard() {
         
         if (payouts) {
           setPayoutHistory(payouts);
+        }
+
+        // Fetch payout methods
+        const { data: methods } = await supabase
+          .from('host_payout_methods')
+          .select('*')
+          .eq('host_id', user.id)
+          .order('is_primary', { ascending: false });
+        
+        if (methods) {
+          setPayoutMethods(methods);
         }
       } catch (e) {
         console.error('Failed to fetch payout info:', e);
@@ -3923,6 +3967,7 @@ export default function HostDashboard() {
             </TabsTrigger>
             <TabsTrigger value="discounts">Discount Codes</TabsTrigger>
             <TabsTrigger value="financial">Financial Reports</TabsTrigger>
+            <TabsTrigger value="payout-methods">Payout Methods</TabsTrigger>
           </TabsList>
 
           {/* Overview */}
@@ -4789,8 +4834,414 @@ END OF REPORT
               </div>
             </Card>
           </TabsContent>
+
+          {/* Payout Methods Tab */}
+          <TabsContent value="payout-methods">
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold flex items-center gap-2">
+                    <CreditCard className="w-6 h-6" />
+                    Payout Methods
+                  </h2>
+                  <p className="text-muted-foreground mt-1">Add up to 2 payout methods to receive your earnings</p>
+                </div>
+                {payoutMethods.length < 2 && (
+                  <Button
+                    onClick={() => {
+                      setEditingPayoutMethod(null);
+                      setPayoutMethodForm({
+                        method_type: 'mobile_money',
+                        is_primary: payoutMethods.length === 0,
+                        phone_number: '',
+                        mobile_provider: 'MTN',
+                        bank_name: '',
+                        bank_account_number: '',
+                        bank_account_name: '',
+                        bank_swift_code: '',
+                        nickname: '',
+                      });
+                      setShowAddPayoutMethod(true);
+                    }}
+                    className="gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Payout Method
+                  </Button>
+                )}
+              </div>
+
+              {payoutMethods.length === 0 ? (
+                <div className="text-center py-12 border-2 border-dashed rounded-lg">
+                  <Wallet className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <h3 className="text-lg font-medium mb-2">No payout methods yet</h3>
+                  <p className="text-muted-foreground mb-4">Add a payout method to receive your earnings</p>
+                  <Button
+                    onClick={() => {
+                      setEditingPayoutMethod(null);
+                      setPayoutMethodForm({
+                        method_type: 'mobile_money',
+                        is_primary: true,
+                        phone_number: '',
+                        mobile_provider: 'MTN',
+                        bank_name: '',
+                        bank_account_number: '',
+                        bank_account_name: '',
+                        bank_swift_code: '',
+                        nickname: '',
+                      });
+                      setShowAddPayoutMethod(true);
+                    }}
+                    className="gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Payout Method
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {payoutMethods.map((method) => (
+                    <Card key={method.id} className={`p-4 relative ${method.is_primary ? 'ring-2 ring-primary' : ''}`}>
+                      {method.is_primary && (
+                        <Badge className="absolute -top-2 -right-2 bg-primary">Primary</Badge>
+                      )}
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${method.method_type === 'mobile_money' ? 'bg-yellow-100 dark:bg-yellow-900/30' : 'bg-blue-100 dark:bg-blue-900/30'}`}>
+                            {method.method_type === 'mobile_money' ? (
+                              <Smartphone className="w-5 h-5 text-yellow-600" />
+                            ) : (
+                              <Building className="w-5 h-5 text-blue-600" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-medium">
+                              {method.nickname || (method.method_type === 'mobile_money' ? 'Mobile Money' : 'Bank Transfer')}
+                            </p>
+                            <p className="text-sm text-muted-foreground capitalize">
+                              {method.method_type.replace('_', ' ')}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setEditingPayoutMethod(method);
+                              setPayoutMethodForm({
+                                method_type: method.method_type,
+                                is_primary: method.is_primary,
+                                phone_number: method.phone_number || '',
+                                mobile_provider: method.mobile_provider || 'MTN',
+                                bank_name: method.bank_name || '',
+                                bank_account_number: method.bank_account_number || '',
+                                bank_account_name: method.bank_account_name || '',
+                                bank_swift_code: method.bank_swift_code || '',
+                                nickname: method.nickname || '',
+                              });
+                              setShowAddPayoutMethod(true);
+                            }}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:text-destructive"
+                            onClick={async () => {
+                              if (!confirm('Are you sure you want to delete this payout method?')) return;
+                              try {
+                                const { error } = await supabase
+                                  .from('host_payout_methods')
+                                  .delete()
+                                  .eq('id', method.id);
+                                if (error) throw error;
+                                setPayoutMethods(prev => prev.filter(m => m.id !== method.id));
+                                toast({ title: 'Payout method deleted' });
+                              } catch (e: any) {
+                                toast({ variant: 'destructive', title: 'Error', description: e.message });
+                              }
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="mt-4 space-y-1 text-sm">
+                        {method.method_type === 'mobile_money' ? (
+                          <>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Provider:</span>
+                              <span className="font-medium">{method.mobile_provider || 'MTN'}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Phone:</span>
+                              <span className="font-medium">{method.phone_number}</span>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Bank:</span>
+                              <span className="font-medium">{method.bank_name}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Account:</span>
+                              <span className="font-medium">{method.bank_account_number}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Name:</span>
+                              <span className="font-medium">{method.bank_account_name}</span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                      {!method.is_primary && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-4 w-full"
+                          onClick={async () => {
+                            try {
+                              const { error } = await supabase
+                                .from('host_payout_methods')
+                                .update({ is_primary: true })
+                                .eq('id', method.id);
+                              if (error) throw error;
+                              setPayoutMethods(prev => prev.map(m => ({
+                                ...m,
+                                is_primary: m.id === method.id
+                              })));
+                              toast({ title: 'Primary payout method updated' });
+                            } catch (e: any) {
+                              toast({ variant: 'destructive', title: 'Error', description: e.message });
+                            }
+                          }}
+                        >
+                          Set as Primary
+                        </Button>
+                      )}
+                    </Card>
+                  ))}
+                </div>
+              )}
+
+              {/* Info Notice */}
+              <div className="mt-6 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <div className="flex gap-3">
+                  <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-medium text-blue-900 dark:text-blue-100 mb-1">About Payout Methods</p>
+                    <p className="text-blue-800 dark:text-blue-200">
+                      You can add up to 2 payout methods. Your primary method will be used by default when requesting payouts.
+                      Payouts are processed within 1-3 business days after approval.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </TabsContent>
         </Tabs>
       </div>
+
+      {/* Add/Edit Payout Method Dialog */}
+      <Dialog open={showAddPayoutMethod} onOpenChange={setShowAddPayoutMethod}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CreditCard className="w-5 h-5" />
+              {editingPayoutMethod ? 'Edit Payout Method' : 'Add Payout Method'}
+            </DialogTitle>
+            <DialogDescription>
+              {editingPayoutMethod ? 'Update your payout method details' : 'Add a new way to receive your earnings'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Method Type Selection */}
+            <div className="space-y-2">
+              <Label>Method Type</Label>
+              <Select 
+                value={payoutMethodForm.method_type} 
+                onValueChange={(v) => setPayoutMethodForm(f => ({ ...f, method_type: v as 'mobile_money' | 'bank_transfer' }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mobile_money">
+                    <div className="flex items-center gap-2">
+                      <Smartphone className="w-4 h-4" />
+                      Mobile Money
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="bank_transfer">
+                    <div className="flex items-center gap-2">
+                      <Building className="w-4 h-4" />
+                      Bank Transfer
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Nickname */}
+            <div className="space-y-2">
+              <Label>Nickname (optional)</Label>
+              <Input
+                placeholder="e.g., My MTN MoMo, Business Account"
+                value={payoutMethodForm.nickname}
+                onChange={(e) => setPayoutMethodForm(f => ({ ...f, nickname: e.target.value }))}
+              />
+            </div>
+
+            {/* Mobile Money Fields */}
+            {payoutMethodForm.method_type === 'mobile_money' && (
+              <>
+                <div className="space-y-2">
+                  <Label>Mobile Provider *</Label>
+                  <Select 
+                    value={payoutMethodForm.mobile_provider} 
+                    onValueChange={(v) => setPayoutMethodForm(f => ({ ...f, mobile_provider: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MTN">MTN Mobile Money</SelectItem>
+                      <SelectItem value="Airtel">Airtel Money</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Phone Number *</Label>
+                  <Input
+                    placeholder="+250 7XX XXX XXX"
+                    value={payoutMethodForm.phone_number}
+                    onChange={(e) => setPayoutMethodForm(f => ({ ...f, phone_number: e.target.value }))}
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Bank Transfer Fields */}
+            {payoutMethodForm.method_type === 'bank_transfer' && (
+              <>
+                <div className="space-y-2">
+                  <Label>Bank Name *</Label>
+                  <Input
+                    placeholder="e.g., Bank of Kigali"
+                    value={payoutMethodForm.bank_name}
+                    onChange={(e) => setPayoutMethodForm(f => ({ ...f, bank_name: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Account Number *</Label>
+                  <Input
+                    placeholder="Enter account number"
+                    value={payoutMethodForm.bank_account_number}
+                    onChange={(e) => setPayoutMethodForm(f => ({ ...f, bank_account_number: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Account Holder Name *</Label>
+                  <Input
+                    placeholder="Name on the account"
+                    value={payoutMethodForm.bank_account_name}
+                    onChange={(e) => setPayoutMethodForm(f => ({ ...f, bank_account_name: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>SWIFT Code (optional)</Label>
+                  <Input
+                    placeholder="For international transfers"
+                    value={payoutMethodForm.bank_swift_code}
+                    onChange={(e) => setPayoutMethodForm(f => ({ ...f, bank_swift_code: e.target.value }))}
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Primary checkbox */}
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="is_primary"
+                checked={payoutMethodForm.is_primary}
+                onChange={(e) => setPayoutMethodForm(f => ({ ...f, is_primary: e.target.checked }))}
+                className="rounded border-gray-300"
+              />
+              <Label htmlFor="is_primary" className="cursor-pointer">Set as primary payout method</Label>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddPayoutMethod(false)}>Cancel</Button>
+            <Button
+              onClick={async () => {
+                if (!user) return;
+                
+                // Validation
+                if (payoutMethodForm.method_type === 'mobile_money' && !payoutMethodForm.phone_number) {
+                  toast({ variant: 'destructive', title: 'Phone number required' });
+                  return;
+                }
+                if (payoutMethodForm.method_type === 'bank_transfer' && (!payoutMethodForm.bank_name || !payoutMethodForm.bank_account_number || !payoutMethodForm.bank_account_name)) {
+                  toast({ variant: 'destructive', title: 'Bank details required', description: 'Please fill in bank name, account number, and account holder name.' });
+                  return;
+                }
+
+                setSavingPayoutMethod(true);
+                try {
+                  const payload = {
+                    host_id: user.id,
+                    method_type: payoutMethodForm.method_type,
+                    is_primary: payoutMethodForm.is_primary,
+                    phone_number: payoutMethodForm.method_type === 'mobile_money' ? payoutMethodForm.phone_number : null,
+                    mobile_provider: payoutMethodForm.method_type === 'mobile_money' ? payoutMethodForm.mobile_provider : null,
+                    bank_name: payoutMethodForm.method_type === 'bank_transfer' ? payoutMethodForm.bank_name : null,
+                    bank_account_number: payoutMethodForm.method_type === 'bank_transfer' ? payoutMethodForm.bank_account_number : null,
+                    bank_account_name: payoutMethodForm.method_type === 'bank_transfer' ? payoutMethodForm.bank_account_name : null,
+                    bank_swift_code: payoutMethodForm.method_type === 'bank_transfer' ? payoutMethodForm.bank_swift_code : null,
+                    nickname: payoutMethodForm.nickname || null,
+                  };
+
+                  if (editingPayoutMethod) {
+                    // Update existing
+                    const { error } = await supabase
+                      .from('host_payout_methods')
+                      .update(payload)
+                      .eq('id', editingPayoutMethod.id);
+                    if (error) throw error;
+                    setPayoutMethods(prev => prev.map(m => m.id === editingPayoutMethod.id ? { ...m, ...payload, id: m.id } as PayoutMethod : m));
+                    toast({ title: 'Payout method updated' });
+                  } else {
+                    // Insert new
+                    const { data, error } = await supabase
+                      .from('host_payout_methods')
+                      .insert(payload)
+                      .select()
+                      .single();
+                    if (error) throw error;
+                    setPayoutMethods(prev => [...prev, data as PayoutMethod]);
+                    toast({ title: 'Payout method added' });
+                  }
+
+                  setShowAddPayoutMethod(false);
+                } catch (e: any) {
+                  toast({ variant: 'destructive', title: 'Error', description: e.message });
+                } finally {
+                  setSavingPayoutMethod(false);
+                }
+              }}
+              disabled={savingPayoutMethod}
+            >
+              {savingPayoutMethod ? 'Saving...' : (editingPayoutMethod ? 'Save Changes' : 'Add Method')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Combined Payout Request Dialog */}
       <Dialog open={showPayoutDialog} onOpenChange={setShowPayoutDialog}>
