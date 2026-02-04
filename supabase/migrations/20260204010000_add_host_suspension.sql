@@ -62,14 +62,17 @@ USING (
 
 -- Note: Hosts can still see their own listings when suspended
 -- Add policies for hosts to see their own listings
-CREATE POLICY IF NOT EXISTS "Hosts see own properties"
+DROP POLICY IF EXISTS "Hosts see own properties" ON properties;
+CREATE POLICY "Hosts see own properties"
 ON properties FOR SELECT
 USING (host_id = auth.uid());
 
-CREATE POLICY IF NOT EXISTS "Hosts see own tours"
+DROP POLICY IF EXISTS "Hosts see own tours" ON tours;
+CREATE POLICY "Hosts see own tours"
 ON tours FOR SELECT
 USING (created_by = auth.uid());
 
-CREATE POLICY IF NOT EXISTS "Hosts see own vehicles"
+DROP POLICY IF EXISTS "Hosts see own vehicles" ON transport_vehicles;
+CREATE POLICY "Hosts see own vehicles"
 ON transport_vehicles FOR SELECT
 USING (created_by = auth.uid());
