@@ -426,6 +426,20 @@ export default async function handler(req, res) {
       
       for (const item of items) {
         try {
+          // Check if booking already exists for this order and item
+          const { data: existingBooking } = await supabase
+            .from("bookings")
+            .select("id")
+            .eq("order_id", checkout.id)
+            .eq(item.item_type === 'property' ? "property_id" : item.item_type === 'transport_vehicle' ? "transport_id" : "tour_id", item.reference_id)
+            .limit(1);
+
+          if (existingBooking && existingBooking.length > 0) {
+            console.log(`⏭️ Booking already exists for item ${item.reference_id}, skipping...`);
+            createdBookingIds.push(existingBooking[0].id);
+            continue;
+          }
+
           const bookingData = {
             guest_id: checkout.user_id,
             guest_name: checkout.name || null,
