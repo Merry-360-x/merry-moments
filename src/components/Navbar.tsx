@@ -162,6 +162,25 @@ const Navbar = () => {
 
   const tripCartCount = user ? authedCartCount : guestCart.length;
 
+  // Query open support tickets count for admin/staff badge
+  const { data: openTicketsCount = 0 } = useQuery({
+    queryKey: ["open_support_tickets_count"],
+    enabled: Boolean(user?.id) && (isAdmin || isStaff || isCustomerSupport),
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("support_tickets")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "open");
+      if (error) {
+        console.warn("Failed to fetch open tickets count:", error);
+        return 0;
+      }
+      return Number(count ?? 0);
+    },
+    staleTime: 30_000, // 30 seconds
+    refetchInterval: 60_000, // Refetch every minute
+  });
+
   return (
     <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
       {(activeAd || fallbackAd) && (
@@ -265,13 +284,18 @@ const Navbar = () => {
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-2 px-3"
+                className="gap-2 px-3 relative"
                 onClick={() => navigate("/admin")}
                 type="button"
               >
                 <Shield className="w-4 h-4" />
                 <span className="hidden xl:inline">{t("actions.adminDashboard")}</span>
                 <span className="xl:hidden">Admin</span>
+                {openTicketsCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white animate-pulse">
+                    {openTicketsCount > 99 ? "99+" : openTicketsCount}
+                  </span>
+                )}
               </Button>
             ) : null}
 
@@ -397,8 +421,14 @@ const Navbar = () => {
                     {t("actions.favorites")}
                   </DropdownMenuItem>
                   {isAdmin && (
-                    <DropdownMenuItem onClick={() => navigate("/admin")}>
+                    <DropdownMenuItem onClick={() => navigate("/admin")} className="relative">
+                      <Shield className="w-4 h-4 mr-2" />
                       {t("actions.adminDashboard")}
+                      {openTicketsCount > 0 && (
+                        <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                          {openTicketsCount > 99 ? "99+" : openTicketsCount}
+                        </span>
+                      )}
                     </DropdownMenuItem>
                   )}
                   {isAdmin && (
@@ -419,9 +449,14 @@ const Navbar = () => {
                     </DropdownMenuItem>
                   )}
                   {isCustomerSupport && (
-                    <DropdownMenuItem onClick={() => navigate("/customer-support-dashboard")}>
+                    <DropdownMenuItem onClick={() => navigate("/customer-support-dashboard")} className="relative">
                       <MessageSquare className="w-4 h-4 mr-2" />
                       Support Dashboard
+                      {openTicketsCount > 0 && (
+                        <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                          {openTicketsCount > 99 ? "99+" : openTicketsCount}
+                        </span>
+                      )}
                     </DropdownMenuItem>
                   )}
                   {isHost && (
