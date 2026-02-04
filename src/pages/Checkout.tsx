@@ -14,7 +14,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { formatMoney } from "@/lib/money";
 import { useTripCart, CartItemMetadata, getCartItemMetadata } from "@/hooks/useTripCart";
 import { useFxRates } from "@/hooks/useFxRates";
-import { convertAmount } from "@/lib/fx";
+import { convertAmount, PAYMENT_CURRENCIES } from "@/lib/fx";
 import { calculateGuestTotal, PLATFORM_FEES } from "@/lib/fees";
 import { 
   ArrowLeft, 
@@ -60,7 +60,7 @@ export default function CheckoutNew() {
   const [searchParams] = useSearchParams();
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
-  const { currency: preferredCurrency } = usePreferences();
+  const { currency: preferredCurrency, setCurrency } = usePreferences();
   const { guestCart, clearCart } = useTripCart();
   const { usdRates } = useFxRates();
   
@@ -827,6 +827,45 @@ export default function CheckoutNew() {
                     <p className="text-xs md:text-sm text-muted-foreground">Select your preferred option</p>
                   </div>
 
+                  {/* Payment Currency Selector */}
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200 dark:border-blue-800/50 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">💱</span>
+                        <span className="font-medium text-sm">Pay in your local currency</span>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                      {PAYMENT_CURRENCIES.map((curr) => {
+                        const isSelected = displayCurrency === curr.code;
+                        const convertedTotal = curr.code === displayCurrency 
+                          ? total 
+                          : (convertAmount(total, displayCurrency, curr.code, usdRates) ?? total);
+                        return (
+                          <button
+                            key={curr.code}
+                            onClick={() => setCurrency(curr.code as any)}
+                            className={cn(
+                              "p-2 rounded-lg border-2 text-center transition-all",
+                              isSelected 
+                                ? "border-primary bg-primary/10" 
+                                : "border-transparent bg-white dark:bg-gray-800 hover:border-primary/30"
+                            )}
+                          >
+                            <span className="text-lg">{curr.flag}</span>
+                            <p className="text-xs font-medium mt-1">{curr.code}</p>
+                            <p className="text-[10px] text-muted-foreground truncate">
+                              {formatMoney(convertedTotal, curr.code).split(' ')[0]}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                      🇹🇿 Tanzania • 🇺🇬 Uganda • 🇿🇲 Zambia • 🇰🇪 Kenya — Pay with your local mobile money
+                    </p>
+                  </div>
+
                   {/* Payment Method Selector */}
                   <div className="grid grid-cols-2 gap-2 md:gap-3">
                     {/* MTN Mobile Money / M-Pesa for Kenya */}
@@ -933,9 +972,12 @@ export default function CheckoutNew() {
                             className="h-11 px-3 rounded-lg border bg-background text-sm"
                           >
                             <option value="+250">🇷🇼 +250</option>
+                            <option value="+255">🇹🇿 +255</option>
                             <option value="+254">🇰🇪 +254</option>
                             <option value="+256">🇺🇬 +256</option>
                             <option value="+260">🇿🇲 +260</option>
+                            <option value="+257">🇧🇮 +257</option>
+                            <option value="+27">🇿🇦 +27</option>
                           </select>
                           <div className="relative flex-1">
                             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

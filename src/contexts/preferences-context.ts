@@ -2,7 +2,7 @@ import { createContext } from "react";
 
 export type ThemePreference = "light" | "dark" | "system";
 export type AppLanguage = "en" | "rw" | "fr" | "sw" | "zh";
-export type AppCurrency = "RWF" | "USD" | "EUR" | "GBP" | "CNY";
+export type AppCurrency = "RWF" | "USD" | "EUR" | "GBP" | "CNY" | "TZS" | "KES" | "UGX" | "ZMW" | "BIF" | "ZAR";
 
 export type PreferencesContextType = {
   theme: ThemePreference;
