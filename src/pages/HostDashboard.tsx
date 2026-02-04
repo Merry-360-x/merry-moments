@@ -713,16 +713,39 @@ export default function HostDashboard() {
     };
   }, [user, fetchData]);
 
+  // Track if we've already checked the profile on this page load
+  const [profileChecked, setProfileChecked] = useState(false);
+
   // Auto-show profile completion dialog if profile is incomplete
+  // Only show once per page load after data is actually fetched
   useEffect(() => {
-    if (!isLoading && hostProfile && !hostProfile.profile_complete) {
-      // Slight delay to allow the page to render first
-      const timer = setTimeout(() => {
-        setShowProfileDialog(true);
-      }, 500);
-      return () => clearTimeout(timer);
+    // Wait until loading is done AND we have hostProfile data from the fetch
+    if (isLoading || !hostProfile || profileChecked) return;
+    
+    // Mark that we've checked
+    setProfileChecked(true);
+    
+    // If profile is complete, don't show dialog
+    if (hostProfile.profile_complete) {
+      console.log('[HostDashboard] Profile is complete, not showing dialog');
+      return;
     }
-  }, [isLoading, hostProfile]);
+    
+    // Check if user already dismissed the dialog in this session
+    const dismissedKey = `profile_dialog_dismissed_${user?.id}`;
+    const dismissed = sessionStorage.getItem(dismissedKey);
+    if (dismissed) {
+      console.log('[HostDashboard] Dialog already dismissed this session');
+      return;
+    }
+    
+    // Show dialog with slight delay
+    console.log('[HostDashboard] Profile incomplete, showing dialog');
+    const timer = setTimeout(() => {
+      setShowProfileDialog(true);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [isLoading, hostProfile, profileChecked, user?.id]);
 
   // Fetch payout info on mount
   useEffect(() => {
@@ -5042,7 +5065,13 @@ END OF REPORT
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowProfileDialog(false)}>
+            <Button variant="outline" onClick={() => {
+              // Remember that user dismissed the dialog this session
+              if (user?.id) {
+                sessionStorage.setItem(`profile_dialog_dismissed_${user.id}`, 'true');
+              }
+              setShowProfileDialog(false);
+            }}>
               Cancel
             </Button>
             <Button 
@@ -5083,6 +5112,11 @@ END OF REPORT
                     .eq("status", "approved");
                   
                   if (error) throw error;
+                  
+                  // Clear the dismissal flag since profile is now complete
+                  if (user?.id) {
+                    sessionStorage.removeItem(`profile_dialog_dismissed_${user.id}`);
+                  }
                   
                   // Update local state immediately - this will hide the warning banner
                   setHostProfile(prev => prev ? { 
