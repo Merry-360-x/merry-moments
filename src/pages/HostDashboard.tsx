@@ -96,6 +96,7 @@ import {
   Banknote,
   Wallet,
   AlertCircle,
+  Camera,
 } from "lucide-react";
 import {
   Dialog,
@@ -322,6 +323,7 @@ export default function HostDashboard() {
     profile_complete: boolean;
     service_types: string[];
     national_id_photo_url: string | null;
+    selfie_photo_url?: string | null;
     tour_license_url?: string | null;
     rdb_certificate_url?: string | null;
   } | null>(null);
@@ -329,10 +331,13 @@ export default function HostDashboard() {
   const [profileForm, setProfileForm] = useState({
     service_types: [] as string[],
     national_id_photo_url: '',
+    selfie_photo_url: '',
     tour_license_url: '',
     rdb_certificate_url: '',
   });
   const [savingProfile, setSavingProfile] = useState(false);
+  const [showCameraDialog, setShowCameraDialog] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
 
   // Editing states
   const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null);
@@ -500,6 +505,7 @@ export default function HostDashboard() {
           profile_complete: appData.profile_complete ?? false,
           service_types: appData.service_types || [],
           national_id_photo_url: appData.national_id_photo_url || null,
+          selfie_photo_url: appData.selfie_photo_url || null,
           tour_license_url: appData.tour_license_url || null,
           rdb_certificate_url: appData.rdb_certificate_url || null,
         });
@@ -507,6 +513,7 @@ export default function HostDashboard() {
         setProfileForm({
           service_types: appData.service_types || [],
           national_id_photo_url: appData.national_id_photo_url || '',
+          selfie_photo_url: appData.selfie_photo_url || '',
           tour_license_url: appData.tour_license_url || '',
           rdb_certificate_url: appData.rdb_certificate_url || '',
         });
@@ -4973,6 +4980,44 @@ END OF REPORT
                     )}
                   </div>
                 )}
+
+                {/* Selfie for identity verification */}
+                <div className="space-y-2 border-t pt-4">
+                  <Label className="text-sm">Selfie Photo</Label>
+                  <p className="text-xs text-muted-foreground">Take a clear photo of your face for verification</p>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowCameraDialog(true)}
+                      className="flex items-center gap-2"
+                    >
+                      <Camera className="w-4 h-4" />
+                      Take Selfie
+                    </Button>
+                    <CloudinaryUploadDialog
+                      title="Upload Selfie"
+                      folder="host_selfies"
+                      accept="image/*"
+                      value={profileForm.selfie_photo_url ? [profileForm.selfie_photo_url] : []}
+                      onChange={(urls) => setProfileForm(prev => ({ ...prev, selfie_photo_url: urls[0] || '' }))}
+                      buttonLabel={profileForm.selfie_photo_url ? "Change Photo" : "Upload Photo"}
+                    />
+                  </div>
+                  {profileForm.selfie_photo_url && (
+                    <div className="flex items-center gap-3 mt-2">
+                      <img 
+                        src={profileForm.selfie_photo_url} 
+                        alt="Your selfie" 
+                        className="w-16 h-16 rounded-full object-cover border-2 border-green-500"
+                      />
+                      <p className="text-xs text-green-600 flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" /> Selfie uploaded
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -4991,6 +5036,10 @@ END OF REPORT
                   toast({ variant: "destructive", title: "Please upload your ID" });
                   return;
                 }
+                if (!profileForm.selfie_photo_url) {
+                  toast({ variant: "destructive", title: "Please take or upload a selfie" });
+                  return;
+                }
                 if (profileForm.service_types.includes('tour') && !profileForm.tour_license_url) {
                   toast({ variant: "destructive", title: "Please upload your tour license" });
                   return;
@@ -5001,6 +5050,7 @@ END OF REPORT
                   const updateData: any = {
                     service_types: profileForm.service_types,
                     national_id_photo_url: profileForm.national_id_photo_url,
+                    selfie_photo_url: profileForm.selfie_photo_url,
                     profile_complete: true,
                   };
                   // Add optional fields if the columns exist (from migration)
@@ -5021,6 +5071,7 @@ END OF REPORT
                     profile_complete: true, 
                     service_types: profileForm.service_types,
                     national_id_photo_url: profileForm.national_id_photo_url,
+                    selfie_photo_url: profileForm.selfie_photo_url || null,
                     tour_license_url: profileForm.tour_license_url || null,
                     rdb_certificate_url: profileForm.rdb_certificate_url || null,
                   } : null);
@@ -5040,6 +5091,131 @@ END OF REPORT
               Save Profile
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Camera Dialog for Selfie */}
+      <Dialog open={showCameraDialog} onOpenChange={(open) => {
+        if (!open && cameraStream) {
+          cameraStream.getTracks().forEach(track => track.stop());
+          setCameraStream(null);
+        }
+        setShowCameraDialog(open);
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Camera className="w-5 h-5" />
+              Take a Selfie
+            </DialogTitle>
+            <DialogDescription>
+              Position your face in the frame and click capture
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="relative aspect-square bg-black rounded-lg overflow-hidden">
+              <video
+                id="selfie-video"
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover mirror"
+                style={{ transform: 'scaleX(-1)' }}
+              />
+              <canvas id="selfie-canvas" className="hidden" />
+              {!cameraStream && (
+                <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                  <Button
+                    onClick={async () => {
+                      try {
+                        const stream = await navigator.mediaDevices.getUserMedia({
+                          video: { facingMode: 'user', width: 640, height: 640 }
+                        });
+                        setCameraStream(stream);
+                        const video = document.getElementById('selfie-video') as HTMLVideoElement;
+                        if (video) {
+                          video.srcObject = stream;
+                        }
+                      } catch (err) {
+                        console.error('Camera access error:', err);
+                        toast({ variant: "destructive", title: "Camera Error", description: "Could not access camera. Please check permissions." });
+                      }
+                    }}
+                  >
+                    <Camera className="w-4 h-4 mr-2" />
+                    Start Camera
+                  </Button>
+                </div>
+              )}
+            </div>
+            {cameraStream && (
+              <div className="flex justify-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    cameraStream.getTracks().forEach(track => track.stop());
+                    setCameraStream(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={async () => {
+                    const video = document.getElementById('selfie-video') as HTMLVideoElement;
+                    const canvas = document.getElementById('selfie-canvas') as HTMLCanvasElement;
+                    if (video && canvas) {
+                      canvas.width = 640;
+                      canvas.height = 640;
+                      const ctx = canvas.getContext('2d');
+                      if (ctx) {
+                        // Mirror the image
+                        ctx.translate(canvas.width, 0);
+                        ctx.scale(-1, 1);
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        
+                        // Convert to blob and upload to Cloudinary
+                        canvas.toBlob(async (blob) => {
+                          if (blob) {
+                            try {
+                              const formData = new FormData();
+                              formData.append('file', blob, 'selfie.jpg');
+                              formData.append('upload_preset', 'default');
+                              formData.append('folder', 'host_selfies');
+                              
+                              const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+                              const response = await fetch(
+                                `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+                                { method: 'POST', body: formData }
+                              );
+                              const data = await response.json();
+                              
+                              if (data.secure_url) {
+                                setProfileForm(prev => ({ ...prev, selfie_photo_url: data.secure_url }));
+                                toast({ title: "Selfie captured!", description: "Your photo has been saved." });
+                                // Stop camera and close dialog
+                                cameraStream.getTracks().forEach(track => track.stop());
+                                setCameraStream(null);
+                                setShowCameraDialog(false);
+                              } else {
+                                throw new Error('Upload failed');
+                              }
+                            } catch (err) {
+                              console.error('Upload error:', err);
+                              toast({ variant: "destructive", title: "Upload failed", description: "Could not save selfie. Try again." });
+                            }
+                          }
+                        }, 'image/jpeg', 0.9);
+                      }
+                    }
+                  }}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <Camera className="w-4 h-4 mr-2" />
+                  Capture
+                </Button>
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
