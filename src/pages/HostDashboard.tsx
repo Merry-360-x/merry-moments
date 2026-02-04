@@ -861,8 +861,8 @@ export default function HostDashboard() {
       return;
     }
 
-    if (amount < 5000) {
-      toast({ variant: 'destructive', title: 'Minimum payout', description: 'Minimum payout amount is 5,000 RWF' });
+    if (amount < 101) {
+      toast({ variant: 'destructive', title: 'Minimum payout', description: 'Minimum payout amount is 101 RWF' });
       return;
     }
 
@@ -907,7 +907,7 @@ export default function HostDashboard() {
         : { bank_name: payoutForm.bank_name, bank_account: payoutForm.bank_account, account_name: payoutForm.account_name };
 
       // Insert payout request
-      const { error } = await supabase
+      const { data: payoutRecord, error } = await supabase
         .from('host_payouts')
         .insert({
           host_id: user.id,
@@ -916,39 +916,86 @@ export default function HostDashboard() {
           status: 'pending',
           payout_method: payoutForm.method,
           payout_details: payoutDetails,
-        });
+        })
+        .select('id')
+        .single();
 
       if (error) throw error;
 
-      // Send email notification to admin
-      try {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('full_name, email')
-          .eq('user_id', user.id)
-          .single();
+      // For mobile money, initiate automatic payout via PawaPay
+      if (payoutForm.method === 'mobile_money' && payoutForm.phone) {
+        try {
+          const payoutResponse = await fetch('/api/pawapay-payout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              payoutId: payoutRecord.id,
+              amount: Math.round(amount),
+              currency: 'RWF',
+              phoneNumber: payoutForm.phone,
+              provider: 'MTN', // Default to MTN, can be enhanced later
+              description: `Host payout for ${user.email}`,
+            }),
+          });
 
-        await fetch('/api/payout-notification', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            hostName: profileData?.full_name || user.email?.split('@')[0] || 'Host',
-            hostEmail: profileData?.email || user.email,
-            amount,
-            currency: 'RWF',
-            method: payoutForm.method,
-            phone: payoutForm.phone,
-            bankName: payoutForm.bank_name,
-            bankAccount: payoutForm.bank_account,
-            accountName: payoutForm.account_name,
-          }),
-        });
-      } catch (emailError) {
-        console.error('Failed to send notification email:', emailError);
-        // Don't fail the payout request if email fails
+          const payoutData = await payoutResponse.json();
+          console.log('PawaPay payout response:', payoutData);
+
+          if (payoutData.success) {
+            toast({ 
+              title: 'Payout initiated!', 
+              description: payoutData.status === 'completed' 
+                ? 'Your payout has been sent to your mobile money account.' 
+                : 'Your payout is being processed. You\'ll receive the funds shortly.' 
+            });
+          } else {
+            // Payout failed but request is saved
+            toast({ 
+              variant: 'destructive',
+              title: 'Payout processing failed', 
+              description: payoutData.error || 'Please contact support for assistance.' 
+            });
+          }
+        } catch (payoutError) {
+          console.error('PawaPay payout error:', payoutError);
+          // Request is saved, admin can process manually
+          toast({ 
+            title: 'Request submitted', 
+            description: 'Your payout request has been saved. Our team will process it shortly.' 
+          });
+        }
+      } else {
+        // Bank transfer - needs manual processing
+        // Send email notification to admin
+        try {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('full_name, email')
+            .eq('user_id', user.id)
+            .single();
+
+          await fetch('/api/payout-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              hostName: profileData?.full_name || user.email?.split('@')[0] || 'Host',
+              hostEmail: profileData?.email || user.email,
+              amount,
+              currency: 'RWF',
+              method: payoutForm.method,
+              phone: payoutForm.phone,
+              bankName: payoutForm.bank_name,
+              bankAccount: payoutForm.bank_account,
+              accountName: payoutForm.account_name,
+            }),
+          });
+        } catch (emailError) {
+          console.error('Failed to send notification email:', emailError);
+        }
+
+        toast({ title: 'Request submitted', description: 'Your bank transfer payout request is being reviewed. We\'ll notify you once it\'s processed.' });
       }
 
-      toast({ title: 'Request submitted', description: 'Your payout request is being processed. We\'ll notify you once it\'s complete.' });
       setShowPayoutDialog(false);
       setPayoutAmount('');
       
@@ -5315,11 +5362,11 @@ END OF REPORT
                 placeholder="Enter amount"
                 value={payoutAmount}
                 onChange={(e) => setPayoutAmount(e.target.value)}
-                min={5000}
+                min={101}
                 max={availableForPayout}
               />
               <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Min: 5,000 RWF</span>
+                <span>Min: 101 RWF</span>
                 <Button 
                   variant="link" 
                   size="sm" 
@@ -5351,14 +5398,14 @@ END OF REPORT
               disabled={
                 requestingPayout || 
                 !payoutAmount || 
-                parseFloat(payoutAmount) < 5000 || 
+                parseFloat(payoutAmount) < 101 || 
                 parseFloat(payoutAmount) > availableForPayout ||
                 (payoutForm.method === 'mobile_money' && !payoutForm.phone) ||
                 (payoutForm.method === 'bank_transfer' && (!payoutForm.bank_name || !payoutForm.bank_account))
               }
             >
               {requestingPayout ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-              Submit Request
+              {payoutForm.method === 'mobile_money' ? 'Send to Mobile Money' : 'Submit Request'}
             </Button>
           </DialogFooter>
         </DialogContent>
