@@ -5,7 +5,8 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const PAWAPAY_API_URL = process.env.PAWAPAY_API_URL || "https://api.pawapay.io";
+// Support both env variable names
+const PAWAPAY_API_URL = process.env.PAWAPAY_BASE_URL || process.env.PAWAPAY_API_URL || "https://api.pawapay.cloud";
 const PAWAPAY_API_KEY = process.env.PAWAPAY_API_KEY;
 
 // PawaPay correspondent for Rwanda payouts
