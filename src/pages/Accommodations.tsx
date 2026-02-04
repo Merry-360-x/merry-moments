@@ -991,7 +991,7 @@ const Accommodations = () => {
                 {/* Pagination Info */}
                 <div className="col-span-full flex items-center justify-between mb-4">
                   <p className="text-sm text-muted-foreground">
-                    {t("common.showing")} {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, properties.length)}-{Math.min(currentPage * ITEMS_PER_PAGE, properties.length)} {t("common.of")} {properties.length} {t("accommodations.title").toLowerCase()}
+                    Showing {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, properties.length)}-{Math.min(currentPage * ITEMS_PER_PAGE, properties.length)} of {properties.length} properties
                   </p>
                 </div>
 
@@ -1043,7 +1043,7 @@ const Accommodations = () => {
                       className="gap-1"
                     >
                       <ChevronLeft className="h-4 w-4" />
-                      {t("common.previous")}
+                      Previous
                     </Button>
                     
                     <div className="flex items-center gap-1">
@@ -1080,7 +1080,7 @@ const Accommodations = () => {
                       disabled={currentPage >= Math.ceil(properties.length / ITEMS_PER_PAGE)}
                       className="gap-1"
                     >
-                      {t("common.next")}
+                      Next
                       <ChevronRight className="h-4 w-4" />
                     </Button>
                   </div>
