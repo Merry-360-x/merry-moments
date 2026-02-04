@@ -907,15 +907,87 @@ export default function AdminDashboard() {
     refetchOnWindowFocus: true,
   });
 
-  // Process payout function
+  // Process payout function - triggers PawaPay on approval
   const processPayout = async (payoutId: string, action: "completed" | "rejected", notes?: string) => {
     setProcessingPayout(payoutId);
     try {
+      // Get payout details first
+      const { data: payout, error: fetchError } = await supabase
+        .from("host_payouts")
+        .select("*, profiles:host_id(full_name, email)")
+        .eq("id", payoutId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // If approving and mobile money, trigger PawaPay payout
+      if (action === "completed" && payout.payout_method === "mobile_money") {
+        const phone = payout.payout_details?.phone;
+        if (!phone) {
+          toast({
+            title: "Missing phone number",
+            description: "Cannot process payout - no phone number found.",
+            variant: "destructive",
+          });
+          setProcessingPayout(null);
+          return;
+        }
+
+        // Call PawaPay to send the payout
+        const payoutResponse = await fetch('/api/pawapay-payout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            payoutId: payout.id,
+            amount: Math.round(payout.amount),
+            currency: payout.currency || 'RWF',
+            phoneNumber: phone,
+            provider: 'MTN',
+            description: `Host payout for ${payout.profiles?.full_name || payout.profiles?.email || 'Host'}`,
+          }),
+        });
+
+        const payoutData = await payoutResponse.json();
+        console.log('PawaPay payout response:', payoutData);
+
+        if (!payoutData.success) {
+          // Update status to failed
+          await supabase
+            .from("host_payouts")
+            .update({
+              status: "failed",
+              admin_notes: `PawaPay Error: ${payoutData.error || 'Unknown error'}`,
+              processed_by: user?.id,
+              processed_at: new Date().toISOString(),
+            })
+            .eq("id", payoutId);
+
+          toast({
+            title: "Payout Failed",
+            description: payoutData.error || "Failed to send payout via PawaPay.",
+            variant: "destructive",
+          });
+          refetchPayouts();
+          setProcessingPayout(null);
+          return;
+        }
+
+        // PawaPay payout succeeded - status already updated by the API
+        toast({
+          title: "Payout Sent!",
+          description: `${payout.currency} ${payout.amount.toLocaleString()} has been sent to ${phone} via PawaPay.`,
+        });
+        refetchPayouts();
+        setProcessingPayout(null);
+        return;
+      }
+
+      // For bank transfers or rejections, just update status
       const { error } = await supabase
         .from("host_payouts")
         .update({
           status: action,
-          admin_notes: notes || null,
+          admin_notes: notes || (action === "completed" ? "Bank transfer - processed manually" : null),
           processed_by: user?.id,
           processed_at: new Date().toISOString(),
         })
@@ -925,7 +997,9 @@ export default function AdminDashboard() {
 
       toast({
         title: action === "completed" ? "Payout Approved" : "Payout Rejected",
-        description: `The payout has been ${action === "completed" ? "approved and marked as completed" : "rejected"}.`,
+        description: action === "completed" 
+          ? "Bank transfer payout marked as completed." 
+          : "The payout has been rejected.",
       });
       refetchPayouts();
     } catch (error) {

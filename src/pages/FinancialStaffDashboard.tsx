@@ -233,6 +233,76 @@ export default function FinancialStaffDashboard() {
   const processPayout = async (payoutId: string, action: "completed" | "rejected", notes?: string) => {
     setProcessingPayout(payoutId);
     try {
+      if (action === "completed") {
+        // Fetch the payout details including payout method
+        const { data: payout, error: payoutError } = await supabase
+          .from("host_payouts")
+          .select(`
+            *,
+            host_payout_methods (
+              id,
+              method_type,
+              phone_number,
+              provider
+            )
+          `)
+          .eq("id", payoutId)
+          .single();
+
+        if (payoutError) throw payoutError;
+
+        // Check if this is a mobile money payout
+        if (payout.payout_method_id && payout.host_payout_methods) {
+          const payoutMethod = payout.host_payout_methods;
+          
+          if (payoutMethod.method_type === "mobile_money" && payoutMethod.phone_number) {
+            // Send via PawaPay
+            const pawapayResponse = await fetch("/api/pawapay-payout", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                amount: payout.amount,
+                currency: payout.currency || "RWF",
+                phoneNumber: payoutMethod.phone_number,
+                provider: payoutMethod.provider,
+                payoutId: payoutId,
+                hostId: payout.host_id,
+              }),
+            });
+
+            const pawapayResult = await pawapayResponse.json();
+
+            if (!pawapayResponse.ok) {
+              throw new Error(pawapayResult.error || "Failed to send payout via PawaPay");
+            }
+
+            // Update with PawaPay payout ID
+            const { error } = await supabase
+              .from("host_payouts")
+              .update({
+                status: "completed",
+                admin_notes: notes || "Sent via PawaPay",
+                processed_by: user?.id,
+                processed_at: new Date().toISOString(),
+                pawapay_payout_id: pawapayResult.pawapayPayoutId,
+              })
+              .eq("id", payoutId);
+
+            if (error) throw error;
+
+            toast({
+              title: "Payout Sent",
+              description: `Payment of ${payout.amount} ${payout.currency || "RWF"} sent to ${payoutMethod.phone_number} via PawaPay.`,
+            });
+
+            refetchPayouts();
+            setProcessingPayout(null);
+            return;
+          }
+        }
+      }
+
+      // For rejections or non-mobile-money payouts
       const { error } = await supabase
         .from("host_payouts")
         .update({
@@ -258,7 +328,7 @@ export default function FinancialStaffDashboard() {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to process payout. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to process payout. Please try again.",
       });
     } finally {
       setProcessingPayout(null);

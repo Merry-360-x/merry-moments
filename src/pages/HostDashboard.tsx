@@ -907,8 +907,8 @@ export default function HostDashboard() {
         ? { phone: payoutForm.phone, account_name: payoutForm.account_name }
         : { bank_name: payoutForm.bank_name, bank_account: payoutForm.bank_account, account_name: payoutForm.account_name };
 
-      // Insert payout request
-      const { data: payoutRecord, error } = await supabase
+      // Insert payout request (pending approval)
+      const { error } = await supabase
         .from('host_payouts')
         .insert({
           host_id: user.id,
@@ -917,85 +917,41 @@ export default function HostDashboard() {
           status: 'pending',
           payout_method: payoutForm.method,
           payout_details: payoutDetails,
-        })
-        .select('id')
-        .single();
+        });
 
       if (error) throw error;
 
-      // For mobile money, initiate automatic payout via PawaPay
-      if (payoutForm.method === 'mobile_money' && payoutForm.phone) {
-        try {
-          const payoutResponse = await fetch('/api/pawapay-payout', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              payoutId: payoutRecord.id,
-              amount: Math.round(amount),
-              currency: 'RWF',
-              phoneNumber: payoutForm.phone,
-              provider: 'MTN', // Default to MTN, can be enhanced later
-              description: `Host payout for ${user.email}`,
-            }),
-          });
+      // Send email notification to admin for review
+      try {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('full_name, email')
+          .eq('user_id', user.id)
+          .single();
 
-          const payoutData = await payoutResponse.json();
-          console.log('PawaPay payout response:', payoutData);
-
-          if (payoutData.success) {
-            toast({ 
-              title: 'Payout initiated!', 
-              description: payoutData.status === 'completed' 
-                ? 'Your payout has been sent to your mobile money account.' 
-                : 'Your payout is being processed. You\'ll receive the funds shortly.' 
-            });
-          } else {
-            // Payout failed but request is saved
-            toast({ 
-              variant: 'destructive',
-              title: 'Payout processing failed', 
-              description: payoutData.error || 'Please contact support for assistance.' 
-            });
-          }
-        } catch (payoutError) {
-          console.error('PawaPay payout error:', payoutError);
-          // Request is saved, admin can process manually
-          toast({ 
-            title: 'Request submitted', 
-            description: 'Your payout request has been saved. Our team will process it shortly.' 
-          });
-        }
-      } else {
-        // Bank transfer - needs manual processing
-        // Send email notification to admin
-        try {
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('full_name, email')
-            .eq('user_id', user.id)
-            .single();
-
-          await fetch('/api/payout-notification', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              hostName: profileData?.full_name || user.email?.split('@')[0] || 'Host',
-              hostEmail: profileData?.email || user.email,
-              amount,
-              currency: 'RWF',
-              method: payoutForm.method,
-              phone: payoutForm.phone,
-              bankName: payoutForm.bank_name,
-              bankAccount: payoutForm.bank_account,
-              accountName: payoutForm.account_name,
-            }),
-          });
-        } catch (emailError) {
-          console.error('Failed to send notification email:', emailError);
-        }
-
-        toast({ title: 'Request submitted', description: 'Your bank transfer payout request is being reviewed. We\'ll notify you once it\'s processed.' });
+        await fetch('/api/payout-notification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            hostName: profileData?.full_name || user.email?.split('@')[0] || 'Host',
+            hostEmail: profileData?.email || user.email,
+            amount,
+            currency: 'RWF',
+            method: payoutForm.method,
+            phone: payoutForm.phone,
+            bankName: payoutForm.bank_name,
+            bankAccount: payoutForm.bank_account,
+            accountName: payoutForm.account_name,
+          }),
+        });
+      } catch (emailError) {
+        console.error('Failed to send notification email:', emailError);
       }
+
+      toast({ 
+        title: 'Request submitted', 
+        description: 'Your payout request has been submitted for review. Once approved, funds will be sent automatically to your account.' 
+      });
 
       setShowPayoutDialog(false);
       setPayoutAmount('');
