@@ -46,7 +46,11 @@
     "loadingProperties": "Chargement des hébergements...",
     "couldNotLoadProperties": "Impossible de charger les hébergements pour le moment.",
     "noPublishedProperties": "Aucun hébergement publié pour le moment.",
-    "perNight": "/ nuit"
+    "perNight": "/ nuit",
+    "previous": "Précédent",
+    "next": "Suivant",
+    "showing": "Affichage",
+    "of": "sur"
   },
   "favorites": {
     "title": "Enregistrés",

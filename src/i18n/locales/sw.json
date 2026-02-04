@@ -46,7 +46,11 @@
     "loadingProperties": "Inapakia malazi...",
     "couldNotLoadProperties": "Imeshindikana kupakia malazi kwa sasa.",
     "noPublishedProperties": "Bado hakuna malazi yaliyochapishwa.",
-    "perNight": "/ usiku"
+    "perNight": "/ usiku",
+    "previous": "Iliyotangulia",
+    "next": "Inayofuata",
+    "showing": "Inaonyesha",
+    "of": "kati ya"
   },
   "favorites": {
     "title": "Zilizohifadhiwa",

@@ -46,7 +46,11 @@
     "loadingProperties": "Turimo gupakira amacumbi...",
     "couldNotLoadProperties": "Ntitwabashije kubona amacumbi ubu.",
     "noPublishedProperties": "Nta macumbi yatangajwe ubu.",
-    "perNight": "/ ijoro"
+    "perNight": "/ ijoro",
+    "previous": "Ibyo mbere",
+    "next": "Ibikurikira",
+    "showing": "Kwerekana",
+    "of": "muri"
   },
   "favorites": {
     "title": "Ibyabitswe",

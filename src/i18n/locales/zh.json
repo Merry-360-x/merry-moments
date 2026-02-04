@@ -46,7 +46,11 @@
     "loadingProperties": "正在加载住宿...",
     "couldNotLoadProperties": "暂时无法加载住宿。",
     "noPublishedProperties": "暂时没有已发布的住宿。",
-    "perNight": "/ 晚"
+    "perNight": "/ 晚",
+    "previous": "上一页",
+    "next": "下一页",
+    "showing": "显示",
+    "of": "/"
   },
   "favorites": {
     "title": "已保存",

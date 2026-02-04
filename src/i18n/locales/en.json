@@ -46,7 +46,11 @@
     "loadingProperties": "Loading properties...",
     "couldNotLoadProperties": "Couldn’t load properties right now.",
     "noPublishedProperties": "No published properties yet.",
-    "perNight": "/ night"
+    "perNight": "/ night",
+    "previous": "Previous",
+    "next": "Next",
+    "showing": "Showing",
+    "of": "of"
   },
   "favorites": {
     "title": "Saved",
