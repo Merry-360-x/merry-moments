@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useFavorites } from "@/hooks/useFavorites";
-import { ArrowLeft, ChevronLeft, ChevronRight, Heart, Star, User } from "lucide-react";
+import { ArrowLeft, BadgeCheck, ChevronLeft, ChevronRight, Heart, Star, User } from "lucide-react";
 import { amenityByValue } from "@/lib/amenities";
 import PropertyCard from "@/components/PropertyCard";
 import { formatMoney } from "@/lib/money";
@@ -148,6 +148,28 @@ export default function PropertyDetails() {
             created_at: string;
           }
         | null;
+    },
+  });
+
+  const { data: hostVerified } = useQuery({
+    queryKey: ["host-verified", data?.host_id],
+    enabled: Boolean(data?.host_id),
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    gcTime: 1000 * 60 * 30,
+    queryFn: async () => {
+      const hostId = String(data?.host_id ?? "");
+      if (!hostId) return false;
+      
+      const { data: app, error } = await supabase
+        .from("host_applications")
+        .select("profile_complete")
+        .eq("user_id", hostId)
+        .order("profile_complete", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (error) return false;
+      return app?.profile_complete === true;
     },
   });
 
@@ -911,11 +933,14 @@ export default function PropertyDetails() {
                         )}
                       </div>
                       <div>
-                        <div className="text-base font-semibold text-foreground">
+                        <div className="text-base font-semibold text-foreground flex items-center gap-1.5">
                           {(hostProfile?.nickname || hostProfile?.full_name)?.trim() || (
                             <span className="text-muted-foreground">
                               Host Profile Unavailable
                             </span>
+                          )}
+                          {hostVerified && (
+                            <BadgeCheck className="w-5 h-5 text-primary" />
                           )}
                         </div>
                         <div className="mt-1 text-sm text-muted-foreground">
