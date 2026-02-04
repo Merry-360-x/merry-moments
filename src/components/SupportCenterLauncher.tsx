@@ -400,7 +400,7 @@ export default function SupportCenterLauncher() {
         setActiveTicket(ticket);
         ticketId = ticket.id;
 
-        // Send email notification
+        // Send email notification to support team
         fetch("/api/support-email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -411,6 +411,20 @@ export default function SupportCenterLauncher() {
             userId: user.id,
             userEmail: user.email,
             userName,
+          }),
+        }).catch(() => {});
+
+        // Send confirmation email to customer
+        fetch("/api/ticket-confirmation-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ticketId: ticket.id,
+            category: "general",
+            subject: messageText.slice(0, 50),
+            message: messageText,
+            userName,
+            userEmail: user.email,
           }),
         }).catch(() => {});
       }
