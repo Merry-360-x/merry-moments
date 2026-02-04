@@ -518,8 +518,16 @@ export default function HostDashboard() {
           rdb_certificate_url: appData.rdb_certificate_url || '',
         });
       } else {
-        // Default to all if no approved application found (shouldn't happen for hosts)
+        // No approved application found - set defaults with incomplete profile
         setHostServiceTypes(['accommodation', 'tour', 'transport']);
+        setHostProfile({
+          profile_complete: false,
+          service_types: [],
+          national_id_photo_url: null,
+          selfie_photo_url: null,
+          tour_license_url: null,
+          rdb_certificate_url: null,
+        });
       }
       
       // Fetch properties, tours, tour_packages, vehicles, routes
@@ -704,6 +712,17 @@ export default function HostDashboard() {
       channels.forEach(channel => supabase.removeChannel(channel));
     };
   }, [user, fetchData]);
+
+  // Auto-show profile completion dialog if profile is incomplete
+  useEffect(() => {
+    if (!isLoading && hostProfile && !hostProfile.profile_complete) {
+      // Slight delay to allow the page to render first
+      const timer = setTimeout(() => {
+        setShowProfileDialog(true);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading, hostProfile]);
 
   // Fetch payout info on mount
   useEffect(() => {
