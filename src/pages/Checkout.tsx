@@ -55,6 +55,54 @@ type Step = 'details' | 'payment' | 'confirm';
 
 const STEP_ORDER: Step[] = ['details', 'payment', 'confirm'];
 
+// PawaPay supported payment methods by country
+interface PaymentMethodInfo {
+  id: string;
+  name: string;
+  shortName: string;
+  provider: string;
+  countryCode: string;
+  country: string;
+  flag: string;
+  currency: string;
+  color: string;
+  textColor: string;
+}
+
+const PAWAPAY_METHODS: PaymentMethodInfo[] = [
+  // Rwanda (+250) - RWF
+  { id: 'mtn_rwa', name: 'MTN Mobile Money', shortName: 'MTN', provider: 'MTN', countryCode: '+250', country: 'Rwanda', flag: '🇷🇼', currency: 'RWF', color: 'bg-yellow-400', textColor: 'text-black' },
+  { id: 'airtel_rwa', name: 'Airtel Money', shortName: 'Airtel', provider: 'AIRTEL', countryCode: '+250', country: 'Rwanda', flag: '🇷🇼', currency: 'RWF', color: 'bg-red-500', textColor: 'text-white' },
+  
+  // Tanzania (+255) - TZS
+  { id: 'vodacom_tza', name: 'Vodacom M-Pesa', shortName: 'M-Pesa', provider: 'VODACOM', countryCode: '+255', country: 'Tanzania', flag: '🇹🇿', currency: 'TZS', color: 'bg-red-600', textColor: 'text-white' },
+  { id: 'tigo_tza', name: 'Tigo Pesa', shortName: 'Tigo', provider: 'TIGO', countryCode: '+255', country: 'Tanzania', flag: '🇹🇿', currency: 'TZS', color: 'bg-blue-600', textColor: 'text-white' },
+  { id: 'airtel_tza', name: 'Airtel Money', shortName: 'Airtel', provider: 'AIRTEL', countryCode: '+255', country: 'Tanzania', flag: '🇹🇿', currency: 'TZS', color: 'bg-red-500', textColor: 'text-white' },
+  { id: 'halotel_tza', name: 'HaloPesa', shortName: 'Halo', provider: 'HALOTEL', countryCode: '+255', country: 'Tanzania', flag: '🇹🇿', currency: 'TZS', color: 'bg-orange-500', textColor: 'text-white' },
+  
+  // Uganda (+256) - UGX
+  { id: 'mtn_uga', name: 'MTN Mobile Money', shortName: 'MTN', provider: 'MTN', countryCode: '+256', country: 'Uganda', flag: '🇺🇬', currency: 'UGX', color: 'bg-yellow-400', textColor: 'text-black' },
+  { id: 'airtel_uga', name: 'Airtel Money', shortName: 'Airtel', provider: 'AIRTEL', countryCode: '+256', country: 'Uganda', flag: '🇺🇬', currency: 'UGX', color: 'bg-red-500', textColor: 'text-white' },
+  
+  // Kenya (+254) - KES
+  { id: 'mpesa_ken', name: 'M-Pesa', shortName: 'M-Pesa', provider: 'MPESA', countryCode: '+254', country: 'Kenya', flag: '🇰🇪', currency: 'KES', color: 'bg-green-500', textColor: 'text-white' },
+  { id: 'airtel_ken', name: 'Airtel Money', shortName: 'Airtel', provider: 'AIRTEL', countryCode: '+254', country: 'Kenya', flag: '🇰🇪', currency: 'KES', color: 'bg-red-500', textColor: 'text-white' },
+  
+  // Zambia (+260) - ZMW
+  { id: 'mtn_zmb', name: 'MTN Mobile Money', shortName: 'MTN', provider: 'MTN', countryCode: '+260', country: 'Zambia', flag: '🇿🇲', currency: 'ZMW', color: 'bg-yellow-400', textColor: 'text-black' },
+  { id: 'airtel_zmb', name: 'Airtel Money', shortName: 'Airtel', provider: 'AIRTEL', countryCode: '+260', country: 'Zambia', flag: '🇿🇲', currency: 'ZMW', color: 'bg-red-500', textColor: 'text-white' },
+  { id: 'zamtel_zmb', name: 'Zamtel Money', shortName: 'Zamtel', provider: 'ZAMTEL', countryCode: '+260', country: 'Zambia', flag: '🇿🇲', currency: 'ZMW', color: 'bg-green-600', textColor: 'text-white' },
+];
+
+// Group methods by country
+const METHODS_BY_COUNTRY = PAWAPAY_METHODS.reduce((acc, method) => {
+  if (!acc[method.country]) {
+    acc[method.country] = { flag: method.flag, countryCode: method.countryCode, currency: method.currency, methods: [] };
+  }
+  acc[method.country].methods.push(method);
+  return acc;
+}, {} as Record<string, { flag: string; countryCode: string; currency: string; methods: PaymentMethodInfo[] }>);
+
 export default function CheckoutNew() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -77,10 +125,10 @@ export default function CheckoutNew() {
     notes: "",
   });
   
-  // Payment state
+  // Payment state - use full payment method ID including country
   const [phoneNumber, setPhoneNumber] = useState("");
   const [countryCode, setCountryCode] = useState("+250");
-  const [paymentMethod, setPaymentMethod] = useState<'mtn' | 'airtel' | 'card' | 'bank'>('mtn');
+  const [paymentMethod, setPaymentMethod] = useState<string>('mtn_rwa'); // Default to MTN Rwanda
   const [showContactModal, setShowContactModal] = useState(false);
   
   // Discount
@@ -401,9 +449,12 @@ export default function CheckoutNew() {
     toast({ title: "Discount removed" });
   };
 
+  // Check if payment method is a mobile money method (not card or bank)
+  const isMobileMoneyMethod = paymentMethod !== 'card' && paymentMethod !== 'bank';
+  
   // Step validation
   const isDetailsValid = formData.fullName.trim() && formData.email.trim();
-  const isPaymentValid = (paymentMethod === 'card' || paymentMethod === 'bank') || phoneNumber.length >= 9;
+  const isPaymentValid = !isMobileMoneyMethod || phoneNumber.length >= 9;
 
   const goToStep = (step: Step) => {
     if (step === 'payment' && !isDetailsValid) {
@@ -411,7 +462,7 @@ export default function CheckoutNew() {
       return;
     }
     if (step === 'confirm' && !isPaymentValid) {
-      const message = (paymentMethod === 'mtn' || paymentMethod === 'airtel') 
+      const message = isMobileMoneyMethod 
         ? "Please enter your phone number" 
         : "Please select a payment method";
       toast({ variant: "destructive", title: message });
@@ -451,11 +502,13 @@ export default function CheckoutNew() {
     try {
       // Clean phone number for mobile money payments only
       let fullPhone = null;
-      if (paymentMethod === 'mtn' || paymentMethod === 'airtel') {
+      if (isMobileMoneyMethod) {
         let cleanedPhone = phoneNumber.replace(/^0+/, ''); // Remove leading zeros
-        // If user entered 250XXXXXXXX, strip the 250 since we add it from countryCode
-        if (cleanedPhone.startsWith('250') && cleanedPhone.length === 12) {
-          cleanedPhone = cleanedPhone.substring(3);
+        // Get country code digits without the + sign
+        const countryDigits = countryCode.replace('+', '');
+        // If user entered country code + number, strip the country code since we add it from countryCode
+        if (cleanedPhone.startsWith(countryDigits) && cleanedPhone.length >= 11) {
+          cleanedPhone = cleanedPhone.substring(countryDigits.length);
         }
         fullPhone = `${countryCode}${cleanedPhone}`;
         
@@ -575,12 +628,9 @@ export default function CheckoutNew() {
         throw new Error("Minimum payment amount is 100 RWF");
       }
 
-      // Determine provider based on payment method and country
-      // For Kenya, MTN option shows M-Pesa
-      let provider = paymentMethod === 'airtel' ? 'AIRTEL' : 'MTN';
-      if (countryCode === '+254' && paymentMethod === 'mtn') {
-        provider = 'MPESA';
-      }
+      // Get the selected payment method info
+      const selectedMethodInfo = PAWAPAY_METHODS.find(m => m.id === paymentMethod);
+      const provider = selectedMethodInfo?.provider || 'MTN';
 
       // Initiate PawaPay payment for mobile money
       console.log("🔄 Initiating PawaPay payment:", {
@@ -590,6 +640,7 @@ export default function CheckoutNew() {
         phoneNumber: fullPhone,
         provider,
         country: countryCode,
+        paymentMethodId: paymentMethod,
       });
 
       const paymentResponse = await fetch("/api/pawapay-create-payment", {
@@ -823,100 +874,81 @@ export default function CheckoutNew() {
               {currentStep === 'payment' && (
                 <div className="space-y-4 md:space-y-6">
                   <div>
-                    <h2 className="text-lg md:text-xl font-semibold mb-1">Payment Method</h2>
-                    <p className="text-xs md:text-sm text-muted-foreground">Select your preferred option</p>
+                    <h2 className="text-lg md:text-xl font-semibold mb-1">Choose Payment Method</h2>
+                    <p className="text-xs md:text-sm text-muted-foreground">Select your mobile money provider</p>
                   </div>
 
-                  {/* Payment Currency Selector */}
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200 dark:border-blue-800/50 rounded-xl p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">💱</span>
-                        <span className="font-medium text-sm">Pay in your local currency</span>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-                      {PAYMENT_CURRENCIES.map((curr) => {
-                        const isSelected = displayCurrency === curr.code;
-                        const convertedTotal = curr.code === displayCurrency 
-                          ? total 
-                          : (convertAmount(total, displayCurrency, curr.code, usdRates) ?? total);
-                        return (
-                          <button
-                            key={curr.code}
-                            onClick={() => setCurrency(curr.code as any)}
-                            className={cn(
-                              "p-2 rounded-lg border-2 text-center transition-all",
-                              isSelected 
-                                ? "border-primary bg-primary/10" 
-                                : "border-transparent bg-white dark:bg-gray-800 hover:border-primary/30"
-                            )}
-                          >
-                            <span className="text-lg">{curr.flag}</span>
-                            <p className="text-xs font-medium mt-1">{curr.code}</p>
-                            <p className="text-[10px] text-muted-foreground truncate">
-                              {formatMoney(convertedTotal, curr.code).split(' ')[0]}
-                            </p>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
-                      🇹🇿 Tanzania • 🇺🇬 Uganda • 🇿🇲 Zambia • 🇰🇪 Kenya — Pay with your local mobile money
-                    </p>
-                  </div>
-
-                  {/* Payment Method Selector */}
-                  <div className="grid grid-cols-2 gap-2 md:gap-3">
-                    {/* MTN Mobile Money / M-Pesa for Kenya */}
-                    <button
-                      onClick={() => setPaymentMethod('mtn')}
-                      className={cn(
-                        "border-2 rounded-lg md:rounded-xl p-2.5 md:p-4 text-left transition-all",
-                        paymentMethod === 'mtn' 
-                          ? "border-primary bg-primary/5" 
-                          : "border-border hover:border-primary/50"
-                      )}
-                    >
-                      <div className="flex items-center gap-2 md:gap-3">
-                        <div className={cn(
-                          "w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center flex-shrink-0",
-                          countryCode === '+254' ? "bg-green-500" : "bg-yellow-400"
+                  {/* Payment Methods by Country */}
+                  <div className="space-y-4">
+                    {Object.entries(METHODS_BY_COUNTRY).map(([country, { flag, countryCode: cc, currency, methods }]) => {
+                      const selectedMethod = PAWAPAY_METHODS.find(m => m.id === paymentMethod);
+                      const isCountrySelected = selectedMethod?.country === country;
+                      const convertedTotal = currency === displayCurrency 
+                        ? total 
+                        : (convertAmount(total, displayCurrency, currency, usdRates) ?? total);
+                      
+                      return (
+                        <div key={country} className={cn(
+                          "border rounded-xl overflow-hidden transition-all",
+                          isCountrySelected ? "border-primary ring-2 ring-primary/20" : "border-border"
                         )}>
-                          <span className={cn("font-bold text-[10px] md:text-sm", countryCode === '+254' ? "text-white" : "text-black")}>
-                            {countryCode === '+254' ? 'M-Pesa' : 'MTN'}
-                          </span>
+                          {/* Country Header */}
+                          <div className={cn(
+                            "px-4 py-3 flex items-center justify-between",
+                            isCountrySelected ? "bg-primary/5" : "bg-muted/30"
+                          )}>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xl">{flag}</span>
+                              <div>
+                                <span className="font-medium">{country}</span>
+                                <span className="text-xs text-muted-foreground ml-2">({cc})</span>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-medium">{formatMoney(convertedTotal, currency)}</p>
+                              <p className="text-[10px] text-muted-foreground">{currency}</p>
+                            </div>
+                          </div>
+                          
+                          {/* Payment Methods for this country */}
+                          <div className="p-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                            {methods.map((method) => {
+                              const isSelected = paymentMethod === method.id;
+                              return (
+                                <button
+                                  key={method.id}
+                                  onClick={() => {
+                                    setPaymentMethod(method.id);
+                                    setCountryCode(method.countryCode);
+                                    setCurrency(method.currency as any);
+                                  }}
+                                  className={cn(
+                                    "border-2 rounded-lg p-2.5 text-center transition-all",
+                                    isSelected 
+                                      ? "border-primary bg-primary/10" 
+                                      : "border-transparent bg-muted/30 hover:border-primary/30"
+                                  )}
+                                >
+                                  <div className={cn(
+                                    "w-10 h-10 rounded-lg mx-auto flex items-center justify-center",
+                                    method.color
+                                  )}>
+                                    <span className={cn("font-bold text-[10px]", method.textColor)}>
+                                      {method.shortName}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs font-medium mt-1.5 truncate">{method.name}</p>
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <p className="font-medium text-xs md:text-base truncate">
-                            {countryCode === '+254' ? 'M-Pesa' : 'MTN MoMo'}
-                          </p>
-                          <p className="text-[10px] md:text-xs text-muted-foreground hidden sm:block">Mobile Money</p>
-                        </div>
-                      </div>
-                    </button>
-                    
-                    {/* Airtel Money */}
-                    <button
-                      onClick={() => setPaymentMethod('airtel')}
-                      className={cn(
-                        "border-2 rounded-lg md:rounded-xl p-2.5 md:p-4 text-left transition-all",
-                        paymentMethod === 'airtel' 
-                          ? "border-primary bg-primary/5" 
-                          : "border-border hover:border-primary/50"
-                      )}
-                    >
-                      <div className="flex items-center gap-2 md:gap-3">
-                        <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-red-500 flex items-center justify-center flex-shrink-0">
-                          <span className="font-bold text-[10px] md:text-xs text-white">Airtel</span>
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-medium text-xs md:text-base truncate">Airtel Money</p>
-                          <p className="text-[10px] md:text-xs text-muted-foreground hidden sm:block">Mobile Money</p>
-                        </div>
-                      </div>
-                    </button>
-                    
+                      );
+                    })}
+                  </div>
+
+                  {/* Card and Bank options */}
+                  <div className="grid grid-cols-2 gap-2 md:gap-3">
                     {/* Credit Card */}
                     <button
                       onClick={() => { setPaymentMethod('card'); setShowContactModal(true); }}
@@ -933,7 +965,7 @@ export default function CheckoutNew() {
                         </div>
                         <div className="min-w-0">
                           <p className="font-medium text-xs md:text-base truncate">Card</p>
-                          <p className="text-[10px] md:text-xs text-muted-foreground hidden sm:block">Visa, MC</p>
+                          <p className="text-[10px] md:text-xs text-muted-foreground hidden sm:block">Visa, Mastercard</p>
                         </div>
                       </div>
                     </button>
@@ -953,32 +985,22 @@ export default function CheckoutNew() {
                           <Building2 className="w-4 h-4 md:w-5 md:h-5 text-white" />
                         </div>
                         <div className="min-w-0">
-                          <p className="font-medium text-xs md:text-base truncate">Bank</p>
-                          <p className="text-[10px] md:text-xs text-muted-foreground hidden sm:block">Transfer</p>
+                          <p className="font-medium text-xs md:text-base truncate">Bank Transfer</p>
+                          <p className="text-[10px] md:text-xs text-muted-foreground hidden sm:block">Direct Transfer</p>
                         </div>
                       </div>
                     </button>
                   </div>
 
                   {/* Phone Number Input - only for mobile money */}
-                  {(paymentMethod === 'mtn' || paymentMethod === 'airtel') && (
+                  {paymentMethod !== 'card' && paymentMethod !== 'bank' && (
                     <>
                       <div>
                         <Label htmlFor="phone">Phone Number *</Label>
                         <div className="flex gap-2 mt-1.5">
-                          <select
-                            value={countryCode}
-                            onChange={(e) => setCountryCode(e.target.value)}
-                            className="h-11 px-3 rounded-lg border bg-background text-sm"
-                          >
-                            <option value="+250">🇷🇼 +250</option>
-                            <option value="+255">🇹🇿 +255</option>
-                            <option value="+254">🇰🇪 +254</option>
-                            <option value="+256">🇺🇬 +256</option>
-                            <option value="+260">🇿🇲 +260</option>
-                            <option value="+257">🇧🇮 +257</option>
-                            <option value="+27">🇿🇦 +27</option>
-                          </select>
+                          <div className="h-11 px-3 rounded-lg border bg-muted/50 flex items-center text-sm">
+                            {PAWAPAY_METHODS.find(m => m.id === paymentMethod)?.flag} {countryCode}
+                          </div>
                           <div className="relative flex-1">
                             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                             <Input
@@ -992,7 +1014,7 @@ export default function CheckoutNew() {
                           </div>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1.5">
-                          You'll receive a payment prompt on this number
+                          You'll receive a {PAWAPAY_METHODS.find(m => m.id === paymentMethod)?.name} payment prompt on this number
                         </p>
                       </div>
 
@@ -1027,7 +1049,7 @@ export default function CheckoutNew() {
                       size="lg" 
                       className="flex-1"
                       onClick={() => goToStep('confirm')}
-                      disabled={(paymentMethod === 'mtn' || paymentMethod === 'airtel') && !isPaymentValid}
+                      disabled={paymentMethod !== 'card' && paymentMethod !== 'bank' && !isPaymentValid}
                     >
                       Review Booking
                       <ArrowRight className="w-4 h-4 ml-2" />

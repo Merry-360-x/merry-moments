@@ -100,33 +100,45 @@ export default async function handler(req, res) {
     }
 
     // PawaPay correspondents by country and provider
-    // Rwanda (RWA)
-    // Kenya (KEN) 
-    // Uganda (UGA)
-    // Zambia (ZMB)
+    // Rwanda (RWA) - RWF
+    // Kenya (KEN) - KES
+    // Uganda (UGA) - UGX
+    // Zambia (ZMB) - ZMW
+    // Tanzania (TZA) - TZS
     const correspondentMap = {
-      // Rwanda
+      // Rwanda (+250)
       "MTN_250": "MTN_MOMO_RWA",
       "AIRTEL_250": "AIRTEL_RWA",
       "mtn_momo_250": "MTN_MOMO_RWA",
       "airtel_money_250": "AIRTEL_RWA",
-      // Kenya
+      // Kenya (+254)
       "MTN_254": "MTN_MOMO_KEN",
       "AIRTEL_254": "AIRTEL_KEN",
       "mtn_momo_254": "MTN_MOMO_KEN",
       "airtel_money_254": "AIRTEL_KEN",
       "MPESA_254": "MPESA_KEN",
       "mpesa_254": "MPESA_KEN",
-      // Uganda
+      // Tanzania (+255)
+      "VODACOM_255": "VODACOM_TZA",
+      "TIGO_255": "TIGO_TZA",
+      "AIRTEL_255": "AIRTEL_TZA",
+      "HALOTEL_255": "HALOTEL_TZA",
+      "vodacom_mpesa_255": "VODACOM_TZA",
+      "tigo_pesa_255": "TIGO_TZA",
+      "airtel_money_255": "AIRTEL_TZA",
+      "halopesa_255": "HALOTEL_TZA",
+      // Uganda (+256)
       "MTN_256": "MTN_MOMO_UGA",
       "AIRTEL_256": "AIRTEL_UGA",
       "mtn_momo_256": "MTN_MOMO_UGA",
       "airtel_money_256": "AIRTEL_UGA",
-      // Zambia
+      // Zambia (+260)
       "MTN_260": "MTN_MOMO_ZMB",
       "AIRTEL_260": "AIRTEL_ZMB",
+      "ZAMTEL_260": "ZAMTEL_ZMB",
       "mtn_momo_260": "MTN_MOMO_ZMB",
       "airtel_money_260": "AIRTEL_ZMB",
+      "zamtel_260": "ZAMTEL_ZMB",
       // Legacy fallback (Rwanda)
       "MTN": "MTN_MOMO_RWA",
       "AIRTEL": "AIRTEL_RWA",
@@ -141,6 +153,8 @@ export default async function handler(req, res) {
     // Detect country from phone prefix
     if (cleanPhone.startsWith("254")) {
       countryCode = "254"; // Kenya
+    } else if (cleanPhone.startsWith("255")) {
+      countryCode = "255"; // Tanzania
     } else if (cleanPhone.startsWith("256")) {
       countryCode = "256"; // Uganda
     } else if (cleanPhone.startsWith("260")) {
@@ -193,10 +207,11 @@ export default async function handler(req, res) {
     // Zambia: 260 + 9 digits = 12 digits
     
     const countryPhoneInfo = {
-      "250": { name: "Rwanda", length: 12, localLength: 9, example: "78XXXXXXX" },
-      "254": { name: "Kenya", length: 12, localLength: 9, example: "7XXXXXXXX" },
-      "256": { name: "Uganda", length: 12, localLength: 9, example: "7XXXXXXXX" },
-      "260": { name: "Zambia", length: 12, localLength: 9, example: "9XXXXXXXX" },
+      "250": { name: "Rwanda", length: 12, localLength: 9, example: "78XXXXXXX", currency: "RWF" },
+      "254": { name: "Kenya", length: 12, localLength: 9, example: "7XXXXXXXX", currency: "KES" },
+      "255": { name: "Tanzania", length: 12, localLength: 9, example: "7XXXXXXXX", currency: "TZS" },
+      "256": { name: "Uganda", length: 12, localLength: 9, example: "7XXXXXXXX", currency: "UGX" },
+      "260": { name: "Zambia", length: 12, localLength: 9, example: "9XXXXXXXX", currency: "ZMW" },
     };
     
     const phoneInfo = countryPhoneInfo[countryCode] || countryPhoneInfo["250"];

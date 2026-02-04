@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { SupportChat } from "@/components/SupportChat";
+import { TicketActivityLogs } from "@/components/TicketActivityLogs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -603,12 +604,17 @@ export default function CustomerSupportDashboard() {
           </TabsContent>
 
           <TabsContent value="tickets">
-            <Card>
-              <CardHeader>
-                <CardTitle>Support Tickets</CardTitle>
-                <CardDescription>Manage customer support requests</CardDescription>
-              </CardHeader>
-              <CardContent>
+            <div className="grid gap-6">
+              {/* Ticket Activity Logs */}
+              <TicketActivityLogs limit={100} />
+
+              {/* Support Tickets Table */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Support Tickets</CardTitle>
+                  <CardDescription>Manage customer support requests</CardDescription>
+                </CardHeader>
+                <CardContent>
                 {tickets.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
                     <MessageSquare className="h-16 w-16 mx-auto mb-4 opacity-20" />
@@ -686,6 +692,7 @@ export default function CustomerSupportDashboard() {
                 )}
               </CardContent>
             </Card>
+            </div>
           </TabsContent>
         </Tabs>
 

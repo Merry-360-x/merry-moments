@@ -3,6 +3,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { AffiliatesManagement } from "@/components/AffiliatesManagement";
 import { SupportChat } from "@/components/SupportChat";
+import { TicketActivityLogs } from "@/components/TicketActivityLogs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -3595,22 +3596,27 @@ For support, contact: support@merry360x.com
 
           {/* SUPPORT TAB */}
           <TabsContent value="support">
-            <Card className="p-6">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
-                <h2 className="text-lg font-semibold">Support & Dispute Resolution</h2>
-                <Select value={ticketStatus} onValueChange={setTicketStatus}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="All tickets" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="open">Open</SelectItem>
-                    <SelectItem value="in_progress">In Progress</SelectItem>
-                    <SelectItem value="resolved">Resolved</SelectItem>
-                    <SelectItem value="closed">Closed</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="grid gap-6">
+              {/* Ticket Activity Logs */}
+              <TicketActivityLogs limit={100} />
+
+              {/* Support Tickets */}
+              <Card className="p-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+                  <h2 className="text-lg font-semibold">Support & Dispute Resolution</h2>
+                  <Select value={ticketStatus} onValueChange={setTicketStatus}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="All tickets" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="open">Open</SelectItem>
+                      <SelectItem value="in_progress">In Progress</SelectItem>
+                      <SelectItem value="resolved">Resolved</SelectItem>
+                      <SelectItem value="closed">Closed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
               <div className="space-y-3">
                 {tickets.map((t) => {
@@ -3666,8 +3672,9 @@ For support, contact: support@merry360x.com
                 {tickets.length === 0 && (
                   <p className="text-muted-foreground text-center py-8">No support tickets found</p>
                 )}
-            </div>
+              </div>
             </Card>
+            </div>
           </TabsContent>
 
           {/* SAFETY TAB */}
