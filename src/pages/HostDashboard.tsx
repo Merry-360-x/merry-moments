@@ -376,6 +376,9 @@ export default function HostDashboard() {
     // Discounts
     weekly_discount: 0,
     monthly_discount: 0,
+    // Monthly rental options
+    available_for_monthly_rental: false,
+    price_per_month: null as number | null,
     // Rules
     check_in_time: "14:00",
     check_out_time: "11:00",
@@ -918,6 +921,10 @@ export default function HostDashboard() {
     // Discounts / rules (these columns exist in prod; save them so details page reflects host choices)
     payload.weekly_discount = Number(propertyForm.weekly_discount || 0);
     payload.monthly_discount = Number(propertyForm.monthly_discount || 0);
+    payload.available_for_monthly_rental = Boolean(propertyForm.available_for_monthly_rental);
+    if (propertyForm.price_per_month) {
+      payload.price_per_month = Number(propertyForm.price_per_month);
+    }
     payload.check_in_time = propertyForm.check_in_time || "14:00";
     payload.check_out_time = propertyForm.check_out_time || "11:00";
     payload.smoking_allowed = Boolean(propertyForm.smoking_allowed);
@@ -988,6 +995,8 @@ export default function HostDashboard() {
       images: [],
       weekly_discount: 0,
       monthly_discount: 0,
+      available_for_monthly_rental: false,
+      price_per_month: null,
       check_in_time: "14:00",
       check_out_time: "11:00",
       smoking_allowed: false,
@@ -3077,6 +3086,45 @@ export default function HostDashboard() {
                           </p>
                         )}
                       </div>
+                    </div>
+
+                    {/* Monthly Rental Availability */}
+                    <div className="p-4 rounded-xl border border-border bg-blue-50 dark:bg-blue-950/20">
+                      <div className="flex items-center gap-3 mb-3">
+                        <input
+                          type="checkbox"
+                          id="monthly-rental"
+                          checked={propertyForm.available_for_monthly_rental}
+                          onChange={(e) => setPropertyForm((f) => ({ ...f, available_for_monthly_rental: e.target.checked }))}
+                          className="w-4 h-4 rounded border-gray-300"
+                        />
+                        <Label htmlFor="monthly-rental" className="text-sm font-medium cursor-pointer">
+                          Available for monthly rentals (28+ days)
+                        </Label>
+                      </div>
+                      
+                      {propertyForm.available_for_monthly_rental && (
+                        <div className="ml-7 mt-3">
+                          <Label className="text-sm">Custom monthly price (optional)</Label>
+                          <p className="text-xs text-muted-foreground mb-2">
+                            Leave empty to auto-calculate based on nightly rate and discount
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              min={0}
+                              value={propertyForm.price_per_month || ''}
+                              onChange={(e) => setPropertyForm((f) => ({ 
+                                ...f, 
+                                price_per_month: e.target.value ? Number(e.target.value) : null 
+                              }))}
+                              placeholder="Custom monthly price"
+                              className="flex-1"
+                            />
+                            <span className="text-sm text-muted-foreground">{propertyForm.currency}</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
