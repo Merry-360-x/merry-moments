@@ -2708,6 +2708,8 @@ export default function HostDashboard() {
                     property_type: "Room in Apartment",
                     host_id: user!.id,
                     is_published: false,
+                    images: propertyForm.images.length > 0 ? propertyForm.images : null,
+                    main_image: propertyForm.images.length > 0 ? propertyForm.images[0] : null,
                   };
                   
                   const { error } = await supabase.from("properties").insert(payload);
@@ -2754,6 +2756,47 @@ export default function HostDashboard() {
                   placeholder="Describe your room..."
                   rows={4}
                   className="w-full mt-1.5 px-3 py-2 border border-input rounded-md bg-background"
+                />
+              </div>
+
+              {/* Room Photos */}
+              <div className="space-y-4">
+                <Label className="text-sm font-medium">Room Photos</Label>
+                <p className="text-sm text-muted-foreground">Add photos of your room to attract guests</p>
+                
+                {propertyForm.images.length > 0 && (
+                  <div className="grid grid-cols-3 gap-3">
+                    {propertyForm.images.map((url, idx) => (
+                      <div key={idx} className="relative aspect-square rounded-lg overflow-hidden group">
+                        <img src={url} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <button
+                            type="button"
+                            onClick={() => setPropertyForm((f) => ({ ...f, images: f.images.filter((_, i) => i !== idx) }))}
+                            className="p-2 bg-white rounded-full text-destructive hover:bg-destructive hover:text-white transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                        {idx === 0 && (
+                          <div className="absolute top-1 left-1 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded">
+                            Cover
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                <CloudinaryUploadDialog
+                  title="Upload Room Photos"
+                  folder="merry360/rooms"
+                  accept="image/*"
+                  multiple
+                  maxFiles={10}
+                  value={propertyForm.images}
+                  onChange={(urls) => setPropertyForm((f) => ({ ...f, images: urls }))}
+                  buttonLabel={propertyForm.images.length > 0 ? `Add More Photos (${propertyForm.images.length})` : "Upload Photos"}
                 />
               </div>
 
