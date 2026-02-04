@@ -5025,28 +5025,18 @@ END OF REPORT
 
                 {/* Selfie for identity verification */}
                 <div className="space-y-2 border-t pt-4">
-                  <Label className="text-sm">Selfie Photo</Label>
-                  <p className="text-xs text-muted-foreground">Take a clear photo of your face for verification</p>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowCameraDialog(true)}
-                      className="flex items-center gap-2"
-                    >
-                      <Camera className="w-4 h-4" />
-                      Take Selfie
-                    </Button>
-                    <CloudinaryUploadDialog
-                      title="Upload Selfie"
-                      folder="host_selfies"
-                      accept="image/*"
-                      value={profileForm.selfie_photo_url ? [profileForm.selfie_photo_url] : []}
-                      onChange={(urls) => setProfileForm(prev => ({ ...prev, selfie_photo_url: urls[0] || '' }))}
-                      buttonLabel={profileForm.selfie_photo_url ? "Change Photo" : "Upload Photo"}
-                    />
-                  </div>
+                  <Label className="text-sm">Selfie Photo <span className="text-destructive">*</span></Label>
+                  <p className="text-xs text-muted-foreground">Take a clear photo of your face for verification (camera only)</p>
+                  <Button
+                    type="button"
+                    variant={profileForm.selfie_photo_url ? "outline" : "default"}
+                    size="sm"
+                    onClick={() => setShowCameraDialog(true)}
+                    className="flex items-center gap-2"
+                  >
+                    <Camera className="w-4 h-4" />
+                    {profileForm.selfie_photo_url ? "Retake Selfie" : "Take Selfie"}
+                  </Button>
                   {profileForm.selfie_photo_url && (
                     <div className="flex items-center gap-3 mt-2">
                       <img 
@@ -5055,7 +5045,7 @@ END OF REPORT
                         className="w-16 h-16 rounded-full object-cover border-2 border-green-500"
                       />
                       <p className="text-xs text-green-600 flex items-center gap-1">
-                        <CheckCircle className="w-3 h-3" /> Selfie uploaded
+                        <CheckCircle className="w-3 h-3" /> Selfie captured
                       </p>
                     </div>
                   )}
@@ -5085,7 +5075,7 @@ END OF REPORT
                   return;
                 }
                 if (!profileForm.selfie_photo_url) {
-                  toast({ variant: "destructive", title: "Please take or upload a selfie" });
+                  toast({ variant: "destructive", title: "Please take a selfie using the camera" });
                   return;
                 }
                 if (profileForm.service_types.includes('tour') && !profileForm.tour_license_url) {
