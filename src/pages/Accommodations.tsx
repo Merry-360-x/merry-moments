@@ -1,4 +1,4 @@
-import { Search, Star } from "lucide-react";
+import { Search, Star, ChevronLeft, ChevronRight } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,7 @@ import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import PropertyCard from "@/components/PropertyCard";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTranslation } from "react-i18next";
@@ -141,6 +141,8 @@ const Accommodations = () => {
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [monthlyRentalOnly, setMonthlyRentalOnly] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 12; // 3 columns x 4 rows
   const hostId = searchParams.get("host");
   const nearbyLat = searchParams.get("lat");
   const nearbyLng = searchParams.get("lng");
@@ -154,8 +156,14 @@ const Accommodations = () => {
   const { toggleFavorite } = useFavorites();
   const { currency: preferredCurrency } = usePreferences();
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [maxPrice, selectedTypes.length, selectedAmenities.length, minRating, locationFilter, guestCount, monthlyRentalOnly, hostId]);
+
   useEffect(() => {
     setQuery(searchParams.get("q") ?? "");
+    setCurrentPage(1); // Reset page on search
     
     // Update guest count from URL parameters
     const adults = Number(searchParams.get("adults")) || 0;
@@ -979,40 +987,105 @@ const Accommodations = () => {
                 <p className="text-muted-foreground">{t("accommodations.noMatches")}</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4 lg:gap-6">
-                {properties.map((property) => (
-                  <PropertyCard
-                    key={property.id}
-                    id={property.id}
-                    image={property.images?.[0] ?? null}
-                    images={property.images ?? null}
-                    title={property.title}
-                    location={property.location}
-                    rating={Number(property.rating) || 0}
-                    reviews={property.review_count || 0}
-                    price={Number(property.price_per_night)}
-                    currency={property.currency}
-                    type={property.property_type}
-                    bedrooms={(property as { bedrooms?: number | null }).bedrooms ?? null}
-                    bathrooms={(property as { bathrooms?: number | null }).bathrooms ?? null}
-                    beds={(property as { beds?: number | null }).beds ?? null}
-                    maxGuests={(property as { max_guests?: number | null }).max_guests ?? null}
-                    checkInTime={(property as { check_in_time?: string | null }).check_in_time ?? null}
-                    checkOutTime={(property as { check_out_time?: string | null }).check_out_time ?? null}
-                    smokingAllowed={(property as { smoking_allowed?: boolean | null }).smoking_allowed ?? null}
-                    eventsAllowed={(property as { events_allowed?: boolean | null }).events_allowed ?? null}
-                    petsAllowed={(property as { pets_allowed?: boolean | null }).pets_allowed ?? null}
-                    isFavorited={favoritesSet.has(property.id)}
-                    onToggleFavorite={async () => {
-                      const isFav = favoritesSet.has(property.id);
-                      const changed = await toggleFavorite(String(property.id), isFav);
-                      if (changed) {
-                        await qc.invalidateQueries({ queryKey: ["favorites", "ids", user?.id] });
-                      }
-                    }}
-                  />
-                ))}
-              </div>
+              <>
+                {/* Pagination Info */}
+                <div className="col-span-full flex items-center justify-between mb-4">
+                  <p className="text-sm text-muted-foreground">
+                    {t("common.showing")} {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, properties.length)}-{Math.min(currentPage * ITEMS_PER_PAGE, properties.length)} {t("common.of")} {properties.length} {t("accommodations.title").toLowerCase()}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4 lg:gap-6">
+                  {properties
+                    .slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
+                    .map((property) => (
+                    <PropertyCard
+                      key={property.id}
+                      id={property.id}
+                      image={property.images?.[0] ?? null}
+                      images={property.images ?? null}
+                      title={property.title}
+                      location={property.location}
+                      rating={Number(property.rating) || 0}
+                      reviews={property.review_count || 0}
+                      price={Number(property.price_per_night)}
+                      currency={property.currency}
+                      type={property.property_type}
+                      bedrooms={(property as { bedrooms?: number | null }).bedrooms ?? null}
+                      bathrooms={(property as { bathrooms?: number | null }).bathrooms ?? null}
+                      beds={(property as { beds?: number | null }).beds ?? null}
+                      maxGuests={(property as { max_guests?: number | null }).max_guests ?? null}
+                      checkInTime={(property as { check_in_time?: string | null }).check_in_time ?? null}
+                      checkOutTime={(property as { check_out_time?: string | null }).check_out_time ?? null}
+                      smokingAllowed={(property as { smoking_allowed?: boolean | null }).smoking_allowed ?? null}
+                      eventsAllowed={(property as { events_allowed?: boolean | null }).events_allowed ?? null}
+                      petsAllowed={(property as { pets_allowed?: boolean | null }).pets_allowed ?? null}
+                      isFavorited={favoritesSet.has(property.id)}
+                      onToggleFavorite={async () => {
+                        const isFav = favoritesSet.has(property.id);
+                        const changed = await toggleFavorite(String(property.id), isFav);
+                        if (changed) {
+                          await qc.invalidateQueries({ queryKey: ["favorites", "ids", user?.id] });
+                        }
+                      }}
+                    />
+                  ))}
+                </div>
+
+                {/* Pagination Controls */}
+                {properties.length > ITEMS_PER_PAGE && (
+                  <div className="col-span-full flex items-center justify-center gap-2 mt-8">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="gap-1"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      {t("common.previous")}
+                    </Button>
+                    
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.ceil(properties.length / ITEMS_PER_PAGE) }, (_, i) => i + 1)
+                        .filter(page => {
+                          const totalPages = Math.ceil(properties.length / ITEMS_PER_PAGE);
+                          // Show first, last, current, and pages around current
+                          if (page === 1 || page === totalPages) return true;
+                          if (Math.abs(page - currentPage) <= 1) return true;
+                          return false;
+                        })
+                        .map((page, idx, arr) => (
+                          <>
+                            {idx > 0 && arr[idx - 1] !== page - 1 && (
+                              <span key={`ellipsis-${page}`} className="px-2 text-muted-foreground">...</span>
+                            )}
+                            <Button
+                              key={page}
+                              variant={currentPage === page ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setCurrentPage(page)}
+                              className="min-w-[40px]"
+                            >
+                              {page}
+                            </Button>
+                          </>
+                        ))}
+                    </div>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.min(Math.ceil(properties.length / ITEMS_PER_PAGE), p + 1))}
+                      disabled={currentPage >= Math.ceil(properties.length / ITEMS_PER_PAGE)}
+                      className="gap-1"
+                    >
+                      {t("common.next")}
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
