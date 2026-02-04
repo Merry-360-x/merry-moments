@@ -739,8 +739,8 @@ export default function PropertyDetails() {
                 </div>
               ) : null}
 
-              {/* Related Tours + Transport */}
-              <div className="bg-card rounded-xl shadow-card p-5">
+              {/* Related Tours + Transport - Hidden on mobile, shown on lg screens */}
+              <div className="hidden lg:block bg-card rounded-xl shadow-card p-5">
                 <div className="flex items-center justify-between gap-4 mb-3">
                   <div className="text-sm font-semibold text-foreground">Tours & Transport</div>
                   <div className="flex items-center gap-2">
@@ -1328,6 +1328,120 @@ export default function PropertyDetails() {
                 <Link to="/my-bookings" className="w-full sm:w-auto">
                   <Button className="w-full">{t("actions.myBookings")}</Button>
                 </Link>
+              </div>
+
+              {/* Mobile Tours & Transport - Only shown on mobile after booking section */}
+              <div className="lg:hidden mt-8 bg-card rounded-xl shadow-card p-5">
+                <div className="flex items-center justify-between gap-4 mb-3">
+                  <div className="text-sm font-semibold text-foreground">Tours & Transport</div>
+                  <div className="flex items-center gap-2">
+                    <Link to="/tours" className="text-sm text-primary hover:underline">
+                      View tours
+                    </Link>
+                    <Link to="/transport" className="text-sm text-primary hover:underline">
+                      View transport
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <div>
+                    <div className="text-xs font-medium text-muted-foreground mb-2">Available tours ({relatedTours.length})</div>
+                    {relatedTours.length === 0 ? (
+                      <div className="text-sm text-muted-foreground">No tours found yet.</div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-4">
+                        {relatedTours.slice(0, 6).map((t) => (
+                          <Link key={t.id} to={t.source === "tour_packages" ? `/tours/${t.id}` : "/tours"} className="block">
+                            <div className="rounded-xl border border-border overflow-hidden hover:shadow-md transition flex">
+                              {t.images?.[0] ? (
+                                <img
+                                  src={t.images[0]}
+                                  alt={t.title}
+                                  className="h-24 w-24 object-cover flex-shrink-0"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div className="h-24 w-24 bg-muted flex-shrink-0" />
+                              )}
+                              <div className="p-3 flex-1 min-w-0">
+                                <div className="font-medium text-foreground text-sm line-clamp-1">{t.title}</div>
+                                <div className="text-xs text-muted-foreground line-clamp-1">{t.location ?? ""}</div>
+                                <div className="mt-1 text-sm font-semibold text-primary">
+                                  {displayMoney(Number(t.price_per_person ?? 0), String(t.currency ?? "USD"))}
+                                  <span className="text-xs text-muted-foreground"> / person</span>
+                                </div>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="mt-2 h-8 text-xs"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setAddedAddOn(true);
+                                    void addToCart("tour", t.id, 1);
+                                  }}
+                                >
+                                  Add to Cart
+                                </Button>
+                              </div>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <div className="text-xs font-medium text-muted-foreground mb-2">Transport vehicles ({relatedTransportVehicles.length})</div>
+                    {relatedTransportVehicles.length === 0 ? (
+                      <div className="text-sm text-muted-foreground">No transport vehicles found yet.</div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-4">
+                        {relatedTransportVehicles.slice(0, 4).map((v) => (
+                          <Link key={v.id} to="/transport" className="block">
+                            <div className="rounded-xl border border-border overflow-hidden hover:shadow-md transition flex">
+                              {v.image_url ? (
+                                <img
+                                  src={v.image_url}
+                                  alt={v.title}
+                                  className="h-24 w-24 object-cover flex-shrink-0"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div className="h-24 w-24 bg-muted flex-shrink-0" />
+                              )}
+                              <div className="p-3 flex-1 min-w-0">
+                                <div className="font-medium text-foreground text-sm line-clamp-1">{v.title}</div>
+                                <div className="text-xs text-muted-foreground line-clamp-1">
+                                  {v.provider_name ?? ""} {v.vehicle_type ? `· ${v.vehicle_type}` : ""}{" "}
+                                  {v.seats ? `· ${v.seats} seats` : ""}
+                                </div>
+                                <div className="mt-1 text-sm font-semibold text-primary">
+                                  {displayMoney(Number(v.price_per_day ?? 0), String(v.currency ?? "RWF"))}
+                                  <span className="text-xs text-muted-foreground"> / day</span>
+                                </div>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="mt-2 h-8 text-xs"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setAddedAddOn(true);
+                                    void addToCart("transport_vehicle", v.id, 1);
+                                  }}
+                                >
+                                  Add to Cart
+                                </Button>
+                              </div>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
