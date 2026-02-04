@@ -469,7 +469,7 @@ export default function PropertyDetails() {
       // Also get tour_packages
       const { data: packagesData, error: packagesError } = await supabase
         .from("tour_packages")
-        .select("id, title, location, adult_price, currency, images, rating, review_count")
+        .select("id, title, location, price_per_adult, currency, images, rating, review_count")
         .eq("status", "approved")
         .order("created_at", { ascending: false })
         .limit(6);
@@ -493,7 +493,7 @@ export default function PropertyDetails() {
         id: p.id,
         title: p.title,
         location: p.location,
-        price_per_person: p.adult_price,
+        price_per_person: p.price_per_adult,
         currency: p.currency,
         images: p.images,
         rating: p.rating,
