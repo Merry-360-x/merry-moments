@@ -36,6 +36,7 @@ const fetchProperties = async (args: {
   guests?: number; // Add guest filter
   startDate?: string; // Add start date filter
   endDate?: string; // Add end date filter
+  monthlyRentalOnly?: boolean; // Add monthly rental filter
 }) => {
   try {
     let query = supabase
@@ -75,6 +76,11 @@ const fetchProperties = async (args: {
     // Guest count filtering
     if (args.guests && args.guests > 0) {
       query = query.gte("max_guests", args.guests);
+    }
+
+    // Monthly rental filtering
+    if (args.monthlyRentalOnly) {
+      query = query.eq("available_for_monthly_rental", true);
     }
 
     const { data, error } = await query.lte("price_per_night", args.maxPrice);
@@ -134,6 +140,7 @@ const Accommodations = () => {
   const [endDate, setEndDate] = useState(() => searchParams.get("end") ?? "");
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [monthlyRentalOnly, setMonthlyRentalOnly] = useState(false);
   const hostId = searchParams.get("host");
   const nearbyLat = searchParams.get("lat");
   const nearbyLng = searchParams.get("lng");
@@ -193,6 +200,7 @@ const Accommodations = () => {
       guestCount,
       startDate,
       endDate,
+      monthlyRentalOnly,
     ],
     queryFn: () =>
       fetchProperties({
@@ -207,6 +215,7 @@ const Accommodations = () => {
         guests: guestCount,
         startDate,
         endDate,
+        monthlyRentalOnly,
       }),
     staleTime: 1000 * 60 * 2, // 2 minutes for search results
     gcTime: 1000 * 60 * 10, // 10 minutes cache
@@ -586,6 +595,20 @@ const Accommodations = () => {
                     />
                   </AccordionContent>
                 </AccordionItem>
+                <AccordionItem value="rental-type">
+                  <AccordionTrigger>Rental Duration</AccordionTrigger>
+                  <AccordionContent>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={monthlyRentalOnly}
+                        onChange={(e) => setMonthlyRentalOnly(e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300"
+                      />
+                      <span className="text-sm">Monthly rentals only (28+ days)</span>
+                    </label>
+                  </AccordionContent>
+                </AccordionItem>
                 <AccordionItem value="amenities">
                   <AccordionTrigger>{t("accommodations.amenities")}</AccordionTrigger>
                   <AccordionContent>
@@ -791,6 +814,21 @@ const Accommodations = () => {
                       max="20"
                       className="w-full"
                     />
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="rental-type-mobile">
+                  <AccordionTrigger>Rental Duration</AccordionTrigger>
+                  <AccordionContent>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={monthlyRentalOnly}
+                        onChange={(e) => setMonthlyRentalOnly(e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300"
+                      />
+                      <span className="text-sm">Monthly rentals only (28+ days)</span>
+                    </label>
                   </AccordionContent>
                 </AccordionItem>
 
