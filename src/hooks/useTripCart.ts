@@ -27,6 +27,12 @@ export interface GuestCartItem {
 
 const GUEST_CART_KEY = "merry360_guest_cart";
 const CART_METADATA_KEY = "merry360_cart_metadata";
+const GUEST_CART_EVENT = "merry360_guest_cart_updated";
+
+function notifyGuestCartUpdated() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(GUEST_CART_EVENT));
+}
 
 // Get guest cart from localStorage
 export function getGuestCart(): GuestCartItem[] {
@@ -69,6 +75,7 @@ function saveGuestCart(items: GuestCartItem[]) {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(GUEST_CART_KEY, JSON.stringify(items));
+    notifyGuestCartUpdated();
   } catch {
     // Ignore storage errors
   }
@@ -79,6 +86,7 @@ export function clearGuestCart() {
   if (typeof window === "undefined") return;
   try {
     localStorage.removeItem(GUEST_CART_KEY);
+    notifyGuestCartUpdated();
   } catch {
     // Ignore storage errors
   }
@@ -95,6 +103,29 @@ export function useTripCart() {
     if (!user) {
       setGuestCart(getGuestCart());
     }
+  }, [user]);
+
+  // Keep guest cart in sync across components/tabs
+  useEffect(() => {
+    if (user || typeof window === "undefined") return;
+
+    const syncGuestCart = () => {
+      setGuestCart(getGuestCart());
+    };
+
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === GUEST_CART_KEY) {
+        syncGuestCart();
+      }
+    };
+
+    window.addEventListener("storage", onStorage);
+    window.addEventListener(GUEST_CART_EVENT, syncGuestCart);
+
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener(GUEST_CART_EVENT, syncGuestCart);
+    };
   }, [user]);
 
   // Sync guest cart to database when user logs in (bulk insert)
