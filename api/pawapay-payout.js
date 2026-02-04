@@ -1,5 +1,4 @@
 import { createClient } from "@supabase/supabase-js";
-import { v4 as uuidv4 } from "uuid";
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
@@ -67,7 +66,7 @@ export default async function handler(req, res) {
     }
 
     // Generate unique payout ID for PawaPay
-    const pawapayPayoutId = uuidv4();
+    const pawapayPayoutId = crypto.randomUUID();
 
     // Create PawaPay payout request
     const payoutPayload = {
