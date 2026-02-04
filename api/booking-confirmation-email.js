@@ -39,6 +39,9 @@ function generateBookingConfirmationHtml(booking) {
   const primaryColor = "#E64980";
   const lightPink = "#FDF2F8";
   
+  // Check if this is a multi-item booking (items array exists)
+  const isMultiItem = booking.items && Array.isArray(booking.items) && booking.items.length > 1;
+  
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -80,7 +83,7 @@ function generateBookingConfirmationHtml(booking) {
             <td style="padding: 0 40px 32px; text-align: center;">
               <div style="display: inline-block; background-color: #f3f4f6; padding: 12px 24px; border-radius: 8px;">
                 <p style="margin: 0 0 4px; color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
-                  Confirmation Number
+                  ${isMultiItem ? 'Order Number' : 'Confirmation Number'}
                 </p>
                 <p style="margin: 0; color: #1f2937; font-size: 18px; font-weight: 600; font-family: monospace;">
                   ${booking.bookingId?.slice(0, 8).toUpperCase() || "—"}
@@ -96,18 +99,41 @@ function generateBookingConfirmationHtml(booking) {
             </td>
           </tr>
 
-          <!-- Property/Booking Details -->
+          <!-- Booking Items -->
           <tr>
             <td style="padding: 32px 40px;">
+              ${isMultiItem ? `
+              <h2 style="margin: 0 0 20px; color: #1f2937; font-size: 18px; font-weight: 600;">
+                Your Booking
+              </h2>
+              
+              <!-- Items Breakdown -->
+              ${booking.items.map((item, idx) => `
+              <div style="padding: 16px 0; ${idx > 0 ? 'border-top: 1px dashed #e5e7eb;' : ''}">
+                <div style="display: flex; align-items: flex-start; gap: 12px;">
+                  <span style="font-size: 28px; line-height: 1;">${item.icon || (item.type === 'tour' ? '🗺️' : item.type === 'transport' ? '🚗' : '🏠')}</span>
+                  <div style="flex: 1;">
+                    <h3 style="margin: 0 0 4px; color: #1f2937; font-size: 15px; font-weight: 600;">${item.title || 'Item'}</h3>
+                    <p style="margin: 0; color: #6b7280; font-size: 13px;">${item.location || ''}</p>
+                    <p style="margin: 4px 0 0; color: #9ca3af; font-size: 12px;">${item.type === 'tour' ? 'Tour' : item.type === 'transport' ? 'Transport' : 'Accommodation'}</p>
+                  </div>
+                  <div style="text-align: right;">
+                    <p style="margin: 0; color: #1f2937; font-size: 15px; font-weight: 600;">${formatMoney(item.price, item.currency || booking.currency)}</p>
+                  </div>
+                </div>
+              </div>
+              `).join('')}
+              ` : `
               ${booking.propertyImage ? `
               <img src="${booking.propertyImage}" alt="${booking.propertyTitle}" style="width: 100%; height: 160px; object-fit: cover; border-radius: 12px; margin-bottom: 20px;" />
               ` : ""}
               
               <h2 style="margin: 0 0 16px; color: #1f2937; font-size: 18px; font-weight: 600;">
-                ${booking.propertyTitle || "Your Accommodation"}
+                ${booking.propertyTitle || "Your Booking"}
               </h2>
+              `}
               
-              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-top: 20px;">
                 <tr>
                   <td style="padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
                     <p style="margin: 0; color: #6b7280; font-size: 13px;">Check-in</p>
@@ -149,6 +175,26 @@ function generateBookingConfirmationHtml(booking) {
           <tr>
             <td style="padding: 24px 40px;">
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                ${isMultiItem ? `
+                <tr>
+                  <td colspan="2" style="padding-bottom: 8px;">
+                    <p style="margin: 0; color: #6b7280; font-size: 13px; font-weight: 500;">Order Summary</p>
+                  </td>
+                </tr>
+                ${booking.items?.map(item => `
+                <tr>
+                  <td style="padding: 4px 0;">
+                    <p style="margin: 0; color: #6b7280; font-size: 14px;">${item.title}</p>
+                  </td>
+                  <td style="text-align: right; padding: 4px 0;">
+                    <p style="margin: 0; color: #1f2937; font-size: 14px;">${formatMoney(item.price, item.currency || booking.currency)}</p>
+                  </td>
+                </tr>
+                `).join('') || ''}
+                <tr>
+                  <td colspan="2" style="padding: 12px 0 0; border-top: 2px solid #e5e7eb;"></td>
+                </tr>
+                ` : ''}
                 <tr>
                   <td>
                     <p style="margin: 0; color: #1f2937; font-size: 16px; font-weight: 600;">Total Paid</p>

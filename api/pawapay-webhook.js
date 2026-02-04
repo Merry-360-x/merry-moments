@@ -35,6 +35,7 @@ function generateConfirmationEmail(checkout, items, bookingIds) {
   const guestName = checkout.name || "Guest";
   const totalAmount = formatMoney(checkout.total_amount, checkout.currency);
   const receiptNumber = `MRY-${Date.now().toString(36).toUpperCase()}`;
+  const isMultiItem = items && items.length > 1;
 
   return `
 <!DOCTYPE html>
@@ -65,6 +66,38 @@ function generateConfirmationEmail(checkout, items, bookingIds) {
       </td>
     </tr>
     
+    ${isMultiItem ? `
+    <!-- Items Breakdown -->
+    <tr>
+      <td style="padding: 0 24px 24px 24px;">
+        <div style="background-color: #f9fafb; border-radius: 12px; padding: 20px;">
+          <p style="margin: 0 0 16px 0; color: #1f2937; font-size: 14px; font-weight: 600;">Your Booking</p>
+          ${items.map((item, idx) => {
+            const itemPrice = formatMoney(item.calculated_price || item.price, checkout.currency);
+            const itemTitle = item.title || item.name || "Item";
+            const itemIcon = item.metadata?.type === 'tour' ? '🗺️' : item.metadata?.type === 'transport' ? '🚗' : '🏠';
+            return `
+            <div style="display: flex; align-items: center; gap: 12px; padding: ${idx > 0 ? '12px 0 0 0; border-top: 1px dashed #e5e7eb;' : '0;'}">
+              <span style="font-size: 24px;">${itemIcon}</span>
+              <div style="flex: 1;">
+                <p style="margin: 0; color: #1f2937; font-size: 14px; font-weight: 500;">${itemTitle}</p>
+                <p style="margin: 2px 0 0 0; color: #9ca3af; font-size: 12px;">${item.metadata?.type === 'tour' ? 'Tour' : item.metadata?.type === 'transport' ? 'Transport' : 'Stay'}</p>
+              </div>
+              <p style="margin: 0; color: #1f2937; font-size: 14px; font-weight: 600;">${itemPrice}</p>
+            </div>
+            `;
+          }).join('')}
+          <div style="border-top: 2px solid #e5e7eb; margin-top: 16px; padding-top: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <p style="margin: 0; color: #1f2937; font-size: 15px; font-weight: 600;">Total</p>
+              <p style="margin: 0; color: #dc2626; font-size: 18px; font-weight: 700;">${totalAmount}</p>
+            </div>
+          </div>
+        </div>
+      </td>
+    </tr>
+    ` : ''}
+    
     <!-- Receipt Summary -->
     <tr>
       <td style="padding: 0 24px 24px 24px;">
@@ -74,10 +107,12 @@ function generateConfirmationEmail(checkout, items, bookingIds) {
               <td style="color: #6b7280; padding: 6px 0;">Receipt #</td>
               <td style="text-align: right; color: #1f2937; font-weight: 600;">${receiptNumber}</td>
             </tr>
+            ${!isMultiItem ? `
             <tr>
               <td style="color: #6b7280; padding: 6px 0;">Amount Paid</td>
               <td style="text-align: right; color: #dc2626; font-weight: 700; font-size: 16px;">${totalAmount}</td>
             </tr>
+            ` : ''}
             <tr>
               <td style="color: #6b7280; padding: 6px 0;">Status</td>
               <td style="text-align: right;">
@@ -181,6 +216,18 @@ function generateReceiptPDF(checkout, items, bookingIds) {
     <div class="row"><span class="label">Method</span><span class="value">Mobile Money</span></div>
     <div class="row"><span class="label">Status</span><span class="value"><span class="paid-badge">PAID</span></span></div>
   </div>
+  
+  ${items.length > 1 ? `
+  <div class="section">
+    <div class="section-title">Booking Items</div>
+    ${items.map((item, idx) => {
+      const itemName = item.title || item.name || "Item";
+      const itemPrice = formatMoney(item.calculated_price || item.price, checkout.currency);
+      const itemIcon = item.metadata?.type === 'tour' ? '🗺️' : item.metadata?.type === 'transport' ? '🚗' : '🏠';
+      return `<div class="row"><span class="label">${itemIcon} ${itemName}</span><span class="value">${itemPrice}</span></div>`;
+    }).join('')}
+  </div>
+  ` : ''}
   
   <div class="total-row">
     <div class="row" style="border: none;">
