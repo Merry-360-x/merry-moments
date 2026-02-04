@@ -2607,12 +2607,24 @@ For support, contact: support@merry360x.com
                               </TableCell>
                               <TableCell>
                                 <div className="flex flex-col gap-1">
-                                  <Badge className={statusColors[app.status] || 'bg-gray-100'}>
-                                    {app.status}
-                                  </Badge>
+                                  {/* Show pending if approved but profile not complete */}
+                                  {app.status === 'approved' && !app.profile_complete ? (
+                                    <Badge className={statusColors['pending'] || 'bg-yellow-100'}>
+                                      pending
+                                    </Badge>
+                                  ) : (
+                                    <Badge className={statusColors[app.status] || 'bg-gray-100'}>
+                                      {app.status}
+                                    </Badge>
+                                  )}
                                   {app.suspended && (
                                     <Badge variant="destructive" className="text-xs">
                                       🚫 Suspended
+                                    </Badge>
+                                  )}
+                                  {app.status === 'approved' && !app.profile_complete && (
+                                    <Badge variant="outline" className="text-xs text-amber-600 border-amber-400">
+                                      Profile Incomplete
                                     </Badge>
                                   )}
                                 </div>
@@ -4485,7 +4497,11 @@ For support, contact: support@merry360x.com
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Status</p>
-                      <Badge>{selectedApplication.status}</Badge>
+                      {selectedApplication.status === 'approved' && !selectedApplication.profile_complete ? (
+                        <Badge variant="secondary">pending (profile incomplete)</Badge>
+                      ) : (
+                        <Badge>{selectedApplication.status}</Badge>
+                      )}
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Profile Completion</p>
