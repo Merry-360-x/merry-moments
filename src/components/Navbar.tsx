@@ -167,18 +167,20 @@ const Navbar = () => {
     queryKey: ["open_support_tickets_count"],
     enabled: Boolean(user?.id) && (isAdmin || isStaff || isCustomerSupport),
     queryFn: async () => {
-      const { count, error } = await supabase
-        .from("support_tickets")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "open");
+      // Use RPC function for accurate count (same as dashboard)
+      const { data, error } = await supabase.rpc("admin_dashboard_metrics");
       if (error) {
-        console.warn("Failed to fetch open tickets count:", error);
-        return 0;
+        // Fallback to direct query
+        const { count } = await supabase
+          .from("support_tickets")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "open");
+        return Number(count ?? 0);
       }
-      return Number(count ?? 0);
+      return (data as any)?.tickets_open ?? 0;
     },
-    staleTime: 30_000, // 30 seconds
-    refetchInterval: 60_000, // Refetch every minute
+    staleTime: 10_000, // 10 seconds - keep in sync
+    refetchInterval: 30_000, // Refetch every 30 seconds
   });
 
   return (
