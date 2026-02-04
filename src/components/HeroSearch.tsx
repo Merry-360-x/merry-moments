@@ -859,18 +859,40 @@ const HeroSearch = () => {
                   </div>
                 ) : whenTab === "months" ? (
                   <div>
-                    <div className="text-sm font-semibold text-foreground mb-2">{t("heroSearch.monthsTitle")}</div>
-                    <Calendar
-                      mode="single"
-                      numberOfMonths={2}
-                      selected={dateRange?.from}
-                      onSelect={(d) => {
-                        if (!d) return;
-                        setDateRange(monthRange(d));
-                      }}
-                      disabled={{ before: new Date() }}
-                      initialFocus
-                    />
+                    <div className="text-sm font-semibold text-foreground mb-2">Book monthly (28+ days)</div>
+                    <p className="text-xs text-muted-foreground mb-4">Select a month for your extended stay</p>
+                    <div className="grid grid-cols-3 gap-2 mb-4">
+                      {(() => {
+                        const months = [];
+                        const now = new Date();
+                        for (let i = 0; i < 6; i++) {
+                          const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+                          months.push(d);
+                        }
+                        return months.map((m) => {
+                          const isSelected = dateRange?.from?.getMonth() === m.getMonth() && dateRange?.from?.getFullYear() === m.getFullYear();
+                          return (
+                            <button
+                              key={m.toISOString()}
+                              type="button"
+                              onClick={() => setDateRange(monthRange(m))}
+                              className={`px-3 py-3 rounded-xl border text-sm font-medium transition ${
+                                isSelected
+                                  ? "bg-primary text-primary-foreground border-primary"
+                                  : "border-border hover:bg-muted"
+                              }`}
+                            >
+                              {m.toLocaleDateString(i18n.language, { month: "short", year: "numeric" })}
+                            </button>
+                          );
+                        });
+                      })()}
+                    </div>
+                    {dateRange?.from && dateRange?.to && (
+                      <div className="text-sm text-muted-foreground mb-3">
+                        Selected: {dateRange.from.toLocaleDateString()} - {dateRange.to.toLocaleDateString()}
+                      </div>
+                    )}
                     <div className="mt-3 flex justify-end">
                       <Button
                         type="button"
