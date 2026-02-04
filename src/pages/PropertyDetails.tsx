@@ -459,22 +459,22 @@ export default function PropertyDetails() {
       // Get tours from tours table
       const { data: toursData, error: toursError } = await supabase
         .from("tours")
-        .select("id, title, location, price_per_person, currency, images, rating, review_count")
+        .select("id, title, location, price_per_person, currency, images")
         .eq("is_published", true)
         .order("created_at", { ascending: false })
         .limit(6);
       
-      if (toursError) throw toursError;
+      if (toursError) console.error("Tours error:", toursError);
       
-      // Also get tour_packages
+      // Also get tour_packages - uses different column names
       const { data: packagesData, error: packagesError } = await supabase
         .from("tour_packages")
-        .select("id, title, location, price_per_adult, currency, images, rating, review_count")
+        .select("id, title, city, price_per_adult, currency, cover_image")
         .eq("status", "approved")
         .order("created_at", { ascending: false })
         .limit(6);
       
-      if (packagesError) throw packagesError;
+      if (packagesError) console.error("Tour packages error:", packagesError);
       
       // Combine and normalize both
       const tours = (toursData ?? []).map(t => ({
@@ -484,20 +484,16 @@ export default function PropertyDetails() {
         price_per_person: t.price_per_person,
         currency: t.currency,
         images: t.images,
-        rating: t.rating,
-        review_count: t.review_count,
         source: "tours" as const
       }));
       
       const packages = (packagesData ?? []).map(p => ({
         id: p.id,
         title: p.title,
-        location: p.location,
+        location: p.city,
         price_per_person: p.price_per_adult,
         currency: p.currency,
-        images: p.images,
-        rating: p.rating,
-        review_count: p.review_count,
+        images: p.cover_image ? [p.cover_image] : [],
         source: "tour_packages" as const
       }));
       
@@ -509,8 +505,6 @@ export default function PropertyDetails() {
         price_per_person: number;
         currency: string | null;
         images: string[] | null;
-        rating: number | null;
-        review_count: number | null;
         source: "tours" | "tour_packages";
       }>;
     },
