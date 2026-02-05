@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import Logo from "@/components/Logo";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Phone, Mail, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 
@@ -44,6 +44,7 @@ const Auth = () => {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const [isLogin, setIsLogin] = useState(true);
+  const [authMethod, setAuthMethod] = useState<'email' | 'phone'>('email');
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -51,6 +52,11 @@ const Auth = () => {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Phone OTP state
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpLoading, setOtpLoading] = useState(false);
 
   const { signIn, signUp, user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -272,6 +278,127 @@ const Auth = () => {
     }
   };
 
+  // Format phone number to E.164 format
+  const formatPhoneForAuth = (phone: string): string => {
+    // Remove all non-digit characters except +
+    let formatted = phone.replace(/[^\d+]/g, '');
+    
+    // If it doesn't start with +, assume Rwanda (+250)
+    if (!formatted.startsWith('+')) {
+      // Remove leading 0 if present
+      if (formatted.startsWith('0')) {
+        formatted = formatted.substring(1);
+      }
+      formatted = '+250' + formatted;
+    }
+    
+    return formatted;
+  };
+
+  // Handle sending OTP to phone
+  const handleSendOTP = async () => {
+    if (!phoneNumber.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Phone number required",
+        description: "Please enter your phone number",
+      });
+      return;
+    }
+
+    setOtpLoading(true);
+    try {
+      const formattedPhone = formatPhoneForAuth(phoneNumber);
+      
+      const { error } = await supabase.auth.signInWithOtp({
+        phone: formattedPhone,
+        options: {
+          // For signup, we need to pass user metadata
+          data: !isLogin ? {
+            full_name: `${firstName.trim()} ${lastName.trim()}`,
+            first_name: firstName.trim(),
+            last_name: lastName.trim(),
+            phone_number: formattedPhone,
+          } : undefined,
+        },
+      });
+
+      if (error) throw error;
+
+      setOtpSent(true);
+      toast({
+        title: "OTP Sent!",
+        description: `A verification code has been sent to ${formattedPhone}`,
+      });
+    } catch (error: unknown) {
+      logError("auth.phoneOtp", error);
+      toast({
+        variant: "destructive",
+        title: "Failed to send OTP",
+        description: uiErrorMessage(error, "Could not send verification code. Please try again."),
+      });
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  // Handle verifying OTP
+  const handleVerifyOTP = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!otpCode.trim() || otpCode.length < 6) {
+      toast({
+        variant: "destructive",
+        title: "Invalid code",
+        description: "Please enter the 6-digit verification code",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const formattedPhone = formatPhoneForAuth(phoneNumber);
+      
+      const { data, error } = await supabase.auth.verifyOtp({
+        phone: formattedPhone,
+        token: otpCode,
+        type: 'sms',
+      });
+
+      if (error) throw error;
+
+      if (data.session) {
+        // If this is a signup, create/update the profile
+        if (!isLogin && data.user) {
+          const fullName = `${firstName.trim()} ${lastName.trim()}`;
+          await supabase
+            .from("profiles")
+            .upsert({
+              user_id: data.user.id,
+              full_name: fullName,
+              phone: formattedPhone,
+            }, { onConflict: "user_id" });
+        }
+
+        clearSignupProgress();
+        toast({
+          title: isLogin ? "Welcome back!" : "Welcome!",
+          description: isLogin ? "You have signed in successfully." : "Your account has been created successfully.",
+          duration: 2000,
+        });
+      }
+    } catch (error: unknown) {
+      logError("auth.verifyOtp", error);
+      toast({
+        variant: "destructive",
+        title: "Verification failed",
+        description: uiErrorMessage(error, "Invalid or expired code. Please try again."),
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -310,9 +437,42 @@ const Auth = () => {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
-              <>
+          {/* Auth Method Toggle */}
+          <div className="flex gap-2 mb-5">
+            <Button
+              type="button"
+              variant={authMethod === 'email' ? 'default' : 'outline'}
+              className="flex-1"
+              onClick={() => {
+                setAuthMethod('email');
+                setOtpSent(false);
+                setOtpCode('');
+              }}
+              disabled={isLoading}
+            >
+              <Mail className="w-4 h-4 mr-2" />
+              Email
+            </Button>
+            <Button
+              type="button"
+              variant={authMethod === 'phone' ? 'default' : 'outline'}
+              className="flex-1"
+              onClick={() => {
+                setAuthMethod('phone');
+                setOtpSent(false);
+                setOtpCode('');
+              }}
+              disabled={isLoading}
+            >
+              <Phone className="w-4 h-4 mr-2" />
+              Phone
+            </Button>
+          </div>
+
+          {/* Phone OTP Form */}
+          {authMethod === 'phone' ? (
+            <div className="space-y-4">
+              {!isLogin && !otpSent && (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="firstName">First Name</Label>
@@ -323,7 +483,7 @@ const Auth = () => {
                       onChange={(e) => setFirstName(e.target.value)}
                       placeholder="John"
                       className="mt-1"
-                      required={!isLogin}
+                      required
                     />
                   </div>
                   <div>
@@ -335,86 +495,215 @@ const Auth = () => {
                       onChange={(e) => setLastName(e.target.value)}
                       placeholder="Doe"
                       className="mt-1"
-                      required={!isLogin}
+                      required
                     />
                   </div>
                 </div>
-                <div>
-                  <Label htmlFor="phoneNumber">Phone Number</Label>
-                  <Input
-                    id="phoneNumber"
-                    type="tel"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    placeholder="+250 123 456 789"
-                    className="mt-1"
-                    required={!isLogin}
-                  />
-                </div>
-              </>
-            )}
+              )}
 
-            <div>
-              <Label htmlFor="email">{t("auth.fields.email")}</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder={t("auth.placeholders.email")}
-                className="mt-1"
-                required
-              />
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">{t("auth.fields.password")}</Label>
-                {isLogin && (
-                  <Link
-                    to="/forgot-password"
-                    className="text-xs text-primary hover:underline"
+              {!otpSent ? (
+                <>
+                  <div>
+                    <Label htmlFor="phoneAuth">Phone Number</Label>
+                    <Input
+                      id="phoneAuth"
+                      type="tel"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      placeholder="+250 788 123 456"
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Enter your phone number to receive a verification code
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    className="w-full"
+                    onClick={handleSendOTP}
+                    disabled={otpLoading || !phoneNumber.trim() || (!isLogin ? (!firstName.trim() || !lastName.trim()) : false)}
                   >
-                    Forgot password?
-                  </Link>
-                )}
-              </div>
-              <div className="relative mt-1">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder={t("auth.placeholders.password")}
-                  className="pr-10"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-              {!isLogin && (
-                <p className={`text-xs mt-2 ${password.length > 0 && password.length < 6 ? 'text-destructive' : 'text-muted-foreground'}`}>
-                  {password.length > 0 && password.length < 6 ? '⚠ ' : ''}Password must be at least 6 characters long
-                </p>
+                    {otpLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <Phone className="w-4 h-4 mr-2" />
+                        Send Verification Code
+                      </>
+                    )}
+                  </Button>
+                </>
+              ) : (
+                <form onSubmit={handleVerifyOTP} className="space-y-4">
+                  <div>
+                    <Label htmlFor="otpCode">Verification Code</Label>
+                    <Input
+                      id="otpCode"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                      placeholder="Enter 6-digit code"
+                      className="mt-1 text-center text-xl tracking-widest"
+                      autoFocus
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Enter the 6-digit code sent to {phoneNumber}
+                    </p>
+                  </div>
+                  <Button type="submit" className="w-full" disabled={isLoading || otpCode.length !== 6}>
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Verifying...
+                      </>
+                    ) : (
+                      isLogin ? "Sign In" : "Create Account"
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full"
+                    onClick={() => {
+                      setOtpSent(false);
+                      setOtpCode('');
+                    }}
+                  >
+                    Change phone number
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="w-full"
+                    onClick={handleSendOTP}
+                    disabled={otpLoading}
+                  >
+                    {otpLoading ? "Sending..." : "Resend code"}
+                  </Button>
+                </form>
               )}
             </div>
+          ) : (
+            /* Email/Password Form */
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {!isLogin && (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="firstName">First Name</Label>
+                      <Input
+                        id="firstName"
+                        type="text"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        placeholder="John"
+                        className="mt-1"
+                        required={!isLogin}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="lastName">Last Name</Label>
+                      <Input
+                        id="lastName"
+                        type="text"
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        placeholder="Doe"
+                        className="mt-1"
+                        required={!isLogin}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="phoneNumber">Phone Number</Label>
+                    <Input
+                      id="phoneNumber"
+                      type="tel"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      placeholder="+250 123 456 789"
+                      className="mt-1"
+                      required={!isLogin}
+                    />
+                  </div>
+                </>
+              )}
 
-            <Button type="submit" className="w-full">
-              {isLogin
-                ? t("actions.signIn")
-                : t("auth.actions.createAccount")}
-            </Button>
-          </form>
+              <div>
+                <Label htmlFor="email">{t("auth.fields.email")}</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder={t("auth.placeholders.email")}
+                  className="mt-1"
+                  required
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">{t("auth.fields.password")}</Label>
+                  {isLogin && (
+                    <Link
+                      to="/forgot-password"
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Forgot password?
+                    </Link>
+                  )}
+                </div>
+                <div className="relative mt-1">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder={t("auth.placeholders.password")}
+                    className="pr-10"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                {!isLogin && (
+                  <p className={`text-xs mt-2 ${password.length > 0 && password.length < 6 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                    {password.length > 0 && password.length < 6 ? '⚠ ' : ''}Password must be at least 6 characters long
+                  </p>
+                )}
+              </div>
+
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {isLogin ? "Signing in..." : "Creating account..."}
+                  </>
+                ) : (
+                  isLogin ? t("actions.signIn") : t("auth.actions.createAccount")
+                )}
+              </Button>
+            </form>
+          )}
 
           <div className="mt-6 text-center">
             <button
               onClick={() => {
                 setIsLogin(!isLogin);
+                setOtpSent(false);
+                setOtpCode('');
               }}
               className="text-sm text-primary hover:underline"
             >
