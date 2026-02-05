@@ -782,7 +782,7 @@ export default function PropertyDetails() {
                                       e.preventDefault();
                                       e.stopPropagation();
                                       setAddedAddOn(true);
-                                      void addToCart("tour", t.id, 1);
+                                      void addToCart(t.source === "tour_packages" ? "tour_package" : "tour", t.id, 1);
                                     }}
                                   >
                                     Add to Trip Cart
@@ -1373,7 +1373,7 @@ export default function PropertyDetails() {
                                     e.preventDefault();
                                     e.stopPropagation();
                                     setAddedAddOn(true);
-                                    void addToCart("tour", t.id, 1);
+                                    void addToCart(t.source === "tour_packages" ? "tour_package" : "tour", t.id, 1);
                                   }}
                                 >
                                   Add to Cart
