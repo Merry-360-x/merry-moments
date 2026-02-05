@@ -845,8 +845,9 @@ export default function AdminDashboard() {
       const propertyIds = [...new Set(data?.filter(b => b.property_id).map(b => b.property_id))];
       const tourIds = [...new Set(data?.filter(b => b.tour_id).map(b => b.tour_id))];
       const transportIds = [...new Set(data?.filter(b => b.transport_id).map(b => b.transport_id))];
+      const guestIds = [...new Set(data?.filter(b => b.guest_id && !b.is_guest_booking).map(b => b.guest_id))];
       
-      const [properties, tours, vehicles] = await Promise.all([
+      const [properties, tours, vehicles, profiles] = await Promise.all([
         propertyIds.length > 0 
           ? supabase.from("properties").select("id, title, images").in("id", propertyIds).then(r => r.data || [])
           : Promise.resolve([]),
@@ -855,6 +856,9 @@ export default function AdminDashboard() {
           : Promise.resolve([]),
         transportIds.length > 0
           ? supabase.from("transport_vehicles").select("id, title, vehicle_type").in("id", transportIds).then(r => r.data || [])
+          : Promise.resolve([]),
+        guestIds.length > 0
+          ? supabase.from("profiles").select("user_id, full_name, nickname, email, phone").in("user_id", guestIds).then(r => r.data || [])
           : Promise.resolve([])
       ]);
       
@@ -869,6 +873,9 @@ export default function AdminDashboard() {
         }
         if (booking.transport_id) {
           enriched.transport_vehicles = vehicles.find(v => v.id === booking.transport_id) || null;
+        }
+        if (booking.guest_id && !booking.is_guest_booking) {
+          enriched.profiles = profiles.find(p => p.user_id === booking.guest_id) || null;
         }
         return enriched;
       });
