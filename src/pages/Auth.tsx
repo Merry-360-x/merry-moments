@@ -367,17 +367,37 @@ const Auth = () => {
 
       if (error) throw error;
 
-      if (data.session) {
-        // If this is a signup, create/update the profile
-        if (!isLogin && data.user) {
-          const fullName = `${firstName.trim()} ${lastName.trim()}`;
+      if (data.session && data.user) {
+        // Always check/create profile for phone auth users
+        const fullName = firstName.trim() && lastName.trim() 
+          ? `${firstName.trim()} ${lastName.trim()}`
+          : null;
+        
+        // Check if profile exists
+        const { data: existingProfile } = await supabase
+          .from("profiles")
+          .select("user_id, full_name")
+          .eq("user_id", data.user.id)
+          .single();
+        
+        if (!existingProfile) {
+          // Create new profile for first-time phone users
           await supabase
             .from("profiles")
-            .upsert({
+            .insert({
               user_id: data.user.id,
+              full_name: fullName || `User`,
+              phone: formattedPhone,
+            });
+        } else if (fullName && (!existingProfile.full_name || existingProfile.full_name === 'User')) {
+          // Update profile if name was provided and current name is empty/default
+          await supabase
+            .from("profiles")
+            .update({
               full_name: fullName,
               phone: formattedPhone,
-            }, { onConflict: "user_id" });
+            })
+            .eq("user_id", data.user.id);
         }
 
         clearSignupProgress();
