@@ -310,6 +310,27 @@ const Auth = () => {
     try {
       const formattedPhone = formatPhoneForAuth(phoneNumber);
       
+      // For login, first check if the phone number is registered
+      if (isLogin) {
+        const { data: existingUser } = await supabase
+          .from("profiles")
+          .select("user_id")
+          .eq("phone", formattedPhone)
+          .maybeSingle();
+        
+        if (!existingUser) {
+          setOtpLoading(false);
+          toast({
+            variant: "destructive",
+            title: "Phone number not registered",
+            description: "This phone number is not linked to any account. Please sign up first.",
+          });
+          // Switch to signup mode
+          setIsLogin(false);
+          return;
+        }
+      }
+      
       const { error } = await supabase.auth.signInWithOtp({
         phone: formattedPhone,
         options: {
