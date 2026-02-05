@@ -18,6 +18,29 @@ const AuthCallback = () => {
     return raw;
   }, [searchParams]);
 
+  // Helper to check if profile needs completion
+  const checkProfileComplete = async (userId: string): Promise<boolean> => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("full_name, phone")
+      .eq("user_id", userId)
+      .single();
+    
+    // Profile is incomplete if missing name or phone
+    return !!(data?.full_name && data?.phone);
+  };
+
+  // Helper to navigate based on profile completion
+  const navigateWithProfileCheck = async (userId: string, finalRedirect: string) => {
+    const isComplete = await checkProfileComplete(userId);
+    if (isComplete) {
+      navigate(finalRedirect, { replace: true });
+    } else {
+      // Redirect to complete profile page
+      navigate(`/complete-profile?redirect=${encodeURIComponent(finalRedirect)}`, { replace: true });
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
 
@@ -26,7 +49,12 @@ const AuthCallback = () => {
         // OAuth callbacks may still use hash tokens; let our existing recovery helper handle it.
         const recoveredFromHash = await recoverSessionFromUrl();
         if (!cancelled && recoveredFromHash) {
-          navigate(redirectTo, { replace: true });
+          const { data: sessionData } = await supabase.auth.getSession();
+          if (sessionData.session?.user) {
+            await navigateWithProfileCheck(sessionData.session.user.id, redirectTo);
+          } else {
+            navigate(redirectTo, { replace: true });
+          }
           return;
         }
 
@@ -36,7 +64,9 @@ const AuthCallback = () => {
           // If a session already exists, don't try to exchange again.
           const { data: existing } = await supabase.auth.getSession();
           if (existing.session) {
-            if (!cancelled) navigate(redirectTo, { replace: true });
+            if (!cancelled) {
+              await navigateWithProfileCheck(existing.session.user.id, redirectTo);
+            }
             return;
           }
 
@@ -56,20 +86,23 @@ const AuthCallback = () => {
               phone: phoneNumber,
             };
 
-            void (async () => {
-              try {
-                const { error: profileError } = await supabase
-                  .from("profiles")
-                  // Pylance/TS can get confused about the generated Supabase types here;
-                  // keep this best-effort upsert while avoiding editor-blocking type noise.
-                  .upsert(profile as any, { onConflict: "user_id" });
-                if (profileError) {
-                  console.warn("[AuthCallback] Failed to upsert profile:", profileError.message);
-                }
-              } catch (err) {
-                console.warn("[AuthCallback] Failed to upsert profile:", err);
+            // Upsert profile with Google data
+            try {
+              const { error: profileError } = await supabase
+                .from("profiles")
+                .upsert(profile as any, { onConflict: "user_id" });
+              if (profileError) {
+                console.warn("[AuthCallback] Failed to upsert profile:", profileError.message);
               }
-            })();
+            } catch (err) {
+              console.warn("[AuthCallback] Failed to upsert profile:", err);
+            }
+
+            // Navigate with profile check
+            if (!cancelled) {
+              await navigateWithProfileCheck(user.id, redirectTo);
+            }
+            return;
           }
 
           if (!cancelled) {
@@ -81,7 +114,9 @@ const AuthCallback = () => {
         // If there is no code, but a session already exists, just redirect.
         const { data } = await supabase.auth.getSession();
         if (data.session) {
-          if (!cancelled) navigate(redirectTo, { replace: true });
+          if (!cancelled) {
+            await navigateWithProfileCheck(data.session.user.id, redirectTo);
+          }
           return;
         }
 

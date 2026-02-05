@@ -28,6 +28,7 @@ const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const FinancialStaffDashboard = lazy(() => import("./pages/FinancialStaffDashboard"));
 const OperationsStaffDashboard = lazy(() => import("./pages/OperationsStaffDashboard"));
 const CustomerSupportDashboard = lazy(() => import("./pages/CustomerSupportDashboard"));
+const CompleteProfile = lazy(() => import("./pages/CompleteProfile"));
 
 import BookingsPage from "./pages/BookingsPage";
 import AdminRoles from "./pages/AdminRoles";
@@ -152,6 +153,7 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/complete-profile" element={<Suspense fallback={<div className="flex justify-center items-center min-h-screen">Loading...</div>}><CompleteProfile /></Suspense>} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/login" element={<AuthModeRedirect mode="login" />} />
