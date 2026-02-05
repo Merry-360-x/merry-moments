@@ -2906,7 +2906,17 @@ For support, contact: support@merry360x.com
                             </div>
                           </TableCell>
                           <TableCell>
-                            <div className="flex justify-end">
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedUser(u);
+                                  setUserDetailsOpen(true);
+                                }}
+                              >
+                                <Eye className="w-3 h-3" />
+                              </Button>
                               {u.is_suspended ? (
                                 <Button size="sm" variant="outline" onClick={() => unsuspendUser(u.user_id)}>
                                   Activate
@@ -4834,8 +4844,24 @@ For support, contact: support@merry360x.com
             </DialogHeader>
             {selectedUser && (
               <div className="space-y-6">
+                {/* Status Badges */}
+                <div className="flex gap-2 flex-wrap">
+                  {selectedUser.is_suspended ? (
+                    <Badge variant="destructive">Suspended</Badge>
+                  ) : selectedUser.is_verified ? (
+                    <Badge variant="outline" className="text-green-600 border-green-600">Verified</Badge>
+                  ) : (
+                    <Badge variant="outline">Active</Badge>
+                  )}
+                  {(rolesByUserId.get(selectedUser.user_id) ?? []).map((r) => (
+                    <Badge key={r} variant={r === "admin" ? "default" : "secondary"}>{r}</Badge>
+                  ))}
+                </div>
+
                 <div className="border-t pt-4">
-                  <h3 className="font-semibold mb-3">Account Information</h3>
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <User className="w-4 h-4" /> Account Information
+                  </h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="col-span-2">
                       <p className="text-sm text-muted-foreground">User ID</p>
@@ -4854,6 +4880,10 @@ For support, contact: support@merry360x.com
                       <p className="text-sm">{selectedUser.phone || 'N/A'}</p>
                     </div>
                     <div>
+                      <p className="text-sm text-muted-foreground">Account Status</p>
+                      <p className="text-sm">{selectedUser.is_suspended ? 'Suspended' : selectedUser.is_verified ? 'Verified' : 'Active'}</p>
+                    </div>
+                    <div>
                       <p className="text-sm text-muted-foreground">Account Created</p>
                       <p className="text-sm">{new Date(selectedUser.created_at).toLocaleString()}</p>
                     </div>
@@ -4862,6 +4892,73 @@ For support, contact: support@merry360x.com
                         <p className="text-sm text-muted-foreground">Last Sign In</p>
                         <p className="text-sm">{new Date(selectedUser.last_sign_in_at).toLocaleString()}</p>
                       </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* User Bookings Summary */}
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <Calendar className="w-4 h-4" /> Booking History
+                  </h3>
+                  {(() => {
+                    const userBookings = allBookings.filter(b => b.guest_id === selectedUser.user_id);
+                    const totalSpent = userBookings.reduce((sum, b) => sum + (b.total_price || 0), 0);
+                    const confirmedBookings = userBookings.filter(b => b.status === 'confirmed').length;
+                    return (
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="text-center p-3 bg-muted/50 rounded-lg">
+                          <p className="text-2xl font-bold">{userBookings.length}</p>
+                          <p className="text-xs text-muted-foreground">Total Bookings</p>
+                        </div>
+                        <div className="text-center p-3 bg-muted/50 rounded-lg">
+                          <p className="text-2xl font-bold">{confirmedBookings}</p>
+                          <p className="text-xs text-muted-foreground">Confirmed</p>
+                        </div>
+                        <div className="text-center p-3 bg-muted/50 rounded-lg">
+                          <p className="text-lg font-bold">{formatMoney(totalSpent, 'RWF')}</p>
+                          <p className="text-xs text-muted-foreground">Total Spent</p>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Quick Actions */}
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold mb-3">Quick Actions</h3>
+                  <div className="flex gap-2">
+                    {selectedUser.is_suspended ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          unsuspendUser(selectedUser.user_id);
+                          setUserDetailsOpen(false);
+                        }}
+                      >
+                        <CheckCircle className="w-4 h-4 mr-2" /> Activate User
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => {
+                          suspendUser(selectedUser.user_id);
+                          setUserDetailsOpen(false);
+                        }}
+                      >
+                        <Ban className="w-4 h-4 mr-2" /> Suspend User
+                      </Button>
+                    )}
+                    {selectedUser.email && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(`mailto:${selectedUser.email}`, '_blank')}
+                      >
+                        <Mail className="w-4 h-4 mr-2" /> Send Email
+                      </Button>
                     )}
                   </div>
                 </div>
