@@ -4394,19 +4394,25 @@ For support, contact: support@merry360x.com
                     <div>
                       <p className="text-sm text-muted-foreground">Name</p>
                       <p className="text-sm">
-                        {selectedBooking.guest_name || "N/A"}
+                        {selectedBooking.is_guest_booking 
+                          ? selectedBooking.guest_name || "Guest"
+                          : (selectedBooking.profiles?.nickname || selectedBooking.profiles?.full_name || "User")}
                       </p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Email</p>
                       <p className="text-sm break-all">
-                        {selectedBooking.guest_email || "N/A"}
+                        {selectedBooking.is_guest_booking
+                          ? selectedBooking.guest_email || "N/A"
+                          : selectedBooking.profiles?.email || "N/A"}
                       </p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Phone</p>
                       <p className="text-sm">
-                        {selectedBooking.guest_phone || "N/A"}
+                        {selectedBooking.is_guest_booking
+                          ? selectedBooking.guest_phone || "N/A"
+                          : selectedBooking.profiles?.phone || "N/A"}
                       </p>
                     </div>
                     <div>

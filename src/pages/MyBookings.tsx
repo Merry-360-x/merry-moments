@@ -379,9 +379,10 @@ const MyBookings = () => {
     );
   }
 
-  // Group bookings by order_id
+  // Group bookings by order_id (only group if they share the same order_id)
   const groupedBookings = bookings.reduce((groups: { [key: string]: Booking[] }, booking) => {
-    const key = booking.order_id || booking.id; // Use booking id if no order_id (single item orders)
+    // Each booking gets its own group unless it has an order_id shared with others
+    const key = booking.order_id && booking.order_id.trim() !== '' ? booking.order_id : `single_${booking.id}`;
     if (!groups[key]) groups[key] = [];
     groups[key].push(booking);
     return groups;
