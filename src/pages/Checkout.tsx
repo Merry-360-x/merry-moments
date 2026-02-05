@@ -49,6 +49,8 @@ interface CartItem {
   image?: string;
   meta?: string;
   metadata?: CartItemMetadata;
+  weekly_discount?: number | null;
+  monthly_discount?: number | null;
 }
 
 type Step = 'details' | 'payment' | 'confirm';
@@ -238,7 +240,7 @@ export default function CheckoutNew() {
     // Fetch the property details directly
     const { data: property, error } = await supabase
       .from('properties')
-      .select('id, title, price_per_night, currency, images, location')
+      .select('id, title, price_per_night, currency, images, location, weekly_discount, monthly_discount')
       .eq('id', propertyId)
       .single();
     
@@ -271,6 +273,8 @@ export default function CheckoutNew() {
       currency: property.currency || 'RWF',
       image: property.images?.[0],
       meta: property.location,
+      weekly_discount: property.weekly_discount,
+      monthly_discount: property.monthly_discount,
       metadata: {
         check_in: checkIn || undefined,
         check_out: checkOut || undefined,
@@ -309,7 +313,7 @@ export default function CheckoutNew() {
     const [tours, packages, properties, vehicles] = await Promise.all([
       tourIds.length ? supabase.from('tours').select('id, title, price_per_person, currency, images, duration_days').in('id', tourIds).then(r => r.data || []) : [],
       packageIds.length ? supabase.from('tour_packages').select('id, title, price_per_adult, currency, cover_image, gallery_images, duration').in('id', packageIds).then(r => r.data || []) : [],
-      propertyIds.length ? supabase.from('properties').select('id, title, price_per_night, currency, images, location').in('id', propertyIds).then(r => r.data || []) : [],
+      propertyIds.length ? supabase.from('properties').select('id, title, price_per_night, currency, images, location, weekly_discount, monthly_discount').in('id', propertyIds).then(r => r.data || []) : [],
       vehicleIds.length ? supabase.from('transport_vehicles').select('id, title, price_per_day, currency, image_url, vehicle_type, seats').in('id', vehicleIds).then(r => r.data || []) : [],
     ]) as any[];
 
@@ -338,7 +342,7 @@ export default function CheckoutNew() {
           case 'tour_package':
             return { title: data.title, price: data.price_per_adult, currency: data.currency || 'RWF', image: data.cover_image || data.gallery_images?.[0], meta: `${parseInt(data.duration) || 1} days` };
           case 'property':
-            return { title: data.title, price: data.price_per_night, currency: data.currency || 'RWF', image: data.images?.[0], meta: data.location };
+            return { title: data.title, price: data.price_per_night, currency: data.currency || 'RWF', image: data.images?.[0], meta: data.location, weekly_discount: data.weekly_discount, monthly_discount: data.monthly_discount };
           case 'transport_vehicle':
             return { title: data.title, price: data.price_per_day, currency: data.currency || 'RWF', image: data.image_url, meta: `${data.vehicle_type} • ${data.seats} seats` };
           default:
@@ -354,8 +358,9 @@ export default function CheckoutNew() {
   }
 
   // Calculate totals
-  const { subtotal, serviceFees, discount, total, displayCurrency } = useMemo(() => {
+  const { subtotal, serviceFees, discount, stayDiscount, total, displayCurrency } = useMemo(() => {
     let subtotalAmount = 0;
+    let stayDiscountAmount = 0;
     let feesAmount = 0;
     const curr = preferredCurrency || "RWF";
 
@@ -368,30 +373,52 @@ export default function CheckoutNew() {
       const converted = convertAmount(itemTotal, item.currency, curr, usdRates) ?? itemTotal;
       subtotalAmount += converted;
       
+      // Apply weekly/monthly discount for properties
+      if (isProperty && nights > 0) {
+        const weeklyDiscount = Number(item.weekly_discount ?? 0);
+        const monthlyDiscount = Number(item.monthly_discount ?? 0);
+        const discountPercent = nights >= 28 && monthlyDiscount > 0 
+          ? monthlyDiscount 
+          : nights >= 7 && weeklyDiscount > 0 
+            ? weeklyDiscount 
+            : 0;
+        if (discountPercent > 0) {
+          stayDiscountAmount += Math.round((converted * discountPercent) / 100);
+        }
+      }
+      
       if (isProperty) {
-        const { platformFee } = calculateGuestTotal(converted, 'accommodation');
+        // Calculate fees on the discounted amount
+        const discountedAmount = converted - (nights >= 28 
+          ? Math.round((converted * Number(item.monthly_discount ?? 0)) / 100)
+          : nights >= 7 
+            ? Math.round((converted * Number(item.weekly_discount ?? 0)) / 100)
+            : 0);
+        const { platformFee } = calculateGuestTotal(discountedAmount, 'accommodation');
         feesAmount += platformFee;
       }
     });
 
     let discountAmount = 0;
     if (appliedDiscount) {
+      const afterStayDiscount = subtotalAmount - stayDiscountAmount;
       if (appliedDiscount.discount_type === 'percentage') {
-        discountAmount = subtotalAmount * (appliedDiscount.discount_value / 100);
+        discountAmount = afterStayDiscount * (appliedDiscount.discount_value / 100);
       } else {
         const converted = convertAmount(appliedDiscount.discount_value, appliedDiscount.currency, curr, usdRates);
         discountAmount = converted ?? 0;
       }
-      if (appliedDiscount.minimum_amount && subtotalAmount < appliedDiscount.minimum_amount) {
+      if (appliedDiscount.minimum_amount && afterStayDiscount < appliedDiscount.minimum_amount) {
         discountAmount = 0;
       }
     }
 
     return {
       subtotal: subtotalAmount,
+      stayDiscount: stayDiscountAmount,
       serviceFees: feesAmount,
       discount: discountAmount,
-      total: subtotalAmount + feesAmount - discountAmount,
+      total: subtotalAmount - stayDiscountAmount + feesAmount - discountAmount,
       displayCurrency: curr,
     };
   }, [cartItems, preferredCurrency, usdRates, appliedDiscount]);
@@ -1379,6 +1406,17 @@ export default function CheckoutNew() {
                   <span className="text-muted-foreground">Subtotal</span>
                   <span>{formatMoney(subtotal, displayCurrency)}</span>
                 </div>
+                {stayDiscount > 0 && (
+                  <div className="flex justify-between text-green-600 dark:text-green-400">
+                    <span className="flex items-center gap-1">
+                      <Tag className="w-3 h-3" />
+                      {cartItems.some(i => i.item_type === 'property' && (i.metadata?.nights ?? 0) >= 28) 
+                        ? 'Monthly discount' 
+                        : 'Weekly discount'}
+                    </span>
+                    <span>-{formatMoney(stayDiscount, displayCurrency)}</span>
+                  </div>
+                )}
                 {serviceFees > 0 && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Service fees</span>
@@ -1389,7 +1427,7 @@ export default function CheckoutNew() {
                   <div className="flex justify-between text-green-600 dark:text-green-400">
                     <span className="flex items-center gap-1">
                       <Tag className="w-3 h-3" />
-                      Discount
+                      Promo discount
                     </span>
                     <span>-{formatMoney(discount, displayCurrency)}</span>
                   </div>
