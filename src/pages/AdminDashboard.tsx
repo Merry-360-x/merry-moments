@@ -4902,7 +4902,7 @@ For support, contact: support@merry360x.com
                     <Calendar className="w-4 h-4" /> Booking History
                   </h3>
                   {(() => {
-                    const userBookings = allBookings.filter(b => b.guest_id === selectedUser.user_id);
+                    const userBookings = bookings.filter(b => b.guest_id === selectedUser.user_id);
                     const totalSpent = userBookings.reduce((sum, b) => sum + (b.total_price || 0), 0);
                     const confirmedBookings = userBookings.filter(b => b.status === 'confirmed').length;
                     return (
