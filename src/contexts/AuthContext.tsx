@@ -307,20 +307,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Fetch roles in background
       void fetchRoles(data.session.user.id);
 
-      // Best-effort profile upsert (non-blocking)
-      const profile: Database["public"]["Tables"]["profiles"]["Insert"] = {
+      // Best-effort profile upsert (non-blocking) with loyalty points
+      const profile = {
         user_id: data.session.user.id,
         full_name: fullName,
         phone: options?.phoneNumber ?? null,
+        profile_completed_bonus: true, // Mark as will receive bonus
       };
 
       void (async () => {
         try {
           const { error: profileError } = await supabase
             .from("profiles")
-            .upsert(profile, { onConflict: "user_id" });
+            .upsert(profile as any, { onConflict: "user_id" });
           if (profileError) {
             console.warn("[AuthContext] Failed to upsert profile:", profileError.message);
+          }
+          
+          // Award loyalty points for completing profile during signup
+          try {
+            await supabase.rpc("add_loyalty_points" as any, {
+              p_user_id: data.session!.user.id,
+              p_points: 5,
+              p_reason: "Welcome bonus - Profile completion",
+              p_reference_type: "profile_completion",
+              p_reference_id: null,
+            });
+            console.log("[AuthContext] Awarded 5 loyalty points for profile completion");
+          } catch (pointsError) {
+            console.warn("[AuthContext] Failed to award loyalty points:", pointsError);
           }
         } catch (err) {
           console.warn("[AuthContext] Failed to upsert profile:", err);

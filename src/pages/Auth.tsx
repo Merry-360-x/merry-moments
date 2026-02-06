@@ -10,6 +10,7 @@ import Logo from "@/components/Logo";
 import { Eye, EyeOff, Phone, Mail, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
+import { LoyaltyPointsPopup } from "@/components/LoyaltyPointsPopup";
 
 const SIGNUP_STORAGE_KEY = 'signup_form_progress';
 
@@ -57,6 +58,10 @@ const Auth = () => {
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [otpLoading, setOtpLoading] = useState(false);
+  
+  // Loyalty points popup state
+  const [showPointsPopup, setShowPointsPopup] = useState(false);
+  const [pendingRedirect, setPendingRedirect] = useState<string | null>(null);
 
   const { signIn, signUp, user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -157,12 +162,23 @@ const Auth = () => {
     return raw;
   })();
 
-  // Redirect authenticated users away from auth page
+  // Redirect authenticated users away from auth page (but not during popup)
   useEffect(() => {
-    if (!authLoading && user) {
+    if (!authLoading && user && !showPointsPopup) {
       navigate(redirectTo ?? "/", { replace: true });
     }
-  }, [user, authLoading, navigate, redirectTo]);
+  }, [user, authLoading, navigate, redirectTo, showPointsPopup]);
+
+  // Handle popup close - navigate after popup
+  const handlePointsPopupClose = () => {
+    setShowPointsPopup(false);
+    toast({ 
+      title: "Welcome!", 
+      description: "Your account has been created successfully.",
+      duration: 2000
+    });
+    navigate(pendingRedirect ?? "/", { replace: true });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -220,13 +236,10 @@ const Auth = () => {
           setLastName("");
           setPhoneNumber("");
         } else {
-          // Signed in immediately - clear saved progress
+          // Signed in immediately - show loyalty popup then navigate
           clearSignupProgress();
-          toast({ 
-            title: "Welcome!", 
-            description: "Your account has been created successfully.",
-            duration: 2000
-          });
+          setPendingRedirect(redirectTo ?? "/");
+          setShowPointsPopup(true);
         }
       }
     } catch (error: unknown) {
@@ -767,6 +780,15 @@ const Auth = () => {
           </div>
         </div>
       </div>
+      
+      {/* Loyalty Points Popup for new signups */}
+      <LoyaltyPointsPopup
+        isOpen={showPointsPopup}
+        onClose={handlePointsPopupClose}
+        points={5}
+        totalPoints={5}
+        reason="Welcome bonus"
+      />
     </div>
   );
 };
