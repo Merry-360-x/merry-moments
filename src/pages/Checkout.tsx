@@ -1402,32 +1402,47 @@ export default function CheckoutNew() {
               </div>
 
               <div className="border-t pt-4 space-y-3 text-sm">
+                {/* Base price (before any discounts) */}
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Subtotal</span>
+                  <span className="text-muted-foreground">Base price</span>
                   <span>{formatMoney(subtotal, displayCurrency)}</span>
                 </div>
+                
+                {/* Stay discount (weekly/monthly) */}
                 {stayDiscount > 0 && (
-                  <div className="flex justify-between text-green-600 dark:text-green-400">
+                  <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
                     <span className="flex items-center gap-1">
                       <Tag className="w-3 h-3" />
                       {cartItems.some(i => i.item_type === 'property' && (i.metadata?.nights ?? 0) >= 28) 
-                        ? 'Monthly discount' 
-                        : 'Weekly discount'}
+                        ? 'Monthly stay discount' 
+                        : 'Weekly stay discount'}
                     </span>
                     <span>-{formatMoney(stayDiscount, displayCurrency)}</span>
                   </div>
                 )}
+                
+                {/* Subtotal after stay discounts */}
+                {stayDiscount > 0 && (
+                  <div className="flex justify-between border-t pt-2">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span>{formatMoney(subtotal - stayDiscount, displayCurrency)}</span>
+                  </div>
+                )}
+                
+                {/* Service fees */}
                 {serviceFees > 0 && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Service fees</span>
-                    <span>{formatMoney(serviceFees, displayCurrency)}</span>
+                    <span>+{formatMoney(serviceFees, displayCurrency)}</span>
                   </div>
                 )}
+                
+                {/* Promo code discount */}
                 {discount > 0 && (
                   <div className="flex justify-between text-green-600 dark:text-green-400">
                     <span className="flex items-center gap-1">
                       <Tag className="w-3 h-3" />
-                      Promo discount
+                      Promo ({appliedDiscount?.code})
                     </span>
                     <span>-{formatMoney(discount, displayCurrency)}</span>
                   </div>

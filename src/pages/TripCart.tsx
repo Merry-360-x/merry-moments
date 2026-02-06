@@ -273,8 +273,9 @@ export default function TripCart() {
   };
 
   // Calculate totals with platform fees
-  const { subtotal, serviceFees, discount, total, currency: displayCurrency } = useMemo(() => {
-    let subtotalAmount = 0;
+  const { baseSubtotal, stayDiscountTotal, subtotal, serviceFees, discount, total, currency: displayCurrency } = useMemo(() => {
+    let baseSubtotalAmount = 0;
+    let stayDiscountAmount = 0;
     let feesAmount = 0;
     const curr = preferredCurrency || "RWF";
 
@@ -284,51 +285,56 @@ export default function TripCart() {
       const nights = isProperty && item.metadata?.nights ? item.metadata.nights : 1;
       const multiplier = isProperty ? nights : item.quantity;
       
-      // Calculate base price
-      let itemTotal = item.price * multiplier;
+      // Calculate base price (before any discounts)
+      const baseItemTotal = item.price * multiplier;
+      const convertedBase = convertAmount(baseItemTotal, item.currency, curr, usdRates) ?? baseItemTotal;
+      baseSubtotalAmount += convertedBase;
       
-      // Apply weekly/monthly discounts for properties
+      // Calculate weekly/monthly discounts for properties
+      let itemDiscount = 0;
       if (isProperty) {
-        const stayDiscount = nights >= 28 && item.monthly_discount 
+        const stayDiscountPercent = nights >= 28 && item.monthly_discount 
           ? item.monthly_discount 
           : nights >= 7 && item.weekly_discount 
             ? item.weekly_discount 
             : 0;
-        if (stayDiscount > 0) {
-          itemTotal = itemTotal * (1 - stayDiscount / 100);
+        if (stayDiscountPercent > 0) {
+          itemDiscount = convertedBase * (stayDiscountPercent / 100);
+          stayDiscountAmount += itemDiscount;
         }
       }
       
-      const converted = convertAmount(itemTotal, item.currency, curr, usdRates) ?? itemTotal;
-      subtotalAmount += converted;
-      
-      // Calculate platform fees based on item type
+      // Calculate platform fees on the discounted amount
+      const afterDiscount = convertedBase - itemDiscount;
       if (isProperty) {
-        const { platformFee } = calculateGuestTotal(converted, 'accommodation');
+        const { platformFee } = calculateGuestTotal(afterDiscount, 'accommodation');
         feesAmount += platformFee;
       }
       // Tours: no guest fee
     });
 
-    // Calculate discount
-    let discountAmount = 0;
+    // Calculate promo code discount (applied after stay discounts)
+    const subtotalAfterStay = baseSubtotalAmount - stayDiscountAmount;
+    let promoDiscountAmount = 0;
     if (appliedDiscount) {
       if (appliedDiscount.discount_type === 'percentage') {
-        discountAmount = subtotalAmount * (appliedDiscount.discount_value / 100);
+        promoDiscountAmount = subtotalAfterStay * (appliedDiscount.discount_value / 100);
       } else {
         const converted = convertAmount(appliedDiscount.discount_value, appliedDiscount.currency, curr, usdRates);
-        discountAmount = converted ?? 0;
+        promoDiscountAmount = converted ?? 0;
       }
-      if (appliedDiscount.minimum_amount && subtotalAmount < appliedDiscount.minimum_amount) {
-        discountAmount = 0;
+      if (appliedDiscount.minimum_amount && subtotalAfterStay < appliedDiscount.minimum_amount) {
+        promoDiscountAmount = 0;
       }
     }
 
     return {
-      subtotal: subtotalAmount,
+      baseSubtotal: baseSubtotalAmount,
+      stayDiscountTotal: stayDiscountAmount,
+      subtotal: subtotalAfterStay,
       serviceFees: feesAmount,
-      discount: discountAmount,
-      total: subtotalAmount + feesAmount - discountAmount,
+      discount: promoDiscountAmount,
+      total: subtotalAfterStay + feesAmount - promoDiscountAmount,
       currency: curr,
     };
   }, [cartItems, preferredCurrency, usdRates, appliedDiscount]);
@@ -602,19 +608,46 @@ export default function TripCart() {
 
                 {/* Price Breakdown */}
                 <div className="space-y-3 text-sm">
+                  {/* Base subtotal (before any discounts) */}
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Subtotal</span>
-                    <span>{formatMoney(subtotal, displayCurrency)}</span>
+                    <span className="text-muted-foreground">Base price</span>
+                    <span>{formatMoney(baseSubtotal, displayCurrency)}</span>
                   </div>
+                  
+                  {/* Weekly/Monthly stay discount */}
+                  {stayDiscountTotal > 0 && (
+                    <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
+                      <span className="flex items-center gap-1">
+                        <Tag className="w-3 h-3" />
+                        Stay discount
+                      </span>
+                      <span>-{formatMoney(stayDiscountTotal, displayCurrency)}</span>
+                    </div>
+                  )}
+                  
+                  {/* Subtotal after stay discounts */}
+                  {stayDiscountTotal > 0 && (
+                    <div className="flex justify-between border-t pt-2">
+                      <span className="text-muted-foreground">Subtotal</span>
+                      <span>{formatMoney(subtotal, displayCurrency)}</span>
+                    </div>
+                  )}
+                  
+                  {/* Platform service fees */}
                   {serviceFees > 0 && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Service fees</span>
-                      <span>{formatMoney(serviceFees, displayCurrency)}</span>
+                      <span>+{formatMoney(serviceFees, displayCurrency)}</span>
                     </div>
                   )}
+                  
+                  {/* Promo code discount */}
                   {discount > 0 && (
                     <div className="flex justify-between text-green-600 dark:text-green-400">
-                      <span>Discount</span>
+                      <span className="flex items-center gap-1">
+                        <Tag className="w-3 h-3" />
+                        Promo ({appliedDiscount?.code})
+                      </span>
                       <span>-{formatMoney(discount, displayCurrency)}</span>
                     </div>
                   )}
