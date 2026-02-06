@@ -1343,82 +1343,75 @@ export default function HostDashboard() {
     setShowBookingDetails(true);
     
     try {
-      // Fetch full booking details with related data
-      let query = supabase
+      // Fetch booking details
+      const { data: bookingData, error: bookingError } = await supabase
         .from("bookings")
-        .select(`
-          *,
-          profiles:guest_id(full_name, email, phone),
-          checkout_requests:order_id(
-            payment_method,
-            payment_status,
-            dpo_transaction_id,
-            metadata
-          )
-        `)
+        .select("*")
         .eq("id", booking.id)
         .single();
       
-      // Add related entity based on booking type
-      if (booking.booking_type === 'property' && booking.property_id) {
-        query = supabase
-          .from("bookings")
-          .select(`
-            *,
-            profiles:guest_id(full_name, email, phone),
-            properties(title, location, address, property_type, amenities, images),
-            checkout_requests:order_id(
-              payment_method,
-              payment_status,
-              dpo_transaction_id,
-              metadata
-            )
-          `)
-          .eq("id", booking.id)
-          .single();
-      } else if (booking.booking_type === 'tour' && booking.tour_id) {
-        query = supabase
-          .from("bookings")
-          .select(`
-            *,
-            profiles:guest_id(full_name, email, phone),
-            tour_packages(title, location, city, duration, categories, included_services),
-            checkout_requests:order_id(
-              payment_method,
-              payment_status,
-              dpo_transaction_id,
-              metadata
-            )
-          `)
-          .eq("id", booking.id)
-          .single();
-      } else if (booking.booking_type === 'transport' && booking.transport_id) {
-        query = supabase
-          .from("bookings")
-          .select(`
-            *,
-            profiles:guest_id(full_name, email, phone),
-            transport_vehicles(title, vehicle_type, seats, driver_included),
-            checkout_requests:order_id(
-              payment_method,
-              payment_status,
-              dpo_transaction_id,
-              metadata
-            )
-          `)
-          .eq("id", booking.id)
-          .single();
-      }
-      
-      const { data, error } = await query;
-      
-      if (error) {
-        console.error("Error fetching booking details:", error);
+      if (bookingError) {
+        console.error("Error fetching booking:", bookingError);
         toast({ variant: "destructive", title: "Error", description: "Failed to load booking details" });
         return;
       }
       
-      setBookingFullDetails(data);
+      // Fetch guest profile
+      let guestProfile = null;
+      if (bookingData.guest_id) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name, email, phone")
+          .eq("id", bookingData.guest_id)
+          .single();
+        guestProfile = profile;
+      }
+      
+      // Fetch checkout details
+      let checkoutDetails = null;
+      if (bookingData.order_id) {
+        const { data: checkout } = await supabase
+          .from("checkout_requests")
+          .select("payment_method, payment_status, dpo_transaction_id, metadata")
+          .eq("id", bookingData.order_id)
+          .single();
+        checkoutDetails = checkout;
+      }
+      
+      // Fetch related entity based on booking type
+      let relatedEntity = null;
+      if (booking.booking_type === 'property' && booking.property_id) {
+        const { data: property } = await supabase
+          .from("properties")
+          .select("title, location, address, property_type, amenities, images")
+          .eq("id", booking.property_id)
+          .single();
+        relatedEntity = { properties: property };
+      } else if (booking.booking_type === 'tour' && booking.tour_id) {
+        const { data: tour } = await supabase
+          .from("tour_packages")
+          .select("title, location, city, duration, categories, included_services")
+          .eq("id", booking.tour_id)
+          .single();
+        relatedEntity = { tour_packages: tour };
+      } else if (booking.booking_type === 'transport' && booking.transport_id) {
+        const { data: vehicle } = await supabase
+          .from("transport_vehicles")
+          .select("title, vehicle_type, seats, driver_included")
+          .eq("id", booking.transport_id)
+          .single();
+        relatedEntity = { transport_vehicles: vehicle };
+      }
+      
+      // Combine all data
+      const fullDetails = {
+        ...bookingData,
+        profiles: guestProfile,
+        checkout_requests: checkoutDetails,
+        ...relatedEntity
+      };
+      
+      setBookingFullDetails(fullDetails);
     } catch (error) {
       console.error("Error:", error);
       toast({ variant: "destructive", title: "Error", description: "Failed to load booking details" });
