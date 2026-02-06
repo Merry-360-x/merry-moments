@@ -349,37 +349,34 @@ const Auth = () => {
         .eq("phone", formattedPhone)
         .maybeSingle();
       
-      // For login, phone must be registered
+      // For login, phone must be registered - seamlessly switch to signup
       if (isLogin && !existingUser) {
-        setOtpLoading(false);
-        toast({
-          variant: "destructive",
-          title: "Phone number not registered",
-          description: "This phone number is not linked to any account. Please sign up first.",
-        });
-        // Switch to signup mode
         setIsLogin(false);
+        // Don't return - continue to send OTP for signup
+        toast({
+          title: "Let's create your account",
+          description: "Please enter your name to continue",
+        });
+        setOtpLoading(false);
         return;
       }
       
-      // For signup, phone must NOT be registered
+      // For signup, phone already registered - seamlessly switch to login
       if (!isLogin && existingUser) {
-        setOtpLoading(false);
-        toast({
-          variant: "destructive",
-          title: "Phone number already registered",
-          description: "This phone number is already linked to an account. Please sign in instead.",
-        });
-        // Switch to login mode
         setIsLogin(true);
-        return;
+        // Continue to send OTP for login (name not needed)
+        toast({
+          title: "Welcome back!",
+          description: "Sending verification code...",
+        });
+        // Don't return - continue with OTP
       }
       
       const { error } = await supabase.auth.signInWithOtp({
         phone: formattedPhone,
         options: {
           // For signup, we need to pass user metadata
-          data: !isLogin ? {
+          data: !isLogin && !existingUser ? {
             full_name: `${firstName.trim()} ${lastName.trim()}`,
             first_name: firstName.trim(),
             last_name: lastName.trim(),
