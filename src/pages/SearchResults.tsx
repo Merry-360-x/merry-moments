@@ -283,8 +283,8 @@ export default function SearchResults() {
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="mb-6">
               <TabsTrigger value="all">All ({results.length})</TabsTrigger>
-              <TabsTrigger value="properties">Stays ({properties.length})</TabsTrigger>
-              <TabsTrigger value="tours">Tours ({tours.length})</TabsTrigger>
+              <TabsTrigger value="properties">Accommodations ({properties.length})</TabsTrigger>
+              <TabsTrigger value="tours">Tours & Packages ({tours.length})</TabsTrigger>
               <TabsTrigger value="transport">Transport ({transport.length})</TabsTrigger>
             </TabsList>
 

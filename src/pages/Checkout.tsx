@@ -178,6 +178,12 @@ export default function CheckoutNew() {
                 setPhoneNumber(data.phone);
               }
             }
+            
+            // If all user details are pre-filled and we have cart items, enable fast checkout
+            if (data.full_name && user.email && data.phone) {
+              // Auto-fill indicates user can skip to payment for faster checkout
+              console.log("✅ User details pre-filled - fast checkout enabled");
+            }
           }
         });
     }
@@ -873,9 +879,28 @@ export default function CheckoutNew() {
               {/* Step 1: Details */}
               {currentStep === 'details' && (
                 <div className="space-y-6">
-                  <div>
-                    <h2 className="text-xl font-semibold mb-1">Contact Details</h2>
-                    <p className="text-sm text-muted-foreground">We'll use this to confirm your booking</p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-xl font-semibold mb-1">Contact Details</h2>
+                      <p className="text-sm text-muted-foreground">We'll use this to confirm your booking</p>
+                    </div>
+                    {/* Quick Pay - Skip to payment if details are complete */}
+                    {formData.fullName && formData.email && phoneNumber && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (isDetailsValid) {
+                            goToStep('payment');
+                            toast({ title: "Fast checkout enabled", description: "Your details are pre-filled" });
+                          }
+                        }}
+                        className="shrink-0"
+                      >
+                        <ArrowRight className="w-4 h-4 mr-2" />
+                        Quick Pay
+                      </Button>
+                    )}
                   </div>
                   
                   <div className="grid gap-4">

@@ -298,15 +298,18 @@ export default function TourDetails() {
               </div>
             </div>
 
+            {/* Description - Prominent Section */}
             <div className="border-t pt-6">
-              <div className="prose prose-sm max-w-none">
-                <h2 className="text-xl font-semibold text-foreground mb-3">About this tour</h2>
-                {tour.description && (
-                  <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
+              <h2 className="text-2xl font-bold text-foreground mb-4">About this tour</h2>
+              {tour.description ? (
+                <div className="bg-card rounded-lg border p-5">
+                  <p className="text-foreground leading-relaxed whitespace-pre-line text-base">
                     {tour.description}
                   </p>
-                )}
-              </div>
+                </div>
+              ) : (
+                <p className="text-muted-foreground italic">No description available</p>
+              )}
             </div>
 
             {/* Daily Itinerary */}
@@ -378,9 +381,9 @@ export default function TourDetails() {
             )}
 
             {/* PDF Itinerary - Compact Card */}
-            {tour.itinerary_pdf_url && (
-              <div className="border-t pt-6">
-                <h2 className="text-xl font-semibold text-foreground mb-4">Detailed Itinerary</h2>
+            <div className="border-t pt-6">
+              <h2 className="text-xl font-semibold text-foreground mb-4">Detailed Itinerary</h2>
+              {tour.itinerary_pdf_url ? (
                 <div className="bg-card rounded-lg border p-4 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
@@ -425,8 +428,14 @@ export default function TourDetails() {
                     </button>
                   </div>
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="bg-muted/30 rounded-lg border border-dashed p-4">
+                  <p className="text-sm text-muted-foreground text-center">
+                    No detailed itinerary document is currently available for this tour. Please refer to the daily itinerary section above for more information.
+                  </p>
+                </div>
+              )}
+            </div>
 
             {/* Cancellation Policy */}
             {isPackage && (tour?.cancellation_policy_type || tour?.cancellation_policy || tour?.custom_cancellation_policy_url || nonRefundableItems.length > 0) && (

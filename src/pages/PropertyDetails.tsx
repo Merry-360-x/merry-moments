@@ -244,6 +244,25 @@ export default function PropertyDetails() {
     },
   });
 
+  // Helper to check if a date falls within any blocked range
+  const isDateBlocked = useCallback((dateStr: string) => {
+    if (!dateStr || blockedDates.length === 0) return false;
+    const checkDate = new Date(dateStr);
+    checkDate.setHours(0, 0, 0, 0);
+    
+    for (const blocked of blockedDates) {
+      const blockedStart = new Date(blocked.start_date);
+      const blockedEnd = new Date(blocked.end_date);
+      blockedStart.setHours(0, 0, 0, 0);
+      blockedEnd.setHours(0, 0, 0, 0);
+      
+      if (checkDate >= blockedStart && checkDate <= blockedEnd) {
+        return true;
+      }
+    }
+    return false;
+  }, [blockedDates]);
+
   // Check if selected dates overlap with blocked dates
   useEffect(() => {
     if (!checkIn || !checkOut || blockedDates.length === 0) return;
@@ -868,6 +887,16 @@ export default function PropertyDetails() {
                 </div>
               </div>
 
+              {/* Description - Prominent Section */}
+              {data.description && (
+                <div className="mt-6 bg-card rounded-xl shadow-card p-5">
+                  <h3 className="text-lg font-bold text-foreground mb-3">Description</h3>
+                  <p className="text-foreground leading-relaxed whitespace-pre-line">
+                    {data.description}
+                  </p>
+                </div>
+              )}
+
               {/* Details */}
               <div className="mt-6 bg-card rounded-xl shadow-card p-5">
                 <div className="text-sm font-semibold text-foreground mb-2">About this place</div>
@@ -1125,7 +1154,19 @@ export default function PropertyDetails() {
                       type="date"
                       value={checkIn}
                       min={isoToday()}
-                      onChange={(e) => setCheckIn(e.target.value)}
+                      onChange={(e) => {
+                        const selectedDate = e.target.value;
+                        if (isDateBlocked(selectedDate)) {
+                          toast({ 
+                            variant: "destructive", 
+                            title: "Date unavailable", 
+                            description: "This date is already booked. Please select a different date." 
+                          });
+                          return;
+                        }
+                        setCheckIn(selectedDate);
+                      }}
+                      className={isDateBlocked(checkIn) ? "border-red-500" : ""}
                     />
                   </div>
                   <div>
@@ -1135,7 +1176,19 @@ export default function PropertyDetails() {
                       type="date"
                       value={checkOut}
                       min={checkIn || isoToday()}
-                      onChange={(e) => setCheckOut(e.target.value)}
+                      onChange={(e) => {
+                        const selectedDate = e.target.value;
+                        if (isDateBlocked(selectedDate)) {
+                          toast({ 
+                            variant: "destructive", 
+                            title: "Date unavailable", 
+                            description: "This date is already booked. Please select a different date." 
+                          });
+                          return;
+                        }
+                        setCheckOut(selectedDate);
+                      }}
+                      className={isDateBlocked(checkOut) ? "border-red-500" : ""}
                     />
                   </div>
                   <div>
