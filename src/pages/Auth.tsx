@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,12 +7,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import Logo from "@/components/Logo";
-import { Eye, EyeOff, Phone, Mail, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Phone, Mail, Loader2, CheckCircle2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { LoyaltyPointsPopup } from "@/components/LoyaltyPointsPopup";
 
 const SIGNUP_STORAGE_KEY = 'signup_form_progress';
+
+// Country codes for phone auth
+const COUNTRY_CODES = [
+  { code: '+250', country: 'Rwanda', flag: '🇷🇼' },
+  { code: '+254', country: 'Kenya', flag: '🇰🇪' },
+  { code: '+255', country: 'Tanzania', flag: '🇹🇿' },
+  { code: '+256', country: 'Uganda', flag: '🇺🇬' },
+  { code: '+260', country: 'Zambia', flag: '🇿🇲' },
+  { code: '+243', country: 'DR Congo', flag: '🇨🇩' },
+  { code: '+257', country: 'Burundi', flag: '🇧🇮' },
+];
 
 const GoogleIcon = (props: { className?: string }) => (
   <svg
@@ -51,6 +62,7 @@ const Auth = () => {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [selectedCountry, setSelectedCountry] = useState(COUNTRY_CODES[0]);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   
@@ -58,6 +70,8 @@ const Auth = () => {
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [otpLoading, setOtpLoading] = useState(false);
+  const [resendCountdown, setResendCountdown] = useState(0);
+  const otpInputRef = useRef<HTMLInputElement>(null);
   
   // Loyalty points popup state
   const [showPointsPopup, setShowPointsPopup] = useState(false);
@@ -66,6 +80,14 @@ const Auth = () => {
   const { signIn, signUp, user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Resend countdown timer
+  useEffect(() => {
+    if (resendCountdown > 0) {
+      const timer = setTimeout(() => setResendCountdown(resendCountdown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendCountdown]);
 
   // Set initial mode from URL params
   useEffect(() => {
@@ -293,19 +315,16 @@ const Auth = () => {
 
   // Format phone number to E.164 format
   const formatPhoneForAuth = (phone: string): string => {
-    // Remove all non-digit characters except +
-    let formatted = phone.replace(/[^\d+]/g, '');
+    // Remove all non-digit characters
+    let digits = phone.replace(/\D/g, '');
     
-    // If it doesn't start with +, assume Rwanda (+250)
-    if (!formatted.startsWith('+')) {
-      // Remove leading 0 if present
-      if (formatted.startsWith('0')) {
-        formatted = formatted.substring(1);
-      }
-      formatted = '+250' + formatted;
+    // Remove leading 0 if present
+    if (digits.startsWith('0')) {
+      digits = digits.substring(1);
     }
     
-    return formatted;
+    // Use selected country code
+    return selectedCountry.code + digits;
   };
 
   // Handle sending OTP to phone
@@ -372,9 +391,12 @@ const Auth = () => {
       if (error) throw error;
 
       setOtpSent(true);
+      setResendCountdown(60); // 60 second countdown
+      // Focus OTP input after a short delay
+      setTimeout(() => otpInputRef.current?.focus(), 100);
       toast({
-        title: "OTP Sent!",
-        description: `A verification code has been sent to ${formattedPhone}`,
+        title: "Code Sent! ✓",
+        description: `Check your phone for the verification code`,
       });
     } catch (error: unknown) {
       logError("auth.phoneOtp", error);
@@ -539,9 +561,9 @@ const Auth = () => {
           {authMethod === 'phone' ? (
             <div className="space-y-4">
               {!isLogin && !otpSent && (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label htmlFor="firstName">First Name</Label>
+                    <Label htmlFor="firstName" className="text-sm">First Name</Label>
                     <Input
                       id="firstName"
                       type="text"
@@ -553,7 +575,7 @@ const Auth = () => {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="lastName">Last Name</Label>
+                    <Label htmlFor="lastName" className="text-sm">Last Name</Label>
                     <Input
                       id="lastName"
                       type="text"
@@ -570,89 +592,135 @@ const Auth = () => {
               {!otpSent ? (
                 <>
                   <div>
-                    <Label htmlFor="phoneAuth">Phone Number</Label>
-                    <Input
-                      id="phoneAuth"
-                      type="tel"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      placeholder="+250 788 123 456"
-                      className="mt-1"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Enter your phone number to receive a verification code
+                    <Label htmlFor="phoneAuth" className="text-sm">Phone Number</Label>
+                    <div className="flex gap-2 mt-1">
+                      {/* Country Code Selector */}
+                      <select
+                        value={selectedCountry.code}
+                        onChange={(e) => {
+                          const country = COUNTRY_CODES.find(c => c.code === e.target.value);
+                          if (country) setSelectedCountry(country);
+                        }}
+                        className="flex h-10 w-24 items-center justify-between rounded-md border border-input bg-background px-2 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      >
+                        {COUNTRY_CODES.map(c => (
+                          <option key={c.code} value={c.code}>
+                            {c.flag} {c.code}
+                          </option>
+                        ))}
+                      </select>
+                      {/* Phone Input */}
+                      <Input
+                        id="phoneAuth"
+                        type="tel"
+                        inputMode="numeric"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value.replace(/[^\d\s]/g, ''))}
+                        placeholder="788 123 456"
+                        className="flex-1"
+                        autoComplete="tel"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                      We'll send you a verification code via SMS
                     </p>
                   </div>
                   <Button
                     type="button"
-                    className="w-full"
+                    className="w-full h-11"
                     onClick={handleSendOTP}
-                    disabled={otpLoading || !phoneNumber.trim() || (!isLogin ? (!firstName.trim() || !lastName.trim()) : false)}
+                    disabled={otpLoading || !phoneNumber.trim() || phoneNumber.replace(/\D/g, '').length < 8 || (!isLogin ? (!firstName.trim() || !lastName.trim()) : false)}
                   >
                     {otpLoading ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Sending...
+                        Sending Code...
                       </>
                     ) : (
-                      <>
-                        <Phone className="w-4 h-4 mr-2" />
-                        Send Verification Code
-                      </>
+                      "Continue"
                     )}
                   </Button>
                 </>
               ) : (
-                <form onSubmit={handleVerifyOTP} className="space-y-4">
+                <div className="space-y-4">
+                  {/* Success indicator */}
+                  <div className="flex items-center justify-center gap-2 py-3 px-4 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
+                    <CheckCircle2 className="w-5 h-5 text-green-600" />
+                    <span className="text-sm text-green-700 dark:text-green-300">
+                      Code sent to {selectedCountry.flag} {selectedCountry.code} {phoneNumber}
+                    </span>
+                  </div>
+
                   <div>
-                    <Label htmlFor="otpCode">Verification Code</Label>
+                    <Label htmlFor="otpCode" className="text-sm">Enter Verification Code</Label>
                     <Input
+                      ref={otpInputRef}
                       id="otpCode"
                       type="text"
                       inputMode="numeric"
                       pattern="[0-9]*"
                       maxLength={6}
                       value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                      placeholder="Enter 6-digit code"
-                      className="mt-1 text-center text-xl tracking-widest"
-                      autoFocus
+                      onChange={(e) => {
+                        const code = e.target.value.replace(/\D/g, '');
+                        setOtpCode(code);
+                        // Auto-submit when 6 digits entered
+                        if (code.length === 6 && !isLoading) {
+                          setTimeout(() => {
+                            const form = e.target.closest('form');
+                            if (form) form.requestSubmit();
+                          }, 100);
+                        }
+                      }}
+                      placeholder="• • • • • •"
+                      className="mt-1 text-center text-2xl tracking-[0.5em] font-mono h-14"
+                      autoComplete="one-time-code"
                     />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Enter the 6-digit code sent to {phoneNumber}
-                    </p>
                   </div>
-                  <Button type="submit" className="w-full" disabled={isLoading || otpCode.length !== 6}>
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Verifying...
-                      </>
-                    ) : (
-                      isLogin ? "Sign In" : "Create Account"
-                    )}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="w-full"
-                    onClick={() => {
-                      setOtpSent(false);
-                      setOtpCode('');
-                    }}
-                  >
-                    Change phone number
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="link"
-                    className="w-full"
-                    onClick={handleSendOTP}
-                    disabled={otpLoading}
-                  >
-                    {otpLoading ? "Sending..." : "Resend code"}
-                  </Button>
-                </form>
+
+                  <form onSubmit={handleVerifyOTP}>
+                    <Button 
+                      type="submit" 
+                      className="w-full h-11" 
+                      disabled={isLoading || otpCode.length !== 6}
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Verifying...
+                        </>
+                      ) : (
+                        isLogin ? "Sign In" : "Create Account"
+                      )}
+                    </Button>
+                  </form>
+
+                  <div className="flex items-center justify-between text-sm">
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground transition-colors"
+                      onClick={() => {
+                        setOtpSent(false);
+                        setOtpCode('');
+                        setResendCountdown(0);
+                      }}
+                    >
+                      ← Change number
+                    </button>
+                    <button
+                      type="button"
+                      className={`transition-colors ${resendCountdown > 0 ? 'text-muted-foreground cursor-not-allowed' : 'text-primary hover:text-primary/80'}`}
+                      onClick={() => {
+                        if (resendCountdown === 0) {
+                          handleSendOTP();
+                        }
+                      }}
+                      disabled={resendCountdown > 0 || otpLoading}
+                    >
+                      {otpLoading ? 'Sending...' : resendCountdown > 0 ? `Resend in ${resendCountdown}s` : 'Resend code'}
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           ) : (
