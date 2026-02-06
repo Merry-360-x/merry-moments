@@ -283,7 +283,22 @@ export default function TripCart() {
       const isProperty = item.item_type === 'property';
       const nights = isProperty && item.metadata?.nights ? item.metadata.nights : 1;
       const multiplier = isProperty ? nights : item.quantity;
-      const itemTotal = item.price * multiplier;
+      
+      // Calculate base price
+      let itemTotal = item.price * multiplier;
+      
+      // Apply weekly/monthly discounts for properties
+      if (isProperty) {
+        const stayDiscount = nights >= 28 && item.monthly_discount 
+          ? item.monthly_discount 
+          : nights >= 7 && item.weekly_discount 
+            ? item.weekly_discount 
+            : 0;
+        if (stayDiscount > 0) {
+          itemTotal = itemTotal * (1 - stayDiscount / 100);
+        }
+      }
+      
       const converted = convertAmount(itemTotal, item.currency, curr, usdRates) ?? itemTotal;
       subtotalAmount += converted;
       
