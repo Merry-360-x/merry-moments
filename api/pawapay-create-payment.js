@@ -265,7 +265,7 @@ export default async function handler(req, res) {
 
     console.log("Creating PawaPay deposit:", JSON.stringify(pawaPayRequest, null, 2));
     console.log("Phone number being sent:", msisdn);
-    console.log("Amount:", rwfAmount, currency);
+    console.log("Amount:", paymentAmount, currency);
     console.log("Provider:", correspondent);
 
     // Call PawaPay API
@@ -309,7 +309,7 @@ export default async function handler(req, res) {
         details: pawaPayData,
         debugInfo: {
           phone: msisdn,
-          amount: rwfAmount,
+          amount: paymentAmount,
           correspondent,
           depositId
         }
@@ -337,7 +337,7 @@ export default async function handler(req, res) {
       console.error("Full PawaPay response:", JSON.stringify(pawaPayData, null, 2));
       console.error("Correspondent:", correspondent);
       console.error("Phone:", msisdn);
-      console.error("Amount:", rwfAmount, currency);
+      console.error("Amount:", paymentAmount, currency);
       
       // Extract the actual failure reason from PawaPay - check ALL possible locations
       let failureCode = pawaPayData.rejectionReason?.rejectionCode ||
@@ -444,7 +444,7 @@ export default async function handler(req, res) {
           checkout_id: orderId,
           provider: "pawapay",
           transaction_id: depositId,
-          amount: rwfAmount,
+          amount: paymentAmount,
           currency,
           status: pawaPayData.status || "SUBMITTED",
           payment_method: provider === 'MTN' ? 'mtn_momo' : 'airtel_money',
@@ -464,7 +464,7 @@ export default async function handler(req, res) {
       data: {
         checkoutId: orderId,
         depositId,
-        amount: rwfAmount,
+        amount: paymentAmount,
         currency,
         phoneNumber: msisdn,
         correspondent,

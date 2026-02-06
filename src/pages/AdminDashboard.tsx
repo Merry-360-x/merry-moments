@@ -2106,7 +2106,7 @@ For support, contact: support@merry360x.com
             <div className="grid md:grid-cols-3 gap-4">
               <Card 
                 className={`p-4 border-l-4 border-l-yellow-500 cursor-pointer hover:shadow-md transition-shadow ${(metrics?.tickets_open ?? 0) > 0 ? 'ring-2 ring-red-500 ring-opacity-50 animate-pulse' : ''}`}
-                onClick={() => setActiveTab("support")}
+                onClick={() => setTab("support")}
               >
                 <h4 className="font-medium flex items-center gap-2">
                   <MessageSquare className="w-4 h-4" /> Open Tickets
