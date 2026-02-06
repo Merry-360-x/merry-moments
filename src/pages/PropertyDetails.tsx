@@ -95,8 +95,6 @@ export default function PropertyDetails() {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIdx, setViewerIdx] = useState(0);
   const [addedAddOn, setAddedAddOn] = useState(false);
-  const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [acceptedCancellation, setAcceptedCancellation] = useState(false);
 
   const { data: myPoints = 0 } = useQuery({
     queryKey: ["loyalty_points", user?.id],
@@ -1181,39 +1179,6 @@ export default function PropertyDetails() {
                   </div>
                 )}
 
-                {/* Legal Agreement Checkboxes */}
-                <div className="mt-4 space-y-2 bg-muted/30 p-3 rounded-lg">
-                  <label className="flex items-start gap-2 cursor-pointer group text-xs">
-                    <input
-                      type="checkbox"
-                      checked={acceptedTerms}
-                      onChange={(e) => setAcceptedTerms(e.target.checked)}
-                      className="mt-0.5 w-3.5 h-3.5 rounded border-gray-300 text-primary focus:ring-primary"
-                    />
-                    <span className="text-muted-foreground group-hover:text-foreground transition-colors">
-                      I agree to the{' '}
-                      <Link to="/terms-and-conditions" target="_blank" className="text-primary hover:underline font-medium">
-                        Terms & Conditions
-                      </Link>
-                    </span>
-                  </label>
-
-                  <label className="flex items-start gap-2 cursor-pointer group text-xs">
-                    <input
-                      type="checkbox"
-                      checked={acceptedCancellation}
-                      onChange={(e) => setAcceptedCancellation(e.target.checked)}
-                      className="mt-0.5 w-3.5 h-3.5 rounded border-gray-300 text-primary focus:ring-primary"
-                    />
-                    <span className="text-muted-foreground group-hover:text-foreground transition-colors">
-                      I understand the{' '}
-                      <Link to="/refund-policy" target="_blank" className="text-primary hover:underline font-medium">
-                        Cancellation Policy
-                      </Link>
-                    </span>
-                  </label>
-                </div>
-
                 <div className="mt-4 flex items-center justify-between gap-4">
                   <div className="text-sm text-muted-foreground">
                     {nights > 0 ? (
@@ -1243,7 +1208,7 @@ export default function PropertyDetails() {
                     </Button>
                     <Button
                       onClick={submitBooking}
-                      disabled={booking || nights <= 0 || (addedAddOn && !isInTripCart) || !acceptedTerms || !acceptedCancellation}
+                      disabled={booking || nights <= 0 || (addedAddOn && !isInTripCart)}
                       type="button"
                     >
                       {booking
@@ -1256,12 +1221,6 @@ export default function PropertyDetails() {
                     </Button>
                   </div>
                 </div>
-
-                {(!acceptedTerms || !acceptedCancellation) && (
-                  <p className="text-xs text-center text-muted-foreground mt-2">
-                    Please accept the terms and cancellation policy to proceed
-                  </p>
-                )}
 
                 {!user ? (
                   <div className="mt-3 text-center">
