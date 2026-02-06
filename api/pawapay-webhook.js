@@ -306,6 +306,228 @@ async function sendConfirmationEmail(checkout, items, bookingIds) {
   }
 }
 
+// Send host notification email
+async function sendHostNotification(supabase, booking, item) {
+  if (!BREVO_API_KEY) {
+    console.log("⚠️ Brevo API key not configured, skipping host notification");
+    return false;
+  }
+
+  try {
+    // Fetch host information based on item type
+    let hostEmail = null;
+    let hostName = null;
+    let itemTitle = item.title || item.name || "Your Service";
+    let itemType = "service";
+
+    if (item.item_type === 'property') {
+      const { data: property } = await supabase
+        .from('properties')
+        .select('title, host_id, profiles!properties_host_id_fkey(email, full_name)')
+        .eq('id', item.reference_id)
+        .single();
+      
+      if (property) {
+        itemTitle = property.title;
+        itemType = "property";
+        hostEmail = property.profiles?.email;
+        hostName = property.profiles?.full_name;
+      }
+    } else if (item.item_type === 'tour' || item.item_type === 'tour_package') {
+      const table = item.item_type === 'tour' ? 'tours' : 'tour_packages';
+      const hostField = item.item_type === 'tour' ? 'created_by' : 'host_id';
+      
+      const { data: tour } = await supabase
+        .from(table)
+        .select(`title, ${hostField}, profiles!${table}_${hostField}_fkey(email, full_name)`)
+        .eq('id', item.reference_id)
+        .single();
+      
+      if (tour) {
+        itemTitle = tour.title;
+        itemType = "tour";
+        hostEmail = tour.profiles?.email;
+        hostName = tour.profiles?.full_name;
+      }
+    } else if (item.item_type === 'transport_vehicle') {
+      const { data: vehicle } = await supabase
+        .from('transport_vehicles')
+        .select('title, owner_id, profiles!transport_vehicles_owner_id_fkey(email, full_name)')
+        .eq('id', item.reference_id)
+        .single();
+      
+      if (vehicle) {
+        itemTitle = vehicle.title;
+        itemType = "transport";
+        hostEmail = vehicle.profiles?.email;
+        hostName = vehicle.profiles?.full_name;
+      }
+    }
+
+    if (!hostEmail) {
+      console.log("⚠️ No host email found for item:", item.reference_id);
+      return false;
+    }
+
+    const guestName = booking.guest_name || "A guest";
+    const guestEmail = booking.guest_email || "";
+    const guestPhone = booking.guest_phone || "";
+    const checkIn = formatDate(booking.check_in);
+    const checkOut = formatDate(booking.check_out);
+    const totalAmount = formatMoney(booking.total_price, booking.currency);
+    const bookingRef = `MRY-${booking.id.slice(0, 8).toUpperCase()}`;
+
+    const hostHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f8fafc;">
+  <table width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+    
+    <!-- Logo Header -->
+    <tr>
+      <td style="padding: 32px 24px; text-align: center; border-bottom: 1px solid #f3f4f6;">
+        <img src="https://merry360x.com/brand/logo.png" alt="Merry360X" width="60" height="60" style="display: block; margin: 0 auto 12px auto;">
+        <h1 style="margin: 0; color: #dc2626; font-size: 22px; font-weight: 700;">Merry360X</h1>
+      </td>
+    </tr>
+    
+    <!-- Notification -->
+    <tr>
+      <td style="padding: 32px 24px; text-align: center;">
+        <div style="background-color: #3b82f6; border-radius: 50%; width: 48px; height: 48px; line-height: 48px; margin: 0 auto 16px auto;">
+          <span style="font-size: 24px; color: #fff;">🔔</span>
+        </div>
+        <h2 style="margin: 0 0 8px 0; color: #1f2937; font-size: 20px;">New Booking Received!</h2>
+        <p style="margin: 0; color: #6b7280; font-size: 15px;">Hi ${hostName || "Host"}, you have a new booking for your ${itemType}.</p>
+      </td>
+    </tr>
+    
+    <!-- Booking Details -->
+    <tr>
+      <td style="padding: 0 24px 24px 24px;">
+        <div style="background-color: #f9fafb; border-radius: 12px; padding: 20px;">
+          <h3 style="margin: 0 0 16px 0; color: #1f2937; font-size: 16px; font-weight: 600;">${itemTitle}</h3>
+          
+          <table width="100%" cellspacing="0" cellpadding="0" style="font-size: 14px;">
+            <tr>
+              <td style="color: #6b7280; padding: 8px 0; width: 40%;">Booking Ref</td>
+              <td style="text-align: right; color: #1f2937; font-weight: 600;">${bookingRef}</td>
+            </tr>
+            <tr>
+              <td style="color: #6b7280; padding: 8px 0;">Guest Name</td>
+              <td style="text-align: right; color: #1f2937; font-weight: 500;">${guestName}</td>
+            </tr>
+            ${guestEmail ? `
+            <tr>
+              <td style="color: #6b7280; padding: 8px 0;">Guest Email</td>
+              <td style="text-align: right; color: #1f2937; font-size: 13px;"><a href="mailto:${guestEmail}" style="color: #3b82f6; text-decoration: none;">${guestEmail}</a></td>
+            </tr>
+            ` : ''}
+            ${guestPhone ? `
+            <tr>
+              <td style="color: #6b7280; padding: 8px 0;">Guest Phone</td>
+              <td style="text-align: right; color: #1f2937;"><a href="tel:${guestPhone}" style="color: #3b82f6; text-decoration: none;">${guestPhone}</a></td>
+            </tr>
+            ` : ''}
+            <tr>
+              <td style="color: #6b7280; padding: 8px 0;">Check-in</td>
+              <td style="text-align: right; color: #1f2937; font-weight: 500;">${checkIn}</td>
+            </tr>
+            <tr>
+              <td style="color: #6b7280; padding: 8px 0;">Check-out</td>
+              <td style="text-align: right; color: #1f2937; font-weight: 500;">${checkOut}</td>
+            </tr>
+            <tr>
+              <td style="color: #6b7280; padding: 8px 0;">Guests</td>
+              <td style="text-align: right; color: #1f2937;">${booking.guests || 1}</td>
+            </tr>
+            <tr>
+              <td colspan="2" style="padding: 12px 0;"><div style="border-top: 1px solid #e5e7eb;"></div></td>
+            </tr>
+            <tr>
+              <td style="color: #1f2937; padding: 8px 0; font-weight: 600;">Total Amount</td>
+              <td style="text-align: right; color: #dc2626; font-size: 18px; font-weight: 700;">${totalAmount}</td>
+            </tr>
+          </table>
+        </div>
+      </td>
+    </tr>
+    
+    <!-- Action Required -->
+    <tr>
+      <td style="padding: 0 24px 24px 24px;">
+        <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 16px;">
+          <p style="margin: 0; color: #92400e; font-size: 14px; font-weight: 600;">⚠️ Action Required</p>
+          <p style="margin: 8px 0 0 0; color: #78350f; font-size: 13px;">Please prepare your ${itemType} for the guest and ensure all arrangements are in place for ${checkIn}.</p>
+        </div>
+      </td>
+    </tr>
+    
+    <!-- View Booking Button -->
+    <tr>
+      <td style="padding: 0 24px 32px 24px; text-align: center;">
+        <a href="https://merry360x.com/host-dashboard" style="display: inline-block; background-color: #dc2626; color: #fff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 14px;">
+          View in Dashboard
+        </a>
+      </td>
+    </tr>
+    
+    <!-- Footer -->
+    <tr>
+      <td style="background-color: #1f2937; padding: 20px 24px; text-align: center;">
+        <p style="margin: 0; color: #9ca3af; font-size: 12px;">
+          Questions? <a href="mailto:support@merry360x.com" style="color: #ef4444; text-decoration: none;">support@merry360x.com</a>
+        </p>
+        <p style="margin: 8px 0 0 0; color: #6b7280; font-size: 11px;">© 2026 Merry360X</p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `;
+
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "accept": "application/json",
+        "api-key": BREVO_API_KEY,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        sender: {
+          name: "Merry360X Bookings",
+          email: "davyncidavy@gmail.com",
+        },
+        to: [
+          {
+            email: hostEmail,
+            name: hostName || "Host",
+          },
+        ],
+        subject: `🔔 New Booking: ${itemTitle} - ${bookingRef}`,
+        htmlContent: hostHtml,
+      }),
+    });
+
+    const result = await response.json();
+    
+    if (response.ok) {
+      console.log(`📧 Host notification sent to ${hostEmail}: ${result.messageId}`);
+      return true;
+    } else {
+      console.error("❌ Brevo API error for host notification:", result);
+      return false;
+    }
+  } catch (error) {
+    console.error("❌ Failed to send host notification:", error.message);
+    return false;
+  }
+}
+
 function json(res, status, body) {
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -545,6 +767,28 @@ export default async function handler(req, res) {
       console.log(`📧 Sending confirmation email to ${checkout.email}...`);
       const items = checkout.metadata?.items || [];
       await sendConfirmationEmail(checkout, items, createdBookingIds);
+      
+      // Send host notifications for each booking created
+      if (createdBookingIds.length > 0 && items.length > 0) {
+        console.log(`📧 Sending host notifications for ${createdBookingIds.length} bookings...`);
+        for (let i = 0; i < createdBookingIds.length; i++) {
+          const bookingId = createdBookingIds[i];
+          const item = items[i];
+          
+          if (bookingId && item) {
+            // Fetch the created booking details
+            const { data: booking } = await supabase
+              .from("bookings")
+              .select("*")
+              .eq("id", bookingId)
+              .single();
+            
+            if (booking) {
+              await sendHostNotification(supabase, booking, item);
+            }
+          }
+        }
+      }
     }
 
     // Acknowledge webhook (VERY IMPORTANT - always return 200)
