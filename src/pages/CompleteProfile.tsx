@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import Logo from "@/components/Logo";
 import { Loader2, User, Phone, CheckCircle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoyaltyPointsPopup } from "@/components/LoyaltyPointsPopup";
 
 export default function CompleteProfile() {
   const { user, isLoading: authLoading } = useAuth();
@@ -24,6 +25,11 @@ export default function CompleteProfile() {
     full_name: string | null;
     phone: string | null;
   } | null>(null);
+  
+  // Loyalty points popup state
+  const [showPointsPopup, setShowPointsPopup] = useState(false);
+  const [earnedPoints, setEarnedPoints] = useState(0);
+  const [totalPoints, setTotalPoints] = useState(0);
 
   const redirectTo = searchParams.get("redirect") || "/";
 
@@ -42,25 +48,26 @@ export default function CompleteProfile() {
       const { data } = await supabase
         .from("profiles")
         .select("full_name, phone")
-        .eq("user_id", user.id)
+        .eq("user_id" as any, user.id)
         .single();
 
-      if (data) {
-        setExistingProfile(data);
+      const profileData = data as { full_name: string | null; phone: string | null } | null;
+      if (profileData) {
+        setExistingProfile(profileData);
         
         // Pre-fill form with existing data
-        if (data.full_name) {
-          const nameParts = data.full_name.split(" ");
+        if (profileData.full_name) {
+          const nameParts = profileData.full_name.split(" ");
           setFirstName(nameParts[0] || "");
           setLastName(nameParts.slice(1).join(" ") || "");
         }
-        if (data.phone) {
-          setPhone(data.phone);
+        if (profileData.phone) {
+          setPhone(profileData.phone);
         }
 
         // Also try to get name from Google metadata
         const metadata = user.user_metadata as Record<string, unknown>;
-        if (!data.full_name && metadata.full_name) {
+        if (!profileData.full_name && metadata.full_name) {
           const googleName = String(metadata.full_name);
           const nameParts = googleName.split(" ");
           setFirstName(nameParts[0] || "");
@@ -116,6 +123,15 @@ export default function CompleteProfile() {
 
       const fullName = `${firstName.trim()} ${lastName.trim()}`;
 
+      // Check if user already received profile completion bonus
+      const { data: existingBonus } = await supabase
+        .from("profiles")
+        .select("profile_completed_bonus")
+        .eq("user_id" as any, user.id)
+        .single();
+
+      const alreadyReceivedBonus = (existingBonus as { profile_completed_bonus?: boolean } | null)?.profile_completed_bonus === true;
+
       const { error } = await supabase
         .from("profiles")
         .upsert({
@@ -123,9 +139,35 @@ export default function CompleteProfile() {
           full_name: fullName,
           phone: formattedPhone,
           updated_at: new Date().toISOString(),
-        }, { onConflict: "user_id" });
+          profile_completed_bonus: true, // Mark as claimed
+        } as any, { onConflict: "user_id" });
 
       if (error) throw error;
+
+      // Award loyalty points if first time completing profile
+      if (!alreadyReceivedBonus) {
+        try {
+          const { data: pointsResult } = await supabase.rpc("add_loyalty_points" as any, {
+            p_user_id: user.id,
+            p_points: 5,
+            p_reason: "Profile completion bonus",
+            p_reference_type: "profile_completion",
+            p_reference_id: null,
+          });
+
+          const newBalance = pointsResult as unknown as number;
+          if (newBalance && newBalance > 0) {
+            setEarnedPoints(5);
+            setTotalPoints(newBalance);
+            setShowPointsPopup(true);
+            // Don't navigate yet - wait for popup to close
+            return;
+          }
+        } catch (pointsError) {
+          console.error("Error awarding loyalty points:", pointsError);
+          // Continue even if points fail
+        }
+      }
 
       toast({
         title: "Profile completed!",
@@ -145,6 +187,16 @@ export default function CompleteProfile() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handlePointsPopupClose = () => {
+    setShowPointsPopup(false);
+    toast({
+      title: "Profile completed!",
+      description: "Your profile has been updated successfully.",
+      duration: 2000,
+    });
+    navigate(redirectTo, { replace: true });
   };
 
   const handleSkip = () => {
@@ -265,6 +317,15 @@ export default function CompleteProfile() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Loyalty Points Popup */}
+      <LoyaltyPointsPopup
+        isOpen={showPointsPopup}
+        onClose={handlePointsPopupClose}
+        points={earnedPoints}
+        totalPoints={totalPoints}
+        reason="Profile completion bonus"
+      />
     </div>
   );
 }
