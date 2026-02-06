@@ -352,6 +352,9 @@ export default function HostDashboard() {
   const [routes, setRoutes] = useState<TransportRoute[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [hostServiceTypes, setHostServiceTypes] = useState<string[]>([]);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [showBookingDetails, setShowBookingDetails] = useState(false);
+  const [bookingFullDetails, setBookingFullDetails] = useState<any>(null);
   
   // Profile completion tracking
   const [hostProfile, setHostProfile] = useState<{
@@ -1332,6 +1335,94 @@ export default function HostDashboard() {
     }
     setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
     toast({ title: "Booking updated" });
+  };
+
+  // View booking details
+  const viewBookingDetails = async (booking: Booking) => {
+    setSelectedBooking(booking);
+    setShowBookingDetails(true);
+    
+    try {
+      // Fetch full booking details with related data
+      let query = supabase
+        .from("bookings")
+        .select(`
+          *,
+          profiles:guest_id(full_name, email, phone),
+          checkout_requests:order_id(
+            payment_method,
+            payment_status,
+            dpo_transaction_id,
+            metadata
+          )
+        `)
+        .eq("id", booking.id)
+        .single();
+      
+      // Add related entity based on booking type
+      if (booking.booking_type === 'property' && booking.property_id) {
+        query = supabase
+          .from("bookings")
+          .select(`
+            *,
+            profiles:guest_id(full_name, email, phone),
+            properties(title, location, address, property_type, amenities, images),
+            checkout_requests:order_id(
+              payment_method,
+              payment_status,
+              dpo_transaction_id,
+              metadata
+            )
+          `)
+          .eq("id", booking.id)
+          .single();
+      } else if (booking.booking_type === 'tour' && booking.tour_id) {
+        query = supabase
+          .from("bookings")
+          .select(`
+            *,
+            profiles:guest_id(full_name, email, phone),
+            tour_packages(title, location, city, duration, categories, included_services),
+            checkout_requests:order_id(
+              payment_method,
+              payment_status,
+              dpo_transaction_id,
+              metadata
+            )
+          `)
+          .eq("id", booking.id)
+          .single();
+      } else if (booking.booking_type === 'transport' && booking.transport_id) {
+        query = supabase
+          .from("bookings")
+          .select(`
+            *,
+            profiles:guest_id(full_name, email, phone),
+            transport_vehicles(title, vehicle_type, seats, driver_included),
+            checkout_requests:order_id(
+              payment_method,
+              payment_status,
+              dpo_transaction_id,
+              metadata
+            )
+          `)
+          .eq("id", booking.id)
+          .single();
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) {
+        console.error("Error fetching booking details:", error);
+        toast({ variant: "destructive", title: "Error", description: "Failed to load booking details" });
+        return;
+      }
+      
+      setBookingFullDetails(data);
+    } catch (error) {
+      console.error("Error:", error);
+      toast({ variant: "destructive", title: "Error", description: "Failed to load booking details" });
+    }
   };
 
   // Stats - use safe defaults
@@ -4487,6 +4578,9 @@ export default function HostDashboard() {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
+                        <Button size="sm" variant="outline" onClick={() => viewBookingDetails(b)}>
+                          <Eye className="w-3 h-3 mr-1" /> View Details
+                        </Button>
                         <Badge className={
                           b.status === "confirmed" ? "bg-green-500" :
                           b.status === "completed" ? "bg-blue-500" :
@@ -5227,6 +5321,280 @@ END OF REPORT
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Booking Details Dialog */}
+      <Dialog open={showBookingDetails} onOpenChange={setShowBookingDetails}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarIcon className="w-5 h-5" />
+              Booking Details
+            </DialogTitle>
+            <DialogDescription>
+              Complete information for this booking
+            </DialogDescription>
+          </DialogHeader>
+          
+          {bookingFullDetails && (
+            <div className="space-y-6 py-4">
+              {/* Booking Reference */}
+              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <div>
+                  <p className="text-sm text-muted-foreground">Booking Reference</p>
+                  <p className="font-mono font-semibold">MRY-{bookingFullDetails.id.slice(0, 8).toUpperCase()}</p>
+                </div>
+                <Badge className={
+                  bookingFullDetails.status === "confirmed" ? "bg-green-500" :
+                  bookingFullDetails.status === "completed" ? "bg-blue-500" :
+                  bookingFullDetails.status === "pending" ? "bg-yellow-500" :
+                  "bg-gray-500"
+                }>
+                  {bookingFullDetails.status}
+                </Badge>
+              </div>
+
+              {/* Booked Item */}
+              <div>
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  {bookingFullDetails.booking_type === 'property' && <Building2 className="w-4 h-4" />}
+                  {bookingFullDetails.booking_type === 'tour' && <Compass className="w-4 h-4" />}
+                  {bookingFullDetails.booking_type === 'transport' && <Car className="w-4 h-4" />}
+                  Booked {bookingFullDetails.booking_type}
+                </h3>
+                <Card className="p-4">
+                  {bookingFullDetails.properties && (
+                    <div className="space-y-2">
+                      <div className="flex gap-3">
+                        {bookingFullDetails.properties.images?.[0] && (
+                          <img 
+                            src={bookingFullDetails.properties.images[0]} 
+                            alt={bookingFullDetails.properties.title}
+                            className="w-20 h-20 object-cover rounded-lg"
+                          />
+                        )}
+                        <div>
+                          <h4 className="font-semibold">{bookingFullDetails.properties.title}</h4>
+                          <p className="text-sm text-muted-foreground">{bookingFullDetails.properties.property_type}</p>
+                          <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                            <MapPin className="w-3 h-3" />
+                            {bookingFullDetails.properties.location}
+                          </p>
+                        </div>
+                      </div>
+                      {bookingFullDetails.properties.amenities && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {bookingFullDetails.properties.amenities.slice(0, 5).map((amenity: string, i: number) => (
+                            <Badge key={i} variant="outline" className="text-xs">{amenity}</Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {bookingFullDetails.tour_packages && (
+                    <div className="space-y-2">
+                      <h4 className="font-semibold">{bookingFullDetails.tour_packages.title}</h4>
+                      <p className="text-sm text-muted-foreground">{bookingFullDetails.tour_packages.city || bookingFullDetails.tour_packages.location}</p>
+                      {bookingFullDetails.tour_packages.duration && (
+                        <p className="text-sm"><Clock className="w-3 h-3 inline mr-1" />{bookingFullDetails.tour_packages.duration}</p>
+                      )}
+                      {bookingFullDetails.tour_packages.categories && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {bookingFullDetails.tour_packages.categories.map((cat: string, i: number) => (
+                            <Badge key={i} variant="outline" className="text-xs">{cat}</Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {bookingFullDetails.transport_vehicles && (
+                    <div className="space-y-2">
+                      <h4 className="font-semibold">{bookingFullDetails.transport_vehicles.title}</h4>
+                      <p className="text-sm text-muted-foreground">{bookingFullDetails.transport_vehicles.vehicle_type}</p>
+                      <div className="flex gap-3 text-sm">
+                        <span><Users className="w-3 h-3 inline mr-1" />{bookingFullDetails.transport_vehicles.seats} seats</span>
+                        {bookingFullDetails.transport_vehicles.driver_included && (
+                          <Badge variant="secondary" className="text-xs">Driver included</Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </Card>
+              </div>
+
+              {/* Dates & Guests */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <Card className="p-4">
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <CalendarIcon className="w-4 h-4" />
+                    Dates
+                  </h4>
+                  <div className="space-y-1 text-sm">
+                    <p><span className="text-muted-foreground">Check-in:</span> <span className="font-medium">{new Date(bookingFullDetails.check_in).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span></p>
+                    <p><span className="text-muted-foreground">Check-out:</span> <span className="font-medium">{new Date(bookingFullDetails.check_out).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span></p>
+                    <p><span className="text-muted-foreground">Duration:</span> <span className="font-medium">{Math.ceil((new Date(bookingFullDetails.check_out).getTime() - new Date(bookingFullDetails.check_in).getTime()) / (1000 * 60 * 60 * 24))} nights</span></p>
+                  </div>
+                </Card>
+                
+                <Card className="p-4">
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    Guests
+                  </h4>
+                  <div className="text-sm">
+                    <p className="text-2xl font-bold">{bookingFullDetails.guests || 1}</p>
+                    <p className="text-muted-foreground">guest{bookingFullDetails.guests !== 1 ? 's' : ''}</p>
+                  </div>
+                </Card>
+              </div>
+
+              {/* Guest Information */}
+              <div>
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Guest Information
+                </h3>
+                <Card className="p-4">
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Name:</span>
+                      <span className="font-medium">{bookingFullDetails.guest_name || bookingFullDetails.profiles?.full_name || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Email:</span>
+                      <span className="font-medium">{bookingFullDetails.guest_email || bookingFullDetails.profiles?.email || 'N/A'}</span>
+                    </div>
+                    {(bookingFullDetails.guest_phone || bookingFullDetails.profiles?.phone) && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Phone:</span>
+                        <span className="font-medium">{bookingFullDetails.guest_phone || bookingFullDetails.profiles?.phone}</span>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              </div>
+
+              {/* Payment Information */}
+              <div>
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <DollarSign className="w-4 h-4" />
+                  Payment Information
+                </h3>
+                <Card className="p-4">
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Total Amount:</span>
+                      <span className="text-xl font-bold">{formatMoney(bookingFullDetails.total_price, bookingFullDetails.currency)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Payment Status:</span>
+                      <Badge variant={bookingFullDetails.payment_status === 'paid' ? 'default' : 'secondary'}>
+                        {bookingFullDetails.payment_status}
+                      </Badge>
+                    </div>
+                    {bookingFullDetails.checkout_requests && (
+                      <>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Payment Method:</span>
+                          <span className="font-medium">{bookingFullDetails.checkout_requests.payment_method || 'Mobile Money'}</span>
+                        </div>
+                        {bookingFullDetails.checkout_requests.dpo_transaction_id && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Transaction ID:</span>
+                            <span className="font-mono text-xs">{bookingFullDetails.checkout_requests.dpo_transaction_id}</span>
+                          </div>
+                        )}
+                      </>
+                    )}
+                    
+                    {/* Calculate and show earnings */}
+                    {(() => {
+                      const serviceType = bookingFullDetails.booking_type === 'property' ? 'accommodation' : bookingFullDetails.booking_type === 'tour' ? 'tour' : 'transport';
+                      const { hostNetEarnings, hostFee } = calculateHostEarningsFromGuestTotal(Number(bookingFullDetails.total_price), serviceType as 'accommodation' | 'tour' | 'transport');
+                      const feePercent = serviceType === 'accommodation' ? PLATFORM_FEES.accommodation.hostFeePercent : serviceType === 'tour' ? PLATFORM_FEES.tour.providerFeePercent : 0;
+                      
+                      return (
+                        <div className="border-t pt-3 mt-3">
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="text-muted-foreground">Platform Fee ({feePercent}%):</span>
+                            <span>-{formatMoney(hostFee, bookingFullDetails.currency)}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="font-semibold">Your Earnings:</span>
+                            <span className="text-lg font-bold text-green-600">{formatMoney(hostNetEarnings, bookingFullDetails.currency)}</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </Card>
+              </div>
+
+              {/* Booking Timeline */}
+              <div>
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  Timeline
+                </h3>
+                <Card className="p-4">
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Booked on:</span>
+                      <span className="font-medium">{new Date(bookingFullDetails.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                    {bookingFullDetails.updated_at && bookingFullDetails.updated_at !== bookingFullDetails.created_at && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Last updated:</span>
+                        <span className="font-medium">{new Date(bookingFullDetails.updated_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              </div>
+
+              {/* Action Buttons */}
+              {bookingFullDetails.status === "pending" && (
+                <div className="flex gap-2">
+                  <Button 
+                    className="flex-1"
+                    onClick={async () => {
+                      await updateBookingStatus(bookingFullDetails.id, "confirmed");
+                      setShowBookingDetails(false);
+                    }}
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Confirm Booking
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={async () => {
+                      await updateBookingStatus(bookingFullDetails.id, "cancelled");
+                      setShowBookingDetails(false);
+                    }}
+                  >
+                    <XCircle className="w-4 h-4 mr-2" />
+                    Decline
+                  </Button>
+                </div>
+              )}
+              
+              {bookingFullDetails.status === "confirmed" && (
+                <Button 
+                  className="w-full"
+                  onClick={async () => {
+                    await updateBookingStatus(bookingFullDetails.id, "completed");
+                    setShowBookingDetails(false);
+                  }}
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Mark as Completed
+                </Button>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Add/Edit Payout Method Dialog */}
       <Dialog open={showAddPayoutMethod} onOpenChange={setShowAddPayoutMethod}>
