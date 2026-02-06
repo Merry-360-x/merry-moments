@@ -1303,10 +1303,10 @@ export default function CheckoutNew() {
             </div>
           </div>
 
-          {/* Order Summary Sidebar */}
+          {/* Booking Summary Sidebar */}
           <div className="lg:col-span-1">
             <div className="bg-card rounded-2xl border border-border/50 p-6 sticky top-24">
-              <h2 className="text-lg font-semibold mb-4">Order Summary</h2>
+              <h2 className="text-lg font-semibold mb-4">Booking Summary</h2>
               
               {/* Items Preview */}
               <div className="space-y-3 mb-4">

@@ -178,7 +178,7 @@ function generateBookingConfirmationHtml(booking) {
                 ${isMultiItem ? `
                 <tr>
                   <td colspan="2" style="padding-bottom: 8px;">
-                    <p style="margin: 0; color: #6b7280; font-size: 13px; font-weight: 500;">Order Summary</p>
+                    <p style="margin: 0; color: #6b7280; font-size: 13px; font-weight: 500;">Booking Summary</p>
                   </td>
                 </tr>
                 ${booking.items?.map(item => `

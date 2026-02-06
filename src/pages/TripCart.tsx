@@ -561,10 +561,10 @@ export default function TripCart() {
               })}
             </div>
 
-            {/* Order Summary */}
+            {/* Booking Summary */}
             <div className="lg:col-span-1">
               <div className="bg-card rounded-2xl border border-border/50 p-6 sticky top-24">
-                <h2 className="text-lg font-semibold mb-6">Order Summary</h2>
+                <h2 className="text-lg font-semibold mb-6">Booking Summary</h2>
                 
                 {/* Discount Code */}
                 <div className="mb-6">
