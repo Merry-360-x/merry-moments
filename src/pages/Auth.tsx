@@ -341,13 +341,17 @@ const Auth = () => {
     setOtpLoading(true);
     try {
       const formattedPhone = formatPhoneForAuth(phoneNumber);
+      // Also check without + for legacy data
+      const phoneWithoutPlus = formattedPhone.replace('+', '');
       
-      // Check if phone number exists in database
-      const { data: existingUser } = await supabase
+      // Check if phone number exists in database (check both formats for consistency)
+      const { data: existingUsers } = await supabase
         .from("profiles")
-        .select("user_id")
-        .eq("phone", formattedPhone)
-        .maybeSingle();
+        .select("user_id, phone")
+        .or(`phone.eq.${formattedPhone},phone.eq.${phoneWithoutPlus}`)
+        .limit(1);
+      
+      const existingUser = existingUsers?.[0] || null;
       
       // For login, phone must be registered - seamlessly switch to signup
       if (isLogin && !existingUser) {
@@ -437,21 +441,38 @@ const Auth = () => {
         const fullName = firstName.trim() && lastName.trim() 
           ? `${firstName.trim()} ${lastName.trim()}`
           : null;
+        const phoneWithoutPlus = formattedPhone.replace('+', '');
         
-        // Check if profile exists
+        // Check if profile exists by user_id first
         const { data: existingProfile } = await supabase
           .from("profiles")
-          .select("user_id, full_name")
+          .select("user_id, full_name, phone")
           .eq("user_id", data.user.id)
-          .single();
+          .maybeSingle();
+        
+        // Also check if there's an existing profile with this phone (different user_id)
+        // This can happen if user signed up with email first, then tries phone
+        const { data: phoneProfiles } = await supabase
+          .from("profiles")
+          .select("user_id, full_name")
+          .or(`phone.eq.${formattedPhone},phone.eq.${phoneWithoutPlus}`)
+          .neq("user_id", data.user.id)
+          .limit(1);
+        
+        const phoneProfile = phoneProfiles?.[0];
         
         if (!existingProfile) {
+          if (phoneProfile) {
+            // There's already a profile with this phone but different user
+            // This is a duplicate - update the existing profile's user_id or handle conflict
+            console.warn("Phone already exists for different user:", phoneProfile.user_id);
+          }
           // Create new profile for first-time phone users
           await supabase
             .from("profiles")
             .insert({
               user_id: data.user.id,
-              full_name: fullName || `User`,
+              full_name: fullName || phoneProfile?.full_name || `User`,
               phone: formattedPhone,
             });
         } else if (fullName && (!existingProfile.full_name || existingProfile.full_name === 'User')) {
@@ -462,6 +483,12 @@ const Auth = () => {
               full_name: fullName,
               phone: formattedPhone,
             })
+            .eq("user_id", data.user.id);
+        } else if (!existingProfile.phone) {
+          // Update phone if profile exists but phone is missing
+          await supabase
+            .from("profiles")
+            .update({ phone: formattedPhone })
             .eq("user_id", data.user.id);
         }
 
