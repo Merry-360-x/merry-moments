@@ -73,6 +73,23 @@ export default function CreateCarRental() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
+  const [hostProfileComplete, setHostProfileComplete] = useState(false);
+
+  // Fetch host profile completion status
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase
+      .from("host_applications")
+      .select("profile_complete")
+      .eq("user_id", user.id)
+      .eq("status", "approved")
+      .order("profile_complete", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        setHostProfileComplete(data?.profile_complete ?? false);
+      });
+  }, [user?.id]);
 
   // Use a stable storage key per user
   const getStorageKey = useCallback(() => user?.id ? `car-rental-draft-${user.id}` : 'car-rental-draft-anonymous', [user?.id]);
@@ -237,14 +254,16 @@ export default function CreateCarRental() {
         registration_document_url: registrationDoc,
         roadworthiness_certificate_url: roadworthinessDoc,
         owner_identification_url: ownerIdDoc,
-        is_published: false,
+        is_published: hostProfileComplete,
       });
 
       if (error) throw error;
 
       toast({
         title: "Success!",
-        description: "Your car rental listing has been created",
+        description: hostProfileComplete 
+          ? "Your car rental listing is now live!" 
+          : "Your car rental listing has been saved as draft. Complete your host profile to publish it.",
       });
 
       clearDraft();

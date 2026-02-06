@@ -79,6 +79,23 @@ export default function CreateAirportTransfer() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
+  const [hostProfileComplete, setHostProfileComplete] = useState(false);
+
+  // Fetch host profile completion status
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase
+      .from("host_applications")
+      .select("profile_complete")
+      .eq("user_id", user.id)
+      .eq("status", "approved")
+      .order("profile_complete", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        setHostProfileComplete(data?.profile_complete ?? false);
+      });
+  }, [user?.id]);
 
   // Use a stable storage key per user
   const getStorageKey = useCallback(() => user?.id ? `airport-transfer-draft-${user.id}` : 'airport-transfer-draft-anonymous', [user?.id]);
@@ -275,7 +292,7 @@ export default function CreateAirportTransfer() {
           registration_document_url: registrationDoc,
           roadworthiness_certificate_url: roadworthinessDoc,
           owner_identification_url: ownerIdDoc,
-          is_published: false,
+          is_published: hostProfileComplete,
         })
         .select()
         .single();
@@ -298,7 +315,9 @@ export default function CreateAirportTransfer() {
 
       toast({
         title: "Success!",
-        description: "Your airport transfer service has been created",
+        description: hostProfileComplete 
+          ? "Your airport transfer service is now live!" 
+          : "Your airport transfer service has been saved as draft. Complete your host profile to publish it.",
       });
 
       clearDraft();

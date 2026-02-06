@@ -2796,7 +2796,7 @@ export default function HostDashboard() {
                     ...propertyForm,
                     property_type: "Room in Apartment",
                     host_id: user!.id,
-                    is_published: false,
+                    is_published: hostProfile?.profile_complete ?? false,
                     images: propertyForm.images.length > 0 ? propertyForm.images : null,
                     main_image: propertyForm.images.length > 0 ? propertyForm.images[0] : null,
                   };
