@@ -41,14 +41,10 @@ import { formatMoney } from "@/lib/money";
 
 type ApplicantType = "individual" | "business";
 
+import { CURRENCY_OPTIONS } from "@/lib/currencies";
+
 const propertyTypes = ["Hotel", "Apartment", "Room in Apartment", "Villa", "Guesthouse", "Resort", "Lodge", "House"];
-const currencies = [
-  { value: "RWF", label: "(FRw) RWF", symbol: "FRw" },
-  { value: "USD", label: "($) USD", symbol: "$" },
-  { value: "EUR", label: "(€) EUR", symbol: "€" },
-  { value: "GBP", label: "(£) GBP", symbol: "£" },
-  { value: "CNY", label: "(¥) CNY", symbol: "¥" },
-];
+const currencies = CURRENCY_OPTIONS;
 
 export default function HostApplication() {
   const { user, refreshRoles, isHost, isLoading: authLoading, rolesLoading } = useAuth();

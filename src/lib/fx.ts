@@ -92,6 +92,7 @@ export const CURRENCY_NAMES: Record<string, string> = {
   USD: "US Dollar",
   EUR: "Euro",
   GBP: "British Pound",
+  CNY: "Chinese Yuan",
   TZS: "Tanzanian Shilling",
   KES: "Kenyan Shilling",
   UGX: "Ugandan Shilling",
@@ -104,18 +105,8 @@ export const CURRENCY_NAMES: Record<string, string> = {
 };
 
 // Currencies commonly used for payments in the region
-export const PAYMENT_CURRENCIES = [
-  { code: "RWF", name: "Rwandan Franc", flag: "🇷🇼" },
-  { code: "USD", name: "US Dollar", flag: "🇺🇸" },
-  { code: "EUR", name: "Euro", flag: "🇪🇺" },
-  { code: "GBP", name: "British Pound", flag: "🇬🇧" },
-  { code: "TZS", name: "Tanzanian Shilling", flag: "🇹🇿" },
-  { code: "KES", name: "Kenyan Shilling", flag: "🇰🇪" },
-  { code: "UGX", name: "Ugandan Shilling", flag: "🇺🇬" },
-  { code: "ZMW", name: "Zambian Kwacha", flag: "🇿🇲" },
-  { code: "BIF", name: "Burundian Franc", flag: "🇧🇮" },
-  { code: "ZAR", name: "South African Rand", flag: "🇿🇦" },
-];
+// Import from currencies.ts for consistency
+export { PAYMENT_CURRENCIES } from "./currencies";
 
 export async function getUsdRates(): Promise<FxRates | null> {
   // Return fixed rates - no API call needed

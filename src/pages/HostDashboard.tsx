@@ -232,14 +232,10 @@ interface Booking {
   is_guest_booking: boolean;
 }
 
+import { CURRENCY_OPTIONS } from "@/lib/currencies";
+
 const propertyTypes = ["Hotel", "Apartment", "Room in Apartment", "Villa", "Guesthouse", "Resort", "Lodge", "Motel", "House", "Cabin"];
-const currencies = [
-  { value: "RWF", label: "(FRw) RWF" },
-  { value: "USD", label: "($) USD" },
-  { value: "EUR", label: "(€) EUR" },
-  { value: "GBP", label: "(£) GBP" },
-  { value: "CNY", label: "(¥) CNY" },
-];
+const currencies = CURRENCY_OPTIONS;
 const cancellationPolicies = [
   { value: "strict", label: "Strict - Less refunds" },
   { value: "fair", label: "Fair - Moderate refunds" },

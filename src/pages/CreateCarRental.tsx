@@ -17,13 +17,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 const carTypes = ["SUV", "Sedan", "Hatchback", "Coupe", "Wagon", "Van", "Minibus", "Truck", "Luxury"];
 const transmissionTypes = ["Automatic", "Manual", "Hybrid"];
 const fuelTypes = ["Petrol", "Diesel", "Electric", "Hybrid"];
+import { CURRENCY_OPTIONS } from "@/lib/currencies";
+
 const driveTrains = ["FWD", "RWD", "AWD", "4WD"];
-const currencies = [
-  { value: "RWF", label: "(FRw) RWF" },
-  { value: "USD", label: "($) USD" },
-  { value: "EUR", label: "(€) EUR" },
-  { value: "GBP", label: "(£) GBP" },
-];
+const currencies = CURRENCY_OPTIONS;
 
 const keyFeaturesList = [
   "Air Conditioning", "Bluetooth", "GPS Navigation", "Backup Camera", 

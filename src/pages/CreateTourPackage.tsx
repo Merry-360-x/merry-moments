@@ -17,6 +17,7 @@ import { uploadFile } from "@/lib/uploads";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DISPLAY_CURRENCIES } from "@/lib/currencies";
 
 const categories = ["Cultural", "Adventure", "Wildlife", "City Tours", "Hiking", "Photography", "Historical", "Eco-Tourism"];
 const tourTypes = ["Private", "Group"];
@@ -870,37 +871,12 @@ Some components are non-refundable once booked, including but not limited to:
                 <Label className="text-sm font-normal mb-1.5 block">Currency</Label>
                 <Select value={formData.currency} onValueChange={(v) => setFormData({ ...formData, currency: v })}>
                   <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                  <SelectContent className="max-h-[300px]">
-                    <SelectItem value="RWF">(FRw) RWF - Rwandan Franc</SelectItem>
-                    <SelectItem value="USD">($) USD - US Dollar</SelectItem>
-                    <SelectItem value="EUR">(€) EUR - Euro</SelectItem>
-                    <SelectItem value="GBP">(£) GBP - British Pound</SelectItem>
-                    <SelectItem value="CNY">(¥) CNY - Chinese Yuan</SelectItem>
-                    <SelectItem value="JPY">(¥) JPY - Japanese Yen</SelectItem>
-                    <SelectItem value="CAD">($) CAD - Canadian Dollar</SelectItem>
-                    <SelectItem value="AUD">($) AUD - Australian Dollar</SelectItem>
-                    <SelectItem value="CHF">(Fr) CHF - Swiss Franc</SelectItem>
-                    <SelectItem value="INR">(₹) INR - Indian Rupee</SelectItem>
-                    <SelectItem value="ZAR">(R) ZAR - South African Rand</SelectItem>
-                    <SelectItem value="KES">(KSh) KES - Kenyan Shilling</SelectItem>
-                    <SelectItem value="UGX">(USh) UGX - Ugandan Shilling</SelectItem>
-                    <SelectItem value="TZS">(TSh) TZS - Tanzanian Shilling</SelectItem>
-                    <SelectItem value="AED">(د.إ) AED - UAE Dirham</SelectItem>
-                    <SelectItem value="SAR">(﷼) SAR - Saudi Riyal</SelectItem>
-                    <SelectItem value="BRL">(R$) BRL - Brazilian Real</SelectItem>
-                    <SelectItem value="MXN">($) MXN - Mexican Peso</SelectItem>
-                    <SelectItem value="SGD">($) SGD - Singapore Dollar</SelectItem>
-                    <SelectItem value="HKD">($) HKD - Hong Kong Dollar</SelectItem>
-                    <SelectItem value="NZD">($) NZD - New Zealand Dollar</SelectItem>
-                    <SelectItem value="SEK">(kr) SEK - Swedish Krona</SelectItem>
-                    <SelectItem value="NOK">(kr) NOK - Norwegian Krone</SelectItem>
-                    <SelectItem value="DKK">(kr) DKK - Danish Krone</SelectItem>
-                    <SelectItem value="PLN">(zł) PLN - Polish Zloty</SelectItem>
-                    <SelectItem value="THB">(฿) THB - Thai Baht</SelectItem>
-                    <SelectItem value="MYR">(RM) MYR - Malaysian Ringgit</SelectItem>
-                    <SelectItem value="IDR">(Rp) IDR - Indonesian Rupiah</SelectItem>
-                    <SelectItem value="PHP">(₱) PHP - Philippine Peso</SelectItem>
-                    <SelectItem value="KRW">(₩) KRW - South Korean Won</SelectItem>
+                  <SelectContent>
+                    {DISPLAY_CURRENCIES.map((c) => (
+                      <SelectItem key={c.code} value={c.code}>
+                        ({c.symbol}) {c.code} - {c.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
