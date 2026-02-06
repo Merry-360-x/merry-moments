@@ -314,60 +314,97 @@ async function sendHostNotification(supabase, booking, item) {
   }
 
   try {
+    console.log(`🔔 Attempting to send host notification for item:`, { item_type: item.item_type, reference_id: item.reference_id });
+    
     // Fetch host information based on item type
     let hostEmail = null;
     let hostName = null;
+    let hostId = null;
     let itemTitle = item.title || item.name || "Your Service";
     let itemType = "service";
 
     if (item.item_type === 'property') {
-      const { data: property } = await supabase
+      const { data: property, error: propError } = await supabase
         .from('properties')
-        .select('title, host_id, profiles!properties_host_id_fkey(email, full_name)')
+        .select('title, host_id')
         .eq('id', item.reference_id)
         .single();
+      
+      if (propError) {
+        console.error("❌ Error fetching property:", propError);
+        return false;
+      }
       
       if (property) {
         itemTitle = property.title;
         itemType = "property";
-        hostEmail = property.profiles?.email;
-        hostName = property.profiles?.full_name;
+        hostId = property.host_id;
       }
     } else if (item.item_type === 'tour' || item.item_type === 'tour_package') {
       const table = item.item_type === 'tour' ? 'tours' : 'tour_packages';
       const hostField = item.item_type === 'tour' ? 'created_by' : 'host_id';
       
-      const { data: tour } = await supabase
+      const { data: tour, error: tourError } = await supabase
         .from(table)
-        .select(`title, ${hostField}, profiles!${table}_${hostField}_fkey(email, full_name)`)
+        .select(`title, ${hostField}`)
         .eq('id', item.reference_id)
         .single();
+      
+      if (tourError) {
+        console.error(`❌ Error fetching ${table}:`, tourError);
+        return false;
+      }
       
       if (tour) {
         itemTitle = tour.title;
         itemType = "tour";
-        hostEmail = tour.profiles?.email;
-        hostName = tour.profiles?.full_name;
+        hostId = tour[hostField];
       }
     } else if (item.item_type === 'transport_vehicle') {
-      const { data: vehicle } = await supabase
+      const { data: vehicle, error: vehError } = await supabase
         .from('transport_vehicles')
-        .select('title, owner_id, profiles!transport_vehicles_owner_id_fkey(email, full_name)')
+        .select('title, owner_id')
         .eq('id', item.reference_id)
         .single();
+      
+      if (vehError) {
+        console.error("❌ Error fetching vehicle:", vehError);
+        return false;
+      }
       
       if (vehicle) {
         itemTitle = vehicle.title;
         itemType = "transport";
-        hostEmail = vehicle.profiles?.email;
-        hostName = vehicle.profiles?.full_name;
+        hostId = vehicle.owner_id;
       }
     }
 
-    if (!hostEmail) {
-      console.log("⚠️ No host email found for item:", item.reference_id);
+    if (!hostId) {
+      console.log("⚠️ No host ID found for item:", item.reference_id);
       return false;
     }
+
+    // Now fetch the host profile
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('email, full_name')
+      .eq('id', hostId)
+      .single();
+    
+    if (profileError || !profile) {
+      console.error("❌ Error fetching host profile:", profileError);
+      return false;
+    }
+    
+    hostEmail = profile.email;
+    hostName = profile.full_name;
+
+    if (!hostEmail) {
+      console.log("⚠️ No host email found for host ID:", hostId);
+      return false;
+    }
+
+    console.log(`✅ Found host email: ${hostEmail} for ${itemType}: ${itemTitle}`);
 
     const guestName = booking.guest_name || "A guest";
     const guestEmail = booking.guest_email || "";
@@ -776,18 +813,34 @@ export default async function handler(req, res) {
           const item = items[i];
           
           if (bookingId && item) {
+            console.log(`Processing host notification for booking ${i + 1}/${createdBookingIds.length}:`, { bookingId, item_type: item.item_type });
+            
             // Fetch the created booking details
-            const { data: booking } = await supabase
+            const { data: booking, error: bookingError } = await supabase
               .from("bookings")
               .select("*")
               .eq("id", bookingId)
               .single();
             
+            if (bookingError) {
+              console.error(`❌ Error fetching booking ${bookingId}:`, bookingError);
+              continue;
+            }
+            
             if (booking) {
-              await sendHostNotification(supabase, booking, item);
+              console.log(`📦 Fetched booking details for ${bookingId}`);
+              const notificationSent = await sendHostNotification(supabase, booking, item);
+              if (notificationSent) {
+                console.log(`✅ Host notification sent successfully for booking ${bookingId}`);
+              } else {
+                console.log(`⚠️ Host notification failed for booking ${bookingId}`);
+              }
+            } else {
+              console.log(`⚠️ No booking found for ID ${bookingId}`);
             }
           }
         }
+        console.log(`✅ Completed processing all ${createdBookingIds.length} host notifications`);
       }
     }
 
