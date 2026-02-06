@@ -652,23 +652,45 @@ export default function CheckoutNew() {
         return;
       }
 
-      // Checkout is already in RWF, so use totalInRwf directly
-      const finalAmount = Math.round(totalInRwf);
-      
-      // Validate amount before initiating payment
-      if (finalAmount < 100) {
-        throw new Error("Minimum payment amount is 100 RWF");
-      }
-
-      // Get the selected payment method info
+      // Get the selected payment method info to determine the payment currency
       const selectedMethodInfo = PAWAPAY_METHODS.find(m => m.id === paymentMethod);
       const provider = selectedMethodInfo?.provider || 'MTN';
+      const paymentCurrency = selectedMethodInfo?.currency || 'RWF';
+      
+      // Convert amount from RWF to payment method's currency
+      let paymentAmount = totalInRwf;
+      if (paymentCurrency !== 'RWF') {
+        const converted = convertAmount(totalInRwf, 'RWF', paymentCurrency, usdRates);
+        if (!converted) {
+          throw new Error(`Unable to convert RWF to ${paymentCurrency}. Please try again.`);
+        }
+        paymentAmount = converted;
+        console.log("💱 Converted payment amount:", {
+          from: 'RWF',
+          to: paymentCurrency,
+          original: totalInRwf,
+          converted: paymentAmount
+        });
+      }
+      
+      const finalAmount = Math.round(paymentAmount);
+      
+      // Validate amount before initiating payment
+      const minAmount = paymentCurrency === 'RWF' ? 100 : 
+                        paymentCurrency === 'KES' ? 10 :
+                        paymentCurrency === 'UGX' ? 500 :
+                        paymentCurrency === 'TZS' ? 500 :
+                        paymentCurrency === 'ZMW' ? 1 : 100;
+      
+      if (finalAmount < minAmount) {
+        throw new Error(`Minimum payment amount is ${minAmount} ${paymentCurrency}`);
+      }
 
       // Initiate PawaPay payment for mobile money
       console.log("🔄 Initiating PawaPay payment:", {
         checkoutId,
         amount: finalAmount,
-        currency: 'RWF',
+        currency: paymentCurrency,
         phoneNumber: fullPhone,
         provider,
         country: countryCode,
@@ -681,7 +703,7 @@ export default function CheckoutNew() {
         body: JSON.stringify({
           checkoutId,
           amount: finalAmount,
-          currency: 'RWF',
+          currency: paymentCurrency,
           phoneNumber: fullPhone,
           description: `Merry360x Booking - ${cartItems.length} item(s)`,
           payerEmail: formData.email,

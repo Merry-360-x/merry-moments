@@ -184,28 +184,7 @@ export default async function handler(req, res) {
       return json(res, 404, { error: "Checkout not found" });
     }
 
-    // All checkouts are stored in RWF, PawaPay only supports RWF
-    const currency = "RWF";
-    const rwfAmount = Math.round(numAmount);
-    
-    console.log("💰 Payment details:", {
-      checkoutCurrency: checkout.currency,
-      amount: numAmount,
-      rwfAmount
-    });
-
-    // Generate unique deposit ID - must be a valid UUID
-    const depositId = crypto.randomUUID();
-
-    // Format phone number properly for PawaPay
-    // Already have cleanPhone from country detection above
-    
-    // Phone number validation by country
-    // Rwanda: 250 + 9 digits = 12 digits
-    // Kenya: 254 + 9 digits = 12 digits  
-    // Uganda: 256 + 9 digits = 12 digits
-    // Zambia: 260 + 9 digits = 12 digits
-    
+    // Phone number validation by country - define this early so we can get the currency
     const countryPhoneInfo = {
       "250": { name: "Rwanda", length: 12, localLength: 9, example: "78XXXXXXX", currency: "RWF" },
       "254": { name: "Kenya", length: 12, localLength: 9, example: "7XXXXXXXX", currency: "KES" },
@@ -215,6 +194,28 @@ export default async function handler(req, res) {
     };
     
     const phoneInfo = countryPhoneInfo[countryCode] || countryPhoneInfo["250"];
+    
+    // Use the currency that matches the payment method's country
+    // PawaPay requires the currency to match the correspondent's country
+    const currency = phoneInfo.currency;
+    
+    // Convert the checkout amount to the payment currency if needed
+    // For now, we'll assume the amount is already converted on the frontend
+    const paymentAmount = Math.round(numAmount);
+    
+    console.log("💰 Payment details:", {
+      checkoutCurrency: checkout.currency,
+      paymentCurrency: currency,
+      originalAmount: numAmount,
+      paymentAmount,
+      country: phoneInfo.name
+    });
+
+    // Generate unique deposit ID - must be a valid UUID
+    const depositId = crypto.randomUUID();
+
+    // Format phone number properly for PawaPay
+    // Already have cleanPhone from country detection above
     
     // Remove duplicate country code if present
     if (cleanPhone.startsWith(countryCode + countryCode)) {
@@ -243,7 +244,7 @@ export default async function handler(req, res) {
     // Create PawaPay deposit request
     const pawaPayRequest = {
       depositId,
-      amount: String(rwfAmount),
+      amount: String(paymentAmount),
       currency,
       correspondent,
       payer: {
