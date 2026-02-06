@@ -95,6 +95,7 @@ const Favorites = () => {
                 reviews={fav.properties.review_count || 0}
                 price={Number(fav.properties.price_per_night)}
                 type={fav.properties.property_type}
+                hostId={fav.properties.host_id || null}
                 isFavorited
                 onToggleFavorite={async () => {
                   const changed = await toggleFavorite(String(fav.properties.id), true);

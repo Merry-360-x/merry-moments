@@ -35,7 +35,8 @@ import {
   Info,
   Mail,
   Phone,
-  Download
+  Download,
+  BadgeCheck
 } from "lucide-react";
 import { extractNeighborhood } from "@/lib/location";
 
@@ -128,6 +129,31 @@ export default function TourDetails() {
 
   const tour = data?.tour;
   const hostProfile = data?.host ?? null;
+  
+  // Get the host ID - from created_by (tours table) or host_id (tour_packages table)
+  const hostId = tour?.created_by || tour?.host_id;
+
+  // Check if host is verified (profile_complete in host_applications)
+  const { data: hostVerified } = useQuery({
+    queryKey: ["host-verified", hostId],
+    enabled: Boolean(hostId),
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    gcTime: 1000 * 60 * 30,
+    queryFn: async () => {
+      if (!hostId) return false;
+      
+      const { data: app, error } = await supabase
+        .from("host_applications")
+        .select("profile_complete")
+        .eq("user_id", hostId)
+        .order("profile_complete", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (error) return false;
+      return (app as { profile_complete?: boolean } | null)?.profile_complete === true;
+    },
+  });
 
   const isPackage = data?.source === "tour_packages";
   const normalizedImages = isPackage
@@ -578,9 +604,12 @@ export default function TourDetails() {
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
-                    <div className="text-base font-semibold text-foreground">
+                    <div className="text-base font-semibold text-foreground flex items-center gap-1.5">
                       {(hostProfile?.nickname || hostProfile?.full_name) || (
                         <span className="text-muted-foreground">Guide Profile Incomplete</span>
+                      )}
+                      {hostVerified && (
+                        <BadgeCheck className="w-5 h-5 text-primary" />
                       )}
                     </div>
                     {hostProfile.created_at && (

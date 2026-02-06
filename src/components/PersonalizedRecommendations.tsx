@@ -80,6 +80,7 @@ export function PersonalizedRecommendations({
     eventsAllowed: item.events_allowed,
     petsAllowed: item.pets_allowed,
     isFavorited: false,
+    hostId: item.host_id || null,
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -95,6 +96,7 @@ export function PersonalizedRecommendations({
     category: item.category || null,
     durationDays: item.duration_days || null,
     source: item.source as 'tours' | 'tour_packages' | undefined,
+    hostId: item.created_by || item.host_id || null,
   });
 
   if (isLoading) {
@@ -297,6 +299,7 @@ export function SimilarItems({ itemId, itemType, limit = 4 }: SimilarItemsProps)
     eventsAllowed: item.events_allowed,
     petsAllowed: item.pets_allowed,
     isFavorited: false,
+    hostId: item.host_id || null,
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -311,6 +314,7 @@ export function SimilarItems({ itemId, itemType, limit = 4 }: SimilarItemsProps)
     reviewCount: item.review_count || null,
     category: item.category || null,
     durationDays: item.duration_days || null,
+    hostId: item.created_by || item.host_id || null,
   });
 
   if (isLoading) {

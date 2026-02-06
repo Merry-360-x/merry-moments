@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { Star, Heart, Users } from "lucide-react";
+import { Star, Heart, Users, BadgeCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import ListingImageCarousel from "@/components/ListingImageCarousel";
 import { OptimizedImage } from "@/components/OptimizedImage";
 import { useFavorites } from "@/hooks/useFavorites";
@@ -33,6 +35,7 @@ export interface PropertyCardProps {
   petsAllowed?: boolean | null;
   isFavorited?: boolean;
   onToggleFavorite?: () => void;
+  hostId?: string | null;
 }
 
 const PropertyCard = ({
@@ -58,6 +61,7 @@ const PropertyCard = ({
   petsAllowed,
   isFavorited,
   onToggleFavorite,
+  hostId,
 }: PropertyCardProps) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -65,6 +69,28 @@ const PropertyCard = ({
   const { usdRates } = useFxRates();
   const { toggleFavorite, checkFavorite } = useFavorites();
   const [fav, setFav] = useState(Boolean(isFavorited));
+
+  // Check if host is verified (only when hostId is provided)
+  const { data: hostVerified } = useQuery({
+    queryKey: ["host-verified", hostId],
+    enabled: Boolean(hostId),
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    gcTime: 1000 * 60 * 30,
+    queryFn: async () => {
+      if (!hostId) return false;
+      
+      const { data: app, error } = await supabase
+        .from("host_applications")
+        .select("profile_complete")
+        .eq("user_id", hostId)
+        .order("profile_complete", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (error) return false;
+      return app?.profile_complete === true;
+    },
+  });
 
   const gallery = images?.length ? images : image ? [image] : [];
   const originalCurrency = currency ?? "RWF"; // The currency the property price is stored in
@@ -128,8 +154,11 @@ const PropertyCard = ({
             className={`w-3 h-3 md:w-4 md:h-4 ${fav ? "fill-primary text-primary" : "text-foreground"}`}
           />
         </button>
-        <span className="absolute bottom-1.5 md:bottom-3 left-1.5 md:left-3 px-1.5 md:px-3 py-0.5 md:py-1 rounded-full bg-background/90 backdrop-blur-sm text-[8px] md:text-xs font-medium">
+        <span className="absolute bottom-1.5 md:bottom-3 left-1.5 md:left-3 px-1.5 md:px-3 py-0.5 md:py-1 rounded-full bg-background/90 backdrop-blur-sm text-[8px] md:text-xs font-medium flex items-center gap-1">
           {type}
+          {hostVerified && (
+            <BadgeCheck className="w-3 h-3 md:w-4 md:h-4 text-primary" />
+          )}
         </span>
       </div>
 

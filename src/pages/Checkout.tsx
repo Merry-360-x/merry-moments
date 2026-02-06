@@ -621,7 +621,10 @@ export default function CheckoutNew() {
           special_requests: formData.notes || null,
           discount_code: appliedDiscount?.code || null,
           discount_amount: discount,
-          payment_provider: paymentMethod === 'mtn' ? 'MTN' : paymentMethod === 'airtel' ? 'AIRTEL' : paymentMethod.toUpperCase(),
+          payment_provider: (() => {
+            const methodInfo = PAWAPAY_METHODS.find(m => m.id === paymentMethod);
+            return methodInfo?.provider || paymentMethod.toUpperCase();
+          })(),
         },
       };
 
@@ -1166,18 +1169,32 @@ export default function CheckoutNew() {
                     </div>
                     <div className="bg-muted/30 rounded-xl p-4">
                       <h4 className="text-sm font-medium mb-2">Payment Method</h4>
-                      <p className="text-sm">
-                        {paymentMethod === 'mtn' && (countryCode === '+254' ? 'M-Pesa' : 'MTN Mobile Money')}
-                        {paymentMethod === 'airtel' && 'Airtel Money'}
-                        {paymentMethod === 'card' && 'Credit / Debit Card'}
-                        {paymentMethod === 'bank' && 'Bank Transfer'}
-                      </p>
-                      {(paymentMethod === 'mtn' || paymentMethod === 'airtel') && (
-                        <p className="text-sm text-muted-foreground">{countryCode} {phoneNumber}</p>
-                      )}
-                      {(paymentMethod === 'card' || paymentMethod === 'bank') && (
-                        <p className="text-sm text-muted-foreground">Agent will call you</p>
-                      )}
+                      {(() => {
+                        const selectedMethodInfo = PAWAPAY_METHODS.find(m => m.id === paymentMethod);
+                        const isMobileMoney = selectedMethodInfo != null;
+                        
+                        return (
+                          <>
+                            <p className="text-sm">
+                              {isMobileMoney && selectedMethodInfo && (
+                                <span className="flex items-center gap-2">
+                                  <span className="text-lg">{selectedMethodInfo.flag}</span>
+                                  {selectedMethodInfo.name}
+                                </span>
+                              )}
+                              {paymentMethod === 'card' && 'Credit / Debit Card'}
+                              {paymentMethod === 'bank' && 'Bank Transfer'}
+                              {!isMobileMoney && paymentMethod !== 'card' && paymentMethod !== 'bank' && 'No payment method selected'}
+                            </p>
+                            {isMobileMoney && (
+                              <p className="text-sm text-muted-foreground">{countryCode} {phoneNumber}</p>
+                            )}
+                            {(paymentMethod === 'card' || paymentMethod === 'bank') && (
+                              <p className="text-sm text-muted-foreground">Agent will call you</p>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
 

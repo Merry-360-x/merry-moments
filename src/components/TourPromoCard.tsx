@@ -1,5 +1,7 @@
 import { Link } from "react-router-dom";
-import { MapPin, Star } from "lucide-react";
+import { MapPin, Star, BadgeCheck } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import ListingImageCarousel from "@/components/ListingImageCarousel";
 import { extractNeighborhood } from "@/lib/location";
 import { formatMoneyWithConversion } from "@/lib/money";
@@ -20,6 +22,7 @@ export type TourPromoCardProps = {
   category?: string | null;
   durationDays?: number | null;
   source?: 'tours' | 'tour_packages';
+  hostId?: string | null;
 };
 
 export default function TourPromoCard(props: TourPromoCardProps) {
@@ -31,6 +34,29 @@ export default function TourPromoCard(props: TourPromoCardProps) {
   const displayPrice = formatMoneyWithConversion(Number(props.price ?? 0), from, preferredCurrency, usdRates);
   // Determine item type - use source if provided, default to 'tour'
   const itemType = props.source === 'tour_packages' ? 'tour_package' : 'tour';
+  
+  // Check if host is verified (only when hostId is provided)
+  const { data: hostVerified } = useQuery({
+    queryKey: ["host-verified", props.hostId],
+    enabled: Boolean(props.hostId),
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    gcTime: 1000 * 60 * 30,
+    queryFn: async () => {
+      if (!props.hostId) return false;
+      
+      const { data: app, error } = await supabase
+        .from("host_applications")
+        .select("profile_complete")
+        .eq("user_id", props.hostId)
+        .order("profile_complete", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (error) return false;
+      return app?.profile_complete === true;
+    },
+  });
+
   return (
     <Link to={`/tours/${props.id}`} className="block" aria-label={props.title}>
       <div className="group rounded-lg md:rounded-xl overflow-hidden bg-card shadow-card hover:shadow-lg transition-all duration-300">
@@ -69,8 +95,16 @@ export default function TourPromoCard(props: TourPromoCardProps) {
             +
           </Button>
           {props.category ? (
-            <span className="absolute bottom-1.5 md:bottom-3 left-1.5 md:left-3 px-1.5 md:px-3 py-0.5 md:py-1 rounded-full bg-background/90 backdrop-blur-sm text-[8px] md:text-xs font-medium">
+            <span className="absolute bottom-1.5 md:bottom-3 left-1.5 md:left-3 px-1.5 md:px-3 py-0.5 md:py-1 rounded-full bg-background/90 backdrop-blur-sm text-[8px] md:text-xs font-medium flex items-center gap-1">
               {props.category}
+              {hostVerified && (
+                <BadgeCheck className="w-3 h-3 md:w-4 md:h-4 text-primary" />
+              )}
+            </span>
+          ) : hostVerified ? (
+            <span className="absolute bottom-1.5 md:bottom-3 left-1.5 md:left-3 px-1.5 md:px-3 py-0.5 md:py-1 rounded-full bg-background/90 backdrop-blur-sm text-[8px] md:text-xs font-medium flex items-center gap-1">
+              <BadgeCheck className="w-3 h-3 md:w-4 md:h-4 text-primary" />
+              Verified
             </span>
           ) : null}
         </div>

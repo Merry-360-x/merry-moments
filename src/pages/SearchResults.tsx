@@ -120,6 +120,7 @@ export default function SearchResults() {
     eventsAllowed: item.events_allowed,
     petsAllowed: item.pets_allowed,
     isFavorited: false,
+    hostId: item.host_id || null,
   });
 
   const mapToTourProps = (item: any) => ({
@@ -134,6 +135,7 @@ export default function SearchResults() {
     category: item.category || null,
     durationDays: item.duration_days || null,
     source: item.searchType === 'tour_package' ? 'tour_packages' as const : 'tours' as const,
+    hostId: item.created_by || item.host_id || null,
   });
 
   const mapToTransportProps = (item: any) => ({
