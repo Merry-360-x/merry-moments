@@ -195,48 +195,19 @@ export default async function handler(req, res) {
     
     const phoneInfo = countryPhoneInfo[countryCode] || countryPhoneInfo["250"];
     
+    // Save the original checkout currency before we change it for payment
+    const originalCurrency = checkout.currency || "USD";
+    
     // Use the currency that matches the payment method's country
     // PawaPay requires the currency to match the correspondent's country
     const currency = phoneInfo.currency;
     
-    // Currency conversion rates (based on BNR rates)
-    const EXCHANGE_RATES = {
-      RWF: 1,
-      USD: 1460.15,
-      EUR: 1724.875195,
-      GBP: 1998.94535,
-      KES: 11.319083,
-      TZS: 0.565078,
-      UGX: 0.409572,
-      ZMW: 74.287321
-    };
-    
     // Convert the checkout amount to the payment currency if needed
-    let paymentAmount = numAmount;
-    const checkoutCurrency = (checkout.currency || "RWF").toUpperCase();
-    
-    if (checkoutCurrency !== currency) {
-      // Convert from checkout currency to RWF first
-      const checkoutToRwf = EXCHANGE_RATES[checkoutCurrency] || 1;
-      const amountInRwf = checkoutCurrency === "RWF" ? numAmount : numAmount * checkoutToRwf;
-      
-      // Then convert from RWF to payment currency
-      const rwfToPayment = EXCHANGE_RATES[currency] || 1;
-      paymentAmount = currency === "RWF" ? amountInRwf : amountInRwf / rwfToPayment;
-      
-      console.log("💱 Currency conversion:", {
-        from: checkoutCurrency,
-        to: currency,
-        originalAmount: numAmount,
-        amountInRwf,
-        convertedAmount: paymentAmount,
-        rate: `1 ${checkoutCurrency} = ${checkoutToRwf} RWF, 1 RWF = ${1/rwfToPayment} ${currency}`
-      });
-    }
-    
-    paymentAmount = Math.round(paymentAmount);
+    // For now, we'll assume the amount is already converted on the frontend
+    const paymentAmount = Math.round(numAmount);
     
     console.log("💰 Payment details:", {
+      originalCurrency: originalCurrency,
       checkoutCurrency: checkout.currency,
       paymentCurrency: currency,
       originalAmount: numAmount,
@@ -441,6 +412,13 @@ export default async function handler(req, res) {
         payment_method: provider === 'MTN' ? 'mtn_momo' : 'airtel_money',
         payment_status: "pending",
         dpo_transaction_id: depositId, // Reuse this field for PawaPay deposit ID
+        metadata: {
+          ...checkout.metadata,
+          deposit_id: depositId,
+          payment_currency: currency,
+          original_currency: originalCurrency,
+          payment_amount: paymentAmount
+        },
         updated_at: new Date().toISOString()
       })
       .eq("id", orderId);
