@@ -105,6 +105,30 @@ const METHODS_BY_COUNTRY = PAWAPAY_METHODS.reduce((acc, method) => {
   return acc;
 }, {} as Record<string, { flag: string; countryCode: string; currency: string; methods: PaymentMethodInfo[] }>);
 
+// Country code to country name mapping for detection
+const COUNTRY_BY_CODE: Record<string, string> = {
+  '+250': 'Rwanda',
+  '+255': 'Tanzania', 
+  '+256': 'Uganda',
+  '+254': 'Kenya',
+  '+260': 'Zambia',
+};
+
+// Get sorted countries based on user's phone country code
+function getSortedCountries(userCountryCode: string): [string, typeof METHODS_BY_COUNTRY[string]][] {
+  const userCountry = COUNTRY_BY_CODE[userCountryCode];
+  const entries = Object.entries(METHODS_BY_COUNTRY);
+  
+  if (!userCountry) return entries;
+  
+  // Put user's country first
+  return entries.sort((a, b) => {
+    if (a[0] === userCountry) return -1;
+    if (b[0] === userCountry) return 1;
+    return 0;
+  });
+}
+
 export default function CheckoutNew() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -962,7 +986,7 @@ export default function CheckoutNew() {
 
                   {/* Payment Methods by Country */}
                   <div className="space-y-4">
-                    {Object.entries(METHODS_BY_COUNTRY).map(([country, { flag, countryCode: cc, currency, methods }]) => {
+                    {getSortedCountries(countryCode).map(([country, { flag, countryCode: cc, currency, methods }]) => {
                       const selectedMethod = PAWAPAY_METHODS.find(m => m.id === paymentMethod);
                       const isCountrySelected = selectedMethod?.country === country;
                       const convertedTotal = currency === displayCurrency 
@@ -1360,7 +1384,7 @@ export default function CheckoutNew() {
                   {/* Security Note */}
                   <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-4">
                     <Shield className="w-4 h-4" />
-                    Secured by PawaPay • Encrypted payment
+                    Secured • Encrypted payment
                   </div>
                 </div>
               )}
@@ -1522,7 +1546,7 @@ export default function CheckoutNew() {
               <div className="pt-4 border-t space-y-2">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Shield className="w-4 h-4" />
-                  Secure payment with PawaPay
+                  Secure payment
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Check className="w-4 h-4" />

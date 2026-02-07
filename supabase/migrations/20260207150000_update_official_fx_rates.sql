@@ -1,5 +1,5 @@
--- Update admin_dashboard_metrics with correct USD to RWF rate: 1455.5
--- Based on official exchange rates from 06-Feb-26
+-- Update admin_dashboard_metrics with official BNR exchange rates
+-- Official USD to RWF average rate: 1455.5 (from National Bank of Rwanda)
 
 DROP FUNCTION IF EXISTS admin_dashboard_metrics();
 
@@ -38,8 +38,15 @@ DECLARE
     v_incidents_open int := 0;
     v_blacklist_count int := 0;
     v_stories_total int := 0;
-    -- Updated exchange rate: 1 USD = 1455.5 RWF (average rate)
-    usd_to_rwf_rate CONSTANT numeric := 1455.5;
+    
+    -- Official BNR exchange rates (average rates to RWF)
+    usd_to_rwf CONSTANT numeric := 1455.5;
+    eur_to_rwf CONSTANT numeric := 1716.76225;
+    gbp_to_rwf CONSTANT numeric := 1972.4936;
+    kes_to_rwf CONSTANT numeric := 11.283036;
+    ugx_to_rwf CONSTANT numeric := 0.408996;
+    tzs_to_rwf CONSTANT numeric := 0.563279;
+    aed_to_rwf CONSTANT numeric := 396.323917;
 BEGIN
     -- Users
     BEGIN
@@ -102,13 +109,19 @@ BEGIN
         v_bookings_paid := 0;
     END;
     
-    -- Revenue - convert USD to RWF using official rate
+    -- Revenue - convert all currencies to RWF using official rates
     BEGIN
         SELECT COALESCE(SUM(
             CASE 
-                WHEN currency = 'USD' THEN total_price * usd_to_rwf_rate
-                WHEN currency = 'RWF' AND total_price < 1000 THEN total_price * usd_to_rwf_rate
-                ELSE total_price
+                WHEN currency = 'RWF' AND total_price >= 1000 THEN total_price
+                WHEN currency = 'USD' OR (currency = 'RWF' AND total_price < 1000) THEN total_price * usd_to_rwf
+                WHEN currency = 'EUR' THEN total_price * eur_to_rwf
+                WHEN currency = 'GBP' THEN total_price * gbp_to_rwf
+                WHEN currency = 'KES' THEN total_price * kes_to_rwf
+                WHEN currency = 'UGX' THEN total_price * ugx_to_rwf
+                WHEN currency = 'TZS' THEN total_price * tzs_to_rwf
+                WHEN currency = 'AED' THEN total_price * aed_to_rwf
+                ELSE total_price * usd_to_rwf  -- Default to USD rate for unknown currencies
             END
         ), 0) INTO v_revenue_gross
         FROM bookings 
@@ -116,13 +129,19 @@ BEGIN
     EXCEPTION WHEN OTHERS THEN v_revenue_gross := 0;
     END;
     
-    -- Refunds
+    -- Refunds - convert all currencies to RWF
     BEGIN
         SELECT COALESCE(SUM(
             CASE 
-                WHEN currency = 'USD' THEN total_price * usd_to_rwf_rate
-                WHEN currency = 'RWF' AND total_price < 1000 THEN total_price * usd_to_rwf_rate
-                ELSE total_price
+                WHEN currency = 'RWF' AND total_price >= 1000 THEN total_price
+                WHEN currency = 'USD' OR (currency = 'RWF' AND total_price < 1000) THEN total_price * usd_to_rwf
+                WHEN currency = 'EUR' THEN total_price * eur_to_rwf
+                WHEN currency = 'GBP' THEN total_price * gbp_to_rwf
+                WHEN currency = 'KES' THEN total_price * kes_to_rwf
+                WHEN currency = 'UGX' THEN total_price * ugx_to_rwf
+                WHEN currency = 'TZS' THEN total_price * tzs_to_rwf
+                WHEN currency = 'AED' THEN total_price * aed_to_rwf
+                ELSE total_price * usd_to_rwf
             END
         ), 0) INTO v_refunds_total
         FROM bookings 
@@ -150,7 +169,7 @@ BEGIN
         SELECT COUNT(*) INTO v_tickets_total FROM support_tickets;
         SELECT COUNT(*) INTO v_tickets_open FROM support_tickets WHERE status = 'open';
         SELECT COUNT(*) INTO v_tickets_in_progress FROM support_tickets WHERE status = 'in_progress';
-        SELECT COUNT(*) INTO v_tickets_resolved FROM support_tickets WHERE status IN ('resolved', 'closed');
+        SELECT COUNT(*) INTO v_tickets_resolved FROM support_tickets WHERE status = 'resolved';
     EXCEPTION WHEN OTHERS THEN 
         v_tickets_total := 0;
         v_tickets_open := 0;
@@ -160,8 +179,8 @@ BEGIN
     
     -- Incidents
     BEGIN
-        SELECT COUNT(*) INTO v_incidents_total FROM incident_reports;
-        SELECT COUNT(*) INTO v_incidents_open FROM incident_reports WHERE status = 'open';
+        SELECT COUNT(*) INTO v_incidents_total FROM incidents;
+        SELECT COUNT(*) INTO v_incidents_open FROM incidents WHERE status = 'open';
     EXCEPTION WHEN OTHERS THEN 
         v_incidents_total := 0;
         v_incidents_open := 0;
@@ -178,48 +197,73 @@ BEGIN
         SELECT COUNT(*) INTO v_stories_total FROM stories;
     EXCEPTION WHEN OTHERS THEN v_stories_total := 0;
     END;
-
+    
     -- Build result
     result := jsonb_build_object(
-        'users_total', v_users_total,
-        'users_suspended', v_users_suspended,
-        'hosts_total', v_hosts_total,
-        'properties_total', v_properties_total,
-        'properties_published', v_properties_published,
-        'properties_featured', 0,
-        'tours_total', v_tours_total,
-        'tours_published', v_tours_published,
-        'transport_services_total', v_vehicles_total,
-        'transport_vehicles_total', v_vehicles_total,
-        'transport_vehicles_published', v_vehicles_published,
-        'transport_routes_total', 0,
-        'transport_routes_published', 0,
-        'bookings_total', v_bookings_total,
-        'bookings_pending', v_bookings_pending,
-        'bookings_confirmed', v_bookings_confirmed,
-        'bookings_completed', v_bookings_completed,
-        'bookings_cancelled', v_bookings_cancelled,
-        'bookings_paid', v_bookings_paid,
-        'revenue_gross', v_revenue_gross,
-        'revenue_by_currency', jsonb_build_array(jsonb_build_object('currency', 'RWF', 'amount', v_revenue_gross)),
-        'refunds_total', v_refunds_total,
-        'reviews_total', v_reviews_total,
-        'reviews_hidden', v_reviews_hidden,
-        'orders_total', v_orders_total,
-        'tickets_total', v_tickets_total,
-        'tickets_open', v_tickets_open,
-        'tickets_in_progress', v_tickets_in_progress,
-        'tickets_resolved', v_tickets_resolved,
-        'incidents_total', v_incidents_total,
-        'incidents_open', v_incidents_open,
-        'blacklist_count', v_blacklist_count,
-        'stories_total', v_stories_total
+        'users', jsonb_build_object(
+            'total', v_users_total,
+            'suspended', v_users_suspended
+        ),
+        'hosts', jsonb_build_object(
+            'total', v_hosts_total
+        ),
+        'properties', jsonb_build_object(
+            'total', v_properties_total,
+            'published', v_properties_published,
+            'featured', 0
+        ),
+        'tours', jsonb_build_object(
+            'total', v_tours_total,
+            'published', v_tours_published
+        ),
+        'vehicles', jsonb_build_object(
+            'total', v_vehicles_total,
+            'published', v_vehicles_published
+        ),
+        'bookings', jsonb_build_object(
+            'total', v_bookings_total,
+            'pending', v_bookings_pending,
+            'confirmed', v_bookings_confirmed,
+            'completed', v_bookings_completed,
+            'cancelled', v_bookings_cancelled,
+            'paid', v_bookings_paid
+        ),
+        'revenue', jsonb_build_object(
+            'gross', v_revenue_gross,
+            'currency', 'RWF'
+        ),
+        'refunds', jsonb_build_object(
+            'total', v_refunds_total,
+            'currency', 'RWF'
+        ),
+        'reviews', jsonb_build_object(
+            'total', v_reviews_total,
+            'hidden', v_reviews_hidden
+        ),
+        'orders', jsonb_build_object(
+            'total', v_orders_total
+        ),
+        'tickets', jsonb_build_object(
+            'total', v_tickets_total,
+            'open', v_tickets_open,
+            'in_progress', v_tickets_in_progress,
+            'resolved', v_tickets_resolved
+        ),
+        'incidents', jsonb_build_object(
+            'total', v_incidents_total,
+            'open', v_incidents_open
+        ),
+        'blacklist', jsonb_build_object(
+            'total', v_blacklist_count
+        ),
+        'stories', jsonb_build_object(
+            'total', v_stories_total
+        )
     );
     
     RETURN result;
 END;
 $$;
 
+-- Grant execute permission
 GRANT EXECUTE ON FUNCTION admin_dashboard_metrics() TO authenticated;
-
-COMMENT ON FUNCTION admin_dashboard_metrics() IS 'Returns dashboard metrics with revenue in RWF. USD rate: 1455.5 RWF';
