@@ -2019,7 +2019,7 @@ For support, contact: support@merry360x.com
                             {b.is_guest_booking ? b.guest_name || "Guest" : b.profiles?.full_name || b.guest_id?.slice(0, 8)}
                           </TableCell>
                           <TableCell className="text-sm">{b.properties?.title || "—"}</TableCell>
-                          <TableCell className="font-medium">{formatMoney(b.total_price, b.currency)}</TableCell>
+                          <TableCell className="font-medium">{formatMoney(b.total_price, b.currency === 'RWF' && b.total_price < 1000 ? 'USD' : b.currency)}</TableCell>
                           <TableCell>
                             <div className="flex gap-1">
                               <StatusBadge status={b.status} />

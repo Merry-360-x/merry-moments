@@ -505,7 +505,7 @@ export default function Dashboard() {
                             </div>
                             <div className="flex items-center gap-3">
                               <span className="text-sm font-semibold text-foreground">
-                                {formatMoney(Number(b.total_price), String(b.currency ?? "RWF"))}
+                                {formatMoney(Number(b.total_price), b.currency === 'RWF' && b.total_price < 1000 ? 'USD' : String(b.currency ?? "RWF"))}
                               </span>
                               <Link to="/my-bookings">
                                 <Button variant="outline" size="sm">
@@ -540,7 +540,7 @@ export default function Dashboard() {
                             </div>
                             <div className="flex items-center gap-3">
                               <span className="text-sm font-semibold text-foreground">
-                                {formatMoney(Number(b.total_price), String(b.currency ?? "RWF"))}
+                                {formatMoney(Number(b.total_price), b.currency === 'RWF' && b.total_price < 1000 ? 'USD' : String(b.currency ?? "RWF"))}
                               </span>
                               <Link to="/my-bookings">
                                 <Button variant="outline" size="sm">

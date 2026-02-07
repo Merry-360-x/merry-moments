@@ -865,7 +865,7 @@ export default function HostDashboard() {
     }
 
     if (amount > availableForPayout) {
-      toast({ variant: 'destructive', title: 'Insufficient balance', description: `Maximum available: ${formatMoney(availableForPayout, 'RWF')}` });
+      toast({ variant: 'destructive', title: 'Insufficient balance', description: `Maximum available: ${formatMoney(availableForPayout, 'USD')}` });
       return;
     }
 
