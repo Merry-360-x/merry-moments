@@ -459,7 +459,7 @@ export default function FinancialStaffDashboard() {
               <div className="mt-4 p-3 bg-muted/50 rounded-lg">
                 <p className="text-sm font-medium">
                   Showing {filteredBookings.length} bookings | 
-                  Filtered Revenue: {formatMoney(filteredRevenue, "USD")}
+                  Filtered Revenue: {formatMoney(filteredRevenue, "RWF")}
                 </p>
               </div>
             )}

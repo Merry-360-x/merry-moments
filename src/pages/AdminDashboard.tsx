@@ -1916,7 +1916,7 @@ For support, contact: support@merry360x.com
                   <span className="text-sm">Revenue</span>
                 </div>
                 <p className="text-2xl font-bold text-primary">
-                  {formatMoney(metrics?.revenue_gross ?? 0, "USD")}
+                  {formatMoney(metrics?.revenue_gross ?? 0, "RWF")}
                 </p>
           </Card>
           <Card className="p-4">
@@ -3495,7 +3495,7 @@ For support, contact: support@merry360x.com
             <div className="grid md:grid-cols-3 gap-4 mb-6">
               <Card className="p-4">
                 <p className="text-sm text-muted-foreground">Total Revenue</p>
-                <p className="text-2xl font-bold text-primary">{formatMoney(metrics?.revenue_gross ?? 0, "USD")}</p>
+                <p className="text-2xl font-bold text-primary">{formatMoney(metrics?.revenue_gross ?? 0, "RWF")}</p>
               </Card>
               <Card className="p-4">
                 <p className="text-sm text-muted-foreground">Paid Bookings</p>
@@ -3503,7 +3503,7 @@ For support, contact: support@merry360x.com
               </Card>
               <Card className="p-4">
                 <p className="text-sm text-muted-foreground">Total Refunds</p>
-                <p className="text-2xl font-bold text-destructive">{formatMoney(metrics?.refunds_total ?? 0, "USD")}</p>
+                <p className="text-2xl font-bold text-destructive">{formatMoney(metrics?.refunds_total ?? 0, "RWF")}</p>
               </Card>
             </div>
 
