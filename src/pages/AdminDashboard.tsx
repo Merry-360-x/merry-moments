@@ -1481,6 +1481,23 @@ export default function AdminDashboard() {
     }
   };
 
+  const deleteBooking = async (id: string, guestName?: string) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to permanently delete the booking for "${guestName || 'Unknown Guest'}"?\n\nThis action cannot be undone.`
+    );
+    if (!confirmed) return;
+    
+    try {
+      const { error } = await supabase.from("bookings").delete().eq("id", id);
+      if (error) throw error;
+      toast({ title: "Booking deleted", description: "The booking has been permanently removed." });
+      await Promise.all([refetchBookings(), refetchMetrics()]);
+    } catch (e) {
+      logError("admin.deleteBooking", e);
+      toast({ variant: "destructive", title: "Failed to delete", description: uiErrorMessage(e, "Please try again.") });
+    }
+  };
+
   const hideReview = async (reviewId: string) => {
     const reason = window.prompt("Reason for hiding:");
     if (!reason) return;
@@ -3322,7 +3339,7 @@ For support, contact: support@merry360x.com
                         </TableCell>
                         <TableCell>{b.guests}</TableCell>
                         <TableCell>
-                          <div className="font-medium">{formatMoney(b.total_price, b.currency)}</div>
+                          <div className="font-medium">{formatMoney(b.total_price, b.currency === 'RWF' && b.total_price < 1000 ? 'USD' : b.currency)}</div>
                         </TableCell>
                         <TableCell>
                           <StatusBadge status={b.status} />
@@ -3447,6 +3464,13 @@ For support, contact: support@merry360x.com
                                 <SelectItem value="cancelled">Cancel</SelectItem>
                               </SelectContent>
                             </Select>
+                            <Button 
+                              size="sm" 
+                              variant="destructive" 
+                              onClick={() => deleteBooking(b.id, b.guest_name || b.profiles?.full_name)}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
