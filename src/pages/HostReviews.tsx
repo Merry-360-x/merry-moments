@@ -56,6 +56,7 @@ export default function HostReviews() {
         .from("property_reviews")
         .select("id, rating, comment, created_at, properties(id, title)")
         .in("property_id", ids)
+        .eq("is_hidden", false)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (reviewsData ?? []) as ReviewRow[];

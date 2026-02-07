@@ -61,7 +61,7 @@ export default function HostAbout() {
     queryFn: async () => {
       const ids = listings.map((p) => String(p.id));
       if (ids.length === 0) return { reviewCount: 0, rating: null as number | null };
-      const { data, error } = await supabase.from("property_reviews").select("rating, property_id").in("property_id", ids);
+      const { data, error } = await supabase.from("property_reviews").select("rating, property_id").in("property_id", ids).eq("is_hidden", false);
       if (error) throw error;
       const ratings = (data ?? []).map((r) => Number((r as { rating: number }).rating)).filter((n) => Number.isFinite(n) && n > 0);
       const reviewCount = ratings.length;
