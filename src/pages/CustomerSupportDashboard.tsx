@@ -835,7 +835,7 @@ export default function CustomerSupportDashboard() {
                     <div>
                       <p className="text-sm text-muted-foreground">Total Amount</p>
                       <p className="text-lg font-bold">
-                        {formatMoney(Number(selectedBooking.total_price), "USD")}
+                        {formatMoney(Number(selectedBooking.total_price), selectedBooking.currency === 'RWF' && selectedBooking.total_price < 1000 ? 'USD' : String(selectedBooking.currency ?? 'USD'))}
                       </p>
                     </div>
                   </div>

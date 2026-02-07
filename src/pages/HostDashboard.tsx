@@ -4556,7 +4556,7 @@ export default function HostDashboard() {
                         </div>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <span>{b.guests} guests</span>
-                          <span className="font-medium text-foreground">{formatMoney(hostNetEarnings, b.currency)}</span>
+                          <span className="font-medium text-foreground">{formatMoney(hostNetEarnings, b.currency === 'RWF' && b.total_price < 1000 ? 'USD' : b.currency)}</span>
                           {feePercent > 0 && (
                             <span className="text-xs text-muted-foreground">(after {feePercent}% fee)</span>
                           )}
@@ -4998,7 +4998,7 @@ Guest: ${b.guest_name || 'Guest'}
 Check-in: ${b.check_in}
 Check-out: ${b.check_out}
 Guests: ${b.guests}
-Amount: ${formatMoney(Number(b.total_price), b.currency)}
+Amount: ${formatMoney(Number(b.total_price), b.currency === 'RWF' && b.total_price < 1000 ? 'USD' : b.currency)}
 Status: ${b.status}
 Payment: ${b.payment_method || 'N/A'} (${b.payment_status || 'N/A'})
 Created: ${new Date(b.created_at).toLocaleString()}
@@ -5478,7 +5478,7 @@ END OF REPORT
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-muted-foreground">Total Amount:</span>
-                      <span className="text-xl font-bold">{formatMoney(bookingFullDetails.total_price, bookingFullDetails.currency)}</span>
+                      <span className="text-xl font-bold">{formatMoney(bookingFullDetails.total_price, bookingFullDetails.currency === 'RWF' && bookingFullDetails.total_price < 1000 ? 'USD' : bookingFullDetails.currency)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Payment Status:</span>

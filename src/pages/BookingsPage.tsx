@@ -280,7 +280,7 @@ export default function BookingsPage() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-xl font-bold">{formatMoney(booking.total_price, booking.currency)}</p>
+                          <p className="text-xl font-bold">{formatMoney(booking.total_price, booking.currency === 'RWF' && booking.total_price < 1000 ? 'USD' : booking.currency)}</p>
                           <div className="flex gap-2 mt-1">
                             <Badge variant={booking.status === 'confirmed' ? 'default' : 'secondary'}>
                               {booking.status}

@@ -4341,7 +4341,7 @@ For support, contact: support@merry360x.com
                                 </div>
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
-                                <span className="font-semibold text-sm whitespace-nowrap">{formatMoney(item.total_price, item.currency)}</span>
+                                <span className="font-semibold text-sm whitespace-nowrap">{formatMoney(item.total_price, item.currency === 'RWF' && item.total_price < 1000 ? 'USD' : item.currency)}</span>
                                 {isCurrentItem && (
                                   <Badge variant="outline" className="text-xs h-4 px-1.5">👁️</Badge>
                                 )}
@@ -4494,7 +4494,7 @@ For support, contact: support@merry360x.com
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-muted-foreground">Total Amount</p>
-                      <p className="text-lg font-bold">{formatMoney(selectedBooking.total_price, selectedBooking.currency)}</p>
+                      <p className="text-lg font-bold">{formatMoney(selectedBooking.total_price, selectedBooking.currency === 'RWF' && selectedBooking.total_price < 1000 ? 'USD' : selectedBooking.currency)}</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Payment Method</p>
