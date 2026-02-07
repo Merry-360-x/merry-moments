@@ -561,7 +561,7 @@ export default function FinancialStaffDashboard() {
                             {new Date(booking.created_at).toLocaleDateString()}
                           </TableCell>
                           <TableCell className="font-medium">
-                            {formatMoney(Number(booking.total_price), String(booking.currency ?? "USD"))}
+                            {formatMoney(Number(booking.total_price), booking.currency === 'RWF' && booking.total_price < 1000 ? 'USD' : String(booking.currency ?? "USD"))}
                           </TableCell>
                           <TableCell>
                             <Badge variant="default">{booking.status === 'completed' ? 'Completed' : 'Confirmed'}</Badge>
@@ -602,7 +602,7 @@ export default function FinancialStaffDashboard() {
                             {new Date(booking.created_at).toLocaleDateString()}
                           </TableCell>
                           <TableCell className="font-medium">
-                            {formatMoney(Number(booking.total_price), String(booking.currency ?? "USD"))}
+                            {formatMoney(Number(booking.total_price), booking.currency === 'RWF' && booking.total_price < 1000 ? 'USD' : String(booking.currency ?? "USD"))}
                           </TableCell>
                           <TableCell>
                             <Badge variant="secondary">Pending</Badge>
@@ -658,7 +658,7 @@ export default function FinancialStaffDashboard() {
                         </TableCell>
                         <TableCell>{new Date(booking.created_at).toLocaleDateString()}</TableCell>
                         <TableCell className="font-medium">
-                          {formatMoney(Number(booking.total_price), String(booking.currency ?? "USD"))}
+                          {formatMoney(Number(booking.total_price), booking.currency === 'RWF' && booking.total_price < 1000 ? 'USD' : String(booking.currency ?? "USD"))}
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className="text-xs">
@@ -993,7 +993,7 @@ export default function FinancialStaffDashboard() {
                     <div>
                       <p className="text-sm text-muted-foreground">Total Amount</p>
                       <p className="text-lg font-bold">
-                        {formatMoney(Number(selectedBooking.total_price), String(selectedBooking.currency ?? "USD"))}
+                        {formatMoney(Number(selectedBooking.total_price), selectedBooking.currency === 'RWF' && selectedBooking.total_price < 1000 ? 'USD' : String(selectedBooking.currency ?? "USD"))}
                       </p>
                     </div>
                     <div>
