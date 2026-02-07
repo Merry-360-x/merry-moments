@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useFavorites } from "@/hooks/useFavorites";
-import { ArrowLeft, BadgeCheck, ChevronLeft, ChevronRight, Heart, Star, User } from "lucide-react";
+import { ArrowLeft, BadgeCheck, CalendarIcon, ChevronLeft, ChevronRight, Heart, Star, User } from "lucide-react";
 import { amenityByValue } from "@/lib/amenities";
 import PropertyCard from "@/components/PropertyCard";
 import { formatMoney } from "@/lib/money";
@@ -24,6 +24,9 @@ import { useTripCart } from "@/hooks/useTripCart";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useFxRates } from "@/hooks/useFxRates";
 import { convertAmount } from "@/lib/fx";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
 
 type PropertyRow = {
   id: string;
@@ -86,8 +89,12 @@ export default function PropertyDetails() {
   const { currency: preferredCurrency } = usePreferences();
   const { usdRates } = useFxRates();
 
-  const [checkIn, setCheckIn] = useState(isoToday());
-  const [checkOut, setCheckOut] = useState(isoTomorrow());
+  const [checkIn, setCheckIn] = useState<Date | undefined>(new Date());
+  const [checkOut, setCheckOut] = useState<Date | undefined>(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow;
+  });
   const [guests, setGuests] = useState(1);
   const [booking, setBooking] = useState(false);
   const [isFavorited, setIsFavorited] = useState(false);
@@ -245,9 +252,9 @@ export default function PropertyDetails() {
   });
 
   // Helper to check if a date falls within any blocked range
-  const isDateBlocked = useCallback((dateStr: string) => {
-    if (!dateStr || blockedDates.length === 0) return false;
-    const checkDate = new Date(dateStr);
+  const isDateBlocked = useCallback((date: Date) => {
+    if (!date || blockedDates.length === 0) return false;
+    const checkDate = new Date(date);
     checkDate.setHours(0, 0, 0, 0);
     
     for (const blocked of blockedDates) {
@@ -261,6 +268,23 @@ export default function PropertyDetails() {
       }
     }
     return false;
+  }, [blockedDates]);
+
+  // Create disabled dates matcher for Calendar component
+  const disabledDates = useMemo(() => {
+    const before = new Date();
+    before.setHours(0, 0, 0, 0);
+    
+    // Build array of blocked date ranges
+    const blockedRanges = blockedDates.map(blocked => ({
+      from: new Date(blocked.start_date),
+      to: new Date(blocked.end_date)
+    }));
+    
+    return [
+      { before }, // Disable past dates
+      ...blockedRanges // Disable all blocked date ranges
+    ];
   }, [blockedDates]);
 
   // Check if selected dates overlap with blocked dates
@@ -384,6 +408,10 @@ export default function PropertyDetails() {
     }
 
     // Validation
+    if (!checkIn || !checkOut) {
+      toast({ variant: "destructive", title: "Invalid dates", description: "Please select check-in and check-out dates." });
+      return;
+    }
     if (nights <= 0) {
       toast({ variant: "destructive", title: "Invalid dates", description: "Check-out must be after check-in." });
       return;
@@ -404,10 +432,14 @@ export default function PropertyDetails() {
     // Check date availability
     const selectedStart = new Date(checkIn);
     const selectedEnd = new Date(checkOut);
+    selectedStart.setHours(0, 0, 0, 0);
+    selectedEnd.setHours(0, 0, 0, 0);
     
     for (const blocked of blockedDates) {
       const blockedStart = new Date(blocked.start_date);
       const blockedEnd = new Date(blocked.end_date);
+      blockedStart.setHours(0, 0, 0, 0);
+      blockedEnd.setHours(0, 0, 0, 0);
       
       // Check if dates overlap
       if (selectedStart <= blockedEnd && selectedEnd >= blockedStart) {
@@ -427,8 +459,8 @@ export default function PropertyDetails() {
     const qs = new URLSearchParams();
     qs.set("mode", "booking");
     qs.set("propertyId", String(data.id));
-    qs.set("checkIn", String(checkIn));
-    qs.set("checkOut", String(checkOut));
+    qs.set("checkIn", checkIn.toISOString().slice(0, 10));
+    qs.set("checkOut", checkOut.toISOString().slice(0, 10));
     qs.set("guests", String(guests));
     if (addedAddOn) qs.set("requireTripCart", "1");
     navigate(`/checkout?${qs.toString()}`);
@@ -438,8 +470,8 @@ export default function PropertyDetails() {
     if (!data || !propertyId) return;
     // Include booking metadata (dates, guests, nights)
     const metadata = {
-      check_in: checkIn ? String(checkIn) : undefined,
-      check_out: checkOut ? String(checkOut) : undefined,
+      check_in: checkIn ? checkIn.toISOString().slice(0, 10) : undefined,
+      check_out: checkOut ? checkOut.toISOString().slice(0, 10) : undefined,
       guests: guests,
       nights: nights,
     };
@@ -1148,48 +1180,53 @@ export default function PropertyDetails() {
                 <h2 className="text-lg font-semibold text-foreground mb-4">Book this stay</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <Label htmlFor="checkIn">Check in</Label>
-                    <Input
-                      id="checkIn"
-                      type="date"
-                      value={checkIn}
-                      min={isoToday()}
-                      onChange={(e) => {
-                        const selectedDate = e.target.value;
-                        if (isDateBlocked(selectedDate)) {
-                          toast({ 
-                            variant: "destructive", 
-                            title: "Date unavailable", 
-                            description: "This date is already booked. Please select a different date." 
-                          });
-                          return;
-                        }
-                        setCheckIn(selectedDate);
-                      }}
-                      className={isDateBlocked(checkIn) ? "border-red-500" : ""}
-                    />
+                    <Label>Check in</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {checkIn ? format(checkIn, "MMM dd, yyyy") : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={checkIn}
+                          onSelect={setCheckIn}
+                          disabled={disabledDates}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div>
-                    <Label htmlFor="checkOut">Check out</Label>
-                    <Input
-                      id="checkOut"
-                      type="date"
-                      value={checkOut}
-                      min={checkIn || isoToday()}
-                      onChange={(e) => {
-                        const selectedDate = e.target.value;
-                        if (isDateBlocked(selectedDate)) {
-                          toast({ 
-                            variant: "destructive", 
-                            title: "Date unavailable", 
-                            description: "This date is already booked. Please select a different date." 
-                          });
-                          return;
-                        }
-                        setCheckOut(selectedDate);
-                      }}
-                      className={isDateBlocked(checkOut) ? "border-red-500" : ""}
-                    />
+                    <Label>Check out</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {checkOut ? format(checkOut, "MMM dd, yyyy") : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={checkOut}
+                          onSelect={setCheckOut}
+                          disabled={[
+                            ...disabledDates,
+                            ...(checkIn ? [{ before: checkIn }] : [])
+                          ]}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div>
                     <Label htmlFor="guests">Guests (max {data.max_guests})</Label>
