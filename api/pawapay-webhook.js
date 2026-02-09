@@ -36,6 +36,12 @@ function generateConfirmationEmail(checkout, items, bookingIds) {
   const totalAmount = formatMoney(checkout.total_amount, checkout.currency);
   const receiptNumber = `MRY-${Date.now().toString(36).toUpperCase()}`;
   const isMultiItem = items && items.length > 1;
+  const reviewBaseUrl = "https://merry360x.com/bookings";
+  // If we have exactly one booking ID, we can deep-link to that booking's review
+  const singleBookingId = Array.isArray(bookingIds) && bookingIds.length === 1 ? bookingIds[0] : null;
+  const reviewQueryBase = singleBookingId
+    ? `${reviewBaseUrl}?review_booking=${encodeURIComponent(singleBookingId)}`
+    : reviewBaseUrl;
 
   return `
 <!DOCTYPE html>
@@ -131,6 +137,29 @@ function generateConfirmationEmail(checkout, items, bookingIds) {
         <a href="https://merry360x.com/my-bookings" style="display: inline-block; background-color: #dc2626; color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: 600; font-size: 14px;">
           View Booking
         </a>
+      </td>
+    </tr>
+
+    <!-- Review Prompt -->
+    <tr>
+      <td style="padding: 0 24px 32px 24px; text-align: center;">
+        <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 13px;">
+          After your stay, please share your experience.
+        </p>
+        <p style="margin: 0 0 12px 0; color: #4b5563; font-size: 13px; font-weight: 500;">
+          Quick rating from this email:
+        </p>
+        <div style="display: inline-flex; gap: 6px;">
+          ${[1,2,3,4,5].map((star) => `
+            <a href="${reviewQueryBase}${reviewQueryBase.includes('?') ? '&' : '?'}rating=${star}" 
+               style="display: inline-block; padding: 8px 10px; border-radius: 999px; border: 1px solid #e5e7eb; text-decoration: none; font-size: 13px; color: #f59e0b; background-color: #fffbeb;">
+              ${'★'.repeat(star)}
+            </a>
+          `).join('')}
+        </div>
+        <p style="margin: 10px 0 0 0; color: #9ca3af; font-size: 11px;">
+          We'll open your bookings page so you can confirm your review.
+        </p>
       </td>
     </tr>
     

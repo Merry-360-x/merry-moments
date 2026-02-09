@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -76,6 +76,7 @@ const MyBookings = () => {
   const { t } = useTranslation();
   const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const qc = useQueryClient();
   const { currency } = usePreferences();
@@ -169,6 +170,31 @@ const MyBookings = () => {
     },
     placeholderData: new Set(),
   });
+
+  // Open review dialog automatically when coming from an email link
+  useEffect(() => {
+    if (!user?.id || bookings.length === 0) return;
+
+    const params = new URLSearchParams(location.search);
+    const reviewBookingId = params.get("review_booking");
+    if (!reviewBookingId) return;
+
+    const target = bookings.find((b) => String(b.id) === String(reviewBookingId));
+    if (!target) return;
+
+    // Ensure booking is actually eligible for review and not already reviewed
+    if (!canReview(target) || reviewedBookingIds.has(String(target.id))) return;
+
+    const ratingParam = params.get("rating");
+    if (ratingParam) {
+      const parsed = Number(ratingParam);
+      if (Number.isFinite(parsed) && parsed >= 1 && parsed <= 5) {
+        setReviewRating(parsed);
+      }
+    }
+
+    openReview(target);
+  }, [user?.id, bookings, location.search, reviewedBookingIds]);
 
   const getCancellationPolicy = (booking: Booking): string => {
     // Check for property cancellation policy

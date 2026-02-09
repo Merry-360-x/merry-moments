@@ -38,6 +38,10 @@ function generateBookingConfirmationHtml(booking) {
   const logoUrl = "https://merry360x.com/brand/logo.png";
   const primaryColor = "#E64980";
   const lightPink = "#FDF2F8";
+  const reviewBaseUrl = "https://merry360x.com/bookings";
+  const reviewQueryBase = booking.bookingId
+    ? `${reviewBaseUrl}?review_booking=${encodeURIComponent(booking.bookingId)}`
+    : reviewBaseUrl;
   
   // Check if this is a multi-item booking (items array exists)
   const isMultiItem = booking.items && Array.isArray(booking.items) && booking.items.length > 1;
@@ -206,6 +210,29 @@ function generateBookingConfirmationHtml(booking) {
                   </td>
                 </tr>
               </table>
+            </td>
+          </tr>
+
+          <!-- Review Prompt -->
+          <tr>
+            <td style="padding: 8px 40px 24px; text-align: center;">
+              <p style="margin: 0 0 8px; color: #6b7280; font-size: 13px;">
+                After your stay, we'd love to hear how it went.
+              </p>
+              <p style="margin: 0 0 12px; color: #4b5563; font-size: 13px; font-weight: 500;">
+                Rate your experience from this email:
+              </p>
+              <div style="display: inline-flex; gap: 6px;">
+                ${[1,2,3,4,5].map((star) => `
+                  <a href="${reviewQueryBase}${reviewQueryBase.includes('?') ? '&' : '?'}rating=${star}" 
+                     style="display: inline-block; padding: 8px 10px; border-radius: 999px; border: 1px solid #e5e7eb; text-decoration: none; font-size: 13px; color: #f59e0b; background-color: #fffbeb;">
+                    ${'★'.repeat(star)}
+                  </a>
+                `).join('')}
+              </div>
+              <p style="margin: 10px 0 0; color: #9ca3af; font-size: 11px;">
+                You'll be taken to your bookings page to confirm your review.
+              </p>
             </td>
           </tr>
 

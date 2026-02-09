@@ -688,7 +688,7 @@ For support, contact: support@merry360x.com
                   </TableCell>
                   <TableCell className="font-medium">{b.status}</TableCell>
                   <TableCell className="font-medium">
-                    {formatMoney(Number(b.total_price), b.currency === 'RWF' && b.total_price < 1000 ? 'USD' : String(b.currency ?? "USD"))}
+                    {formatMoney(Number(b.total_price), String(b.currency ?? "USD"))}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
@@ -779,7 +779,7 @@ For support, contact: support@merry360x.com
                           </TableCell>
                           <TableCell className="text-sm">{b.properties?.title || "—"}</TableCell>
                           <TableCell className="font-medium">
-                            {formatMoney(b.total_price, b.currency === 'RWF' && b.total_price < 1000 ? 'USD' : b.currency)}
+                            {formatMoney(b.total_price, b.currency || 'USD')}
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-1">
@@ -1213,7 +1213,7 @@ For support, contact: support@merry360x.com
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-muted-foreground">Total Amount</p>
-                      <p className="text-lg font-bold">{formatMoney(selectedBooking.total_price, selectedBooking.currency === 'RWF' && selectedBooking.total_price < 1000 ? 'USD' : selectedBooking.currency)}</p>
+                      <p className="text-lg font-bold">{formatMoney(selectedBooking.total_price, selectedBooking.currency || 'USD')}</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Payment Method</p>
@@ -1236,7 +1236,7 @@ For support, contact: support@merry360x.com
                           <div className="flex items-center justify-between">
                             <span className="text-sm font-medium">Refund Amount:</span>
                             <span className="text-lg font-bold text-yellow-700">
-                              {formatMoney(refundInfo.refundAmount, refundInfo.currency === 'RWF' && refundInfo.refundAmount < 1000 ? 'USD' : refundInfo.currency)}
+                              {formatMoney(refundInfo.refundAmount, refundInfo.currency || 'USD')}
                             </span>
                           </div>
                           <div className="flex items-center justify-between">
