@@ -111,7 +111,7 @@ const MyBookings = () => {
           *, 
           properties(title, location, property_type, address, cancellation_policy, price_per_night, host_id, currency),
           tour_packages(title, city, country, duration, cancellation_policy_type, custom_cancellation_policy, price_per_person, host_id, currency),
-          checkout_requests:order_id(id, total_amount, currency, payment_method)
+          checkout_requests!order_id(id, total_amount, currency, payment_method)
         `)
         .eq("guest_id", user!.id)
         .order("created_at", { ascending: false });

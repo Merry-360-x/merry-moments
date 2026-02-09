@@ -831,7 +831,7 @@ export default function AdminDashboard() {
     queryFn: async () => {
       let q = supabase
         .from("bookings")
-        .select("*, checkout_requests:order_id(id, total_amount, currency, payment_method)")
+        .select("*, checkout_requests!order_id(id, total_amount, currency, payment_method)")
         .order("created_at", { ascending: false })
         .limit(500);
       if (bookingStatus && bookingStatus !== "all") q = q.eq("status", bookingStatus);

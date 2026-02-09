@@ -350,7 +350,7 @@ export default function StaffDashboard() {
           properties(title, images, currency),
           tour_packages(title, currency),
           transport_vehicles(title, currency),
-          checkout_requests:order_id(id, total_amount, currency, payment_method),
+          checkout_requests!order_id(id, total_amount, currency, payment_method),
           profiles:guest_id(full_name, phone, email, nickname)
         `)
         .order("created_at", { ascending: false })

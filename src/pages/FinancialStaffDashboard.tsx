@@ -125,7 +125,7 @@ export default function FinancialStaffDashboard() {
           properties(currency),
           tour_packages(currency),
           transport_vehicles(currency),
-          checkout_requests:order_id(id, total_amount, currency, payment_method)
+          checkout_requests!order_id(id, total_amount, currency, payment_method)
         `)
         .order("created_at", { ascending: false })
         .limit(100);
