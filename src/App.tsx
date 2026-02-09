@@ -43,6 +43,7 @@ import Dashboard from "./pages/Dashboard";
 import AdminIntegrations from "./pages/AdminIntegrations";
 import HostReviews from "./pages/HostReviews";
 import HostAbout from "./pages/HostAbout";
+import ReviewPage from "./pages/ReviewPage";
 import ConnectionTest from "./pages/ConnectionTest";
 import CreateTour from "./pages/CreateTour";
 import CreateTourPackage from "./pages/CreateTourPackage";
@@ -331,6 +332,7 @@ const App = () => (
               <Route path="/properties/:id" element={<PropertyDetails />} />
               <Route path="/hosts/:id" element={<HostAbout />} />
               <Route path="/hosts/:id/reviews" element={<HostReviews />} />
+              <Route path="/review/:token" element={<ReviewPage />} />
               <Route path="/about" element={<InfoPage kind="about" />} />
               <Route path="/contact" element={<InfoPage kind="contact" />} />
               <Route path="/help" element={<InfoPage kind="help" />} />

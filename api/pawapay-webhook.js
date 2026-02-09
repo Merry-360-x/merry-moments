@@ -31,17 +31,16 @@ function formatDate(dateStr) {
 }
 
 // Generate booking confirmation email HTML (minimalistic)
-function generateConfirmationEmail(checkout, items, bookingIds) {
+function generateConfirmationEmail(checkout, items, bookingIds, reviewTokens) {
   const guestName = checkout.name || "Guest";
   const totalAmount = formatMoney(checkout.total_amount, checkout.currency);
   const receiptNumber = `MRY-${Date.now().toString(36).toUpperCase()}`;
   const isMultiItem = items && items.length > 1;
-  const reviewBaseUrl = "https://merry360x.com/bookings";
-  // If we have exactly one booking ID, we can deep-link to that booking's review
-  const singleBookingId = Array.isArray(bookingIds) && bookingIds.length === 1 ? bookingIds[0] : null;
-  const reviewQueryBase = singleBookingId
-    ? `${reviewBaseUrl}?review_booking=${encodeURIComponent(singleBookingId)}`
-    : reviewBaseUrl;
+  // Use token-based review URL (no login required)
+  const singleToken = Array.isArray(reviewTokens) && reviewTokens.length === 1 ? reviewTokens[0]?.review_token : null;
+  const reviewUrl = singleToken
+    ? `https://merry360x.com/review/${singleToken}`
+    : `https://merry360x.com/my-bookings`;
 
   return `
 <!DOCTYPE html>
@@ -151,14 +150,14 @@ function generateConfirmationEmail(checkout, items, bookingIds) {
         </p>
         <div style="display: inline-flex; gap: 6px;">
           ${[1,2,3,4,5].map((star) => `
-            <a href="${reviewQueryBase}${reviewQueryBase.includes('?') ? '&' : '?'}rating=${star}" 
+            <a href="${reviewUrl}${reviewUrl.includes('?') ? '&' : '?'}rating=${star}" 
                style="display: inline-block; padding: 8px 10px; border-radius: 999px; border: 1px solid #e5e7eb; text-decoration: none; font-size: 13px; color: #f59e0b; background-color: #fffbeb;">
               ${'★'.repeat(star)}
             </a>
           `).join('')}
         </div>
         <p style="margin: 10px 0 0 0; color: #9ca3af; font-size: 11px;">
-          We'll open your bookings page so you can confirm your review.
+          Quick review — no login required!
         </p>
       </td>
     </tr>
@@ -279,13 +278,13 @@ function generateReceiptPDF(checkout, items, bookingIds) {
 }
 
 // Send confirmation email using Brevo API
-async function sendConfirmationEmail(checkout, items, bookingIds) {
+async function sendConfirmationEmail(checkout, items, bookingIds, reviewTokens) {
   if (!BREVO_API_KEY) {
     console.log("⚠️ Brevo API key not configured, skipping email");
     return false;
   }
 
-  const html = generateConfirmationEmail(checkout, items, bookingIds);
+  const html = generateConfirmationEmail(checkout, items, bookingIds, reviewTokens);
   const receiptBase64 = generateReceiptPDF(checkout, items, bookingIds);
   const guestName = checkout.name || "Guest";
   const receiptNumber = `MRY-${Date.now().toString(36).toUpperCase()}`;
@@ -788,6 +787,7 @@ export default async function handler(req, res) {
             payment_status: 'paid',
             payment_method: 'mobile_money',
             guests: bookingDetails?.guests || item.metadata?.guests || 1,
+            review_token: crypto.randomUUID(),
           };
 
           // Handle different item types and set booking_type
@@ -833,7 +833,18 @@ export default async function handler(req, res) {
     if (shouldNotify && checkout.email && newPaymentStatus === "paid") {
       console.log(`📧 Sending confirmation email to ${checkout.email}...`);
       const items = checkout.metadata?.items || [];
-      await sendConfirmationEmail(checkout, items, createdBookingIds);
+
+      // Fetch review_tokens for created bookings
+      let reviewTokens = [];
+      if (createdBookingIds.length > 0) {
+        const { data: tokenData } = await supabase
+          .from("bookings")
+          .select("id, review_token")
+          .in("id", createdBookingIds);
+        reviewTokens = tokenData || [];
+      }
+
+      await sendConfirmationEmail(checkout, items, createdBookingIds, reviewTokens);
       
       // Send host notifications for each booking created
       if (createdBookingIds.length > 0 && items.length > 0) {

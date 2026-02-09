@@ -38,10 +38,9 @@ function generateBookingConfirmationHtml(booking) {
   const logoUrl = "https://merry360x.com/brand/logo.png";
   const primaryColor = "#E64980";
   const lightPink = "#FDF2F8";
-  const reviewBaseUrl = "https://merry360x.com/bookings";
-  const reviewQueryBase = booking.bookingId
-    ? `${reviewBaseUrl}?review_booking=${encodeURIComponent(booking.bookingId)}`
-    : reviewBaseUrl;
+  const reviewUrl = booking.reviewToken
+    ? `https://merry360x.com/review/${booking.reviewToken}`
+    : `https://merry360x.com/my-bookings`;
   
   // Check if this is a multi-item booking (items array exists)
   const isMultiItem = booking.items && Array.isArray(booking.items) && booking.items.length > 1;
@@ -224,14 +223,14 @@ function generateBookingConfirmationHtml(booking) {
               </p>
               <div style="display: inline-flex; gap: 6px;">
                 ${[1,2,3,4,5].map((star) => `
-                  <a href="${reviewQueryBase}${reviewQueryBase.includes('?') ? '&' : '?'}rating=${star}" 
+                  <a href="${reviewUrl}?rating=${star}" 
                      style="display: inline-block; padding: 8px 10px; border-radius: 999px; border: 1px solid #e5e7eb; text-decoration: none; font-size: 13px; color: #f59e0b; background-color: #fffbeb;">
                     ${'★'.repeat(star)}
                   </a>
                 `).join('')}
               </div>
               <p style="margin: 10px 0 0; color: #9ca3af; font-size: 11px;">
-                You'll be taken to your bookings page to confirm your review.
+                Quick review — no login required!
               </p>
             </td>
           </tr>
@@ -239,7 +238,7 @@ function generateBookingConfirmationHtml(booking) {
           <!-- CTA Button -->
           <tr>
             <td style="padding: 8px 40px 32px; text-align: center;">
-              <a href="https://merry360x.com/bookings" style="display: inline-block; padding: 14px 32px; background-color: ${primaryColor}; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 500; font-size: 15px;">
+              <a href="https://merry360x.com/my-bookings" style="display: inline-block; padding: 14px 32px; background-color: ${primaryColor}; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 500; font-size: 15px;">
                 View My Bookings
               </a>
             </td>
