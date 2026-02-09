@@ -344,10 +344,13 @@ export default function StaffDashboard() {
       const { data, error } = await supabase
         .from("bookings")
         .select(`
-          id, property_id, guest_id, guest_name, guest_email, guest_phone,
+          id, property_id, tour_id, transport_id, booking_type, guest_id, guest_name, guest_email, guest_phone,
           is_guest_booking, check_in, check_out, guests, total_price,
-          currency, status, payment_status, payment_method, special_requests, host_id, created_at,
-          properties(title, images),
+          currency, status, payment_status, payment_method, special_requests, host_id, created_at, order_id,
+          properties(title, images, currency),
+          tour_packages(title, currency),
+          transport_vehicles(title, currency),
+          checkout_requests:order_id(id, total_amount, currency, payment_method),
           profiles:guest_id(full_name, phone, email, nickname)
         `)
         .order("created_at", { ascending: false })
@@ -1212,12 +1215,35 @@ For support, contact: support@merry360x.com
                   <h3 className="font-semibold mb-3">Payment Information</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm text-muted-foreground">Total Amount</p>
-                      <p className="text-lg font-bold">{formatMoney(selectedBooking.total_price, selectedBooking.currency || 'USD')}</p>
+                      <p className="text-sm text-muted-foreground">Listing Price</p>
+                      <p className="text-lg font-bold">
+                        {formatMoney(
+                          selectedBooking.total_price,
+                          // Prefer the listing's original currency when available
+                          selectedBooking.booking_type === "property" && selectedBooking.properties?.currency
+                            ? selectedBooking.properties.currency
+                            : selectedBooking.booking_type === "tour" && selectedBooking.tour_packages?.currency
+                              ? selectedBooking.tour_packages.currency
+                              : selectedBooking.booking_type === "transport" && selectedBooking.transport_vehicles?.currency
+                                ? selectedBooking.transport_vehicles.currency
+                                : selectedBooking.currency || "USD"
+                        )}
+                      </p>
                     </div>
+                    {selectedBooking.checkout_requests && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">Amount Paid</p>
+                        <p className="text-lg font-bold text-green-600">
+                          {formatMoney(
+                            selectedBooking.checkout_requests.total_amount,
+                            selectedBooking.checkout_requests.currency || "RWF"
+                          )}
+                        </p>
+                      </div>
+                    )}
                     <div>
                       <p className="text-sm text-muted-foreground">Payment Method</p>
-                      <p className="text-sm">{selectedBooking.payment_method || "Not specified"}</p>
+                      <p className="text-sm">{selectedBooking.checkout_requests?.payment_method || selectedBooking.payment_method || "Not specified"}</p>
                     </div>
                   </div>
                 </div>

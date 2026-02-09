@@ -1372,7 +1372,7 @@ export default function HostDashboard() {
       if (bookingData.order_id) {
         const { data: checkout } = await supabase
           .from("checkout_requests")
-          .select("payment_method, payment_status, dpo_transaction_id, metadata")
+          .select("payment_method, payment_status, dpo_transaction_id, metadata, total_amount, currency")
           .eq("id", bookingData.order_id)
           .single();
         checkoutDetails = checkout;
@@ -1383,21 +1383,21 @@ export default function HostDashboard() {
       if (booking.booking_type === 'property' && booking.property_id) {
         const { data: property } = await supabase
           .from("properties")
-          .select("title, location, address, property_type, amenities, images")
+          .select("title, location, address, property_type, amenities, images, currency")
           .eq("id", booking.property_id)
           .single();
         relatedEntity = { properties: property };
       } else if (booking.booking_type === 'tour' && booking.tour_id) {
         const { data: tour } = await supabase
           .from("tour_packages")
-          .select("title, location, city, duration, categories, included_services")
+          .select("title, location, city, duration, categories, included_services, currency")
           .eq("id", booking.tour_id)
           .single();
         relatedEntity = { tour_packages: tour };
       } else if (booking.booking_type === 'transport' && booking.transport_id) {
         const { data: vehicle } = await supabase
           .from("transport_vehicles")
-          .select("title, vehicle_type, seats, driver_included")
+          .select("title, vehicle_type, seats, driver_included, currency")
           .eq("id", booking.transport_id)
           .single();
         relatedEntity = { transport_vehicles: vehicle };
@@ -5516,9 +5516,31 @@ END OF REPORT
                 <Card className="p-4">
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Total Amount:</span>
-                      <span className="text-xl font-bold">{formatMoney(bookingFullDetails.total_price, bookingFullDetails.currency || 'RWF')}</span>
+                      <span className="text-sm text-muted-foreground">Listing Price:</span>
+                      <span className="text-xl font-bold">
+                        {formatMoney(
+                          bookingFullDetails.total_price,
+                          bookingFullDetails.booking_type === 'property' && bookingFullDetails.properties?.currency
+                            ? bookingFullDetails.properties.currency
+                            : bookingFullDetails.booking_type === 'tour' && bookingFullDetails.tour_packages?.currency
+                              ? bookingFullDetails.tour_packages.currency
+                              : bookingFullDetails.booking_type === 'transport' && bookingFullDetails.transport_vehicles?.currency
+                                ? bookingFullDetails.transport_vehicles.currency
+                                : bookingFullDetails.currency || 'RWF'
+                        )}
+                      </span>
                     </div>
+                    {bookingFullDetails.checkout_requests && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">Amount Paid:</span>
+                        <span className="text-xl font-bold text-green-600">
+                          {formatMoney(
+                            bookingFullDetails.checkout_requests.total_amount,
+                            bookingFullDetails.checkout_requests.currency || 'RWF'
+                          )}
+                        </span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Payment Status:</span>
                       <Badge variant={bookingFullDetails.payment_status === 'paid' ? 'default' : 'secondary'}>
@@ -5546,15 +5568,24 @@ END OF REPORT
                       const { hostNetEarnings, hostFee } = calculateHostEarningsFromGuestTotal(Number(bookingFullDetails.total_price), serviceType as 'accommodation' | 'tour' | 'transport');
                       const feePercent = serviceType === 'accommodation' ? PLATFORM_FEES.accommodation.hostFeePercent : serviceType === 'tour' ? PLATFORM_FEES.tour.providerFeePercent : 0;
                       
+                      // Get listing's currency
+                      const listingCurrency = bookingFullDetails.booking_type === 'property' && bookingFullDetails.properties?.currency
+                        ? bookingFullDetails.properties.currency
+                        : bookingFullDetails.booking_type === 'tour' && bookingFullDetails.tour_packages?.currency
+                          ? bookingFullDetails.tour_packages.currency
+                          : bookingFullDetails.booking_type === 'transport' && bookingFullDetails.transport_vehicles?.currency
+                            ? bookingFullDetails.transport_vehicles.currency
+                            : bookingFullDetails.currency || 'RWF';
+                      
                       return (
                         <div className="border-t pt-3 mt-3">
                           <div className="flex justify-between text-sm mb-1">
                             <span className="text-muted-foreground">Platform Fee ({feePercent}%):</span>
-                            <span>-{formatMoney(hostFee, bookingFullDetails.currency)}</span>
+                            <span>-{formatMoney(hostFee, listingCurrency)}</span>
                           </div>
                           <div className="flex justify-between items-center">
                             <span className="font-semibold">Your Earnings:</span>
-                            <span className="text-lg font-bold text-green-600">{formatMoney(hostNetEarnings, bookingFullDetails.currency)}</span>
+                            <span className="text-lg font-bold text-green-600">{formatMoney(hostNetEarnings, listingCurrency)}</span>
                           </div>
                         </div>
                       );

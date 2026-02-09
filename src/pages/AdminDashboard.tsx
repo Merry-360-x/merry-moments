@@ -831,7 +831,7 @@ export default function AdminDashboard() {
     queryFn: async () => {
       let q = supabase
         .from("bookings")
-        .select("*")
+        .select("*, checkout_requests:order_id(id, total_amount, currency, payment_method)")
         .order("created_at", { ascending: false })
         .limit(500);
       if (bookingStatus && bookingStatus !== "all") q = q.eq("status", bookingStatus);
@@ -4516,7 +4516,7 @@ For support, contact: support@merry360x.com
                   <h3 className="font-semibold mb-3">Payment Information</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm text-muted-foreground">Total Amount</p>
+                      <p className="text-sm text-muted-foreground">Listing Price</p>
                       <p className="text-lg font-bold">
                         {formatMoney(
                           selectedBooking.total_price,
@@ -4531,9 +4531,20 @@ For support, contact: support@merry360x.com
                         )}
                       </p>
                     </div>
+                    {selectedBooking.checkout_requests && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">Amount Paid</p>
+                        <p className="text-lg font-bold text-green-600">
+                          {formatMoney(
+                            selectedBooking.checkout_requests.total_amount,
+                            selectedBooking.checkout_requests.currency || "RWF"
+                          )}
+                        </p>
+                      </div>
+                    )}
                     <div>
                       <p className="text-sm text-muted-foreground">Payment Method</p>
-                      <p className="text-sm">{selectedBooking.payment_method || "Not specified"}</p>
+                      <p className="text-sm">{selectedBooking.checkout_requests?.payment_method || selectedBooking.payment_method || "Not specified"}</p>
                     </div>
                   </div>
                 </div>

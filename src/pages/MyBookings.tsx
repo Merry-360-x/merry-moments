@@ -109,8 +109,9 @@ const MyBookings = () => {
         .from("bookings")
         .select(`
           *, 
-          properties(title, location, property_type, address, cancellation_policy, price_per_night, host_id),
-          tour_packages(title, city, country, duration, cancellation_policy_type, custom_cancellation_policy, price_per_person, host_id)
+          properties(title, location, property_type, address, cancellation_policy, price_per_night, host_id, currency),
+          tour_packages(title, city, country, duration, cancellation_policy_type, custom_cancellation_policy, price_per_person, host_id, currency),
+          checkout_requests:order_id(id, total_amount, currency, payment_method)
         `)
         .eq("guest_id", user!.id)
         .order("created_at", { ascending: false });
@@ -443,6 +444,19 @@ const MyBookings = () => {
               const isMultiItem = orderBookings.length > 1;
               const grandTotal = orderBookings.reduce((sum, b) => sum + Number(b.total_price), 0);
               
+              // Calculate total amount paid (from checkout_requests)
+              const totalPaid = orderBookings.reduce((sum, b) => {
+                return sum + (b.checkout_requests?.total_amount || 0);
+              }, 0);
+              const paidCurrency = firstBooking.checkout_requests?.currency || "RWF";
+              
+              // Get listing currency
+              const listingCurrency = firstBooking.booking_type === "property" && firstBooking.properties?.currency
+                ? firstBooking.properties.currency
+                : firstBooking.booking_type === "tour" && firstBooking.tour_packages?.currency
+                  ? firstBooking.tour_packages.currency
+                  : String(firstBooking.currency || "USD");
+              
               return (
                 <div key={orderId} className="bg-card rounded-2xl overflow-hidden border border-border shadow-sm hover:shadow-md transition-shadow">
                   {/* Header */}
@@ -522,8 +536,24 @@ const MyBookings = () => {
                           </div>
                           <div className="text-right">
                             <p className="font-semibold text-foreground">
-                              {formatMoney(Number(booking.total_price), String(booking.currency || "USD"))}
+                              {formatMoney(
+                                Number(booking.total_price),
+                                // Prefer listing's original currency
+                                booking.booking_type === "property" && booking.properties?.currency
+                                  ? booking.properties.currency
+                                  : booking.booking_type === "tour" && booking.tour_packages?.currency
+                                    ? booking.tour_packages.currency
+                                    : String(booking.currency || "USD")
+                              )}
                             </p>
+                            {booking.checkout_requests && (
+                              <p className="text-xs text-green-600 font-medium mt-0.5">
+                                Paid: {formatMoney(
+                                  booking.checkout_requests.total_amount,
+                                  booking.checkout_requests.currency || "RWF"
+                                )}
+                              </p>
+                            )}
                             <p className="text-xs text-muted-foreground mt-0.5">
                               {isTour ? 'Tour' : isTransport ? 'Transport' : 'Stay'}
                             </p>
@@ -534,11 +564,21 @@ const MyBookings = () => {
 
                     {/* Total */}
                     {isMultiItem && (
-                      <div className="pt-4 border-t border-border flex justify-between items-center">
-                        <span className="font-semibold text-foreground">Total</span>
-                        <span className="text-xl font-bold text-primary">
-                          {formatMoney(grandTotal, String(firstBooking.currency || "USD"))}
-                        </span>
+                      <div className="pt-4 border-t border-border space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="font-semibold text-foreground">Total</span>
+                          <span className="text-xl font-bold text-primary">
+                            {formatMoney(grandTotal, listingCurrency)}
+                          </span>
+                        </div>
+                        {totalPaid > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-muted-foreground">Amount Paid</span>
+                            <span className="text-lg font-bold text-green-600">
+                              {formatMoney(totalPaid, paidCurrency)}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     )}
 

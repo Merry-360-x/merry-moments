@@ -118,7 +118,15 @@ export default function FinancialStaffDashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("bookings")
-        .select("id, guest_id, guest_name, guest_email, guest_phone, status, payment_status, payment_method, total_price, currency, created_at, updated_at")
+        .select(`
+          id, guest_id, guest_name, guest_email, guest_phone, status, payment_status, 
+          payment_method, total_price, currency, created_at, updated_at, 
+          booking_type, property_id, tour_id, transport_id, order_id,
+          properties(currency),
+          tour_packages(currency),
+          transport_vehicles(currency),
+          checkout_requests:order_id(id, total_amount, currency, payment_method)
+        `)
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) {
@@ -991,18 +999,35 @@ export default function FinancialStaffDashboard() {
                   <h3 className="font-semibold mb-3">Payment Information</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm text-muted-foreground">Total Amount</p>
+                      <p className="text-sm text-muted-foreground">Listing Price</p>
                       <p className="text-lg font-bold">
-                        {formatMoney(Number(selectedBooking.total_price), String(selectedBooking.currency ?? "USD"))}
+                        {formatMoney(
+                          Number(selectedBooking.total_price),
+                          // Prefer listing's original currency
+                          selectedBooking.booking_type === "property" && selectedBooking.properties?.currency
+                            ? selectedBooking.properties.currency
+                            : selectedBooking.booking_type === "tour" && selectedBooking.tour_packages?.currency
+                              ? selectedBooking.tour_packages.currency
+                              : selectedBooking.booking_type === "transport" && selectedBooking.transport_vehicles?.currency
+                                ? selectedBooking.transport_vehicles.currency
+                                : String(selectedBooking.currency ?? "USD")
+                        )}
                       </p>
                     </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Currency</p>
-                      <p className="text-sm font-medium">{selectedBooking.currency || 'USD'}</p>
-                    </div>
+                    {selectedBooking.checkout_requests && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">Amount Paid</p>
+                        <p className="text-lg font-bold text-green-600">
+                          {formatMoney(
+                            selectedBooking.checkout_requests.total_amount,
+                            selectedBooking.checkout_requests.currency || "RWF"
+                          )}
+                        </p>
+                      </div>
+                    )}
                     <div>
                       <p className="text-sm text-muted-foreground">Payment Method</p>
-                      <p className="text-sm">{selectedBooking.payment_method?.replace('_', ' ').toUpperCase() || 'N/A'}</p>
+                      <p className="text-sm">{(selectedBooking.checkout_requests?.payment_method || selectedBooking.payment_method)?.replace('_', ' ').toUpperCase() || 'N/A'}</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Payment Status</p>
