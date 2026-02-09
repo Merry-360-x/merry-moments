@@ -11,7 +11,7 @@ import { useTranslation } from "react-i18next";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { formatMoneyWithConversion } from "@/lib/money";
+import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { extractNeighborhood } from "@/lib/location";
@@ -522,7 +522,7 @@ const MyBookings = () => {
                           </div>
                           <div className="text-right">
                             <p className="font-semibold text-foreground">
-                              {formatMoneyWithConversion(Number(booking.total_price), String(booking.currency || "USD"), currency, usdRates)}
+                              {formatMoney(Number(booking.total_price), String(booking.currency || "USD"))}
                             </p>
                             <p className="text-xs text-muted-foreground mt-0.5">
                               {isTour ? 'Tour' : isTransport ? 'Transport' : 'Stay'}
@@ -537,7 +537,7 @@ const MyBookings = () => {
                       <div className="pt-4 border-t border-border flex justify-between items-center">
                         <span className="font-semibold text-foreground">Total</span>
                         <span className="text-xl font-bold text-primary">
-                          {formatMoneyWithConversion(grandTotal, String(firstBooking.currency || "USD"), currency, usdRates)}
+                          {formatMoney(grandTotal, String(firstBooking.currency || "USD"))}
                         </span>
                       </div>
                     )}
