@@ -850,13 +850,13 @@ export default function AdminDashboard() {
       
       const [properties, tours, vehicles, profiles] = await Promise.all([
         propertyIds.length > 0 
-          ? supabase.from("properties").select("id, title, images").in("id", propertyIds).then(r => r.data || [])
+          ? supabase.from("properties").select("id, title, images, currency").in("id", propertyIds).then(r => r.data || [])
           : Promise.resolve([]),
         tourIds.length > 0
-          ? supabase.from("tour_packages").select("id, title").in("id", tourIds).then(r => r.data || [])
+          ? supabase.from("tour_packages").select("id, title, currency").in("id", tourIds).then(r => r.data || [])
           : Promise.resolve([]),
         transportIds.length > 0
-          ? supabase.from("transport_vehicles").select("id, title, vehicle_type").in("id", transportIds).then(r => r.data || [])
+          ? supabase.from("transport_vehicles").select("id, title, vehicle_type, currency").in("id", transportIds).then(r => r.data || [])
           : Promise.resolve([]),
         guestIds.length > 0
           ? supabase.from("profiles").select("user_id, full_name, nickname, email, phone").in("user_id", guestIds).then(r => r.data || [])
@@ -2076,13 +2076,13 @@ For support, contact: support@merry360x.com
                                     
                                     const [properties, tours, vehicles, hosts] = await Promise.all([
                                       propertyIds.length > 0 
-                                        ? supabase.from("properties").select("id, title").in("id", propertyIds).then(r => r.data || [])
+                                        ? supabase.from("properties").select("id, title, currency").in("id", propertyIds).then(r => r.data || [])
                                         : Promise.resolve([]),
                                       tourIds.length > 0
-                                        ? supabase.from("tour_packages").select("id, title").in("id", tourIds).then(r => r.data || [])
+                                        ? supabase.from("tour_packages").select("id, title, currency").in("id", tourIds).then(r => r.data || [])
                                         : Promise.resolve([]),
                                       transportIds.length > 0
-                                        ? supabase.from("transport_vehicles").select("id, title, vehicle_type").in("id", transportIds).then(r => r.data || [])
+                                        ? supabase.from("transport_vehicles").select("id, title, vehicle_type, currency").in("id", transportIds).then(r => r.data || [])
                                         : Promise.resolve([]),
                                       hostIds.length > 0
                                         ? supabase.from("profiles").select("user_id, full_name").in("user_id", hostIds).then(r => r.data || [])
@@ -3236,19 +3236,19 @@ For support, contact: support@merry360x.com
               </div>
 
               <div className="overflow-x-auto">
-                <Table>
+                <Table className="min-w-[1200px]">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Booking ID</TableHead>
-                      <TableHead>Order ID</TableHead>
-                      <TableHead>Item</TableHead>
-                      <TableHead>Guest</TableHead>
-                      <TableHead>Dates</TableHead>
-                      <TableHead>Guests</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Payment</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead className="w-[100px]">Booking ID</TableHead>
+                      <TableHead className="w-[100px]">Order ID</TableHead>
+                      <TableHead className="w-[220px]">Item</TableHead>
+                      <TableHead className="w-[180px]">Guest</TableHead>
+                      <TableHead className="w-[180px]">Dates</TableHead>
+                      <TableHead className="w-[60px] text-center">Guests</TableHead>
+                      <TableHead className="w-[120px]">Amount</TableHead>
+                      <TableHead className="w-[90px]">Status</TableHead>
+                      <TableHead className="w-[90px]">Payment</TableHead>
+                      <TableHead className="w-[180px] text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -3343,12 +3343,26 @@ For support, contact: support@merry360x.com
                             <span className="font-mono text-xs text-muted-foreground">{(b.guest_id ?? "").slice(0, 8)}...</span>
                           )}
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {b.check_in} → {b.check_out}
-                        </TableCell>
-                        <TableCell>{b.guests}</TableCell>
                         <TableCell>
-                          <div className="font-medium">{formatMoney(b.total_price, b.currency || 'RWF')}</div>
+                          <div className="flex flex-col text-sm whitespace-nowrap">
+                            <span className="text-muted-foreground">{b.check_in}</span>
+                            <span className="text-muted-foreground">{b.check_out}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">{b.guests}</TableCell>
+                        <TableCell>
+                          <div className="font-medium whitespace-nowrap">
+                            {formatMoney(
+                              b.total_price,
+                              b.booking_type === "property" && b.properties?.currency
+                                ? b.properties.currency
+                                : b.booking_type === "tour" && b.tour_packages?.currency
+                                  ? b.tour_packages.currency
+                                  : b.booking_type === "transport" && b.transport_vehicles?.currency
+                                    ? b.transport_vehicles.currency
+                                    : b.currency || "RWF"
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <StatusBadge status={b.status} />
@@ -3400,13 +3414,13 @@ For support, contact: support@merry360x.com
                                     
                                     const [properties, tours, vehicles, hosts] = await Promise.all([
                                       propertyIds.length > 0 
-                                        ? supabase.from("properties").select("id, title").in("id", propertyIds).then(r => r.data || [])
+                                        ? supabase.from("properties").select("id, title, currency").in("id", propertyIds).then(r => r.data || [])
                                         : Promise.resolve([]),
                                       tourIds.length > 0
-                                        ? supabase.from("tour_packages").select("id, title").in("id", tourIds).then(r => r.data || [])
+                                        ? supabase.from("tour_packages").select("id, title, currency").in("id", tourIds).then(r => r.data || [])
                                         : Promise.resolve([]),
                                       transportIds.length > 0
-                                        ? supabase.from("transport_vehicles").select("id, title, vehicle_type").in("id", transportIds).then(r => r.data || [])
+                                        ? supabase.from("transport_vehicles").select("id, title, vehicle_type, currency").in("id", transportIds).then(r => r.data || [])
                                         : Promise.resolve([]),
                                       hostIds.length > 0
                                         ? supabase.from("profiles").select("user_id, full_name").in("user_id", hostIds).then(r => r.data || [])
