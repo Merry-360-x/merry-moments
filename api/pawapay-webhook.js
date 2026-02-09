@@ -782,7 +782,8 @@ export default async function handler(req, res) {
             guest_phone: checkout.phone || null,
             order_id: checkout.id,
             total_price: item.calculated_price || item.price,
-            currency: checkout.metadata?.original_currency || checkout.currency || 'USD',
+            // Use the item's original currency (matches the listing), not the checkout currency
+            currency: item.currency || 'USD',
             status: 'confirmed',
             payment_status: 'paid',
             payment_method: 'mobile_money',
