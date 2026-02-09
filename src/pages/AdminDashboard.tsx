@@ -20,6 +20,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatMoney } from "@/lib/money";
+import { normalizeAdminMetrics } from "@/lib/admin-metrics";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import {
   Users,
@@ -527,7 +528,7 @@ export default function AdminDashboard() {
         console.error("RPC Error:", error);
         throw error;
       }
-      return data as unknown as Metrics;
+      return normalizeAdminMetrics(data) as unknown as Metrics;
     },
     staleTime: 1000 * 30, // 30 seconds
     gcTime: 1000 * 60 * 10, // 10 minutes cache retention

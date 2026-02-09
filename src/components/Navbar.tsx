@@ -37,6 +37,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { supabase } from "@/integrations/supabase/client";
 import { useTripCart } from "@/hooks/useTripCart";
 import { useQuery } from "@tanstack/react-query";
+import { normalizeAdminMetrics } from "@/lib/admin-metrics";
 
 const navLinks = [
   { key: "nav.home", path: "/" },
@@ -177,7 +178,8 @@ const Navbar = () => {
           .eq("status", "open");
         return Number(count ?? 0);
       }
-      return (data as any)?.tickets_open ?? 0;
+      const metrics = normalizeAdminMetrics(data as any);
+      return metrics.tickets_open ?? 0;
     },
     staleTime: 10_000, // 10 seconds - keep in sync
     refetchInterval: 30_000, // Refetch every 30 seconds

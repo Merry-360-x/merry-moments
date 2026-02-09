@@ -210,7 +210,7 @@ export default function StaffDashboard() {
     queryFn: async () => {
       const { data, error } = await supabase.rpc("admin_dashboard_metrics");
       if (error) throw error;
-      return data as unknown as Metrics;
+      return normalizeAdminMetrics(data) as unknown as Metrics;
     },
     refetchInterval: 30000,
     refetchOnWindowFocus: true,
