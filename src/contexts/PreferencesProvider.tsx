@@ -25,6 +25,31 @@ const getSystemResolvedTheme = (): "light" | "dark" => {
     : "light";
 };
 
+// Map country ISO codes to currencies
+const COUNTRY_CURRENCY_MAP: Record<string, AppCurrency> = {
+  RW: "RWF", KE: "KES", UG: "UGX", TZ: "TZS", ZM: "ZMW",
+  BI: "BIF", ZA: "ZAR", US: "USD", GB: "GBP",
+  FR: "EUR", DE: "EUR", IT: "EUR", ES: "EUR", NL: "EUR", BE: "EUR", AT: "EUR", IE: "EUR", PT: "EUR",
+  CN: "CNY",
+};
+
+// Detect country from IP using free API (cached in sessionStorage)
+async function detectCountryFromIP(): Promise<string | null> {
+  if (typeof window === "undefined") return null;
+  const cached = sessionStorage.getItem("merry360_geo_country");
+  if (cached) return cached;
+  try {
+    const res = await fetch("https://ipapi.co/json/", { signal: AbortSignal.timeout(3000) });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const cc = data.country_code || null;
+    if (cc) sessionStorage.setItem("merry360_geo_country", cc);
+    return cc;
+  } catch {
+    return null;
+  }
+}
+
 export const PreferencesProvider = ({ children }: { children: ReactNode }) => {
   const { user, isLoading: authLoading } = useAuth();
 
@@ -47,6 +72,7 @@ export const PreferencesProvider = ({ children }: { children: ReactNode }) => {
     const raw = window.localStorage.getItem("merry360_currency");
     return (raw as AppCurrency | null) ?? "USD";
   });
+  const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
 
   const applyTheme = useCallback((nextTheme: ThemePreference) => {
@@ -73,11 +99,23 @@ export const PreferencesProvider = ({ children }: { children: ReactNode }) => {
     if (authLoading) return;
 
     const run = async () => {
+      // Detect country from IP for geo-based defaults
+      const geoCountry = await detectCountryFromIP();
+      if (geoCountry) setDetectedCountry(geoCountry);
+
+      // Check if currency was ever explicitly set by user
+      const hasExplicitCurrency = typeof window !== "undefined" && window.localStorage.getItem("merry360_currency") !== null;
+
       if (!user) {
         const defaultLanguage = detectNavigatorLanguage();
         applyTheme(themeRef.current);
         setLanguageState(defaultLanguage);
-        setCurrencyState("RWF");
+        // Auto-set currency from geo if user never chose one
+        if (!hasExplicitCurrency && geoCountry && COUNTRY_CURRENCY_MAP[geoCountry]) {
+          setCurrencyState(COUNTRY_CURRENCY_MAP[geoCountry]);
+        } else if (!hasExplicitCurrency) {
+          setCurrencyState("RWF");
+        }
         await i18n.changeLanguage(defaultLanguage);
         setIsReady(true);
         return;
@@ -103,7 +141,11 @@ export const PreferencesProvider = ({ children }: { children: ReactNode }) => {
 
       const nextTheme = themeRef.current;
       const nextLanguage = (data?.language as AppLanguage | undefined) ?? detectNavigatorLanguage();
-      const nextCurrency = (data?.currency as AppCurrency | undefined) ?? "RWF";
+      // Use saved currency, or geo-based, or fallback to RWF
+      const nextCurrency = (data?.currency as AppCurrency | undefined)
+        ?? (!hasExplicitCurrency && geoCountry && COUNTRY_CURRENCY_MAP[geoCountry]
+            ? COUNTRY_CURRENCY_MAP[geoCountry]
+            : "RWF");
 
       setThemeState(nextTheme);
       applyTheme(nextTheme);
@@ -168,8 +210,8 @@ export const PreferencesProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const value = useMemo(
-    () => ({ theme, resolvedTheme, language, currency, isReady, setTheme, setLanguage, setCurrency }),
-    [theme, resolvedTheme, language, currency, isReady, setTheme, setLanguage, setCurrency]
+    () => ({ theme, resolvedTheme, language, currency, detectedCountry, isReady, setTheme, setLanguage, setCurrency }),
+    [theme, resolvedTheme, language, currency, detectedCountry, isReady, setTheme, setLanguage, setCurrency]
   );
 
   return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;

@@ -100,7 +100,6 @@ const METHODS_BY_COUNTRY = PAWAPAY_METHODS.reduce((acc, method) => {
 // Country code to country name mapping for detection
 const COUNTRY_BY_CODE: Record<string, string> = {
   '+250': 'Rwanda',
-  '+255': 'Tanzania', 
   '+256': 'Uganda',
   '+254': 'Kenya',
   '+260': 'Zambia',
@@ -126,9 +125,20 @@ export default function CheckoutNew() {
   const [searchParams] = useSearchParams();
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
-  const { currency: preferredCurrency, setCurrency } = usePreferences();
+  const { currency: preferredCurrency, setCurrency, detectedCountry } = usePreferences();
   const { guestCart, clearCart } = useTripCart();
   const { usdRates } = useFxRates();
+  
+  // Map detected country ISO code → default payment method + country code
+  const geoDefaults = useMemo(() => {
+    const map: Record<string, { method: string; code: string }> = {
+      RW: { method: 'mtn_rwa', code: '+250' },
+      KE: { method: 'mpesa_ken', code: '+254' },
+      UG: { method: 'mtn_uga', code: '+256' },
+      ZM: { method: 'mtn_zmb', code: '+260' },
+    };
+    return map[detectedCountry || ''] ?? { method: 'mtn_rwa', code: '+250' };
+  }, [detectedCountry]);
   
   // State
   const [currentStep, setCurrentStep] = useState<Step>('details');
@@ -143,11 +153,21 @@ export default function CheckoutNew() {
     notes: "",
   });
   
-  // Payment state - use full payment method ID including country
+  // Payment state — defaults from geo-detection
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [countryCode, setCountryCode] = useState("+250");
-  const [paymentMethod, setPaymentMethod] = useState<string>('mtn_rwa'); // Default to MTN Rwanda
+  const [countryCode, setCountryCode] = useState(geoDefaults.code);
+  const [paymentMethod, setPaymentMethod] = useState<string>(geoDefaults.method);
+  const [geoApplied, setGeoApplied] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
+
+  // When geo-detection resolves, update payment defaults (only once, before user interacts)
+  useEffect(() => {
+    if (detectedCountry && !geoApplied) {
+      setCountryCode(geoDefaults.code);
+      setPaymentMethod(geoDefaults.method);
+      setGeoApplied(true);
+    }
+  }, [detectedCountry, geoDefaults, geoApplied]);
   
   // Legal acknowledgment
   const [acceptedTerms, setAcceptedTerms] = useState(false);

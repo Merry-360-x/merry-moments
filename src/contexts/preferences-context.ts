@@ -9,6 +9,7 @@ export type PreferencesContextType = {
   resolvedTheme: "light" | "dark";
   language: AppLanguage;
   currency: AppCurrency;
+  detectedCountry: string | null;
   isReady: boolean;
   setTheme: (next: ThemePreference) => Promise<void>;
   setLanguage: (next: AppLanguage) => Promise<void>;
