@@ -9,10 +9,14 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Tables } from "@/integrations/supabase/types";
 import ListingImageCarousel from "@/components/ListingImageCarousel";
 import { formatMoney } from "@/lib/money";
+import { convertAmount } from "@/lib/fx";
+import { useFxRates } from "@/hooks/useFxRates";
+import { usePreferences } from "@/hooks/usePreferences";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { extractNeighborhood } from "@/lib/location";
 import { useTripCart } from "@/hooks/useTripCart";
@@ -123,9 +127,12 @@ const fetchTours = async ({
 };
 
 const Tours = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
   const { addToCart: addCartItem } = useTripCart();
+  const { currency: preferredCurrency } = usePreferences();
+  const { usdRates } = useFxRates();
   const [searchParams] = useSearchParams();
   const [activeCategory, setActiveCategory] = useState("All");
   const [query, setQuery] = useState("");
@@ -171,7 +178,7 @@ const Tours = () => {
     const itemType = tour.source === "tour_packages" ? "tour_package" : "tour";
     const ok = await addCartItem(itemType, tour.id, 1);
     if (!ok) return;
-    toast({ title: "Added to Trip Cart", description: `${tour.source === "tour_packages" ? "Package" : "Tour"} added to your cart.` });
+    toast({ title: t("tours.toast.addedTitle"), description: tour.source === "tour_packages" ? t("tours.toast.packageAdded") : t("tours.toast.tourAdded") });
   };
 
   return (
@@ -180,8 +187,8 @@ const Tours = () => {
 
       {/* Header */}
       <div className="py-16 text-center">
-        <h1 className="text-3xl lg:text-4xl font-bold text-foreground mb-2">Tours & Experiences</h1>
-        <p className="text-muted-foreground">Discover the beauty of Rwanda</p>
+        <h1 className="text-3xl lg:text-4xl font-bold text-foreground mb-2">{t("tours.title")}</h1>
+        <p className="text-muted-foreground">{t("tours.subtitle")}</p>
       </div>
 
       {/* Search */}
@@ -191,7 +198,7 @@ const Tours = () => {
             <Search className="w-5 h-5 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search tours by name or location..."
+              placeholder={t("tours.searchPlaceholder")}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="w-full bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none text-sm"
@@ -246,14 +253,14 @@ const Tours = () => {
       {/* Tours */}
       <div className="container mx-auto px-4 lg:px-8 py-10">
         {toursLoading ? (
-          <LoadingSpinner message="Loading tours..." />
+          <LoadingSpinner message={t("tours.loading")} />
         ) : isError ? (
           <div className="py-20 text-center">
-            <p className="text-muted-foreground">Could not load tours right now.</p>
+            <p className="text-muted-foreground">{t("tours.errorLoading")}</p>
           </div>
         ) : tours.length === 0 ? (
           <div className="py-20 text-center">
-            <p className="text-muted-foreground">No tours found matching your search.</p>
+            <p className="text-muted-foreground">{t("tours.noResults")}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -314,9 +321,14 @@ const Tours = () => {
                   <div className="flex items-center justify-between gap-2 md:gap-3">
                     <div className="text-foreground">
                       <span className="font-bold text-sm md:text-base">
-                        {formatMoney(Number(tour.price_per_person), String(tour.currency ?? "RWF"))}
+                        {(() => {
+                          const amt = Number(tour.price_per_person);
+                          const from = String(tour.currency ?? "RWF");
+                          const converted = convertAmount(amt, from, preferredCurrency, usdRates);
+                          return formatMoney(converted ?? amt, converted !== null ? preferredCurrency : from);
+                        })()}
                       </span>
-                      <span className="text-[10px] md:text-sm text-muted-foreground"> / person</span>
+                      <span className="text-[10px] md:text-sm text-muted-foreground"> {t("common.perPerson")}</span>
                     </div>
                     <Button 
                       variant="outline" 
@@ -327,7 +339,7 @@ const Tours = () => {
                         addToCart(tour);
                       }}
                     >
-                      Add to Cart
+                      {t("common.addToCart")}
                     </Button>
                   </div>
                 </div>

@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { formatMoney } from "@/lib/money";
+import { convertAmount } from "@/lib/fx";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { extractNeighborhood } from "@/lib/location";
@@ -546,22 +547,25 @@ const MyBookings = () => {
                           </div>
                           <div className="text-right">
                             <p className="font-semibold text-foreground">
-                              {formatMoney(
-                                Number(booking.total_price),
-                                // Prefer listing's original currency
-                                booking.booking_type === "property" && booking.properties?.currency
+                              {(() => {
+                                const amt = Number(booking.total_price);
+                                const fromCur = booking.booking_type === "property" && booking.properties?.currency
                                   ? booking.properties.currency
                                   : booking.booking_type === "tour" && booking.tour_packages?.currency
                                     ? booking.tour_packages.currency
-                                    : String(booking.currency || "USD")
-                              )}
+                                    : String(booking.currency || "USD");
+                                const converted = convertAmount(amt, fromCur, currency, usdRates);
+                                return formatMoney(converted ?? amt, converted !== null ? currency : fromCur);
+                              })()}
                             </p>
                             {booking.checkout_requests && (
                               <p className="text-xs text-green-600 font-medium mt-0.5">
-                                Paid: {formatMoney(
-                                  booking.checkout_requests.total_amount,
-                                  booking.checkout_requests.currency || "RWF"
-                                )}
+                                Paid: {(() => {
+                                  const amt = booking.checkout_requests.total_amount;
+                                  const fromCur = booking.checkout_requests.currency || "RWF";
+                                  const converted = convertAmount(amt, fromCur, currency, usdRates);
+                                  return formatMoney(converted ?? amt, converted !== null ? currency : fromCur);
+                                })()}
                               </p>
                             )}
                             <p className="text-xs text-muted-foreground mt-0.5">
@@ -578,14 +582,20 @@ const MyBookings = () => {
                         <div className="flex justify-between items-center">
                           <span className="font-semibold text-foreground">Total</span>
                           <span className="text-xl font-bold text-primary">
-                            {formatMoney(grandTotal, listingCurrency)}
+                            {(() => {
+                              const converted = convertAmount(grandTotal, listingCurrency, currency, usdRates);
+                              return formatMoney(converted ?? grandTotal, converted !== null ? currency : listingCurrency);
+                            })()}
                           </span>
                         </div>
                         {totalPaid > 0 && (
                           <div className="flex justify-between items-center">
                             <span className="text-sm text-muted-foreground">Amount Paid</span>
                             <span className="text-lg font-bold text-green-600">
-                              {formatMoney(totalPaid, paidCurrency)}
+                              {(() => {
+                                const converted = convertAmount(totalPaid, paidCurrency, currency, usdRates);
+                                return formatMoney(converted ?? totalPaid, converted !== null ? currency : paidCurrency);
+                              })()}
                             </span>
                           </div>
                         )}

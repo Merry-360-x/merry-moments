@@ -352,9 +352,10 @@ export default function PropertyDetails() {
   const displayMoney = useCallback(
     (amount: number, fromCurrency: string | null) => {
       const code = String(fromCurrency ?? "RWF");
-      return formatMoney(Number(amount ?? 0), code);
+      const converted = convertAmount(Number(amount ?? 0), code, preferredCurrency, usdRates);
+      return formatMoney(converted ?? Number(amount ?? 0), converted !== null ? preferredCurrency : code);
     },
-    []
+    [preferredCurrency, usdRates]
   );
 
   const openViewer = (idx: number) => {

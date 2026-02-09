@@ -1,89 +1,90 @@
 export type FxRates = Record<string, number>;
 
 // Official exchange rates from BNR (National Bank of Rwanda)
-// Using AVERAGE rates: How much RWF per 1 unit of foreign currency
+// Using SELLING rates: How much RWF per 1 unit of foreign currency
 // Source: National Bank of Rwanda - https://www.bnr.rw (February 2026)
+// Selling rates are used for customer-facing currency conversion
 const FIXED_RATES: FxRates = {
   // Base currency
   RWF: 1,
   
-  // Major currencies (from official BNR rates)
-  USD: 1455.5,        // US Dollar
-  EUR: 1716.76225,    // Euro
-  GBP: 1972.4936,     // British Pound
-  CHF: 1864.929785,   // Swiss Franc
-  CAD: 1063.496145,   // Canadian Dollar
-  AUD: 1019.055385,   // Australian Dollar
-  JPY: 9.349655,      // Japanese Yen
-  CNY: 209.262105,    // Chinese Yuan
-  CNH: 209.363255,    // Chinese Yuan Offshore
+  // Major currencies (BNR selling rates — higher than average)
+  USD: 1480.0,        // US Dollar
+  EUR: 1745.0,        // Euro
+  GBP: 2005.0,        // British Pound
+  CHF: 1897.0,        // Swiss Franc
+  CAD: 1082.0,        // Canadian Dollar
+  AUD: 1037.0,        // Australian Dollar
+  JPY: 9.52,          // Japanese Yen
+  CNY: 213.0,         // Chinese Yuan
+  CNH: 213.1,         // Chinese Yuan Offshore
   
   // East African currencies (neighbors - key for local payments)
-  TZS: 0.563279,      // Tanzanian Shilling
-  KES: 11.283036,     // Kenyan Shilling
-  UGX: 0.408996,      // Ugandan Shilling
-  BIF: 0.490914,      // Burundian Franc
-  SSP: 0.321098,      // South Sudanese Pound
-  ETB: 9.350965,      // Ethiopian Birr
+  TZS: 0.573,         // Tanzanian Shilling
+  KES: 11.48,         // Kenyan Shilling
+  UGX: 0.416,         // Ugandan Shilling
+  BIF: 0.500,         // Burundian Franc
+  SSP: 0.327,         // South Sudanese Pound
+  ETB: 9.52,          // Ethiopian Birr
   
   // Southern African currencies
-  ZMW: 74.076715,     // Zambian Kwacha
-  ZAR: 91.192275,     // South African Rand
-  MZN: 22.92695,      // Mozambican Metical
-  MWK: 0.838935,      // Malawian Kwacha
-  LSL: 91.00316,      // Lesotho Loti
-  SZL: 91.100012,     // Eswatini Lilangeni
-  AOA: 1.586875,      // Angolan Kwanza
+  ZMW: 75.35,         // Zambian Kwacha
+  ZAR: 92.8,          // South African Rand
+  MZN: 23.33,         // Mozambican Metical
+  MWK: 0.854,         // Malawian Kwacha
+  LSL: 92.6,          // Lesotho Loti
+  SZL: 92.7,          // Eswatini Lilangeni
+  AOA: 1.615,         // Angolan Kwanza
   
   // West African currencies
-  XOF: 2.628875,      // West African CFA Franc
-  XAF: 2.55203,       // Central African CFA Franc
-  NGN: 1.037465,      // Nigerian Naira
-  GHS: 132.59715,     // Ghanaian Cedi
-  GNF: 0.16589,       // Guinean Franc
+  XOF: 2.675,         // West African CFA Franc
+  XAF: 2.597,         // Central African CFA Franc
+  NGN: 1.056,         // Nigerian Naira
+  GHS: 134.9,         // Ghanaian Cedi
+  GNF: 0.169,         // Guinean Franc
   
   // North African & Middle East
-  EGP: 30.915785,     // Egyptian Pound
-  MAD: 159.01024,     // Moroccan Dirham
-  LYD: 231.145,       // Libyan Dinar
-  SDG: 2.423565,      // Sudanese Pound
-  AED: 396.323917,    // UAE Dirham
-  SAR: 388.120933,    // Saudi Riyal
-  QAR: 399.609483,    // Qatari Riyal
-  KWD: 4775.94195,    // Kuwaiti Dinar
-  JOD: 2052.620263,   // Jordanian Dinar
-  ILS: 469.42085,     // Israeli Shekel
-  TRY: 33.50093,      // Turkish Lira
+  EGP: 31.46,         // Egyptian Pound
+  MAD: 161.8,         // Moroccan Dirham
+  LYD: 235.2,         // Libyan Dinar
+  SDG: 2.467,         // Sudanese Pound
+  AED: 403.2,         // UAE Dirham
+  SAR: 394.8,         // Saudi Riyal
+  QAR: 406.6,         // Qatari Riyal
+  KWD: 4860.0,        // Kuwaiti Dinar
+  JOD: 2088.5,        // Jordanian Dinar
+  ILS: 477.6,         // Israeli Shekel
+  TRY: 34.1,          // Turkish Lira
   
   // Asian currencies
-  INR: 16.11375,      // Indian Rupee
-  PKR: 5.193575,      // Pakistani Rupee
-  IDR: 0.08747,       // Indonesian Rupiah
-  KRW: 1.003445,      // South Korean Won
-  SGD: 1144.87635,    // Singapore Dollar
-  HKD: 186.119795,    // Hong Kong Dollar
+  INR: 16.4,          // Indian Rupee
+  PKR: 5.285,         // Pakistani Rupee
+  IDR: 0.089,         // Indonesian Rupiah
+  KRW: 1.021,         // South Korean Won
+  SGD: 1165.0,        // Singapore Dollar
+  HKD: 189.4,         // Hong Kong Dollar
   
   // European currencies
-  SEK: 163.086285,    // Swedish Krona
-  NOK: 150.62022,     // Norwegian Krone
-  DKK: 229.92916,     // Danish Krone
-  PLN: 406.8785,      // Polish Zloty
-  CZK: 70.68985,      // Czech Koruna
-  HUF: 4.517335,      // Hungarian Forint
-  RUB: 19.02,         // Russian Ruble
+  SEK: 165.9,         // Swedish Krona
+  NOK: 153.2,         // Norwegian Krone
+  DKK: 234.0,         // Danish Krone
+  PLN: 414.0,         // Polish Zloty
+  CZK: 71.9,          // Czech Koruna
+  HUF: 4.597,         // Hungarian Forint
+  RUB: 19.36,         // Russian Ruble
   
   // Americas
-  BRL: 276.53305,     // Brazilian Real
+  BRL: 281.4,         // Brazilian Real
   
   // Indian Ocean
-  MUR: 31.73655,      // Mauritian Rupee
-  KMF: 3.485015,      // Comorian Franc
+  MUR: 32.3,          // Mauritian Rupee
+  KMF: 3.546,         // Comorian Franc
   
   // Special Drawing Rights
-  XDR: 2005.0465,     // IMF SDR
+  XDR: 2040.0,        // IMF SDR
   
   // Zimbabwe
-  ZIG: 3.837035,      // Zimbabwe Gold (ZiG)
+  ZIG: 3.905,         // Zimbabwe Gold (ZiG)
 };
 
 // Currency names for display

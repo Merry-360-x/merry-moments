@@ -8,7 +8,8 @@ import ListingImageCarousel from "@/components/ListingImageCarousel";
 import { OptimizedImage } from "@/components/OptimizedImage";
 import { useFavorites } from "@/hooks/useFavorites";
 import { usePreferences } from "@/hooks/usePreferences";
-// Removed unused import
+import { useFxRates } from "@/hooks/useFxRates";
+import { convertAmount } from "@/lib/fx";
 import { extractNeighborhood } from "@/lib/location";
 import { formatMoney } from "@/lib/money";
 
@@ -66,8 +67,13 @@ const PropertyCard = ({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { currency: preferredCurrency } = usePreferences();
-  // Removed unused variable
+  const { usdRates } = useFxRates();
   const { toggleFavorite, checkFavorite } = useFavorites();
+
+  const displayMoney = (amount: number, fromCurrency: string) => {
+    const converted = convertAmount(amount, fromCurrency, preferredCurrency, usdRates);
+    return formatMoney(converted ?? amount, converted !== null ? preferredCurrency : fromCurrency);
+  };
   const [fav, setFav] = useState(Boolean(isFavorited));
 
   // Check if host is verified (only when hostId is provided)
@@ -255,16 +261,16 @@ const PropertyCard = ({
         <div className="space-y-0.5 md:space-y-1">
           <div className="flex items-baseline gap-0.5 md:gap-1">
             <span className="text-[10px] md:text-lg font-bold text-foreground">
-              {formatMoney(price, originalCurrency || "RWF")}
+              {displayMoney(price, originalCurrency || "RWF")}
             </span>
             <span className="text-[8px] md:text-sm text-muted-foreground">{t("common.perNight")}</span>
           </div>
           {pricePerPerson && pricePerPerson > 0 ? (
             <div className="hidden md:flex items-baseline gap-1">
               <span className="text-sm font-semibold text-foreground">
-                {formatMoney(pricePerPerson, originalCurrency || "RWF")}
+                {displayMoney(pricePerPerson, originalCurrency || "RWF")}
               </span>
-              <span className="text-xs text-muted-foreground">per person</span>
+              <span className="text-xs text-muted-foreground">{t("common.perPerson", "per person")}</span>
             </div>
           ) : null}
         </div>

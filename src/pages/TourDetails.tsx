@@ -21,6 +21,9 @@ import {
 import ListingImageCarousel from "@/components/ListingImageCarousel";
 import ImageGallery from "@/components/ImageGallery";
 import { formatMoney } from "@/lib/money";
+import { convertAmount } from "@/lib/fx";
+import { useFxRates } from "@/hooks/useFxRates";
+import { usePreferences } from "@/hooks/usePreferences";
 import { useTripCart } from "@/hooks/useTripCart";
 import { 
   MapPin, 
@@ -39,6 +42,7 @@ import {
   BadgeCheck
 } from "lucide-react";
 import { extractNeighborhood } from "@/lib/location";
+import { useTranslation } from "react-i18next";
 
 type TourDetailsData = {
   source: "tours" | "tour_packages";
@@ -60,6 +64,14 @@ export default function TourDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useTripCart();
+  const { currency: preferredCurrency } = usePreferences();
+  const { usdRates } = useFxRates();
+  const { t } = useTranslation();
+
+  const displayMoney = (amount: number, fromCurrency: string) => {
+    const converted = convertAmount(amount, fromCurrency, preferredCurrency, usdRates);
+    return formatMoney(converted ?? amount, converted !== null ? preferredCurrency : fromCurrency);
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ["tour-with-host", id],
@@ -216,8 +228,8 @@ export default function TourDetails() {
       <div className="min-h-screen bg-background">
         <Navbar />
         <div className="container mx-auto px-4 py-20 text-center">
-          <h1 className="text-2xl font-bold mb-4">Tour Not Found</h1>
-          <Button onClick={() => navigate("/tours")}>Back to Tours</Button>
+          <h1 className="text-2xl font-bold mb-4">{t("tourDetails.notFound")}</h1>
+          <Button onClick={() => navigate("/tours")}>{t("tourDetails.backToTours")}</Button>
         </div>
         <Footer />
       </div>
@@ -300,7 +312,7 @@ export default function TourDetails() {
 
             {/* Description - Prominent Section */}
             <div className="border-t pt-6">
-              <h2 className="text-2xl font-bold text-foreground mb-4">About this tour</h2>
+              <h2 className="text-2xl font-bold text-foreground mb-4">{t("tourDetails.aboutTour")}</h2>
               {tour.description ? (
                 <div className="bg-card rounded-lg border p-5">
                   <p className="text-foreground leading-relaxed whitespace-pre-line text-base">
@@ -550,20 +562,20 @@ export default function TourDetails() {
             <div className="bg-card rounded-xl shadow-lg border p-6">
               {pricingTiers.length > 0 && (
                 <div className="mb-6">
-                  <div className="text-sm font-semibold text-foreground">Price for the tour</div>
+                  <div className="text-sm font-semibold text-foreground">{t("tourDetails.priceForTour")}</div>
                   <div className="mt-3 space-y-2">
                     {pricingTiers.map((tier) => (
                       <div key={tier.group_size} className="text-sm text-muted-foreground">
                         <span className="font-medium text-foreground">
                           {tier.group_size === 1
-                            ? "Single person"
-                            : `Group of ${tier.group_size} people`}
+                            ? t("tourDetails.singlePerson")
+                            : t("tourDetails.groupOf", { count: tier.group_size })}
                           :
                         </span>{" "}
                         <span className="font-semibold text-foreground">
-                          {formatMoney(Number(tier.price_per_person), String(normalizedCurrency ?? "RWF"))}
+                          {displayMoney(Number(tier.price_per_person), String(normalizedCurrency ?? "RWF"))}
                         </span>{" "}
-                        <span>per person</span>
+                        <span>{t("tourDetails.perPerson")}</span>
                       </div>
                     ))}
                   </div>
@@ -572,9 +584,9 @@ export default function TourDetails() {
 
               <div className="mb-6">
                 <div className="text-3xl font-bold text-primary">
-                  {formatMoney(Number(normalizedPrice ?? 0), String(normalizedCurrency ?? "RWF"))}
+                  {displayMoney(Number(normalizedPrice ?? 0), String(normalizedCurrency ?? "RWF"))}
                 </div>
-                <div className="text-sm text-muted-foreground">per person</div>
+                <div className="text-sm text-muted-foreground">{t("tourDetails.perPerson")}</div>
               </div>
 
               <div className="space-y-3">
@@ -587,7 +599,7 @@ export default function TourDetails() {
                   }}
                 >
                   <Calendar className="w-4 h-4 mr-2" />
-                  Book Now
+                  {t("common.bookNow")}
                 </Button>
                 <Button
                   className="w-full"
@@ -595,7 +607,7 @@ export default function TourDetails() {
                   size="lg"
                   onClick={async () => await addToCart("tour", String(tour.id), 1)}
                 >
-                  Add to Trip Cart
+                  {t("common.addToTripCart")}
                 </Button>
               </div>
             </div>
@@ -603,7 +615,7 @@ export default function TourDetails() {
             {/* Host info */}
             {hostProfile && (
               <div className="bg-card rounded-xl shadow-lg border p-6">
-                <h3 className="text-lg font-semibold text-foreground mb-4">Your Tour Guide</h3>
+                <h3 className="text-lg font-semibold text-foreground mb-4">{t("tourDetails.yourTourGuide")}</h3>
                 
                 <div className="flex items-start gap-4 mb-4">
                   <Avatar className="w-16 h-16 border-2 border-primary/20">

@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 import type { Tables } from "@/integrations/supabase/types";
 import ListingImageCarousel from "@/components/ListingImageCarousel";
 import { formatMoney } from "@/lib/money";
@@ -62,6 +63,7 @@ interface TransportVehicleRow {
 type TransportRouteRow = Pick<Tables<"transport_routes">, "id" | "from_location" | "to_location" | "base_price" | "currency">;
 
 const Transport = () => {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -74,7 +76,8 @@ const Transport = () => {
 
   const displayMoney = (amount: number, fromCurrency: string | null) => {
     const code = String(fromCurrency ?? "USD");
-    return formatMoney(Number(amount ?? 0), code);
+    const converted = convertAmount(Number(amount ?? 0), code, preferredCurrency, usdRates);
+    return formatMoney(converted ?? Number(amount ?? 0), converted !== null ? preferredCurrency : code);
   };
 
   useEffect(() => {
@@ -223,8 +226,8 @@ const Transport = () => {
 
       {/* Header */}
       <div className="py-12 text-center">
-        <h1 className="text-3xl lg:text-4xl font-bold text-foreground mb-2">Transportation Services</h1>
-        <p className="text-muted-foreground">Get around Rwanda with ease</p>
+        <h1 className="text-3xl lg:text-4xl font-bold text-foreground mb-2">{t("transport.title")}</h1>
+        <p className="text-muted-foreground">{t("transport.subtitle")}</p>
       </div>
 
       {/* Category Cards */}
@@ -270,7 +273,7 @@ const Transport = () => {
             <MapPin className="w-5 h-5 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search routes or destinations..."
+              placeholder={t("transport.searchPlaceholder")}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="w-full bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none text-sm"
@@ -293,7 +296,7 @@ const Transport = () => {
             )}
             <Button variant="search" className="gap-2" type="button" onClick={runSearch}>
               <Search className="w-4 h-4" />
-              Search
+              {t("common.search")}
             </Button>
           </div>
         </div>
@@ -302,7 +305,7 @@ const Transport = () => {
       {/* Content */}
       {vehiclesLoading || routesLoading || airportRoutesLoading ? (
         <div className="container mx-auto px-4 py-12">
-          <LoadingSpinner message="Loading transport services..." />
+          <LoadingSpinner message={t("transport.loading")} />
         </div>
       ) : (
         <>
@@ -311,12 +314,12 @@ const Transport = () => {
             <div className="container mx-auto px-4 lg:px-8 pb-12">
               <h2 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-3">
                 <Plane className="w-6 h-6 text-primary" />
-                Airport Transfers
+                {t("transport.airportTransfers")}
               </h2>
               {airportRoutes.length === 0 ? (
                 <div className="bg-card rounded-xl p-8 shadow-card text-center">
                   <Plane className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-muted-foreground">No airport transfer routes available yet</p>
+                  <p className="text-muted-foreground">{t("transport.noAirportRoutes")}</p>
                 </div>
               ) : (
                 <div className="space-y-8">
@@ -325,7 +328,7 @@ const Transport = () => {
                     <div>
                       <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                         <Plane className="w-5 h-5 text-primary" />
-                        From Airport
+                        {t("transport.fromAirport")}
                       </h3>
                       <div className="space-y-4">
                         {fromAirportRoutes.map((route) => {
@@ -410,7 +413,7 @@ const Transport = () => {
                     <div>
                       <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                         <Plane className="w-5 h-5 text-primary rotate-180" />
-                        To Airport
+                        {t("transport.toAirport")}
                       </h3>
                       <div className="space-y-4">
                         {toAirportRoutes.map((route) => {
@@ -579,17 +582,17 @@ const Transport = () => {
             <div className="container mx-auto px-4 lg:px-8 pb-16">
               <h2 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-3">
                 <Key className="w-6 h-6 text-primary" />
-                Car Rentals
+                {t("transport.categories.carRental")}
               </h2>
               {vehiclesError ? (
                 <div className="text-center py-12">
                   <Frown className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">Could not load vehicles.</p>
+                  <p className="text-muted-foreground">{t("transport.couldNotLoadVehicles")}</p>
                 </div>
               ) : vehicles.length === 0 ? (
                 <div className="bg-card rounded-xl p-8 shadow-card text-center">
                   <Key className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-muted-foreground">No rental vehicles available yet</p>
+                  <p className="text-muted-foreground">{t("transport.noRentalVehicles")}</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -702,15 +705,15 @@ const Transport = () => {
                               <span className="text-foreground font-bold text-lg">
                                 {displayMoney(Number(v.daily_price || v.price_per_day), String(v.currency ?? "USD"))}
                               </span>
-                              <span className="text-sm text-muted-foreground">/ day</span>
+                              <span className="text-sm text-muted-foreground">{t("common.perDay")}</span>
                             </div>
                             {(v.weekly_price || v.monthly_price) && (
                               <div className="flex gap-3 text-xs text-muted-foreground">
                                 {v.weekly_price && (
-                                  <span>{displayMoney(Number(v.weekly_price), String(v.currency ?? "USD"))}/week</span>
+                                  <span>{displayMoney(Number(v.weekly_price), String(v.currency ?? "USD"))}{t("common.perWeek")}</span>
                                 )}
                                 {v.monthly_price && (
-                                  <span>{displayMoney(Number(v.monthly_price), String(v.currency ?? "USD"))}/month</span>
+                                  <span>{displayMoney(Number(v.monthly_price), String(v.currency ?? "USD"))}{t("common.perMonth")}</span>
                                 )}
                               </div>
                             )}
@@ -721,7 +724,7 @@ const Transport = () => {
                             className="w-full"
                             onClick={() => addToCart({ item_type: "transport_vehicle", reference_id: v.id })}
                           >
-                            Rent Now
+                            {t("transport.rentNow")}
                           </Button>
                         </div>
                       </div>
