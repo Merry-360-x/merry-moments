@@ -79,7 +79,7 @@ function generateConfirmationEmail(checkout, items, bookingIds) {
         <div style="background-color: #f9fafb; border-radius: 12px; padding: 20px;">
           <p style="margin: 0 0 16px 0; color: #1f2937; font-size: 14px; font-weight: 600;">Your Booking</p>
           ${items.map((item, idx) => {
-            const itemPrice = formatMoney(item.calculated_price || item.price, checkout.currency);
+            const itemPrice = formatMoney(item.calculated_price || item.price, item.calculated_price_currency || item.currency || 'USD');
             const itemTitle = item.title || item.name || "Item";
             const itemIcon = item.metadata?.type === 'tour' ? '🗺️' : item.metadata?.type === 'transport' ? '🚗' : '🏠';
             return `
@@ -190,7 +190,7 @@ function generateReceiptPDF(checkout, items, bookingIds) {
   
   const itemsList = items.map(item => {
     const itemName = item.title || item.name || "Booking";
-    const itemPrice = formatMoney(item.calculated_price || item.price, checkout.currency);
+    const itemPrice = formatMoney(item.calculated_price || item.price, item.calculated_price_currency || item.currency || 'USD');
     const checkIn = formatDate(bookingDetails.check_in || item.metadata?.check_in);
     const checkOut = formatDate(bookingDetails.check_out || item.metadata?.check_out);
     return `${itemName} | ${checkIn} to ${checkOut} | ${itemPrice}`;
@@ -251,7 +251,7 @@ function generateReceiptPDF(checkout, items, bookingIds) {
     <div class="section-title">Booking Items</div>
     ${items.map((item, idx) => {
       const itemName = item.title || item.name || "Item";
-      const itemPrice = formatMoney(item.calculated_price || item.price, checkout.currency);
+      const itemPrice = formatMoney(item.calculated_price || item.price, item.calculated_price_currency || item.currency || 'USD');
       const itemIcon = item.metadata?.type === 'tour' ? '🗺️' : item.metadata?.type === 'transport' ? '🚗' : '🏠';
       return `<div class="row"><span class="label">${itemIcon} ${itemName}</span><span class="value">${itemPrice}</span></div>`;
     }).join('')}
