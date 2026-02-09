@@ -783,7 +783,7 @@ export default async function handler(req, res) {
             order_id: checkout.id,
             total_price: item.calculated_price || item.price,
             // Use the item's original currency (matches the listing), not the checkout currency
-            currency: item.currency || 'USD',
+            currency: item.calculated_price_currency || item.currency || 'USD',
             status: 'confirmed',
             payment_status: 'paid',
             payment_method: 'mobile_money',

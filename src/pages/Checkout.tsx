@@ -585,7 +585,10 @@ export default function CheckoutNew() {
       // Build cart items metadata with calculated prices
       const cartItemsWithPrices = cartItems.map(item => {
         const itemTotal = item.price * item.quantity;
-        const converted = convertAmount(itemTotal, item.currency, displayCurrency, usdRates) ?? itemTotal;
+        // IMPORTANT: Keep each item's calculated_price in the item's own currency
+        // so booking records can store a consistent (amount + currency) pair.
+        // Payment conversion to RWF is handled separately at the checkout level.
+        const converted = itemTotal;
         const isAccommodation = item.item_type === 'property';
         const feeResult = isAccommodation 
           ? calculateGuestTotal(converted, 'accommodation') 
@@ -600,6 +603,7 @@ export default function CheckoutNew() {
         return {
           ...item,
           calculated_price: feeResult.guestTotal - itemDiscount,
+          calculated_price_currency: item.currency,
           platform_fee: feeResult.platformFee,
           discount_applied: itemDiscount,
         };
