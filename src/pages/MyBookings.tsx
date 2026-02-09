@@ -110,16 +110,26 @@ const MyBookings = () => {
         .select(`
           *, 
           properties(title, location, property_type, address, cancellation_policy, price_per_night, host_id, currency),
-          tour_packages(title, city, country, duration, cancellation_policy_type, custom_cancellation_policy, price_per_person, host_id, currency),
-          checkout_requests!order_id(id, total_amount, currency, payment_method)
+          tour_packages(title, city, country, duration, cancellation_policy_type, custom_cancellation_policy, price_per_person, host_id, currency)
         `)
         .eq("guest_id", user!.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
       
+      // Fetch checkout_requests separately (no FK constraint)
+      const orderIds = [...new Set((data ?? []).filter(b => b.order_id).map(b => b.order_id))];
+      const checkouts = orderIds.length > 0
+        ? (await supabase.from("checkout_requests").select("id, total_amount, currency, payment_method").in("id", orderIds)).data || []
+        : [];
+      // Attach checkout data to bookings
+      const dataWithCheckout = (data ?? []).map(b => ({
+        ...b,
+        checkout_requests: b.order_id ? checkouts.find(c => c.id === b.order_id) || null : null
+      }));
+      
       // Fetch host profiles for confirmed/completed bookings
       const bookingsWithHosts = await Promise.all(
-        (data || []).map(async (booking: any) => {
+        dataWithCheckout.map(async (booking: any) => {
           if (booking.status === 'confirmed' || booking.status === 'completed') {
             const hostId = booking.properties?.host_id || booking.tour_packages?.host_id;
             if (hostId) {

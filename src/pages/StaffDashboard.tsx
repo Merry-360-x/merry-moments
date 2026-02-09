@@ -350,13 +350,22 @@ export default function StaffDashboard() {
           properties(title, images, currency),
           tour_packages(title, currency),
           transport_vehicles(title, currency),
-          checkout_requests!order_id(id, total_amount, currency, payment_method),
           profiles:guest_id(full_name, phone, email, nickname)
         `)
         .order("created_at", { ascending: false })
         .limit(8);
       if (error) throw error;
-      return (data ?? []) as BookingRow[];
+      
+      // Fetch checkout_requests separately (no FK constraint)
+      const orderIds = [...new Set((data ?? []).filter(b => b.order_id).map(b => b.order_id))];
+      const checkouts = orderIds.length > 0
+        ? (await supabase.from("checkout_requests").select("id, total_amount, currency, payment_method").in("id", orderIds)).data || []
+        : [];
+      
+      return (data ?? []).map(b => ({
+        ...b,
+        checkout_requests: b.order_id ? checkouts.find(c => c.id === b.order_id) || null : null
+      })) as BookingRow[];
     },
     enabled: tab === "overview",
   });

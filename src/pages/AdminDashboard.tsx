@@ -831,7 +831,7 @@ export default function AdminDashboard() {
     queryFn: async () => {
       let q = supabase
         .from("bookings")
-        .select("*, checkout_requests!order_id(id, total_amount, currency, payment_method)")
+        .select("*")
         .order("created_at", { ascending: false })
         .limit(500);
       if (bookingStatus && bookingStatus !== "all") q = q.eq("status", bookingStatus);
@@ -842,13 +842,14 @@ export default function AdminDashboard() {
       }
       console.log("Bookings fetched:", data?.length || 0, "records");
       
-      // Fetch property, tour, and transport details separately to avoid RLS issues
+      // Fetch property, tour, transport, profile, and checkout details separately
       const propertyIds = [...new Set(data?.filter(b => b.property_id).map(b => b.property_id))];
       const tourIds = [...new Set(data?.filter(b => b.tour_id).map(b => b.tour_id))];
       const transportIds = [...new Set(data?.filter(b => b.transport_id).map(b => b.transport_id))];
       const guestIds = [...new Set(data?.filter(b => b.guest_id && !b.is_guest_booking).map(b => b.guest_id))];
+      const orderIds = [...new Set(data?.filter(b => b.order_id).map(b => b.order_id))];
       
-      const [properties, tours, vehicles, profiles] = await Promise.all([
+      const [properties, tours, vehicles, profiles, checkouts] = await Promise.all([
         propertyIds.length > 0 
           ? supabase.from("properties").select("id, title, images, currency").in("id", propertyIds).then(r => r.data || [])
           : Promise.resolve([]),
@@ -860,6 +861,9 @@ export default function AdminDashboard() {
           : Promise.resolve([]),
         guestIds.length > 0
           ? supabase.from("profiles").select("user_id, full_name, nickname, email, phone").in("user_id", guestIds).then(r => r.data || [])
+          : Promise.resolve([]),
+        orderIds.length > 0
+          ? supabase.from("checkout_requests").select("id, total_amount, currency, payment_method").in("id", orderIds).then(r => r.data || [])
           : Promise.resolve([])
       ]);
       
@@ -877,6 +881,9 @@ export default function AdminDashboard() {
         }
         if (booking.guest_id && !booking.is_guest_booking) {
           enriched.profiles = profiles.find(p => p.user_id === booking.guest_id) || null;
+        }
+        if (booking.order_id) {
+          enriched.checkout_requests = checkouts.find(c => c.id === booking.order_id) || null;
         }
         return enriched;
       });

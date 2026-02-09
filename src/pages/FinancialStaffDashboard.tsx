@@ -124,8 +124,7 @@ export default function FinancialStaffDashboard() {
           booking_type, property_id, tour_id, transport_id, order_id,
           properties(currency),
           tour_packages(currency),
-          transport_vehicles(currency),
-          checkout_requests!order_id(id, total_amount, currency, payment_method)
+          transport_vehicles(currency)
         `)
         .order("created_at", { ascending: false })
         .limit(100);
@@ -133,7 +132,17 @@ export default function FinancialStaffDashboard() {
         console.error('[FinancialStaff] Bookings error:', error);
         throw error;
       }
-      return (data ?? []) as BookingRow[];
+      
+      // Fetch checkout_requests separately (no FK constraint)
+      const orderIds = [...new Set((data ?? []).filter(b => b.order_id).map(b => b.order_id))];
+      const checkouts = orderIds.length > 0
+        ? (await supabase.from("checkout_requests").select("id, total_amount, currency, payment_method").in("id", orderIds)).data || []
+        : [];
+      
+      return (data ?? []).map(b => ({
+        ...b,
+        checkout_requests: b.order_id ? checkouts.find(c => c.id === b.order_id) || null : null
+      })) as BookingRow[];
     },
     staleTime: 30000, // Cache for 30 seconds - real-time handles updates
   });
