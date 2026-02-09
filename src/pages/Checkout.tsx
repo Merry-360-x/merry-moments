@@ -72,27 +72,19 @@ interface PaymentMethodInfo {
 }
 
 const PAWAPAY_METHODS: PaymentMethodInfo[] = [
-  // Rwanda (+250) - RWF
+  // Rwanda (+250) - RWF — MTN_MOMO_RWA, AIRTEL_RWA
   { id: 'mtn_rwa', name: 'MTN Mobile Money', shortName: 'MTN', provider: 'MTN', countryCode: '+250', country: 'Rwanda', flag: '🇷🇼', currency: 'RWF', color: 'bg-yellow-400', textColor: 'text-black' },
   { id: 'airtel_rwa', name: 'Airtel Money', shortName: 'Airtel', provider: 'AIRTEL', countryCode: '+250', country: 'Rwanda', flag: '🇷🇼', currency: 'RWF', color: 'bg-red-500', textColor: 'text-white' },
   
-  // Tanzania (+255) - TZS
-  { id: 'vodacom_tza', name: 'Vodacom M-Pesa', shortName: 'M-Pesa', provider: 'VODACOM', countryCode: '+255', country: 'Tanzania', flag: '🇹🇿', currency: 'TZS', color: 'bg-red-600', textColor: 'text-white' },
-  { id: 'tigo_tza', name: 'Tigo Pesa', shortName: 'Tigo', provider: 'TIGO', countryCode: '+255', country: 'Tanzania', flag: '🇹🇿', currency: 'TZS', color: 'bg-blue-600', textColor: 'text-white' },
-  { id: 'airtel_tza', name: 'Airtel Money', shortName: 'Airtel', provider: 'AIRTEL', countryCode: '+255', country: 'Tanzania', flag: '🇹🇿', currency: 'TZS', color: 'bg-red-500', textColor: 'text-white' },
-  { id: 'halotel_tza', name: 'HaloPesa', shortName: 'Halo', provider: 'HALOTEL', countryCode: '+255', country: 'Tanzania', flag: '🇹🇿', currency: 'TZS', color: 'bg-orange-500', textColor: 'text-white' },
+  // Kenya (+254) - KES — MPESA_KEN only
+  { id: 'mpesa_ken', name: 'M-Pesa', shortName: 'M-Pesa', provider: 'MPESA', countryCode: '+254', country: 'Kenya', flag: '🇰🇪', currency: 'KES', color: 'bg-green-500', textColor: 'text-white' },
   
-  // Uganda (+256) - UGX
+  // Uganda (+256) - UGX — MTN_MOMO_UGA, AIRTEL_OAPI_UGA
   { id: 'mtn_uga', name: 'MTN Mobile Money', shortName: 'MTN', provider: 'MTN', countryCode: '+256', country: 'Uganda', flag: '🇺🇬', currency: 'UGX', color: 'bg-yellow-400', textColor: 'text-black' },
   { id: 'airtel_uga', name: 'Airtel Money', shortName: 'Airtel', provider: 'AIRTEL', countryCode: '+256', country: 'Uganda', flag: '🇺🇬', currency: 'UGX', color: 'bg-red-500', textColor: 'text-white' },
   
-  // Kenya (+254) - KES
-  { id: 'mpesa_ken', name: 'M-Pesa', shortName: 'M-Pesa', provider: 'MPESA', countryCode: '+254', country: 'Kenya', flag: '🇰🇪', currency: 'KES', color: 'bg-green-500', textColor: 'text-white' },
-  { id: 'airtel_ken', name: 'Airtel Money', shortName: 'Airtel', provider: 'AIRTEL', countryCode: '+254', country: 'Kenya', flag: '🇰🇪', currency: 'KES', color: 'bg-red-500', textColor: 'text-white' },
-  
-  // Zambia (+260) - ZMW
+  // Zambia (+260) - ZMW — MTN_MOMO_ZMB, ZAMTEL_ZMB
   { id: 'mtn_zmb', name: 'MTN Mobile Money', shortName: 'MTN', provider: 'MTN', countryCode: '+260', country: 'Zambia', flag: '🇿🇲', currency: 'ZMW', color: 'bg-yellow-400', textColor: 'text-black' },
-  { id: 'airtel_zmb', name: 'Airtel Money', shortName: 'Airtel', provider: 'AIRTEL', countryCode: '+260', country: 'Zambia', flag: '🇿🇲', currency: 'ZMW', color: 'bg-red-500', textColor: 'text-white' },
   { id: 'zamtel_zmb', name: 'Zamtel Money', shortName: 'Zamtel', provider: 'ZAMTEL', countryCode: '+260', country: 'Zambia', flag: '🇿🇲', currency: 'ZMW', color: 'bg-green-600', textColor: 'text-white' },
 ];
 
