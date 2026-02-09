@@ -351,12 +351,10 @@ export default function PropertyDetails() {
 
   const displayMoney = useCallback(
     (amount: number, fromCurrency: string | null) => {
-      const from = String(fromCurrency ?? preferredCurrency ?? "USD");
-      const to = String(preferredCurrency ?? from);
-      const converted = convertAmount(Number(amount ?? 0), from, to, usdRates);
-      return formatMoney(converted == null ? Number(amount ?? 0) : converted, to);
+      const code = String(fromCurrency ?? "RWF");
+      return formatMoney(Number(amount ?? 0), code);
     },
-    [preferredCurrency, usdRates]
+    []
   );
 
   const openViewer = (idx: number) => {

@@ -73,10 +73,8 @@ const Transport = () => {
   const { usdRates } = useFxRates();
 
   const displayMoney = (amount: number, fromCurrency: string | null) => {
-    const from = String(fromCurrency ?? preferredCurrency ?? "USD");
-    const to = String(preferredCurrency ?? from);
-    const converted = convertAmount(Number(amount ?? 0), from, to, usdRates);
-    return formatMoney(converted == null ? Number(amount ?? 0) : converted, to);
+    const code = String(fromCurrency ?? "USD");
+    return formatMoney(Number(amount ?? 0), code);
   };
 
   useEffect(() => {

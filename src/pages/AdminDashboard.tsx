@@ -1743,7 +1743,15 @@ Number of ${itemType === 'property' ? 'Guests' : 'Participants'}: ${booking.gues
 
 PAYMENT DETAILS
 ---------------
-Total Amount: ${booking.currency} ${booking.total_price}
+Total Amount: ${
+  booking.booking_type === 'property' && booking.properties?.currency
+    ? booking.properties.currency
+    : booking.booking_type === 'tour' && booking.tour_packages?.currency
+      ? booking.tour_packages.currency
+      : booking.booking_type === 'transport' && booking.transport_vehicles?.currency
+        ? booking.transport_vehicles.currency
+        : booking.currency
+} ${booking.total_price}
 Payment Method: ${booking.payment_method || 'Pending'}
 Payment Status: ${booking.payment_status || 'N/A'}
 Booking Status: ${booking.status}
@@ -4495,7 +4503,19 @@ For support, contact: support@merry360x.com
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-muted-foreground">Total Amount</p>
-                      <p className="text-lg font-bold">{formatMoney(selectedBooking.total_price, selectedBooking.currency || 'RWF')}</p>
+                      <p className="text-lg font-bold">
+                        {formatMoney(
+                          selectedBooking.total_price,
+                          // Prefer the listing's original currency when available
+                          selectedBooking.booking_type === "property" && selectedBooking.properties?.currency
+                            ? selectedBooking.properties.currency
+                            : selectedBooking.booking_type === "tour" && selectedBooking.tour_packages?.currency
+                              ? selectedBooking.tour_packages.currency
+                              : selectedBooking.booking_type === "transport" && selectedBooking.transport_vehicles?.currency
+                                ? selectedBooking.transport_vehicles.currency
+                                : selectedBooking.currency || "RWF"
+                        )}
+                      </p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Payment Method</p>

@@ -8,9 +8,9 @@ import ListingImageCarousel from "@/components/ListingImageCarousel";
 import { OptimizedImage } from "@/components/OptimizedImage";
 import { useFavorites } from "@/hooks/useFavorites";
 import { usePreferences } from "@/hooks/usePreferences";
-import { useFxRates } from "@/hooks/useFxRates";
+// Removed unused import
 import { extractNeighborhood } from "@/lib/location";
-import { formatMoneyWithConversion } from "@/lib/money";
+import { formatMoney } from "@/lib/money";
 
 export interface PropertyCardProps {
   id?: string;
@@ -66,7 +66,7 @@ const PropertyCard = ({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { currency: preferredCurrency } = usePreferences();
-  const { usdRates } = useFxRates();
+  // Removed unused variable
   const { toggleFavorite, checkFavorite } = useFavorites();
   const [fav, setFav] = useState(Boolean(isFavorited));
 
@@ -255,14 +255,14 @@ const PropertyCard = ({
         <div className="space-y-0.5 md:space-y-1">
           <div className="flex items-baseline gap-0.5 md:gap-1">
             <span className="text-[10px] md:text-lg font-bold text-foreground">
-              {formatMoneyWithConversion(price, originalCurrency, preferredCurrency, usdRates)}
+              {formatMoney(price, originalCurrency || "RWF")}
             </span>
             <span className="text-[8px] md:text-sm text-muted-foreground">{t("common.perNight")}</span>
           </div>
           {pricePerPerson && pricePerPerson > 0 ? (
             <div className="hidden md:flex items-baseline gap-1">
               <span className="text-sm font-semibold text-foreground">
-                {formatMoneyWithConversion(pricePerPerson, originalCurrency, preferredCurrency, usdRates)}
+                {formatMoney(pricePerPerson, originalCurrency || "RWF")}
               </span>
               <span className="text-xs text-muted-foreground">per person</span>
             </div>

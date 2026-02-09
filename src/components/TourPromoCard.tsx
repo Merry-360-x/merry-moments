@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import ListingImageCarousel from "@/components/ListingImageCarousel";
 import { extractNeighborhood } from "@/lib/location";
-import { formatMoneyWithConversion } from "@/lib/money";
+import { formatMoney } from "@/lib/money";
 import { Button } from "@/components/ui/button";
 import { useTripCart } from "@/hooks/useTripCart";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -31,7 +31,7 @@ export default function TourPromoCard(props: TourPromoCardProps) {
   const { usdRates } = useFxRates();
   const gallery = (props.images ?? []).filter(Boolean);
   const from = String(props.currency ?? preferredCurrency ?? "RWF");
-  const displayPrice = formatMoneyWithConversion(Number(props.price ?? 0), from, preferredCurrency, usdRates);
+  const displayPrice = formatMoney(Number(props.price ?? 0), from);
   // Determine item type - use source if provided, default to 'tour'
   const itemType = props.source === 'tour_packages' ? 'tour_package' : 'tour';
   
