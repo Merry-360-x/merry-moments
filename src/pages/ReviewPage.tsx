@@ -4,8 +4,8 @@ import { Star, CheckCircle, Loader2, AlertCircle, MapPin } from "lucide-react";
 
 /** Standalone review page — no login required, token-based.
  *  URL: /review/:token?rating=3
- *  Fetches booking info from GET /api/submit-review?token=...
- *  Submits review via POST /api/submit-review
+ *  Fetches booking info from GET /api/review?token=...
+ *  Submits review via POST /api/review
  */
 export default function ReviewPage() {
   const { token } = useParams<{ token: string }>();
@@ -38,7 +38,7 @@ export default function ReviewPage() {
       setLoading(false);
       return;
     }
-    fetch(`/api/submit-review?token=${encodeURIComponent(token)}`)
+    fetch(`/api/review?token=${encodeURIComponent(token)}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.error) {
@@ -57,7 +57,7 @@ export default function ReviewPage() {
     if (accRating < 1) return;
     setSubmitting(true);
     try {
-      const resp = await fetch("/api/submit-review", {
+      const resp = await fetch("/api/review", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

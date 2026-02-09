@@ -1,6 +1,6 @@
-// Cron endpoint: sends review request emails on checkout day
-// Triggered by Vercel Cron or manually via POST
-// Finds all bookings where check_out = today and review_email_sent = false
+// Unified review API — combines submit, send-email, and cron functionality
+// Routes based on query param: ?action=submit-review | send-email | send-emails
+// Default: submit-review (GET fetches booking info, POST submits review)
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -13,30 +13,240 @@ function json(res, status, body) {
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   res.end(JSON.stringify(body));
 }
 
 function formatDate(dateStr) {
   if (!dateStr) return "";
   const date = new Date(dateStr);
-  return date.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
+  return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
 
+// ─── Main handler ────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
-  // Accept GET (for Vercel Cron) and POST
-  if (req.method !== "GET" && req.method !== "POST") {
-    return json(res, 405, { error: "Method not allowed" });
+  if (req.method === "OPTIONS") return json(res, 200, { ok: true });
+
+  const action = req.query.action || "submit-review";
+
+  switch (action) {
+    case "send-emails":
+      return handleSendEmails(req, res);
+    case "send-email":
+      return handleSendEmail(req, res);
+    default:
+      return handleSubmitReview(req, res);
+  }
+}
+
+// ─── 1. Submit Review (GET = fetch booking, POST = submit) ───────────────────
+async function handleSubmitReview(req, res) {
+  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+  // GET: Fetch booking info by token
+  if (req.method === "GET") {
+    const token = req.query.token;
+    if (!token) return json(res, 400, { error: "Missing token" });
+
+    const { data: booking, error } = await supabase
+      .from("bookings")
+      .select("id, property_id, tour_id, transport_id, booking_type, check_in, check_out, guest_name, guest_email, total_price, currency, status, review_token")
+      .eq("review_token", token)
+      .single();
+
+    if (error || !booking) {
+      return json(res, 404, { error: "Booking not found or invalid token" });
+    }
+
+    // Check if already reviewed
+    const { data: existingReview } = await supabase
+      .from("property_reviews")
+      .select("id")
+      .eq("booking_id", booking.id)
+      .limit(1);
+
+    if (existingReview && existingReview.length > 0) {
+      return json(res, 200, { alreadyReviewed: true, booking: { id: booking.id } });
+    }
+
+    // Fetch property/tour details
+    let itemTitle = "Your Stay";
+    let itemImage = null;
+    let itemLocation = null;
+
+    if (booking.property_id) {
+      const { data: prop } = await supabase
+        .from("properties")
+        .select("title, location, main_image, images")
+        .eq("id", booking.property_id)
+        .single();
+      if (prop) {
+        itemTitle = prop.title;
+        itemLocation = prop.location;
+        itemImage = prop.main_image || (prop.images && prop.images[0]) || null;
+      }
+    } else if (booking.tour_id) {
+      const { data: tour } = await supabase
+        .from("tours")
+        .select("title, location, images")
+        .eq("id", booking.tour_id)
+        .single();
+      if (tour) {
+        itemTitle = tour.title;
+        itemLocation = tour.location;
+        itemImage = tour.images && tour.images[0];
+      }
+    }
+
+    return json(res, 200, {
+      booking: {
+        id: booking.id,
+        checkIn: booking.check_in,
+        checkOut: booking.check_out,
+        guestName: booking.guest_name,
+        bookingType: booking.booking_type || "property",
+      },
+      item: { title: itemTitle, location: itemLocation, image: itemImage },
+      alreadyReviewed: false,
+    });
   }
 
-  // Optional: verify cron secret
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && req.headers.authorization !== `Bearer ${cronSecret}`) {
-    // Allow without auth for now, but log warning
-    console.log("⚠️ No cron secret match, proceeding anyway");
+  // POST: Submit a review
+  if (req.method !== "POST") return json(res, 405, { error: "Method not allowed" });
+
+  try {
+    const { token, accommodationRating, accommodationComment, serviceRating, serviceComment } = req.body;
+
+    if (!token) return json(res, 400, { error: "Missing token" });
+    if (!accommodationRating || accommodationRating < 1 || accommodationRating > 5) {
+      return json(res, 400, { error: "Accommodation rating must be 1-5" });
+    }
+    if (serviceRating && (serviceRating < 1 || serviceRating > 5)) {
+      return json(res, 400, { error: "Service rating must be 1-5" });
+    }
+
+    const { data: booking, error: bookingErr } = await supabase
+      .from("bookings")
+      .select("id, guest_id, property_id, tour_id, transport_id, status, check_out, review_token")
+      .eq("review_token", token)
+      .single();
+
+    if (bookingErr || !booking) {
+      return json(res, 404, { error: "Invalid or expired review link" });
+    }
+
+    if (booking.status !== "confirmed") {
+      return json(res, 400, { error: "Booking is not eligible for review" });
+    }
+
+    const checkOutDate = new Date(booking.check_out);
+    if (checkOutDate > new Date()) {
+      return json(res, 400, { error: "You can only review after check-out" });
+    }
+
+    const { data: existing } = await supabase
+      .from("property_reviews")
+      .select("id")
+      .eq("booking_id", booking.id)
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      return json(res, 409, { error: "You have already reviewed this booking" });
+    }
+
+    const reviewData = {
+      booking_id: booking.id,
+      property_id: booking.property_id || booking.tour_id || booking.transport_id,
+      reviewer_id: booking.guest_id,
+      rating: accommodationRating,
+      comment: accommodationComment?.trim() || null,
+      service_rating: serviceRating || null,
+      service_comment: serviceComment?.trim() || null,
+    };
+
+    const { error: insertErr } = await supabase.from("property_reviews").insert(reviewData);
+
+    if (insertErr) {
+      console.error("❌ Review insert error:", insertErr);
+      return json(res, 500, { error: "Failed to save review" });
+    }
+
+    // Regenerate token (one-time use)
+    await supabase
+      .from("bookings")
+      .update({ review_token: crypto.randomUUID() })
+      .eq("id", booking.id);
+
+    console.log(`✅ Review submitted for booking ${booking.id.slice(0, 8)} via email token`);
+    return json(res, 200, { ok: true, message: "Review submitted successfully" });
+  } catch (error) {
+    console.error("❌ Review submission error:", error.message);
+    return json(res, 500, { error: error.message });
+  }
+}
+
+// ─── 2. Send single review email ────────────────────────────────────────────
+async function handleSendEmail(req, res) {
+  if (req.method !== "POST") return json(res, 405, { error: "Method not allowed" });
+
+  if (!BREVO_API_KEY) {
+    return json(res, 200, { ok: true, skipped: true, reason: "No Brevo API key" });
+  }
+
+  try {
+    const { guestName, guestEmail, propertyTitle, propertyImage, location, checkIn, checkOut, reviewToken } = req.body;
+
+    if (!guestEmail || !reviewToken) {
+      return json(res, 400, { error: "Missing required fields (guestEmail, reviewToken)" });
+    }
+
+    const reviewUrl = `${SITE_URL}/review/${reviewToken}`;
+
+    const html = generateReviewEmailHtml({
+      guestName,
+      propertyTitle,
+      propertyImage,
+      location,
+      checkIn: formatDate(checkIn),
+      checkOut: formatDate(checkOut),
+      reviewUrl,
+    });
+
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "api-key": BREVO_API_KEY,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        sender: { name: "Merry Moments", email: "davydushimiyimana@gmail.com" },
+        to: [{ email: guestEmail, name: guestName || "Guest" }],
+        subject: `⭐ How was your stay at ${propertyTitle || "your accommodation"}?`,
+        htmlContent: html,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (response.ok) {
+      console.log(`📧 Review email sent to ${guestEmail} (token: ${reviewToken.slice(0, 8)}...)`);
+      return json(res, 200, { ok: true, messageId: result.messageId });
+    } else {
+      console.error("❌ Brevo API error:", result);
+      return json(res, 500, { error: "Failed to send email", details: result });
+    }
+  } catch (error) {
+    console.error("❌ Review email error:", error.message);
+    return json(res, 500, { error: error.message });
+  }
+}
+
+// ─── 3. Cron: Send review emails for today's checkouts ──────────────────────
+async function handleSendEmails(req, res) {
+  if (req.method !== "GET" && req.method !== "POST") {
+    return json(res, 405, { error: "Method not allowed" });
   }
 
   if (!BREVO_API_KEY || !SUPABASE_URL || !SERVICE_ROLE_KEY) {
@@ -46,12 +256,9 @@ export default async function handler(req, res) {
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
   try {
-    // Get today's date in YYYY-MM-DD format
     const today = new Date().toISOString().split("T")[0];
-    
     console.log(`🔍 Looking for bookings with check_out = ${today}...`);
 
-    // Find confirmed bookings checking out today that haven't had review email sent
     const { data: bookings, error: fetchErr } = await supabase
       .from("bookings")
       .select("id, guest_id, guest_name, guest_email, property_id, tour_id, transport_id, booking_type, check_in, check_out, review_token, review_email_sent")
@@ -76,7 +283,6 @@ export default async function handler(req, res) {
 
     for (const booking of bookings) {
       try {
-        // Get guest email - from booking or profile
         let email = booking.guest_email;
         let name = booking.guest_name;
 
@@ -87,8 +293,6 @@ export default async function handler(req, res) {
             .eq("user_id", booking.guest_id)
             .single();
           if (profile) name = name || profile.full_name;
-
-          // Try auth.users for email
           const { data: authUser } = await supabase.auth.admin.getUserById(booking.guest_id);
           if (authUser?.user?.email) email = authUser.user.email;
         }
@@ -98,7 +302,6 @@ export default async function handler(req, res) {
           continue;
         }
 
-        // Get property/tour details
         let itemTitle = "Your Stay";
         let itemImage = null;
         let itemLocation = null;
@@ -127,32 +330,14 @@ export default async function handler(req, res) {
           }
         }
 
-        // Ensure review_token exists
         let reviewToken = booking.review_token;
         if (!reviewToken) {
           reviewToken = crypto.randomUUID();
-          await supabase
-            .from("bookings")
-            .update({ review_token: reviewToken })
-            .eq("id", booking.id);
+          await supabase.from("bookings").update({ review_token: reviewToken }).eq("id", booking.id);
         }
 
-        // Send review email via the review-email endpoint
-        const reviewEmailPayload = {
-          guestName: name,
-          guestEmail: email,
-          propertyTitle: itemTitle,
-          propertyImage: itemImage,
-          location: itemLocation,
-          checkIn: booking.check_in,
-          checkOut: booking.check_out,
-          reviewToken: reviewToken,
-        };
-
-        // Call the review-email API directly (since we're on the same server)
         const reviewUrl = `${SITE_URL}/review/${reviewToken}`;
-        
-        // Send directly via Brevo to avoid circular API calls
+
         const response = await fetch("https://api.brevo.com/v3/smtp/email", {
           method: "POST",
           headers: {
@@ -177,12 +362,7 @@ export default async function handler(req, res) {
         });
 
         if (response.ok) {
-          // Mark as sent
-          await supabase
-            .from("bookings")
-            .update({ review_email_sent: true })
-            .eq("id", booking.id);
-
+          await supabase.from("bookings").update({ review_email_sent: true }).eq("id", booking.id);
           sent++;
           console.log(`  ✅ Review email sent to ${email} for booking ${booking.id.slice(0, 8)}`);
         } else {
@@ -204,7 +384,7 @@ export default async function handler(req, res) {
   }
 }
 
-// Inline the email template to avoid circular deps
+// ─── Email template ─────────────────────────────────────────────────────────
 function generateReviewEmailHtml({ guestName, propertyTitle, propertyImage, location, checkIn, checkOut, reviewUrl }) {
   const logoUrl = "https://merry360x.com/brand/logo.png";
   const primaryColor = "#E64980";
@@ -240,8 +420,7 @@ function generateReviewEmailHtml({ guestName, propertyTitle, propertyImage, loca
             <td style="padding: 0 40px 20px;">
               <img src="${propertyImage}" alt="${propertyTitle}" style="width: 100%; height: 160px; object-fit: cover; border-radius: 12px;" />
             </td>
-          </tr>
-          ` : ""}
+          </tr>` : ""}
           <tr>
             <td style="padding: 0 40px 24px; text-align: center;">
               <h2 style="margin: 0 0 6px; color: #1f2937; font-size: 18px; font-weight: 600;">${propertyTitle || "Your Stay"}</h2>
@@ -281,6 +460,7 @@ function generateReviewEmailHtml({ guestName, propertyTitle, propertyImage, loca
             <td style="padding: 24px 40px; background-color: #fafafa; text-align: center;">
               <p style="margin: 0 0 8px; color: #6b7280; font-size: 13px;">Your feedback helps other travelers and our hosts improve.</p>
               <p style="margin: 0; color: #9ca3af; font-size: 12px;">Merry Moments · Book local. Travel better.</p>
+              <p style="margin: 8px 0 0; color: #9ca3af; font-size: 11px;"><a href="${SITE_URL}" style="color: #9ca3af; text-decoration: none;">merry360x.com</a></p>
             </td>
           </tr>
         </table>

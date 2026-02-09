@@ -8,7 +8,7 @@
   ],
   "crons": [
     {
-      "path": "/api/send-review-emails",
+      "path": "/api/review?action=send-emails",
       "schedule": "0 10 * * *"
     }
   ]
