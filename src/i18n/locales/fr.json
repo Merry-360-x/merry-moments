@@ -340,5 +340,125 @@
     "addDates": "Ajoutez des dates pour continuer",
     "saveDates": "Enregistrer les dates",
     "checkIn": "Arrivée",
-    "checkOut": "Départ"  }
+    "checkOut": "Départ"
+  },
+  "propertyDetails": {
+    "aboutThisPlace": "À propos de ce lieu",
+    "amenities": "Équipements",
+    "houseRules": "Règlement intérieur",
+    "checkInLabel": "Arrivée",
+    "checkOutLabel": "Départ",
+    "smokingLabel": "Fumeur",
+    "eventsLabel": "Événements",
+    "maxGuestsLabel": "Max voyageurs",
+    "petsLabel": "Animaux",
+    "cancellationTitle": "Politique d'annulation et de remboursement",
+    "bookThisStay": "Réserver ce séjour",
+    "checkIn": "Arrivée",
+    "checkOut": "Départ",
+    "pickADate": "Choisir une date",
+    "inTripCart": "Dans le panier",
+    "addToTripCart": "Ajouter au panier",
+    "checkoutTrip": "Payer le voyage",
+    "addStayToCart": "Ajouter le séjour au panier",
+    "reviews": "Avis",
+    "viewAll": "Voir tout",
+    "description": "Description",
+    "morePhotos": "Plus de photos",
+    "toursAndTransport": "Circuits & Transport",
+    "viewTours": "Voir les circuits",
+    "viewTransport": "Voir le transport",
+    "availableTours": "Circuits disponibles",
+    "noToursFound": "Aucun circuit trouvé.",
+    "transportVehicles": "Véhicules de transport",
+    "noTransportFound": "Aucun véhicule de transport trouvé.",
+    "unavailableDates": "Dates indisponibles :",
+    "selectValidDates": "Sélectionnez des dates valides pour voir le total.",
+    "yes": "Oui",
+    "no": "Non"
+  },
+  "services": {
+    "heroTitle": "Nos services complets",
+    "heroSubtitle": "Tout ce dont vous avez besoin pour un voyage inoubliable au Rwanda",
+    "whatWeOffer": "Ce que nous offrons",
+    "accommodation": {
+      "title": "Réservation d'hébergement",
+      "desc": "Des hôtels de luxe aux maisons d'hôtes, trouvez votre séjour idéal au Rwanda."
+    },
+    "tours": {
+      "title": "Circuits & Expériences",
+      "desc": "Découvrez les merveilles naturelles du Rwanda avec des visites guidées."
+    },
+    "transport": {
+      "title": "Services de transport",
+      "desc": "Solutions de voyage sûres et confortables à travers le pays."
+    }
+  },
+  "stories": {
+    "title": "Récits de voyage",
+    "yourStory": "Votre histoire",
+    "signInToPost": "Connectez-vous pour publier",
+    "emptyTitle": "Pas encore d'histoires",
+    "emptySubtitle": "Soyez le premier à partager un moment de voyage.",
+    "createTitle": "Créer votre histoire",
+    "createDesc": "Partagez vos moments et expériences de voyage",
+    "location": "Lieu",
+    "caption": "Légende *",
+    "media": "Média (Image ou Vidéo) *",
+    "postStory": "Publier",
+    "posting": "Publication...",
+    "comments": "Commentaires",
+    "noCommentsYet": "Pas encore de commentaires. Soyez le premier !",
+    "postComment": "Publier",
+    "tapToView": "Appuyez pour voir"
+  },
+  "bookingSuccess": {
+    "received": "Réservation reçue !",
+    "confirmed": "Réservation confirmée !",
+    "orderConfirmed": "Commande confirmée !",
+    "paymentSuccess": "Paiement réussi",
+    "confirmationEmail": "Vous recevrez un e-mail de confirmation sous peu.",
+    "needHelp": "Besoin d'aide ?",
+    "callSupport": "Appeler le support",
+    "emailSupport": "Support par e-mail",
+    "backHome": "Retour à l'accueil",
+    "cardPayment": "Paiement par carte",
+    "bankTransfer": "Virement bancaire",
+    "callIn5": "Appel dans 5 min",
+    "willCall": "Nous vous appellerons pour finaliser votre paiement",
+    "contactUs": "Contactez-nous directement"
+  },
+  "search": {
+    "results": "Résultats de recherche",
+    "resultsFor": "Résultats pour \"{{query}}\"",
+    "noResults": "Aucun résultat trouvé",
+    "noResultsHint": "Essayez d'ajuster votre recherche ou vos filtres",
+    "clearFilters": "Effacer les filtres",
+    "clearAll": "Tout effacer",
+    "filters": "Filtres",
+    "sortBy": "Trier par",
+    "priceRange": "Fourchette de prix",
+    "minRating": "Note minimale",
+    "category": "Catégorie",
+    "allCategories": "Toutes les catégories",
+    "applyFilters": "Appliquer les filtres",
+    "sort": {
+      "relevance": "Pertinence",
+      "priceLow": "Prix : croissant",
+      "priceHigh": "Prix : décroissant",
+      "highestRated": "Mieux notés"
+    },
+    "rating": {
+      "any": "Toute note",
+      "three": "3+ étoiles",
+      "four": "4+ étoiles",
+      "fourHalf": "4.5+ étoiles"
+    },
+    "tab": {
+      "all": "Tout",
+      "accommodations": "Hébergements",
+      "tours": "Circuits & Forfaits",
+      "transport": "Transport"
+    }
+  }
 }

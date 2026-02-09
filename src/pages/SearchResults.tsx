@@ -166,7 +166,7 @@ export default function SearchResults() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold">
-              {query ? `Search results for "${query}"` : 'Search Results'}
+              {query ? t("search.resultsFor", { query }) : t("search.results")}
             </h1>
             {!isLoading && (
               <p className="text-muted-foreground mt-1">
@@ -182,10 +182,10 @@ export default function SearchResults() {
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="relevance">Relevance</SelectItem>
-                <SelectItem value="price-low">Price: Low to High</SelectItem>
-                <SelectItem value="price-high">Price: High to Low</SelectItem>
-                <SelectItem value="rating">Highest Rated</SelectItem>
+                <SelectItem value="relevance">{t("search.sort.relevance")}</SelectItem>
+                <SelectItem value="price-low">{t("search.sort.priceLow")}</SelectItem>
+                <SelectItem value="price-high">{t("search.sort.priceHigh")}</SelectItem>
+                <SelectItem value="rating">{t("search.sort.highestRated")}</SelectItem>
               </SelectContent>
             </Select>
 
@@ -196,7 +196,7 @@ export default function SearchResults() {
               className="gap-2"
             >
               <SlidersHorizontal className="w-4 h-4" />
-              Filters
+              {t("search.filters")}
             </Button>
           </div>
         </div>
@@ -205,16 +205,16 @@ export default function SearchResults() {
         {showFilters && (
           <div className="bg-muted/50 rounded-lg p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">Filters</h3>
+              <h3 className="font-semibold">{t("search.filters")}</h3>
               <Button variant="ghost" size="sm" onClick={clearFilters}>
-                Clear all
+                {t("search.clearAll")}
               </Button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Price range */}
               <div>
-                <Label className="mb-3 block">Price Range (USD)</Label>
+                <Label className="mb-3 block">{t("search.priceRange")} (USD)</Label>
                 <Slider
                   value={priceRange}
                   onValueChange={setPriceRange}
@@ -231,29 +231,29 @@ export default function SearchResults() {
 
               {/* Rating */}
               <div>
-                <Label className="mb-3 block">Minimum Rating</Label>
+                <Label className="mb-3 block">{t("search.minRating")}</Label>
                 <Select value={rating.toString()} onValueChange={(v) => setRating(parseFloat(v))}>
                   <SelectTrigger>
                     <SelectValue placeholder="Any rating" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="0">Any rating</SelectItem>
-                    <SelectItem value="3">3+ stars</SelectItem>
-                    <SelectItem value="4">4+ stars</SelectItem>
-                    <SelectItem value="4.5">4.5+ stars</SelectItem>
+                    <SelectItem value="0">{t("search.rating.any")}</SelectItem>
+                    <SelectItem value="3">{t("search.rating.three")}</SelectItem>
+                    <SelectItem value="4">{t("search.rating.four")}</SelectItem>
+                    <SelectItem value="4.5">{t("search.rating.fourHalf")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               {/* Category */}
               <div>
-                <Label className="mb-3 block">Category</Label>
+                <Label className="mb-3 block">{t("search.category")}</Label>
                 <Select value={category} onValueChange={setCategory}>
                   <SelectTrigger>
                     <SelectValue placeholder="All categories" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All categories</SelectItem>
+                    <SelectItem value="">{t("search.allCategories")}</SelectItem>
                     <SelectItem value="Villa">Villa</SelectItem>
                     <SelectItem value="Apartment">Apartment</SelectItem>
                     <SelectItem value="Hotel">Hotel</SelectItem>
@@ -266,7 +266,7 @@ export default function SearchResults() {
             </div>
 
             <Button onClick={performSearch} className="mt-4">
-              Apply Filters
+              {t("search.applyFilters")}
             </Button>
           </div>
         )}
@@ -282,10 +282,10 @@ export default function SearchResults() {
         {!isLoading && results.length > 0 && (
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="mb-6">
-              <TabsTrigger value="all">All ({results.length})</TabsTrigger>
-              <TabsTrigger value="properties">Accommodations ({properties.length})</TabsTrigger>
-              <TabsTrigger value="tours">Tours & Packages ({tours.length})</TabsTrigger>
-              <TabsTrigger value="transport">Transport ({transport.length})</TabsTrigger>
+              <TabsTrigger value="all">{t("search.tab.all")} ({results.length})</TabsTrigger>
+              <TabsTrigger value="properties">{t("search.tab.accommodations")} ({properties.length})</TabsTrigger>
+              <TabsTrigger value="tours">{t("search.tab.tours")} ({tours.length})</TabsTrigger>
+              <TabsTrigger value="transport">{t("search.tab.transport")} ({transport.length})</TabsTrigger>
             </TabsList>
 
             <TabsContent value="all" className="space-y-6">
@@ -333,12 +333,12 @@ export default function SearchResults() {
         {/* No results */}
         {!isLoading && results.length === 0 && query && (
           <div className="text-center py-20">
-            <h3 className="text-xl font-semibold mb-2">No results found</h3>
+            <h3 className="text-xl font-semibold mb-2">{t("search.noResults")}</h3>
             <p className="text-muted-foreground mb-6">
-              Try adjusting your search or filters
+              {t("search.noResultsHint")}
             </p>
             <Button onClick={clearFilters} variant="outline">
-              Clear Filters
+              {t("search.clearFilters")}
             </Button>
           </div>
         )}

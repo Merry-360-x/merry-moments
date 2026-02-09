@@ -2,6 +2,7 @@ import { Plus, MapPin, Heart, MessageCircle, Clock } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTranslation } from "react-i18next";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -15,6 +16,7 @@ import { useMemo, useState, useEffect } from "react";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 
 const Stories = () => {
+  const { t } = useTranslation();
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -375,7 +377,8 @@ const Stories = () => {
   };
 
   const heroSubtitle = useMemo(
-    () => (canPost ? "Share your moments and inspire other travelers." : "Read real traveler stories."),
+    () => (canPost ? t("stories.createDesc") : t("stories.title")),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [canPost]
   );
 
@@ -413,7 +416,7 @@ const Stories = () => {
       {/* Hero */}
       <section className="bg-gradient-primary py-12 px-4 lg:px-8">
         <div className="container mx-auto">
-          <h1 className="text-2xl lg:text-3xl font-bold text-primary-foreground mb-6">Travel Stories</h1>
+          <h1 className="text-2xl lg:text-3xl font-bold text-primary-foreground mb-6">{t("stories.title")}</h1>
           <p className="text-primary-foreground/90 mb-6">{heroSubtitle}</p>
 
           {/* Stories row (Instagram-style) */}
@@ -427,7 +430,7 @@ const Stories = () => {
               <div className="w-16 h-16 rounded-full bg-primary-foreground flex items-center justify-center group-hover:scale-105 transition-transform">
                 <Plus className="w-6 h-6 text-primary" />
               </div>
-              <span className="text-sm text-primary-foreground">{canPost ? "Your Story" : "Sign in to post"}</span>
+              <span className="text-sm text-primary-foreground">{canPost ? t("stories.yourStory") : t("stories.signInToPost")}</span>
             </button>
 
             {stories.slice(0, 12).map((s) => {
@@ -800,12 +803,12 @@ const Stories = () => {
       <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Create Your Story</DialogTitle>
-            <DialogDescription>Share your travel moments and experiences</DialogDescription>
+            <DialogTitle>{t("stories.createTitle")}</DialogTitle>
+            <DialogDescription>{t("stories.createDesc")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="storyLocation">Location</Label>
+              <Label htmlFor="storyLocation">{t("stories.location")}</Label>
               <Input 
                 id="storyLocation" 
                 value={location} 
@@ -814,7 +817,7 @@ const Stories = () => {
               />
             </div>
             <div>
-              <Label htmlFor="storyBody">Caption *</Label>
+              <Label htmlFor="storyBody">{t("stories.caption")}</Label>
               <Textarea 
                 id="storyBody" 
                 value={body} 
@@ -824,7 +827,7 @@ const Stories = () => {
               />
             </div>
             <div>
-              <Label>Media (Image or Video) *</Label>
+              <Label>{t("stories.media")}</Label>
               <div className="mt-2">
                 <CloudinaryUploadDialog
                   title="Upload story media"
@@ -851,7 +854,7 @@ const Stories = () => {
                 Cancel
               </Button>
               <Button onClick={submit} disabled={saving || !mediaUrl || !body.trim()}>
-                {saving ? "Posting..." : "Post Story"}
+                {saving ? t("stories.posting") : t("stories.postStory")}
               </Button>
             </div>
           </div>
@@ -867,7 +870,7 @@ const Stories = () => {
               <div className="flex items-center gap-3">
                 <MessageCircle className="w-5 h-5" />
                 <div>
-                  <h3 className="font-semibold">Comments</h3>
+                  <h3 className="font-semibold">{t("stories.comments")}</h3>
                   <p className="text-xs text-white/80">
                     {floatingCommentsData.length} {floatingCommentsData.length === 1 ? 'comment' : 'comments'}
                   </p>

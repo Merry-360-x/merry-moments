@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Card } from "@/components/ui/card";
@@ -7,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle, Phone, Home, Mail, MessageCircle, Clock, CreditCard, Building2 } from "lucide-react";
 
 export default function BookingSuccess() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const mode = params.get("mode") || "booking";
@@ -39,10 +41,10 @@ export default function BookingSuccess() {
 
             <h1 className="text-lg md:text-xl font-semibold text-foreground mb-1 md:mb-2">
               {isManualPayment 
-                ? "Booking Received!" 
+                ? t("bookingSuccess.received") 
                 : mode === "booking" 
-                  ? "Booking Confirmed!" 
-                  : "Order Confirmed!"}
+                  ? t("bookingSuccess.confirmed") 
+                  : t("bookingSuccess.orderConfirmed")}
             </h1>
 
             <p className="text-xs md:text-sm text-muted-foreground mb-4 md:mb-6">
@@ -63,23 +65,23 @@ export default function BookingSuccess() {
                       <Building2 className="h-4 w-4 md:h-5 md:w-5 text-amber-600 dark:text-amber-400" />
                     )}
                     <p className="text-xs md:text-sm font-semibold text-amber-900 dark:text-amber-100">
-                      {method === 'card' ? 'Card Payment' : 'Bank Transfer'}
+                      {method === 'card' ? t("bookingSuccess.cardPayment") : t("bookingSuccess.bankTransfer")}
                     </p>
                   </div>
                   <div className="bg-amber-100 dark:bg-amber-900/40 rounded-lg p-2.5 md:p-3 mb-2 md:mb-3">
                     <p className="text-lg md:text-2xl font-bold text-amber-800 dark:text-amber-200 flex items-center justify-center gap-2">
                       <Clock className="h-4 w-4 md:h-5 md:w-5" />
-                      Call in 5 min
+                      {t("bookingSuccess.callIn5")}
                     </p>
                   </div>
                   <p className="text-[10px] md:text-xs text-amber-700 dark:text-amber-300">
-                    We'll call to complete your payment
+                    {t("bookingSuccess.willCall")}
                   </p>
                 </div>
 
                 <div className="bg-muted/50 rounded-lg p-3 md:p-4 mb-4 md:mb-6">
                   <h3 className="text-xs md:text-sm font-semibold text-foreground mb-2 md:mb-3">
-                    Contact us directly
+                    {t("bookingSuccess.contactUs")}
                   </h3>
                   <div className="space-y-2 md:space-y-3">
                     <a
@@ -90,7 +92,7 @@ export default function BookingSuccess() {
                         <Phone className="h-4 w-4 md:h-5 md:w-5 text-green-600 dark:text-green-400" />
                       </div>
                       <div className="text-left">
-                        <div className="font-medium text-xs md:text-sm">Call Support</div>
+                        <div className="font-medium text-xs md:text-sm">{t("bookingSuccess.callSupport")}</div>
                         <div className="text-xs text-muted-foreground">+250 796 214 719</div>
                       </div>
                     </a>
@@ -115,18 +117,18 @@ export default function BookingSuccess() {
                   <div className="flex items-center justify-center gap-2 mb-1">
                     <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
                     <p className="text-sm font-medium text-green-900 dark:text-green-100">
-                      Payment Successful
+                      {t("bookingSuccess.paymentSuccess")}
                     </p>
                   </div>
                   <p className="text-xs text-green-700 dark:text-green-300">
-                    You'll receive a confirmation email shortly
+                    {t("bookingSuccess.confirmationEmail")}
                   </p>
                 </div>
 
                 <div className="bg-muted/50 rounded-lg p-4 mb-6 space-y-3">
                   <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
                     <MessageCircle className="h-4 w-4" />
-                    Need Help?
+                    {t("bookingSuccess.needHelp")}
                   </h3>
                   <div className="space-y-2">
                     <a
@@ -135,7 +137,7 @@ export default function BookingSuccess() {
                     >
                       <Phone className="h-4 w-4 text-muted-foreground" />
                       <div>
-                        <div className="font-medium">Call Support</div>
+                        <div className="font-medium">{t("bookingSuccess.callSupport")}</div>
                         <div className="text-xs text-muted-foreground">+250 796 214 719</div>
                       </div>
                     </a>
@@ -145,7 +147,7 @@ export default function BookingSuccess() {
                     >
                       <Mail className="h-4 w-4 text-muted-foreground" />
                       <div>
-                        <div className="font-medium">Email Support</div>
+                        <div className="font-medium">{t("bookingSuccess.emailSupport")}</div>
                         <div className="text-xs text-muted-foreground">support@merry360x.com</div>
                       </div>
                     </a>
@@ -161,7 +163,7 @@ export default function BookingSuccess() {
               className="w-full"
             >
               <Home className="h-3 w-3 mr-2" />
-              Back to Home
+              {t("bookingSuccess.backHome")}
             </Button>
           </Card>
         </div>

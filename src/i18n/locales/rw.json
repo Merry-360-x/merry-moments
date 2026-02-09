@@ -340,5 +340,125 @@
     "addDates": "Ongeramo amatariki kugira ngo ukomeze",
     "saveDates": "Bika amatariki",
     "checkIn": "Kwinjira",
-    "checkOut": "Gusohoka"  }
+    "checkOut": "Gusohoka"
+  },
+  "propertyDetails": {
+    "aboutThisPlace": "Ibyerekeye aha hantu",
+    "amenities": "Ibikoresho",
+    "houseRules": "Amategeko y'inzu",
+    "checkInLabel": "Kwinjira",
+    "checkOutLabel": "Gusohoka",
+    "smokingLabel": "Kunywa itabi",
+    "eventsLabel": "Ibirori",
+    "maxGuestsLabel": "Abashyitsi ntarengwa",
+    "petsLabel": "Inyamaswa",
+    "cancellationTitle": "Politiki yo guhagarika no gusubiza",
+    "bookThisStay": "Fata iki cyumba",
+    "checkIn": "Kwinjira",
+    "checkOut": "Gusohoka",
+    "pickADate": "Hitamo itariki",
+    "inTripCart": "Biri mu gatebo",
+    "addToTripCart": "Ongeramo mu gatebo",
+    "checkoutTrip": "Ishyura urugendo",
+    "addStayToCart": "Ongeramo icumbi mu gatebo",
+    "reviews": "Ibitekerezo",
+    "viewAll": "Reba byose",
+    "description": "Ibisobanuro",
+    "morePhotos": "Amafoto menshi",
+    "toursAndTransport": "Ingendo & Ubwikorezi",
+    "viewTours": "Reba ingendo",
+    "viewTransport": "Reba ubwikorezi",
+    "availableTours": "Ingendo zihari",
+    "noToursFound": "Nta ngendo zibonetse.",
+    "transportVehicles": "Imodoka z'ubwikorezi",
+    "noTransportFound": "Nta modoka z'ubwikorezi zibonetse.",
+    "unavailableDates": "Amatariki adahari:",
+    "selectValidDates": "Hitamo amatariki kugira ngo urebe igiteranyo.",
+    "yes": "Yego",
+    "no": "Oya"
+  },
+  "services": {
+    "heroTitle": "Serivisi zacu zose",
+    "heroSubtitle": "Ibyo ukeneye byose kugira urugendo rutazibagirana mu Rwanda",
+    "whatWeOffer": "Ibyo dutanga",
+    "accommodation": {
+      "title": "Gufata icumbi",
+      "desc": "Kuva mu mahoteli akomeye kugeza ku nzu z'abashyitsi, shaka icumbi ryiza mu Rwanda."
+    },
+    "tours": {
+      "title": "Ingendo & Uburambe",
+      "desc": "Menya ibitangaza by'umuhanga by'u Rwanda hamwe n'ingendo ziyobowe."
+    },
+    "transport": {
+      "title": "Serivisi z'ubwikorezi",
+      "desc": "Uburyo bwiza kandi butuje bwo kugenda mu gihugu hose."
+    }
+  },
+  "stories": {
+    "title": "Inkuru z'ingendo",
+    "yourStory": "Inkuru yawe",
+    "signInToPost": "Injira kugira utangaze",
+    "emptyTitle": "Nta nkuru zihari",
+    "emptySubtitle": "Banza utangaze ibihe by'ingendo.",
+    "createTitle": "Andika inkuru yawe",
+    "createDesc": "Sangiza abandi ibihe n'uburambe bw'ingendo zawe",
+    "location": "Ahantu",
+    "caption": "Ibisobanuro *",
+    "media": "Amashusho cyangwa Video *",
+    "postStory": "Tangaza",
+    "posting": "Gutangaza...",
+    "comments": "Ibitekerezo",
+    "noCommentsYet": "Nta bitekerezo bihari. Banza utange ibyawe!",
+    "postComment": "Tangaza",
+    "tapToView": "Kanda urebe"
+  },
+  "bookingSuccess": {
+    "received": "Gufata byakiriwe!",
+    "confirmed": "Gufata byemejwe!",
+    "orderConfirmed": "Itegeko ryemejwe!",
+    "paymentSuccess": "Kwishyura byagenze neza",
+    "confirmationEmail": "Uzahabwa ubutumwa bw'icyemezo vuba.",
+    "needHelp": "Ukeneye ubufasha?",
+    "callSupport": "Hamagara ubufasha",
+    "emailSupport": "Ubufasha ku imeyili",
+    "backHome": "Subira ku rupapuro rw'itangiriro",
+    "cardPayment": "Kwishyura ku ikarita",
+    "bankTransfer": "Kohereza amafaranga",
+    "callIn5": "Turahita tuguhamagara",
+    "willCall": "Tuzaguhamagara kugira ngo urangize kwishyura",
+    "contactUs": "Twandikire ku buryo butaziguye"
+  },
+  "search": {
+    "results": "Ibisubizo by'ishakiro",
+    "resultsFor": "Ibisubizo bya \"{{query}}\"",
+    "noResults": "Nta bisubizo byabonetse",
+    "noResultsHint": "Gerageza guhindura ishakiro cyangwa ibisabwa",
+    "clearFilters": "Siba ibisabwa",
+    "clearAll": "Siba byose",
+    "filters": "Ibisabwa",
+    "sortBy": "Shyira kuri",
+    "priceRange": "Igiciro",
+    "minRating": "Amanota y'ibanze",
+    "category": "Icyiciro",
+    "allCategories": "Ibyiciro byose",
+    "applyFilters": "Shyira mu bikorwa",
+    "sort": {
+      "relevance": "Ibyerekeranye",
+      "priceLow": "Igiciro: Gito kugeza Kinini",
+      "priceHigh": "Igiciro: Kinini kugeza Gito",
+      "highestRated": "Ibifite amanota menshi"
+    },
+    "rating": {
+      "any": "Amanota ayariyo yose",
+      "three": "3+ inyenyeri",
+      "four": "4+ inyenyeri",
+      "fourHalf": "4.5+ inyenyeri"
+    },
+    "tab": {
+      "all": "Byose",
+      "accommodations": "Amacumbi",
+      "tours": "Ingendo & Pake",
+      "transport": "Ubwikorezi"
+    }
+  }
 }

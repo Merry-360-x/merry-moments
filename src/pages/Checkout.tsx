@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -121,6 +122,7 @@ function getSortedCountries(userCountryCode: string): [string, typeof METHODS_BY
 }
 
 export default function CheckoutNew() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, isLoading: authLoading } = useAuth();
@@ -839,14 +841,14 @@ export default function CheckoutNew() {
           <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-6">
             <ShoppingBag className="w-8 h-8 text-muted-foreground" />
           </div>
-          <h1 className="text-2xl font-semibold mb-2">Your cart is empty</h1>
+          <h1 className="text-2xl font-semibold mb-2">{t("checkout.emptyCart")}</h1>
           <p className="text-muted-foreground mb-6">
-            Add some items to your cart before checking out.
+            {t("checkout.emptyCartDesc")}
           </p>
           <Link to="/trip-cart">
             <Button>
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Trip Cart
+              {t("checkout.backToTripCart")}
             </Button>
           </Link>
         </div>
@@ -864,9 +866,9 @@ export default function CheckoutNew() {
         <div className="mb-8">
           <Link to="/trip-cart" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-4">
             <ArrowLeft className="w-4 h-4 mr-1" />
-            Back to cart
+            {t("checkout.backToCart")}
           </Link>
-          <h1 className="text-3xl md:text-4xl font-light tracking-tight">Checkout</h1>
+          <h1 className="text-3xl md:text-4xl font-light tracking-tight">{t("checkout.title")}</h1>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-8">
@@ -878,7 +880,7 @@ export default function CheckoutNew() {
                 const isActive = step === currentStep;
                 const isCompleted = STEP_ORDER.indexOf(currentStep) > index;
                 const stepNumber = index + 1;
-                const labels = { details: 'Details', payment: 'Payment', confirm: 'Confirm' };
+                const labels = { details: t("checkout.steps.details"), payment: t("checkout.steps.payment"), confirm: t("checkout.steps.confirm") };
                 
                 return (
                   <div key={step} className="flex items-center flex-1">
@@ -921,8 +923,8 @@ export default function CheckoutNew() {
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h2 className="text-xl font-semibold mb-1">Contact Details</h2>
-                      <p className="text-sm text-muted-foreground">We'll use this to confirm your booking</p>
+                      <h2 className="text-xl font-semibold mb-1">{t("checkout.contact.title")}</h2>
+                      <p className="text-sm text-muted-foreground">{t("checkout.contact.subtitle")}</p>
                     </div>
                     {/* Quick Pay - Skip to payment if details are complete */}
                     {formData.fullName && formData.email && phoneNumber && (
@@ -938,14 +940,14 @@ export default function CheckoutNew() {
                         className="shrink-0"
                       >
                         <ArrowRight className="w-4 h-4 mr-2" />
-                        Quick Pay
+                        {t("checkout.contact.quickPay")}
                       </Button>
                     )}
                   </div>
                   
                   <div className="grid gap-4">
                     <div>
-                      <Label htmlFor="fullName">Full Name *</Label>
+                      <Label htmlFor="fullName">{t("checkout.contact.fullName")}</Label>
                       <Input
                         id="fullName"
                         value={formData.fullName}
@@ -956,7 +958,7 @@ export default function CheckoutNew() {
                     </div>
                     
                     <div>
-                      <Label htmlFor="email">Email *</Label>
+                      <Label htmlFor="email">{t("checkout.contact.email")}</Label>
                       <Input
                         id="email"
                         type="email"
@@ -968,12 +970,12 @@ export default function CheckoutNew() {
                     </div>
                     
                     <div>
-                      <Label htmlFor="notes">Special Requests (Optional)</Label>
+                      <Label htmlFor="notes">{t("checkout.contact.specialRequests")}</Label>
                       <Textarea
                         id="notes"
                         value={formData.notes}
                         onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                        placeholder="Any special requests or notes..."
+                        placeholder={t("checkout.contact.specialRequestsPlaceholder")}
                         rows={3}
                         className="mt-1.5"
                       />
@@ -986,7 +988,7 @@ export default function CheckoutNew() {
                     onClick={() => goToStep('payment')}
                     disabled={!isDetailsValid}
                   >
-                    Continue to Payment
+                    {t("checkout.contact.continue")}
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 </div>
@@ -996,8 +998,8 @@ export default function CheckoutNew() {
               {currentStep === 'payment' && (
                 <div className="space-y-4 md:space-y-6">
                   <div>
-                    <h2 className="text-lg md:text-xl font-semibold mb-1">Choose Payment Method</h2>
-                    <p className="text-xs md:text-sm text-muted-foreground">Select your mobile money provider</p>
+                    <h2 className="text-lg md:text-xl font-semibold mb-1">{t("checkout.payment.title")}</h2>
+                    <p className="text-xs md:text-sm text-muted-foreground">{t("checkout.payment.subtitle")}</p>
                   </div>
 
                   {/* Payment Methods by Country */}
@@ -1086,8 +1088,8 @@ export default function CheckoutNew() {
                           <CreditCard className="w-4 h-4 md:w-5 md:h-5 text-white" />
                         </div>
                         <div className="min-w-0">
-                          <p className="font-medium text-xs md:text-base truncate">Card</p>
-                          <p className="text-[10px] md:text-xs text-muted-foreground hidden sm:block">Visa, Mastercard</p>
+                          <p className="font-medium text-xs md:text-base truncate">{t("checkout.payment.card")}</p>
+                          <p className="text-[10px] md:text-xs text-muted-foreground hidden sm:block">{t("checkout.payment.cardDesc")}</p>
                         </div>
                       </div>
                     </button>
@@ -1107,8 +1109,8 @@ export default function CheckoutNew() {
                           <Building2 className="w-4 h-4 md:w-5 md:h-5 text-white" />
                         </div>
                         <div className="min-w-0">
-                          <p className="font-medium text-xs md:text-base truncate">Bank Transfer</p>
-                          <p className="text-[10px] md:text-xs text-muted-foreground hidden sm:block">Direct Transfer</p>
+                          <p className="font-medium text-xs md:text-base truncate">{t("checkout.payment.bankTransfer")}</p>
+                          <p className="text-[10px] md:text-xs text-muted-foreground hidden sm:block">{t("checkout.payment.bankTransferDesc")}</p>
                         </div>
                       </div>
                     </button>
@@ -1118,7 +1120,7 @@ export default function CheckoutNew() {
                   {paymentMethod !== 'card' && paymentMethod !== 'bank' && (
                     <>
                       <div>
-                        <Label htmlFor="phone">Phone Number *</Label>
+                        <Label htmlFor="phone">{t("checkout.payment.phoneNumber")}</Label>
                         <div className="flex gap-2 mt-1.5">
                           <div className="h-11 px-3 rounded-lg border bg-muted/50 flex items-center text-sm">
                             {PAWAPAY_METHODS.find(m => m.id === paymentMethod)?.flag} {countryCode}
@@ -1145,7 +1147,7 @@ export default function CheckoutNew() {
                         <div className="flex gap-3">
                           <Smartphone className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
                           <div className="text-sm">
-                            <p className="font-medium text-blue-700 dark:text-blue-300 mb-1">How it works</p>
+                            <p className="font-medium text-blue-700 dark:text-blue-300 mb-1">{t("checkout.payment.howItWorks")}</p>
                             <ol className="text-blue-600 dark:text-blue-400 space-y-1 list-decimal list-inside">
                               <li>Click "Review Booking" below</li>
                               <li>You'll receive a payment prompt on your phone</li>
@@ -1173,7 +1175,7 @@ export default function CheckoutNew() {
                       onClick={() => goToStep('confirm')}
                       disabled={paymentMethod !== 'card' && paymentMethod !== 'bank' && !isPaymentValid}
                     >
-                      Review Booking
+                      {t("checkout.payment.reviewBooking")}
                       <ArrowRight className="w-4 h-4 ml-2" />
                     </Button>
                   </div>
@@ -1184,8 +1186,8 @@ export default function CheckoutNew() {
               {currentStep === 'confirm' && (
                 <div className="space-y-6">
                   <div>
-                    <h2 className="text-xl font-semibold mb-1">Review & Confirm</h2>
-                    <p className="text-sm text-muted-foreground">Please review your order before payment</p>
+                    <h2 className="text-xl font-semibold mb-1">{t("checkout.review.title")}</h2>
+                    <p className="text-sm text-muted-foreground">{t("checkout.review.subtitle")}</p>
                   </div>
 
                   {/* Order Items */}
@@ -1228,12 +1230,12 @@ export default function CheckoutNew() {
                   {/* Contact & Payment Summary */}
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div className="bg-muted/30 rounded-xl p-4">
-                      <h4 className="text-sm font-medium mb-2">Contact Details</h4>
+                      <h4 className="text-sm font-medium mb-2">{t("checkout.review.contactDetails")}</h4>
                       <p className="text-sm">{formData.fullName}</p>
                       <p className="text-sm text-muted-foreground">{formData.email}</p>
                     </div>
                     <div className="bg-muted/30 rounded-xl p-4">
-                      <h4 className="text-sm font-medium mb-2">Payment Method</h4>
+                      <h4 className="text-sm font-medium mb-2">{t("checkout.review.paymentMethod")}</h4>
                       {(() => {
                         const selectedMethodInfo = PAWAPAY_METHODS.find(m => m.id === paymentMethod);
                         const isMobileMoney = selectedMethodInfo != null;
@@ -1292,7 +1294,7 @@ export default function CheckoutNew() {
 
                   {/* Legal Acknowledgment Checkboxes */}
                   <div className="bg-muted/30 rounded-xl p-4 space-y-3">
-                    <h4 className="text-sm font-medium mb-3">Before you proceed</h4>
+                    <h4 className="text-sm font-medium mb-3">{t("checkout.review.beforeProceed")}</h4>
                     
                     <label className="flex items-start gap-3 cursor-pointer group">
                       <input
@@ -1302,9 +1304,9 @@ export default function CheckoutNew() {
                         className="mt-1 w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
                       />
                       <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
-                        I have read and agree to the{' '}
+                        {t("checkout.review.agreeTerms")}{' '}
                         <Link to="/terms-and-conditions" target="_blank" className="text-primary hover:underline font-medium">
-                          Terms and Conditions
+                          {t("checkout.review.termsConditions")}
                         </Link>
                       </span>
                     </label>
@@ -1319,7 +1321,7 @@ export default function CheckoutNew() {
                       <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
                         I have read and understood the{' '}
                         <Link to="/privacy-policy" target="_blank" className="text-primary hover:underline font-medium">
-                          Privacy Policy
+                          {t("checkout.review.privacyPolicy")}
                         </Link>
                       </span>
                     </label>
@@ -1334,7 +1336,7 @@ export default function CheckoutNew() {
                       <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
                         I understand the{' '}
                         <Link to="/refund-policy" target="_blank" className="text-primary hover:underline font-medium">
-                          Cancellation & Refund Policy
+                          {t("checkout.review.cancellationPolicy")}
                         </Link>
                       </span>
                     </label>
@@ -1393,14 +1395,14 @@ export default function CheckoutNew() {
                   {/* Validation hint */}
                   {(!acceptedTerms || !acceptedPrivacy || !acceptedCancellation) && (
                     <p className="text-xs text-center text-muted-foreground">
-                      Please accept all terms and policies to proceed with payment
+                      {t("checkout.review.acceptAll")}
                     </p>
                   )}
 
                   {/* Security Note */}
                   <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-4">
                     <Shield className="w-4 h-4" />
-                    Secured • Encrypted payment
+                    {t("checkout.review.securedEncrypted")}
                   </div>
                 </div>
               )}
@@ -1410,7 +1412,7 @@ export default function CheckoutNew() {
           {/* Booking Summary Sidebar */}
           <div className="lg:col-span-1">
             <div className="bg-card rounded-2xl border border-border/50 p-6 sticky top-24">
-              <h2 className="text-lg font-semibold mb-4">Booking Summary</h2>
+              <h2 className="text-lg font-semibold mb-4">{t("checkout.summary.title")}</h2>
               
               {/* Items Preview */}
               <div className="space-y-3 mb-4">
@@ -1508,7 +1510,7 @@ export default function CheckoutNew() {
               <div className="border-t pt-4 space-y-3 text-sm">
                 {/* Base price (before any discounts) */}
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Base price</span>
+                  <span className="text-muted-foreground">{t("common.basePrice")}</span>
                   <span>{formatMoney(subtotal, displayCurrency)}</span>
                 </div>
                 
@@ -1528,7 +1530,7 @@ export default function CheckoutNew() {
                 {/* Subtotal after stay discounts */}
                 {stayDiscount > 0 && (
                   <div className="flex justify-between border-t pt-2">
-                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="text-muted-foreground">{t("common.subtotal")}</span>
                     <span>{formatMoney(subtotal - stayDiscount, displayCurrency)}</span>
                   </div>
                 )}
@@ -1536,7 +1538,7 @@ export default function CheckoutNew() {
                 {/* Service fees */}
                 {serviceFees > 0 && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Service fees</span>
+                    <span className="text-muted-foreground">{t("common.serviceFees")}</span>
                     <span>+{formatMoney(serviceFees, displayCurrency)}</span>
                   </div>
                 )}
@@ -1554,7 +1556,7 @@ export default function CheckoutNew() {
               </div>
 
               <div className="flex justify-between items-baseline py-4 mt-4 border-t">
-                <span className="font-semibold">Total</span>
+                <span className="font-semibold">{t("common.total")}</span>
                 <span className="text-2xl font-bold">{formatMoney(total, displayCurrency)}</span>
               </div>
 
@@ -1562,11 +1564,11 @@ export default function CheckoutNew() {
               <div className="pt-4 border-t space-y-2">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Shield className="w-4 h-4" />
-                  Secure payment
+                  {t("common.securePayment")}
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Check className="w-4 h-4" />
-                  Instant booking confirmation
+                  {t("checkout.summary.instantConfirmation")}
                 </div>
               </div>
             </div>

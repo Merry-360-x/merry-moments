@@ -342,5 +342,124 @@
     "saveDates": "保存日期",
     "checkIn": "入住",
     "checkOut": "退房"
+  },
+  "propertyDetails": {
+    "aboutThisPlace": "关于此住所",
+    "amenities": "设施",
+    "houseRules": "房屋守则",
+    "checkInLabel": "入住",
+    "checkOutLabel": "退房",
+    "smokingLabel": "吸烟",
+    "eventsLabel": "活动",
+    "maxGuestsLabel": "最多客人数",
+    "petsLabel": "宠物",
+    "cancellationTitle": "取消与退款政策",
+    "bookThisStay": "预订此住所",
+    "checkIn": "入住",
+    "checkOut": "退房",
+    "pickADate": "选择日期",
+    "inTripCart": "已在购物车中",
+    "addToTripCart": "加入购物车",
+    "checkoutTrip": "结算行程",
+    "addStayToCart": "将住宿加入购物车",
+    "reviews": "评论",
+    "viewAll": "查看全部",
+    "description": "描述",
+    "morePhotos": "更多照片",
+    "toursAndTransport": "游览与交通",
+    "viewTours": "查看游览",
+    "viewTransport": "查看交通",
+    "availableTours": "可用游览",
+    "noToursFound": "未找到可用游览。",
+    "transportVehicles": "交通车辆",
+    "noTransportFound": "未找到交通车辆。",
+    "unavailableDates": "不可用日期：",
+    "selectValidDates": "选择有效日期以查看总价。",
+    "yes": "是",
+    "no": "否"
+  },
+  "services": {
+    "heroTitle": "我们的全套服务",
+    "heroSubtitle": "一切所需，打造难忘的卢旺达之旅",
+    "whatWeOffer": "我们的服务",
+    "accommodation": {
+      "title": "住宿预订",
+      "desc": "从豪华酒店到温馨民宿，寻找卢旺达最佳住所。"
+    },
+    "tours": {
+      "title": "游览与体验",
+      "desc": "通过专业导游游览，发现卢旺达的自然奇观。"
+    },
+    "transport": {
+      "title": "交通服务",
+      "desc": "安全舒适的出行方案，畅游全国。"
+    }
+  },
+  "stories": {
+    "title": "旅行故事",
+    "yourStory": "你的故事",
+    "signInToPost": "登录后发布",
+    "emptyTitle": "暂无故事",
+    "emptySubtitle": "成为第一个分享旅行瞬间的人。",
+    "createTitle": "创建你的故事",
+    "createDesc": "分享你的旅行瞬间和体验",
+    "location": "地点",
+    "caption": "描述 *",
+    "media": "媒体（照片或视频）*",
+    "postStory": "发布",
+    "posting": "发布中...",
+    "comments": "评论",
+    "noCommentsYet": "暂无评论。成为第一个评论的人！",
+    "postComment": "发表评论",
+    "tapToView": "点击查看"
+  },
+  "bookingSuccess": {
+    "received": "预订已接收！",
+    "confirmed": "预订已确认！",
+    "orderConfirmed": "订单已确认！",
+    "paymentSuccess": "付款成功",
+    "confirmationEmail": "您将很快收到确认邮件。",
+    "needHelp": "需要帮助？",
+    "callSupport": "致电客服",
+    "emailSupport": "邮件客服",
+    "backHome": "返回首页",
+    "cardPayment": "银行卡付款",
+    "bankTransfer": "银行转账",
+    "callIn5": "5分钟内致电",
+    "willCall": "我们将致电您完成付款",
+    "contactUs": "直接联系我们"
+  },
+  "search": {
+    "results": "搜索结果",
+    "resultsFor": "\"{{query}}\" 的搜索结果",
+    "noResults": "未找到结果",
+    "noResultsHint": "请调整搜索词或筛选条件",
+    "clearFilters": "清除筛选",
+    "clearAll": "清除全部",
+    "filters": "筛选",
+    "sortBy": "排序方式",
+    "priceRange": "价格范围",
+    "minRating": "最低评分",
+    "category": "类别",
+    "allCategories": "所有类别",
+    "applyFilters": "应用筛选",
+    "sort": {
+      "relevance": "相关性",
+      "priceLow": "价格：从低到高",
+      "priceHigh": "价格：从高到低",
+      "highestRated": "评分最高"
+    },
+    "rating": {
+      "any": "任意评分",
+      "three": "3星+",
+      "four": "4星+",
+      "fourHalf": "4.5星+"
+    },
+    "tab": {
+      "all": "全部",
+      "accommodations": "住宿",
+      "tours": "游览与套餐",
+      "transport": "交通"
+    }
   }
 }

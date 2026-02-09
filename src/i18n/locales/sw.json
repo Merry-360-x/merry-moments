@@ -342,5 +342,124 @@
     "saveDates": "Hifadhi tarehe",
     "checkIn": "Kuingia",
     "checkOut": "Kutoka"
+  },
+  "propertyDetails": {
+    "aboutThisPlace": "Kuhusu mahali hapa",
+    "amenities": "Huduma",
+    "houseRules": "Sheria za nyumba",
+    "checkInLabel": "Kuingia",
+    "checkOutLabel": "Kutoka",
+    "smokingLabel": "Kuvuta sigara",
+    "eventsLabel": "Matukio",
+    "maxGuestsLabel": "Wageni wengi zaidi",
+    "petsLabel": "Wanyama",
+    "cancellationTitle": "Sera ya kufuta na kurudisha pesa",
+    "bookThisStay": "Hifadhi kukaa huku",
+    "checkIn": "Kuingia",
+    "checkOut": "Kutoka",
+    "pickADate": "Chagua tarehe",
+    "inTripCart": "Iko kwenye kikapu",
+    "addToTripCart": "Ongeza kwenye kikapu",
+    "checkoutTrip": "Lipia safari",
+    "addStayToCart": "Ongeza malazi kwenye kikapu",
+    "reviews": "Maoni",
+    "viewAll": "Tazama yote",
+    "description": "Maelezo",
+    "morePhotos": "Picha zaidi",
+    "toursAndTransport": "Ziara & Usafiri",
+    "viewTours": "Tazama ziara",
+    "viewTransport": "Tazama usafiri",
+    "availableTours": "Ziara zinazopatikana",
+    "noToursFound": "Hakuna ziara zilizopatikana.",
+    "transportVehicles": "Magari ya usafiri",
+    "noTransportFound": "Hakuna magari ya usafiri yaliyopatikana.",
+    "unavailableDates": "Tarehe zisizopatikana:",
+    "selectValidDates": "Chagua tarehe halali ili kuona jumla.",
+    "yes": "Ndiyo",
+    "no": "Hapana"
+  },
+  "services": {
+    "heroTitle": "Huduma zetu kamili",
+    "heroSubtitle": "Kila kitu unachohitaji kwa safari isiyosahaulika nchini Rwanda",
+    "whatWeOffer": "Tunachokitoa",
+    "accommodation": {
+      "title": "Uhifadhi wa malazi",
+      "desc": "Kutoka hoteli za anasa hadi nyumba za wageni, pata malazi bora nchini Rwanda."
+    },
+    "tours": {
+      "title": "Ziara & Uzoefu",
+      "desc": "Gundua maajabu ya asili ya Rwanda kupitia ziara zinazoongozwa."
+    },
+    "transport": {
+      "title": "Huduma za usafiri",
+      "desc": "Suluhisho salama na starehe za kusafiri kote nchini."
+    }
+  },
+  "stories": {
+    "title": "Hadithi za kusafiri",
+    "yourStory": "Hadithi yako",
+    "signInToPost": "Ingia ili kuchapisha",
+    "emptyTitle": "Hakuna hadithi bado",
+    "emptySubtitle": "Kuwa wa kwanza kushiriki wakati wa kusafiri.",
+    "createTitle": "Unda hadithi yako",
+    "createDesc": "Shiriki wakati na uzoefu wako wa kusafiri",
+    "location": "Mahali",
+    "caption": "Maelezo *",
+    "media": "Media (Picha au Video) *",
+    "postStory": "Chapisha",
+    "posting": "Inachapisha...",
+    "comments": "Maoni",
+    "noCommentsYet": "Hakuna maoni bado. Kuwa wa kwanza kutoa maoni!",
+    "postComment": "Chapisha",
+    "tapToView": "Bonyeza kutazama"
+  },
+  "bookingSuccess": {
+    "received": "Uhifadhi umepokelewa!",
+    "confirmed": "Uhifadhi umethibitishwa!",
+    "orderConfirmed": "Agizo limethibitishwa!",
+    "paymentSuccess": "Malipo yamefanikiwa",
+    "confirmationEmail": "Utapata barua pepe ya uthibitisho hivi karibuni.",
+    "needHelp": "Unahitaji msaada?",
+    "callSupport": "Piga simu msaada",
+    "emailSupport": "Msaada kwa barua pepe",
+    "backHome": "Rudi nyumbani",
+    "cardPayment": "Malipo ya kadi",
+    "bankTransfer": "Uhamisho wa benki",
+    "callIn5": "Piga simu ndani ya dakika 5",
+    "willCall": "Tutakupigia simu kukamilisha malipo yako",
+    "contactUs": "Wasiliana nasi moja kwa moja"
+  },
+  "search": {
+    "results": "Matokeo ya utafutaji",
+    "resultsFor": "Matokeo ya \"{{query}}\"",
+    "noResults": "Hakuna matokeo yaliyopatikana",
+    "noResultsHint": "Jaribu kurekebisha utafutaji au vichujio vyako",
+    "clearFilters": "Futa vichujio",
+    "clearAll": "Futa yote",
+    "filters": "Vichujio",
+    "sortBy": "Panga kwa",
+    "priceRange": "Kiwango cha bei",
+    "minRating": "Kiwango cha chini cha ukadiriaji",
+    "category": "Kategoria",
+    "allCategories": "Kategoria zote",
+    "applyFilters": "Tumia vichujio",
+    "sort": {
+      "relevance": "Umuhimu",
+      "priceLow": "Bei: Ndogo hadi Kubwa",
+      "priceHigh": "Bei: Kubwa hadi Ndogo",
+      "highestRated": "Iliyokadiriwa zaidi"
+    },
+    "rating": {
+      "any": "Ukadiriaji wowote",
+      "three": "Nyota 3+",
+      "four": "Nyota 4+",
+      "fourHalf": "Nyota 4.5+"
+    },
+    "tab": {
+      "all": "Yote",
+      "accommodations": "Malazi",
+      "tours": "Ziara & Vifurushi",
+      "transport": "Usafiri"
+    }
   }
 }

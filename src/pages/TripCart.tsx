@@ -1,5 +1,6 @@
 import { useMemo, useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,7 @@ interface CartItem {
 }
 
 export default function TripCart() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
@@ -380,9 +382,9 @@ export default function TripCart() {
       <div className="max-w-6xl mx-auto px-4 py-8 md:py-12">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-light tracking-tight">Your Trip</h1>
+          <h1 className="text-3xl md:text-4xl font-light tracking-tight">{t("tripCartPage.title")}</h1>
           <p className="text-muted-foreground mt-1">
-            {cartItems.length === 0 ? "Your cart is empty" : `${cartItems.length} item${cartItems.length !== 1 ? 's' : ''} in your cart`}
+            {cartItems.length === 0 ? t("tripCartPage.emptyTitle") : `${cartItems.length} item${cartItems.length !== 1 ? 's' : ''}`}
           </p>
         </div>
 
@@ -392,19 +394,19 @@ export default function TripCart() {
             <div className="w-20 h-20 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-6">
               <ShoppingBag className="w-10 h-10 text-muted-foreground" />
             </div>
-            <h2 className="text-xl font-medium mb-2">Your cart is empty</h2>
+            <h2 className="text-xl font-medium mb-2">{t("tripCartPage.emptyTitle")}</h2>
             <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-              Start exploring our amazing tours, stays, and transport options to plan your perfect trip.
+              {t("tripCartPage.emptyDesc")}
             </p>
             <div className="flex flex-wrap justify-center gap-3">
               <Link to="/tours">
-                <Button variant="outline">Explore Tours</Button>
+                <Button variant="outline">{t("tripCartPage.exploreTours")}</Button>
               </Link>
               <Link to="/stays">
-                <Button variant="outline">Find Stays</Button>
+                <Button variant="outline">{t("tripCartPage.findStays")}</Button>
               </Link>
               <Link to="/transport">
-                <Button variant="outline">Book Transport</Button>
+                <Button variant="outline">{t("tripCartPage.bookTransport")}</Button>
               </Link>
             </div>
           </div>
@@ -499,7 +501,7 @@ export default function TripCart() {
                                     className="flex items-center gap-1 text-primary hover:underline"
                                   >
                                     <Pencil className="w-3 h-3" />
-                                    Edit
+                                    {t("common.edit")}
                                   </button>
                                 </div>
                               ) : (
@@ -508,7 +510,7 @@ export default function TripCart() {
                                   className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 hover:underline"
                                 >
                                   <Calendar className="w-3 h-3" />
-                                  Add dates to continue
+                                  {t("tripCartPage.addDates")}
                                   <Pencil className="w-3 h-3" />
                                 </button>
                               )}
@@ -564,17 +566,17 @@ export default function TripCart() {
             {/* Booking Summary */}
             <div className="lg:col-span-1">
               <div className="bg-card rounded-2xl border border-border/50 p-6 sticky top-24">
-                <h2 className="text-lg font-semibold mb-6">Booking Summary</h2>
+                <h2 className="text-lg font-semibold mb-6">{t("tripCartPage.bookingSummary")}</h2>
                 
                 {/* Discount Code */}
                 <div className="mb-6">
                   <label className="text-sm text-muted-foreground mb-2 block">
-                    Discount Code
+                    {t("checkout.summary.discountCode")}
                   </label>
                   {!appliedDiscount ? (
                     <div className="flex gap-2">
                       <Input
-                        placeholder="Enter code"
+                        placeholder={t("checkout.summary.enterCode")}
                         value={discountCode}
                         onChange={(e) => setDiscountCode(e.target.value.toUpperCase())}
                         className="flex-1 h-10"
@@ -587,7 +589,7 @@ export default function TripCart() {
                         variant="outline"
                         className="h-10 px-4"
                       >
-                        {validatingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : "Apply"}
+                        {validatingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : t("common.apply")}
                       </Button>
                     </div>
                   ) : (
@@ -600,7 +602,7 @@ export default function TripCart() {
                         onClick={() => { setAppliedDiscount(null); setDiscountCode(""); }}
                         className="text-xs text-muted-foreground hover:text-foreground"
                       >
-                        Remove
+                        {t("common.remove")}
                       </button>
                     </div>
                   )}
@@ -610,7 +612,7 @@ export default function TripCart() {
                 <div className="space-y-3 text-sm">
                   {/* Base subtotal (before any discounts) */}
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Base price</span>
+                    <span className="text-muted-foreground">{t("common.basePrice")}</span>
                     <span>{formatMoney(baseSubtotal, displayCurrency)}</span>
                   </div>
                   
@@ -619,7 +621,7 @@ export default function TripCart() {
                     <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
                       <span className="flex items-center gap-1">
                         <Tag className="w-3 h-3" />
-                        Stay discount
+                        {t("checkout.summary.stayDiscount")}
                       </span>
                       <span>-{formatMoney(stayDiscountTotal, displayCurrency)}</span>
                     </div>
@@ -628,7 +630,7 @@ export default function TripCart() {
                   {/* Subtotal after stay discounts */}
                   {stayDiscountTotal > 0 && (
                     <div className="flex justify-between border-t pt-2">
-                      <span className="text-muted-foreground">Subtotal</span>
+                      <span className="text-muted-foreground">{t("common.subtotal")}</span>
                       <span>{formatMoney(subtotal, displayCurrency)}</span>
                     </div>
                   )}
@@ -636,7 +638,7 @@ export default function TripCart() {
                   {/* Platform service fees */}
                   {serviceFees > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Service fees</span>
+                      <span className="text-muted-foreground">{t("common.serviceFees")}</span>
                       <span>+{formatMoney(serviceFees, displayCurrency)}</span>
                     </div>
                   )}
@@ -660,7 +662,7 @@ export default function TripCart() {
 
                 {/* Total */}
                 <div className="flex justify-between items-baseline py-4 mt-4 border-t">
-                  <span className="font-semibold">Total</span>
+                  <span className="font-semibold">{t("common.total")}</span>
                   <span className="text-2xl font-bold">{formatMoney(total, displayCurrency)}</span>
                 </div>
 
@@ -671,7 +673,7 @@ export default function TripCart() {
                     className="w-full h-12 text-base"
                     onClick={handleProceedToCheckout}
                   >
-                    Proceed to Payment
+                    {t("tripCartPage.proceedPayment")}
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                   <Button 
@@ -680,7 +682,7 @@ export default function TripCart() {
                     onClick={handleClearCart} 
                     className="w-full text-muted-foreground hover:text-destructive"
                   >
-                    Clear Cart
+                    {t("tripCartPage.clearCart")}
                   </Button>
                 </div>
 
@@ -690,7 +692,7 @@ export default function TripCart() {
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
-                    Secure checkout
+                    {t("common.secureCheckout")}
                   </div>
                 </div>
               </div>
@@ -704,7 +706,7 @@ export default function TripCart() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-card rounded-2xl border shadow-xl w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="font-semibold text-lg">Edit Booking Dates</h3>
+              <h3 className="font-semibold text-lg">{t("tripCartPage.editDates")}</h3>
               <button
                 onClick={() => setEditingItem(null)}
                 className="p-2 hover:bg-muted rounded-full transition-colors"
@@ -734,7 +736,7 @@ export default function TripCart() {
               {/* Date Inputs */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="check-in">Check-in</Label>
+                  <Label htmlFor="check-in">{t("tripCartPage.checkIn")}</Label>
                   <Input
                     id="check-in"
                     type="date"
@@ -745,7 +747,7 @@ export default function TripCart() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="check-out">Check-out</Label>
+                  <Label htmlFor="check-out">{t("tripCartPage.checkOut")}</Label>
                   <Input
                     id="check-out"
                     type="date"
@@ -759,7 +761,7 @@ export default function TripCart() {
               
               {/* Guests */}
               <div className="space-y-2">
-                <Label htmlFor="guests">Guests</Label>
+                <Label htmlFor="guests">{t("common.guests_count")}</Label>
                 <div className="flex items-center border rounded-lg w-fit">
                   <button 
                     onClick={() => setEditGuests(Math.max(1, editGuests - 1))}
@@ -802,14 +804,14 @@ export default function TripCart() {
                 className="flex-1"
                 onClick={() => setEditingItem(null)}
               >
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button
                 className="flex-1"
                 onClick={handleSaveDates}
                 disabled={!editCheckIn || !editCheckOut}
               >
-                Save Dates
+                {t("tripCartPage.saveDates")}
               </Button>
             </div>
           </div>

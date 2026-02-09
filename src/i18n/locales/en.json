@@ -423,5 +423,124 @@
     "saveDates": "Save Dates",
     "checkIn": "Check-in",
     "checkOut": "Check-out"
+  },
+  "propertyDetails": {
+    "aboutThisPlace": "About this place",
+    "amenities": "Amenities",
+    "houseRules": "House Rules",
+    "checkInLabel": "Check-in",
+    "checkOutLabel": "Check-out",
+    "smokingLabel": "Smoking",
+    "eventsLabel": "Events",
+    "maxGuestsLabel": "Max guests",
+    "petsLabel": "Pets",
+    "cancellationTitle": "Cancellation & Refund Policy",
+    "bookThisStay": "Book this stay",
+    "checkIn": "Check in",
+    "checkOut": "Check out",
+    "pickADate": "Pick a date",
+    "inTripCart": "In Trip Cart",
+    "addToTripCart": "Add to Trip Cart",
+    "checkoutTrip": "Checkout Trip",
+    "addStayToCart": "Add stay to Trip Cart",
+    "reviews": "Reviews",
+    "viewAll": "View all",
+    "description": "Description",
+    "morePhotos": "More photos",
+    "toursAndTransport": "Tours & Transport",
+    "viewTours": "View tours",
+    "viewTransport": "View transport",
+    "availableTours": "Available tours",
+    "noToursFound": "No tours found yet.",
+    "transportVehicles": "Transport vehicles",
+    "noTransportFound": "No transport vehicles found yet.",
+    "unavailableDates": "Unavailable Dates:",
+    "selectValidDates": "Select valid dates to see total.",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "services": {
+    "heroTitle": "Our Comprehensive Services",
+    "heroSubtitle": "Everything you need for an unforgettable journey in Rwanda",
+    "whatWeOffer": "What We Offer",
+    "accommodation": {
+      "title": "Accommodation Booking",
+      "desc": "From luxury hotels to cozy guesthouses, find your perfect stay across Rwanda."
+    },
+    "tours": {
+      "title": "Tours & Experiences",
+      "desc": "Discover Rwanda's natural wonders with guided tours and unique experiences."
+    },
+    "transport": {
+      "title": "Transportation Services",
+      "desc": "Safe and comfortable travel solutions across the country."
+    }
+  },
+  "stories": {
+    "title": "Travel Stories",
+    "yourStory": "Your Story",
+    "signInToPost": "Sign in to post",
+    "emptyTitle": "No stories yet",
+    "emptySubtitle": "Be the first to share a travel moment.",
+    "createTitle": "Create Your Story",
+    "createDesc": "Share your travel moments and experiences",
+    "location": "Location",
+    "caption": "Caption *",
+    "media": "Media (Image or Video) *",
+    "postStory": "Post Story",
+    "posting": "Posting...",
+    "comments": "Comments",
+    "noCommentsYet": "No comments yet. Be the first to comment!",
+    "postComment": "Post",
+    "tapToView": "Tap to view"
+  },
+  "bookingSuccess": {
+    "received": "Booking Received!",
+    "confirmed": "Booking Confirmed!",
+    "orderConfirmed": "Order Confirmed!",
+    "paymentSuccess": "Payment Successful",
+    "confirmationEmail": "You'll receive a confirmation email shortly.",
+    "needHelp": "Need Help?",
+    "callSupport": "Call Support",
+    "emailSupport": "Email Support",
+    "backHome": "Back to Home",
+    "cardPayment": "Card Payment",
+    "bankTransfer": "Bank Transfer",
+    "callIn5": "Call in 5 min",
+    "willCall": "We'll call to complete your payment",
+    "contactUs": "Contact us directly"
+  },
+  "search": {
+    "results": "Search Results",
+    "resultsFor": "Search results for \"{{query}}\"",
+    "noResults": "No results found",
+    "noResultsHint": "Try adjusting your search or filters",
+    "clearFilters": "Clear Filters",
+    "clearAll": "Clear all",
+    "filters": "Filters",
+    "sortBy": "Sort by",
+    "priceRange": "Price Range",
+    "minRating": "Minimum Rating",
+    "category": "Category",
+    "allCategories": "All categories",
+    "applyFilters": "Apply Filters",
+    "sort": {
+      "relevance": "Relevance",
+      "priceLow": "Price: Low to High",
+      "priceHigh": "Price: High to Low",
+      "highestRated": "Highest Rated"
+    },
+    "rating": {
+      "any": "Any rating",
+      "three": "3+ stars",
+      "four": "4+ stars",
+      "fourHalf": "4.5+ stars"
+    },
+    "tab": {
+      "all": "All",
+      "accommodations": "Accommodations",
+      "tours": "Tours & Packages",
+      "transport": "Transport"
+    }
   }
 }

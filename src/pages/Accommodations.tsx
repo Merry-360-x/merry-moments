@@ -19,6 +19,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Filter } from "lucide-react";
 import { AMENITIES } from "@/lib/amenities";
 import { formatMoney } from "@/lib/money";
+import { convertAmount } from "@/lib/fx";
+import { useFxRates } from "@/hooks/useFxRates";
 import { usePreferences } from "@/hooks/usePreferences";
 
 const propertyTypes = ["Hotel", "Motel", "Resort", "Lodge", "Apartment", "Room in Apartment", "Villa", "Guesthouse"];
@@ -155,6 +157,7 @@ const Accommodations = () => {
   const { user } = useAuth();
   const { toggleFavorite } = useFavorites();
   const { currency: preferredCurrency } = usePreferences();
+  const { usdRates } = useFxRates();
 
   // Reset to page 1 when filters change
   useEffect(() => {
@@ -524,7 +527,7 @@ const Accommodations = () => {
                     />
                     <div className="flex items-center justify-between text-sm gap-3">
                       <span className="text-muted-foreground">Max</span>
-                      <span className="text-primary font-medium">{formatMoney(Number(maxPrice), String(preferredCurrency))}</span>
+                      <span className="text-primary font-medium">{(() => { const c = convertAmount(Number(maxPrice), "RWF", preferredCurrency, usdRates); return formatMoney(c ?? Number(maxPrice), c !== null ? preferredCurrency : "RWF"); })()}</span>
                     </div>
                   </AccordionContent>
                 </AccordionItem>
@@ -706,12 +709,12 @@ const Accommodations = () => {
                       <div className="flex items-center justify-between gap-2 p-3 bg-muted/50 rounded-lg">
                         <div className="text-center flex-1">
                           <div className="text-xs text-muted-foreground mb-1">Min</div>
-                          <div className="font-medium text-sm">{formatMoney(0, String(preferredCurrency ?? "USD"))}</div>
+                          <div className="font-medium text-sm">{formatMoney(0, preferredCurrency)}</div>
                         </div>
                         <div className="text-muted-foreground">—</div>
                         <div className="text-center flex-1">
                           <div className="text-xs text-muted-foreground mb-1">Max</div>
-                          <div className="font-medium text-sm text-primary">{formatMoney(Number(maxPrice), String(preferredCurrency))}</div>
+                          <div className="font-medium text-sm text-primary">{(() => { const c = convertAmount(Number(maxPrice), "RWF", preferredCurrency, usdRates); return formatMoney(c ?? Number(maxPrice), c !== null ? preferredCurrency : "RWF"); })()}</div>
                         </div>
                       </div>
                       

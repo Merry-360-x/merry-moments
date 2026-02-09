@@ -1,26 +1,29 @@
 import { Home, Compass, Car } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-
-const services = [
-  {
-    icon: Home,
-    title: "Accommodation Booking",
-    description: "From luxury hotels to cozy guesthouses, find your perfect stay across Rwanda.",
-  },
-  {
-    icon: Compass,
-    title: "Tours & Experiences",
-    description: "Discover Rwanda's natural wonders and rich cultural heritage with expert guides.",
-  },
-  {
-    icon: Car,
-    title: "Transportation Services",
-    description: "Safe and comfortable travel across Rwanda with our trusted transport partners.",
-  },
-];
+import { useTranslation } from "react-i18next";
 
 const Services = () => {
+  const { t } = useTranslation();
+
+  const services = [
+    {
+      icon: Home,
+      title: t("services.accommodation.title"),
+      description: t("services.accommodation.desc"),
+    },
+    {
+      icon: Compass,
+      title: t("services.tours.title"),
+      description: t("services.tours.desc"),
+    },
+    {
+      icon: Car,
+      title: t("services.transport.title"),
+      description: t("services.transport.desc"),
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -30,10 +33,10 @@ const Services = () => {
         <div className="absolute inset-0 bg-foreground/40" />
         <div className="relative z-10 container mx-auto px-4 text-center">
           <h1 className="text-3xl lg:text-5xl font-bold text-primary-foreground mb-4">
-            Our Comprehensive Services
+            {t("services.heroTitle")}
           </h1>
           <p className="text-lg text-primary-foreground/90">
-            Everything you need for an unforgettable journey in Rwanda
+            {t("services.heroSubtitle")}
           </p>
         </div>
       </section>
@@ -41,7 +44,7 @@ const Services = () => {
       {/* What We Offer */}
       <section className="container mx-auto px-4 lg:px-8 py-20">
         <div className="text-center mb-12">
-          <h2 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">What We Offer</h2>
+          <h2 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">{t("services.whatWeOffer")}</h2>
           <div className="w-16 h-1 bg-primary mx-auto rounded-full" />
         </div>
 
