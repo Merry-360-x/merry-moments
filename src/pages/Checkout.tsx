@@ -616,13 +616,13 @@ export default function CheckoutNew() {
 
   // Process payment
   const handlePayment = async () => {
-    // Check if user is signed in
-    if (!user) {
-      setPaymentError("Please sign in to complete your booking");
+    // Validate required guest info for non-logged-in users
+    if (!user && (!formData.fullName.trim() || !formData.email.trim())) {
+      setPaymentError("Please provide your name and email to complete booking");
       toast({
         variant: "destructive",
-        title: "Sign in required",
-        description: "You need to be signed in to book. Please sign in and try again.",
+        title: "Contact info required",
+        description: "Please provide your name and email address.",
       });
       setIsProcessing(false);
       return;
