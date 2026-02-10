@@ -646,11 +646,12 @@ const Auth = () => {
           duration: 2000,
         });
         
-        // Explicit navigation after successful phone auth
-        // Don't rely solely on useEffect - it may not fire immediately
+        // Use window.location for phone auth to force full state refresh
+        // React's state updates may not propagate fast enough with navigate()
+        const destination = redirectTo ?? "/";
         setTimeout(() => {
-          navigate(redirectTo ?? "/", { replace: true });
-        }, 100);
+          window.location.href = destination;
+        }, 300);
       }
     } catch (error: unknown) {
       logError("auth.verifyOtp", error);
