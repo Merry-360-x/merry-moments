@@ -452,10 +452,25 @@ const Auth = () => {
 
   // Format phone number to E.164 format
   const formatPhoneForAuth = (phone: string): string => {
-    // Remove all non-digit characters
-    let digits = phone.replace(/\D/g, '');
+    // Remove all non-digit characters except leading +
+    let cleaned = phone.replace(/[^\d+]/g, '');
     
-    // Remove leading 0 if present
+    // If user entered full E.164 format (starts with +), use it directly
+    if (cleaned.startsWith('+')) {
+      return cleaned;
+    }
+    
+    // Remove all non-digit characters now
+    let digits = cleaned.replace(/\D/g, '');
+    
+    // Check if the number starts with the country code digits (without +)
+    const countryDigits = selectedCountry.code.replace('+', '');
+    if (digits.startsWith(countryDigits)) {
+      // User entered full number with country code, strip it
+      digits = digits.substring(countryDigits.length);
+    }
+    
+    // Remove leading 0 if present (local format like 0792527083)
     if (digits.startsWith('0')) {
       digits = digits.substring(1);
     }
@@ -804,8 +819,8 @@ const Auth = () => {
                         type="tel"
                         inputMode="numeric"
                         value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value.replace(/[^\d\s]/g, ''))}
-                        placeholder="788 123 456"
+                        onChange={(e) => setPhoneNumber(e.target.value.replace(/[^\d\s+]/g, ''))}
+                        placeholder="792 527 083"
                         className="flex-1"
                         autoComplete="tel"
                       />
@@ -973,8 +988,8 @@ const Auth = () => {
                       id="phoneNumber"
                       type="tel"
                       value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      placeholder="+250 123 456 789"
+                      onChange={(e) => setPhoneNumber(e.target.value.replace(/[^\d\s+]/g, ''))}
+                      placeholder="792 527 083 or +250792527083"
                       className="mt-1"
                       required={!isLogin}
                     />
