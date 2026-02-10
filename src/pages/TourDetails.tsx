@@ -68,6 +68,20 @@ export default function TourDetails() {
   const { usdRates } = useFxRates();
   const { t } = useTranslation();
 
+  const categoryLabel = (category: string) => {
+    const key = String(category ?? "")
+      .trim()
+      .toLowerCase();
+    if (!key) return category;
+    if (key === "all") return t("tours.categories.all");
+    if (key === "nature") return t("tours.categories.nature");
+    if (key === "adventure") return t("tours.categories.adventure");
+    if (key === "cultural") return t("tours.categories.cultural");
+    if (key === "wildlife") return t("tours.categories.wildlife");
+    if (key === "historical") return t("tours.categories.historical");
+    return category;
+  };
+
   const displayMoney = (amount: number, fromCurrency: string) => {
     const converted = convertAmount(amount, fromCurrency, preferredCurrency, usdRates);
     return formatMoney(converted ?? amount, converted !== null ? preferredCurrency : fromCurrency);
@@ -247,7 +261,7 @@ export default function TourDetails() {
           className="inline-flex items-center gap-2 text-primary font-medium hover:underline mb-6"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back
+          {t("common.back")}
         </button>
 
         {/* Hero Section with Image Gallery */}
@@ -271,13 +285,13 @@ export default function TourDetails() {
             <div>
               <div className="flex flex-wrap items-center gap-2 mb-3">
                 {normalizedCategories.map((category: string) => (
-                  <Badge key={category} variant="secondary" className="text-xs">{category}</Badge>
+                  <Badge key={category} variant="secondary" className="text-xs">{categoryLabel(category)}</Badge>
                 ))}
                 {tour.rating && (
                   <div className="flex items-center gap-1 text-xs">
                     <Star className="w-3.5 h-3.5 fill-primary text-primary" />
                     <span className="font-semibold">{tour.rating.toFixed(1)}</span>
-                    <span className="text-muted-foreground">({tour.review_count || 0} reviews)</span>
+                    <span className="text-muted-foreground">({tour.review_count || 0} {t("common.reviews")})</span>
                   </div>
                 )}
               </div>
@@ -286,20 +300,22 @@ export default function TourDetails() {
               
               <div className="flex items-center gap-2 text-muted-foreground mb-4">
                 <MapPin className="w-4 h-4" />
-                <span className="text-sm">{normalizedLocation || "Location not specified"}</span>
+                <span className="text-sm">{normalizedLocation || t("tourDetails.locationNotSpecified")}</span>
               </div>
 
               <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                 {normalizedDurationDays && (
                   <div className="flex items-center gap-2">
                     <Clock className="w-4 h-4 text-primary" />
-                    <span>{normalizedDurationDays} day{normalizedDurationDays === 1 ? "" : "s"}</span>
+                    <span>
+                      {normalizedDurationDays} {normalizedDurationDays === 1 ? t("common.day") : t("common.days")}
+                    </span>
                   </div>
                 )}
                 {normalizedMaxGroup && (
                   <div className="flex items-center gap-2">
                     <Users className="w-4 h-4 text-primary" />
-                    <span>Up to {normalizedMaxGroup} guests</span>
+                    <span>{t("tourDetails.upToGuests", { count: normalizedMaxGroup })}</span>
                   </div>
                 )}
                 {normalizedDifficulty && (
@@ -320,14 +336,14 @@ export default function TourDetails() {
                   </p>
                 </div>
               ) : (
-                <p className="text-muted-foreground italic">No description available</p>
+                <p className="text-muted-foreground italic">{t("tourDetails.noDescription")}</p>
               )}
             </div>
 
             {/* Daily Itinerary */}
             {isPackage && tour?.daily_itinerary && (
               <div className="border-t pt-6">
-                <h2 className="text-xl font-semibold text-foreground mb-3">Daily Itinerary</h2>
+                <h2 className="text-xl font-semibold text-foreground mb-3">{t("tourDetails.dailyItinerary")}</h2>
                 <div className="bg-muted/30 rounded-lg p-5">
                   <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
                     {tour.daily_itinerary}
@@ -339,11 +355,11 @@ export default function TourDetails() {
             {/* What's included/excluded */}
             {isPackage && (tour?.included_services || tour?.excluded_services) && (
               <div className="border-t pt-6">
-                <h2 className="text-xl font-semibold text-foreground mb-4">What to Expect</h2>
+                <h2 className="text-xl font-semibold text-foreground mb-4">{t("tourDetails.whatToExpect")}</h2>
                 <div className="grid md:grid-cols-2 gap-6">
                   {tour?.included_services && (
                     <div className="bg-green-50 dark:bg-green-950/20 rounded-lg p-5">
-                      <h3 className="text-sm font-semibold text-foreground mb-3">✓ What's Included</h3>
+                      <h3 className="text-sm font-semibold text-foreground mb-3">{t("tourDetails.whatsIncluded")}</h3>
                       <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
                         {tour.included_services}
                       </p>
@@ -351,7 +367,7 @@ export default function TourDetails() {
                   )}
                   {tour?.excluded_services && (
                     <div className="bg-orange-50 dark:bg-orange-950/20 rounded-lg p-5">
-                      <h3 className="text-sm font-semibold text-foreground mb-3">✗ What's Not Included</h3>
+                      <h3 className="text-sm font-semibold text-foreground mb-3">{t("tourDetails.whatsNotIncluded")}</h3>
                       <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
                         {tour.excluded_services}
                       </p>
@@ -364,13 +380,13 @@ export default function TourDetails() {
             {/* Meeting point & What to bring */}
             {isPackage && (tour?.meeting_point || tour?.what_to_bring) && (
               <div className="border-t pt-6">
-                <h2 className="text-xl font-semibold text-foreground mb-4">Important Information</h2>
+                <h2 className="text-xl font-semibold text-foreground mb-4">{t("tourDetails.importantInfo")}</h2>
                 <div className="space-y-4">
                   {tour?.meeting_point && (
                     <div className="bg-card rounded-lg border p-5">
                       <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
                         <MapPin className="w-4 h-4 text-primary" />
-                        Meeting Point
+                        {t("tourDetails.meetingPoint")}
                       </h3>
                       <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
                         {tour.meeting_point}
@@ -381,7 +397,7 @@ export default function TourDetails() {
                     <div className="bg-card rounded-lg border p-5">
                       <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
                         <Info className="w-4 h-4 text-primary" />
-                        What to Bring
+                        {t("tourDetails.whatToBring")}
                       </h3>
                       <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
                         {tour.what_to_bring}
@@ -394,7 +410,7 @@ export default function TourDetails() {
 
             {/* PDF Itinerary - Compact Card */}
             <div className="border-t pt-6">
-              <h2 className="text-xl font-semibold text-foreground mb-4">Detailed Itinerary</h2>
+              <h2 className="text-xl font-semibold text-foreground mb-4">{t("tourDetails.detailedItinerary")}</h2>
               {tour.itinerary_pdf_url ? (
                 <div className="bg-card rounded-lg border p-4 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
@@ -402,8 +418,8 @@ export default function TourDetails() {
                       <FileText className="w-6 h-6 text-primary" />
                     </div>
                     <div>
-                      <p className="font-medium text-foreground">Tour Itinerary</p>
-                      <p className="text-sm text-muted-foreground">PDF Document</p>
+                      <p className="font-medium text-foreground">{t("tourDetails.tourItinerary")}</p>
+                      <p className="text-sm text-muted-foreground">{t("tourDetails.pdfDocument")}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -413,7 +429,7 @@ export default function TourDetails() {
                       rel="noopener noreferrer"
                       className="px-4 py-2 border rounded-lg text-sm font-medium hover:bg-muted transition-colors"
                     >
-                      View
+                      {t("common.view")}
                     </a>
                     <button
                       onClick={async () => {
@@ -436,14 +452,14 @@ export default function TourDetails() {
                       className="px-4 py-2 bg-foreground text-background rounded-lg text-sm font-medium hover:bg-foreground/90 transition-colors inline-flex items-center gap-2"
                     >
                       <Download className="w-4 h-4" />
-                      Download
+                      {t("common.download")}
                     </button>
                   </div>
                 </div>
               ) : (
                 <div className="bg-muted/30 rounded-lg border border-dashed p-4">
                   <p className="text-sm text-muted-foreground text-center">
-                    No detailed itinerary document is currently available for this tour. Please refer to the daily itinerary section above for more information.
+                    {t("tourDetails.noItinerary")}
                   </p>
                 </div>
               )}
@@ -454,7 +470,7 @@ export default function TourDetails() {
               <Card className="border-t-4 border-t-primary">
                 <CardHeader>
                   <div className="flex items-center gap-2">
-                    <CardTitle className="text-xl">Cancellation & Refund Policy</CardTitle>
+                    <CardTitle className="text-xl">{t("tourDetails.cancellationTitle")}</CardTitle>
                     <Popover>
                       <PopoverTrigger asChild>
                         <button className="text-muted-foreground hover:text-foreground transition-colors">
@@ -463,9 +479,7 @@ export default function TourDetails() {
                       </PopoverTrigger>
                       <PopoverContent className="max-w-xs">
                         <p className="text-xs">
-                          Please review the cancellation policy carefully before booking. 
-                          Refunds are subject to the terms specified below. Some items may be non-refundable 
-                          due to advance bookings or permits.
+                          {t("tourDetails.cancellation.popover")}
                         </p>
                       </PopoverContent>
                     </Popover>
@@ -476,37 +490,37 @@ export default function TourDetails() {
                     <div className="bg-muted p-4 rounded-md">
                       {tour.cancellation_policy_type === 'standard' && (
                         <>
-                          <div className="text-sm font-semibold mb-2">Standard Experiences (Day Tours & Activities)</div>
+                          <div className="text-sm font-semibold mb-2">{t("tourDetails.cancellation.standardTitle")}</div>
                           <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                            <li>More than 72 hours before start time: Full refund (excluding platform service fees and payment processing fees)</li>
-                            <li>48–72 hours before start time: 50% refund (excluding platform service fees)</li>
-                            <li>Less than 48 hours before start time: No refund</li>
-                            <li>No-shows or late arrivals: No refund</li>
+                            <li>{t("tourDetails.cancellation.standardItem1")}</li>
+                            <li>{t("tourDetails.cancellation.standardItem2")}</li>
+                            <li>{t("tourDetails.cancellation.standardItem3")}</li>
+                            <li>{t("tourDetails.cancellation.standardItem4")}</li>
                           </ul>
                         </>
                       )}
                       
                       {tour.cancellation_policy_type === 'multiday_private' && (
                         <>
-                          <div className="text-sm font-semibold mb-2">Multi-Day, Private & Custom Experiences</div>
+                          <div className="text-sm font-semibold mb-2">{t("tourDetails.cancellation.multidayTitle")}</div>
                           <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                            <li>More than 14 days before start date: Full refund minus non-refundable deposits and third-party costs</li>
-                            <li>7–14 days before start date: 50% refund</li>
-                            <li>Less than 7 days before start date: No refund</li>
-                            <li>Custom or tailor-made itineraries may require non-refundable deposits, clearly disclosed at booking</li>
+                            <li>{t("tourDetails.cancellation.multidayItem1")}</li>
+                            <li>{t("tourDetails.cancellation.multidayItem2")}</li>
+                            <li>{t("tourDetails.cancellation.multidayItem3")}</li>
+                            <li>{t("tourDetails.cancellation.multidayItem4")}</li>
                           </ul>
                         </>
                       )}
                       
                       {tour.cancellation_policy_type === 'non_refundable' && (
                         <>
-                          <div className="text-sm font-semibold mb-2">Non-Refundable Costs</div>
-                          <p className="text-sm text-muted-foreground mb-2">Some components are non-refundable once booked, including but not limited to:</p>
+                          <div className="text-sm font-semibold mb-2">{t("tourDetails.cancellation.nonRefundableTitle")}</div>
+                          <p className="text-sm text-muted-foreground mb-2">{t("tourDetails.cancellation.nonRefundableIntro")}</p>
                           <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                            <li>National park and conservation permits</li>
-                            <li>Gorilla trekking and special access permits</li>
-                            <li>Third-party accommodation, transport, flights, or activity tickets</li>
-                            <li>Experiences marked "Non-Refundable" on the listing page</li>
+                            <li>{t("tourDetails.cancellation.nonRefundableItem1")}</li>
+                            <li>{t("tourDetails.cancellation.nonRefundableItem2")}</li>
+                            <li>{t("tourDetails.cancellation.nonRefundableItem3")}</li>
+                            <li>{t("tourDetails.cancellation.nonRefundableItem4")}</li>
                           </ul>
                         </>
                       )}
@@ -515,7 +529,7 @@ export default function TourDetails() {
                   
                   {tour?.cancellation_policy_type === 'custom' && tour?.cancellation_policy && (
                     <div>
-                      <div className="text-sm font-medium text-foreground mb-1.5">Custom Cancellation Policy</div>
+                      <div className="text-sm font-medium text-foreground mb-1.5">{t("tourDetails.cancellation.customTitle")}</div>
                       <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
                         {tour.cancellation_policy}
                       </p>
@@ -531,7 +545,7 @@ export default function TourDetails() {
                         className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
                       >
                         <FileText className="w-4 h-4" />
-                        View Full Cancellation Policy (PDF)
+                        {t("tourDetails.cancellation.viewFullPdf")}
                       </a>
                     </div>
                   )}
@@ -541,7 +555,7 @@ export default function TourDetails() {
                       <div className="flex items-center gap-2 mb-2">
                         <Info className="w-4 h-4 text-amber-600 dark:text-amber-500" />
                         <div className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                          Non-refundable Items
+                          {t("tourDetails.cancellation.nonRefundableItems")}
                         </div>
                       </div>
                       <ul className="text-sm text-amber-800 dark:text-amber-200 list-disc pl-5 space-y-1">
@@ -560,6 +574,13 @@ export default function TourDetails() {
           <div className="space-y-6 lg:sticky lg:top-24 lg:self-start">
             {/* Booking card */}
             <div className="bg-card rounded-xl shadow-lg border p-6">
+              <div className="mb-6">
+                <div className="text-3xl font-bold text-primary">
+                  {displayMoney(Number(normalizedPrice ?? 0), String(normalizedCurrency ?? "RWF"))}
+                </div>
+                <div className="text-sm text-muted-foreground">{t("tourDetails.perPerson")}</div>
+              </div>
+
               {pricingTiers.length > 0 && (
                 <div className="mb-6">
                   <div className="text-sm font-semibold text-foreground">{t("tourDetails.priceForTour")}</div>
@@ -581,13 +602,6 @@ export default function TourDetails() {
                   </div>
                 </div>
               )}
-
-              <div className="mb-6">
-                <div className="text-3xl font-bold text-primary">
-                  {displayMoney(Number(normalizedPrice ?? 0), String(normalizedCurrency ?? "RWF"))}
-                </div>
-                <div className="text-sm text-muted-foreground">{t("tourDetails.perPerson")}</div>
-              </div>
 
               <div className="space-y-3">
                 <Button
@@ -627,7 +641,7 @@ export default function TourDetails() {
                   <div className="flex-1">
                     <div className="text-base font-semibold text-foreground flex items-center gap-1.5">
                       {(hostProfile?.nickname || hostProfile?.full_name) || (
-                        <span className="text-muted-foreground">Guide Profile Incomplete</span>
+                        <span className="text-muted-foreground">{t("tourDetails.guideIncomplete")}</span>
                       )}
                       {hostVerified && (
                         <BadgeCheck className="w-5 h-5 text-primary" />
@@ -635,7 +649,7 @@ export default function TourDetails() {
                     </div>
                     {hostProfile.created_at && (
                       <div className="text-xs text-muted-foreground mt-1">
-                        Joined {new Date(hostProfile.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                        {t("tourDetails.joined")} {new Date(hostProfile.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                       </div>
                     )}
                   </div>
@@ -652,7 +666,7 @@ export default function TourDetails() {
                 {!hostProfile.full_name && !hostProfile.nickname && (
                   <div className="mb-4 p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
                     <p className="text-sm text-amber-800 dark:text-amber-200">
-                      The tour guide's profile information is incomplete. Please contact support if you need more details about your guide.
+                      {t("tourDetails.guideIncompleteDesc")} {t("tourDetails.guideIncompleteHelp")}
                     </p>
                   </div>
                 )}
@@ -662,7 +676,7 @@ export default function TourDetails() {
                     <div className="flex items-center gap-3 text-sm">
                       <Award className="w-5 h-5 text-primary flex-shrink-0" />
                       <span className="text-foreground">
-                        <span className="font-semibold">{hostProfile.years_of_experience}</span> years of experience
+                        <span className="font-semibold">{hostProfile.years_of_experience}</span> {t("tourDetails.yearsExperience")}
                       </span>
                     </div>
                   )}
@@ -670,7 +684,7 @@ export default function TourDetails() {
                     <div className="flex items-center gap-3 text-sm">
                       <Globe className="w-5 h-5 text-primary flex-shrink-0" />
                       <span className="text-foreground">
-                        Speaks <span className="font-semibold">{hostProfile.languages_spoken.join(", ")}</span>
+                        {t("tourDetails.speaks")} <span className="font-semibold">{hostProfile.languages_spoken.join(", ")}</span>
                       </span>
                     </div>
                   )}
@@ -678,7 +692,7 @@ export default function TourDetails() {
                   <div className="flex items-center gap-3 text-sm bg-muted/50 p-3 rounded-lg">
                     <Mail className="w-5 h-5 text-muted-foreground flex-shrink-0" />
                     <span className="text-muted-foreground text-xs">
-                      Contact details available after booking confirmation
+                      {t("tourDetails.contactAfterBooking")}
                     </span>
                   </div>
                 </div>

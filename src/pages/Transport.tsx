@@ -20,11 +20,13 @@ import { Badge } from "@/components/ui/badge";
 
 // Transport service categories
 const transportCategories = [
-  { id: "airport_transfer", label: "Airport Transfer", icon: Plane, description: "Pickup & dropoff at airports" },
-  { id: "intracity", label: "Intracity Ride", icon: Building2, description: "Rides within a city" },
-  { id: "intercity", label: "Intercity Ride", icon: Map, description: "Travel between cities" },
-  { id: "car_rental", label: "Car Rentals", icon: Key, description: "Rent vehicles with or without driver" },
+  { id: "airport_transfer", labelKey: "transport.categories.airportTransfer", descKey: "transport.categories.airportDesc", icon: Plane },
+  { id: "intracity", labelKey: "transport.categories.intracity", descKey: "transport.categories.intracityDesc", icon: Building2 },
+  { id: "intercity", labelKey: "transport.categories.intercity", descKey: "transport.categories.intercityDesc", icon: Map },
+  { id: "car_rental", labelKey: "transport.categories.carRental", descKey: "transport.categories.carRentalDesc", icon: Key },
 ];
+
+const ALL_VEHICLES_VALUE = "All Vehicles";
 
 type TransportServiceRow = Pick<Tables<"transport_services">, "id" | "title" | "description">;
 
@@ -69,7 +71,7 @@ const Transport = () => {
   const [searchParams] = useSearchParams();
   const [activeCategory, setActiveCategory] = useState("all");
   const [query, setQuery] = useState("");
-  const [vehicle, setVehicle] = useState("All Vehicles");
+  const [vehicle, setVehicle] = useState(ALL_VEHICLES_VALUE);
   const { addToCart: addCartItem } = useTripCart();
   const { currency: preferredCurrency } = usePreferences();
   const { usdRates } = useFxRates();
@@ -82,13 +84,13 @@ const Transport = () => {
 
   useEffect(() => {
     setQuery(searchParams.get("q") ?? "");
-    setVehicle(searchParams.get("vehicle") ?? "All Vehicles");
+    setVehicle(searchParams.get("vehicle") ?? ALL_VEHICLES_VALUE);
   }, [searchParams]);
 
   const runSearch = () => {
     const params = new URLSearchParams();
     if (query.trim()) params.set("q", query.trim());
-    if (vehicle && vehicle !== "All Vehicles") params.set("vehicle", vehicle);
+    if (vehicle && vehicle !== ALL_VEHICLES_VALUE) params.set("vehicle", vehicle);
     const qs = params.toString();
     navigate(qs ? `/transport?${qs}` : "/transport");
   };
@@ -107,7 +109,7 @@ const Transport = () => {
   });
 
   const { data: vehicles = [], isLoading: vehiclesLoading, isError: vehiclesError } = useQuery({
-    queryKey: ["transport_vehicles", searchParams.get("vehicle") ?? "All Vehicles"],
+    queryKey: ["transport_vehicles", searchParams.get("vehicle") ?? ALL_VEHICLES_VALUE],
     queryFn: async (): Promise<TransportVehicleRow[]> => {
       let q = supabase
         .from("transport_vehicles")
@@ -123,7 +125,7 @@ const Transport = () => {
         .or("is_published.eq.true,is_published.is.null")
         .order("created_at", { ascending: false });
       const vt = searchParams.get("vehicle");
-      if (vt && vt !== "All Vehicles") q = (q as any).eq("vehicle_type", vt);
+      if (vt && vt !== ALL_VEHICLES_VALUE) q = (q as any).eq("vehicle_type", vt);
       const { data, error } = await q;
       if (error) throw error;
       return (data as TransportVehicleRow[] | null) ?? [];
@@ -217,7 +219,7 @@ const Transport = () => {
   const addToCart = async (payload: { item_type: string; reference_id: string }) => {
     const ok = await addCartItem(payload.item_type as any, payload.reference_id, 1);
     if (!ok) return;
-    toast({ title: "Added to Trip Cart" });
+    toast({ title: t("common.addedToCart") });
   };
 
   return (
@@ -248,10 +250,10 @@ const Transport = () => {
               >
                 <Icon className={`w-8 h-8 mb-3 ${isActive ? "text-primary-foreground" : "text-primary"}`} />
                 <h3 className={`font-semibold mb-1 ${isActive ? "text-primary-foreground" : "text-foreground"}`}>
-                  {cat.label}
+                  {t(cat.labelKey)}
                 </h3>
                 <p className={`text-sm ${isActive ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
-                  {cat.description}
+                  {t(cat.descKey)}
                 </p>
               </button>
             );
@@ -260,7 +262,7 @@ const Transport = () => {
         {activeCategory !== "all" && (
           <div className="text-center mt-4">
             <Button variant="ghost" size="sm" onClick={() => setActiveCategory("all")}>
-              Show all services
+              {t("transport.showAll")}
             </Button>
           </div>
         )}
@@ -286,12 +288,12 @@ const Transport = () => {
                 value={vehicle}
                 onChange={(e) => setVehicle(e.target.value)}
               >
-                <option>All Vehicles</option>
-                <option>Sedan</option>
-                <option>SUV</option>
-                <option>Van</option>
-                <option>4x4</option>
-                <option>Luxury</option>
+                <option value={ALL_VEHICLES_VALUE}>{t("transport.vehicles.all")}</option>
+                <option value="Sedan">{t("transport.vehicles.sedan")}</option>
+                <option value="SUV">{t("transport.vehicles.suv")}</option>
+                <option value="Van">{t("transport.vehicles.van")}</option>
+                <option value="4x4">{t("transport.vehicles.fourByFour")}</option>
+                <option value="Luxury">{t("transport.vehicles.luxury")}</option>
               </select>
             )}
             <Button variant="search" className="gap-2" type="button" onClick={runSearch}>

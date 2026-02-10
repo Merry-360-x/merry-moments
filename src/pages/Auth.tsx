@@ -645,13 +645,30 @@ const Auth = () => {
           description: isLogin ? "You have signed in successfully." : "Your account has been created successfully.",
           duration: 2000,
         });
+        
+        // Explicit navigation after successful phone auth
+        // Don't rely solely on useEffect - it may not fire immediately
+        setTimeout(() => {
+          navigate(redirectTo ?? "/", { replace: true });
+        }, 100);
       }
     } catch (error: unknown) {
       logError("auth.verifyOtp", error);
+      
+      // Extract better error message for OTP-specific errors
+      const errMsg = error && typeof error === "object" ? String((error as { message?: string }).message ?? "") : "";
+      let description = "Invalid or expired code. Please try again.";
+      
+      if (errMsg.toLowerCase().includes("expired") || errMsg.toLowerCase().includes("token")) {
+        description = "The verification code has expired. Please request a new code.";
+      } else if (errMsg.toLowerCase().includes("invalid")) {
+        description = "Invalid verification code. Please check and try again.";
+      }
+      
       toast({
         variant: "destructive",
         title: "Verification failed",
-        description: uiErrorMessage(error, "Invalid or expired code. Please try again."),
+        description,
       });
     } finally {
       setIsLoading(false);

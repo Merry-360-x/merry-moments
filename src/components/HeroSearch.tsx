@@ -224,6 +224,9 @@ const HeroSearch = () => {
   const [mobileDateOpen, setMobileDateOpen] = useState(false);
   const [mobileGuestsOpen, setMobileGuestsOpen] = useState(false);
 
+  const nearbyLabel = t("heroSearch.nearbyLabel");
+  const whereDisplay = where.trim() === NEARBY_LABEL ? nearbyLabel : where;
+
   const guestsLabel = useMemo(() => {
     const total = adults + children + infants;
     return total <= 1 ? t("heroSearch.oneGuest") : t("heroSearch.guests", { count: total });
@@ -241,11 +244,12 @@ const HeroSearch = () => {
 
   const suggestionsEnabled = openWhere || mobileOpen;
   const { data: suggestions = [], isLoading: suggestionsLoading } = useQuery({
-    queryKey: ["destinations", where.trim()],
+    queryKey: ["destinations", where.trim() === NEARBY_LABEL ? "" : where.trim()],
     queryFn: () => {
       const trimmed = where.trim();
+      const effectiveSearch = trimmed === NEARBY_LABEL ? "" : trimmed;
       // Show all locations when no search term, filtered results when searching
-      return trimmed ? fetchDestinationSuggestions(where) : fetchAllAccommodationLocations();
+      return effectiveSearch ? fetchDestinationSuggestions(effectiveSearch) : fetchAllAccommodationLocations();
     },
     enabled: suggestionsEnabled,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -253,7 +257,11 @@ const HeroSearch = () => {
 
   const geoToParams = async () => {
     if (!("geolocation" in navigator)) {
-      toast({ variant: "destructive", title: "Location not available", description: "Geolocation is not supported." });
+      toast({
+        variant: "destructive",
+        title: t("heroSearch.toast.locationNotAvailableTitle"),
+        description: t("heroSearch.toast.geolocationNotSupported"),
+      });
       return null;
     }
     return await new Promise<{ lat: number; lng: number } | null>((resolve) => {
@@ -262,8 +270,8 @@ const HeroSearch = () => {
         () => {
           toast({
             variant: "destructive",
-            title: "Location permission denied",
-            description: "Enable location to search nearby listings.",
+            title: t("heroSearch.toast.locationPermissionDeniedTitle"),
+            description: t("heroSearch.toast.enableLocationNearby"),
           });
           resolve(null);
         },
@@ -377,7 +385,7 @@ const HeroSearch = () => {
           </div>
           <div className="flex-1 min-w-0 text-left">
             <div className="text-sm font-semibold text-foreground truncate">
-              {where.trim() ? where : t("heroSearch.wherePlaceholder")}
+              {where.trim() ? whereDisplay : t("heroSearch.wherePlaceholder")}
             </div>
             <div className="text-xs text-muted-foreground truncate">
               {dateLabel} · {guestsLabel}
@@ -394,7 +402,7 @@ const HeroSearch = () => {
                   type="button"
                   className="absolute right-4 top-4 h-10 w-10 rounded-full border border-border bg-background shadow-sm flex items-center justify-center"
                   onClick={() => setMobileOpen(false)}
-                  aria-label="Close"
+                  aria-label={t("common.close")}
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -417,19 +425,19 @@ const HeroSearch = () => {
               {/* Body */}
               <div className="flex-1 overflow-y-auto px-4 py-4">
                 <div className="rounded-3xl border border-border bg-card shadow-card p-4">
-                  <div className="text-3xl font-bold text-foreground mb-3">Where?</div>
+                  <div className="text-3xl font-bold text-foreground mb-3">{t("heroSearch.whereQuestion")}</div>
 
                   <div className="rounded-2xl border border-border bg-background px-4 py-3 flex items-center gap-3">
                     <Search className="w-5 h-5 text-muted-foreground" />
                     <input
                       value={where}
                       onChange={(e) => setWhere(e.target.value)}
-                      placeholder="Search destinations"
+                      placeholder={t("heroSearch.wherePlaceholder")}
                       className="w-full bg-transparent outline-none text-foreground placeholder:text-muted-foreground"
                     />
                   </div>
 
-                  <div className="mt-4 text-sm font-semibold text-foreground">Suggested destinations</div>
+                  <div className="mt-4 text-sm font-semibold text-foreground">{t("heroSearch.suggestedDestinations")}</div>
                   <div className="mt-2 space-y-2">
                     {suggestionsLoading ? (
                       <div className="text-sm text-muted-foreground">{t("common.loading")}</div>
@@ -453,9 +461,9 @@ const HeroSearch = () => {
                             <MapPin className="w-5 h-5 text-muted-foreground" />
                           </div>
                           <div className="min-w-0">
-                            <div className="font-semibold text-foreground truncate">{loc}</div>
+                            <div className="font-semibold text-foreground truncate">{loc === NEARBY_LABEL ? nearbyLabel : loc}</div>
                             <div className="text-xs text-muted-foreground truncate">
-                              {loc === NEARBY_LABEL ? "Use your current location" : "Suggested destination"}
+                              {loc === NEARBY_LABEL ? t("heroSearch.useCurrentLocation") : t("heroSearch.suggestedDestination")}
                             </div>
                           </div>
                         </button>
@@ -470,7 +478,7 @@ const HeroSearch = () => {
                     className="w-full rounded-2xl border border-border bg-card p-4 flex items-center justify-between"
                     onClick={() => setMobileDateOpen(true)}
                   >
-                    <div className="text-muted-foreground">When</div>
+                    <div className="text-muted-foreground">{t("heroSearch.when")}</div>
                     <div className="font-semibold text-foreground">{dateLabel}</div>
                   </button>
 
@@ -479,7 +487,7 @@ const HeroSearch = () => {
                     className="w-full rounded-2xl border border-border bg-card p-4 flex items-center justify-between"
                     onClick={() => setMobileGuestsOpen(true)}
                   >
-                    <div className="text-muted-foreground">Who</div>
+                    <div className="text-muted-foreground">{t("heroSearch.who")}</div>
                     <div className="font-semibold text-foreground">{guestsLabel}</div>
                   </button>
                 </div>
@@ -500,7 +508,7 @@ const HeroSearch = () => {
                     setPets(0);
                   }}
                 >
-                  Clear all
+                  {t("heroSearch.clearAll")}
                 </button>
                 <Button
                   type="button"
@@ -511,7 +519,7 @@ const HeroSearch = () => {
                   }}
                 >
                   <Search className="w-4 h-4 mr-2" />
-                  Search
+                  {t("common.search")}
                 </Button>
               </div>
 
@@ -520,12 +528,12 @@ const HeroSearch = () => {
                 <DialogContent className="p-0 w-[100vw] max-w-[100vw] h-[100vh] max-h-[100vh] rounded-none">
                   <div className="h-full bg-background flex flex-col">
                     <div className="px-4 pt-4 pb-3 border-b border-border flex items-center justify-between">
-                      <div className="font-semibold text-foreground">When</div>
+                      <div className="font-semibold text-foreground">{t("heroSearch.when")}</div>
                       <button
                         type="button"
                         className="h-10 w-10 rounded-full border border-border bg-background shadow-sm flex items-center justify-center"
                         onClick={() => setMobileDateOpen(false)}
-                        aria-label="Close"
+                        aria-label={t("common.close")}
                       >
                         <X className="w-5 h-5" />
                       </button>
@@ -549,10 +557,10 @@ const HeroSearch = () => {
                           setDateFlexDays(0);
                         }}
                       >
-                        Clear dates
+                        {t("heroSearch.clearDates")}
                       </button>
                       <Button type="button" className="rounded-full" onClick={() => setMobileDateOpen(false)}>
-                        Done
+                        {t("common.done")}
                       </Button>
                     </div>
                   </div>
@@ -564,12 +572,12 @@ const HeroSearch = () => {
                 <DialogContent className="p-0 w-[100vw] max-w-[100vw] h-[100vh] max-h-[100vh] rounded-none">
                   <div className="h-full bg-background flex flex-col">
                     <div className="px-4 pt-4 pb-3 border-b border-border flex items-center justify-between">
-                      <div className="font-semibold text-foreground">Who</div>
+                      <div className="font-semibold text-foreground">{t("heroSearch.who")}</div>
                       <button
                         type="button"
                         className="h-10 w-10 rounded-full border border-border bg-background shadow-sm flex items-center justify-center"
                         onClick={() => setMobileGuestsOpen(false)}
-                        aria-label="Close"
+                        aria-label={t("common.close")}
                       >
                         <X className="w-5 h-5" />
                       </button>
@@ -646,10 +654,10 @@ const HeroSearch = () => {
                           setPets(0);
                         }}
                       >
-                        Clear guests
+                        {t("heroSearch.clearGuests")}
                       </button>
                       <Button type="button" className="rounded-full" onClick={() => setMobileGuestsOpen(false)}>
-                        Done
+                        {t("common.done")}
                       </Button>
                     </div>
                   </div>
@@ -679,7 +687,7 @@ const HeroSearch = () => {
               >
                 <div className="text-xs font-semibold text-foreground">{t("heroSearch.where")}</div>
                 <div className="text-sm text-muted-foreground truncate">
-                  {where.trim() ? where : t("heroSearch.wherePlaceholder")}
+                  {where.trim() ? whereDisplay : t("heroSearch.wherePlaceholder")}
                 </div>
               </button>
             </PopoverTrigger>
@@ -726,9 +734,9 @@ const HeroSearch = () => {
                               <MapPin className="w-5 h-5 text-muted-foreground" />
                             </div>
                             <div className="leading-tight">
-                              <div className="font-medium text-foreground">{loc}</div>
+                              <div className="font-medium text-foreground">{loc === NEARBY_LABEL ? nearbyLabel : loc}</div>
                               <div className="text-xs text-muted-foreground">
-                                {loc === NEARBY_LABEL ? "Use your current location" : t("heroSearch.destinationHint")}
+                                {loc === NEARBY_LABEL ? t("heroSearch.useCurrentLocation") : t("heroSearch.destinationHint")}
                               </div>
                             </div>
                           </div>

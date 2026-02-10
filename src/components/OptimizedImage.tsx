@@ -1,4 +1,5 @@
 import { ImgHTMLAttributes, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { optimizeCloudinaryImage } from "@/lib/cloudinary";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +27,7 @@ export function OptimizedImage({
   loading = 'lazy',
   ...props
 }: OptimizedImageProps) {
+  const { t } = useTranslation();
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
 
@@ -51,7 +53,7 @@ export function OptimizedImage({
         )}
         style={{ width, height }}
       >
-        <span>Image unavailable</span>
+        <span>{t("common.imageUnavailable")}</span>
       </div>
     );
   }

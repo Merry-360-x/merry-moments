@@ -21,7 +21,17 @@ import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { extractNeighborhood } from "@/lib/location";
 import { useTripCart } from "@/hooks/useTripCart";
 
-const categories = ["All", "Nature", "Adventure", "Cultural", "Wildlife", "Historical"];
+const ALL_CATEGORY_VALUE = "All";
+const ANY_DURATION_VALUE = "Any Duration";
+
+const categories: Array<{ value: string; labelKey: string }> = [
+  { value: "All", labelKey: "tours.categories.all" },
+  { value: "Nature", labelKey: "tours.categories.nature" },
+  { value: "Adventure", labelKey: "tours.categories.adventure" },
+  { value: "Cultural", labelKey: "tours.categories.cultural" },
+  { value: "Wildlife", labelKey: "tours.categories.wildlife" },
+  { value: "Historical", labelKey: "tours.categories.historical" },
+];
 
 type TourRow = Pick<
   Tables<"tours">,
@@ -134,23 +144,23 @@ const Tours = () => {
   const { currency: preferredCurrency } = usePreferences();
   const { usdRates } = useFxRates();
   const [searchParams] = useSearchParams();
-  const [activeCategory, setActiveCategory] = useState("All");
+  const [activeCategory, setActiveCategory] = useState(ALL_CATEGORY_VALUE);
   const [query, setQuery] = useState("");
-  const [duration, setDuration] = useState("Any Duration");
+  const [duration, setDuration] = useState(ANY_DURATION_VALUE);
   const navigate = useNavigate();
 
   // Keep local state in sync with URL
   useEffect(() => {
     setQuery(searchParams.get("q") ?? "");
-    setDuration(searchParams.get("duration") ?? "Any Duration");
-    setActiveCategory(searchParams.get("category") ?? "All");
+    setDuration(searchParams.get("duration") ?? ANY_DURATION_VALUE);
+    setActiveCategory(searchParams.get("category") ?? ALL_CATEGORY_VALUE);
   }, [searchParams]);
 
   const runSearch = () => {
     const params = new URLSearchParams();
     if (query.trim()) params.set("q", query.trim());
-    if (duration && duration !== "Any Duration") params.set("duration", duration);
-    if (activeCategory && activeCategory !== "All") params.set("category", activeCategory);
+    if (duration && duration !== ANY_DURATION_VALUE) params.set("duration", duration);
+    if (activeCategory && activeCategory !== ALL_CATEGORY_VALUE) params.set("category", activeCategory);
     const qs = params.toString();
     navigate(qs ? `/tours?${qs}` : "/tours");
   };
@@ -159,14 +169,14 @@ const Tours = () => {
     queryKey: [
       "tours",
       searchParams.get("q") ?? "",
-      searchParams.get("category") ?? "All",
-      searchParams.get("duration") ?? "Any Duration",
+      searchParams.get("category") ?? ALL_CATEGORY_VALUE,
+      searchParams.get("duration") ?? ANY_DURATION_VALUE,
     ],
     queryFn: () =>
       fetchTours({
         q: searchParams.get("q") ?? "",
-        category: searchParams.get("category") ?? "All",
-        duration: searchParams.get("duration") ?? "Any Duration",
+        category: searchParams.get("category") ?? ALL_CATEGORY_VALUE,
+        duration: searchParams.get("duration") ?? ANY_DURATION_VALUE,
       }),
     staleTime: 1000 * 60 * 2, // 2 minutes
     gcTime: 1000 * 60 * 10,
@@ -210,14 +220,14 @@ const Tours = () => {
               value={duration}
               onChange={(e) => setDuration(e.target.value)}
             >
-              <option>Any Duration</option>
-              <option>Half Day</option>
-              <option>Full Day</option>
-              <option>Multi-Day</option>
+              <option value={ANY_DURATION_VALUE}>{t("tours.duration.any")}</option>
+              <option value="Half Day">{t("tours.duration.halfDay")}</option>
+              <option value="Full Day">{t("tours.duration.fullDay")}</option>
+              <option value="Multi-Day">{t("tours.duration.multiDay")}</option>
             </select>
             <Button variant="search" className="gap-2" type="button" onClick={runSearch}>
               <Search className="w-4 h-4" />
-              Search
+              {t("common.search")}
             </Button>
           </div>
         </div>
@@ -228,23 +238,23 @@ const Tours = () => {
         <div className="flex flex-wrap justify-center gap-3">
           {categories.map((category) => (
             <button
-              key={category}
+              key={category.value}
               onClick={() => {
-                setActiveCategory(category);
+                setActiveCategory(category.value);
                 const params = new URLSearchParams();
                 if (query.trim()) params.set("q", query.trim());
-                if (duration && duration !== "Any Duration") params.set("duration", duration);
-                if (category && category !== "All") params.set("category", category);
+                if (duration && duration !== ANY_DURATION_VALUE) params.set("duration", duration);
+                if (category.value && category.value !== ALL_CATEGORY_VALUE) params.set("category", category.value);
                 const qs = params.toString();
                 navigate(qs ? `/tours?${qs}` : "/tours");
               }}
               className={`px-5 py-2 rounded-full text-sm font-medium transition-colors ${
-                activeCategory === category
+                activeCategory === category.value
                   ? "bg-primary text-primary-foreground"
                   : "bg-card border border-border text-foreground hover:border-primary"
               }`}
             >
-              {category}
+              {t(category.labelKey)}
             </button>
           ))}
         </div>
@@ -298,11 +308,11 @@ const Tours = () => {
                       <h3 className="font-semibold text-sm md:text-base text-foreground line-clamp-1">{tour.title}</h3>
                       {tour.source === "tour_packages" ? (
                         <Badge variant="outline" className="text-[10px] md:text-xs bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800 shrink-0 px-1.5 py-0.5">
-                          Package
+                          {t("tours.badge.package")}
                         </Badge>
                       ) : (
                         <Badge variant="outline" className="text-[10px] md:text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800 shrink-0 px-1.5 py-0.5">
-                          Tour
+                          {t("tours.badge.tour")}
                         </Badge>
                       )}
                     </div>
@@ -315,7 +325,7 @@ const Tours = () => {
 
                   <p className="text-xs md:text-sm text-muted-foreground mb-1.5 md:mb-2">{extractNeighborhood(tour.location)}</p>
                   <p className="text-[10px] md:text-xs text-muted-foreground mb-2 md:mb-3">
-                    {tour.difficulty} · {tour.duration_days} day{tour.duration_days === 1 ? "" : "s"}
+                    {tour.difficulty} · {tour.duration_days} {tour.duration_days === 1 ? t("common.day") : t("common.days")}
                   </p>
 
                   <div className="flex items-center justify-between gap-2 md:gap-3">

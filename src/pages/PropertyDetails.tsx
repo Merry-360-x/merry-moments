@@ -95,9 +95,6 @@ export default function PropertyDetails() {
     tomorrow.setDate(tomorrow.getDate() + 1);
     return tomorrow;
   });
-  const [guests, setGuests] = useState(1);
-  const [booking, setBooking] = useState(false);
-  const [isFavorited, setIsFavorited] = useState(false);
   const [usePoints, setUsePoints] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIdx, setViewerIdx] = useState(0);
@@ -238,18 +235,52 @@ export default function PropertyDetails() {
     },
   });
 
-  // Fetch blocked dates for this property
+  // Fetch blocked dates for this property (includes manual blocks + booked dates via view)
   const { data: blockedDates = [] } = useQuery({
     queryKey: ["property-blocked-dates", propertyId],
     enabled: Boolean(propertyId),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("property_blocked_dates")
-        .select("start_date, end_date, reason")
+      // First try the combined view, fallback to table if view doesn't exist
+      const { data: viewData, error: viewError } = await supabase
+        .from("property_unavailable_dates")
+        .select("start_date, end_date, reason, source")
         .eq("property_id", propertyId!)
         .order("start_date", { ascending: true });
-      if (error) throw error;
-      return (data || []) as Array<{ start_date: string; end_date: string; reason: string | null }>;
+      
+      if (!viewError && viewData) {
+        return viewData as Array<{ start_date: string; end_date: string; reason: string | null; source?: string }>;
+      }
+      
+      // Fallback: fetch from property_blocked_dates table + bookings separately
+      const [blockedResult, bookingsResult] = await Promise.all([
+        supabase
+          .from("property_blocked_dates")
+          .select("start_date, end_date, reason")
+          .eq("property_id", propertyId!)
+          .order("start_date", { ascending: true }),
+        supabase
+          .from("bookings")
+          .select("check_in, check_out, status, payment_status")
+          .eq("property_id", propertyId!)
+          .in("status", ["pending", "confirmed", "completed"])
+          .in("payment_status", ["pending", "paid"])
+      ]);
+      
+      const blocked = (blockedResult.data || []).map(d => ({
+        start_date: d.start_date,
+        end_date: d.end_date,
+        reason: d.reason,
+        source: "blocked"
+      }));
+      
+      const booked = (bookingsResult.data || []).map(d => ({
+        start_date: d.check_in,
+        end_date: d.check_out,
+        reason: "Booked",
+        source: "booking"
+      }));
+      
+      return [...blocked, ...booked] as Array<{ start_date: string; end_date: string; reason: string | null; source?: string }>;
     },
   });
 
@@ -375,9 +406,9 @@ export default function PropertyDetails() {
     const monthly = Number(data.monthly_discount ?? 0);
     const percent = nights >= 28 && monthly > 0 ? monthly : nights >= 7 && weekly > 0 ? weekly : 0;
     const amount = percent > 0 ? Math.round((baseTotal * percent) / 100) : 0;
-    const label = percent > 0 ? (nights >= 28 ? "Monthly discount" : "Weekly discount") : null;
+    const label = percent > 0 ? (nights >= 28 ? t("propertyDetails.discounts.monthly") : t("propertyDetails.discounts.weekly")) : null;
     return { percent, amount, label };
-  }, [data, nights, baseTotal]);
+  }, [data, nights, baseTotal, t]);
 
   const subtotalAfterStayDiscount = useMemo(
     () => Math.max(0, baseTotal - stayDiscount.amount),
@@ -402,30 +433,30 @@ export default function PropertyDetails() {
     if (addedAddOn && !isInTripCart) {
       toast({
         variant: "destructive",
-        title: "Add to Trip Cart first",
-        description: "Please add this stay to your Trip Cart, then proceed to checkout.",
+        title: t("propertyDetails.toast.addStayFirstTitle"),
+        description: t("propertyDetails.toast.addStayFirstDesc"),
       });
       return;
     }
 
     // Validation
     if (!checkIn || !checkOut) {
-      toast({ variant: "destructive", title: "Invalid dates", description: "Please select check-in and check-out dates." });
+      toast({ variant: "destructive", title: t("propertyDetails.toast.invalidDatesTitle"), description: t("propertyDetails.toast.invalidDatesSelect"), });
       return;
     }
     if (nights <= 0) {
-      toast({ variant: "destructive", title: "Invalid dates", description: "Check-out must be after check-in." });
+      toast({ variant: "destructive", title: t("propertyDetails.toast.invalidDatesTitle"), description: t("propertyDetails.toast.invalidDatesOrder"), });
       return;
     }
     if (guests < 1) {
-      toast({ variant: "destructive", title: "Invalid guests", description: "Guests must be at least 1." });
+      toast({ variant: "destructive", title: t("propertyDetails.toast.invalidGuestsTitle"), description: t("propertyDetails.toast.invalidGuestsMin"), });
       return;
     }
     if (data.max_guests && guests > data.max_guests) {
       toast({
         variant: "destructive",
-        title: "Too many guests",
-        description: `Max guests for this property is ${data.max_guests}.`,
+        title: t("propertyDetails.toast.tooManyGuestsTitle"),
+        description: t("propertyDetails.toast.tooManyGuestsDesc", { count: data.max_guests }),
       });
       return;
     }
@@ -595,16 +626,16 @@ export default function PropertyDetails() {
             className="inline-flex items-center gap-2 text-primary font-medium hover:underline"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back
+            {t("common.back")}
           </button>
           <button
             type="button"
-            className="inline-flex items-center gap-2 text-muted-foreground hover:text-primary"
             onClick={async () => {
               if (!data) return;
               const changed = await toggleFavorite(data.id, isFavorited);
               if (changed) setIsFavorited(!isFavorited);
             }}
+            className="inline-flex items-center gap-2 text-muted-foreground hover:text-primary"
             aria-label={t("actions.favorites")}
           >
             <Heart className={`w-4 h-4 ${isFavorited ? "fill-primary text-primary" : ""}`} />
@@ -633,7 +664,12 @@ export default function PropertyDetails() {
             <div className="lg:col-span-7 space-y-6">
             <div className="bg-card rounded-xl shadow-card overflow-hidden">
               {media[0] ? (
-                <button type="button" className="w-full" onClick={() => openViewer(0)} aria-label="Open gallery">
+                <button
+                  type="button"
+                  className="w-full"
+                  onClick={() => openViewer(0)}
+                  aria-label={t("propertyDetails.openPhoto")}
+                >
                   {isVideoUrl(media[0]) ? (
                     <video
                       src={media[0]}
@@ -645,29 +681,35 @@ export default function PropertyDetails() {
                   ) : (
                     <img
                       src={media[0]}
-                  alt={data.title}
-                  className="w-full h-[320px] object-cover"
-                  loading="lazy"
-                />
+                      alt={t("propertyDetails.photoAlt")}
+                      className="w-full h-[320px] object-cover"
+                      loading="lazy"
+                    />
                   )}
                 </button>
               ) : (
                 <div className="w-full h-[320px] bg-gradient-to-br from-muted via-muted/70 to-muted/40" />
               )}
+
               {media.length > 1 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3">
+                <div className="p-4 grid grid-cols-3 sm:grid-cols-4 gap-3">
                   {media.map((src, idx) => (
                     <button
                       key={`${src}-${idx}`}
                       type="button"
                       className="rounded-lg overflow-hidden"
                       onClick={() => openViewer(idx)}
-                      aria-label="Open gallery item"
+                      aria-label={t("propertyDetails.openPhoto")}
                     >
                       {isVideoUrl(src) ? (
                         <video src={src} className="h-28 w-full object-cover" muted playsInline preload="metadata" />
                       ) : (
-                        <img src={src} alt={data.title} className="h-28 w-full object-cover" loading="lazy" />
+                        <img
+                          src={src}
+                          alt={t("propertyDetails.photoAlt")}
+                          className="h-28 w-full object-cover"
+                          loading="lazy"
+                        />
                       )}
                     </button>
                   ))}
@@ -752,7 +794,7 @@ export default function PropertyDetails() {
                 <div className="bg-card rounded-xl shadow-card p-5">
                   {media.length > 1 ? (
                     <>
-                      <div className="text-sm font-semibold text-foreground mb-3">More photos</div>
+                      <div className="text-sm font-semibold text-foreground mb-3">{t("propertyDetails.morePhotos")}</div>
                       <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                         {media.slice(1, 9).map((src, i) => {
                           const idx = i + 1;
@@ -762,12 +804,12 @@ export default function PropertyDetails() {
                               type="button"
                               onClick={() => openViewer(idx)}
                               className="rounded-lg overflow-hidden aspect-[4/3] bg-muted"
-                              aria-label="Open photo"
+                              aria-label={t("propertyDetails.openPhoto")}
                             >
                               {isVideoUrl(src) ? (
                                 <video src={src} className="h-full w-full object-cover" muted playsInline preload="metadata" />
                               ) : (
-                                <img src={src} alt="photo" className="h-full w-full object-cover" loading="lazy" />
+                                <img src={src} alt={t("propertyDetails.photoAlt")} className="h-full w-full object-cover" loading="lazy" />
                               )}
                             </button>
                           );
@@ -786,22 +828,22 @@ export default function PropertyDetails() {
               {/* Related Tours + Transport - Hidden on mobile, shown on lg screens */}
               <div className="hidden lg:block bg-card rounded-xl shadow-card p-5">
                 <div className="flex items-center justify-between gap-4 mb-3">
-                  <div className="text-sm font-semibold text-foreground">Tours & Transport</div>
+                  <div className="text-sm font-semibold text-foreground">{t("propertyDetails.toursAndTransport")}</div>
                   <div className="flex items-center gap-2">
                     <Link to="/tours" className="text-sm text-primary hover:underline">
-                      View tours
+                      {t("propertyDetails.viewTours")}
                     </Link>
                     <Link to="/transport" className="text-sm text-primary hover:underline">
-                      View transport
+                      {t("propertyDetails.viewTransport")}
                     </Link>
                   </div>
                 </div>
 
                 <div className="space-y-6">
                   <div>
-                    <div className="text-xs font-medium text-muted-foreground mb-2">Available tours</div>
+                    <div className="text-xs font-medium text-muted-foreground mb-2">{t("propertyDetails.availableTours")}</div>
                     {relatedTours.length === 0 ? (
-                      <div className="text-sm text-muted-foreground">No tours found yet.</div>
+                      <div className="text-sm text-muted-foreground">{t("propertyDetails.noToursFound")}</div>
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {relatedTours.slice(0, 4).map((t) => (
@@ -822,7 +864,7 @@ export default function PropertyDetails() {
                                 <div className="text-xs text-muted-foreground line-clamp-1">{t.location ?? ""}</div>
                                 <div className="mt-2 text-sm font-semibold text-primary">
                                   {displayMoney(Number(t.price_per_person ?? 0), String(t.currency ?? "USD"))}
-                                  <span className="text-xs text-muted-foreground"> / person</span>
+                                  <span className="text-xs text-muted-foreground"> {t("common.perPerson")}</span>
                                 </div>
                                 <div className="mt-3">
                                   <Button
@@ -835,7 +877,7 @@ export default function PropertyDetails() {
                                       void addToCart(t.source === "tour_packages" ? "tour_package" : "tour", t.id, 1);
                                     }}
                                   >
-                                    Add to Trip Cart
+                                    {t("common.addToTripCart")}
                                   </Button>
                                 </div>
                               </div>
@@ -847,9 +889,9 @@ export default function PropertyDetails() {
             </div>
 
             <div>
-                    <div className="text-xs font-medium text-muted-foreground mb-2">Transport vehicles</div>
+                    <div className="text-xs font-medium text-muted-foreground mb-2">{t("propertyDetails.transportVehicles")}</div>
                     {relatedTransportVehicles.length === 0 ? (
-                      <div className="text-sm text-muted-foreground">No transport vehicles found yet.</div>
+                      <div className="text-sm text-muted-foreground">{t("propertyDetails.noTransportFound")}</div>
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {relatedTransportVehicles.slice(0, 4).map((v) => (
@@ -869,11 +911,11 @@ export default function PropertyDetails() {
                                 <div className="font-medium text-foreground line-clamp-1">{v.title}</div>
                                 <div className="text-xs text-muted-foreground line-clamp-1">
                                   {v.provider_name ?? ""} {v.vehicle_type ? `· ${v.vehicle_type}` : ""}{" "}
-                                  {v.seats ? `· ${v.seats} seats` : ""}
+                                  {v.seats ? `· ${v.seats} ${t("common.seats")}` : ""}
                                 </div>
                                 <div className="mt-2 text-sm font-semibold text-primary">
                                   {displayMoney(Number(v.price_per_day ?? 0), String(v.currency ?? "RWF"))}
-                                  <span className="text-xs text-muted-foreground"> / day</span>
+                                  <span className="text-xs text-muted-foreground"> {t("common.perDay")}</span>
                                 </div>
                                 <div className="mt-3">
                                   <Button
@@ -886,7 +928,7 @@ export default function PropertyDetails() {
                                       void addToCart("transport_vehicle", v.id, 1);
                                     }}
                                   >
-                                    Add to Trip Cart
+                                    {t("common.addToTripCart")}
                                   </Button>
                                 </div>
                               </div>
@@ -923,7 +965,7 @@ export default function PropertyDetails() {
               {/* Description - Prominent Section */}
               {data.description && (
                 <div className="mt-6 bg-card rounded-xl shadow-card p-5">
-                  <h3 className="text-lg font-bold text-foreground mb-3">Description</h3>
+                  <h3 className="text-lg font-bold text-foreground mb-3">{t("propertyDetails.description")}</h3>
                   <p className="text-foreground leading-relaxed whitespace-pre-line">
                     {data.description}
                   </p>
@@ -936,10 +978,10 @@ export default function PropertyDetails() {
                 {(data.bedrooms || data.bathrooms || data.beds || data.max_guests) ? (
                   <div className="text-sm text-muted-foreground">
                     {[
-                      data.max_guests ? `Up to ${data.max_guests} guests` : null,
-                      data.bedrooms ? `${data.bedrooms} bedrooms` : null,
-                      data.beds ? `${data.beds} beds` : null,
-                      data.bathrooms ? `${data.bathrooms} bathrooms` : null,
+                      data.max_guests ? t("tourDetails.upToGuests", { count: data.max_guests }) : null,
+                      data.bedrooms ? t("propertyDetails.bedrooms", { count: data.bedrooms }) : null,
+                      data.beds ? t("propertyDetails.beds", { count: data.beds }) : null,
+                      data.bathrooms ? t("propertyDetails.bathrooms", { count: data.bathrooms }) : null,
                     ]
                       .filter(Boolean)
                       .join(" · ")}
@@ -970,7 +1012,7 @@ export default function PropertyDetails() {
 
                 <div className="mt-5 flex flex-col sm:flex-row gap-3">
                   <Button variant="outline" onClick={addPropertyToTripCart}>
-                    {isInTripCart ? "Added to Trip Cart" : "Add to Trip Cart"}
+                    {isInTripCart ? t("common.addedToCart") : t("common.addToTripCart")}
                   </Button>
                 </div>
               </div>
@@ -980,14 +1022,14 @@ export default function PropertyDetails() {
                 <Link
                   to={`/hosts/${encodeURIComponent(String(data.host_id))}`}
                   className="block rounded-xl hover:bg-muted/40 transition-colors p-2 -m-2"
-                  aria-label="View host profile"
+                  aria-label={t("propertyDetails.viewHostProfile")}
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-start gap-3">
                       {hostProfile?.avatar_url ? (
                         <img
                           src={hostProfile.avatar_url}
-                          alt={hostProfile.full_name ?? "Host"}
+                          alt={hostProfile.full_name ?? t("propertyDetails.hostAlt")}
                           className="w-12 h-12 rounded-full object-cover border border-border"
                           loading="lazy"
                           onError={(e) => {
@@ -1348,12 +1390,12 @@ export default function PropertyDetails() {
                           {usePoints ? "Using 5 points (5% off)" : "Use 5 points (5% off)"}
                         </button>
                       ) : (
-                        <span className="text-xs text-muted-foreground">Earn points by completing your profile.</span>
+                        <span className="text-xs text-muted-foreground">{t("propertyDetails.loyalty.earnPointsHint")}</span>
                       )}
                     </div>
                     {pointsToUse > 0 ? (
                       <div className="mt-2 text-xs text-muted-foreground">
-                        Discount applied:{" "}
+                        {t("propertyDetails.loyalty.discountApplied")}{" "}
                         <span className="font-semibold text-foreground">
                           {displayMoney(Number(loyaltyDiscountAmount), String(data.currency ?? "RWF"))}
                         </span>
@@ -1377,22 +1419,24 @@ export default function PropertyDetails() {
               {/* Mobile Tours & Transport - Only shown on mobile after booking section */}
               <div className="lg:hidden mt-8 bg-card rounded-xl shadow-card p-5">
                 <div className="flex items-center justify-between gap-4 mb-3">
-                  <div className="text-sm font-semibold text-foreground">Tours & Transport</div>
+                  <div className="text-sm font-semibold text-foreground">{t("propertyDetails.toursAndTransport")}</div>
                   <div className="flex items-center gap-2">
                     <Link to="/tours" className="text-sm text-primary hover:underline">
-                      View tours
+                      {t("propertyDetails.viewTours")}
                     </Link>
                     <Link to="/transport" className="text-sm text-primary hover:underline">
-                      View transport
+                      {t("propertyDetails.viewTransport")}
                     </Link>
                   </div>
                 </div>
 
                 <div className="space-y-6">
                   <div>
-                    <div className="text-xs font-medium text-muted-foreground mb-2">Available tours ({relatedTours.length})</div>
+                    <div className="text-xs font-medium text-muted-foreground mb-2">
+                      {t("propertyDetails.availableTours")} ({relatedTours.length})
+                    </div>
                     {relatedTours.length === 0 ? (
-                      <div className="text-sm text-muted-foreground">No tours found yet.</div>
+                      <div className="text-sm text-muted-foreground">{t("propertyDetails.noToursFound")}</div>
                     ) : (
                       <div className="grid grid-cols-1 gap-4">
                         {relatedTours.slice(0, 6).map((t) => (
@@ -1413,7 +1457,7 @@ export default function PropertyDetails() {
                                 <div className="text-xs text-muted-foreground line-clamp-1">{t.location ?? ""}</div>
                                 <div className="mt-1 text-sm font-semibold text-primary">
                                   {displayMoney(Number(t.price_per_person ?? 0), String(t.currency ?? "USD"))}
-                                  <span className="text-xs text-muted-foreground"> / person</span>
+                                  <span className="text-xs text-muted-foreground"> {t("common.perPerson")}</span>
                                 </div>
                                 <Button
                                   variant="outline"
@@ -1426,7 +1470,7 @@ export default function PropertyDetails() {
                                     void addToCart(t.source === "tour_packages" ? "tour_package" : "tour", t.id, 1);
                                   }}
                                 >
-                                  Add to Cart
+                                  {t("common.addToTripCart")}
                                 </Button>
                               </div>
                             </div>
@@ -1437,9 +1481,11 @@ export default function PropertyDetails() {
                   </div>
 
                   <div>
-                    <div className="text-xs font-medium text-muted-foreground mb-2">Transport vehicles ({relatedTransportVehicles.length})</div>
+                    <div className="text-xs font-medium text-muted-foreground mb-2">
+                      {t("propertyDetails.transportVehicles")} ({relatedTransportVehicles.length})
+                    </div>
                     {relatedTransportVehicles.length === 0 ? (
-                      <div className="text-sm text-muted-foreground">No transport vehicles found yet.</div>
+                      <div className="text-sm text-muted-foreground">{t("propertyDetails.noTransportFound")}</div>
                     ) : (
                       <div className="grid grid-cols-1 gap-4">
                         {relatedTransportVehicles.slice(0, 4).map((v) => (
@@ -1459,11 +1505,11 @@ export default function PropertyDetails() {
                                 <div className="font-medium text-foreground text-sm line-clamp-1">{v.title}</div>
                                 <div className="text-xs text-muted-foreground line-clamp-1">
                                   {v.provider_name ?? ""} {v.vehicle_type ? `· ${v.vehicle_type}` : ""}{" "}
-                                  {v.seats ? `· ${v.seats} seats` : ""}
+                                  {v.seats ? `· ${v.seats} ${t("common.seats")}` : ""}
                                 </div>
                                 <div className="mt-1 text-sm font-semibold text-primary">
                                   {displayMoney(Number(v.price_per_day ?? 0), String(v.currency ?? "RWF"))}
-                                  <span className="text-xs text-muted-foreground"> / day</span>
+                                  <span className="text-xs text-muted-foreground"> {t("common.perDay")}</span>
                                 </div>
                                 <Button
                                   variant="outline"
@@ -1476,7 +1522,7 @@ export default function PropertyDetails() {
                                     void addToCart("transport_vehicle", v.id, 1);
                                   }}
                                 >
-                                  Add to Cart
+                                  {t("common.addToTripCart")}
                                 </Button>
                               </div>
                             </div>

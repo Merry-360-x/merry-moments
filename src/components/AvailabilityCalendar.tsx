@@ -16,6 +16,7 @@ type BlockedDate = {
   end_date: string;
   reason?: string;
   created_at: string;
+  source?: "blocked" | "booking"; // To differentiate between manual blocks and bookings
 };
 
 type AvailabilityCalendarProps = {
@@ -34,18 +35,55 @@ export default function AvailabilityCalendar({ propertyId }: AvailabilityCalenda
   }, [propertyId]);
 
   const fetchBlockedDates = async () => {
-    const { data, error } = await supabase
-      .from("property_blocked_dates")
-      .select("*")
-      .eq("property_id", propertyId)
-      .order("start_date", { ascending: true });
+    // Fetch both manual blocked dates and bookings
+    const [blockedResult, bookingsResult] = await Promise.all([
+      supabase
+        .from("property_blocked_dates")
+        .select("*")
+        .eq("property_id", propertyId)
+        .order("start_date", { ascending: true }),
+      supabase
+        .from("bookings")
+        .select("id, property_id, check_in, check_out, status, payment_status, created_at")
+        .eq("property_id", propertyId)
+        .in("status", ["pending", "confirmed", "completed"])
+        .in("payment_status", ["pending", "paid"])
+        .order("check_in", { ascending: true })
+    ]);
 
-    if (error) {
-      console.error("Error fetching blocked dates:", error);
-      return;
+    if (blockedResult.error) {
+      console.error("Error fetching blocked dates:", blockedResult.error);
+    }
+    if (bookingsResult.error) {
+      console.error("Error fetching bookings:", bookingsResult.error);
     }
 
-    setBlockedDates(data || []);
+    const manualBlocks: BlockedDate[] = (blockedResult.data || []).map(d => ({
+      ...d,
+      source: "blocked" as const
+    }));
+    
+    // Convert bookings to blocked date format, excluding those already in manual blocks
+    const bookingBlocks: BlockedDate[] = (bookingsResult.data || [])
+      .filter(b => !manualBlocks.some(m => 
+        m.start_date === b.check_in && m.end_date === b.check_out && m.reason === "Booked"
+      ))
+      .map(b => ({
+        id: b.id,
+        property_id: b.property_id,
+        start_date: b.check_in,
+        end_date: b.check_out,
+        reason: `Booked (${b.status})`,
+        created_at: b.created_at,
+        source: "booking" as const
+      }));
+
+    // Combine and sort by start date
+    const allBlocked = [...manualBlocks, ...bookingBlocks].sort(
+      (a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
+    );
+    
+    setBlockedDates(allBlocked);
   };
 
   const addBlockedDate = async () => {
@@ -54,12 +92,16 @@ export default function AvailabilityCalendar({ propertyId }: AvailabilityCalenda
       return;
     }
 
+    // Get the current user for created_by field
+    const { data: { user } } = await supabase.auth.getUser();
+
     setLoading(true);
     const { error } = await supabase.from("property_blocked_dates").insert({
       property_id: propertyId,
       start_date: format(selectedRange.from, "yyyy-MM-dd"),
       end_date: format(selectedRange.to || selectedRange.from, "yyyy-MM-dd"),
       reason: reason || "Blocked by host",
+      created_by: user?.id,
     });
 
     if (error) {
@@ -148,31 +190,42 @@ export default function AvailabilityCalendar({ propertyId }: AvailabilityCalenda
 
       {blockedDates.length > 0 && (
         <div>
-          <Label className="text-sm font-medium">Blocked Dates</Label>
+          <Label className="text-sm font-medium">Unavailable Dates</Label>
           <div className="mt-2 space-y-2 max-h-48 overflow-y-auto">
             {blockedDates.map((bd) => (
               <div
                 key={bd.id}
-                className="flex items-center justify-between p-2 rounded-md bg-muted text-sm"
+                className={`flex items-center justify-between p-2 rounded-md text-sm ${
+                  bd.source === "booking" ? "bg-primary/10 border border-primary/20" : "bg-muted"
+                }`}
               >
-                <div>
-                  <div className="font-medium">
-                    {format(new Date(bd.start_date), "MMM d, yyyy")}
-                    {bd.start_date !== bd.end_date &&
-                      ` - ${format(new Date(bd.end_date), "MMM d, yyyy")}`}
-                  </div>
-                  {bd.reason && (
-                    <div className="text-xs text-muted-foreground">{bd.reason}</div>
+                <div className="flex items-center gap-2">
+                  {bd.source === "booking" && (
+                    <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
+                      Booked
+                    </Badge>
                   )}
+                  <div>
+                    <div className="font-medium">
+                      {format(new Date(bd.start_date), "MMM d, yyyy")}
+                      {bd.start_date !== bd.end_date &&
+                        ` - ${format(new Date(bd.end_date), "MMM d, yyyy")}`}
+                    </div>
+                    {bd.reason && bd.source !== "booking" && (
+                      <div className="text-xs text-muted-foreground">{bd.reason}</div>
+                    )}
+                  </div>
                 </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 w-7 p-0 text-destructive"
-                  onClick={() => removeBlockedDate(bd.id)}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
+                {bd.source !== "booking" && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 w-7 p-0 text-destructive"
+                    onClick={() => removeBlockedDate(bd.id)}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                )}
               </div>
             ))}
           </div>
