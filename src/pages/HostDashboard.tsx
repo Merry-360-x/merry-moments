@@ -1022,7 +1022,7 @@ export default function HostDashboard() {
       images: propertyForm.images.length > 0 ? propertyForm.images : null,
       main_image: propertyForm.images.length > 0 ? propertyForm.images[0] : null,
       host_id: user!.id,
-      is_published: hostProfile?.profile_complete ?? false, // Only publish if profile is complete
+      is_published: true, // Published by default
     };
 
     // Add optional columns only if they have values
@@ -1067,11 +1067,7 @@ export default function HostDashboard() {
       }
 
       setProperties((prev) => [newProp as Property, ...prev]);
-      if (hostProfile?.profile_complete) {
-        toast({ title: "Property Created!", description: "Your property is now live on the homepage!" });
-      } else {
-        toast({ title: "Property Saved as Draft", description: "Complete your host profile to publish it." });
-      }
+      toast({ title: "Property Created!", description: "Your property is now live on the homepage!" });
       localStorage.removeItem(PROPERTY_FORM_KEY); // Clear draft
       resetPropertyForm();
       setShowPropertyWizard(false);
@@ -1235,7 +1231,7 @@ export default function HostDashboard() {
       media: data.media && data.media.length > 0 ? data.media : null,
       image_url: data.media && data.media.length > 0 ? data.media[0] : null,
       created_by: user!.id,
-      is_published: hostProfile?.profile_complete ?? false, // Only publish if profile is complete
+      is_published: true, // Published by default
     };
     
     const { error, data: newVehicle } = await supabase
@@ -1250,11 +1246,7 @@ export default function HostDashboard() {
     }
     setVehicles((prev) => [newVehicle as Vehicle, ...prev]);
     localStorage.removeItem(VEHICLE_FORM_KEY); // Clear draft
-    if (hostProfile?.profile_complete) {
-      toast({ title: "Vehicle created!", description: "Your vehicle is now live." });
-    } else {
-      toast({ title: "Vehicle saved as draft", description: "Complete your host profile to publish it." });
-    }
+    toast({ title: "Vehicle created!", description: "Your vehicle is now live." });
     return newVehicle;
   };
 
@@ -3018,7 +3010,7 @@ export default function HostDashboard() {
                     ...propertyForm,
                     property_type: "Room in Apartment",
                     host_id: user!.id,
-                    is_published: hostProfile?.profile_complete ?? false,
+                    is_published: true, // Published by default
                     images: propertyForm.images.length > 0 ? propertyForm.images : null,
                     main_image: propertyForm.images.length > 0 ? propertyForm.images[0] : null,
                   };

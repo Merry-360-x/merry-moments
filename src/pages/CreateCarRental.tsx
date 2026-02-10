@@ -251,16 +251,14 @@ export default function CreateCarRental() {
         registration_document_url: registrationDoc,
         roadworthiness_certificate_url: roadworthinessDoc,
         owner_identification_url: ownerIdDoc,
-        is_published: hostProfileComplete,
+        is_published: true, // Published by default
       });
 
       if (error) throw error;
 
       toast({
         title: "Success!",
-        description: hostProfileComplete 
-          ? "Your car rental listing is now live!" 
-          : "Your car rental listing has been saved as draft. Complete your host profile to publish it.",
+        description: "Your car rental listing is now live!",
       });
 
       clearDraft();

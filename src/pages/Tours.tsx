@@ -49,6 +49,8 @@ type TourRow = Pick<
   | "location"
 > & {
   source?: "tours" | "tour_packages"; // Track which table this item came from
+  host_id?: string;
+  business_name?: string | null;
 };
 
 const durationToFilter = (duration: string) => {
@@ -71,7 +73,7 @@ const fetchTours = async ({
   let toursQuery = supabase
     .from("tours")
     .select(
-      "id, title, description, category, difficulty, duration_days, price_per_person, currency, images, rating, review_count, location"
+      "id, title, description, category, difficulty, duration_days, price_per_person, currency, images, rating, review_count, location, created_by"
     )
     .or("is_published.eq.true,is_published.is.null")
     .order("created_at", { ascending: false });
@@ -108,11 +110,14 @@ const fetchTours = async ({
 
   if (toursRes.error) throw toursRes.error;
   
-  const tours = (toursRes.data as TourRow[] | null) ?? [];
-  // Mark tours with source
-  tours.forEach(t => t.source = "tours");
+  const tours = ((toursRes.data as any[]) ?? []).map(t => ({
+    ...t,
+    source: "tours" as const,
+    host_id: t.created_by,
+  })) as TourRow[];
   
   // Convert tour_packages to TourRow format
+  let allTours = tours;
   if (packagesRes.data && !packagesRes.error) {
     const packagesAsTours: TourRow[] = packagesRes.data.map(pkg => ({
       id: pkg.id,
@@ -127,13 +132,32 @@ const fetchTours = async ({
       rating: null,
       review_count: null,
       location: `${pkg.city}, ${pkg.country}`,
-      source: "tour_packages",
+      source: "tour_packages" as const,
+      host_id: pkg.host_id,
     }));
     
-    return [...tours, ...packagesAsTours];
+    allTours = [...tours, ...packagesAsTours];
   }
   
-  return tours;
+  // Fetch business names for all host IDs
+  const hostIds = [...new Set(allTours.map(t => t.host_id).filter(Boolean))] as string[];
+  if (hostIds.length > 0) {
+    const { data: hostApps } = await supabase
+      .from("host_applications")
+      .select("user_id, business_name")
+      .in("user_id", hostIds);
+    
+    if (hostApps) {
+      const businessNameMap = new Map(hostApps.map(app => [app.user_id, app.business_name]));
+      allTours.forEach(t => {
+        if (t.host_id) {
+          t.business_name = businessNameMap.get(t.host_id) || null;
+        }
+      });
+    }
+  }
+  
+  return allTours;
 };
 
 const Tours = () => {
@@ -324,6 +348,9 @@ const Tours = () => {
                   </div>
 
                   <p className="text-xs md:text-sm text-muted-foreground mb-1.5 md:mb-2">{extractNeighborhood(tour.location)}</p>
+                  {tour.business_name && (
+                    <p className="text-[10px] md:text-xs text-primary/80 font-medium mb-1 truncate">{tour.business_name}</p>
+                  )}
                   <p className="text-[10px] md:text-xs text-muted-foreground mb-2 md:mb-3">
                     {tour.difficulty} · {tour.duration_days} {tour.duration_days === 1 ? t("common.day") : t("common.days")}
                   </p>

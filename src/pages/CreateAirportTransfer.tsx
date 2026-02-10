@@ -290,7 +290,7 @@ export default function CreateAirportTransfer() {
           registration_document_url: registrationDoc,
           roadworthiness_certificate_url: roadworthinessDoc,
           owner_identification_url: ownerIdDoc,
-          is_published: hostProfileComplete,
+          is_published: true, // Published by default
         })
         .select()
         .single();
@@ -313,9 +313,7 @@ export default function CreateAirportTransfer() {
 
       toast({
         title: "Success!",
-        description: hostProfileComplete 
-          ? "Your airport transfer service is now live!" 
-          : "Your airport transfer service has been saved as draft. Complete your host profile to publish it.",
+        description: "Your airport transfer service is now live!",
       });
 
       clearDraft();

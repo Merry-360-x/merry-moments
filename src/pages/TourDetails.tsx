@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,7 +40,9 @@ import {
   Mail,
   Phone,
   Download,
-  BadgeCheck
+  BadgeCheck,
+  Minus,
+  Plus
 } from "lucide-react";
 import { extractNeighborhood } from "@/lib/location";
 import { useTranslation } from "react-i18next";
@@ -67,6 +70,7 @@ export default function TourDetails() {
   const { currency: preferredCurrency } = usePreferences();
   const { usdRates } = useFxRates();
   const { t } = useTranslation();
+  const [participants, setParticipants] = useState(1);
 
   const categoryLabel = (category: string) => {
     const key = String(category ?? "")
@@ -159,27 +163,34 @@ export default function TourDetails() {
   // Get the host ID - from created_by (tours table) or host_id (tour_packages table)
   const hostId = tour?.created_by || tour?.host_id;
 
-  // Check if host is verified (profile_complete in host_applications)
-  const { data: hostVerified } = useQuery({
-    queryKey: ["host-verified", hostId],
+  // Check if host is verified and get business name from host_applications
+  const { data: hostAppData } = useQuery({
+    queryKey: ["host-app-data", hostId],
     enabled: Boolean(hostId),
     staleTime: 1000 * 60 * 10, // 10 minutes
     gcTime: 1000 * 60 * 30,
     queryFn: async () => {
-      if (!hostId) return false;
+      if (!hostId) return { verified: false, businessName: null };
       
       const { data: app, error } = await supabase
         .from("host_applications")
-        .select("profile_complete")
+        .select("profile_complete, business_name")
         .eq("user_id", hostId)
         .order("profile_complete", { ascending: false })
         .limit(1)
         .maybeSingle();
       
-      if (error) return false;
-      return (app as { profile_complete?: boolean } | null)?.profile_complete === true;
+      if (error) return { verified: false, businessName: null };
+      const appData = app as { profile_complete?: boolean; business_name?: string } | null;
+      return { 
+        verified: appData?.profile_complete === true,
+        businessName: appData?.business_name || null
+      };
     },
   });
+  
+  const hostVerified = hostAppData?.verified ?? false;
+  const hostBusinessName = hostAppData?.businessName;
 
   const isPackage = data?.source === "tour_packages";
   const normalizedImages = isPackage
@@ -637,13 +648,46 @@ export default function TourDetails() {
                 </div>
               )}
 
+              {/* Participants selector */}
+              <div className="mb-6">
+                <div className="text-sm font-semibold text-foreground mb-3">{t("tourDetails.participants", "Number of Participants")}</div>
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setParticipants(Math.max(1, participants - 1))}
+                    disabled={participants <= 1}
+                  >
+                    <Minus className="w-4 h-4" />
+                  </Button>
+                  <span className="w-12 text-center font-semibold text-lg">{participants}</span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setParticipants(participants + 1)}
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+                {participants > 1 && (
+                  <div className="mt-3 p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">{t("tourDetails.totalForGroup", "Total for group")}</span>
+                      <span className="font-semibold text-primary">
+                        {displayMoney(Number(normalizedPrice ?? 0) * participants, String(normalizedCurrency ?? "RWF"))}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-3">
                 <Button
                   className="w-full"
                   size="lg"
                   onClick={async () => {
-                    await addToCart("tour", String(tour.id), 1);
-                    navigate("/trip-cart");
+                    await addToCart("tour", String(tour.id), participants);
+                    navigate("/checkout");
                   }}
                 >
                   <Calendar className="w-4 h-4 mr-2" />
@@ -653,7 +697,7 @@ export default function TourDetails() {
                   className="w-full"
                   variant="outline"
                   size="lg"
-                  onClick={async () => await addToCart("tour", String(tour.id), 1)}
+                  onClick={async () => await addToCart("tour", String(tour.id), participants)}
                 >
                   {t("common.addToTripCart")}
                 </Button>
@@ -681,6 +725,11 @@ export default function TourDetails() {
                         <BadgeCheck className="w-5 h-5 text-primary" />
                       )}
                     </div>
+                    {hostBusinessName && (
+                      <div className="text-sm text-muted-foreground mt-0.5">
+                        {hostBusinessName}
+                      </div>
+                    )}
                     {hostProfile.created_at && (
                       <div className="text-xs text-muted-foreground mt-1">
                         {t("tourDetails.joined")} {new Date(hostProfile.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}

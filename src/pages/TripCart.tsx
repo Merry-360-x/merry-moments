@@ -70,6 +70,9 @@ export default function TripCart() {
   const [editCheckIn, setEditCheckIn] = useState("");
   const [editCheckOut, setEditCheckOut] = useState("");
   const [editGuests, setEditGuests] = useState(1);
+  
+  // Track unavailable items
+  const [unavailableItemIds, setUnavailableItemIds] = useState<string[]>([]);
 
   // Persist applied discount to localStorage for checkout
   useEffect(() => {
@@ -145,11 +148,14 @@ export default function TripCart() {
       transport_vehicle: new Map(vehicles.map((v: any) => [String(v.id), v] as [string, any])),
     };
 
-    return items.map(item => {
+    const unavailableIds: string[] = [];
+    
+    const validItems = items.map(item => {
       const refId = String(item.reference_id);
       const data: any = maps[item.item_type]?.get(refId);
       if (!data) {
         console.warn(`Cart item not found: ${item.item_type} ${refId}`);
+        unavailableIds.push(item.id);
         return null;
       }
 
@@ -191,6 +197,28 @@ export default function TripCart() {
         ...details 
       } as CartItem;
     }).filter(Boolean) as CartItem[];
+    
+    // Auto-remove unavailable items from cart
+    if (unavailableIds.length > 0) {
+      setUnavailableItemIds(unavailableIds);
+      // Remove unavailable items from the database/localStorage
+      for (const itemId of unavailableIds) {
+        try {
+          await removeFromCart(itemId);
+        } catch (e) {
+          console.error("Failed to remove unavailable item:", itemId, e);
+        }
+      }
+      if (unavailableIds.length > 0) {
+        toast({
+          variant: "destructive",
+          title: t("tripCart.itemsUnavailable", "Some items are no longer available"),
+          description: t("tripCart.itemsUnavailableDesc", `${unavailableIds.length} item(s) were removed from your cart`),
+        });
+      }
+    }
+    
+    return validItems;
   }
 
   // Validate discount code

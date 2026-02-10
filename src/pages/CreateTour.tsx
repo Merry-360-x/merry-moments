@@ -259,7 +259,7 @@ export default function CreateTour() {
         images: images.length > 0 ? images : null,
         itinerary_pdf_url: pdfUrl || null,
         created_by: user.id || null,
-        is_published: hostProfileComplete, // Only publish if profile is complete
+        is_published: true, // Published by default
         has_differential_pricing: formData.has_differential_pricing,
         price_for_citizens: formData.has_differential_pricing && formData.price_for_citizens ? parseFloat(formData.price_for_citizens) : null,
         price_for_east_african: formData.has_differential_pricing && formData.price_for_east_african ? parseFloat(formData.price_for_east_african) : null,
@@ -272,11 +272,7 @@ export default function CreateTour() {
       await queryClient.invalidateQueries({ queryKey: ["tours"] });
       await queryClient.invalidateQueries({ queryKey: ["featured-tours"] });
 
-      if (hostProfileComplete) {
-        toast({ title: "Tour Published!", description: "Your tour is now live and visible to guests." });
-      } else {
-        toast({ title: "Tour Saved as Draft", description: "Complete your host profile to publish it." });
-      }
+      toast({ title: "Tour Published!", description: "Your tour is now live and visible to guests." });
       clearDraft();
       navigate("/host-dashboard");
     } catch (error: any) {

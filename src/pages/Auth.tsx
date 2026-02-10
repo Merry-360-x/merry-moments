@@ -192,6 +192,16 @@ const Auth = () => {
   // Terms agreement
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   
+  // Password validation
+  const passwordChecks = {
+    length: password.length >= 8,
+    lowercase: /[a-z]/.test(password),
+    uppercase: /[A-Z]/.test(password),
+    number: /[0-9]/.test(password),
+    special: /[!@#$%^&*()_+\-=\[\]{};':"\|<>?,.\/`~]/.test(password),
+  };
+  const passwordIsStrong = Object.values(passwordChecks).every(Boolean);
+  
   // Phone OTP state
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState("");
@@ -358,10 +368,15 @@ const Auth = () => {
           return;
         }
         
-        // Validate password length without throwing error
-        if (password.length < 6) {
+        // Validate password strength
+        if (!passwordIsStrong) {
+          toast({
+            variant: "destructive",
+            title: "Weak Password",
+            description: "Password must include lowercase, uppercase, number, and special character.",
+          });
           setIsLoading(false);
-          return; // Just stop - the UI already shows the warning
+          return;
         }
         
         if (!firstName.trim() || !lastName.trim()) {
@@ -1040,10 +1055,24 @@ const Auth = () => {
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                {!isLogin && (
-                  <p className={`text-xs mt-2 ${password.length > 0 && password.length < 6 ? 'text-destructive' : 'text-muted-foreground'}`}>
-                    {password.length > 0 && password.length < 6 ? '⚠ ' : ''}Password must be at least 6 characters long
-                  </p>
+                {!isLogin && password.length > 0 && (
+                  <div className="mt-2 space-y-1 text-xs">
+                    <div className={passwordChecks.length ? 'text-green-600' : 'text-muted-foreground'}>
+                      {passwordChecks.length ? '✓' : '○'} At least 8 characters
+                    </div>
+                    <div className={passwordChecks.lowercase ? 'text-green-600' : 'text-muted-foreground'}>
+                      {passwordChecks.lowercase ? '✓' : '○'} Lowercase letter (a-z)
+                    </div>
+                    <div className={passwordChecks.uppercase ? 'text-green-600' : 'text-muted-foreground'}>
+                      {passwordChecks.uppercase ? '✓' : '○'} Uppercase letter (A-Z)
+                    </div>
+                    <div className={passwordChecks.number ? 'text-green-600' : 'text-muted-foreground'}>
+                      {passwordChecks.number ? '✓' : '○'} Number (0-9)
+                    </div>
+                    <div className={passwordChecks.special ? 'text-green-600' : 'text-muted-foreground'}>
+                      {passwordChecks.special ? '✓' : '○'} Special character (!@#$%...)
+                    </div>
+                  </div>
                 )}
               </div>
 

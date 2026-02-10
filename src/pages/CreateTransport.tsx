@@ -428,24 +428,17 @@ export default function CreateTransport() {
           owner_identification_url: ownerIdUrl,
           service_type: "car_rental",
           created_by: user.id,
-          is_published: hostProfileComplete, // Only publish if profile is complete
+          is_published: true, // Published by default
         } as any)
         .select()
         .single();
 
       if (error) throw error;
 
-      if (hostProfileComplete) {
-        toast({
-          title: "Car Listed Successfully!",
-          description: "Your vehicle is now live and available for rental.",
-        });
-      } else {
-        toast({
-          title: "Car Saved as Draft",
-          description: "Complete your host profile to publish it.",
-        });
-      }
+      toast({
+        title: "Car Listed Successfully!",
+        description: "Your vehicle is now live and available for rental.",
+      });
 
       clearDraft();
       navigate("/host-dashboard");

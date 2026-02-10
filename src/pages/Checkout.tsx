@@ -35,7 +35,8 @@ import {
   Building2,
   Clock,
   Mail,
-  X
+  X,
+  Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -146,6 +147,7 @@ export default function CheckoutNew() {
   const [currentStep, setCurrentStep] = useState<Step>('details');
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [paymentType, setPaymentType] = useState<'group' | 'individual'>('group');
   
   // Form state
   const [formData, setFormData] = useState({
@@ -467,6 +469,24 @@ export default function CheckoutNew() {
     };
   }, [cartItems, preferredCurrency, usdRates, appliedDiscount]);
 
+  // Check if there are tours with multiple participants
+  const tourParticipants = useMemo(() => {
+    return cartItems
+      .filter(item => item.item_type === 'tour' || item.item_type === 'tour_package')
+      .reduce((sum, item) => sum + item.quantity, 0);
+  }, [cartItems]);
+
+  const hasGroupBooking = tourParticipants > 1;
+  
+  // Calculate individual share when paying individually
+  const individualShare = useMemo(() => {
+    if (!hasGroupBooking || paymentType === 'group') return total;
+    return Math.ceil(total / tourParticipants);
+  }, [total, tourParticipants, paymentType, hasGroupBooking]);
+
+  // The amount to actually pay based on payment type
+  const payableAmount = paymentType === 'individual' && hasGroupBooking ? individualShare : total;
+
   // Apply discount code
   const handleApplyDiscount = async () => {
     if (!discountCodeInput.trim()) {
@@ -633,17 +653,18 @@ export default function CheckoutNew() {
       } : null;
       
       // Convert total to RWF for storage (all checkouts stored in RWF)
-      let totalInRwf = total;
+      // Use payableAmount (which may be individual share or full total)
+      let amountInRwf = payableAmount;
       if (displayCurrency !== 'RWF') {
-        const converted = convertAmount(total, displayCurrency, 'RWF', usdRates);
+        const converted = convertAmount(payableAmount, displayCurrency, 'RWF', usdRates);
         if (!converted) {
           throw new Error(`Unable to convert ${displayCurrency} to RWF. Please try again.`);
         }
-        totalInRwf = converted;
-        console.log("💱 Converted checkout total to RWF:", {
+        amountInRwf = converted;
+        console.log("💱 Converted checkout amount to RWF:", {
           from: displayCurrency,
-          original: total,
-          rwf: totalInRwf
+          original: payableAmount,
+          rwf: amountInRwf
         });
       }
       
@@ -654,7 +675,7 @@ export default function CheckoutNew() {
         email: formData.email,
         phone: fullPhone || formData.phone || null,
         message: formData.notes || null,
-        total_amount: Math.round(totalInRwf),
+        total_amount: Math.round(amountInRwf),
         currency: 'RWF', // Always store in RWF
         payment_status: paymentMethod === 'card' || paymentMethod === 'bank' ? 'awaiting_callback' : 'pending',
         payment_method: paymentMethod === 'card' ? 'card' : paymentMethod === 'bank' ? 'bank_transfer' : 'mobile_money',
@@ -669,6 +690,9 @@ export default function CheckoutNew() {
           special_requests: formData.notes || null,
           discount_code: appliedDiscount?.code || null,
           discount_amount: discount,
+          payment_type: paymentType,
+          total_participants: hasGroupBooking ? tourParticipants : 1,
+          group_total: hasGroupBooking ? total : null,
           payment_provider: (() => {
             const methodInfo = PAWAPAY_METHODS.find(m => m.id === paymentMethod);
             return methodInfo?.provider || paymentMethod.toUpperCase();
@@ -709,9 +733,9 @@ export default function CheckoutNew() {
       const paymentCurrency = selectedMethodInfo?.currency || 'RWF';
       
       // Convert amount from RWF to payment method's currency
-      let paymentAmount = totalInRwf;
+      let paymentAmount = amountInRwf;
       if (paymentCurrency !== 'RWF') {
-        const converted = convertAmount(totalInRwf, 'RWF', paymentCurrency, usdRates);
+        const converted = convertAmount(amountInRwf, 'RWF', paymentCurrency, usdRates);
         if (!converted) {
           throw new Error(`Unable to convert RWF to ${paymentCurrency}. Please try again.`);
         }
@@ -719,7 +743,7 @@ export default function CheckoutNew() {
         console.log("💱 Converted payment amount:", {
           from: 'RWF',
           to: paymentCurrency,
-          original: totalInRwf,
+          original: amountInRwf,
           converted: paymentAmount
         });
       }
@@ -1386,7 +1410,7 @@ export default function CheckoutNew() {
                       ) : (
                         <>
                           <CreditCard className="w-4 h-4 mr-2" />
-                          Pay {formatMoney(total, displayCurrency)}
+                          Pay {formatMoney(payableAmount, displayCurrency)}
                         </>
                       )}
                     </Button>
@@ -1555,9 +1579,44 @@ export default function CheckoutNew() {
                 )}
               </div>
 
+              {/* Payment Type Selector - only show for group bookings */}
+              {hasGroupBooking && (
+                <div className="border-t pt-4 space-y-3">
+                  <div className="text-sm font-semibold text-foreground">{t("checkout.paymentType", "Payment Type")}</div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant={paymentType === 'group' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setPaymentType('group')}
+                      className="flex-1"
+                    >
+                      <Users className="w-4 h-4 mr-2" />
+                      {t("checkout.payAsGroup", "Pay for Everyone")}
+                    </Button>
+                    <Button
+                      variant={paymentType === 'individual' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setPaymentType('individual')}
+                      className="flex-1"
+                    >
+                      {t("checkout.payIndividual", "Pay My Share")}
+                    </Button>
+                  </div>
+                  {paymentType === 'individual' && (
+                    <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-3 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">{t("checkout.yourShare", "Your share")} (1/{tourParticipants})</span>
+                        <span className="font-semibold text-primary">{formatMoney(individualShare, displayCurrency)}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">{t("checkout.individualNote", "Other participants will need to complete their own payment")}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="flex justify-between items-baseline py-4 mt-4 border-t">
-                <span className="font-semibold">{t("common.total")}</span>
-                <span className="text-2xl font-bold">{formatMoney(total, displayCurrency)}</span>
+                <span className="font-semibold">{paymentType === 'individual' && hasGroupBooking ? t("checkout.youPay", "You Pay") : t("common.total")}</span>
+                <span className="text-2xl font-bold">{formatMoney(payableAmount, displayCurrency)}</span>
               </div>
 
               {/* Trust Badges */}
