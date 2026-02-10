@@ -100,6 +100,7 @@ export default function PropertyDetails() {
   const [viewerIdx, setViewerIdx] = useState(0);
   const [addedAddOn, setAddedAddOn] = useState(false);
   const [isFavorited, setIsFavorited] = useState(false);
+  const [guests, setGuests] = useState(1);
 
   const { data: myPoints = 0 } = useQuery({
     queryKey: ["loyalty_points", user?.id],
