@@ -101,6 +101,7 @@ export default function PropertyDetails() {
   const [addedAddOn, setAddedAddOn] = useState(false);
   const [isFavorited, setIsFavorited] = useState(false);
   const [guests, setGuests] = useState(1);
+  const [booking, setBooking] = useState(false);
 
   const { data: myPoints = 0 } = useQuery({
     queryKey: ["loyalty_points", user?.id],
@@ -848,13 +849,13 @@ export default function PropertyDetails() {
                       <div className="text-sm text-muted-foreground">{t("propertyDetails.noToursFound")}</div>
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {relatedTours.slice(0, 4).map((t) => (
-                          <Link key={t.id} to={t.source === "tour_packages" ? `/tours/${t.id}` : "/tours"} className="block">
+                        {relatedTours.slice(0, 4).map((tour) => (
+                          <Link key={tour.id} to={tour.source === "tour_packages" ? `/tours/${tour.id}` : "/tours"} className="block">
                             <div className="rounded-xl border border-border overflow-hidden hover:shadow-md transition">
-                              {t.images?.[0] ? (
+                              {tour.images?.[0] ? (
                                 <img
-                                  src={t.images[0]}
-                                  alt={t.title}
+                                  src={tour.images[0]}
+                                  alt={tour.title}
                                   className="h-36 w-full object-cover"
                                   loading="lazy"
                                 />
@@ -862,10 +863,10 @@ export default function PropertyDetails() {
                                 <div className="h-36 w-full bg-muted" />
                               )}
                               <div className="p-3">
-                                <div className="font-medium text-foreground line-clamp-1">{t.title}</div>
-                                <div className="text-xs text-muted-foreground line-clamp-1">{t.location ?? ""}</div>
+                                <div className="font-medium text-foreground line-clamp-1">{tour.title}</div>
+                                <div className="text-xs text-muted-foreground line-clamp-1">{tour.location ?? ""}</div>
                                 <div className="mt-2 text-sm font-semibold text-primary">
-                                  {displayMoney(Number(t.price_per_person ?? 0), String(t.currency ?? "USD"))}
+                                  {displayMoney(Number(tour.price_per_person ?? 0), String(tour.currency ?? "USD"))}
                                   <span className="text-xs text-muted-foreground"> {t("common.perPerson")}</span>
                                 </div>
                                 <div className="mt-3">
@@ -876,7 +877,7 @@ export default function PropertyDetails() {
                                       e.preventDefault();
                                       e.stopPropagation();
                                       setAddedAddOn(true);
-                                      void addToCart(t.source === "tour_packages" ? "tour_package" : "tour", t.id, 1);
+                                      void addToCart(tour.source === "tour_packages" ? "tour_package" : "tour", tour.id, 1);
                                     }}
                                   >
                                     {t("common.addToTripCart")}
@@ -1441,13 +1442,13 @@ export default function PropertyDetails() {
                       <div className="text-sm text-muted-foreground">{t("propertyDetails.noToursFound")}</div>
                     ) : (
                       <div className="grid grid-cols-1 gap-4">
-                        {relatedTours.slice(0, 6).map((t) => (
-                          <Link key={t.id} to={t.source === "tour_packages" ? `/tours/${t.id}` : "/tours"} className="block">
+                        {relatedTours.slice(0, 6).map((tour) => (
+                          <Link key={tour.id} to={tour.source === "tour_packages" ? `/tours/${tour.id}` : "/tours"} className="block">
                             <div className="rounded-xl border border-border overflow-hidden hover:shadow-md transition flex">
-                              {t.images?.[0] ? (
+                              {tour.images?.[0] ? (
                                 <img
-                                  src={t.images[0]}
-                                  alt={t.title}
+                                  src={tour.images[0]}
+                                  alt={tour.title}
                                   className="h-24 w-24 object-cover flex-shrink-0"
                                   loading="lazy"
                                 />
@@ -1455,10 +1456,10 @@ export default function PropertyDetails() {
                                 <div className="h-24 w-24 bg-muted flex-shrink-0" />
                               )}
                               <div className="p-3 flex-1 min-w-0">
-                                <div className="font-medium text-foreground text-sm line-clamp-1">{t.title}</div>
-                                <div className="text-xs text-muted-foreground line-clamp-1">{t.location ?? ""}</div>
+                                <div className="font-medium text-foreground text-sm line-clamp-1">{tour.title}</div>
+                                <div className="text-xs text-muted-foreground line-clamp-1">{tour.location ?? ""}</div>
                                 <div className="mt-1 text-sm font-semibold text-primary">
-                                  {displayMoney(Number(t.price_per_person ?? 0), String(t.currency ?? "USD"))}
+                                  {displayMoney(Number(tour.price_per_person ?? 0), String(tour.currency ?? "USD"))}
                                   <span className="text-xs text-muted-foreground"> {t("common.perPerson")}</span>
                                 </div>
                                 <Button
@@ -1469,7 +1470,7 @@ export default function PropertyDetails() {
                                     e.preventDefault();
                                     e.stopPropagation();
                                     setAddedAddOn(true);
-                                    void addToCart(t.source === "tour_packages" ? "tour_package" : "tour", t.id, 1);
+                                    void addToCart(tour.source === "tour_packages" ? "tour_package" : "tour", tour.id, 1);
                                   }}
                                 >
                                   {t("common.addToTripCart")}
