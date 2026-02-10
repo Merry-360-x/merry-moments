@@ -49,6 +49,10 @@ export default function CreateTour() {
     max_participants: 10,
     price_per_person: 0,
     currency: "RWF",
+    has_differential_pricing: false,
+    price_for_citizens: "",
+    price_for_east_african: "",
+    price_for_foreigners: "",
   });
 
   const [images, setImages] = useState<string[]>([]);
@@ -256,6 +260,10 @@ export default function CreateTour() {
         itinerary_pdf_url: pdfUrl || null,
         created_by: user.id || null,
         is_published: hostProfileComplete, // Only publish if profile is complete
+        has_differential_pricing: formData.has_differential_pricing,
+        price_for_citizens: formData.has_differential_pricing && formData.price_for_citizens ? parseFloat(formData.price_for_citizens) : null,
+        price_for_east_african: formData.has_differential_pricing && formData.price_for_east_african ? parseFloat(formData.price_for_east_african) : null,
+        price_for_foreigners: formData.has_differential_pricing && formData.price_for_foreigners ? parseFloat(formData.price_for_foreigners) : null,
       };
 
       const { error } = await supabase.from("tours").insert(tourData as any).select().single();
@@ -468,6 +476,67 @@ export default function CreateTour() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            {/* Differential Pricing Section */}
+            <div className="p-4 rounded-xl border border-border bg-blue-50 dark:bg-blue-950/20">
+              <div className="flex items-center gap-3 mb-3">
+                <input
+                  type="checkbox"
+                  id="differential-pricing-tour"
+                  checked={formData.has_differential_pricing}
+                  onChange={(e) => setFormData({ ...formData, has_differential_pricing: e.target.checked })}
+                  className="w-4 h-4 rounded border-gray-300"
+                />
+                <Label htmlFor="differential-pricing-tour" className="text-sm font-medium cursor-pointer">
+                  Tiered pricing by residency
+                </Label>
+              </div>
+              
+              {formData.has_differential_pricing && (
+                <div className="ml-7 mt-3 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <Label className="text-sm">🇷🇼 National Citizens</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formData.price_for_citizens}
+                      onChange={(e) => setFormData({ ...formData, price_for_citizens: e.target.value })}
+                      placeholder="e.g. 50,000"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm">🌍 East African</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formData.price_for_east_african}
+                      onChange={(e) => setFormData({ ...formData, price_for_east_african: e.target.value })}
+                      placeholder="e.g. 75,000"
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">KE, UG, TZ, BI, SS, DRC</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm">✈️ Foreign Tourists</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formData.price_for_foreigners}
+                      onChange={(e) => setFormData({ ...formData, price_for_foreigners: e.target.value })}
+                      placeholder="e.g. 150,000"
+                      className="mt-1"
+                    />
+                  </div>
+                  <p className="col-span-full text-xs text-muted-foreground">
+                    Guests will select their residency status during booking
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 

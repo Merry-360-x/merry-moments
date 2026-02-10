@@ -69,6 +69,7 @@ Some components are non-refundable once booked, including but not limited to:
     max_guests: 10,
     has_differential_pricing: false,
     price_for_citizens: "",
+    price_for_east_african: "",
     price_for_foreigners: "",
   });
 
@@ -369,6 +370,7 @@ Some components are non-refundable once booked, including but not limited to:
         status: (isHost ? "approved" : "draft"),
         has_differential_pricing: formData.has_differential_pricing,
         price_for_citizens: formData.has_differential_pricing && formData.price_for_citizens ? parseFloat(formData.price_for_citizens) : null,
+        price_for_east_african: formData.has_differential_pricing && formData.price_for_east_african ? parseFloat(formData.price_for_east_african) : null,
         price_for_foreigners: formData.has_differential_pricing && formData.price_for_foreigners ? parseFloat(formData.price_for_foreigners) : null,
       };
 
@@ -893,38 +895,51 @@ Some components are non-refundable once booked, including but not limited to:
                   className="w-4 h-4 rounded border-gray-300"
                 />
                 <Label htmlFor="differential-pricing" className="text-sm font-medium cursor-pointer">
-                  Different prices for citizens and foreigners
+                  Tiered pricing by residency
                 </Label>
               </div>
               
               {formData.has_differential_pricing && (
-                <div className="ml-7 mt-3 grid grid-cols-2 gap-4">
+                <div className="ml-7 mt-3 grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <Label className="text-sm">Price for Citizens/Residents</Label>
+                    <Label className="text-sm">🇷🇼 National Citizens</Label>
                     <Input
                       type="number"
                       min="0"
                       step="0.01"
                       value={formData.price_for_citizens}
                       onChange={(e) => setFormData({ ...formData, price_for_citizens: e.target.value })}
-                      placeholder="Citizen price"
+                      placeholder="e.g. 50,000"
                       className="mt-1"
                     />
                   </div>
                   <div>
-                    <Label className="text-sm">Price for Foreigners/Tourists</Label>
+                    <Label className="text-sm">🌍 East African</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formData.price_for_east_african}
+                      onChange={(e) => setFormData({ ...formData, price_for_east_african: e.target.value })}
+                      placeholder="e.g. 75,000"
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">KE, UG, TZ, BI, SS, DRC</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm">✈️ Foreign Tourists</Label>
                     <Input
                       type="number"
                       min="0"
                       step="0.01"
                       value={formData.price_for_foreigners}
                       onChange={(e) => setFormData({ ...formData, price_for_foreigners: e.target.value })}
-                      placeholder="Foreigner price"
+                      placeholder="e.g. 150,000"
                       className="mt-1"
                     />
                   </div>
-                  <p className="col-span-2 text-xs text-muted-foreground">
-                    When enabled, guests will be asked if they're citizens/residents to show the appropriate price
+                  <p className="col-span-full text-xs text-muted-foreground">
+                    Guests will select their residency status during booking to see the appropriate price
                   </p>
                 </div>
               )}

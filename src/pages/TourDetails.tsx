@@ -581,6 +581,40 @@ export default function TourDetails() {
                 <div className="text-sm text-muted-foreground">{t("tourDetails.perPerson")}</div>
               </div>
 
+              {/* Residency-based pricing */}
+              {(tour as any)?.has_differential_pricing && (
+                <div className="mb-6 p-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+                  <div className="text-sm font-semibold text-foreground mb-3">{t("tourDetails.pricingByResidency", "Pricing by Residency")}</div>
+                  <div className="space-y-2">
+                    {(tour as any)?.price_for_citizens && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">🇷🇼 {t("tourDetails.nationalCitizens", "National Citizens")}</span>
+                        <span className="font-semibold text-primary">
+                          {displayMoney(Number((tour as any).price_for_citizens), String(normalizedCurrency ?? "RWF"))}
+                        </span>
+                      </div>
+                    )}
+                    {(tour as any)?.price_for_east_african && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">🌍 {t("tourDetails.eastAfrican", "East African")}</span>
+                        <span className="font-semibold text-primary">
+                          {displayMoney(Number((tour as any).price_for_east_african), String(normalizedCurrency ?? "RWF"))}
+                        </span>
+                      </div>
+                    )}
+                    {(tour as any)?.price_for_foreigners && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">✈️ {t("tourDetails.foreignTourists", "Foreign Tourists")}</span>
+                        <span className="font-semibold text-primary">
+                          {displayMoney(Number((tour as any).price_for_foreigners), String(normalizedCurrency ?? "RWF"))}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">{t("tourDetails.residencyNote", "Select your residency status at checkout")}</p>
+                </div>
+              )}
+
               {pricingTiers.length > 0 && (
                 <div className="mb-6">
                   <div className="text-sm font-semibold text-foreground">{t("tourDetails.priceForTour")}</div>
