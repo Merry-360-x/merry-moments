@@ -261,8 +261,10 @@ export default function CheckoutNew() {
       // Check if this is a direct booking from URL params
       const mode = searchParams.get("mode");
       const propertyId = searchParams.get("propertyId");
+      const tourId = searchParams.get("tourId");
       const requireTripCart = searchParams.get("requireTripCart");
       
+      // Direct property booking
       if (mode === "booking" && propertyId) {
         const directBooking = await fetchDirectBooking(propertyId);
         
@@ -275,12 +277,46 @@ export default function CheckoutNew() {
         return directBooking;
       }
       
+      // Direct tour booking
+      if (mode === "tour" && tourId) {
+        const participants = parseInt(searchParams.get("participants") || "1", 10);
+        const directTour = await fetchDirectTour(tourId, participants);
+        return directTour;
+      }
+      
       // Otherwise fetch from cart
       const cartSource = user ? await fetchUserCart() : await fetchGuestCart();
       return cartSource;
     },
     enabled: !authLoading,
   });
+
+  async function fetchDirectTour(tourId: string, participants: number): Promise<CartItem[]> {
+    // Fetch the tour details directly
+    const { data: tour, error } = await (supabase
+      .from('tours')
+      .select('id, title, price_per_person, currency, images, duration_days')
+      .eq('id', tourId)
+      .single() as any);
+    
+    if (error || !tour) {
+      console.error("Failed to load tour for direct booking:", error);
+      return [];
+    }
+    
+    // Return as a cart item
+    return [{
+      id: `direct-tour-${tour.id}`,
+      item_type: 'tour',
+      reference_id: tour.id,
+      quantity: participants,
+      title: tour.title,
+      price: tour.price_per_person,
+      currency: tour.currency || 'RWF',
+      image: tour.images?.[0],
+      meta: `${tour.duration_days} days`,
+    }];
+  }
 
   async function fetchDirectBooking(propertyId: string): Promise<CartItem[]> {
     // Fetch the property details directly

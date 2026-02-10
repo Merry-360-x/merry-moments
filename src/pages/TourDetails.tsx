@@ -685,9 +685,14 @@ export default function TourDetails() {
                 <Button
                   className="w-full"
                   size="lg"
-                  onClick={async () => {
-                    await addToCart("tour", String(tour.id), participants);
-                    navigate("/checkout");
+                  onClick={() => {
+                    // Direct checkout without adding to cart
+                    const params = new URLSearchParams({
+                      mode: "tour",
+                      tourId: String(tour.id),
+                      participants: String(participants),
+                    });
+                    navigate(`/checkout?${params.toString()}`);
                   }}
                 >
                   <Calendar className="w-4 h-4 mr-2" />
