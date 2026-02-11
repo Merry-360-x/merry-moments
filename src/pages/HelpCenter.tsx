@@ -218,7 +218,19 @@ export default function HelpCenter() {
               <h2 className="font-semibold text-lg">Contact & Support</h2>
             </div>
             
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/30">
+                <Phone className="w-5 h-5 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="font-medium text-sm">Phone Support</p>
+                  <a 
+                    href="tel:+250796214719" 
+                    className="text-sm text-primary hover:underline"
+                  >
+                    0796 214 719
+                  </a>
+                </div>
+              </div>
               <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/30">
                 <Mail className="w-5 h-5 text-muted-foreground mt-0.5" />
                 <div>
