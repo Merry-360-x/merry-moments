@@ -20,6 +20,8 @@ import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { formatMoney } from "@/lib/money";
 import { AMENITIES, AMENITIES_BY_CATEGORY } from "@/lib/amenities";
 import { calculateHostEarningsFromGuestTotal, PLATFORM_FEES } from "@/lib/fees";
+import { useFxRates } from "@/hooks/useFxRates";
+import { convertAmount } from "@/lib/fx";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
@@ -111,6 +113,8 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogTrigger,
+  DialogClose,
 } from "@/components/ui/dialog";
 
 // Types
@@ -184,6 +188,9 @@ interface Tour {
   // National/International pricing
   national_discount_percent?: number | null;
   international_price_per_person?: number | null;
+  // Booking confirmation requirement
+  requires_confirmation?: boolean | null;
+  confirmation_required_reason?: string | null;
 }
 
 interface Vehicle {
@@ -231,6 +238,12 @@ interface Booking {
   guest_email: string | null;
   guest_phone: string | null;
   is_guest_booking: boolean;
+  // Booking confirmation fields
+  confirmation_status?: 'pending' | 'approved' | 'rejected' | null;
+  confirmed_at?: string | null;
+  confirmed_by?: string | null;
+  rejection_reason?: string | null;
+  rejected_at?: string | null;
 }
 
 import { CURRENCY_OPTIONS } from "@/lib/currencies";
@@ -284,6 +297,7 @@ export default function HostDashboard() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { usdRates } = useFxRates();
 
   const [tab, setTab] = useState("overview");
   const [isLoading, setIsLoading] = useState(true);
@@ -1329,6 +1343,45 @@ export default function HostDashboard() {
     toast({ title: "Booking updated" });
   };
 
+  // Confirm a pending booking request
+  const confirmBookingRequest = async (id: string) => {
+    if (!user?.id) return;
+    const { error } = await supabase.from("bookings").update({
+      status: 'confirmed',
+      confirmation_status: 'approved',
+      confirmed_at: new Date().toISOString(),
+      confirmed_by: user.id,
+    }).eq("id", id);
+    if (error) {
+      logError("host.booking.confirm", error);
+      toast({ variant: "destructive", title: "Confirmation failed", description: uiErrorMessage(error) });
+      return;
+    }
+    setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status: 'confirmed', confirmation_status: 'approved' as const } : b)));
+    toast({ title: "Booking confirmed", description: "The guest will be notified" });
+    // TODO: Send confirmation email to guest
+  };
+
+  // Reject a pending booking request
+  const rejectBookingRequest = async (id: string, reason: string) => {
+    if (!user?.id) return;
+    const { error } = await supabase.from("bookings").update({
+      status: 'cancelled',
+      confirmation_status: 'rejected',
+      rejection_reason: reason,
+      rejected_at: new Date().toISOString(),
+      confirmed_by: user.id,
+    }).eq("id", id);
+    if (error) {
+      logError("host.booking.reject", error);
+      toast({ variant: "destructive", title: "Rejection failed", description: uiErrorMessage(error) });
+      return;
+    }
+    setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status: 'cancelled', confirmation_status: 'rejected' as const } : b)));
+    toast({ title: "Booking rejected", description: "The guest will be notified and refunded" });
+    // TODO: Send rejection email to guest and initiate refund
+  };
+
   // View booking details
   const viewBookingDetails = async (booking: Booking) => {
     setSelectedBooking(booking);
@@ -1738,8 +1791,8 @@ export default function HostDashboard() {
                 </div>
               </div>
               <div>
-                <Label className="text-xs font-medium mb-2 block">Availability Calendar</Label>
-                <AvailabilityCalendar propertyId={property.id} />
+                <Label className="text-xs font-medium mb-2 block">Availability & Pricing</Label>
+                <AvailabilityCalendar propertyId={property.id} currency={form.currency || "RWF"} />
               </div>
               <div className="flex items-center justify-between pt-2">
                 <div className="flex items-center gap-2">
@@ -1915,6 +1968,10 @@ export default function HostDashboard() {
         updates.non_refundable_items = form.non_refundable_items || [];
         updates.min_guests = form.min_guests;
         updates.max_guests = form.max_guests;
+        
+        // Booking confirmation requirement
+        updates.requires_confirmation = form.requires_confirmation || false;
+        updates.confirmation_required_reason = form.confirmation_required_reason || null;
         
         // National/International pricing
         updates.national_discount_percent = (form as any).national_discount_percent || 0;
@@ -2464,6 +2521,35 @@ export default function HostDashboard() {
                       />
                     </div>
                   </div>
+
+                  {/* Booking Confirmation Requirement */}
+                  {tour.source === "tour_packages" && (
+                    <div className="space-y-3 p-4 border rounded-lg bg-amber-50/50 dark:bg-amber-900/10">
+                      <div className="flex items-center gap-3">
+                        <Switch
+                          checked={form.requires_confirmation || false}
+                          onCheckedChange={(v) => setForm({ ...form, requires_confirmation: v })}
+                        />
+                        <div>
+                          <Label className="text-sm font-medium">Require Booking Confirmation</Label>
+                          <p className="text-[10px] text-muted-foreground">
+                            Bookings will need your approval before being confirmed (e.g., volcano/gorilla treks)
+                          </p>
+                        </div>
+                      </div>
+                      {form.requires_confirmation && (
+                        <div>
+                          <Label className="text-xs">Reason for Confirmation Requirement (optional)</Label>
+                          <Input
+                            placeholder="e.g., Limited permits available, group size coordination required"
+                            value={form.confirmation_required_reason || ""}
+                            onChange={(e) => setForm({ ...form, confirmation_required_reason: e.target.value })}
+                            className="h-9 mt-1 text-sm"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Group Pricing Tiers */}
                   <div className="space-y-3">
@@ -4279,7 +4365,7 @@ export default function HostDashboard() {
                   <div className="flex-1">
                     <p className="text-sm text-muted-foreground">Net Earnings</p>
                     <p className="text-xl font-bold">{formatMoney(totalEarnings, "RWF")}</p>
-                    <p className="text-xs text-muted-foreground">After platform fees</p>
+                    <p className="text-xs text-muted-foreground">≈ {formatMoney(convertAmount(totalEarnings, 'RWF', 'USD', usdRates) ?? 0, 'USD')}</p>
                   </div>
                 </div>
                 <Button 
@@ -4293,7 +4379,7 @@ export default function HostDashboard() {
                 </Button>
                 {availableForPayout > 0 && (
                   <p className="text-xs text-center text-muted-foreground mt-2">
-                    Available: {formatMoney(availableForPayout, "RWF")}
+                    Available: {formatMoney(availableForPayout, "RWF")} (≈ {formatMoney(convertAmount(availableForPayout, 'RWF', 'USD', usdRates) ?? 0, 'USD')})
                   </p>
                 )}
               </Card>
@@ -4534,11 +4620,112 @@ export default function HostDashboard() {
 
           {/* Bookings */}
           <TabsContent value="bookings">
+            {/* Pending Booking Requests Section */}
+            {(() => {
+              const pendingRequests = (bookings || []).filter(b => b.confirmation_status === 'pending');
+              if (pendingRequests.length === 0) return null;
+              return (
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                    <Badge variant="destructive" className="animate-pulse">
+                      {pendingRequests.length}
+                    </Badge>
+                    Booking Requests Awaiting Confirmation
+                  </h3>
+                  <div className="space-y-3">
+                    {pendingRequests.map((b) => {
+                      let itemName = 'Unknown Tour';
+                      if ((b as any).tour_packages) {
+                        itemName = (b as any).tour_packages.title;
+                      }
+                      const { hostNetEarnings } = calculateHostEarningsFromGuestTotal(Number(b.total_price), 'tour');
+                      
+                      return (
+                        <Card key={b.id} className="p-4 border-amber-300 bg-amber-50/50 dark:bg-amber-900/10">
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Badge variant="outline" className="text-xs bg-amber-100 dark:bg-amber-900/30">
+                                  🗺️ Tour Booking Request
+                                </Badge>
+                                <span className="font-medium text-sm">{itemName}</span>
+                              </div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <Calendar className="w-4 h-4 text-muted-foreground" />
+                                <span className="font-medium">{b.check_in}</span>
+                              </div>
+                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                <span>{b.guests} guests</span>
+                                <span className="font-medium text-foreground">{formatMoney(hostNetEarnings, b.currency || 'RWF')}</span>
+                              </div>
+                              <div className="mt-2 p-2 bg-white/50 dark:bg-gray-800/50 rounded-lg text-sm">
+                                <p className="font-medium text-foreground">{b.guest_name}</p>
+                                <p className="text-muted-foreground">{b.guest_email}</p>
+                                {b.guest_phone && <p className="text-muted-foreground">{b.guest_phone}</p>}
+                              </div>
+                            </div>
+                            <div className="flex flex-col gap-2">
+                              <Button 
+                                size="sm" 
+                                className="bg-green-600 hover:bg-green-700 text-white"
+                                onClick={() => confirmBookingRequest(b.id)}
+                              >
+                                <CheckCircle className="w-4 h-4 mr-1" /> Approve Booking
+                              </Button>
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50">
+                                    <XCircle className="w-4 h-4 mr-1" /> Reject
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                  <DialogHeader>
+                                    <DialogTitle>Reject Booking Request</DialogTitle>
+                                    <DialogDescription>
+                                      Please provide a reason for rejecting this booking. The guest will be notified and refunded.
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <div className="space-y-3">
+                                    <Textarea
+                                      id={`reject-reason-${b.id}`}
+                                      placeholder="e.g., No permits available for this date, group size too large, etc."
+                                      className="min-h-[100px]"
+                                    />
+                                    <div className="flex justify-end gap-2">
+                                      <DialogClose asChild>
+                                        <Button variant="outline">Cancel</Button>
+                                      </DialogClose>
+                                      <DialogClose asChild>
+                                        <Button
+                                          variant="destructive"
+                                          onClick={() => {
+                                            const reasonEl = document.getElementById(`reject-reason-${b.id}`) as HTMLTextAreaElement;
+                                            const reason = reasonEl?.value || 'No reason provided';
+                                            rejectBookingRequest(b.id, reason);
+                                          }}
+                                        >
+                                          Confirm Rejection
+                                        </Button>
+                                      </DialogClose>
+                                    </div>
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
+                            </div>
+                          </div>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+            
             <div className="space-y-3">
-              {(bookings || []).length === 0 ? (
+              {(bookings || []).filter(b => b.confirmation_status !== 'pending').length === 0 && (bookings || []).filter(b => b.confirmation_status === 'pending').length === 0 ? (
                 <p className="text-muted-foreground text-center py-8">No bookings yet</p>
-              ) : (
-                (bookings || []).map((b) => {
+              ) : (bookings || []).filter(b => b.confirmation_status !== 'pending').length === 0 ? null : (
+                (bookings || []).filter(b => b.confirmation_status !== 'pending').map((b) => {
                   // Get the name of the booked item based on type
                   let itemName = 'Unknown';
                   let itemType = b.booking_type || 'property';
@@ -5086,7 +5273,10 @@ END OF REPORT
                               {new Date(payout.created_at).toLocaleDateString()}
                             </TableCell>
                             <TableCell className="font-medium">
-                              {payout.currency} {payout.amount?.toLocaleString()}
+                              <div>{payout.currency} {payout.amount?.toLocaleString()}</div>
+                              <div className="text-xs text-muted-foreground">
+                                ≈ {formatMoney(convertAmount(payout.amount || 0, payout.currency || 'RWF', 'USD', usdRates) ?? 0, 'USD')}
+                              </div>
                             </TableCell>
                             <TableCell>
                               <Badge variant="outline" className="capitalize">
@@ -5867,6 +6057,9 @@ END OF REPORT
             <div className="bg-green-50 dark:bg-green-950/20 rounded-lg p-3">
               <p className="text-sm text-muted-foreground">Available for payout</p>
               <p className="text-2xl font-bold text-green-600">{formatMoney(availableForPayout, 'RWF')}</p>
+              <p className="text-sm text-muted-foreground">
+                ≈ {formatMoney(convertAmount(availableForPayout, 'RWF', 'USD', usdRates) ?? 0, 'USD')}
+              </p>
             </div>
 
             {/* Payout Method Selection */}
@@ -5924,6 +6117,11 @@ END OF REPORT
                 min={101}
                 max={availableForPayout}
               />
+              {payoutAmount && parseFloat(payoutAmount) > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  ≈ {formatMoney(convertAmount(parseFloat(payoutAmount), 'RWF', 'USD', usdRates) ?? 0, 'USD')}
+                </p>
+              )}
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>Min: 101 RWF</span>
                 <Button 
@@ -5941,9 +6139,14 @@ END OF REPORT
             {pendingPayoutAmount > 0 && (
               <div className="flex items-start gap-2 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg p-3 text-sm">
                 <AlertCircle className="w-4 h-4 text-yellow-600 shrink-0 mt-0.5" />
-                <p className="text-yellow-800 dark:text-yellow-200">
-                  You have {formatMoney(pendingPayoutAmount, 'RWF')} in pending payouts being processed.
-                </p>
+                <div>
+                  <p className="text-yellow-800 dark:text-yellow-200">
+                    You have {formatMoney(pendingPayoutAmount, 'RWF')} in pending payouts being processed.
+                  </p>
+                  <p className="text-yellow-700 dark:text-yellow-300 text-xs">
+                    ≈ {formatMoney(convertAmount(pendingPayoutAmount, 'RWF', 'USD', usdRates) ?? 0, 'USD')}
+                  </p>
+                </div>
               </div>
             )}
           </div>

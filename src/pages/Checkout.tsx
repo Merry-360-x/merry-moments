@@ -16,7 +16,7 @@ import { formatMoney } from "@/lib/money";
 import { useTripCart, CartItemMetadata, getCartItemMetadata } from "@/hooks/useTripCart";
 import { useFxRates } from "@/hooks/useFxRates";
 import { convertAmount, PAYMENT_CURRENCIES } from "@/lib/fx";
-import { calculateGuestTotal, PLATFORM_FEES } from "@/lib/fees";
+import { calculateGuestTotal, calculateHostEarningsFromGuestTotal, PLATFORM_FEES } from "@/lib/fees";
 import { 
   ArrowLeft, 
   ArrowRight, 
@@ -704,6 +704,13 @@ export default function CheckoutNew() {
         });
       }
       
+      // Calculate host earnings from total
+      const serviceType: 'accommodation' | 'tour' | 'transport' = 
+        cartItems.some(i => i.item_type === 'property') ? 'accommodation' 
+        : cartItems.some(i => i.item_type === 'tour' || i.item_type === 'tour_package') ? 'tour' 
+        : 'transport';
+      const earningsFullCalc = calculateHostEarningsFromGuestTotal(Math.round(amountInRwf), serviceType);
+      
       // Create a single checkout request with all cart items in metadata
       const checkoutData: any = {
         user_id: user?.id || null,
@@ -713,6 +720,10 @@ export default function CheckoutNew() {
         message: formData.notes || null,
         total_amount: Math.round(amountInRwf),
         currency: 'RWF', // Always store in RWF
+        // Fee breakdown fields
+        base_price_amount: Math.round(earningsFullCalc.basePrice),
+        service_fee_amount: Math.round(serviceFees * (displayCurrency === 'RWF' ? 1 : (amountInRwf / payableAmount))),
+        host_earnings_amount: Math.round(earningsFullCalc.hostNetEarnings),
         payment_status: paymentMethod === 'card' || paymentMethod === 'bank' ? 'awaiting_callback' : 'pending',
         payment_method: paymentMethod === 'card' ? 'card' : paymentMethod === 'bank' ? 'bank_transfer' : 'mobile_money',
         metadata: {
@@ -1614,6 +1625,23 @@ export default function CheckoutNew() {
                   </div>
                 )}
               </div>
+              
+              {/* Host Earnings Preview - only show for property bookings */}
+              {cartItems.some(i => i.item_type === 'property') && (
+                <div className="bg-muted/50 rounded-lg p-3 mt-2">
+                  <p className="text-xs text-muted-foreground mb-1">Host will earn (after fees)</p>
+                  <p className="text-sm font-medium text-green-600">
+                    {formatMoney(
+                      (() => {
+                        const baseAfterFees = subtotal - stayDiscount - discount;
+                        const calc = calculateHostEarningsFromGuestTotal(baseAfterFees + serviceFees, 'accommodation');
+                        return calc.hostNetEarnings;
+                      })(),
+                      displayCurrency
+                    )}
+                  </p>
+                </div>
+              )}
 
               {/* Payment Type Selector - only show for group bookings */}
               {hasGroupBooking && (

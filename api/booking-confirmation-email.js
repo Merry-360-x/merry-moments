@@ -198,6 +198,29 @@ function generateBookingConfirmationHtml(booking) {
                   <td colspan="2" style="padding: 12px 0 0; border-top: 2px solid #e5e7eb;"></td>
                 </tr>
                 ` : ''}
+                
+                <!-- Fee Breakdown Section -->
+                ${booking.basePriceAmount ? `
+                <tr>
+                  <td style="padding: 4px 0;">
+                    <p style="margin: 0; color: #6b7280; font-size: 14px;">Subtotal</p>
+                  </td>
+                  <td style="text-align: right; padding: 4px 0;">
+                    <p style="margin: 0; color: #6b7280; font-size: 14px;">${formatMoney(booking.basePriceAmount, booking.currency)}</p>
+                  </td>
+                </tr>
+                ` : ''}
+                ${booking.serviceFeeAmount ? `
+                <tr>
+                  <td style="padding: 4px 0;">
+                    <p style="margin: 0; color: #6b7280; font-size: 14px;">Service Fee</p>
+                  </td>
+                  <td style="text-align: right; padding: 4px 0;">
+                    <p style="margin: 0; color: #6b7280; font-size: 14px;">${formatMoney(booking.serviceFeeAmount, booking.currency)}</p>
+                  </td>
+                </tr>
+                ` : ''}
+                
                 <tr>
                   <td>
                     <p style="margin: 0; color: #1f2937; font-size: 16px; font-weight: 600;">Total Paid</p>
@@ -208,6 +231,18 @@ function generateBookingConfirmationHtml(booking) {
                     </p>
                   </td>
                 </tr>
+                
+                ${booking.hostEarningsAmount ? `
+                <tr>
+                  <td colspan="2" style="padding: 12px 0 0;">
+                    <div style="background-color: #f3f4f6; padding: 12px; border-radius: 8px;">
+                      <p style="margin: 0; color: #6b7280; font-size: 12px;">Host Earnings</p>
+                      <p style="margin: 4px 0 0; color: #059669; font-size: 16px; font-weight: 600;">${formatMoney(booking.hostEarningsAmount, booking.currency)}</p>
+                      <p style="margin: 2px 0 0; color: #9ca3af; font-size: 11px;">After platform fees</p>
+                    </div>
+                  </td>
+                </tr>
+                ` : ''}
               </table>
             </td>
           </tr>
@@ -308,6 +343,10 @@ export default async function handler(req, res) {
       nights,
       totalPrice,
       currency,
+      // Fee breakdown fields
+      basePriceAmount,
+      serviceFeeAmount,
+      hostEarningsAmount,
     } = req.body;
 
     if (!bookingId || !guestEmail) {
@@ -326,6 +365,9 @@ export default async function handler(req, res) {
       nights,
       totalPrice,
       currency,
+      basePriceAmount,
+      serviceFeeAmount,
+      hostEarningsAmount,
     };
 
     const html = generateBookingConfirmationHtml(booking);

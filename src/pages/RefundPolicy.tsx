@@ -107,6 +107,38 @@ export default function RefundPolicy() {
                 </div>
               </Card>
 
+              {/* Monthly Stays */}
+              <Card className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <Home className="w-5 h-5 text-primary" />
+                  </div>
+                  <h2 className="text-xl font-semibold">Monthly Stays (30+ Days)</h2>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="border-l-4 border-amber-500 pl-4">
+                    <h4 className="font-medium text-amber-700 dark:text-amber-400">Fair Monthly Policy</h4>
+                    <ul className="text-muted-foreground text-sm mt-1 space-y-1">
+                      <li>• 7-15 days before check-in: <strong>75% refund</strong> (minus applicable service or processing fees)</li>
+                      <li>• 3-7 days before check-in: <strong>50% refund</strong> (minus applicable service or processing fees)</li>
+                      <li>• 0-3 days before check-in: <strong>25% refund</strong> (minus applicable service or processing fees)</li>
+                      <li>• No-shows: <strong>Non-refundable</strong></li>
+                    </ul>
+                  </div>
+                  
+                  <div className="border-l-4 border-red-500 pl-4">
+                    <h4 className="font-medium text-red-700 dark:text-red-400">Strict Monthly Policy</h4>
+                    <ul className="text-muted-foreground text-sm mt-1 space-y-1">
+                      <li>• 15-30 days before check-in: <strong>75% refund</strong> (minus applicable service or processing fees)</li>
+                      <li>• 7-15 days before check-in: <strong>50% refund</strong> (minus applicable service or processing fees)</li>
+                      <li>• 0-7 days before check-in: <strong>25% refund</strong> (minus applicable service or processing fees)</li>
+                      <li>• No-shows: <strong>Non-refundable</strong></li>
+                    </ul>
+                  </div>
+                </div>
+              </Card>
+
               {/* Tours & Experiences */}
               <Card className="p-6">
                 <div className="flex items-center gap-3 mb-4">

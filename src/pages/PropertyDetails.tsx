@@ -287,6 +287,43 @@ export default function PropertyDetails() {
     },
   });
 
+  // Fetch custom prices for this property
+  type CustomPriceRow = { start_date: string; end_date: string; custom_price_per_night: number };
+  const { data: customPrices = [] } = useQuery({
+    queryKey: ["property-custom-prices", propertyId],
+    enabled: Boolean(propertyId),
+    staleTime: 1000 * 60 * 5,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("property_custom_prices")
+        .select("start_date, end_date, custom_price_per_night")
+        .eq("property_id", propertyId!)
+        .gte("end_date", new Date().toISOString().slice(0, 10))
+        .order("start_date", { ascending: true });
+      if (error) return [];
+      return (data ?? []) as CustomPriceRow[];
+    },
+  });
+
+  // Helper to get the custom price for a specific date
+  const getCustomPriceForDate = useCallback((date: Date): number | null => {
+    if (!customPrices.length) return null;
+    const checkDate = new Date(date);
+    checkDate.setHours(0, 0, 0, 0);
+    
+    for (const cp of customPrices) {
+      const cpStart = new Date(cp.start_date);
+      const cpEnd = new Date(cp.end_date);
+      cpStart.setHours(0, 0, 0, 0);
+      cpEnd.setHours(0, 0, 0, 0);
+      
+      if (checkDate >= cpStart && checkDate <= cpEnd) {
+        return cp.custom_price_per_night;
+      }
+    }
+    return null;
+  }, [customPrices]);
+
   // Helper to check if a date falls within any blocked range
   const isDateBlocked = useCallback((date: Date) => {
     if (!date || blockedDates.length === 0) return false;
@@ -398,9 +435,21 @@ export default function PropertyDetails() {
   };
 
   const baseTotal = useMemo(() => {
-    if (!data) return 0;
-    return nights * Number(data.price_per_night ?? 0);
-  }, [data, nights]);
+    if (!data || !checkIn || !checkOut || nights <= 0) return 0;
+    
+    // Calculate total considering custom prices for each night
+    let total = 0;
+    const defaultPrice = Number(data.price_per_night ?? 0);
+    
+    for (let i = 0; i < nights; i++) {
+      const currentDate = new Date(checkIn);
+      currentDate.setDate(currentDate.getDate() + i);
+      const customPrice = getCustomPriceForDate(currentDate);
+      total += customPrice !== null ? customPrice : defaultPrice;
+    }
+    
+    return total;
+  }, [data, nights, checkIn, checkOut, getCustomPriceForDate]);
 
   // Stay discounts (weekly/monthly) based on selected nights
   const stayDiscount = useMemo(() => {
@@ -1190,33 +1239,54 @@ export default function PropertyDetails() {
               <div className="mt-8 bg-card rounded-xl shadow-card p-5">
                 <h2 className="text-lg font-semibold text-foreground mb-2">{t("propertyDetails.cancellationTitle")}</h2>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Policy: <span className="font-medium text-foreground">{(data.cancellation_policy ?? "fair")}</span>
+                  Policy: <span className="font-medium text-foreground">{(data.cancellation_policy ?? "fair")}{nights >= 30 ? " (Monthly)" : ""}</span>
                 </p>
                 <div className="text-sm text-muted-foreground space-y-3">
-                  {((data.cancellation_policy ?? "fair") === "strict") ? (
-                    <ul className="list-disc pl-5 space-y-1">
-                      <li>15-30 days before check-in: Full refund (minus fees)</li>
-                      <li>7-15 days before check-in: 75% refund (minus fees)</li>
-                      <li>3-7 days before check-in: 50% refund (minus fees)</li>
-                      <li>1-3 days before check-in: 25% refund (minus fees)</li>
-                      <li>0-1 day before check-in: No refund</li>
-                      <li>No-shows: Non-refundable</li>
-                    </ul>
-                  ) : (data.cancellation_policy ?? "fair") === "lenient" ? (
-                    <ul className="list-disc pl-5 space-y-1">
-                      <li>3-7 days before check-in: Full refund (minus fees)</li>
-                      <li>1-3 days before check-in: 75% refund (minus fees)</li>
-                      <li>0-1 day before check-in: 50% refund</li>
-                      <li>No-shows: Non-refundable</li>
-                    </ul>
+                  {nights >= 30 ? (
+                    // Monthly stay policies (30+ days)
+                    ((data.cancellation_policy ?? "fair") === "strict") ? (
+                      <ul className="list-disc pl-5 space-y-1">
+                        <li>15-30 days before check-in: 75% refund (minus applicable service or processing fees)</li>
+                        <li>7-15 days before check-in: 50% refund (minus applicable service or processing fees)</li>
+                        <li>0-7 days before check-in: 25% refund (minus applicable service or processing fees)</li>
+                        <li>No-shows: Non-refundable</li>
+                      </ul>
+                    ) : (
+                      // Fair monthly policy (default for monthly stays)
+                      <ul className="list-disc pl-5 space-y-1">
+                        <li>7-15 days before check-in: 75% refund (minus applicable service or processing fees)</li>
+                        <li>3-7 days before check-in: 50% refund (minus applicable service or processing fees)</li>
+                        <li>0-3 days before check-in: 25% refund (minus applicable service or processing fees)</li>
+                        <li>No-shows: Non-refundable</li>
+                      </ul>
+                    )
                   ) : (
-                    <ul className="list-disc pl-5 space-y-1">
-                      <li>7-15 days before check-in: Full refund (minus fees)</li>
-                      <li>3-7 days before check-in: 75% refund (minus fees)</li>
-                      <li>1-3 days before check-in: 50% refund (minus fees)</li>
-                      <li>0-1 day before check-in: 25% refund</li>
-                      <li>No-shows: Non-refundable</li>
-                    </ul>
+                    // Standard short-stay policies
+                    ((data.cancellation_policy ?? "fair") === "strict") ? (
+                      <ul className="list-disc pl-5 space-y-1">
+                        <li>15-30 days before check-in: Full refund (minus fees)</li>
+                        <li>7-15 days before check-in: 75% refund (minus fees)</li>
+                        <li>3-7 days before check-in: 50% refund (minus fees)</li>
+                        <li>1-3 days before check-in: 25% refund (minus fees)</li>
+                        <li>0-1 day before check-in: No refund</li>
+                        <li>No-shows: Non-refundable</li>
+                      </ul>
+                    ) : (data.cancellation_policy ?? "fair") === "lenient" ? (
+                      <ul className="list-disc pl-5 space-y-1">
+                        <li>3-7 days before check-in: Full refund (minus fees)</li>
+                        <li>1-3 days before check-in: 75% refund (minus fees)</li>
+                        <li>0-1 day before check-in: 50% refund</li>
+                        <li>No-shows: Non-refundable</li>
+                      </ul>
+                    ) : (
+                      <ul className="list-disc pl-5 space-y-1">
+                        <li>7-15 days before check-in: Full refund (minus fees)</li>
+                        <li>3-7 days before check-in: 75% refund (minus fees)</li>
+                        <li>1-3 days before check-in: 50% refund (minus fees)</li>
+                        <li>0-1 day before check-in: 25% refund</li>
+                        <li>No-shows: Non-refundable</li>
+                      </ul>
+                    )
                   )}
                 </div>
               </div>

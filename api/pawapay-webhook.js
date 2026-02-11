@@ -112,10 +112,28 @@ function generateConfirmationEmail(checkout, items, bookingIds, reviewTokens) {
               <td style="color: #6b7280; padding: 6px 0;">Receipt #</td>
               <td style="text-align: right; color: #1f2937; font-weight: 600;">${receiptNumber}</td>
             </tr>
+            ${checkout.base_price_amount ? `
+            <tr>
+              <td style="color: #6b7280; padding: 6px 0;">Subtotal</td>
+              <td style="text-align: right; color: #1f2937;">${formatMoney(checkout.base_price_amount, checkout.currency)}</td>
+            </tr>
+            ` : ''}
+            ${checkout.service_fee_amount ? `
+            <tr>
+              <td style="color: #6b7280; padding: 6px 0;">Service Fee</td>
+              <td style="text-align: right; color: #1f2937;">+${formatMoney(checkout.service_fee_amount, checkout.currency)}</td>
+            </tr>
+            ` : ''}
             ${!isMultiItem ? `
             <tr>
               <td style="color: #6b7280; padding: 6px 0;">Amount Paid</td>
               <td style="text-align: right; color: #dc2626; font-weight: 700; font-size: 16px;">${totalAmount}</td>
+            </tr>
+            ` : ''}
+            ${checkout.host_earnings_amount ? `
+            <tr>
+              <td style="color: #6b7280; padding: 6px 0;">Host Receives</td>
+              <td style="text-align: right; color: #059669; font-weight: 600;">${formatMoney(checkout.host_earnings_amount, checkout.currency)}</td>
             </tr>
             ` : ''}
             <tr>
@@ -254,6 +272,15 @@ function generateReceiptPDF(checkout, items, bookingIds) {
       const itemIcon = item.metadata?.type === 'tour' ? '🗺️' : item.metadata?.type === 'transport' ? '🚗' : '🏠';
       return `<div class="row"><span class="label">${itemIcon} ${itemName}</span><span class="value">${itemPrice}</span></div>`;
     }).join('')}
+  </div>
+  ` : ''}
+  
+  ${checkout.base_price_amount || checkout.service_fee_amount ? `
+  <div class="section">
+    <div class="section-title">Price Breakdown</div>
+    ${checkout.base_price_amount ? `<div class="row"><span class="label">Subtotal</span><span class="value">${formatMoney(checkout.base_price_amount, checkout.currency)}</span></div>` : ''}
+    ${checkout.service_fee_amount ? `<div class="row"><span class="label">Service Fee</span><span class="value">+${formatMoney(checkout.service_fee_amount, checkout.currency)}</span></div>` : ''}
+    ${checkout.host_earnings_amount ? `<div class="row"><span class="label">Host Receives</span><span class="value" style="color: #059669;">${formatMoney(checkout.host_earnings_amount, checkout.currency)}</span></div>` : ''}
   </div>
   ` : ''}
   
@@ -774,6 +801,17 @@ export default async function handler(req, res) {
             continue;
           }
 
+          // For tours, check if the tour requires confirmation
+          let requiresConfirmation = false;
+          if (item.item_type === 'tour' || item.item_type === 'tour_package') {
+            const { data: tourData } = await supabase
+              .from("tour_packages")
+              .select("requires_confirmation")
+              .eq("id", item.reference_id)
+              .single();
+            requiresConfirmation = tourData?.requires_confirmation === true;
+          }
+
           const bookingData = {
             guest_id: checkout.user_id,
             guest_name: checkout.name || null,
@@ -783,7 +821,8 @@ export default async function handler(req, res) {
             total_price: item.calculated_price || item.price,
             // Use the item's original currency (matches the listing), not the checkout currency
             currency: item.calculated_price_currency || item.currency || 'USD',
-            status: 'confirmed',
+            status: requiresConfirmation ? 'pending' : 'confirmed',
+            confirmation_status: requiresConfirmation ? 'pending' : null,
             payment_status: 'paid',
             payment_method: 'mobile_money',
             guests: bookingDetails?.guests || item.metadata?.guests || 1,
