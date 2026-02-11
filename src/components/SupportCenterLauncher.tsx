@@ -661,6 +661,20 @@ export default function SupportCenterLauncher() {
                     <div className="text-xs text-muted-foreground">Get help from our team</div>
                   </div>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => window.open("https://wa.me/250796214719", "_blank", "noopener,noreferrer")}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl text-left hover:bg-muted transition-colors"
+                >
+                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shrink-0">
+                    <MessageCircle className="h-4 w-4 text-white" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-foreground">WhatsApp</div>
+                    <div className="text-xs text-muted-foreground">Message us on WhatsApp</div>
+                  </div>
+                </button>
               </div>
             </div>
 
