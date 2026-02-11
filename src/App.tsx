@@ -336,7 +336,7 @@ const App = () => (
               <Route path="/review/:token" element={<ReviewPage />} />
               <Route path="/about" element={<InfoPage kind="about" />} />
               <Route path="/contact" element={<InfoPage kind="contact" />} />
-              <Route path="/help" element={<InfoPage kind="help" />} />
+              <Route path="/help" element={<Navigate to="/help-center" replace />} />
               <Route path="/safety" element={<InfoPage kind="safety" />} />
               <Route path="/privacy" element={<InfoPage kind="privacy" />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
