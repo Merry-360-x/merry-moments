@@ -903,7 +903,20 @@ export default function AdminDashboard() {
     queryFn: async () => {
       let query = supabase
         .from("host_payouts")
-        .select("*, profiles:host_id(id, full_name, email)")
+        .select(`
+          *,
+          profiles:host_id(id, full_name, email),
+          host_payout_methods:payout_method_id(
+            id,
+            method_type,
+            phone_number,
+            provider,
+            bank_name,
+            account_number,
+            is_primary,
+            nickname
+          )
+        `)
         .order("created_at", { ascending: false });
       
       if (payoutFilter !== "all") {
@@ -3610,12 +3623,42 @@ For support, contact: support@merry360x.com
                           </span>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="capitalize">
-                            {payout.payout_method?.replace("_", " ")}
-                          </Badge>
+                          {payout.host_payout_methods ? (
+                            <div className="space-y-1">
+                              <Badge variant="outline" className="capitalize">
+                                {payout.host_payout_methods.method_type?.replace("_", " ")}
+                              </Badge>
+                              {payout.host_payout_methods.provider && (
+                                <p className="text-xs font-medium text-primary">
+                                  {payout.host_payout_methods.provider}
+                                </p>
+                              )}
+                              {payout.host_payout_methods.is_primary && (
+                                <Badge variant="secondary" className="text-[10px]">Primary</Badge>
+                              )}
+                            </div>
+                          ) : (
+                            <Badge variant="outline" className="capitalize">
+                              {payout.payout_method?.replace("_", " ")}
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell>
-                          {payout.payout_method === "mobile_money" ? (
+                          {payout.host_payout_methods ? (
+                            payout.host_payout_methods.method_type === "mobile_money" ? (
+                              <div className="text-sm">
+                                <p className="font-medium">{payout.host_payout_methods.phone_number}</p>
+                                {payout.host_payout_methods.nickname && (
+                                  <p className="text-xs text-muted-foreground">{payout.host_payout_methods.nickname}</p>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="text-sm">
+                                <p className="font-medium">{payout.host_payout_methods.bank_name}</p>
+                                <p className="text-muted-foreground">{payout.host_payout_methods.account_number}</p>
+                              </div>
+                            )
+                          ) : payout.payout_method === "mobile_money" ? (
                             <span className="text-sm">{payout.payout_details?.phone}</span>
                           ) : (
                             <div className="text-sm">
