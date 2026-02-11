@@ -216,7 +216,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         sender: {
           name: "Merry360X Support",
-          email: "davydushimiyimana@gmail.com",
+          email: "support@merry360x.com",
         },
         to: [
           {

@@ -327,7 +327,7 @@ async function sendConfirmationEmail(checkout, items, bookingIds, reviewTokens) 
       body: JSON.stringify({
         sender: {
           name: "Merry360X",
-          email: "davyncidavy@gmail.com",
+          email: "support@merry360x.com",
         },
         to: [
           {
@@ -592,7 +592,7 @@ async function sendHostNotification(supabase, booking, item) {
       body: JSON.stringify({
         sender: {
           name: "Merry360X Bookings",
-          email: "davyncidavy@gmail.com",
+          email: "support@merry360x.com",
         },
         to: [
           {

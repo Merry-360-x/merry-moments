@@ -221,9 +221,9 @@ async function handleSendEmail(req, res) {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        sender: { name: "Merry Moments", email: "davydushimiyimana@gmail.com" },
+        sender: { name: "Merry Moments", email: "support@merry360x.com" },
         to: [{ email: guestEmail, name: guestName || "Guest" }],
-        subject: `⭐ How was your stay at ${propertyTitle || "your accommodation"}?`,
+        subject: `⭐ How was your stay at ${propertyTitle || "your accommodation"}?
         htmlContent: html,
       }),
     });
@@ -346,7 +346,7 @@ async function handleSendEmails(req, res) {
             "content-type": "application/json",
           },
           body: JSON.stringify({
-            sender: { name: "Merry Moments", email: "davydushimiyimana@gmail.com" },
+            sender: { name: "Merry Moments", email: "support@merry360x.com" },
             to: [{ email, name: name || "Guest" }],
             subject: `⭐ How was your stay at ${itemTitle}?`,
             htmlContent: generateReviewEmailHtml({

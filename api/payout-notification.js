@@ -173,7 +173,7 @@ Process this payout at: https://merry360x.com/admin-dashboard
         "api-key": BREVO_API_KEY,
       },
       body: JSON.stringify({
-        sender: { name: "Merry Moments", email: "noreply@merry360x.com" },
+        sender: { name: "Merry Moments", email: "support@merry360x.com" },
         to: [{ email: ADMIN_EMAIL, name: "Merry Moments Admin" }],
         subject: `💰 Payout Request: ${payout.currency} ${Number(payout.amount).toLocaleString()} - ${payout.hostName || 'Host'}`,
         htmlContent,
