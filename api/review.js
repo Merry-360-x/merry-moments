@@ -223,7 +223,7 @@ async function handleSendEmail(req, res) {
       body: JSON.stringify({
         sender: { name: "Merry Moments", email: "support@merry360x.com" },
         to: [{ email: guestEmail, name: guestName || "Guest" }],
-        subject: `⭐ How was your stay at ${propertyTitle || "your accommodation"}?
+        subject: `⭐ How was your stay at ${propertyTitle || "your accommodation"}?`,
         htmlContent: html,
       }),
     });
