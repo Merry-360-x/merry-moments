@@ -585,7 +585,7 @@ export default function SupportCenterLauncher() {
 
   // Dynamic sizing
   const popupWidth = expanded ? "w-96" : "w-80";
-  const popupHeight = expanded ? "max-h-[600px]" : "max-h-[480px]";
+  const popupHeight = expanded ? "h-[600px]" : "h-[480px]";
 
   const autoCloseWarning = getAutoCloseWarning();
 
@@ -774,7 +774,7 @@ export default function SupportCenterLauncher() {
               )}
 
               {/* Messages */}
-              <ScrollArea className="flex-1 p-3 max-h-[500px] overflow-y-auto" ref={scrollRef}>
+              <ScrollArea className="flex-1 min-h-0 p-3 overflow-y-auto" ref={scrollRef}>
                 {loadingChat ? (
                   <div className="flex items-center justify-center py-8">
                     <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full" />
