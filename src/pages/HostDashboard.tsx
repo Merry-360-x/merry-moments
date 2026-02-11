@@ -3233,7 +3233,7 @@ export default function HostDashboard() {
                 try {
                   const payload = {
                     ...propertyForm,
-                    property_type: "Room in Apartment",
+                    property_type: propertyForm.property_type || "Room in Apartment",
                     host_id: user!.id,
                     is_published: true, // Published by default
                     images: propertyForm.images.length > 0 ? propertyForm.images : null,
@@ -3263,6 +3263,23 @@ export default function HostDashboard() {
                   required
                   className="mt-1.5"
                 />
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium">Property Type</Label>
+                <Select
+                  value={propertyForm.property_type}
+                  onValueChange={(v) => setPropertyForm((f) => ({ ...f, property_type: v }))}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {propertyTypes.map((type) => (
+                      <SelectItem key={type} value={type}>{type}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
@@ -4112,12 +4129,9 @@ export default function HostDashboard() {
                     <div className="flex flex-wrap gap-2">
                       <Badge variant="outline">{propertyForm.property_type}</Badge>
                       <Badge variant="outline" className="capitalize">{propertyForm.cancellation_policy} cancellation</Badge>
-                      {propertyForm.amenities.slice(0, 5).map((a) => (
+                      {propertyForm.amenities.map((a) => (
                         <Badge key={a} variant="secondary" className="capitalize">{a.replace(/_/g, " ")}</Badge>
                       ))}
-                      {propertyForm.amenities.length > 5 && (
-                        <Badge variant="secondary">+{propertyForm.amenities.length - 5} more</Badge>
-                      )}
                       </div>
 
                     {propertyForm.description && (

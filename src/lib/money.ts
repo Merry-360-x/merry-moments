@@ -7,7 +7,7 @@ export function formatMoney(amount: number, currency: string) {
   
   try {
     const num = new Intl.NumberFormat(undefined, { 
-      maximumFractionDigits: 0,
+      maximumFractionDigits: 2,
       minimumFractionDigits: 0
     }).format(value);
     
@@ -16,7 +16,7 @@ export function formatMoney(amount: number, currency: string) {
     return `${num} ${code}`;
   } catch {
     // Fallback (for unexpected/unsupported currency codes)
-    return `${Math.round(value).toLocaleString()} ${code}`;
+    return `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${code}`;
   }
 }
 
