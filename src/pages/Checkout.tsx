@@ -35,6 +35,7 @@ import {
   Building2,
   Clock,
   Mail,
+  MessageCircle,
   X,
   Users
 } from "lucide-react";
@@ -177,6 +178,8 @@ export default function CheckoutNew() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
   const [acceptedCancellation, setAcceptedCancellation] = useState(false);
+  const [acceptedAdult, setAcceptedAdult] = useState(false);
+  const [profileAdultConfirmed, setProfileAdultConfirmed] = useState(false);
   
   // Discount
   const [appliedDiscount, setAppliedDiscount] = useState<any>(null);
@@ -195,7 +198,7 @@ export default function CheckoutNew() {
       // Fetch profile for full name and phone
       (supabase
         .from("profiles")
-        .select("full_name, phone")
+        .select("full_name, phone, is_adult_confirmed")
         .eq("user_id", user.id)
         .maybeSingle() as any)
         .then(({ data, error }: any) => {
@@ -208,6 +211,12 @@ export default function CheckoutNew() {
               ...prev,
               fullName: data.full_name || "",
             }));
+
+            const adultConfirmed = data.is_adult_confirmed === true;
+            setProfileAdultConfirmed(adultConfirmed);
+            if (adultConfirmed) {
+              setAcceptedAdult(true);
+            }
             if (data.phone) {
               // Parse phone number
               const match = data.phone.match(/^(\+\d{1,3})(.*)$/);
@@ -627,11 +636,38 @@ export default function CheckoutNew() {
       setIsProcessing(false);
       return;
     }
+
+    if (!acceptedAdult) {
+      setPaymentError("Please confirm you are 18 years or older to complete booking");
+      toast({
+        variant: "destructive",
+        title: "18+ confirmation required",
+        description: "Please confirm you are 18 years or older to continue.",
+      });
+      return;
+    }
     
     setIsProcessing(true);
     setPaymentError(null);
     
     try {
+      // Persist adult confirmation for logged-in users (one-time)
+      if (user && acceptedAdult && !profileAdultConfirmed) {
+        const { error: adultError } = await (supabase
+          .from('profiles')
+          .upsert({
+            user_id: user.id,
+            is_adult_confirmed: true,
+            adult_confirmed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          } as any, { onConflict: 'user_id' }) as any);
+
+        if (adultError) {
+          throw new Error("Unable to save 18+ confirmation. Please try again.");
+        }
+        setProfileAdultConfirmed(true);
+      }
+
       // Clean phone number for mobile money payments only
       let fullPhone = null;
       if (isMobileMoneyMethod) {
@@ -1354,6 +1390,10 @@ export default function CheckoutNew() {
                               <a href="tel:+250796214719" className="font-medium hover:underline">+250 796 214 719</a>
                             </p>
                             <p className="flex items-center gap-2">
+                              <MessageCircle className="w-4 h-4" />
+                              <a href="https://wa.me/250796214719" target="_blank" rel="noreferrer" className="font-medium hover:underline">WhatsApp</a>
+                            </p>
+                            <p className="flex items-center gap-2">
                               <Mail className="w-4 h-4" />
                               <a href="mailto:support@merry360x.com" className="font-medium hover:underline">support@merry360x.com</a>
                             </p>
@@ -1411,6 +1451,19 @@ export default function CheckoutNew() {
                         </Link>
                       </span>
                     </label>
+
+                    <label className="flex items-start gap-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={acceptedAdult}
+                        onChange={(e) => setAcceptedAdult(e.target.checked)}
+                        disabled={profileAdultConfirmed}
+                        className="mt-1 w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary disabled:opacity-60"
+                      />
+                      <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+                        I confirm I am 18 years or older.
+                      </span>
+                    </label>
                   </div>
 
                   {/* Error */}
@@ -1447,7 +1500,7 @@ export default function CheckoutNew() {
                       size="lg" 
                       className="flex-1"
                       onClick={handlePayment}
-                      disabled={isProcessing || !acceptedTerms || !acceptedPrivacy || !acceptedCancellation}
+                      disabled={isProcessing || !acceptedTerms || !acceptedPrivacy || !acceptedCancellation || !acceptedAdult}
                     >
                       {isProcessing ? (
                         <>
@@ -1740,6 +1793,18 @@ export default function CheckoutNew() {
                   <div>
                     <p className="text-xs text-muted-foreground">Call us directly</p>
                     <a href="tel:+250796214719" className="font-medium text-foreground hover:text-primary">
+                      +250 796 214 719
+                    </a>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 p-3 rounded-lg border">
+                  <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                    <MessageCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">WhatsApp</p>
+                    <a href="https://wa.me/250796214719" target="_blank" rel="noreferrer" className="font-medium text-foreground hover:text-primary">
                       +250 796 214 719
                     </a>
                   </div>

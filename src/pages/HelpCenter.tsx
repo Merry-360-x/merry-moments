@@ -10,6 +10,7 @@ import {
   Car, 
   Shield, 
   Phone, 
+  MessageCircle,
   Users,
   HelpCircle,
   Mail,
@@ -229,6 +230,17 @@ export default function HelpCenter() {
                   >
                     0796 214 719
                   </a>
+                  <div className="mt-2 flex items-center gap-2">
+                    <MessageCircle className="w-4 h-4 text-muted-foreground" />
+                    <a
+                      href="https://wa.me/250796214719"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm text-primary hover:underline"
+                    >
+                      WhatsApp
+                    </a>
+                  </div>
                 </div>
               </div>
               <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/30">

@@ -21,9 +21,11 @@ export default function CompleteProfile() {
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isAdultConfirmed, setIsAdultConfirmed] = useState(false);
   const [existingProfile, setExistingProfile] = useState<{
     full_name: string | null;
     phone: string | null;
+    is_adult_confirmed?: boolean | null;
   } | null>(null);
   
   // Loyalty points popup state
@@ -47,11 +49,11 @@ export default function CompleteProfile() {
     const loadProfile = async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("full_name, phone")
+        .select("full_name, phone, is_adult_confirmed")
         .eq("user_id" as any, user.id)
         .single();
 
-      const profileData = data as { full_name: string | null; phone: string | null } | null;
+      const profileData = data as { full_name: string | null; phone: string | null; is_adult_confirmed?: boolean | null } | null;
       if (profileData) {
         setExistingProfile(profileData);
         
@@ -63,6 +65,10 @@ export default function CompleteProfile() {
         }
         if (profileData.phone) {
           setPhone(profileData.phone);
+        }
+
+        if (profileData.is_adult_confirmed === true) {
+          setIsAdultConfirmed(true);
         }
 
         // Also try to get name from Google metadata
@@ -81,7 +87,7 @@ export default function CompleteProfile() {
 
   // Check if profile is complete and redirect
   useEffect(() => {
-    if (existingProfile?.full_name && existingProfile?.phone) {
+    if (existingProfile?.full_name && existingProfile?.phone && existingProfile?.is_adult_confirmed) {
       // Profile is complete, redirect
       navigate(redirectTo, { replace: true });
     }
@@ -106,6 +112,15 @@ export default function CompleteProfile() {
         variant: "destructive",
         title: "Phone number required",
         description: "Please enter a valid phone number",
+      });
+      return;
+    }
+
+    if (!isAdultConfirmed) {
+      toast({
+        variant: "destructive",
+        title: "18+ confirmation required",
+        description: "Please confirm you are 18 years or older to continue.",
       });
       return;
     }
@@ -138,6 +153,8 @@ export default function CompleteProfile() {
           user_id: user.id,
           full_name: fullName,
           phone: formattedPhone,
+          is_adult_confirmed: true,
+          adult_confirmed_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           profile_completed_bonus: true, // Mark as claimed
         } as any, { onConflict: "user_id" });
@@ -200,6 +217,14 @@ export default function CompleteProfile() {
   };
 
   const handleSkip = () => {
+    if (redirectTo.startsWith('/checkout')) {
+      toast({
+        variant: "destructive",
+        title: "18+ confirmation required",
+        description: "Please confirm you are 18 years or older to proceed with booking.",
+      });
+      return;
+    }
     navigate(redirectTo, { replace: true });
   };
 
@@ -281,6 +306,18 @@ export default function CompleteProfile() {
                   Hosts will use this to contact you about your bookings
                 </p>
               </div>
+
+              <label className="flex items-start gap-3 cursor-pointer group bg-muted/30 rounded-lg p-3">
+                <input
+                  type="checkbox"
+                  checked={isAdultConfirmed}
+                  onChange={(e) => setIsAdultConfirmed(e.target.checked)}
+                  className="mt-1 w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+                  I confirm I am 18 years or older.
+                </span>
+              </label>
 
               {user?.email && (
                 <div className="bg-muted/50 rounded-lg p-3">
