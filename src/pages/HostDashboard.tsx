@@ -107,6 +107,9 @@ import {
   Pencil,
   Star,
   Send,
+  Mail,
+  User,
+  Hash,
 } from "lucide-react";
 import {
   Dialog,
@@ -4840,7 +4843,7 @@ export default function HostDashboard() {
                     </Badge>
                     Booking Requests Awaiting Confirmation
                   </h3>
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {pendingRequests.map((b) => {
                       let itemName = 'Unknown Tour';
                       if ((b as any).tour_packages) {
@@ -4849,77 +4852,129 @@ export default function HostDashboard() {
                       const { hostNetEarnings } = calculateHostEarningsFromGuestTotal(Number(b.total_price), 'tour');
                       
                       return (
-                        <Card key={b.id} className="p-4 border-amber-300 bg-amber-50/50 dark:bg-amber-900/10">
-                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <Badge variant="outline" className="text-xs bg-amber-100 dark:bg-amber-900/30">
-                                  🗺️ Tour Booking Request
-                                </Badge>
-                                <span className="font-medium text-sm">{itemName}</span>
+                        <Card key={b.id} className="overflow-hidden border-2 border-amber-300 shadow-md">
+                          {/* Header */}
+                          <div className="flex items-center justify-between px-4 py-3 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center text-lg">
+                                🗺️
                               </div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <Calendar className="w-4 h-4 text-muted-foreground" />
-                                <span className="font-medium">{b.check_in}</span>
-                              </div>
-                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                <span>{b.guests} guests</span>
-                                <span className="font-medium text-foreground">{formatMoney(hostNetEarnings, b.currency || 'RWF')}</span>
-                              </div>
-                              <div className="mt-2 p-2 bg-white/50 dark:bg-gray-800/50 rounded-lg text-sm">
-                                <p className="font-medium text-foreground">{b.guest_name}</p>
-                                <p className="text-muted-foreground">{b.guest_email}</p>
-                                {b.guest_phone && <p className="text-muted-foreground">{b.guest_phone}</p>}
+                              <div>
+                                <h4 className="font-semibold text-base">{itemName}</h4>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <Hash className="w-3 h-3" />
+                                  <span>{b.id.slice(0, 8).toUpperCase()}</span>
+                                </div>
                               </div>
                             </div>
-                            <div className="flex flex-col gap-2">
-                              <Button 
-                                size="sm" 
-                                className="bg-green-600 hover:bg-green-700 text-white"
-                                onClick={() => confirmBookingRequest(b.id)}
-                              >
-                                <CheckCircle className="w-4 h-4 mr-1" /> Approve Booking
-                              </Button>
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50">
-                                    <XCircle className="w-4 h-4 mr-1" /> Reject
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent>
-                                  <DialogHeader>
-                                    <DialogTitle>Reject Booking Request</DialogTitle>
-                                    <DialogDescription>
-                                      Please provide a reason for rejecting this booking. The guest will be notified and refunded.
-                                    </DialogDescription>
-                                  </DialogHeader>
-                                  <div className="space-y-3">
-                                    <Textarea
-                                      id={`reject-reason-${b.id}`}
-                                      placeholder="e.g., No permits available for this date, group size too large, etc."
-                                      className="min-h-[100px]"
-                                    />
-                                    <div className="flex justify-end gap-2">
-                                      <DialogClose asChild>
-                                        <Button variant="outline">Cancel</Button>
-                                      </DialogClose>
-                                      <DialogClose asChild>
-                                        <Button
-                                          variant="destructive"
-                                          onClick={() => {
-                                            const reasonEl = document.getElementById(`reject-reason-${b.id}`) as HTMLTextAreaElement;
-                                            const reason = reasonEl?.value || 'No reason provided';
-                                            rejectBookingRequest(b.id, reason);
-                                          }}
-                                        >
-                                          Confirm Rejection
-                                        </Button>
-                                      </DialogClose>
-                                    </div>
+                            <Badge className="bg-amber-500 hover:bg-amber-600 animate-pulse">
+                              Pending Approval
+                            </Badge>
+                          </div>
+                          
+                          {/* Content Grid */}
+                          <div className="p-4 bg-amber-50/30 dark:bg-amber-900/5">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                              {/* Date Section */}
+                              <div className="space-y-1">
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Date</p>
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="w-4 h-4 text-primary" />
+                                  <span className="font-medium">{b.check_in}</span>
+                                </div>
+                              </div>
+                              
+                              {/* Guests Section */}
+                              <div className="space-y-1">
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Guests</p>
+                                <div className="flex items-center gap-2">
+                                  <Users className="w-4 h-4 text-primary" />
+                                  <span className="font-medium">{b.guests} {b.guests === 1 ? 'guest' : 'guests'}</span>
+                                </div>
+                              </div>
+                              
+                              {/* Earnings Section */}
+                              <div className="space-y-1">
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Your Earnings</p>
+                                <div className="flex items-center gap-2">
+                                  <Wallet className="w-4 h-4 text-green-600" />
+                                  <span className="font-semibold text-green-600">{formatMoney(hostNetEarnings, b.currency || 'RWF')}</span>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Guest Info */}
+                            <div className="p-3 bg-white dark:bg-gray-800/50 rounded-lg border">
+                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Guest Information</p>
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div className="flex items-center gap-2">
+                                  <User className="w-4 h-4 text-muted-foreground" />
+                                  <span className="font-medium">{b.guest_name}</span>
+                                </div>
+                                {b.guest_email && (
+                                  <div className="flex items-center gap-2">
+                                    <Mail className="w-4 h-4 text-muted-foreground" />
+                                    <span className="text-sm truncate">{b.guest_email}</span>
                                   </div>
-                                </DialogContent>
-                              </Dialog>
+                                )}
+                                {b.guest_phone && (
+                                  <div className="flex items-center gap-2">
+                                    <Phone className="w-4 h-4 text-muted-foreground" />
+                                    <span className="text-sm">{b.guest_phone}</span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
+                          </div>
+                          
+                          {/* Actions Footer */}
+                          <div className="flex flex-wrap items-center justify-end gap-2 px-4 py-3 bg-amber-100/50 dark:bg-amber-900/10 border-t border-amber-200">
+                            <Button 
+                              size="sm" 
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                              onClick={() => confirmBookingRequest(b.id)}
+                            >
+                              <CheckCircle className="w-4 h-4 mr-1" /> Approve Booking
+                            </Button>
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button size="sm" variant="outline" className="text-red-600 border-red-300 hover:bg-red-50">
+                                  <XCircle className="w-4 h-4 mr-1" /> Reject
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>Reject Booking Request</DialogTitle>
+                                  <DialogDescription>
+                                    Please provide a reason for rejecting this booking. The guest will be notified and refunded.
+                                  </DialogDescription>
+                                </DialogHeader>
+                                <div className="space-y-3">
+                                  <Textarea
+                                    id={`reject-reason-${b.id}`}
+                                    placeholder="e.g., No permits available for this date, group size too large, etc."
+                                    className="min-h-[100px]"
+                                  />
+                                  <div className="flex justify-end gap-2">
+                                    <DialogClose asChild>
+                                      <Button variant="outline">Cancel</Button>
+                                    </DialogClose>
+                                    <DialogClose asChild>
+                                      <Button
+                                        variant="destructive"
+                                        onClick={() => {
+                                          const reasonEl = document.getElementById(`reject-reason-${b.id}`) as HTMLTextAreaElement;
+                                          const reason = reasonEl?.value || 'No reason provided';
+                                          rejectBookingRequest(b.id, reason);
+                                        }}
+                                      >
+                                        Confirm Rejection
+                                      </Button>
+                                    </DialogClose>
+                                  </div>
+                                </div>
+                              </DialogContent>
+                            </Dialog>
                           </div>
                         </Card>
                       );
@@ -4959,87 +5014,144 @@ export default function HostDashboard() {
                   const feePercent = serviceType === 'accommodation' ? PLATFORM_FEES.accommodation.hostFeePercent : serviceType === 'tour' ? PLATFORM_FEES.tour.providerFeePercent : 0;
                   
                   return (
-                  <Card key={b.id} className="p-4">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="outline" className="text-xs">
-                            {itemType === 'property' && '🏠'} 
-                            {itemType === 'tour' && '🗺️'}
-                            {itemType === 'transport' && '🚗'}
-                            {' '}{itemType.charAt(0).toUpperCase() + itemType.slice(1)}
-                          </Badge>
-                          <span className="font-medium text-sm">{itemName}</span>
-                          {isBulkOrder && (
-                            <Badge variant="secondary" className="text-xs">
-                              Part of {orderItemCount}-item order
-                            </Badge>
-                          )}
+                  <Card key={b.id} className="overflow-hidden border shadow-sm hover:shadow-md transition-shadow">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-b">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg ${
+                          itemType === 'property' ? 'bg-blue-100 dark:bg-blue-900/30' :
+                          itemType === 'tour' ? 'bg-green-100 dark:bg-green-900/30' :
+                          'bg-orange-100 dark:bg-orange-900/30'
+                        }`}>
+                          {itemType === 'property' && '🏠'}
+                          {itemType === 'tour' && '🗺️'}
+                          {itemType === 'transport' && '🚗'}
                         </div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <Calendar className="w-4 h-4 text-muted-foreground" />
-                          <span className="font-medium">{b.check_in} → {b.check_out}</span>
-                        </div>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span>{b.guests} guests</span>
-                          <span className="font-medium text-foreground">{formatMoney(hostNetEarnings, b.currency || 'RWF')}</span>
-                          {feePercent > 0 && (
-                            <span className="text-xs text-muted-foreground">(after {feePercent}% fee)</span>
-                          )}
-                        </div>
-                        {b.is_guest_booking && (
-                          <div className="mt-2 p-2 bg-muted/50 rounded-lg text-sm">
-                            <p className="font-medium text-foreground">{b.guest_name}</p>
-                            <p className="text-muted-foreground">{b.guest_email}</p>
-                            {b.guest_phone && <p className="text-muted-foreground">{b.guest_phone}</p>}
-                            <Badge variant="outline" className="mt-1 text-xs">Guest booking</Badge>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button size="sm" variant="outline" onClick={() => viewBookingDetails(b)}>
-                          <Eye className="w-3 h-3 mr-1" /> View Details
-                        </Button>
-                        <Badge className={
-                          b.status === "confirmed" ? "bg-green-500" :
-                          b.status === "completed" ? "bg-blue-500" :
-                          b.status === "pending" ? "bg-yellow-500" :
-                          "bg-gray-500"
-                        }>
-                          {b.status}
-                        </Badge>
-                        {b.status === "pending" && (
-                          <div className="flex gap-1">
-                            <Button size="sm" onClick={() => updateBookingStatus(b.id, "confirmed")}>
-                              <CheckCircle className="w-3 h-3 mr-1" /> Confirm
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={() => updateBookingStatus(b.id, "cancelled")}>
-                              <XCircle className="w-3 h-3 mr-1" /> Decline
-                            </Button>
-                          </div>
-                        )}
-                        {b.status === "confirmed" && (
-                          <Button size="sm" variant="outline" onClick={() => updateBookingStatus(b.id, "completed")}>
-                            Mark Complete
-                          </Button>
-                        )}
-                        {(b.status === "confirmed" || b.status === "completed") && b.review_token && (
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            disabled={b.review_email_sent || sendingReviewEmail.has(b.id)}
-                            onClick={() => sendReviewEmail(b)}
-                            title={b.review_email_sent ? "Review request already sent" : "Send review request to guest"}
-                          >
-                            {sendingReviewEmail.has(b.id) ? (
-                              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                            ) : (
-                              <Star className="w-3 h-3 mr-1" />
+                        <div>
+                          <h4 className="font-semibold text-base">{itemName}</h4>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Hash className="w-3 h-3" />
+                            <span>{b.id.slice(0, 8).toUpperCase()}</span>
+                            {isBulkOrder && (
+                              <Badge variant="secondary" className="text-xs ml-1">
+                                {orderItemCount} items
+                              </Badge>
                             )}
-                            {b.review_email_sent ? "Sent" : "Request Review"}
-                          </Button>
-                        )}
+                          </div>
+                        </div>
                       </div>
+                      <Badge className={`text-xs px-3 py-1 ${
+                        b.status === "confirmed" ? "bg-green-500 hover:bg-green-600" :
+                        b.status === "completed" ? "bg-blue-500 hover:bg-blue-600" :
+                        b.status === "pending" ? "bg-yellow-500 hover:bg-yellow-600" :
+                        b.status === "cancelled" ? "bg-red-500 hover:bg-red-600" :
+                        "bg-gray-500"
+                      }`}>
+                        {b.status.charAt(0).toUpperCase() + b.status.slice(1)}
+                      </Badge>
+                    </div>
+                    
+                    {/* Content Grid */}
+                    <div className="p-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        {/* Dates Section */}
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Dates</p>
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-primary" />
+                            <div>
+                              <p className="font-medium">{b.check_in}</p>
+                              <p className="text-sm text-muted-foreground">to {b.check_out}</p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Guests Section */}
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Guests</p>
+                          <div className="flex items-center gap-2">
+                            <Users className="w-4 h-4 text-primary" />
+                            <span className="font-medium">{b.guests} {b.guests === 1 ? 'guest' : 'guests'}</span>
+                          </div>
+                        </div>
+                        
+                        {/* Earnings Section */}
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Your Earnings</p>
+                          <div className="flex items-center gap-2">
+                            <Wallet className="w-4 h-4 text-green-600" />
+                            <div>
+                              <p className="font-semibold text-green-600">{formatMoney(hostNetEarnings, b.currency || 'RWF')}</p>
+                              {feePercent > 0 && (
+                                <p className="text-xs text-muted-foreground">after {feePercent}% platform fee</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Guest Info */}
+                      {b.is_guest_booking && b.guest_name && (
+                        <div className="mt-3 p-3 bg-muted/50 rounded-lg border border-muted">
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Guest Information</p>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="flex items-center gap-2">
+                              <User className="w-4 h-4 text-muted-foreground" />
+                              <span className="font-medium">{b.guest_name}</span>
+                            </div>
+                            {b.guest_email && (
+                              <div className="flex items-center gap-2">
+                                <Mail className="w-4 h-4 text-muted-foreground" />
+                                <span className="text-sm truncate">{b.guest_email}</span>
+                              </div>
+                            )}
+                            {b.guest_phone && (
+                              <div className="flex items-center gap-2">
+                                <Phone className="w-4 h-4 text-muted-foreground" />
+                                <span className="text-sm">{b.guest_phone}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Actions Footer */}
+                    <div className="flex flex-wrap items-center justify-end gap-2 px-4 py-3 bg-muted/20 border-t">
+                      <Button size="sm" variant="outline" onClick={() => viewBookingDetails(b)}>
+                        <Eye className="w-3 h-3 mr-1" /> Details
+                      </Button>
+                      {b.status === "pending" && (
+                        <>
+                          <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => updateBookingStatus(b.id, "confirmed")}>
+                            <CheckCircle className="w-3 h-3 mr-1" /> Confirm
+                          </Button>
+                          <Button size="sm" variant="destructive" onClick={() => updateBookingStatus(b.id, "cancelled")}>
+                            <XCircle className="w-3 h-3 mr-1" /> Decline
+                          </Button>
+                        </>
+                      )}
+                      {b.status === "confirmed" && (
+                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => updateBookingStatus(b.id, "completed")}>
+                          <CheckCircle className="w-3 h-3 mr-1" /> Mark Complete
+                        </Button>
+                      )}
+                      {(b.status === "confirmed" || b.status === "completed") && b.review_token && (
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          disabled={b.review_email_sent || sendingReviewEmail.has(b.id)}
+                          onClick={() => sendReviewEmail(b)}
+                          title={b.review_email_sent ? "Review request already sent" : "Send review request to guest"}
+                        >
+                          {sendingReviewEmail.has(b.id) ? (
+                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                          ) : (
+                            <Star className="w-3 h-3 mr-1" />
+                          )}
+                          {b.review_email_sent ? "Sent" : "Request Review"}
+                        </Button>
+                      )}
                     </div>
                   </Card>
                   );
