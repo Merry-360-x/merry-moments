@@ -334,6 +334,17 @@ export default function HostDashboard() {
     bank_account_name: string | null;
     bank_swift_code: string | null;
     nickname: string | null;
+    created_at: string;
+    updated_at: string;
+  };
+
+  // Helper function to check if payout method can be edited (must be at least 30 days old)
+  const canEditPayoutMethod = (method: PayoutMethod): { canEdit: boolean; daysRemaining: number } => {
+    const createdAt = new Date(method.created_at);
+    const now = new Date();
+    const daysSinceCreation = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+    const daysRemaining = Math.max(0, 30 - daysSinceCreation);
+    return { canEdit: daysSinceCreation >= 30, daysRemaining };
   };
   const [payoutMethods, setPayoutMethods] = useState<PayoutMethod[]>([]);
   const [showAddPayoutMethod, setShowAddPayoutMethod] = useState(false);
@@ -5391,7 +5402,9 @@ END OF REPORT
                 </div>
               ) : (
                 <div className="grid gap-4 md:grid-cols-2">
-                  {payoutMethods.map((method) => (
+                  {payoutMethods.map((method) => {
+                    const { canEdit, daysRemaining } = canEditPayoutMethod(method);
+                    return (
                     <Card key={method.id} className={`p-4 relative ${method.is_primary ? 'ring-2 ring-primary' : ''}`}>
                       {method.is_primary && (
                         <Badge className="absolute -top-2 -right-2 bg-primary">Primary</Badge>
@@ -5418,6 +5431,8 @@ END OF REPORT
                           <Button
                             variant="ghost"
                             size="icon"
+                            disabled={!canEdit}
+                            title={!canEdit ? `Cannot edit for ${daysRemaining} more days` : 'Edit'}
                             onClick={() => {
                               setEditingPayoutMethod(method);
                               setPayoutMethodForm({
@@ -5440,6 +5455,8 @@ END OF REPORT
                             variant="ghost"
                             size="icon"
                             className="text-destructive hover:text-destructive"
+                            disabled={!canEdit}
+                            title={!canEdit ? `Cannot delete for ${daysRemaining} more days` : 'Delete'}
                             onClick={async () => {
                               if (!confirm('Are you sure you want to delete this payout method?')) return;
                               try {
@@ -5513,8 +5530,14 @@ END OF REPORT
                           Set as Primary
                         </Button>
                       )}
+                      {!canEdit && (
+                        <div className="mt-3 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                          <Info className="w-3 h-3" />
+                          <span>Changes allowed in {daysRemaining} day{daysRemaining !== 1 ? 's' : ''}</span>
+                        </div>
+                      )}
                     </Card>
-                  ))}
+                  )})}
                 </div>
               )}
 
