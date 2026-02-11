@@ -3279,6 +3279,7 @@ For support, contact: support@merry360x.com
                       // Determine item name and type based on booking_type
                       let itemName = "Unknown";
                       let itemType = b.booking_type || "property";
+                      let itemMissing = false;
                       
                       if (itemType === "property" && b.properties) {
                         itemName = b.properties.title;
@@ -3289,6 +3290,12 @@ For support, contact: support@merry360x.com
                       } else if (b.properties) {
                         // Fallback to property if no booking_type specified
                         itemName = b.properties.title;
+                      } else {
+                        // Item was likely deleted
+                        itemMissing = true;
+                        if (b.property_id) itemName = `Deleted Property`;
+                        else if (b.tour_id) itemName = `Deleted Tour`;
+                        else if (b.transport_id) itemName = `Deleted Transport`;
                       }
 
                       return (
@@ -3308,35 +3315,41 @@ For support, contact: support@merry360x.com
                         <TableCell>
                           <div className="flex items-center gap-2">
                             {/* Item Image */}
-                            {itemType === "property" && b.properties?.images?.[0] && (
+                            {itemMissing ? (
+                              <div className="w-12 h-12 rounded bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                                <AlertTriangle className="w-6 h-6 text-red-500" />
+                              </div>
+                            ) : itemType === "property" && b.properties?.images?.[0] ? (
                               <img 
                                 src={b.properties.images[0]} 
                                 alt={itemName}
                                 className="w-12 h-12 rounded object-cover"
                               />
-                            )}
-                            {itemType === "property" && !b.properties?.images?.[0] && (
+                            ) : itemType === "property" ? (
+                              <div className="w-12 h-12 rounded bg-muted flex items-center justify-center">
+                                <Home className="w-6 h-6 text-muted-foreground" />
+                              </div>
+                            ) : itemType === "tour" ? (
+                              <div className="w-12 h-12 rounded bg-primary/10 flex items-center justify-center">
+                                <MapPin className="w-6 h-6 text-primary" />
+                              </div>
+                            ) : itemType === "transport" ? (
+                              <div className="w-12 h-12 rounded bg-secondary/50 flex items-center justify-center">
+                                <Car className="w-6 h-6 text-secondary-foreground" />
+                              </div>
+                            ) : (
                               <div className="w-12 h-12 rounded bg-muted flex items-center justify-center">
                                 <Home className="w-6 h-6 text-muted-foreground" />
                               </div>
                             )}
-                            {itemType === "tour" && (
-                              <div className="w-12 h-12 rounded bg-primary/10 flex items-center justify-center">
-                                <MapPin className="w-6 h-6 text-primary" />
-                              </div>
-                            )}
-                            {itemType === "transport" && (
-                              <div className="w-12 h-12 rounded bg-secondary/50 flex items-center justify-center">
-                                <Car className="w-6 h-6 text-secondary-foreground" />
-                              </div>
-                            )}
                             
                             <div className="flex flex-col gap-0.5">
-                              <span className="text-sm font-medium line-clamp-1">{itemName}</span>
+                              <span className={`text-sm font-medium line-clamp-1 ${itemMissing ? 'text-red-500' : ''}`}>{itemName}</span>
                               <div className="flex items-center gap-1">
-                                {itemType === "property" && <span className="text-xs text-muted-foreground">🏠 Property</span>}
-                                {itemType === "tour" && <span className="text-xs text-muted-foreground">🗺️ Tour</span>}
-                                {itemType === "transport" && <span className="text-xs text-muted-foreground">🚗 Transport</span>}
+                                {itemMissing && <span className="text-xs text-red-500">⚠️ Deleted</span>}
+                                {!itemMissing && itemType === "property" && <span className="text-xs text-muted-foreground">🏠 Property</span>}
+                                {!itemMissing && itemType === "tour" && <span className="text-xs text-muted-foreground">🗺️ Tour</span>}
+                                {!itemMissing && itemType === "transport" && <span className="text-xs text-muted-foreground">🚗 Transport</span>}
                               </div>
                             </div>
                           </div>
