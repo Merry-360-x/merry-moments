@@ -105,6 +105,8 @@ import {
   Smartphone,
   Building,
   Pencil,
+  Star,
+  Send,
 } from "lucide-react";
 import {
   Dialog,
@@ -244,6 +246,9 @@ interface Booking {
   confirmed_by?: string | null;
   rejection_reason?: string | null;
   rejected_at?: string | null;
+  // Review fields
+  review_token?: string | null;
+  review_email_sent?: boolean;
 }
 
 import { CURRENCY_OPTIONS } from "@/lib/currencies";
@@ -1361,6 +1366,94 @@ export default function HostDashboard() {
     }
     setRoutes((prev) => prev.filter((r) => r.id !== id));
     toast({ title: "Deleted" });
+  };
+
+  // State to track review email sending
+  const [sendingReviewEmail, setSendingReviewEmail] = useState<Set<string>>(new Set());
+
+  // Send review request email to guest
+  const sendReviewEmail = async (booking: Booking) => {
+    if (!booking.review_token) {
+      toast({ variant: "destructive", title: "Error", description: "No review token found for this booking" });
+      return;
+    }
+
+    if (booking.review_email_sent) {
+      toast({ variant: "destructive", title: "Already Sent", description: "Review request has already been sent for this booking" });
+      return;
+    }
+
+    setSendingReviewEmail(prev => new Set(prev).add(booking.id));
+
+    try {
+      // Get guest info
+      let guestName = booking.guest_name || 'Guest';
+      let guestEmail = booking.guest_email;
+      
+      // If guest_id exists, fetch from profiles
+      if (booking.guest_id && !guestEmail) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name, email")
+          .eq("id", booking.guest_id)
+          .single();
+        if (profile) {
+          guestName = profile.full_name || guestName;
+          guestEmail = profile.email;
+        }
+      }
+
+      if (!guestEmail) {
+        toast({ variant: "destructive", title: "Error", description: "No email address found for this guest" });
+        return;
+      }
+
+      // Get item details
+      let propertyTitle = 'Your Accommodation';
+      let propertyImage = '';
+      let location = '';
+
+      if (booking.booking_type === 'property' && (booking as any).properties) {
+        propertyTitle = (booking as any).properties.title;
+      } else if (booking.booking_type === 'tour' && (booking as any).tour_packages) {
+        propertyTitle = (booking as any).tour_packages.title;
+      }
+
+      const response = await fetch('/api/review?action=send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          guestName,
+          guestEmail,
+          propertyTitle,
+          propertyImage,
+          location,
+          checkIn: booking.check_in,
+          checkOut: booking.check_out,
+          reviewToken: booking.review_token,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.ok) {
+        // Update local state and database
+        await supabase.from("bookings").update({ review_email_sent: true }).eq("id", booking.id);
+        setBookings(prev => prev.map(b => b.id === booking.id ? { ...b, review_email_sent: true } : b));
+        toast({ title: "Review Request Sent", description: `Email sent to ${guestEmail}` });
+      } else {
+        throw new Error(result.error || 'Failed to send review email');
+      }
+    } catch (error: any) {
+      logError("host.sendReviewEmail", error);
+      toast({ variant: "destructive", title: "Failed to Send", description: error.message || "Failed to send review request" });
+    } finally {
+      setSendingReviewEmail(prev => {
+        const next = new Set(prev);
+        next.delete(booking.id);
+        return next;
+      });
+    }
   };
 
   // Booking status update
@@ -4878,6 +4971,22 @@ export default function HostDashboard() {
                         {b.status === "confirmed" && (
                           <Button size="sm" variant="outline" onClick={() => updateBookingStatus(b.id, "completed")}>
                             Mark Complete
+                          </Button>
+                        )}
+                        {(b.status === "confirmed" || b.status === "completed") && b.review_token && (
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            disabled={b.review_email_sent || sendingReviewEmail.has(b.id)}
+                            onClick={() => sendReviewEmail(b)}
+                            title={b.review_email_sent ? "Review request already sent" : "Send review request to guest"}
+                          >
+                            {sendingReviewEmail.has(b.id) ? (
+                              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                            ) : (
+                              <Star className="w-3 h-3 mr-1" />
+                            )}
+                            {b.review_email_sent ? "Sent" : "Request Review"}
                           </Button>
                         )}
                       </div>
