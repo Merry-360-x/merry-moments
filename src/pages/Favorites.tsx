@@ -18,10 +18,12 @@ interface FavoriteProperty {
     title: string;
     location: string;
     price_per_night: number;
+    currency: string | null;
     property_type: string;
     rating: number;
     review_count: number;
     images: string[];
+    host_id: string | null;
   };
 }
 
@@ -44,7 +46,7 @@ const Favorites = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("favorites")
-        .select("id, properties(id, title, location, price_per_night, property_type, rating, review_count, images)")
+        .select("id, properties(id, title, location, price_per_night, currency, property_type, rating, review_count, images, host_id)")
         .eq("user_id", user!.id);
       if (error) throw error;
       return (data as FavoriteProperty[]) ?? [];
@@ -94,6 +96,7 @@ const Favorites = () => {
                 rating={Number(fav.properties.rating) || 0}
                 reviews={fav.properties.review_count || 0}
                 price={Number(fav.properties.price_per_night)}
+                currency={fav.properties.currency || "RWF"}
                 type={fav.properties.property_type}
                 hostId={fav.properties.host_id || null}
                 isFavorited
