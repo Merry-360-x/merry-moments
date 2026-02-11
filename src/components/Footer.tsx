@@ -26,8 +26,8 @@ const Footer = () => {
           </div>
           {/* Support links row */}
           <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground mb-4">
-            <Link to="/help" className="hover:text-primary transition-colors">
-              {t("footer.help")}
+            <Link to="/help-center" className="hover:text-primary transition-colors">
+              Help Center
             </Link>
             <Link to="/safety-guidelines" className="hover:text-primary transition-colors">
               Safety
@@ -112,8 +112,8 @@ const Footer = () => {
             <h4 className="font-semibold text-foreground mb-4">{t("footer.support")}</h4>
             <ul className="space-y-2">
               <li>
-                <Link to="/help" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                  {t("footer.help")}
+                <Link to="/help-center" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                  Help Center
                 </Link>
               </li>
               <li>

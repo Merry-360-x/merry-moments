@@ -57,6 +57,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import SafetyGuidelines from "./pages/SafetyGuidelines";
 import RefundPolicy from "./pages/RefundPolicy";
+import HelpCenter from "./pages/HelpCenter";
 import AffiliateSignup from "./pages/AffiliateSignup";
 import AffiliateDashboard from "./pages/AffiliateDashboard";
 import AffiliatePortal from "./pages/AffiliatePortal";
@@ -344,6 +345,7 @@ const App = () => (
               <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
               <Route path="/safety-guidelines" element={<SafetyGuidelines />} />
               <Route path="/refund-policy" element={<RefundPolicy />} />
+              <Route path="/help-center" element={<HelpCenter />} />
               <Route path="/connection-test" element={<ConnectionTest />} />
               <Route path="/affiliate-signup" element={<AffiliateSignup />} />
               <Route path="/affiliate-dashboard" element={<AffiliateDashboard />} />
