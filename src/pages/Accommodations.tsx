@@ -128,7 +128,7 @@ const fetchProperties = async (args: {
 const Accommodations = () => {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
-  const [maxPrice, setMaxPrice] = useState(500000);
+  const [maxPrice, setMaxPrice] = useState(50000);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [minRating, setMinRating] = useState(0);
@@ -356,7 +356,7 @@ const Accommodations = () => {
 
   const favoritesSet = new Set(favoriteIds);
   const activeFiltersCount =
-    (maxPrice < 500000 ? 1 : 0) +
+    (maxPrice < 50000 ? 1 : 0) +
     (selectedTypes.length > 0 ? 1 : 0) +
     (selectedAmenities.length > 0 ? 1 : 0) +
     (minRating > 0 ? 1 : 0) +
@@ -520,14 +520,15 @@ const Accommodations = () => {
                   <AccordionContent>
                     <Slider
                       value={[maxPrice]}
-                      onValueChange={(v) => setMaxPrice(v[0] ?? 500000)}
-                      max={500000}
-                      step={10000}
+                      onValueChange={(v) => setMaxPrice(v[0] ?? 50000)}
+                      min={0}
+                      max={50000}
+                      step={50}
                       className="mb-2"
                     />
                     <div className="flex items-center justify-between text-sm gap-3">
                       <span className="text-muted-foreground">Max</span>
-                      <span className="text-primary font-medium">{(() => { const c = convertAmount(Number(maxPrice), "RWF", preferredCurrency, usdRates); return formatMoney(c ?? Number(maxPrice), c !== null ? preferredCurrency : "RWF"); })()}</span>
+                      <span className="text-primary font-medium">{formatMoney(maxPrice, "USD")}</span>
                     </div>
                   </AccordionContent>
                 </AccordionItem>
@@ -660,7 +661,7 @@ const Accommodations = () => {
                 type="button"
                 variant="outline"
                 onClick={() => {
-                  setMaxPrice(500000);
+                  setMaxPrice(50000);
                   setSelectedTypes([]);
                   setSelectedAmenities([]);
                   setMinRating(0);
@@ -688,7 +689,7 @@ const Accommodations = () => {
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    setMaxPrice(500000);
+                    setMaxPrice(50000);
                     setSelectedTypes([]);
                     setSelectedAmenities([]);
                     setMinRating(0);
@@ -709,28 +710,28 @@ const Accommodations = () => {
                       <div className="flex items-center justify-between gap-2 p-3 bg-muted/50 rounded-lg">
                         <div className="text-center flex-1">
                           <div className="text-xs text-muted-foreground mb-1">Min</div>
-                          <div className="font-medium text-sm">{formatMoney(0, preferredCurrency)}</div>
+                          <div className="font-medium text-sm">{formatMoney(0, "USD")}</div>
                         </div>
                         <div className="text-muted-foreground">—</div>
                         <div className="text-center flex-1">
                           <div className="text-xs text-muted-foreground mb-1">Max</div>
-                          <div className="font-medium text-sm text-primary">{(() => { const c = convertAmount(Number(maxPrice), "RWF", preferredCurrency, usdRates); return formatMoney(c ?? Number(maxPrice), c !== null ? preferredCurrency : "RWF"); })()}</div>
+                          <div className="font-medium text-sm text-primary">{formatMoney(maxPrice, "USD")}</div>
                         </div>
                       </div>
                       
                       {/* Slider */}
                       <Slider
                         value={[maxPrice]}
-                        onValueChange={(v) => setMaxPrice(v[0] ?? 500000)}
-                        max={500000}
-                        min={10000}
-                        step={10000}
+                        onValueChange={(v) => setMaxPrice(v[0] ?? 50000)}
+                        max={50000}
+                        min={0}
+                        step={50}
                         className="py-2"
                       />
                       
                       {/* Quick presets */}
                       <div className="flex flex-wrap gap-1.5">
-                        {[50000, 100000, 200000, 300000, 500000].map((val) => (
+                        {[100, 250, 500, 1000, 50000].map((val) => (
                           <button
                             key={val}
                             type="button"
