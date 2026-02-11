@@ -136,7 +136,7 @@ async function handleSubmitReview(req, res) {
       return json(res, 404, { error: "Invalid or expired review link" });
     }
 
-    if (booking.status !== "confirmed") {
+    if (booking.status !== "confirmed" && booking.status !== "completed") {
       return json(res, 400, { error: "Booking is not eligible for review" });
     }
 
@@ -263,7 +263,7 @@ async function handleSendEmails(req, res) {
       .from("bookings")
       .select("id, guest_id, guest_name, guest_email, property_id, tour_id, transport_id, booking_type, check_in, check_out, review_token, review_email_sent")
       .eq("check_out", today)
-      .eq("status", "confirmed")
+      .in("status", ["confirmed", "completed"])
       .eq("review_email_sent", false);
 
     if (fetchErr) {
