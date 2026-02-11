@@ -58,6 +58,9 @@ import {
   Banknote,
   Loader2,
   User,
+  Hash,
+  Phone,
+  Wallet,
 } from "lucide-react";
 
 type HostApplicationStatus = "draft" | "pending" | "approved" | "rejected";
@@ -4345,15 +4348,20 @@ For support, contact: support@merry360x.com
         <Dialog open={bookingDetailsOpen} onOpenChange={setBookingDetailsOpen}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Booking Details</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                <span>Booking Details</span>
+                {selectedBooking && (
+                  <Badge variant="outline" className="font-mono text-xs">{selectedBooking.id.slice(0, 8).toUpperCase()}</Badge>
+                )}
+              </DialogTitle>
               <DialogDescription>Complete booking information and guest details</DialogDescription>
             </DialogHeader>
             {selectedBooking && (
               <div className="space-y-4">
                 {/* Show bulk order info if this is part of a cart order */}
                 {selectedBooking.order_id && orderBookings.length > 1 && (
-                  <div className="border rounded-lg p-3">
-                    <div className="flex items-center justify-between mb-3 pb-2 border-b">
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-b">
                       <div className="flex items-center gap-2">
                         <span className="text-lg">🛒</span>
                         <div>
@@ -4361,7 +4369,7 @@ For support, contact: support@merry360x.com
                           <p className="text-xs text-muted-foreground font-mono">{selectedBooking.order_id.slice(0, 16)}...</p>
                         </div>
                       </div>
-                      <p className="text-base font-bold">
+                      <p className="text-base font-bold text-green-600">
                         {formatMoney(
                           orderBookings.reduce((sum, b) => sum + (b.total_price || 0), 0),
                           selectedBooking.currency
@@ -4370,7 +4378,7 @@ For support, contact: support@merry360x.com
                     </div>
                     
                     {/* List all items in the order */}
-                    <div className="space-y-1.5">
+                    <div className="divide-y">
                       {orderBookings.map((item) => {
                         let itemName = "Unknown Item";
                         let hostName = "N/A";
@@ -4397,11 +4405,17 @@ For support, contact: support@merry360x.com
                         return (
                           <div 
                             key={item.id} 
-                            className={`p-2 rounded text-sm ${isCurrentItem ? 'bg-primary/5 border border-primary/20' : 'hover:bg-muted/30'}`}
+                            className={`p-3 ${isCurrentItem ? 'bg-primary/5' : 'hover:bg-muted/30'}`}
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex items-start gap-2 flex-1 min-w-0">
-                                <span className="text-base mt-0.5">{itemIcon}</span>
+                                <div className={`w-8 h-8 rounded flex items-center justify-center text-base ${
+                                  item.booking_type === 'property' ? 'bg-blue-100 dark:bg-blue-900/30' :
+                                  item.booking_type === 'tour' ? 'bg-green-100 dark:bg-green-900/30' :
+                                  'bg-orange-100 dark:bg-orange-900/30'
+                                }`}>
+                                  {itemIcon}
+                                </div>
                                 <div className="flex-1 min-w-0">
                                   <p className="font-medium text-sm truncate">{itemName}</p>
                                   <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
@@ -4416,7 +4430,7 @@ For support, contact: support@merry360x.com
                               <div className="flex items-center gap-1.5 shrink-0">
                                 <span className="font-semibold text-sm whitespace-nowrap">{formatMoney(item.total_price, item.currency || 'RWF')}</span>
                                 {isCurrentItem && (
-                                  <Badge variant="outline" className="text-xs h-4 px-1.5">👁️</Badge>
+                                  <Badge variant="outline" className="text-xs h-4 px-1.5 bg-primary/10">Current</Badge>
                                 )}
                               </div>
                             </div>
@@ -4429,234 +4443,268 @@ For support, contact: support@merry360x.com
                 
                 {/* Show item details based on booking type */}
                 {selectedBooking.booking_type === "property" && selectedBooking.properties && (
-                  <div className="border-b pb-4">
-                    <h3 className="font-semibold mb-3">🏠 Property Booking</h3>
-                    <div className="flex items-start gap-4">
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 border-b">
+                      <h3 className="font-semibold text-sm flex items-center gap-2">🏠 Property Booking</h3>
+                    </div>
+                    <div className="p-4 flex items-start gap-4">
                       {selectedBooking.properties.images?.[0] && (
                         <img
                           src={selectedBooking.properties.images[0]}
                           alt={selectedBooking.properties.title}
-                          className="w-24 h-24 rounded-lg object-cover"
+                          className="w-20 h-20 rounded-lg object-cover"
                         />
                       )}
                       <div>
                         <p className="font-medium">{selectedBooking.properties.title}</p>
-                        <p className="text-sm text-muted-foreground font-mono break-all">{selectedBooking.property_id}</p>
+                        <p className="text-xs text-muted-foreground font-mono mt-1">{selectedBooking.property_id?.slice(0, 16)}...</p>
                       </div>
                     </div>
                   </div>
                 )}
                 {selectedBooking.booking_type === "tour" && selectedBooking.tour_packages && (
-                  <div className="border-b pb-4">
-                    <h3 className="font-semibold mb-3">🗺️ Tour Booking</h3>
-                    <div>
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="px-4 py-2 bg-green-50 dark:bg-green-900/20 border-b">
+                      <h3 className="font-semibold text-sm flex items-center gap-2">🗺️ Tour Booking</h3>
+                    </div>
+                    <div className="p-4">
                       <p className="font-medium">{selectedBooking.tour_packages.title}</p>
                       <p className="text-sm text-muted-foreground">{selectedBooking.tour_packages.city}, {selectedBooking.tour_packages.country}</p>
-                      <p className="text-sm text-muted-foreground font-mono break-all mt-1">{selectedBooking.tour_id}</p>
+                      <p className="text-xs text-muted-foreground font-mono mt-1">{selectedBooking.tour_id?.slice(0, 16)}...</p>
                     </div>
                   </div>
                 )}
                 {selectedBooking.booking_type === "transport" && selectedBooking.transport_vehicles && (
-                  <div className="border-b pb-4">
-                    <h3 className="font-semibold mb-3">🚗 Transport Booking</h3>
-                    <div>
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="px-4 py-2 bg-orange-50 dark:bg-orange-900/20 border-b">
+                      <h3 className="font-semibold text-sm flex items-center gap-2">🚗 Transport Booking</h3>
+                    </div>
+                    <div className="p-4">
                       <p className="font-medium">{selectedBooking.transport_vehicles.title}</p>
                       <p className="text-sm text-muted-foreground">{selectedBooking.transport_vehicles.vehicle_type}</p>
-                      <p className="text-sm text-muted-foreground font-mono break-all mt-1">{selectedBooking.transport_id}</p>
+                      <p className="text-xs text-muted-foreground font-mono mt-1">{selectedBooking.transport_id?.slice(0, 16)}...</p>
                     </div>
                   </div>
                 )}
                 {/* Fallback for old bookings without booking_type */}
                 {!selectedBooking.booking_type && selectedBooking.properties && (
-                  <div className="border-b pb-4">
-                    <h3 className="font-semibold mb-3">Property</h3>
-                    <div className="flex items-start gap-4">
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 border-b">
+                      <h3 className="font-semibold text-sm">🏠 Property Booking</h3>
+                    </div>
+                    <div className="p-4 flex items-start gap-4">
                       {selectedBooking.properties.images?.[0] && (
                         <img
                           src={selectedBooking.properties.images[0]}
                           alt={selectedBooking.properties.title}
-                          className="w-24 h-24 rounded-lg object-cover"
+                          className="w-20 h-20 rounded-lg object-cover"
                         />
                       )}
                       <div>
                         <p className="font-medium">{selectedBooking.properties.title}</p>
-                        <p className="text-sm text-muted-foreground font-mono break-all">{selectedBooking.property_id}</p>
+                        <p className="text-xs text-muted-foreground font-mono mt-1">{selectedBooking.property_id?.slice(0, 16)}...</p>
                       </div>
                     </div>
                   </div>
                 )}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Booking ID</p>
-                    <p className="font-mono text-xs break-all">{selectedBooking.id}</p>
+                
+                {/* Booking Status & IDs */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="p-3 bg-muted/30 rounded-lg">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Booking Status</p>
+                    <div className="mt-1"><StatusBadge status={selectedBooking.status} /></div>
+                  </div>
+                  <div className="p-3 bg-muted/30 rounded-lg">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Payment</p>
+                    <div className="mt-1"><PaymentStatusBadge status={selectedBooking.payment_status} /></div>
                   </div>
                   {selectedBooking.order_id && (
-                    <div>
-                      <p className="text-sm text-muted-foreground">Order ID (Bulk)</p>
-                      <p className="font-mono text-xs break-all">{selectedBooking.order_id}</p>
+                    <div className="p-3 bg-muted/30 rounded-lg">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Order ID</p>
+                      <p className="font-mono text-xs mt-1">{selectedBooking.order_id.slice(0, 12)}...</p>
                     </div>
                   )}
-                  <div>
-                    <p className="text-sm text-muted-foreground">Status</p>
-                    <StatusBadge status={selectedBooking.status} />
-                  </div>
                 </div>
 
-                <div className="border-t pt-4">
-                  <h3 className="font-semibold mb-3">Guest Information</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Name</p>
-                      <p className="text-sm">
-                        {selectedBooking.is_guest_booking 
-                          ? selectedBooking.guest_name || "Guest"
-                          : (selectedBooking.profiles?.nickname || selectedBooking.profiles?.full_name || "User")}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Email</p>
-                      <p className="text-sm break-all">
-                        {selectedBooking.is_guest_booking
-                          ? selectedBooking.guest_email || "N/A"
-                          : selectedBooking.profiles?.email || "N/A"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Phone</p>
-                      <p className="text-sm">
-                        {selectedBooking.is_guest_booking
-                          ? selectedBooking.guest_phone || "N/A"
-                          : selectedBooking.profiles?.phone || "N/A"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Guest Type</p>
-                      <p className="text-sm">
-                        {selectedBooking.is_guest_booking ? "Guest Booking" : "Registered User"}
-                      </p>
-                    </div>
-                    {!selectedBooking.is_guest_booking && selectedBooking.guest_id && (
-                      <div className="col-span-2">
-                        <p className="text-sm text-muted-foreground">User ID</p>
-                        <p className="font-mono text-xs break-all">{selectedBooking.guest_id}</p>
+                {/* Guest Information */}
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="px-4 py-2 bg-muted/30 border-b">
+                    <h3 className="font-semibold text-sm flex items-center gap-2">
+                      <User className="w-4 h-4" /> Guest Information
+                    </h3>
+                  </div>
+                  <div className="p-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Name</p>
+                          <p className="font-medium">
+                            {selectedBooking.is_guest_booking 
+                              ? selectedBooking.guest_name || "Guest"
+                              : (selectedBooking.profiles?.nickname || selectedBooking.profiles?.full_name || "User")}
+                          </p>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="border-t pt-4">
-                  <h3 className="font-semibold mb-3">Stay Details</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Check-in</p>
-                      <p className="text-sm font-medium">{selectedBooking.check_in}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Check-out</p>
-                      <p className="text-sm font-medium">{selectedBooking.check_out}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Number of Guests</p>
-                      <p className="text-sm">{selectedBooking.guests}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border-t pt-4">
-                  <h3 className="font-semibold mb-3">Payment Information</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Listing Price</p>
-                      <p className="text-lg font-bold">
-                        {formatMoney(
-                          selectedBooking.total_price,
-                          // Prefer the listing's original currency when available
-                          selectedBooking.booking_type === "property" && selectedBooking.properties?.currency
-                            ? selectedBooking.properties.currency
-                            : selectedBooking.booking_type === "tour" && selectedBooking.tour_packages?.currency
-                              ? selectedBooking.tour_packages.currency
-                              : selectedBooking.booking_type === "transport" && selectedBooking.transport_vehicles?.currency
-                                ? selectedBooking.transport_vehicles.currency
-                                : selectedBooking.currency || "RWF"
-                        )}
-                      </p>
-                    </div>
-                    {selectedBooking.checkout_requests && (
+                      <div className="flex items-center gap-2">
+                        <Mail className="w-4 h-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Email</p>
+                          <p className="text-sm truncate">
+                            {selectedBooking.is_guest_booking
+                              ? selectedBooking.guest_email || "N/A"
+                              : selectedBooking.profiles?.email || "N/A"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Phone className="w-4 h-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Phone</p>
+                          <p className="text-sm">
+                            {selectedBooking.is_guest_booking
+                              ? selectedBooking.guest_phone || "N/A"
+                              : selectedBooking.profiles?.phone || "N/A"}
+                          </p>
+                        </div>
+                      </div>
                       <div>
-                        <p className="text-sm text-muted-foreground">Amount Paid</p>
-                        <p className="text-lg font-bold text-green-600">
+                        <p className="text-xs text-muted-foreground">Guest Type</p>
+                        <Badge variant="outline" className="mt-1">
+                          {selectedBooking.is_guest_booking ? "Guest Booking" : "Registered User"}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Stay Details */}
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="px-4 py-2 bg-muted/30 border-b">
+                    <h3 className="font-semibold text-sm flex items-center gap-2">
+                      <Calendar className="w-4 h-4" /> Stay Details
+                    </h3>
+                  </div>
+                  <div className="p-4">
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Check-in</p>
+                        <p className="font-medium">{selectedBooking.check_in}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Check-out</p>
+                        <p className="font-medium">{selectedBooking.check_out}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Guests</p>
+                        <p className="font-medium">{selectedBooking.guests}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Payment Information */}
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="px-4 py-2 bg-muted/30 border-b">
+                    <h3 className="font-semibold text-sm flex items-center gap-2">
+                      <Wallet className="w-4 h-4" /> Payment Information
+                    </h3>
+                  </div>
+                  <div className="p-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Listing Price</p>
+                        <p className="text-xl font-bold text-primary">
                           {formatMoney(
-                            selectedBooking.checkout_requests.total_amount,
-                            selectedBooking.checkout_requests.currency || "RWF"
+                            selectedBooking.total_price,
+                            selectedBooking.booking_type === "property" && selectedBooking.properties?.currency
+                              ? selectedBooking.properties.currency
+                              : selectedBooking.booking_type === "tour" && selectedBooking.tour_packages?.currency
+                                ? selectedBooking.tour_packages.currency
+                                : selectedBooking.booking_type === "transport" && selectedBooking.transport_vehicles?.currency
+                                  ? selectedBooking.transport_vehicles.currency
+                                  : selectedBooking.currency || "RWF"
                           )}
                         </p>
                       </div>
-                    )}
-                    <div>
-                      <p className="text-sm text-muted-foreground">Payment Method</p>
-                      <p className="text-sm">{selectedBooking.checkout_requests?.payment_method || selectedBooking.payment_method || "Not specified"}</p>
+                      {selectedBooking.checkout_requests && (
+                        <div>
+                          <p className="text-xs text-muted-foreground">Amount Paid</p>
+                          <p className="text-xl font-bold text-green-600">
+                            {formatMoney(
+                              selectedBooking.checkout_requests.total_amount,
+                              selectedBooking.checkout_requests.currency || "RWF"
+                            )}
+                          </p>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-xs text-muted-foreground">Payment Method</p>
+                        <p className="text-sm font-medium">{selectedBooking.checkout_requests?.payment_method || selectedBooking.payment_method || "Not specified"}</p>
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Show refund information for cancelled paid bookings */}
                 {refundInfo && selectedBooking.status === 'cancelled' && selectedBooking.payment_status === 'paid' && (
-                  <div className="border-t pt-4">
-                    <h3 className="font-semibold mb-3 flex items-center gap-2">
-                      <DollarSign className="w-4 h-4 text-yellow-600" />
-                      Refund Information
-                    </h3>
-                    <Alert className="bg-yellow-50 border-yellow-200">
-                      <AlertCircle className="h-4 w-4 text-yellow-600" />
-                      <AlertDescription>
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium">Refund Amount:</span>
-                            <span className="text-lg font-bold text-yellow-700">
-                              {formatMoney(refundInfo.refundAmount, refundInfo.currency)}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium">Refund Percentage:</span>
-                            <span className="text-sm font-semibold">{refundInfo.refundPercentage}%</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium">Policy Type:</span>
-                            <Badge variant="outline">{refundInfo.policyType}</Badge>
-                          </div>
-                          <div className="mt-2 pt-2 border-t border-yellow-200">
-                            <p className="text-xs text-muted-foreground">{refundInfo.description}</p>
-                          </div>
+                  <div className="border rounded-lg overflow-hidden border-yellow-300">
+                    <div className="px-4 py-2 bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200">
+                      <h3 className="font-semibold text-sm flex items-center gap-2 text-yellow-700">
+                        <DollarSign className="w-4 h-4" />
+                        Refund Information
+                      </h3>
+                    </div>
+                    <div className="p-4 bg-yellow-50/50">
+                      <div className="grid grid-cols-3 gap-4 mb-3">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Refund Amount</p>
+                          <p className="text-lg font-bold text-yellow-700">
+                            {formatMoney(refundInfo.refundAmount, refundInfo.currency)}
+                          </p>
                         </div>
-                      </AlertDescription>
-                    </Alert>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Percentage</p>
+                          <p className="text-lg font-bold">{refundInfo.refundPercentage}%</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Policy</p>
+                          <Badge variant="outline" className="mt-1">{refundInfo.policyType}</Badge>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{refundInfo.description}</p>
+                    </div>
                   </div>
                 )}
 
                 {selectedBooking.special_requests && (
-                  <div className="border-t pt-4">
-                    <h3 className="font-semibold mb-2">Special Requests</h3>
-                    <p className="text-sm text-muted-foreground">{selectedBooking.special_requests}</p>
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="px-4 py-2 bg-muted/30 border-b">
+                      <h3 className="font-semibold text-sm">Special Requests</h3>
+                    </div>
+                    <div className="p-4">
+                      <p className="text-sm text-muted-foreground">{selectedBooking.special_requests}</p>
+                    </div>
                   </div>
                 )}
 
-                <div className="border-t pt-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Created</p>
-                      <p className="text-sm">{new Date(selectedBooking.created_at).toLocaleString()}</p>
-                    </div>
-                    {selectedBooking.host_id && (
-                      <div>
-                        <p className="text-sm text-muted-foreground">Host</p>
-                        <p className="text-sm">{selectedBooking.host_profile?.full_name || "N/A"}</p>
-                        <p className="font-mono text-xs text-muted-foreground break-all">{selectedBooking.host_id}</p>
-                      </div>
-                    )}
+                {/* Meta Information */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 bg-muted/30 rounded-lg">
+                    <p className="text-xs text-muted-foreground">Created</p>
+                    <p className="text-sm font-medium">{new Date(selectedBooking.created_at).toLocaleString()}</p>
                   </div>
+                  {selectedBooking.host_id && (
+                    <div className="p-3 bg-muted/30 rounded-lg">
+                      <p className="text-xs text-muted-foreground">Host</p>
+                      <p className="text-sm font-medium">{selectedBooking.host_profile?.full_name || "N/A"}</p>
+                      <p className="font-mono text-xs text-muted-foreground">{selectedBooking.host_id.slice(0, 12)}...</p>
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex gap-2 pt-4">
+                {/* Action Buttons */}
+                <div className="flex gap-2 pt-2 border-t">
                   <Button 
                     variant="outline" 
                     className="flex-1"
