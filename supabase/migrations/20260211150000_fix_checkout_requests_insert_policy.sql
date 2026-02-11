@@ -33,9 +33,9 @@ CREATE POLICY "Users can view own checkout requests"
     user_id = auth.uid() 
     OR user_id IS NULL  -- Allow anonymous users to see guest checkouts
     OR EXISTS (
-      SELECT 1 FROM profiles p 
-      WHERE p.user_id = auth.uid() 
-      AND p.role IN ('admin', 'super_admin', 'operations', 'financial', 'customer_support')
+      SELECT 1 FROM user_roles ur 
+      WHERE ur.user_id = auth.uid() 
+      AND ur.role IN ('admin', 'financial_staff', 'operations_staff', 'customer_support')
     )
   );
 
@@ -51,9 +51,9 @@ CREATE POLICY "Staff can update checkout requests"
   ON checkout_requests FOR UPDATE
   USING (
     EXISTS (
-      SELECT 1 FROM profiles p 
-      WHERE p.user_id = auth.uid() 
-      AND p.role IN ('admin', 'super_admin', 'operations', 'financial', 'customer_support')
+      SELECT 1 FROM user_roles ur 
+      WHERE ur.user_id = auth.uid() 
+      AND ur.role IN ('admin', 'financial_staff', 'operations_staff', 'customer_support')
     )
   );
 
