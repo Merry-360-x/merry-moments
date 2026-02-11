@@ -288,6 +288,27 @@ const cancellationPolicyDetails: Record<string, { title: string; lines: string[]
     ],
   },
 };
+
+const monthlyCancellationPolicyDetails: Record<"strict" | "fair", { title: string; lines: string[] }> = {
+  strict: {
+    title: "Strict monthly (30+ days)",
+    lines: [
+      "15–30 days before check-in: 75% refund (minus applicable service or processing fees)",
+      "7–15 days before check-in: 50% refund (minus applicable service or processing fees)",
+      "0–7 days before check-in: 25% refund (minus applicable service or processing fees)",
+      "No-shows: Non-refundable",
+    ],
+  },
+  fair: {
+    title: "Fair monthly (30+ days)",
+    lines: [
+      "7–15 days before check-in: 75% refund (minus applicable service or processing fees)",
+      "3–7 days before check-in: 50% refund (minus applicable service or processing fees)",
+      "0–3 days before check-in: 25% refund (minus applicable service or processing fees)",
+      "No-shows: Non-refundable",
+    ],
+  },
+};
 const vehicleTypes = ["Sedan", "SUV", "Van", "Bus", "Minibus", "Motorcycle"];
 const tourCategories = ["Nature", "Adventure", "Cultural", "Wildlife", "Historical"];
 const tourDifficulties = ["Easy", "Moderate", "Hard"];
@@ -3251,7 +3272,7 @@ export default function HostDashboard() {
                     className="w-4 h-4 rounded border-gray-300"
                   />
                   <Label htmlFor="room-monthly-rental" className="text-sm font-medium cursor-pointer">
-                    Available for monthly stays (28+ days)
+                    Available for monthly stays (30+ days)
                   </Label>
                 </div>
 
@@ -3531,7 +3552,40 @@ export default function HostDashboard() {
                 </div>
 
                 <div>
-                    <Label className="text-base font-medium">Cancellation Policy</Label>
+                    <Label className="text-base font-medium flex items-center gap-2">
+                      Cancellation Policy
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button type="button" className="inline-flex items-center" aria-label="Monthly cancellation policy details">
+                            <Info className="w-4 h-4 text-muted-foreground" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-sm p-3">
+                          <div className="font-semibold mb-1">Monthly stays (30+ days)</div>
+                          <div className="text-xs text-muted-foreground mb-2">
+                            For stays of 30+ days, monthly cancellation rules apply.
+                          </div>
+                          <div className="space-y-2">
+                            <div>
+                              <div className="text-xs font-medium text-foreground mb-1">{monthlyCancellationPolicyDetails.fair.title}</div>
+                              <ul className="text-xs leading-relaxed space-y-1 text-muted-foreground">
+                                {monthlyCancellationPolicyDetails.fair.lines.map((line) => (
+                                  <li key={line}>• {line}</li>
+                                ))}
+                              </ul>
+                            </div>
+                            <div>
+                              <div className="text-xs font-medium text-foreground mb-1">{monthlyCancellationPolicyDetails.strict.title}</div>
+                              <ul className="text-xs leading-relaxed space-y-1 text-muted-foreground">
+                                {monthlyCancellationPolicyDetails.strict.lines.map((line) => (
+                                  <li key={line}>• {line}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </Label>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
                       {cancellationPolicies.map((policy) => (
                         <Tooltip key={policy.value}>
@@ -3604,7 +3658,7 @@ export default function HostDashboard() {
                       
                       <div className="p-4 rounded-xl border border-border bg-muted/20">
                         <Label className="text-sm font-medium flex items-center gap-2">
-                          Monthly Discount (28+ days)
+                          Monthly Discount (30+ days)
                         </Label>
                         <div className="flex items-center gap-3 mt-2">
                           <Input
@@ -3619,8 +3673,8 @@ export default function HostDashboard() {
                         </div>
                         {propertyForm.monthly_discount > 0 && (
                           <p className="text-xs text-green-600 mt-2">
-                            Monthly price: {formatMoney(propertyForm.price_per_night * 28 * (1 - propertyForm.monthly_discount / 100), propertyForm.currency)}
-                            {" "}(saves {formatMoney(propertyForm.price_per_night * 28 * propertyForm.monthly_discount / 100, propertyForm.currency)})
+                            Monthly price: {formatMoney(propertyForm.price_per_night * 30 * (1 - propertyForm.monthly_discount / 100), propertyForm.currency)}
+                            {" "}(saves {formatMoney(propertyForm.price_per_night * 30 * propertyForm.monthly_discount / 100, propertyForm.currency)})
                           </p>
                         )}
                       </div>
@@ -3637,7 +3691,7 @@ export default function HostDashboard() {
                           className="w-4 h-4 rounded border-gray-300"
                         />
                         <Label htmlFor="monthly-rental" className="text-sm font-medium cursor-pointer">
-                          Available for monthly rentals (28+ days)
+                          Available for monthly rentals (30+ days)
                         </Label>
                       </div>
                       

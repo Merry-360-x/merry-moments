@@ -459,7 +459,7 @@ export default function CheckoutNew() {
       if (isProperty && nights > 0) {
         const weeklyDiscount = Number(item.weekly_discount ?? 0);
         const monthlyDiscount = Number(item.monthly_discount ?? 0);
-        const discountPercent = nights >= 28 && monthlyDiscount > 0 
+        const discountPercent = nights >= 30 && monthlyDiscount > 0 
           ? monthlyDiscount 
           : nights >= 7 && weeklyDiscount > 0 
             ? weeklyDiscount 
@@ -471,7 +471,7 @@ export default function CheckoutNew() {
       
       if (isProperty) {
         // Calculate fees on the discounted amount
-        const discountedAmount = converted - (nights >= 28 
+        const discountedAmount = converted - (nights >= 30 
           ? Math.round((converted * Number(item.monthly_discount ?? 0)) / 100)
           : nights >= 7 
             ? Math.round((converted * Number(item.weekly_discount ?? 0)) / 100)
@@ -1590,7 +1590,7 @@ export default function CheckoutNew() {
                   <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
                     <span className="flex items-center gap-1">
                       <Tag className="w-3 h-3" />
-                      {cartItems.some(i => i.item_type === 'property' && (i.metadata?.nights ?? 0) >= 28) 
+                      {cartItems.some(i => i.item_type === 'property' && (i.metadata?.nights ?? 0) >= 30) 
                         ? 'Monthly stay discount' 
                         : 'Weekly stay discount'}
                     </span>

@@ -880,7 +880,7 @@ const HeroSearch = () => {
                   </div>
                 ) : whenTab === "months" ? (
                   <div>
-                    <div className="text-sm font-semibold text-foreground mb-2">Book monthly (28+ days)</div>
+                    <div className="text-sm font-semibold text-foreground mb-2">Book monthly (30+ days)</div>
                     <p className="text-xs text-muted-foreground mb-4">Select a month for your extended stay</p>
                     <div className="grid grid-cols-3 gap-2 mb-4">
                       {(() => {

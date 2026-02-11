@@ -616,7 +616,7 @@ const Accommodations = () => {
                         onChange={(e) => setMonthlyRentalOnly(e.target.checked)}
                         className="w-4 h-4 rounded border-gray-300"
                       />
-                      <span className="text-sm">Monthly rentals only (28+ days)</span>
+                      <span className="text-sm">Monthly rentals only (30+ days)</span>
                     </label>
                   </AccordionContent>
                 </AccordionItem>
@@ -838,7 +838,7 @@ const Accommodations = () => {
                         onChange={(e) => setMonthlyRentalOnly(e.target.checked)}
                         className="w-4 h-4 rounded border-gray-300"
                       />
-                      <span className="text-sm">Monthly rentals only (28+ days)</span>
+                      <span className="text-sm">Monthly rentals only (30+ days)</span>
                     </label>
                   </AccordionContent>
                 </AccordionItem>

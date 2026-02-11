@@ -456,9 +456,9 @@ export default function PropertyDetails() {
     if (!data || nights <= 0) return { percent: 0, amount: 0, label: null as string | null };
     const weekly = Number(data.weekly_discount ?? 0);
     const monthly = Number(data.monthly_discount ?? 0);
-    const percent = nights >= 28 && monthly > 0 ? monthly : nights >= 7 && weekly > 0 ? weekly : 0;
+    const percent = nights >= 30 && monthly > 0 ? monthly : nights >= 7 && weekly > 0 ? weekly : 0;
     const amount = percent > 0 ? Math.round((baseTotal * percent) / 100) : 0;
-    const label = percent > 0 ? (nights >= 28 ? t("propertyDetails.discounts.monthly") : t("propertyDetails.discounts.weekly")) : null;
+    const label = percent > 0 ? (nights >= 30 ? t("propertyDetails.discounts.monthly") : t("propertyDetails.discounts.weekly")) : null;
     return { percent, amount, label };
   }, [data, nights, baseTotal, t]);
 

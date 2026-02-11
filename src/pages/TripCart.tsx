@@ -323,7 +323,7 @@ export default function TripCart() {
       // Calculate weekly/monthly discounts for properties
       let itemDiscount = 0;
       if (isProperty) {
-        const stayDiscountPercent = nights >= 28 && item.monthly_discount 
+        const stayDiscountPercent = nights >= 30 && item.monthly_discount 
           ? item.monthly_discount 
           : nights >= 7 && item.weekly_discount 
             ? item.weekly_discount 
@@ -451,7 +451,7 @@ export default function TripCart() {
                 
                 // Calculate stay discount for properties
                 const stayDiscount = isAccommodation && nights 
-                  ? (nights >= 28 && item.monthly_discount ? item.monthly_discount : nights >= 7 && item.weekly_discount ? item.weekly_discount : 0)
+                  ? (nights >= 30 && item.monthly_discount ? item.monthly_discount : nights >= 7 && item.weekly_discount ? item.weekly_discount : 0)
                   : 0;
                 
                 const basePrice = isAccommodation ? pricePerUnit * nights : pricePerUnit;
