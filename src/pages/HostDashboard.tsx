@@ -5833,7 +5833,7 @@ END OF REPORT
                       </div>
                       {bookingFullDetails.properties.amenities && (
                         <div className="flex flex-wrap gap-1 mt-2">
-                          {bookingFullDetails.properties.amenities.slice(0, 5).map((amenity: string, i: number) => (
+                          {bookingFullDetails.properties.amenities.map((amenity: string, i: number) => (
                             <Badge key={i} variant="outline" className="text-xs">{amenity}</Badge>
                           ))}
                         </div>

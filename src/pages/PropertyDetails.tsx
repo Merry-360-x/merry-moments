@@ -1044,7 +1044,7 @@ export default function PropertyDetails() {
                   <div className="mt-4">
                     <div className="text-sm font-semibold text-foreground mb-2">{t("propertyDetails.amenities")}</div>
                     <div className="flex flex-wrap gap-2">
-                      {data.amenities.slice(0, 12).map((a) => (
+                      {data.amenities.map((a) => (
                         <span
                           key={a}
                           className="text-xs px-3 py-1 rounded-full border border-border text-muted-foreground inline-flex items-center gap-2"
