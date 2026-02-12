@@ -840,9 +840,14 @@ export default function CheckoutNew() {
                         paymentCurrency === 'UGX' ? 500 :
                         paymentCurrency === 'TZS' ? 500 :
                         paymentCurrency === 'ZMW' ? 1 : 100;
+      const maxAmount = paymentCurrency === 'RWF' ? 2_000_000 : Number.POSITIVE_INFINITY;
       
       if (finalAmount < minAmount) {
         throw new Error(`Minimum payment amount is ${minAmount} ${paymentCurrency}`);
+      }
+
+      if (finalAmount > maxAmount) {
+        throw new Error(`Payment amount exceeds the provider limit (${maxAmount} ${paymentCurrency}). Please reduce the amount and try again.`);
       }
 
       // Initiate PawaPay payment for mobile money
@@ -885,7 +890,9 @@ export default function CheckoutNew() {
         console.error("Failure code:", failureCode);
         console.error("Error message:", errorMsg);
         
-        const friendlyError = getFriendlyPaymentErrorMessage(errorMsg);
+        const friendlyError = getFriendlyPaymentErrorMessage(
+          failureCode ? `${failureCode}: ${errorMsg}` : errorMsg
+        );
         setPaymentError(friendlyError);
         setIsProcessing(false);
         

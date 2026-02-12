@@ -69,6 +69,18 @@ export function getFriendlyPaymentErrorMessage(message?: string, fallback = "Pay
     return "Payment Failed, Register to complete your booking";
   }
 
+  if (lowered.includes("amount_too_large") || lowered.includes("amount should not be greater than")) {
+    const maxMatch = message.match(/greater than\s+([\d,\.]+)/i);
+    const limit = maxMatch?.[1];
+    return limit
+      ? `Payment amount exceeds the provider limit (${limit}). Please reduce the amount and try again.`
+      : "Payment amount exceeds the provider limit. Please reduce the amount and try again.";
+  }
+
+  if (lowered.includes("minimum payment amount is")) {
+    return message;
+  }
+
   return message;
 }
 
