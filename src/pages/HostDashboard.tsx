@@ -433,9 +433,12 @@ export default function HostDashboard() {
   const [selectedCalendarTourIds, setSelectedCalendarTourIds] = useState<string[]>([]);
   const [calendarIntegrationLabel, setCalendarIntegrationLabel] = useState("Front desk calendar");
   const [calendarIntegrationUrl, setCalendarIntegrationUrl] = useState("");
+  const [calendarIcsFile, setCalendarIcsFile] = useState<File | null>(null);
   const [calendarIntegrations, setCalendarIntegrations] = useState<PropertyCalendarIntegration[]>([]);
   const [calendarIntegrationsLoading, setCalendarIntegrationsLoading] = useState(false);
   const [calendarIntegrationsSaving, setCalendarIntegrationsSaving] = useState(false);
+  const [calendarIcsImporting, setCalendarIcsImporting] = useState(false);
+  const [calendarRefreshToken, setCalendarRefreshToken] = useState(0);
   const [bulkCalendarSyncing, setBulkCalendarSyncing] = useState(false);
   const [hostServiceTypes, setHostServiceTypes] = useState<string[]>([]);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
@@ -1965,6 +1968,52 @@ export default function HostDashboard() {
     }
   }, [toast]);
 
+  const importSelectedPropertyIcsFile = useCallback(async () => {
+    if (!selectedCalendarPropertyId) {
+      toast({ variant: "destructive", title: "Select a property first" });
+      return;
+    }
+    if (!calendarIcsFile) {
+      toast({ variant: "destructive", title: "Select an ICS file first" });
+      return;
+    }
+
+    setCalendarIcsImporting(true);
+    try {
+      const headers = await getHostAuthHeaders();
+      const icsText = await calendarIcsFile.text();
+
+      const response = await fetch(`/api/hotel-calendar-sync?action=import-ics`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          propertyId: selectedCalendarPropertyId,
+          icsText,
+          sourceLabel: calendarIcsFile.name,
+        }),
+      });
+
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body?.error || "Could not import ICS file");
+
+      toast({
+        title: "ICS imported",
+        description: `Imported ${body.eventsImported ?? 0} blocked date ranges from ${calendarIcsFile.name}.`,
+      });
+      setCalendarIcsFile(null);
+      setCalendarRefreshToken((value) => value + 1);
+      await fetchPropertyCalendarSummaries();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Calendar import error",
+        description: error?.message || "Could not import ICS file",
+      });
+    } finally {
+      setCalendarIcsImporting(false);
+    }
+  }, [selectedCalendarPropertyId, calendarIcsFile, getHostAuthHeaders, toast, fetchPropertyCalendarSummaries]);
+
   const toggleCalendarPropertySelection = useCallback((propertyId: string, checked: boolean) => {
     setSelectedCalendarPropertyIds((prev) => {
       if (checked) {
@@ -2053,6 +2102,7 @@ export default function HostDashboard() {
         description: `Synced ${integrationIds.length} integration(s), imported ${importedCount} blocked date ranges.${tourNote}`,
       });
 
+      setCalendarRefreshToken((value) => value + 1);
       await Promise.all([fetchSelectedPropertyIntegrations(), fetchPropertyCalendarSummaries()]);
     } catch (error: any) {
       toast({
@@ -5080,6 +5130,7 @@ export default function HostDashboard() {
                     <AvailabilityCalendar
                       propertyId={selectedCalendarPropertyId}
                       currency={properties.find((p) => p.id === selectedCalendarPropertyId)?.currency || "RWF"}
+                      refreshToken={calendarRefreshToken}
                     />
                   ) : (
                     <p className="text-sm text-muted-foreground">Select a property to manage availability.</p>
@@ -5111,6 +5162,25 @@ export default function HostDashboard() {
                   {calendarIntegrationsSaving ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <CalendarIcon className="w-3 h-3 mr-2" />}
                   Connect iCal Feed
                 </Button>
+
+                <div className="border-t pt-3 space-y-2">
+                  <Label className="text-xs font-medium">Import .ics file (one-time)</Label>
+                  <Input
+                    type="file"
+                    accept=".ics,text/calendar"
+                    onChange={(e) => setCalendarIcsFile(e.target.files?.[0] || null)}
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={importSelectedPropertyIcsFile}
+                    disabled={calendarIcsImporting || !calendarIcsFile || !selectedCalendarPropertyId}
+                  >
+                    {calendarIcsImporting ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <CalendarIcon className="w-3 h-3 mr-2" />}
+                    Import ICS file
+                  </Button>
+                  <p className="text-xs text-muted-foreground">Use this if you only have a downloaded Google export file instead of a live iCal URL.</p>
+                </div>
 
                 {calendarIntegrationsLoading ? (
                   <div className="text-xs text-muted-foreground">Loading integrations…</div>

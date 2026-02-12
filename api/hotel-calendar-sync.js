@@ -575,6 +575,46 @@ export default async function handler(req, res) {
       });
     }
 
+    if (action === "import-ics") {
+      const { propertyId, icsText, sourceLabel } = req.body || {};
+      if (!propertyId || !icsText) {
+        return json(res, 400, { error: "Missing propertyId or icsText" });
+      }
+
+      const ownsProperty = await userOwnsProperty(admin, propertyId, user.id);
+      if (!ownsProperty) return json(res, 403, { error: "Forbidden" });
+
+      const parsedEvents = parseIcsEvents(String(icsText || ""));
+      if (parsedEvents.length === 0) {
+        return json(res, 400, { error: "No valid events found in ICS file" });
+      }
+
+      const importReason = `External Upload:${String(sourceLabel || "ICS import").slice(0, 80)}`;
+
+      await admin
+        .from("property_blocked_dates")
+        .delete()
+        .eq("property_id", propertyId)
+        .eq("reason", importReason);
+
+      const rows = parsedEvents.map((event) => ({
+        property_id: propertyId,
+        start_date: event.startDate,
+        end_date: event.endDate,
+        reason: importReason,
+        created_by: user.id,
+      }));
+
+      const { error: insertError } = await admin.from("property_blocked_dates").insert(rows);
+      if (insertError) throw insertError;
+
+      return json(res, 200, {
+        ok: true,
+        propertyId,
+        eventsImported: parsedEvents.length,
+      });
+    }
+
     if (action === "delete") {
       const { integrationId } = req.body || {};
       if (!integrationId) return json(res, 400, { error: "Missing integrationId" });

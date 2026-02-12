@@ -34,9 +34,10 @@ type CustomPrice = {
 type AvailabilityCalendarProps = {
   propertyId: string;
   currency?: string;
+  refreshToken?: number;
 };
 
-export default function AvailabilityCalendar({ propertyId, currency = "RWF" }: AvailabilityCalendarProps) {
+export default function AvailabilityCalendar({ propertyId, currency = "RWF", refreshToken = 0 }: AvailabilityCalendarProps) {
   const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
   const [customPrices, setCustomPrices] = useState<CustomPrice[]>([]);
   const [selectedRange, setSelectedRange] = useState<{ from: Date; to?: Date } | undefined>();
@@ -49,7 +50,7 @@ export default function AvailabilityCalendar({ propertyId, currency = "RWF" }: A
   useEffect(() => {
     fetchBlockedDates();
     fetchCustomPrices();
-  }, [propertyId]);
+  }, [propertyId, refreshToken]);
 
   const fetchCustomPrices = async () => {
     const { data, error } = await supabase
