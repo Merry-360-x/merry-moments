@@ -422,6 +422,11 @@ export default function HostDashboard() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [routes, setRoutes] = useState<TransportRoute[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [propertyCalendarSummaries, setPropertyCalendarSummaries] = useState<Record<string, {
+    connected: boolean;
+    lastSyncStatus: string | null;
+    lastSyncedAt: string | null;
+  }>>({});
   const [hostServiceTypes, setHostServiceTypes] = useState<string[]>([]);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [showBookingDetails, setShowBookingDetails] = useState(false);
@@ -1794,6 +1799,37 @@ export default function HostDashboard() {
     }
   }, [user, tab]);
 
+  const fetchPropertyCalendarSummaries = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data.session?.access_token;
+      if (!accessToken) return;
+
+      const response = await fetch('/api/hotel-calendar-sync?action=list-host', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) return;
+
+      setPropertyCalendarSummaries(body.summaries || {});
+    } catch {
+      // Silent: this should not block dashboard rendering
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user && tab === 'properties') {
+      fetchPropertyCalendarSummaries();
+    }
+  }, [user, tab, fetchPropertyCalendarSummaries]);
+
   // Property Card Component
   const PropertyCard = ({ property }: { property: Property }) => {
     const isEditing = editingPropertyId === property.id;
@@ -1803,17 +1839,9 @@ export default function HostDashboard() {
     const [integrationLabel, setIntegrationLabel] = useState("Front desk calendar");
     const [integrationUrl, setIntegrationUrl] = useState("");
     const [integrations, setIntegrations] = useState<PropertyCalendarIntegration[]>([]);
-    const [integrationSummary, setIntegrationSummary] = useState<{
-      connected: boolean;
-      lastSyncStatus: string | null;
-      lastSyncedAt: string | null;
-    }>({
-      connected: false,
-      lastSyncStatus: null,
-      lastSyncedAt: null,
-    });
     const [loadingIntegrations, setLoadingIntegrations] = useState(false);
     const [savingIntegration, setSavingIntegration] = useState(false);
+    const integrationSummary = propertyCalendarSummaries[property.id] || null;
 
     const getAuthHeaders = async () => {
       const { data } = await supabase.auth.getSession();
@@ -1837,12 +1865,6 @@ export default function HostDashboard() {
         if (!response.ok) throw new Error(body?.error || "Could not load calendar integrations");
         const items = (body.integrations || []) as PropertyCalendarIntegration[];
         setIntegrations(items);
-        const latest = items[0];
-        setIntegrationSummary({
-          connected: items.length > 0,
-          lastSyncStatus: latest?.last_sync_status || null,
-          lastSyncedAt: latest?.last_synced_at || null,
-        });
       } catch (error: any) {
         if (!silent) {
           toast({
@@ -1880,6 +1902,7 @@ export default function HostDashboard() {
         setIntegrationUrl("");
         toast({ title: "Calendar connected", description: "Now syncing to prevent double bookings." });
         await fetchIntegrations();
+        await fetchPropertyCalendarSummaries();
       } catch (error: any) {
         toast({
           variant: "destructive",
@@ -1904,6 +1927,7 @@ export default function HostDashboard() {
 
         toast({ title: "Calendar synced", description: `Imported ${body.eventsImported ?? 0} blocked date ranges.` });
         await fetchIntegrations();
+        await fetchPropertyCalendarSummaries();
       } catch (error: any) {
         toast({
           variant: "destructive",
@@ -1928,6 +1952,7 @@ export default function HostDashboard() {
 
         toast({ title: "Integration removed" });
         await fetchIntegrations();
+        await fetchPropertyCalendarSummaries();
       } catch (error: any) {
         toast({
           variant: "destructive",
@@ -1951,10 +1976,6 @@ export default function HostDashboard() {
         fetchIntegrations();
       }
     }, [isEditing, fetchIntegrations]);
-
-    useEffect(() => {
-      fetchIntegrations({ silent: true });
-    }, [fetchIntegrations]);
 
     const handleSave = async () => {
       const success = await updateProperty(property.id, {
@@ -2209,7 +2230,7 @@ export default function HostDashboard() {
                 <div>
                   <h3 className="font-semibold text-foreground">{property.title}</h3>
                   <p className="text-sm text-muted-foreground">{property.location}</p>
-                  {integrationSummary.connected && (
+                  {integrationSummary?.connected && (
                     <div className="mt-1 flex items-center gap-2">
                       <Badge variant={integrationSummary.lastSyncStatus === "error" ? "destructive" : "outline"} className="text-[10px]">
                         {integrationSummary.lastSyncStatus === "error"

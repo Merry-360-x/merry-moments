@@ -5,6 +5,15 @@ const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 const CRON_SECRET = process.env.CALENDAR_SYNC_CRON_SECRET;
 
+function isMissingIntegrationTableError(error) {
+  const message = String(error?.message || error || "");
+  const code = String(error?.code || "");
+  return (
+    code === "42P01" ||
+    (message.includes("property_calendar_integrations") && message.toLowerCase().includes("does not exist"))
+  );
+}
+
 function json(res, status, body) {
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -367,7 +376,16 @@ export default async function handler(req, res) {
         .select("id, property_id, feed_url, created_by, is_active")
         .eq("is_active", true);
 
-      if (error) throw error;
+      if (error) {
+        if (isMissingIntegrationTableError(error)) {
+          return json(res, 200, {
+            ok: true,
+            skipped: true,
+            reason: "property_calendar_integrations table not found",
+          });
+        }
+        throw error;
+      }
 
       const results = [];
       for (const integration of integrations || []) {
@@ -412,7 +430,12 @@ export default async function handler(req, res) {
         .eq("property_id", propertyId)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        if (isMissingIntegrationTableError(error)) {
+          return json(res, 200, { ok: true, integrations: [] });
+        }
+        throw error;
+      }
 
       const baseUrl = getBaseUrl(req);
       const integrations = (data || []).map((row) => ({
@@ -421,6 +444,46 @@ export default async function handler(req, res) {
       }));
 
       return json(res, 200, { ok: true, integrations });
+    }
+
+    if (action === "list-host") {
+      const { data: hostProperties, error: propsError } = await admin
+        .from("properties")
+        .select("id")
+        .eq("host_id", user.id);
+
+      if (propsError) throw propsError;
+
+      const propertyIds = (hostProperties || []).map((p) => p.id);
+      if (propertyIds.length === 0) {
+        return json(res, 200, { ok: true, summaries: {} });
+      }
+
+      const { data, error } = await admin
+        .from("property_calendar_integrations")
+        .select("id, property_id, last_synced_at, last_sync_status, created_at")
+        .in("property_id", propertyIds)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        if (isMissingIntegrationTableError(error)) {
+          return json(res, 200, { ok: true, summaries: {} });
+        }
+        throw error;
+      }
+
+      const summaries = {};
+      for (const row of data || []) {
+        if (!summaries[row.property_id]) {
+          summaries[row.property_id] = {
+            connected: true,
+            lastSyncStatus: row.last_sync_status || null,
+            lastSyncedAt: row.last_synced_at || null,
+          };
+        }
+      }
+
+      return json(res, 200, { ok: true, summaries });
     }
 
     if (req.method !== "POST") {
@@ -448,7 +511,14 @@ export default async function handler(req, res) {
         .select("id, property_id, provider, label, feed_url, feed_token, is_active, created_at")
         .single();
 
-      if (error) throw error;
+      if (error) {
+        if (isMissingIntegrationTableError(error)) {
+          return json(res, 503, {
+            error: "Calendar integration database migration is not applied yet",
+          });
+        }
+        throw error;
+      }
 
       const baseUrl = getBaseUrl(req);
       return json(res, 200, {
@@ -470,7 +540,14 @@ export default async function handler(req, res) {
         .eq("id", integrationId)
         .maybeSingle();
 
-      if (findError) throw findError;
+      if (findError) {
+        if (isMissingIntegrationTableError(findError)) {
+          return json(res, 503, {
+            error: "Calendar integration database migration is not applied yet",
+          });
+        }
+        throw findError;
+      }
       if (!integration) return json(res, 404, { error: "Integration not found" });
 
       const ownsProperty = await userOwnsProperty(admin, integration.property_id, user.id);
@@ -502,7 +579,14 @@ export default async function handler(req, res) {
         .eq("id", integrationId)
         .maybeSingle();
 
-      if (findError) throw findError;
+      if (findError) {
+        if (isMissingIntegrationTableError(findError)) {
+          return json(res, 503, {
+            error: "Calendar integration database migration is not applied yet",
+          });
+        }
+        throw findError;
+      }
       if (!integration) return json(res, 404, { error: "Integration not found" });
       if (!integration.is_active) return json(res, 400, { error: "Integration is inactive" });
 
