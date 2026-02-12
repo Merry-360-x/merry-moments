@@ -191,10 +191,10 @@ function RouteTransitionWrapper({ children }: { children: ReactNode }) {
     <AnimatePresence mode="wait" initial={false}>
       <motion.div
         key={location.pathname}
-        initial={reduceMotion ? { opacity: 1 } : { opacity: 0, y: 8, filter: "blur(4px)" }}
-        animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, filter: "blur(0px)" }}
-        exit={reduceMotion ? { opacity: 1 } : { opacity: 0, y: -6, filter: "blur(2px)" }}
-        transition={{ duration: reduceMotion ? 0 : 0.22, ease: [0.22, 1, 0.36, 1] }}
+        initial={reduceMotion ? { opacity: 1 } : { opacity: 0, y: 4 }}
+        animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+        exit={reduceMotion ? { opacity: 1 } : { opacity: 0, y: -3 }}
+        transition={{ duration: reduceMotion ? 0 : 0.16, ease: [0.22, 1, 0.36, 1] }}
       >
         {children}
       </motion.div>
