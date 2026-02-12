@@ -3,10 +3,10 @@ import Footer from "@/components/Footer";
 import { Card } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Shield, AlertTriangle, Phone, Users, MapPin, Car, Home, Mountain } from "lucide-react";
+import { Shield, AlertTriangle, Phone, Users, MapPin, Car, Home, Mountain } from "lucide-react";
 
 export default function SafetyGuidelines() {
-  const { data: legalContent, isLoading } = useQuery({
+  const { data: legalContent } = useQuery({
     queryKey: ["legal_content", "safety_guidelines"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -120,11 +120,7 @@ export default function SafetyGuidelines() {
             </div>
           </Card>
 
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            </div>
-          ) : hasContent ? (
+          {hasContent ? (
             <Card className="p-8">
               <div className="prose prose-slate max-w-none">
                 {sections.map((section: any, index: number) => (

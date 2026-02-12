@@ -937,19 +937,7 @@ export default function CheckoutNew() {
     }
   };
 
-  if (authLoading || isLoading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="flex items-center justify-center py-32">
-          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-        </div>
-        <Footer />
-      </div>
-    );
-  }
-
-  if (cartItems.length === 0) {
+  if (!authLoading && !isLoading && cartItems.length === 0) {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />

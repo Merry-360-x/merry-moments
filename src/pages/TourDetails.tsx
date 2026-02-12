@@ -227,28 +227,7 @@ export default function TourDetails() {
       .sort((a, b) => b.group_size - a.group_size);
   })();
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="container mx-auto px-4 py-8 max-w-6xl">
-          <div className="animate-pulse space-y-4">
-            <div className="h-8 bg-gray-200 rounded w-32"></div>
-            <div className="h-64 bg-gray-200 rounded"></div>
-            <div className="h-12 bg-gray-200 rounded w-3/4"></div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="h-24 bg-gray-200 rounded"></div>
-              <div className="h-24 bg-gray-200 rounded"></div>
-              <div className="h-24 bg-gray-200 rounded"></div>
-            </div>
-          </div>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
-
-  if (!tour) {
+  if (!isLoading && !tour) {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />

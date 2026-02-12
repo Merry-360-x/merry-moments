@@ -2,7 +2,6 @@ import { Car, Search, MapPin, Frown, ArrowLeftRight, Plane, Building2, Map, Key,
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import LoadingSpinner from "@/components/LoadingSpinner";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -305,11 +304,7 @@ const Transport = () => {
       </div>
 
       {/* Content */}
-      {vehiclesLoading || routesLoading || airportRoutesLoading ? (
-        <div className="container mx-auto px-4 py-12">
-          <LoadingSpinner message={t("transport.loading")} />
-        </div>
-      ) : (
+      {!vehiclesLoading && !routesLoading && !airportRoutesLoading ? (
         <>
           {/* Airport Transfers */}
           {(activeCategory === "all" || activeCategory === "airport_transfer") && (
@@ -737,7 +732,7 @@ const Transport = () => {
             </div>
           )}
         </>
-      )}
+      ) : null}
 
       <Footer />
     </div>

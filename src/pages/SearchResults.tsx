@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Loader2, SlidersHorizontal, X } from "lucide-react";
+import { SlidersHorizontal, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 export default function SearchResults() {
@@ -268,13 +268,6 @@ export default function SearchResults() {
             <Button onClick={performSearch} className="mt-4">
               {t("search.applyFilters")}
             </Button>
-          </div>
-        )}
-
-        {/* Loading state */}
-        {isLoading && (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
         )}
 

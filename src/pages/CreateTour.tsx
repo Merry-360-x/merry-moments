@@ -282,20 +282,7 @@ export default function CreateTour() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="container mx-auto px-4 py-20 text-center">
-          <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Loading...</p>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
-
-  if (!user) {
+  if (!isLoading && !user) {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
@@ -310,7 +297,7 @@ export default function CreateTour() {
     );
   }
 
-  if (!isHost) {
+  if (!isLoading && !isHost) {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />

@@ -454,20 +454,7 @@ export default function CreateTransport() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="container mx-auto px-4 py-20 text-center">
-          <div className="w-8 h-8 mx-auto mb-4 animate-spin border-2 border-primary border-t-transparent rounded-full" />
-          <p className="text-sm text-muted-foreground">Loading...</p>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
-
-  if (!user || !isHost) {
+  if (!isLoading && (!user || !isHost)) {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />

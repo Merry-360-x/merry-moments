@@ -3,10 +3,10 @@ import Footer from "@/components/Footer";
 import { Card } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, RefreshCcw, Clock, AlertCircle, CreditCard, Home, Mountain, Car, HelpCircle } from "lucide-react";
+import { RefreshCcw, Clock, AlertCircle, CreditCard, Home, Mountain, Car, HelpCircle } from "lucide-react";
 
 export default function RefundPolicy() {
-  const { data: legalContent, isLoading } = useQuery({
+  const { data: legalContent } = useQuery({
     queryKey: ["legal_content", "refund_policy"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -36,11 +36,7 @@ export default function RefundPolicy() {
             Last updated: {legalContent?.updated_at ? new Date(legalContent.updated_at).toLocaleDateString() : new Date().toLocaleDateString()}
           </p>
 
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            </div>
-          ) : hasContent ? (
+          {hasContent ? (
             <Card className="p-8">
               <div className="prose prose-slate max-w-none">
                 {sections.map((section: any, index: number) => (
@@ -295,7 +291,7 @@ export default function RefundPolicy() {
           )}
         </div>
       </div>
-      <Footer />
+          ) : (
     </>
   );
 }

@@ -392,15 +392,7 @@ export default function TripCart() {
   };
 
   if (authLoading || isLoading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="flex items-center justify-center py-32">
-          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-        </div>
-        <Footer />
-      </div>
-    );
+    return null;
   }
 
   return (

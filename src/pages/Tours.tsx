@@ -3,7 +3,6 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import LoadingSpinner from "@/components/LoadingSpinner";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -286,17 +285,15 @@ const Tours = () => {
 
       {/* Tours */}
       <div className="container mx-auto px-4 lg:px-8 py-10">
-        {toursLoading ? (
-          <LoadingSpinner message={t("tours.loading")} />
-        ) : isError ? (
+        {isError ? (
           <div className="py-20 text-center">
             <p className="text-muted-foreground">{t("tours.errorLoading")}</p>
           </div>
-        ) : tours.length === 0 ? (
+        ) : !toursLoading && tours.length === 0 ? (
           <div className="py-20 text-center">
             <p className="text-muted-foreground">{t("tours.noResults")}</p>
           </div>
-        ) : (
+        ) : !toursLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {tours.map((tour) => (
               <div
@@ -383,7 +380,7 @@ const Tours = () => {
               </div>
             ))}
           </div>
-        )}
+        ) : null}
       </div>
 
       <Footer />

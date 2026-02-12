@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { Star, CheckCircle, Loader2, AlertCircle, MapPin } from "lucide-react";
+import { Star, CheckCircle, AlertCircle, MapPin } from "lucide-react";
 
 /** Standalone review page — no login required, token-based.
  *  URL: /review/:token?rating=3
@@ -148,14 +148,6 @@ export default function ReviewPage() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-          {/* Loading */}
-          {loading && (
-            <div className="p-12 text-center">
-              <Loader2 className="w-8 h-8 animate-spin text-pink-500 mx-auto mb-3" />
-              <p className="text-gray-500 text-sm">Loading your booking...</p>
-            </div>
-          )}
-
           {/* Error */}
           {error && !loading && (
             <div className="p-12 text-center">

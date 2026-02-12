@@ -196,17 +196,7 @@ export default function AffiliatePortal() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="container mx-auto px-4 py-20">
-          <div className="flex items-center justify-center">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          </div>
-        </div>
-        <Footer />
-      </div>
-    );
+    return null;
   }
 
   if (!affiliate) {

@@ -3,7 +3,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import LoadingSpinner from "@/components/LoadingSpinner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
@@ -695,13 +694,11 @@ export default function PropertyDetails() {
           </button>
         </div>
 
-        {isLoading ? (
-          <LoadingSpinner message={t("common.loadingProperties")} />
-        ) : isError ? (
+        {isError ? (
           <div className="py-20 text-center">
             <p className="text-muted-foreground">{t("common.couldNotLoadProperties")}</p>
           </div>
-        ) : !data ? (
+        ) : !isLoading && !data ? (
           <div className="py-20 text-center">
             <p className="text-muted-foreground">{t("common.noPublishedProperties")}</p>
             <div className="mt-6">
@@ -710,7 +707,7 @@ export default function PropertyDetails() {
               </Link>
             </div>
           </div>
-        ) : (
+        ) : !isLoading ? (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             {/* Gallery + content */}
             <div className="lg:col-span-7 space-y-6">
@@ -1608,7 +1605,7 @@ export default function PropertyDetails() {
               </div>
             </div>
           </div>
-        )}
+        ) : null}
       </div>
 
       <Footer />
