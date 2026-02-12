@@ -5052,7 +5052,7 @@ export default function HostDashboard() {
 
           {/* Properties */}
           <TabsContent value="properties">
-            <Card className="p-4 mb-4 space-y-4 sticky top-20 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+            <Card className="p-4 mb-4 space-y-4 sticky top-16 md:top-20 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
               <div>
                 <h3 className="text-lg font-semibold">Calendar & Availability</h3>
                 <p className="text-sm text-muted-foreground">Manage blocked dates and sync external hotel calendars.</p>
