@@ -43,6 +43,44 @@ function getBaseUrl(req) {
   return `${proto}://${host}`;
 }
 
+function normalizeIntegrationFeedUrl(rawFeedUrl) {
+  let value = String(rawFeedUrl || "").trim();
+  if (!value) throw new Error("Feed URL is required");
+
+  if (value.toLowerCase().startsWith("webcal://")) {
+    value = `https://${value.slice("webcal://".length)}`;
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error("Invalid feed URL");
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+  const isGoogleCalendar = hostname.includes("calendar.google.");
+  if (!isGoogleCalendar) return parsed.toString();
+
+  if (parsed.pathname.includes("/calendar/ical/") && parsed.pathname.endsWith(".ics")) {
+    return parsed.toString();
+  }
+
+  let calendarId = parsed.searchParams.get("cid") || parsed.searchParams.get("src") || "";
+  try {
+    calendarId = decodeURIComponent(calendarId);
+  } catch {
+    // Keep original value if decode fails
+  }
+  calendarId = String(calendarId || "").trim();
+
+  if (!calendarId) {
+    throw new Error("Google Calendar link is missing a calendar ID");
+  }
+
+  return `https://calendar.google.com/calendar/ical/${encodeURIComponent(calendarId)}/public/basic.ics`;
+}
+
 function normalizeIcsText(raw) {
   return String(raw || "")
     .replace(/\r\n[ \t]/g, "")
@@ -496,6 +534,13 @@ export default async function handler(req, res) {
         return json(res, 400, { error: "Missing propertyId or feedUrl" });
       }
 
+      let normalizedFeedUrl;
+      try {
+        normalizedFeedUrl = normalizeIntegrationFeedUrl(feedUrl);
+      } catch (urlError) {
+        return json(res, 400, { error: String(urlError?.message || urlError) });
+      }
+
       const ownsProperty = await userOwnsProperty(admin, propertyId, user.id);
       if (!ownsProperty) return json(res, 403, { error: "Forbidden" });
 
@@ -505,7 +550,7 @@ export default async function handler(req, res) {
           property_id: propertyId,
           provider: "ical",
           label: label || "Hotel calendar",
-          feed_url: String(feedUrl).trim(),
+          feed_url: normalizedFeedUrl,
           created_by: user.id,
         })
         .select("id, property_id, provider, label, feed_url, feed_token, is_active, created_at")

@@ -28,6 +28,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useNotificationBadge, NotificationBadge } from "@/hooks/useNotificationBadge";
 import {
   Home,
@@ -428,11 +429,14 @@ export default function HostDashboard() {
     lastSyncedAt: string | null;
   }>>({});
   const [selectedCalendarPropertyId, setSelectedCalendarPropertyId] = useState<string>("");
+  const [selectedCalendarPropertyIds, setSelectedCalendarPropertyIds] = useState<string[]>([]);
+  const [selectedCalendarTourIds, setSelectedCalendarTourIds] = useState<string[]>([]);
   const [calendarIntegrationLabel, setCalendarIntegrationLabel] = useState("Front desk calendar");
   const [calendarIntegrationUrl, setCalendarIntegrationUrl] = useState("");
   const [calendarIntegrations, setCalendarIntegrations] = useState<PropertyCalendarIntegration[]>([]);
   const [calendarIntegrationsLoading, setCalendarIntegrationsLoading] = useState(false);
   const [calendarIntegrationsSaving, setCalendarIntegrationsSaving] = useState(false);
+  const [bulkCalendarSyncing, setBulkCalendarSyncing] = useState(false);
   const [hostServiceTypes, setHostServiceTypes] = useState<string[]>([]);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [showBookingDetails, setShowBookingDetails] = useState(false);
@@ -1961,8 +1965,115 @@ export default function HostDashboard() {
     }
   }, [toast]);
 
+  const toggleCalendarPropertySelection = useCallback((propertyId: string, checked: boolean) => {
+    setSelectedCalendarPropertyIds((prev) => {
+      if (checked) {
+        if (prev.includes(propertyId)) return prev;
+        return [...prev, propertyId];
+      }
+      return prev.filter((id) => id !== propertyId);
+    });
+  }, []);
+
+  const toggleCalendarTourSelection = useCallback((tourId: string, checked: boolean) => {
+    setSelectedCalendarTourIds((prev) => {
+      if (checked) {
+        if (prev.includes(tourId)) return prev;
+        return [...prev, tourId];
+      }
+      return prev.filter((id) => id !== tourId);
+    });
+  }, []);
+
+  const syncSelectedCalendarTargets = useCallback(async () => {
+    if (selectedCalendarPropertyIds.length === 0 && selectedCalendarTourIds.length === 0) {
+      toast({ variant: "destructive", title: "Select at least one accommodation or tour" });
+      return;
+    }
+
+    if (selectedCalendarPropertyIds.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "No accommodations selected",
+        description: "External calendar sync currently requires selecting at least one accommodation.",
+      });
+      return;
+    }
+
+    setBulkCalendarSyncing(true);
+    try {
+      const headers = await getHostAuthHeaders();
+
+      const listResults = await Promise.all(
+        selectedCalendarPropertyIds.map(async (propertyId) => {
+          const response = await fetch(`/api/hotel-calendar-sync?action=list&propertyId=${propertyId}`, {
+            method: "GET",
+            headers,
+          });
+          const body = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(body?.error || "Could not load integrations for selected accommodations");
+          }
+          return body.integrations || [];
+        })
+      );
+
+      const integrationIds = listResults.flat().map((integration: PropertyCalendarIntegration) => integration.id);
+      if (integrationIds.length === 0) {
+        toast({
+          variant: "destructive",
+          title: "No integrations found",
+          description: "Connect an iCal or Google Calendar feed for selected accommodations first.",
+        });
+        return;
+      }
+
+      const syncResults = await Promise.all(
+        integrationIds.map(async (integrationId) => {
+          const response = await fetch(`/api/hotel-calendar-sync?action=sync`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ integrationId }),
+          });
+          const body = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(body?.error || "Could not sync calendar");
+          }
+          return body;
+        })
+      );
+
+      const importedCount = syncResults.reduce((sum, result) => sum + Number(result.eventsImported || 0), 0);
+      const tourNote = selectedCalendarTourIds.length > 0
+        ? ` ${selectedCalendarTourIds.length} selected tour(s) kept selected for your workflow.`
+        : "";
+
+      toast({
+        title: "Selected calendars synced",
+        description: `Synced ${integrationIds.length} integration(s), imported ${importedCount} blocked date ranges.${tourNote}`,
+      });
+
+      await Promise.all([fetchSelectedPropertyIntegrations(), fetchPropertyCalendarSummaries()]);
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Calendar sync error",
+        description: error?.message || "Could not sync selected accommodations",
+      });
+    } finally {
+      setBulkCalendarSyncing(false);
+    }
+  }, [
+    selectedCalendarPropertyIds,
+    selectedCalendarTourIds,
+    getHostAuthHeaders,
+    toast,
+    fetchSelectedPropertyIntegrations,
+    fetchPropertyCalendarSummaries,
+  ]);
+
   useEffect(() => {
-    if (user && tab === 'properties') {
+    if (user && (tab === 'properties' || tab === 'calendar-availability')) {
       fetchPropertyCalendarSummaries();
     }
   }, [user, tab, fetchPropertyCalendarSummaries]);
@@ -1970,8 +2081,25 @@ export default function HostDashboard() {
   useEffect(() => {
     if (!selectedCalendarPropertyId && properties.length > 0) {
       setSelectedCalendarPropertyId(properties[0].id);
+      setSelectedCalendarPropertyIds([properties[0].id]);
     }
   }, [properties, selectedCalendarPropertyId]);
+
+  useEffect(() => {
+    if (!selectedCalendarPropertyId) return;
+    setSelectedCalendarPropertyIds((prev) => {
+      if (prev.includes(selectedCalendarPropertyId)) return prev;
+      return [...prev, selectedCalendarPropertyId];
+    });
+  }, [selectedCalendarPropertyId]);
+
+  useEffect(() => {
+    setSelectedCalendarPropertyIds((prev) => prev.filter((id) => properties.some((property) => property.id === id)));
+  }, [properties]);
+
+  useEffect(() => {
+    setSelectedCalendarTourIds((prev) => prev.filter((id) => tours.some((tour) => tour.id === id)));
+  }, [tours]);
 
   useEffect(() => {
     if (tab === 'calendar-availability') {
@@ -4882,7 +5010,13 @@ export default function HostDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="md:col-span-1">
                   <Label className="text-xs font-medium mb-1 block">Property</Label>
-                  <Select value={selectedCalendarPropertyId} onValueChange={setSelectedCalendarPropertyId}>
+                  <Select
+                    value={selectedCalendarPropertyId}
+                    onValueChange={(value) => {
+                      setSelectedCalendarPropertyId(value);
+                      setSelectedCalendarPropertyIds((prev) => (prev.includes(value) ? prev : [...prev, value]));
+                    }}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select property" />
                     </SelectTrigger>
@@ -4892,6 +5026,53 @@ export default function HostDashboard() {
                       ))}
                     </SelectContent>
                   </Select>
+
+                  <div className="mt-3 space-y-2">
+                    <Label className="text-xs font-medium block">Sync selected accommodations</Label>
+                    <div className="max-h-32 overflow-y-auto rounded border p-2 space-y-2">
+                      {(properties || []).map((property) => (
+                        <label key={property.id} className="flex items-center gap-2 text-xs">
+                          <Checkbox
+                            checked={selectedCalendarPropertyIds.includes(property.id)}
+                            onCheckedChange={(checked) => toggleCalendarPropertySelection(property.id, checked === true)}
+                          />
+                          <span className="truncate">{property.title}</span>
+                        </label>
+                      ))}
+                      {(properties || []).length === 0 && (
+                        <p className="text-xs text-muted-foreground">No accommodations available.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 space-y-2">
+                    <Label className="text-xs font-medium block">Sync selected tours</Label>
+                    <div className="max-h-32 overflow-y-auto rounded border p-2 space-y-2">
+                      {(tours || []).map((tour) => (
+                        <label key={tour.id} className="flex items-center gap-2 text-xs">
+                          <Checkbox
+                            checked={selectedCalendarTourIds.includes(tour.id)}
+                            onCheckedChange={(checked) => toggleCalendarTourSelection(tour.id, checked === true)}
+                          />
+                          <span className="truncate">{tour.title}</span>
+                        </label>
+                      ))}
+                      {(tours || []).length === 0 && (
+                        <p className="text-xs text-muted-foreground">No tours available.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-3 w-full"
+                    onClick={syncSelectedCalendarTargets}
+                    disabled={bulkCalendarSyncing || selectedCalendarPropertyIds.length === 0}
+                  >
+                    {bulkCalendarSyncing ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <CalendarIcon className="w-3 h-3 mr-2" />}
+                    Sync selected now
+                  </Button>
                 </div>
 
                 <div className="md:col-span-2">
@@ -4909,7 +5090,7 @@ export default function HostDashboard() {
               <div className="border rounded-lg p-3 space-y-3">
                 <div>
                   <Label className="text-xs font-medium">Hotel Calendar Sync</Label>
-                  <p className="text-xs text-muted-foreground mt-1">Connect your hotel/PMS iCal feed to block external reservations.</p>
+                  <p className="text-xs text-muted-foreground mt-1">Connect your hotel/PMS iCal feed or paste a Google Calendar link to block external reservations.</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -4921,7 +5102,7 @@ export default function HostDashboard() {
                   <Input
                     value={calendarIntegrationUrl}
                     onChange={(e) => setCalendarIntegrationUrl(e.target.value)}
-                    placeholder="https://your-hotel.com/calendar.ics"
+                    placeholder="Google Calendar share link or https://your-hotel.com/calendar.ics"
                     className="md:col-span-2"
                   />
                 </div>

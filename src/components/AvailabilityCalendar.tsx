@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { CalendarIcon, X, DollarSign } from "lucide-react";
+import { CalendarIcon, X } from "lucide-react";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -218,8 +218,8 @@ export default function AvailabilityCalendar({ propertyId, currency = "RWF" }: A
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
       <TabsList className="grid w-full grid-cols-2">
-        <TabsTrigger value="availability">🔒 Availability</TabsTrigger>
-        <TabsTrigger value="pricing">💰 Custom Pricing</TabsTrigger>
+        <TabsTrigger value="availability">Availability</TabsTrigger>
+        <TabsTrigger value="pricing">Custom Pricing</TabsTrigger>
       </TabsList>
       
       <TabsContent value="availability" className="space-y-4">
@@ -351,7 +351,6 @@ export default function AvailabilityCalendar({ propertyId, currency = "RWF" }: A
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-muted-foreground" />
                 <Input
                   type="number"
                   placeholder={`Custom price per night (${currency})`}
