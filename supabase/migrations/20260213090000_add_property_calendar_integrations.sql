@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS public.property_calendar_integrations (
   provider TEXT NOT NULL DEFAULT 'ical',
   label TEXT,
   feed_url TEXT NOT NULL,
-  feed_token TEXT NOT NULL DEFAULT encode(gen_random_bytes(24), 'hex'),
+  feed_token TEXT NOT NULL DEFAULT md5(random()::text || clock_timestamp()::text),
   is_active BOOLEAN NOT NULL DEFAULT true,
   last_synced_at TIMESTAMPTZ,
   last_sync_status TEXT,

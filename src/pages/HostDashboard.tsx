@@ -427,6 +427,12 @@ export default function HostDashboard() {
     lastSyncStatus: string | null;
     lastSyncedAt: string | null;
   }>>({});
+  const [selectedCalendarPropertyId, setSelectedCalendarPropertyId] = useState<string>("");
+  const [calendarIntegrationLabel, setCalendarIntegrationLabel] = useState("Front desk calendar");
+  const [calendarIntegrationUrl, setCalendarIntegrationUrl] = useState("");
+  const [calendarIntegrations, setCalendarIntegrations] = useState<PropertyCalendarIntegration[]>([]);
+  const [calendarIntegrationsLoading, setCalendarIntegrationsLoading] = useState(false);
+  const [calendarIntegrationsSaving, setCalendarIntegrationsSaving] = useState(false);
   const [hostServiceTypes, setHostServiceTypes] = useState<string[]>([]);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [showBookingDetails, setShowBookingDetails] = useState(false);
@@ -1824,11 +1830,154 @@ export default function HostDashboard() {
     }
   }, [user]);
 
+  const getHostAuthHeaders = useCallback(async () => {
+    const { data } = await supabase.auth.getSession();
+    const accessToken = data.session?.access_token;
+    if (!accessToken) throw new Error("Please sign in again to manage calendar sync");
+    return {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    };
+  }, []);
+
+  const fetchSelectedPropertyIntegrations = useCallback(async () => {
+    if (!selectedCalendarPropertyId) {
+      setCalendarIntegrations([]);
+      return;
+    }
+
+    setCalendarIntegrationsLoading(true);
+    try {
+      const headers = await getHostAuthHeaders();
+      const response = await fetch(`/api/hotel-calendar-sync?action=list&propertyId=${selectedCalendarPropertyId}`, {
+        method: "GET",
+        headers,
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body?.error || "Could not load calendar integrations");
+      setCalendarIntegrations(body.integrations || []);
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Calendar sync error",
+        description: error?.message || "Could not load integrations",
+      });
+    } finally {
+      setCalendarIntegrationsLoading(false);
+    }
+  }, [selectedCalendarPropertyId, getHostAuthHeaders, toast]);
+
+  const createSelectedPropertyIntegration = useCallback(async () => {
+    if (!selectedCalendarPropertyId) {
+      toast({ variant: "destructive", title: "Select a property first" });
+      return;
+    }
+    if (!calendarIntegrationUrl.trim()) {
+      toast({ variant: "destructive", title: "Feed URL is required" });
+      return;
+    }
+
+    setCalendarIntegrationsSaving(true);
+    try {
+      const headers = await getHostAuthHeaders();
+      const response = await fetch(`/api/hotel-calendar-sync?action=create`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          propertyId: selectedCalendarPropertyId,
+          feedUrl: calendarIntegrationUrl.trim(),
+          label: calendarIntegrationLabel.trim() || "Hotel calendar",
+        }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body?.error || "Could not create integration");
+
+      setCalendarIntegrationUrl("");
+      toast({ title: "Calendar connected", description: "Now syncing to prevent double bookings." });
+      await Promise.all([fetchSelectedPropertyIntegrations(), fetchPropertyCalendarSummaries()]);
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Calendar sync error",
+        description: error?.message || "Could not create integration",
+      });
+    } finally {
+      setCalendarIntegrationsSaving(false);
+    }
+  }, [selectedCalendarPropertyId, calendarIntegrationUrl, calendarIntegrationLabel, getHostAuthHeaders, fetchSelectedPropertyIntegrations, fetchPropertyCalendarSummaries, toast]);
+
+  const syncSelectedPropertyIntegration = useCallback(async (integrationId: string) => {
+    try {
+      const headers = await getHostAuthHeaders();
+      const response = await fetch(`/api/hotel-calendar-sync?action=sync`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ integrationId }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body?.error || "Could not sync calendar");
+
+      toast({ title: "Calendar synced", description: `Imported ${body.eventsImported ?? 0} blocked date ranges.` });
+      await Promise.all([fetchSelectedPropertyIntegrations(), fetchPropertyCalendarSummaries()]);
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Calendar sync error",
+        description: error?.message || "Could not sync calendar",
+      });
+    }
+  }, [getHostAuthHeaders, fetchSelectedPropertyIntegrations, fetchPropertyCalendarSummaries, toast]);
+
+  const deleteSelectedPropertyIntegration = useCallback(async (integrationId: string) => {
+    if (!confirm("Remove this calendar integration?")) return;
+
+    try {
+      const headers = await getHostAuthHeaders();
+      const response = await fetch(`/api/hotel-calendar-sync?action=delete`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ integrationId }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body?.error || "Could not remove integration");
+
+      toast({ title: "Integration removed" });
+      await Promise.all([fetchSelectedPropertyIntegrations(), fetchPropertyCalendarSummaries()]);
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Calendar sync error",
+        description: error?.message || "Could not remove integration",
+      });
+    }
+  }, [getHostAuthHeaders, fetchSelectedPropertyIntegrations, fetchPropertyCalendarSummaries, toast]);
+
+  const copySelectedPropertyExportUrl = useCallback(async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      toast({ title: "Feed URL copied" });
+    } catch {
+      toast({ variant: "destructive", title: "Could not copy feed URL" });
+    }
+  }, [toast]);
+
   useEffect(() => {
     if (user && tab === 'properties') {
       fetchPropertyCalendarSummaries();
     }
   }, [user, tab, fetchPropertyCalendarSummaries]);
+
+  useEffect(() => {
+    if (!selectedCalendarPropertyId && properties.length > 0) {
+      setSelectedCalendarPropertyId(properties[0].id);
+    }
+  }, [properties, selectedCalendarPropertyId]);
+
+  useEffect(() => {
+    if (tab === 'properties') {
+      fetchSelectedPropertyIntegrations();
+    }
+  }, [tab, selectedCalendarPropertyId, fetchSelectedPropertyIntegrations]);
 
   // Property Card Component
   const PropertyCard = ({ property }: { property: Property }) => {
@@ -4903,6 +5052,104 @@ export default function HostDashboard() {
 
           {/* Properties */}
           <TabsContent value="properties">
+            <Card className="p-4 mb-4 space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold">Calendar & Availability</h3>
+                <p className="text-sm text-muted-foreground">Manage blocked dates and sync external hotel calendars.</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="md:col-span-1">
+                  <Label className="text-xs font-medium mb-1 block">Property</Label>
+                  <Select value={selectedCalendarPropertyId} onValueChange={setSelectedCalendarPropertyId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select property" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(properties || []).map((property) => (
+                        <SelectItem key={property.id} value={property.id}>{property.title}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="md:col-span-2">
+                  {selectedCalendarPropertyId ? (
+                    <AvailabilityCalendar
+                      propertyId={selectedCalendarPropertyId}
+                      currency={properties.find((p) => p.id === selectedCalendarPropertyId)?.currency || "RWF"}
+                    />
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Select a property to manage availability.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="border rounded-lg p-3 space-y-3">
+                <div>
+                  <Label className="text-xs font-medium">Hotel Calendar Sync</Label>
+                  <p className="text-xs text-muted-foreground mt-1">Connect your hotel/PMS iCal feed to block external reservations.</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <Input
+                    value={calendarIntegrationLabel}
+                    onChange={(e) => setCalendarIntegrationLabel(e.target.value)}
+                    placeholder="Label (e.g. Front desk)"
+                  />
+                  <Input
+                    value={calendarIntegrationUrl}
+                    onChange={(e) => setCalendarIntegrationUrl(e.target.value)}
+                    placeholder="https://your-hotel.com/calendar.ics"
+                    className="md:col-span-2"
+                  />
+                </div>
+
+                <Button size="sm" variant="outline" onClick={createSelectedPropertyIntegration} disabled={calendarIntegrationsSaving || !selectedCalendarPropertyId}>
+                  {calendarIntegrationsSaving ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <CalendarIcon className="w-3 h-3 mr-2" />}
+                  Connect iCal Feed
+                </Button>
+
+                {calendarIntegrationsLoading ? (
+                  <div className="text-xs text-muted-foreground">Loading integrations…</div>
+                ) : calendarIntegrations.length === 0 ? (
+                  <div className="text-xs text-muted-foreground">No calendar integration connected for this property.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {calendarIntegrations.map((integration) => (
+                      <div key={integration.id} className="p-2 rounded border bg-muted/30 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-medium">{integration.label || "Hotel calendar"}</p>
+                            <p className="text-xs text-muted-foreground truncate">{integration.feed_url}</p>
+                          </div>
+                          <Badge variant={integration.last_sync_status === "error" ? "destructive" : "outline"}>
+                            {integration.last_sync_status || "never synced"}
+                          </Badge>
+                        </div>
+
+                        {integration.last_sync_error && (
+                          <p className="text-xs text-destructive">{integration.last_sync_error}</p>
+                        )}
+
+                        <div className="flex flex-wrap gap-2">
+                          <Button size="sm" variant="outline" onClick={() => syncSelectedPropertyIntegration(integration.id)}>
+                            Sync now
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => copySelectedPropertyExportUrl(integration.export_url)}>
+                            Copy export feed
+                          </Button>
+                          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteSelectedPropertyIntegration(integration.id)}>
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </Card>
+
             <div className="flex justify-end gap-2 mb-4">
               <Button variant="outline" onClick={() => setShowRoomWizard(true)}>
                 <Plus className="w-4 h-4 mr-2" /> Create Room
