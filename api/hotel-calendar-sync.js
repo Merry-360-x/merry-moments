@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import JSZip from "jszip";
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -179,6 +180,60 @@ function parseIcsEvents(icsText) {
     seen.add(key);
     return true;
   });
+}
+
+function decodeBase64ToUint8Array(base64Value) {
+  const normalized = String(base64Value || "").trim();
+  if (!normalized) return new Uint8Array(0);
+
+  const binary = Buffer.from(normalized, "base64");
+  return new Uint8Array(binary);
+}
+
+async function extractEventsFromUploadedCalendarFile({ fileName, icsText, zipBase64 }) {
+  const normalizedName = String(fileName || "").toLowerCase();
+
+  if (icsText) {
+    return parseIcsEvents(String(icsText));
+  }
+
+  if (!zipBase64) {
+    throw new Error("Missing file content");
+  }
+
+  const zipData = decodeBase64ToUint8Array(zipBase64);
+  if (!zipData.length) throw new Error("Uploaded ZIP file is empty");
+
+  const zip = await JSZip.loadAsync(zipData);
+  const icsFiles = Object.values(zip.files).filter((entry) => !entry.dir && entry.name.toLowerCase().endsWith(".ics"));
+  if (icsFiles.length === 0) {
+    throw new Error("No .ics files found in ZIP");
+  }
+
+  const allEvents = [];
+  for (const icsFile of icsFiles) {
+    const text = await icsFile.async("text");
+    const parsed = parseIcsEvents(text);
+    allEvents.push(...parsed);
+  }
+
+  const dedupe = new Set();
+  const unique = [];
+  for (const event of allEvents) {
+    const key = `${event.uid || ""}|${event.startDate}|${event.endDate}`;
+    if (dedupe.has(key)) continue;
+    dedupe.add(key);
+    unique.push(event);
+  }
+
+  if (unique.length === 0) {
+    if (normalizedName.endsWith(".zip")) {
+      throw new Error("No valid events found in ZIP calendar files");
+    }
+    throw new Error("No valid events found in uploaded calendar file");
+  }
+
+  return unique;
 }
 
 function toIcsDate(ymd) {
@@ -575,21 +630,22 @@ export default async function handler(req, res) {
       });
     }
 
-    if (action === "import-ics") {
-      const { propertyId, icsText, sourceLabel } = req.body || {};
-      if (!propertyId || !icsText) {
-        return json(res, 400, { error: "Missing propertyId or icsText" });
+    if (action === "import-ics" || action === "import-calendar-file") {
+      const { propertyId, icsText, zipBase64, fileName, sourceLabel } = req.body || {};
+      if (!propertyId || (!icsText && !zipBase64)) {
+        return json(res, 400, { error: "Missing propertyId or file content" });
       }
 
       const ownsProperty = await userOwnsProperty(admin, propertyId, user.id);
       if (!ownsProperty) return json(res, 403, { error: "Forbidden" });
 
-      const parsedEvents = parseIcsEvents(String(icsText || ""));
-      if (parsedEvents.length === 0) {
-        return json(res, 400, { error: "No valid events found in ICS file" });
-      }
+      const parsedEvents = await extractEventsFromUploadedCalendarFile({
+        fileName,
+        icsText,
+        zipBase64,
+      });
 
-      const importReason = `External Upload:${String(sourceLabel || "ICS import").slice(0, 80)}`;
+      const importReason = `External Upload:${String(sourceLabel || fileName || "Calendar import").slice(0, 80)}`;
 
       await admin
         .from("property_blocked_dates")
@@ -612,6 +668,7 @@ export default async function handler(req, res) {
         ok: true,
         propertyId,
         eventsImported: parsedEvents.length,
+        importedFrom: fileName || (zipBase64 ? "zip" : "ics"),
       });
     }
 

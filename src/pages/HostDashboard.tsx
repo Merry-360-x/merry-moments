@@ -1981,23 +1981,38 @@ export default function HostDashboard() {
     setCalendarIcsImporting(true);
     try {
       const headers = await getHostAuthHeaders();
-      const icsText = await calendarIcsFile.text();
+      const fileName = calendarIcsFile.name || "calendar-file";
+      const lowerName = fileName.toLowerCase();
 
-      const response = await fetch(`/api/hotel-calendar-sync?action=import-ics`, {
+      const requestBody: Record<string, string> = {
+        propertyId: selectedCalendarPropertyId,
+        sourceLabel: fileName,
+        fileName,
+      };
+
+      if (lowerName.endsWith(".zip")) {
+        const bytes = new Uint8Array(await calendarIcsFile.arrayBuffer());
+        let binary = "";
+        const chunkSize = 0x8000;
+        for (let index = 0; index < bytes.length; index += chunkSize) {
+          binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+        }
+        requestBody.zipBase64 = btoa(binary);
+      } else {
+        requestBody.icsText = await calendarIcsFile.text();
+      }
+
+      const response = await fetch(`/api/hotel-calendar-sync?action=import-calendar-file`, {
         method: "POST",
         headers,
-        body: JSON.stringify({
-          propertyId: selectedCalendarPropertyId,
-          icsText,
-          sourceLabel: calendarIcsFile.name,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body?.error || "Could not import ICS file");
 
       toast({
-        title: "ICS imported",
+        title: "Calendar file imported",
         description: `Imported ${body.eventsImported ?? 0} blocked date ranges from ${calendarIcsFile.name}.`,
       });
       setCalendarIcsFile(null);
@@ -2007,7 +2022,7 @@ export default function HostDashboard() {
       toast({
         variant: "destructive",
         title: "Calendar import error",
-        description: error?.message || "Could not import ICS file",
+        description: error?.message || "Could not import calendar file",
       });
     } finally {
       setCalendarIcsImporting(false);
@@ -5164,10 +5179,10 @@ export default function HostDashboard() {
                 </Button>
 
                 <div className="border-t pt-3 space-y-2">
-                  <Label className="text-xs font-medium">Import .ics file (one-time)</Label>
+                  <Label className="text-xs font-medium">Import .ics or .zip file (one-time)</Label>
                   <Input
                     type="file"
-                    accept=".ics,text/calendar"
+                    accept=".ics,.zip,text/calendar,application/zip"
                     onChange={(e) => setCalendarIcsFile(e.target.files?.[0] || null)}
                   />
                   <Button
@@ -5177,9 +5192,9 @@ export default function HostDashboard() {
                     disabled={calendarIcsImporting || !calendarIcsFile || !selectedCalendarPropertyId}
                   >
                     {calendarIcsImporting ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <CalendarIcon className="w-3 h-3 mr-2" />}
-                    Import ICS file
+                    Import calendar file
                   </Button>
-                  <p className="text-xs text-muted-foreground">Use this if you only have a downloaded Google export file instead of a live iCal URL.</p>
+                  <p className="text-xs text-muted-foreground">Use this if you only have a downloaded Google export `.ics` or `.zip` file instead of a live iCal URL.</p>
                 </div>
 
                 {calendarIntegrationsLoading ? (
