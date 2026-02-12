@@ -10,7 +10,7 @@ It solves the "physical + online double-booking" problem by importing external c
   - Create/list/delete integrations
   - Manual sync per integration
   - Scheduled sync for all active integrations
-- `api/hotel-calendar-feed.js`
+- `api/hotel-calendar-sync.js` (`action=feed`)
   - Tokenized read-only iCal feed for each property
   - Hotels/PMS can subscribe to this feed
 - `supabase/migrations/20260213090000_add_property_calendar_integrations.sql`
@@ -91,7 +91,7 @@ Body:
 
 ## Feed export endpoint
 
-`GET /api/hotel-calendar-feed?token=<feed_token>`
+`GET /api/hotel-calendar-sync?action=feed&token=<feed_token>`
 
 - Returns a standard iCal feed (`text/calendar`)
 - Includes:
