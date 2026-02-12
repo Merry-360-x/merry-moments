@@ -27,6 +27,7 @@ interface Booking {
   property_id: string;
   tour_id?: string | null;
   transport_id?: string | null;
+  review_token?: string | null;
   booking_type?: 'property' | 'tour' | 'transport' | null;
   check_in: string;
   check_out: string;
@@ -359,7 +360,7 @@ const MyBookings = () => {
   };
 
   const canReview = (b: Booking) => {
-    if (b.status !== "confirmed") return false;
+    if (b.status !== "confirmed" && b.status !== "completed") return false;
     const end = new Date(b.check_out).getTime();
     return Number.isFinite(end) && end < Date.now();
   };
@@ -389,14 +390,39 @@ const MyBookings = () => {
     setReviewValidationError(false);
     setSubmittingReview(true);
     try {
-      const { error } = await supabase.from("property_reviews").insert({
-        booking_id: reviewBooking.id,
-        property_id: reviewBooking.property_id,
-        reviewer_id: user.id,
-        rating: reviewRating,
-        comment: reviewComment.trim() ? reviewComment.trim() : null,
-      });
-      if (error) throw error;
+      const comment = reviewComment.trim() ? reviewComment.trim() : undefined;
+
+      if (reviewBooking.review_token) {
+        const resp = await fetch("/api/review", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token: reviewBooking.review_token,
+            accommodationRating: reviewRating,
+            accommodationComment: comment,
+          }),
+        });
+
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          throw new Error(String(data?.error || "Could not submit review"));
+        }
+      } else {
+        const listingId = reviewBooking.property_id || reviewBooking.tour_id || reviewBooking.transport_id;
+        if (!listingId) {
+          throw new Error("Could not find listing for this booking review.");
+        }
+
+        const { error } = await supabase.from("property_reviews").insert({
+          booking_id: reviewBooking.id,
+          property_id: listingId,
+          reviewer_id: user.id,
+          rating: reviewRating,
+          comment: comment ?? null,
+        });
+        if (error) throw error;
+      }
+
       toast({ title: "Review submitted" });
       setReviewOpen(false);
       qc.invalidateQueries({ queryKey: ["bookings", user?.id] });
