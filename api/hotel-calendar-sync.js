@@ -1,0 +1,404 @@
+import { createClient } from "@supabase/supabase-js";
+
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+const CRON_SECRET = process.env.CALENDAR_SYNC_CRON_SECRET;
+
+function json(res, status, body) {
+  res.statusCode = status;
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.end(JSON.stringify(body));
+}
+
+function getAction(req) {
+  if (typeof req.query?.action === "string") return req.query.action;
+  if (typeof req.body?.action === "string") return req.body.action;
+  return "health";
+}
+
+function getBearerToken(req) {
+  const authHeader = req.headers?.authorization || req.headers?.Authorization;
+  if (!authHeader || typeof authHeader !== "string") return null;
+  if (!authHeader.toLowerCase().startsWith("bearer ")) return null;
+  return authHeader.slice(7).trim();
+}
+
+function getBaseUrl(req) {
+  if (process.env.SITE_URL) return process.env.SITE_URL;
+  const host = req.headers["x-forwarded-host"] || req.headers.host;
+  const proto = req.headers["x-forwarded-proto"] || "https";
+  return `${proto}://${host}`;
+}
+
+function normalizeIcsText(raw) {
+  return String(raw || "")
+    .replace(/\r\n[ \t]/g, "")
+    .replace(/\r/g, "\n");
+}
+
+function parseYmd(rawValue) {
+  const value = String(rawValue || "").trim();
+  const compact = value.match(/^(\d{4})(\d{2})(\d{2})/);
+  if (compact) return `${compact[1]}-${compact[2]}-${compact[3]}`;
+
+  const iso = new Date(value);
+  if (!Number.isNaN(iso.getTime())) {
+    return iso.toISOString().slice(0, 10);
+  }
+
+  return null;
+}
+
+function addDays(ymd, days) {
+  const d = new Date(`${ymd}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function parseIcsEvents(icsText) {
+  const lines = normalizeIcsText(icsText)
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const events = [];
+  let current = null;
+
+  for (const line of lines) {
+    if (line === "BEGIN:VEVENT") {
+      current = {
+        uid: null,
+        dtStart: null,
+        dtEnd: null,
+        startIsDateOnly: false,
+        endIsDateOnly: false,
+      };
+      continue;
+    }
+
+    if (line === "END:VEVENT") {
+      if (current?.dtStart) {
+        const start = current.dtStart;
+        let end = current.dtEnd || current.dtStart;
+
+        if (current.endIsDateOnly && current.dtEnd) {
+          end = addDays(current.dtEnd, -1);
+        }
+
+        if (!end || end < start) end = start;
+
+        events.push({ uid: current.uid, startDate: start, endDate: end });
+      }
+      current = null;
+      continue;
+    }
+
+    if (!current) continue;
+
+    const sep = line.indexOf(":");
+    if (sep <= 0) continue;
+
+    const rawKey = line.slice(0, sep);
+    const rawValue = line.slice(sep + 1);
+    const key = rawKey.split(";")[0].toUpperCase();
+    const dateValue = parseYmd(rawValue);
+
+    if (key === "UID") {
+      current.uid = rawValue.trim() || null;
+      continue;
+    }
+
+    if (key === "DTSTART" && dateValue) {
+      current.dtStart = dateValue;
+      current.startIsDateOnly = /VALUE=DATE/i.test(rawKey) || /^\d{8}$/.test(String(rawValue).trim());
+      continue;
+    }
+
+    if (key === "DTEND" && dateValue) {
+      current.dtEnd = dateValue;
+      current.endIsDateOnly = /VALUE=DATE/i.test(rawKey) || /^\d{8}$/.test(String(rawValue).trim());
+      continue;
+    }
+  }
+
+  const seen = new Set();
+  return events.filter((event) => {
+    const key = `${event.uid || ""}|${event.startDate}|${event.endDate}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+async function requireUser(req) {
+  const token = getBearerToken(req);
+  if (!token || !SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
+
+  const authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const { data, error } = await authClient.auth.getUser(token);
+  if (error || !data?.user) return null;
+  return data.user;
+}
+
+async function userOwnsProperty(adminClient, propertyId, userId) {
+  const { data } = await adminClient
+    .from("properties")
+    .select("id")
+    .eq("id", propertyId)
+    .eq("host_id", userId)
+    .maybeSingle();
+
+  return Boolean(data?.id);
+}
+
+function isAuthorizedCron(req) {
+  const vercelCron = req.headers["x-vercel-cron"] === "1";
+  if (vercelCron) return true;
+
+  const provided = req.query?.secret || req.headers["x-cron-secret"];
+  return Boolean(CRON_SECRET && provided && String(provided) === String(CRON_SECRET));
+}
+
+async function runIntegrationSync(admin, integration) {
+  const integrationReason = `External Sync:${integration.id}`;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20000);
+
+  let icsText;
+  try {
+    const response = await fetch(integration.feed_url, {
+      method: "GET",
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "MerryMoments-CalendarSync/1.0",
+        Accept: "text/calendar, text/plain, */*",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Feed request failed (${response.status})`);
+    }
+
+    icsText = await response.text();
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  const parsedEvents = parseIcsEvents(icsText);
+
+  await admin
+    .from("property_blocked_dates")
+    .delete()
+    .eq("property_id", integration.property_id)
+    .eq("reason", integrationReason);
+
+  if (parsedEvents.length > 0) {
+    const rows = parsedEvents.map((event) => ({
+      property_id: integration.property_id,
+      start_date: event.startDate,
+      end_date: event.endDate,
+      reason: integrationReason,
+      created_by: integration.created_by || null,
+    }));
+
+    const { error: insertError } = await admin.from("property_blocked_dates").insert(rows);
+    if (insertError) throw insertError;
+  }
+
+  await admin
+    .from("property_calendar_integrations")
+    .update({
+      last_synced_at: new Date().toISOString(),
+      last_sync_status: "success",
+      last_sync_error: null,
+    })
+    .eq("id", integration.id);
+
+  return {
+    integrationId: integration.id,
+    propertyId: integration.property_id,
+    eventsImported: parsedEvents.length,
+  };
+}
+
+export default async function handler(req, res) {
+  if (req.method === "OPTIONS") return json(res, 200, { ok: true });
+
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+    return json(res, 500, { error: "Missing Supabase server configuration" });
+  }
+
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+  const action = getAction(req);
+
+  try {
+    if (action === "health") {
+      return json(res, 200, { ok: true, service: "hotel-calendar-sync" });
+    }
+
+    if (action === "sync-all") {
+      if (!isAuthorizedCron(req)) {
+        return json(res, 401, { error: "Unauthorized cron request" });
+      }
+
+      const { data: integrations, error } = await admin
+        .from("property_calendar_integrations")
+        .select("id, property_id, feed_url, created_by, is_active")
+        .eq("is_active", true);
+
+      if (error) throw error;
+
+      const results = [];
+      for (const integration of integrations || []) {
+        try {
+          const result = await runIntegrationSync(admin, integration);
+          results.push({ ok: true, ...result });
+        } catch (syncError) {
+          await admin
+            .from("property_calendar_integrations")
+            .update({
+              last_synced_at: new Date().toISOString(),
+              last_sync_status: "error",
+              last_sync_error: String(syncError?.message || syncError).slice(0, 500),
+            })
+            .eq("id", integration.id);
+
+          results.push({ ok: false, integrationId: integration.id, error: String(syncError?.message || syncError) });
+        }
+      }
+
+      return json(res, 200, {
+        ok: true,
+        synced: results.filter((r) => r.ok).length,
+        failed: results.filter((r) => !r.ok).length,
+        results,
+      });
+    }
+
+    const user = await requireUser(req);
+    if (!user) return json(res, 401, { error: "Unauthorized" });
+
+    if (action === "list") {
+      const propertyId = req.query?.propertyId;
+      if (!propertyId) return json(res, 400, { error: "Missing propertyId" });
+
+      const ownsProperty = await userOwnsProperty(admin, propertyId, user.id);
+      if (!ownsProperty) return json(res, 403, { error: "Forbidden" });
+
+      const { data, error } = await admin
+        .from("property_calendar_integrations")
+        .select("id, property_id, provider, label, feed_url, feed_token, is_active, last_synced_at, last_sync_status, last_sync_error, created_at")
+        .eq("property_id", propertyId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      const baseUrl = getBaseUrl(req);
+      const integrations = (data || []).map((row) => ({
+        ...row,
+        export_url: `${baseUrl}/api/hotel-calendar-feed?token=${row.feed_token}`,
+      }));
+
+      return json(res, 200, { ok: true, integrations });
+    }
+
+    if (req.method !== "POST") {
+      return json(res, 405, { error: "Method not allowed" });
+    }
+
+    if (action === "create") {
+      const { propertyId, feedUrl, label } = req.body || {};
+      if (!propertyId || !feedUrl) {
+        return json(res, 400, { error: "Missing propertyId or feedUrl" });
+      }
+
+      const ownsProperty = await userOwnsProperty(admin, propertyId, user.id);
+      if (!ownsProperty) return json(res, 403, { error: "Forbidden" });
+
+      const { data, error } = await admin
+        .from("property_calendar_integrations")
+        .insert({
+          property_id: propertyId,
+          provider: "ical",
+          label: label || "Hotel calendar",
+          feed_url: String(feedUrl).trim(),
+          created_by: user.id,
+        })
+        .select("id, property_id, provider, label, feed_url, feed_token, is_active, created_at")
+        .single();
+
+      if (error) throw error;
+
+      const baseUrl = getBaseUrl(req);
+      return json(res, 200, {
+        ok: true,
+        integration: {
+          ...data,
+          export_url: `${baseUrl}/api/hotel-calendar-feed?token=${data.feed_token}`,
+        },
+      });
+    }
+
+    if (action === "delete") {
+      const { integrationId } = req.body || {};
+      if (!integrationId) return json(res, 400, { error: "Missing integrationId" });
+
+      const { data: integration, error: findError } = await admin
+        .from("property_calendar_integrations")
+        .select("id, property_id")
+        .eq("id", integrationId)
+        .maybeSingle();
+
+      if (findError) throw findError;
+      if (!integration) return json(res, 404, { error: "Integration not found" });
+
+      const ownsProperty = await userOwnsProperty(admin, integration.property_id, user.id);
+      if (!ownsProperty) return json(res, 403, { error: "Forbidden" });
+
+      const syncReason = `External Sync:${integration.id}`;
+      await admin
+        .from("property_blocked_dates")
+        .delete()
+        .eq("property_id", integration.property_id)
+        .eq("reason", syncReason);
+
+      const { error: deleteError } = await admin
+        .from("property_calendar_integrations")
+        .delete()
+        .eq("id", integrationId);
+
+      if (deleteError) throw deleteError;
+      return json(res, 200, { ok: true });
+    }
+
+    if (action === "sync") {
+      const { integrationId } = req.body || {};
+      if (!integrationId) return json(res, 400, { error: "Missing integrationId" });
+
+      const { data: integration, error: findError } = await admin
+        .from("property_calendar_integrations")
+        .select("id, property_id, feed_url, created_by, is_active")
+        .eq("id", integrationId)
+        .maybeSingle();
+
+      if (findError) throw findError;
+      if (!integration) return json(res, 404, { error: "Integration not found" });
+      if (!integration.is_active) return json(res, 400, { error: "Integration is inactive" });
+
+      const ownsProperty = await userOwnsProperty(admin, integration.property_id, user.id);
+      if (!ownsProperty) return json(res, 403, { error: "Forbidden" });
+
+      const result = await runIntegrationSync(admin, integration);
+      return json(res, 200, { ok: true, ...result });
+    }
+
+    return json(res, 400, { error: `Unknown action: ${action}` });
+  } catch (error) {
+    return json(res, 500, { error: String(error?.message || error) });
+  }
+}

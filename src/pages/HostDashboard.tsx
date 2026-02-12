@@ -256,6 +256,21 @@ interface Booking {
   review_email_sent?: boolean;
 }
 
+interface PropertyCalendarIntegration {
+  id: string;
+  property_id: string;
+  provider: "ical";
+  label: string | null;
+  feed_url: string;
+  feed_token: string;
+  export_url: string;
+  is_active: boolean;
+  last_synced_at: string | null;
+  last_sync_status: string | null;
+  last_sync_error: string | null;
+  created_at: string;
+}
+
 import { CURRENCY_OPTIONS } from "@/lib/currencies";
 
 const propertyTypes = ["Hotel", "Apartment", "Room in Apartment", "Villa", "Guesthouse", "Resort", "Lodge", "Motel", "House", "Cabin"];
@@ -1785,6 +1800,161 @@ export default function HostDashboard() {
     const [form, setForm] = useState(property);
     const [editUploadOpen, setEditUploadOpen] = useState(false);
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+    const [integrationLabel, setIntegrationLabel] = useState("Front desk calendar");
+    const [integrationUrl, setIntegrationUrl] = useState("");
+    const [integrations, setIntegrations] = useState<PropertyCalendarIntegration[]>([]);
+    const [integrationSummary, setIntegrationSummary] = useState<{
+      connected: boolean;
+      lastSyncStatus: string | null;
+      lastSyncedAt: string | null;
+    }>({
+      connected: false,
+      lastSyncStatus: null,
+      lastSyncedAt: null,
+    });
+    const [loadingIntegrations, setLoadingIntegrations] = useState(false);
+    const [savingIntegration, setSavingIntegration] = useState(false);
+
+    const getAuthHeaders = async () => {
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data.session?.access_token;
+      if (!accessToken) throw new Error("Please sign in again to manage calendar sync");
+      return {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      };
+    };
+
+    const fetchIntegrations = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+      setLoadingIntegrations(true);
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`/api/hotel-calendar-sync?action=list&propertyId=${property.id}`, {
+          method: "GET",
+          headers,
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body?.error || "Could not load calendar integrations");
+        const items = (body.integrations || []) as PropertyCalendarIntegration[];
+        setIntegrations(items);
+        const latest = items[0];
+        setIntegrationSummary({
+          connected: items.length > 0,
+          lastSyncStatus: latest?.last_sync_status || null,
+          lastSyncedAt: latest?.last_synced_at || null,
+        });
+      } catch (error: any) {
+        if (!silent) {
+          toast({
+            variant: "destructive",
+            title: "Calendar sync error",
+            description: error?.message || "Could not load integrations",
+          });
+        }
+      } finally {
+        setLoadingIntegrations(false);
+      }
+    }, [property.id, toast]);
+
+    const createIntegration = async () => {
+      if (!integrationUrl.trim()) {
+        toast({ variant: "destructive", title: "Feed URL is required" });
+        return;
+      }
+
+      setSavingIntegration(true);
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`/api/hotel-calendar-sync?action=create`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            propertyId: property.id,
+            feedUrl: integrationUrl.trim(),
+            label: integrationLabel.trim() || "Hotel calendar",
+          }),
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body?.error || "Could not create integration");
+
+        setIntegrationUrl("");
+        toast({ title: "Calendar connected", description: "Now syncing to prevent double bookings." });
+        await fetchIntegrations();
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Calendar sync error",
+          description: error?.message || "Could not create integration",
+        });
+      } finally {
+        setSavingIntegration(false);
+      }
+    };
+
+    const syncIntegrationNow = async (integrationId: string) => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`/api/hotel-calendar-sync?action=sync`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ integrationId }),
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body?.error || "Could not sync calendar");
+
+        toast({ title: "Calendar synced", description: `Imported ${body.eventsImported ?? 0} blocked date ranges.` });
+        await fetchIntegrations();
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Calendar sync error",
+          description: error?.message || "Could not sync calendar",
+        });
+      }
+    };
+
+    const deleteIntegration = async (integrationId: string) => {
+      if (!confirm("Remove this calendar integration?")) return;
+
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`/api/hotel-calendar-sync?action=delete`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ integrationId }),
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body?.error || "Could not remove integration");
+
+        toast({ title: "Integration removed" });
+        await fetchIntegrations();
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Calendar sync error",
+          description: error?.message || "Could not remove integration",
+        });
+      }
+    };
+
+    const copyExportUrl = async (url: string) => {
+      try {
+        await navigator.clipboard.writeText(url);
+        toast({ title: "Feed URL copied" });
+      } catch {
+        toast({ variant: "destructive", title: "Could not copy feed URL" });
+      }
+    };
+
+    useEffect(() => {
+      if (isEditing) {
+        fetchIntegrations();
+      }
+    }, [isEditing, fetchIntegrations]);
+
+    useEffect(() => {
+      fetchIntegrations({ silent: true });
+    }, [fetchIntegrations]);
 
     const handleSave = async () => {
       const success = await updateProperty(property.id, {
@@ -1937,6 +2107,71 @@ export default function HostDashboard() {
                 <Label className="text-xs font-medium mb-2 block">Availability & Pricing</Label>
                 <AvailabilityCalendar propertyId={property.id} currency={form.currency || "RWF"} />
               </div>
+              <div className="border rounded-lg p-3 space-y-3">
+                <div>
+                  <Label className="text-xs font-medium">Hotel Calendar Sync</Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Connect your hotel/PMS iCal feed to automatically block external reservations.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <Input
+                    value={integrationLabel}
+                    onChange={(e) => setIntegrationLabel(e.target.value)}
+                    placeholder="Label (e.g. Front desk)"
+                  />
+                  <Input
+                    value={integrationUrl}
+                    onChange={(e) => setIntegrationUrl(e.target.value)}
+                    placeholder="https://your-hotel.com/calendar.ics"
+                    className="md:col-span-2"
+                  />
+                </div>
+
+                <Button size="sm" variant="outline" onClick={createIntegration} disabled={savingIntegration}>
+                  {savingIntegration ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <CalendarIcon className="w-3 h-3 mr-2" />}
+                  Connect iCal Feed
+                </Button>
+
+                {loadingIntegrations ? (
+                  <div className="text-xs text-muted-foreground">Loading integrations…</div>
+                ) : integrations.length === 0 ? (
+                  <div className="text-xs text-muted-foreground">No calendar integration connected yet.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {integrations.map((integration) => (
+                      <div key={integration.id} className="p-2 rounded border bg-muted/30 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-medium">{integration.label || "Hotel calendar"}</p>
+                            <p className="text-xs text-muted-foreground truncate">{integration.feed_url}</p>
+                          </div>
+                          <Badge variant={integration.last_sync_status === "error" ? "destructive" : "outline"}>
+                            {integration.last_sync_status || "never synced"}
+                          </Badge>
+                        </div>
+
+                        {integration.last_sync_error && (
+                          <p className="text-xs text-destructive">{integration.last_sync_error}</p>
+                        )}
+
+                        <div className="flex flex-wrap gap-2">
+                          <Button size="sm" variant="outline" onClick={() => syncIntegrationNow(integration.id)}>
+                            Sync now
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => copyExportUrl(integration.export_url)}>
+                            Copy export feed
+                          </Button>
+                          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteIntegration(integration.id)}>
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div className="flex items-center justify-between pt-2">
                 <div className="flex items-center gap-2">
                   <Switch 
@@ -1974,6 +2209,22 @@ export default function HostDashboard() {
                 <div>
                   <h3 className="font-semibold text-foreground">{property.title}</h3>
                   <p className="text-sm text-muted-foreground">{property.location}</p>
+                  {integrationSummary.connected && (
+                    <div className="mt-1 flex items-center gap-2">
+                      <Badge variant={integrationSummary.lastSyncStatus === "error" ? "destructive" : "outline"} className="text-[10px]">
+                        {integrationSummary.lastSyncStatus === "error"
+                          ? "Calendar sync error"
+                          : integrationSummary.lastSyncStatus === "success"
+                            ? "Calendar synced"
+                            : "Calendar connected"}
+                      </Badge>
+                      {integrationSummary.lastSyncedAt && (
+                        <span className="text-[10px] text-muted-foreground">
+                          Last sync {new Date(integrationSummary.lastSyncedAt).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                  )}
                   {property.address ? (
                     <p className="text-xs text-muted-foreground mt-1">{property.address}</p>
                   ) : null}
