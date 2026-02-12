@@ -10,18 +10,8 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import AuthCallback from "./pages/AuthCallback";
-import Accommodations from "./pages/Accommodations";
-import Tours from "./pages/Tours";
-import TourDetails from "./pages/TourDetails";
-import Transport from "./pages/Transport";
-import Stories from "./pages/Stories";
-import HostDashboard from "./pages/HostDashboard";
-import MyBookings from "./pages/MyBookings";
-import Favorites from "./pages/Favorites";
-import NotFound from "./pages/NotFound";
 import RequireAuth from "@/components/RequireAuth";
 import RequireRole from "@/components/RequireRole";
-import BecomeHost from "./pages/BecomeHost";
 
 // Lazy load dashboard pages to prevent circular dependencies
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
@@ -29,38 +19,47 @@ const FinancialStaffDashboard = lazy(() => import("./pages/FinancialStaffDashboa
 const OperationsStaffDashboard = lazy(() => import("./pages/OperationsStaffDashboard"));
 const CustomerSupportDashboard = lazy(() => import("./pages/CustomerSupportDashboard"));
 const CompleteProfile = lazy(() => import("./pages/CompleteProfile"));
-
-import BookingsPage from "./pages/BookingsPage";
-import AdminRoles from "./pages/AdminRoles";
-import PropertyDetails from "./pages/PropertyDetails";
-import TripCart from "./pages/TripCart";
-import Checkout from "./pages/Checkout";
-import PaymentPending from "./pages/PaymentPending";
-import PaymentFailed from "./pages/PaymentFailed";
-import BookingSuccess from "./pages/BookingSuccess";
-import InfoPage from "./pages/InfoPage";
-import Dashboard from "./pages/Dashboard";
-import AdminIntegrations from "./pages/AdminIntegrations";
-import HostReviews from "./pages/HostReviews";
-import HostAbout from "./pages/HostAbout";
-import ReviewPage from "./pages/ReviewPage";
-import ConnectionTest from "./pages/ConnectionTest";
-import CreateTour from "./pages/CreateTour";
-import CreateTourPackage from "./pages/CreateTourPackage";
-import CreateTransport from "./pages/CreateTransport";
-import CreateCarRental from "./pages/CreateCarRental";
-import CreateAirportTransfer from "./pages/CreateAirportTransfer";
-import SearchResults from "./pages/SearchResults";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
-import PrivacyPolicy from "./pages/PrivacyPolicy";
-import TermsAndConditions from "./pages/TermsAndConditions";
-import SafetyGuidelines from "./pages/SafetyGuidelines";
-import RefundPolicy from "./pages/RefundPolicy";
-import HelpCenter from "./pages/HelpCenter";
-import AffiliateSignup from "./pages/AffiliateSignup";
-import AffiliateDashboard from "./pages/AffiliateDashboard";
-import AffiliatePortal from "./pages/AffiliatePortal";
+const Accommodations = lazy(() => import("./pages/Accommodations"));
+const Tours = lazy(() => import("./pages/Tours"));
+const TourDetails = lazy(() => import("./pages/TourDetails"));
+const Transport = lazy(() => import("./pages/Transport"));
+const Stories = lazy(() => import("./pages/Stories"));
+const HostDashboard = lazy(() => import("./pages/HostDashboard"));
+const MyBookings = lazy(() => import("./pages/MyBookings"));
+const Favorites = lazy(() => import("./pages/Favorites"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const BecomeHost = lazy(() => import("./pages/BecomeHost"));
+const BookingsPage = lazy(() => import("./pages/BookingsPage"));
+const AdminRoles = lazy(() => import("./pages/AdminRoles"));
+const PropertyDetails = lazy(() => import("./pages/PropertyDetails"));
+const TripCart = lazy(() => import("./pages/TripCart"));
+const Checkout = lazy(() => import("./pages/Checkout"));
+const PaymentPending = lazy(() => import("./pages/PaymentPending"));
+const PaymentFailed = lazy(() => import("./pages/PaymentFailed"));
+const BookingSuccess = lazy(() => import("./pages/BookingSuccess"));
+const InfoPage = lazy(() => import("./pages/InfoPage"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const AdminIntegrations = lazy(() => import("./pages/AdminIntegrations"));
+const HostReviews = lazy(() => import("./pages/HostReviews"));
+const HostAbout = lazy(() => import("./pages/HostAbout"));
+const ReviewPage = lazy(() => import("./pages/ReviewPage"));
+const ConnectionTest = lazy(() => import("./pages/ConnectionTest"));
+const CreateTour = lazy(() => import("./pages/CreateTour"));
+const CreateTourPackage = lazy(() => import("./pages/CreateTourPackage"));
+const CreateTransport = lazy(() => import("./pages/CreateTransport"));
+const CreateCarRental = lazy(() => import("./pages/CreateCarRental"));
+const CreateAirportTransfer = lazy(() => import("./pages/CreateAirportTransfer"));
+const SearchResults = lazy(() => import("./pages/SearchResults"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const TermsAndConditions = lazy(() => import("./pages/TermsAndConditions"));
+const SafetyGuidelines = lazy(() => import("./pages/SafetyGuidelines"));
+const RefundPolicy = lazy(() => import("./pages/RefundPolicy"));
+const HelpCenter = lazy(() => import("./pages/HelpCenter"));
+const AffiliateSignup = lazy(() => import("./pages/AffiliateSignup"));
+const AffiliateDashboard = lazy(() => import("./pages/AffiliateDashboard"));
+const AffiliatePortal = lazy(() => import("./pages/AffiliatePortal"));
 import ScrollToTop from "@/components/ScrollToTop";
 import SupportCenterLauncher from "@/components/SupportCenterLauncher";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
@@ -151,6 +150,7 @@ const App = () => (
           <BrowserRouter>
             <ScrollToTop />
             <SupportCenterLauncher />
+            <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
@@ -353,6 +353,7 @@ const App = () => (
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </Suspense>
             <DatabaseConnectivityTest />
           </BrowserRouter>
         </TooltipProvider>

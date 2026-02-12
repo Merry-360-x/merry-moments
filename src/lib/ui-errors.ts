@@ -58,3 +58,17 @@ export function logError(context: string, err: unknown) {
   }
 }
 
+export function getFriendlyPaymentErrorMessage(message?: string, fallback = "Payment failed. Please try again.") {
+  if (!message) return fallback;
+
+  const lowered = message.toLowerCase();
+  const isCheckoutRlsError =
+    lowered.includes("row-level security policy") && lowered.includes("checkout_requests");
+
+  if (isCheckoutRlsError) {
+    return "Payment Failed, Register to complete your booking";
+  }
+
+  return message;
+}
+

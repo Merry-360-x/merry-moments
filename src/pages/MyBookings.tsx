@@ -36,6 +36,10 @@ interface Booking {
   status: string;
   payment_status?: string | null;
   payment_method?: string | null;
+  confirmation_status?: 'pending' | 'approved' | 'rejected' | null;
+  rejection_reason?: string | null;
+  confirmed_at?: string | null;
+  rejected_at?: string | null;
   created_at: string;
   order_id?: string | null;
   properties?: {
@@ -426,6 +430,56 @@ const MyBookings = () => {
     return groups;
   }, {});
 
+  const getConfirmationUi = (booking: Booking) => {
+    const status = booking.confirmation_status;
+
+    if (status === 'pending' || booking.status === 'pending') {
+      return {
+        badgeClass: "bg-amber-100 text-amber-700 hover:bg-amber-100",
+        badgeLabel: "Awaiting host confirmation",
+        alertClass: "border-amber-200 bg-amber-50 dark:bg-amber-950/20",
+        alertTitle: "Awaiting host confirmation",
+        alertMessage: "Your booking is paid and waiting for the host to accept it.",
+      };
+    }
+
+    if (status === 'approved') {
+      return {
+        badgeClass: "bg-green-100 text-green-700 hover:bg-green-100",
+        badgeLabel: "Approved",
+        alertClass: "border-green-200 bg-green-50 dark:bg-green-950/20",
+        alertTitle: "Approved by host",
+        alertMessage: "Your booking has been approved by the host.",
+      };
+    }
+
+    if (status === 'rejected') {
+      const reason = booking.rejection_reason?.trim();
+      return {
+        badgeClass: "bg-red-100 text-red-700 hover:bg-red-100",
+        badgeLabel: "Rejected",
+        alertClass: "border-red-200 bg-red-50 dark:bg-red-950/20",
+        alertTitle: "Rejected by host",
+        alertMessage: reason
+          ? `Reason: ${reason}`
+          : "The host rejected this booking.",
+      };
+    }
+
+    return {
+      badgeClass:
+        booking.status === "confirmed"
+          ? "bg-green-100 text-green-700 hover:bg-green-100"
+          : booking.status === "cancelled"
+            ? "bg-red-100 text-red-700 hover:bg-red-100"
+            : "bg-yellow-100 text-yellow-700 hover:bg-yellow-100",
+      badgeLabel: booking.status,
+      alertClass: "",
+      alertTitle: "",
+      alertMessage: "",
+    };
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -454,6 +508,7 @@ const MyBookings = () => {
               const firstBooking = orderBookings[0];
               const isMultiItem = orderBookings.length > 1;
               const grandTotal = orderBookings.reduce((sum, b) => sum + Number(b.total_price), 0);
+              const confirmationUi = getConfirmationUi(firstBooking);
               
               // Calculate total amount paid (from checkout_requests)
               const totalPaid = orderBookings.reduce((sum, b) => {
@@ -487,12 +542,8 @@ const MyBookings = () => {
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge className={
-                          firstBooking.status === "confirmed" ? "bg-green-100 text-green-700 hover:bg-green-100" :
-                          firstBooking.status === "cancelled" ? "bg-red-100 text-red-700 hover:bg-red-100" :
-                          "bg-yellow-100 text-yellow-700 hover:bg-yellow-100"
-                        }>
-                          {firstBooking.status}
+                        <Badge className={confirmationUi.badgeClass}>
+                          {confirmationUi.badgeLabel}
                         </Badge>
                         {firstBooking.payment_status && (
                           <Badge variant="outline" className="text-xs">
@@ -502,6 +553,15 @@ const MyBookings = () => {
                       </div>
                     </div>
                   </div>
+
+                  {confirmationUi.alertTitle && (
+                    <div className="px-6 pt-4">
+                      <Alert className={confirmationUi.alertClass}>
+                        <AlertTitle>{confirmationUi.alertTitle}</AlertTitle>
+                        <AlertDescription>{confirmationUi.alertMessage}</AlertDescription>
+                      </Alert>
+                    </div>
+                  )}
 
                   {/* Items Breakdown */}
                   <div className="p-6 space-y-4">

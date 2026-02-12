@@ -22,6 +22,7 @@ import { AMENITIES, AMENITIES_BY_CATEGORY } from "@/lib/amenities";
 import { calculateHostEarningsFromGuestTotal, PLATFORM_FEES } from "@/lib/fees";
 import { useFxRates } from "@/hooks/useFxRates";
 import { convertAmount } from "@/lib/fx";
+import { uploadFile } from "@/lib/uploads";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
@@ -2051,7 +2052,6 @@ export default function HostDashboard() {
     const handleAddImage = async (file: File) => {
       try {
         setUploading(true);
-        const { uploadFile } = await import("@/lib/uploads");
         const { url } = await uploadFile(file, { folder: "tour-images" });
         setNewImages(prev => [...prev, url]);
         toast({ title: "Image uploaded" });
@@ -2152,7 +2152,6 @@ export default function HostDashboard() {
       if (pdfFile) {
         setUploading(true);
         try {
-          const { uploadFile } = await import("@/lib/uploads");
           const { url } = await uploadFile(pdfFile, { folder: "tour-itineraries" });
           updates.itinerary_pdf_url = url;
         } catch (e) {
@@ -4833,7 +4832,9 @@ export default function HostDashboard() {
           <TabsContent value="bookings">
             {/* Pending Booking Requests Section */}
             {(() => {
-              const pendingRequests = (bookings || []).filter(b => b.confirmation_status === 'pending');
+              const pendingRequests = (bookings || []).filter(
+                b => b.confirmation_status === 'pending' || b.status === 'pending'
+              );
               if (pendingRequests.length === 0) return null;
               return (
                 <div className="mb-6">
@@ -4845,11 +4846,22 @@ export default function HostDashboard() {
                   </h3>
                   <div className="space-y-4">
                     {pendingRequests.map((b) => {
-                      let itemName = 'Unknown Tour';
-                      if ((b as any).tour_packages) {
-                        itemName = (b as any).tour_packages.title;
+                      let itemName = 'Unknown';
+                      let serviceType: 'accommodation' | 'tour' | 'transport' = 'tour';
+
+                      if (b.booking_type === 'property') {
+                        itemName = (b as any).properties?.title || 'Property';
+                        serviceType = 'accommodation';
+                      } else if (b.booking_type === 'tour') {
+                        itemName = (b as any).tour_packages?.title || 'Tour';
+                        serviceType = 'tour';
+                      } else if (b.booking_type === 'transport') {
+                        const vehicle = vehicles.find(v => v.id === b.transport_id);
+                        itemName = vehicle?.title || 'Transport';
+                        serviceType = 'transport';
                       }
-                      const { hostNetEarnings } = calculateHostEarningsFromGuestTotal(Number(b.total_price), 'tour');
+
+                      const { hostNetEarnings } = calculateHostEarningsFromGuestTotal(Number(b.total_price), serviceType);
                       
                       return (
                         <Card key={b.id} className="overflow-hidden border-2 border-amber-300 shadow-md">
@@ -4985,10 +4997,10 @@ export default function HostDashboard() {
             })()}
             
             <div className="space-y-3">
-              {(bookings || []).filter(b => b.confirmation_status !== 'pending').length === 0 && (bookings || []).filter(b => b.confirmation_status === 'pending').length === 0 ? (
+              {(bookings || []).filter(b => !(b.confirmation_status === 'pending' || b.status === 'pending')).length === 0 && (bookings || []).filter(b => b.confirmation_status === 'pending' || b.status === 'pending').length === 0 ? (
                 <p className="text-muted-foreground text-center py-8">No bookings yet</p>
-              ) : (bookings || []).filter(b => b.confirmation_status !== 'pending').length === 0 ? null : (
-                (bookings || []).filter(b => b.confirmation_status !== 'pending').map((b) => {
+              ) : (bookings || []).filter(b => !(b.confirmation_status === 'pending' || b.status === 'pending')).length === 0 ? null : (
+                (bookings || []).filter(b => !(b.confirmation_status === 'pending' || b.status === 'pending')).map((b) => {
                   // Get the name of the booked item based on type
                   let itemName = 'Unknown';
                   let itemType = b.booking_type || 'property';

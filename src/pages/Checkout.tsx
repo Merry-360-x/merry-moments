@@ -17,6 +17,7 @@ import { useTripCart, CartItemMetadata, getCartItemMetadata } from "@/hooks/useT
 import { useFxRates } from "@/hooks/useFxRates";
 import { convertAmount, PAYMENT_CURRENCIES } from "@/lib/fx";
 import { calculateGuestTotal, calculateHostEarningsFromGuestTotal, PLATFORM_FEES } from "@/lib/fees";
+import { getFriendlyPaymentErrorMessage } from "@/lib/ui-errors";
 import { 
   ArrowLeft, 
   ArrowRight, 
@@ -196,11 +197,11 @@ export default function CheckoutNew() {
       }));
       
       // Fetch profile for full name and phone
-      (supabase
+      ((supabase
         .from("profiles")
-        .select("full_name, phone, is_adult_confirmed")
+        .select("full_name, phone, is_adult_confirmed") as any)
         .eq("user_id", user.id)
-        .maybeSingle() as any)
+        .maybeSingle())
         .then(({ data, error }: any) => {
           if (error) {
             console.warn("Could not load profile:", error.message);
@@ -245,12 +246,12 @@ export default function CheckoutNew() {
     
     if (discountCode) {
       // Validate discount code from URL
-      (supabase
+      ((supabase
         .from("discount_codes")
-        .select("*")
+        .select("*") as any)
         .eq("code", discountCode.toUpperCase())
         .eq("is_active", true)
-        .single() as any)
+        .single())
         .then(({ data }: any) => {
           if (data) setAppliedDiscount(data);
         });
@@ -302,11 +303,11 @@ export default function CheckoutNew() {
 
   async function fetchDirectTour(tourId: string, participants: number): Promise<CartItem[]> {
     // Fetch the tour details directly
-    const { data: tour, error } = await (supabase
+    const { data: tour, error } = await ((supabase
       .from('tours')
-      .select('id, title, price_per_person, currency, images, duration_days')
+      .select('id, title, price_per_person, currency, images, duration_days') as any)
       .eq('id', tourId)
-      .single() as any);
+      .single());
     
     if (error || !tour) {
       console.error("Failed to load tour for direct booking:", error);
@@ -329,11 +330,11 @@ export default function CheckoutNew() {
 
   async function fetchDirectBooking(propertyId: string): Promise<CartItem[]> {
     // Fetch the property details directly
-    const { data: property, error } = await supabase
+    const { data: property, error } = await ((supabase
       .from('properties')
-      .select('id, title, price_per_night, currency, images, location, weekly_discount, monthly_discount')
+      .select('id, title, price_per_night, currency, images, location, weekly_discount, monthly_discount') as any)
       .eq('id', propertyId)
-      .single();
+      .single());
     
     if (error || !property) {
       console.error("Failed to load property for direct booking:", error);
@@ -376,10 +377,10 @@ export default function CheckoutNew() {
   }
 
   async function fetchUserCart(): Promise<CartItem[]> {
-    const { data, error } = await (supabase
+    const { data, error } = await ((supabase
       .from("trip_cart_items")
-      .select("id, item_type, reference_id, quantity")
-      .eq("user_id", user!.id) as any);
+      .select("id, item_type, reference_id, quantity") as any)
+      .eq("user_id", user!.id));
 
     if (error || !data?.length) return [];
     return enrichCartItems(data);
@@ -402,10 +403,10 @@ export default function CheckoutNew() {
     const vehicleIds = items.filter(i => i.item_type === 'transport_vehicle').map(i => String(i.reference_id));
 
     const [tours, packages, properties, vehicles] = await Promise.all([
-      tourIds.length ? supabase.from('tours').select('id, title, price_per_person, currency, images, duration_days').in('id', tourIds).then(r => r.data || []) : [],
-      packageIds.length ? supabase.from('tour_packages').select('id, title, price_per_adult, currency, cover_image, gallery_images, duration').in('id', packageIds).then(r => r.data || []) : [],
-      propertyIds.length ? supabase.from('properties').select('id, title, price_per_night, currency, images, location, weekly_discount, monthly_discount').in('id', propertyIds).then(r => r.data || []) : [],
-      vehicleIds.length ? supabase.from('transport_vehicles').select('id, title, price_per_day, currency, image_url, vehicle_type, seats').in('id', vehicleIds).then(r => r.data || []) : [],
+      tourIds.length ? ((supabase.from('tours').select('id, title, price_per_person, currency, images, duration_days') as any).in('id', tourIds).then((r: any) => r.data || [])) : [],
+      packageIds.length ? ((supabase.from('tour_packages').select('id, title, price_per_adult, currency, cover_image, gallery_images, duration') as any).in('id', packageIds).then((r: any) => r.data || [])) : [],
+      propertyIds.length ? ((supabase.from('properties').select('id, title, price_per_night, currency, images, location, weekly_discount, monthly_discount') as any).in('id', propertyIds).then((r: any) => r.data || [])) : [],
+      vehicleIds.length ? ((supabase.from('transport_vehicles').select('id, title, price_per_day, currency, image_url, vehicle_type, seats') as any).in('id', vehicleIds).then((r: any) => r.data || [])) : [],
     ]) as any[];
 
     const maps: Record<string, Map<string, any>> = {
@@ -543,12 +544,12 @@ export default function CheckoutNew() {
     setDiscountError(null);
     
     try {
-      const { data, error } = await supabase
+      const { data, error } = await ((supabase
         .from("discount_codes")
-        .select("*")
+        .select("*") as any)
         .eq("code", discountCodeInput.trim().toUpperCase())
         .eq("is_active", true)
-        .single();
+        .single());
       
       if (error || !data) {
         setDiscountError("Invalid or expired discount code");
@@ -884,12 +885,13 @@ export default function CheckoutNew() {
         console.error("Failure code:", failureCode);
         console.error("Error message:", errorMsg);
         
-        setPaymentError(errorMsg);
+        const friendlyError = getFriendlyPaymentErrorMessage(errorMsg);
+        setPaymentError(friendlyError);
         setIsProcessing(false);
         
         toast({
           title: "Payment Failed",
-          description: errorMsg,
+          description: friendlyError,
           variant: "destructive",
         });
         return;
@@ -923,7 +925,7 @@ export default function CheckoutNew() {
       
     } catch (error: any) {
       console.error("Payment error:", error);
-      setPaymentError(error.message || "Payment failed. Please try again.");
+      setPaymentError(getFriendlyPaymentErrorMessage(error.message));
       setIsProcessing(false);
     }
   };

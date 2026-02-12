@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { XCircle, AlertCircle, RotateCcw, Home, Phone, HelpCircle, Loader2 } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import { useToast } from "@/hooks/use-toast";
+import { getFriendlyPaymentErrorMessage } from "@/lib/ui-errors";
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -98,7 +99,9 @@ export default function PaymentFailed() {
       icon: <XCircle className="h-12 w-12 text-red-600 dark:text-red-400" />,
       iconBg: "bg-red-100 dark:bg-red-900/30",
       title: "Payment Failed",
-      message: reason !== "unknown" ? reason : "We couldn't process your payment. Please try again.",
+      message: reason !== "unknown"
+        ? getFriendlyPaymentErrorMessage(reason, "We couldn't process your payment. Please try again.")
+        : "We couldn't process your payment. Please try again.",
       suggestions: [
         "Check your mobile money account balance",
         "Ensure you have good network connection",
@@ -180,9 +183,10 @@ export default function PaymentFailed() {
       
       if (!paymentResponse.ok || !paymentData.depositId) {
         console.error("Payment retry failed:", paymentData);
+        const friendlyError = getFriendlyPaymentErrorMessage(paymentData.message);
         toast({
           title: "Payment Failed",
-          description: paymentData.message || "Could not retry payment. Please try again.",
+          description: friendlyError || "Could not retry payment. Please try again.",
           variant: "destructive",
         });
         setIsRetrying(false);
@@ -203,7 +207,7 @@ export default function PaymentFailed() {
       console.error("Retry error:", error);
       toast({
         title: "Error",
-        description: error.message || "Failed to retry payment. Please try again.",
+        description: getFriendlyPaymentErrorMessage(error.message) || "Failed to retry payment. Please try again.",
         variant: "destructive",
       });
       setIsRetrying(false);

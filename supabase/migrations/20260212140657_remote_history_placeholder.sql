@@ -1,0 +1,4 @@
+-- Placeholder to align local migration history with remote.
+-- Remote migration version 20260212140657 exists in the linked Supabase project
+-- but the SQL file is not present in this repository snapshot.
+-- Intentionally no-op.
