@@ -5,7 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { PreferencesProvider } from "@/contexts/PreferencesProvider";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, type ReactNode } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
@@ -139,6 +140,68 @@ function AuthModeRedirect({ mode }: { mode: "login" | "signup" }) {
   return <Navigate to={`/auth?${next.toString()}`} replace />;
 }
 
+const PREFETCH_ROUTE_MODULES = [
+  () => import("./pages/Accommodations"),
+  () => import("./pages/Tours"),
+  () => import("./pages/Transport"),
+  () => import("./pages/TripCart"),
+  () => import("./pages/Checkout"),
+  () => import("./pages/MyBookings"),
+  () => import("./pages/PropertyDetails"),
+  () => import("./pages/TourDetails"),
+];
+
+function RoutePrefetch() {
+  useEffect(() => {
+    let cancelled = false;
+
+    const prefetch = () => {
+      PREFETCH_ROUTE_MODULES.forEach((loadModule, index) => {
+        window.setTimeout(() => {
+          if (!cancelled) {
+            void loadModule();
+          }
+        }, index * 120);
+      });
+    };
+
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      const idleId = (window as any).requestIdleCallback(prefetch, { timeout: 1500 });
+      return () => {
+        cancelled = true;
+        (window as any).cancelIdleCallback?.(idleId);
+      };
+    }
+
+    const timer = window.setTimeout(prefetch, 450);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, []);
+
+  return null;
+}
+
+function RouteTransitionWrapper({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  const reduceMotion = useReducedMotion();
+
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={location.pathname}
+        initial={reduceMotion ? { opacity: 1 } : { opacity: 0, y: 8, filter: "blur(4px)" }}
+        animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, filter: "blur(0px)" }}
+        exit={reduceMotion ? { opacity: 1 } : { opacity: 0, y: -6, filter: "blur(2px)" }}
+        transition={{ duration: reduceMotion ? 0 : 0.22, ease: [0.22, 1, 0.36, 1] }}
+      >
+        {children}
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
@@ -150,7 +213,9 @@ const App = () => (
           <BrowserRouter>
             <ScrollToTop />
             <SupportCenterLauncher />
+            <RoutePrefetch />
             <Suspense fallback={null}>
+            <RouteTransitionWrapper>
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
@@ -346,6 +411,7 @@ const App = () => (
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </RouteTransitionWrapper>
             </Suspense>
             <DatabaseConnectivityTest />
           </BrowserRouter>
