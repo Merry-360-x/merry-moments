@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useTripCart } from "@/hooks/useTripCart";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useFxRates } from "@/hooks/useFxRates";
+import { convertAmount } from "@/lib/fx";
 
 export type TourPromoCardProps = {
   id: string;
@@ -30,8 +31,10 @@ export default function TourPromoCard(props: TourPromoCardProps) {
   const { currency: preferredCurrency } = usePreferences();
   const { usdRates } = useFxRates();
   const gallery = (props.images ?? []).filter(Boolean);
-  const from = String(props.currency ?? preferredCurrency ?? "RWF");
-  const displayPrice = formatMoney(Number(props.price ?? 0), from);
+  const from = String(props.currency ?? "RWF");
+  const baseAmount = Number(props.price ?? 0);
+  const converted = convertAmount(baseAmount, from, preferredCurrency, usdRates);
+  const displayPrice = formatMoney(converted ?? baseAmount, converted !== null ? preferredCurrency : from);
   // Determine item type - use source if provided, default to 'tour'
   const itemType = props.source === 'tour_packages' ? 'tour_package' : 'tour';
   

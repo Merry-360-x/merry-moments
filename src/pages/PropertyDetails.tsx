@@ -915,7 +915,7 @@ export default function PropertyDetails() {
                                 <div className="font-medium text-foreground line-clamp-1">{tour.title}</div>
                                 <div className="text-xs text-muted-foreground line-clamp-1">{tour.location ?? ""}</div>
                                 <div className="mt-2 text-sm font-semibold text-primary">
-                                  {displayMoney(Number(tour.price_per_person ?? 0), String(tour.currency ?? "USD"))}
+                                  {displayMoney(Number(tour.price_per_person ?? 0), String(tour.currency ?? "RWF"))}
                                   <span className="text-xs text-muted-foreground"> {t("common.perPerson")}</span>
                                 </div>
                                 <div className="mt-3">
@@ -1529,7 +1529,7 @@ export default function PropertyDetails() {
                                 <div className="font-medium text-foreground text-sm line-clamp-1">{tour.title}</div>
                                 <div className="text-xs text-muted-foreground line-clamp-1">{tour.location ?? ""}</div>
                                 <div className="mt-1 text-sm font-semibold text-primary">
-                                  {displayMoney(Number(tour.price_per_person ?? 0), String(tour.currency ?? "USD"))}
+                                  {displayMoney(Number(tour.price_per_person ?? 0), String(tour.currency ?? "RWF"))}
                                   <span className="text-xs text-muted-foreground"> {t("common.perPerson")}</span>
                                 </div>
                                 <Button

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useTripCart } from "@/hooks/useTripCart";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useFxRates } from "@/hooks/useFxRates";
+import { convertAmount } from "@/lib/fx";
 
 export type TransportPromoCardProps = {
   id: string;
@@ -24,8 +25,10 @@ export default function TransportPromoCard(props: TransportPromoCardProps) {
   const { usdRates } = useFxRates();
   const gallery = (props.media ?? []).filter(Boolean);
   const imgs = gallery.length ? gallery : props.imageUrl ? [props.imageUrl] : [];
-  const from = String(props.currency ?? preferredCurrency ?? "RWF");
-  const displayPrice = formatMoney(Number(props.pricePerDay ?? 0), from);
+  const from = String(props.currency ?? "RWF");
+  const baseAmount = Number(props.pricePerDay ?? 0);
+  const converted = convertAmount(baseAmount, from, preferredCurrency, usdRates);
+  const displayPrice = formatMoney(converted ?? baseAmount, converted !== null ? preferredCurrency : from);
   return (
     <Link to="/transport" className="block" aria-label={props.title}>
       <div className="group rounded-lg md:rounded-xl overflow-hidden bg-card shadow-card hover:shadow-lg transition-all duration-300">

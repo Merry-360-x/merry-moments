@@ -77,7 +77,7 @@ const Transport = () => {
   const { usdRates } = useFxRates();
 
   const displayMoney = (amount: number, fromCurrency: string | null) => {
-    const code = String(fromCurrency ?? "USD");
+    const code = String(fromCurrency ?? "RWF");
     const converted = convertAmount(Number(amount ?? 0), code, preferredCurrency, usdRates);
     return formatMoney(converted ?? Number(amount ?? 0), converted !== null ? preferredCurrency : code);
   };
@@ -563,7 +563,7 @@ const Transport = () => {
                         {r.from_location} → {r.to_location}
                       </div>
                       <div className="text-muted-foreground mb-4">
-                        {displayMoney(Number(r.base_price), String(r.currency ?? "USD"))}
+                        {displayMoney(Number(r.base_price), String(r.currency ?? "RWF"))}
                       </div>
                       <Button
                         className="w-full"
@@ -705,17 +705,17 @@ const Transport = () => {
                           <div className="space-y-1 pt-2 border-t border-border">
                             <div className="flex items-baseline justify-between">
                               <span className="text-foreground font-bold text-lg">
-                                {displayMoney(Number(v.daily_price || v.price_per_day), String(v.currency ?? "USD"))}
+                                {displayMoney(Number(v.daily_price || v.price_per_day), String(v.currency ?? "RWF"))}
                               </span>
                               <span className="text-sm text-muted-foreground">{t("common.perDay")}</span>
                             </div>
                             {(v.weekly_price || v.monthly_price) && (
                               <div className="flex gap-3 text-xs text-muted-foreground">
                                 {v.weekly_price && (
-                                  <span>{displayMoney(Number(v.weekly_price), String(v.currency ?? "USD"))}{t("common.perWeek")}</span>
+                                  <span>{displayMoney(Number(v.weekly_price), String(v.currency ?? "RWF"))}{t("common.perWeek")}</span>
                                 )}
                                 {v.monthly_price && (
-                                  <span>{displayMoney(Number(v.monthly_price), String(v.currency ?? "USD"))}{t("common.perMonth")}</span>
+                                  <span>{displayMoney(Number(v.monthly_price), String(v.currency ?? "RWF"))}{t("common.perMonth")}</span>
                                 )}
                               </div>
                             )}

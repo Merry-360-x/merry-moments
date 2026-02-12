@@ -25,9 +25,13 @@ import { usePreferences } from "@/hooks/usePreferences";
 
 const propertyTypes = ["Hotel", "Motel", "Resort", "Lodge", "Apartment", "Room in Apartment", "Villa", "Guesthouse"];
 const amenities = AMENITIES;
+const PRICE_SLIDER_MAX_USD = 50000;
+const PRICE_SLIDER_STEP_USD = 50;
 
 const fetchProperties = async (args: {
-  maxPrice: number;
+  maxPriceInDisplayCurrency: number;
+  displayCurrency: string;
+  usdRates: Record<string, number> | null;
   search: string;
   propertyTypes: string[];
   amenities: string[];
@@ -85,12 +89,25 @@ const fetchProperties = async (args: {
       query = query.eq("available_for_monthly_rental", true);
     }
 
-    const { data, error } = await query.lte("price_per_night", args.maxPrice);
+    const { data, error } = await query;
     if (error) {
       console.warn("[Accommodations] fetchProperties error:", error.message);
       return [];
     }
-    const rows = data ?? [];
+    const rows = (data ?? []).filter((r) => {
+      const rawAmount = Number((r as { price_per_night?: number | null }).price_per_night ?? 0);
+      if (!Number.isFinite(rawAmount)) return false;
+      const fromCurrency = String((r as { currency?: string | null }).currency ?? "RWF");
+      const displayCurrency = String(args.displayCurrency || "RWF");
+
+      if (fromCurrency === displayCurrency) {
+        return rawAmount <= args.maxPriceInDisplayCurrency;
+      }
+
+      const converted = convertAmount(rawAmount, fromCurrency, displayCurrency, args.usdRates);
+      if (converted === null) return true;
+      return converted <= args.maxPriceInDisplayCurrency;
+    });
 
     if (!args.nearby) return rows;
 
@@ -128,7 +145,7 @@ const fetchProperties = async (args: {
 const Accommodations = () => {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
-  const [maxPrice, setMaxPrice] = useState(50000);
+  const [maxPriceUsd, setMaxPriceUsd] = useState(PRICE_SLIDER_MAX_USD);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [minRating, setMinRating] = useState(0);
@@ -158,11 +175,15 @@ const Accommodations = () => {
   const { toggleFavorite } = useFavorites();
   const { currency: preferredCurrency } = usePreferences();
   const { usdRates } = useFxRates();
+  const maxPrice = useMemo(
+    () => convertAmount(maxPriceUsd, "USD", preferredCurrency, usdRates) ?? maxPriceUsd,
+    [maxPriceUsd, preferredCurrency, usdRates]
+  );
 
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [maxPrice, selectedTypes.length, selectedAmenities.length, minRating, locationFilter, guestCount, monthlyRentalOnly, hostId]);
+  }, [maxPriceUsd, selectedTypes.length, selectedAmenities.length, minRating, locationFilter, guestCount, monthlyRentalOnly, hostId]);
 
   useEffect(() => {
     setQuery(searchParams.get("q") ?? "");
@@ -200,7 +221,8 @@ const Accommodations = () => {
     queryKey: [
       "properties",
       "accommodations",
-      maxPrice,
+      maxPriceUsd,
+      preferredCurrency,
       searchParams.get("q") ?? "",
       selectedTypes.join("|"),
       selectedAmenities.join("|"),
@@ -215,7 +237,9 @@ const Accommodations = () => {
     ],
     queryFn: () =>
       fetchProperties({
-        maxPrice,
+        maxPriceInDisplayCurrency: maxPrice,
+        displayCurrency: preferredCurrency,
+        usdRates,
         search: searchParams.get("q") ?? "",
         propertyTypes: selectedTypes,
         amenities: selectedAmenities,
@@ -356,7 +380,7 @@ const Accommodations = () => {
 
   const favoritesSet = new Set(favoriteIds);
   const activeFiltersCount =
-    (maxPrice < 50000 ? 1 : 0) +
+    (maxPriceUsd < PRICE_SLIDER_MAX_USD ? 1 : 0) +
     (selectedTypes.length > 0 ? 1 : 0) +
     (selectedAmenities.length > 0 ? 1 : 0) +
     (minRating > 0 ? 1 : 0) +
@@ -519,16 +543,16 @@ const Accommodations = () => {
                   <AccordionTrigger>{t("accommodations.priceRange")}</AccordionTrigger>
                   <AccordionContent>
                     <Slider
-                      value={[maxPrice]}
-                      onValueChange={(v) => setMaxPrice(v[0] ?? 50000)}
+                      value={[maxPriceUsd]}
+                      onValueChange={(v) => setMaxPriceUsd(v[0] ?? PRICE_SLIDER_MAX_USD)}
                       min={0}
-                      max={50000}
-                      step={50}
+                      max={PRICE_SLIDER_MAX_USD}
+                      step={PRICE_SLIDER_STEP_USD}
                       className="mb-2"
                     />
                     <div className="flex items-center justify-between text-sm gap-3">
                       <span className="text-muted-foreground">Max</span>
-                      <span className="text-primary font-medium">{formatMoney(maxPrice, "USD")}</span>
+                      <span className="text-primary font-medium">{formatMoney(maxPrice, preferredCurrency)}</span>
                     </div>
                   </AccordionContent>
                 </AccordionItem>
@@ -661,7 +685,7 @@ const Accommodations = () => {
                 type="button"
                 variant="outline"
                 onClick={() => {
-                  setMaxPrice(50000);
+                  setMaxPriceUsd(PRICE_SLIDER_MAX_USD);
                   setSelectedTypes([]);
                   setSelectedAmenities([]);
                   setMinRating(0);
@@ -689,7 +713,7 @@ const Accommodations = () => {
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    setMaxPrice(50000);
+                    setMaxPriceUsd(PRICE_SLIDER_MAX_USD);
                     setSelectedTypes([]);
                     setSelectedAmenities([]);
                     setMinRating(0);
@@ -710,39 +734,39 @@ const Accommodations = () => {
                       <div className="flex items-center justify-between gap-2 p-3 bg-muted/50 rounded-lg">
                         <div className="text-center flex-1">
                           <div className="text-xs text-muted-foreground mb-1">Min</div>
-                          <div className="font-medium text-sm">{formatMoney(0, "USD")}</div>
+                          <div className="font-medium text-sm">{formatMoney(0, preferredCurrency)}</div>
                         </div>
                         <div className="text-muted-foreground">—</div>
                         <div className="text-center flex-1">
                           <div className="text-xs text-muted-foreground mb-1">Max</div>
-                          <div className="font-medium text-sm text-primary">{formatMoney(maxPrice, "USD")}</div>
+                          <div className="font-medium text-sm text-primary">{formatMoney(maxPrice, preferredCurrency)}</div>
                         </div>
                       </div>
                       
                       {/* Slider */}
                       <Slider
-                        value={[maxPrice]}
-                        onValueChange={(v) => setMaxPrice(v[0] ?? 50000)}
-                        max={50000}
+                        value={[maxPriceUsd]}
+                        onValueChange={(v) => setMaxPriceUsd(v[0] ?? PRICE_SLIDER_MAX_USD)}
+                        max={PRICE_SLIDER_MAX_USD}
                         min={0}
-                        step={50}
+                        step={PRICE_SLIDER_STEP_USD}
                         className="py-2"
                       />
                       
                       {/* Quick presets */}
                       <div className="flex flex-wrap gap-1.5">
-                        {[100, 250, 500, 1000, 50000].map((val) => (
+                        {[100, 250, 500, 1000, PRICE_SLIDER_MAX_USD].map((val) => (
                           <button
                             key={val}
                             type="button"
-                            onClick={() => setMaxPrice(val)}
+                            onClick={() => setMaxPriceUsd(val)}
                             className={`px-2 py-1 text-xs rounded-full border transition-colors ${
-                              maxPrice === val
+                              maxPriceUsd === val
                                 ? "bg-primary text-primary-foreground border-primary"
                                 : "bg-background border-border hover:border-primary"
                             }`}
                           >
-                            {val >= 1000 ? `${val / 1000}k` : val}
+                            {formatMoney(convertAmount(val, "USD", preferredCurrency, usdRates) ?? val, preferredCurrency)}
                           </button>
                         ))}
                       </div>
