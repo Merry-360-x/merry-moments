@@ -150,12 +150,12 @@ const App = () => (
           <BrowserRouter>
             <ScrollToTop />
             <SupportCenterLauncher />
-            <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+            <Suspense fallback={null}>
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
-              <Route path="/complete-profile" element={<Suspense fallback={<div className="flex justify-center items-center min-h-screen">Loading...</div>}><CompleteProfile /></Suspense>} />
+              <Route path="/complete-profile" element={<Suspense fallback={null}><CompleteProfile /></Suspense>} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/login" element={<AuthModeRedirect mode="login" />} />
@@ -235,14 +235,7 @@ const App = () => (
                 element={
                   <RequireRole allowed={["admin"]}>
                     <ErrorBoundary>
-                      <Suspense fallback={
-                        <div className="flex items-center justify-center min-h-screen">
-                          <div className="text-center">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-                            <p>Loading Admin Dashboard...</p>
-                          </div>
-                        </div>
-                      }>
+                      <Suspense fallback={null}>
                         <AdminDashboard />
                       </Suspense>
                     </ErrorBoundary>
@@ -269,7 +262,7 @@ const App = () => (
                 path="/financial-dashboard"
                 element={
                   <RequireRole allowed={["financial_staff", "admin"]}>
-                    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+                    <Suspense fallback={null}>
                       <FinancialStaffDashboard />
                     </Suspense>
                   </RequireRole>
@@ -279,7 +272,7 @@ const App = () => (
                 path="/operations-dashboard"
                 element={
                   <RequireRole allowed={["operations_staff", "admin"]}>
-                    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+                    <Suspense fallback={null}>
                       <OperationsStaffDashboard />
                     </Suspense>
                   </RequireRole>
@@ -289,7 +282,7 @@ const App = () => (
                 path="/customer-support-dashboard"
                 element={
                   <RequireRole allowed={["customer_support", "admin"]}>
-                    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+                    <Suspense fallback={null}>
                       <CustomerSupportDashboard />
                     </Suspense>
                   </RequireRole>
