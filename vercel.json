@@ -13,7 +13,7 @@
     },
     {
       "path": "/api/hotel-calendar-sync?action=sync-all",
-      "schedule": "*/30 * * * *"
+      "schedule": "0 3 * * *"
     }
   ]
 }
