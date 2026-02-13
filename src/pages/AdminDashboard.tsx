@@ -364,6 +364,7 @@ export default function AdminDashboard() {
   const [tab, setTab] = useState<TabValue>("overview");
   const [userSearch, setUserSearch] = useState("");
   const [bookingStatus, setBookingStatus] = useState<"all" | string>("all");
+  const [bookingIdSearch, setBookingIdSearch] = useState("");
   const [ticketStatus, setTicketStatus] = useState<"all" | string>("all");
   const [respondingTicket, setRespondingTicket] = useState<SupportTicketRow | null>(null);
   const [responseDraft, setResponseDraft] = useState("");
@@ -1846,6 +1847,15 @@ For support, contact: support@merry360x.com
   };
 
   const pendingApps = applications.filter((a) => a.status === "pending");
+  const filteredBookingsById = useMemo(() => {
+    const query = bookingIdSearch.trim().toLowerCase();
+    if (!query) return bookings;
+    return bookings.filter((booking) => {
+      const bookingId = String(booking.id || "").toLowerCase();
+      const orderId = String(booking.order_id || "").toLowerCase();
+      return bookingId.includes(query) || orderId.includes(query);
+    });
+  }, [bookings, bookingIdSearch]);
   const bookingOrderCount = useMemo(
     () => new Set(bookings.map((booking) => booking.order_id).filter(Boolean)).size,
     [bookings]
@@ -3259,18 +3269,26 @@ For support, contact: support@merry360x.com
                   <h2 className="text-lg font-semibold">Bookings & Orders Management</h2>
                   <p className="text-sm text-muted-foreground">Clear view of booking references, guest details, schedule, and payment tracking</p>
                 </div>
-                <Select value={bookingStatus} onValueChange={setBookingStatus}>
-                  <SelectTrigger className="w-44">
-                    <SelectValue placeholder="All statuses" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="confirmed">Confirmed</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2 w-full md:w-auto">
+                  <Input
+                    value={bookingIdSearch}
+                    onChange={(e) => setBookingIdSearch(e.target.value)}
+                    placeholder="Search Booking ID / Order ID"
+                    className="w-full md:w-64"
+                  />
+                  <Select value={bookingStatus} onValueChange={setBookingStatus}>
+                    <SelectTrigger className="w-44">
+                      <SelectValue placeholder="All statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="confirmed">Confirmed</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
@@ -3307,7 +3325,7 @@ For support, contact: support@merry360x.com
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {bookings.map((b) => {
+                    {filteredBookingsById.map((b) => {
                       // Determine item name and type based on booking_type
                       let itemName = "Unknown";
                       let itemType = b.booking_type || "property";
@@ -3336,13 +3354,13 @@ For support, contact: support@merry360x.com
                           <div className="space-y-1">
                             <div>
                               <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Booking</p>
-                              <p className="font-mono text-xs">{b.id.slice(0, 8)}...</p>
+                              <p className="font-mono text-xs break-all leading-4">{b.id}</p>
                             </div>
                             <div>
                               <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Order</p>
                               {b.order_id ? (
-                                <Badge variant="secondary" className="font-mono text-[11px]">
-                                  {b.order_id.slice(0, 8)}...
+                                <Badge variant="secondary" className="font-mono text-[11px] break-all whitespace-normal leading-4">
+                                  {b.order_id}
                                 </Badge>
                               ) : (
                                 <span className="text-xs text-muted-foreground">Single booking</span>
@@ -3583,7 +3601,7 @@ For support, contact: support@merry360x.com
                       </TableRow>
                       );
                     })}
-                    {bookings.length === 0 && (
+                    {filteredBookingsById.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                           No bookings found

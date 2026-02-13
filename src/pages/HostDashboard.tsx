@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
@@ -424,6 +424,7 @@ export default function HostDashboard() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [routes, setRoutes] = useState<TransportRoute[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bookingIdSearch, setBookingIdSearch] = useState("");
   const [propertyCalendarSummaries, setPropertyCalendarSummaries] = useState<Record<string, {
     connected: boolean;
     lastSyncStatus: string | null;
@@ -1648,6 +1649,17 @@ export default function HostDashboard() {
       toast({ variant: "destructive", title: "Error", description: "Failed to load booking details" });
     }
   };
+
+  // Stats - use safe defaults
+  const filteredBookingsById = useMemo(() => {
+    const query = bookingIdSearch.trim().toLowerCase();
+    if (!query) return bookings || [];
+    return (bookings || []).filter((booking) => {
+      const bookingId = String(booking.id || "").toLowerCase();
+      const orderId = String(booking.order_id || "").toLowerCase();
+      return bookingId.includes(query) || orderId.includes(query);
+    });
+  }, [bookings, bookingIdSearch]);
 
   // Stats - use safe defaults
   // Calculate earnings after platform fees
@@ -5555,9 +5567,22 @@ export default function HostDashboard() {
 
           {/* Bookings */}
           <TabsContent value="bookings">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+              <div>
+                <h2 className="text-2xl font-bold">Bookings</h2>
+                <p className="text-muted-foreground">Search by Booking ID or Order ID to quickly find complete details</p>
+              </div>
+              <Input
+                value={bookingIdSearch}
+                onChange={(e) => setBookingIdSearch(e.target.value)}
+                placeholder="Search Booking ID / Order ID"
+                className="w-full md:w-72"
+              />
+            </div>
+
             {/* Pending Booking Requests Section */}
             {(() => {
-              const pendingRequests = (bookings || []).filter(
+              const pendingRequests = filteredBookingsById.filter(
                 b => b.confirmation_status === 'pending' || b.status === 'pending'
               );
               if (pendingRequests.length === 0) return null;
@@ -5598,10 +5623,15 @@ export default function HostDashboard() {
                               </div>
                               <div>
                                 <h4 className="font-semibold text-base">{itemName}</h4>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  <Hash className="w-3 h-3" />
-                                  <span>{b.id.slice(0, 8).toUpperCase()}</span>
-                                </div>
+                                  <div className="text-xs text-muted-foreground space-y-0.5">
+                                    <div className="flex items-center gap-1">
+                                      <Hash className="w-3 h-3" />
+                                      <span className="font-mono break-all">{b.id}</span>
+                                    </div>
+                                    {b.order_id ? (
+                                      <div className="font-mono break-all">Order: {b.order_id}</div>
+                                    ) : null}
+                                  </div>
                               </div>
                             </div>
                             <Badge className="bg-amber-500 hover:bg-amber-600 animate-pulse">
@@ -5722,10 +5752,10 @@ export default function HostDashboard() {
             })()}
             
             <div className="space-y-3">
-              {(bookings || []).filter(b => !(b.confirmation_status === 'pending' || b.status === 'pending')).length === 0 && (bookings || []).filter(b => b.confirmation_status === 'pending' || b.status === 'pending').length === 0 ? (
+              {filteredBookingsById.filter(b => !(b.confirmation_status === 'pending' || b.status === 'pending')).length === 0 && filteredBookingsById.filter(b => b.confirmation_status === 'pending' || b.status === 'pending').length === 0 ? (
                 <p className="text-muted-foreground text-center py-8">No bookings yet</p>
-              ) : (bookings || []).filter(b => !(b.confirmation_status === 'pending' || b.status === 'pending')).length === 0 ? null : (
-                (bookings || []).filter(b => !(b.confirmation_status === 'pending' || b.status === 'pending')).map((b) => {
+              ) : filteredBookingsById.filter(b => !(b.confirmation_status === 'pending' || b.status === 'pending')).length === 0 ? null : (
+                filteredBookingsById.filter(b => !(b.confirmation_status === 'pending' || b.status === 'pending')).map((b) => {
                   // Get the name of the booked item based on type
                   let itemName = 'Unknown';
                   let itemType = b.booking_type || 'property';
@@ -5766,9 +5796,14 @@ export default function HostDashboard() {
                         </div>
                         <div>
                           <h4 className="font-semibold text-base">{itemName}</h4>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <Hash className="w-3 h-3" />
-                            <span>{b.id.slice(0, 8).toUpperCase()}</span>
+                          <div className="text-xs text-muted-foreground space-y-0.5">
+                            <div className="flex items-center gap-1">
+                              <Hash className="w-3 h-3" />
+                              <span className="font-mono break-all">{b.id}</span>
+                            </div>
+                            {b.order_id ? (
+                              <div className="font-mono break-all">Order: {b.order_id}</div>
+                            ) : null}
                             {isBulkOrder && (
                               <Badge variant="secondary" className="text-xs ml-1">
                                 {orderItemCount} items

@@ -93,6 +93,7 @@ type StoryRow = {
 
 type BookingRow = {
   id: string;
+  order_id: string | null;
   property_id: string;
   guest_id: string | null;
   guest_name: string | null;
@@ -174,6 +175,7 @@ export default function StaffDashboard() {
     "overview" | "applications" | "users" | "accommodations" | "tours" | "transport" | "stories"
   >("overview");
   const [userSearch, setUserSearch] = useState("");
+  const [bookingIdSearch, setBookingIdSearch] = useState("");
   const [selectedBooking, setSelectedBooking] = useState<BookingRow | null>(null);
   const [bookingDetailsOpen, setBookingDetailsOpen] = useState(false);
   const [refundInfo, setRefundInfo] = useState<{
@@ -376,6 +378,16 @@ export default function StaffDashboard() {
     if (list.length === 1) return formatMoney(Number(list[0].amount), String(list[0].currency ?? "USD"));
     return `${formatMoney(Number(list[0].amount), String(list[0].currency ?? "USD"))} (+${list.length - 1} more)`;
   }, [metrics?.revenue_by_currency]);
+
+  const filteredRecentBookings = useMemo(() => {
+    const query = bookingIdSearch.trim().toLowerCase();
+    if (!query) return recentBookings;
+    return recentBookings.filter((booking) => {
+      const bookingId = String(booking.id || "").toLowerCase();
+      const orderId = String(booking.order_id || "").toLowerCase();
+      return bookingId.includes(query) || orderId.includes(query);
+    });
+  }, [recentBookings, bookingIdSearch]);
 
   const togglePublished = async (table: string, id: string, next: boolean) => {
     try {
@@ -669,13 +681,22 @@ For support, contact: support@merry360x.com
         <Card className="p-6 mb-8">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold text-foreground">Recent bookings</h2>
-            <Badge variant="outline" className="border-primary/30 text-primary">
-              {metrics?.bookings_total ?? 0} total
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Input
+                value={bookingIdSearch}
+                onChange={(e) => setBookingIdSearch(e.target.value)}
+                placeholder="Search Booking ID / Order ID"
+                className="w-64"
+              />
+              <Badge variant="outline" className="border-primary/30 text-primary">
+                {metrics?.bookings_total ?? 0} total
+              </Badge>
+            </div>
           </div>
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Reference</TableHead>
                 <TableHead>Guest</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Amount</TableHead>
@@ -683,8 +704,24 @@ For support, contact: support@merry360x.com
               </TableRow>
             </TableHeader>
             <TableBody>
-              {recentBookings.map((b) => (
+              {filteredRecentBookings.map((b) => (
                 <TableRow key={b.id}>
+                  <TableCell className="text-xs">
+                    <div className="space-y-1">
+                      <div>
+                        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Booking</p>
+                        <p className="font-mono break-all leading-4">{b.id}</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Order</p>
+                        {b.order_id ? (
+                          <p className="font-mono break-all leading-4">{b.order_id}</p>
+                        ) : (
+                          <span className="text-muted-foreground">Single booking</span>
+                        )}
+                      </div>
+                    </div>
+                  </TableCell>
                   <TableCell className="text-sm">
                     {b.is_guest_booking ? (
                       <div className="min-w-0">
@@ -738,6 +775,13 @@ For support, contact: support@merry360x.com
                   </TableCell>
                 </TableRow>
               ))}
+              {filteredRecentBookings.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                    No bookings match that Booking ID / Order ID
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </Card>
@@ -765,16 +809,16 @@ For support, contact: support@merry360x.com
             <Card className="p-4">
               <h3 className="font-semibold mb-4 flex items-center gap-2">
                 <DollarSign className="w-4 h-4 text-yellow-600" /> 
-                Pending Payments ({recentBookings.filter(b => b.payment_status === 'pending').length})
+                Pending Payments ({filteredRecentBookings.filter(b => b.payment_status === 'pending').length})
               </h3>
-              {recentBookings.filter(b => b.payment_status === 'pending').length === 0 ? (
+              {filteredRecentBookings.filter(b => b.payment_status === 'pending').length === 0 ? (
                 <p className="text-sm text-muted-foreground">No pending payments</p>
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Booking ID</TableHead>
+                        <TableHead>Reference</TableHead>
                         <TableHead>Guest</TableHead>
                         <TableHead>Property</TableHead>
                         <TableHead>Amount</TableHead>
@@ -783,9 +827,16 @@ For support, contact: support@merry360x.com
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {recentBookings.filter(b => b.payment_status === 'pending').slice(0, 10).map((b) => (
+                      {filteredRecentBookings.filter(b => b.payment_status === 'pending').slice(0, 10).map((b) => (
                         <TableRow key={b.id}>
-                          <TableCell className="font-mono text-xs">{b.id.slice(0, 8)}...</TableCell>
+                          <TableCell className="text-xs">
+                            <div className="space-y-1">
+                              <p className="font-mono break-all leading-4">{b.id}</p>
+                              {b.order_id ? (
+                                <p className="font-mono text-[11px] text-muted-foreground break-all leading-4">{b.order_id}</p>
+                              ) : null}
+                            </div>
+                          </TableCell>
                           <TableCell className="text-sm">
                             {b.is_guest_booking ? b.guest_name || "Guest" : (b.profiles?.nickname || b.profiles?.full_name || "User")}
                           </TableCell>
