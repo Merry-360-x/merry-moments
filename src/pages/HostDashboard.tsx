@@ -134,6 +134,7 @@ interface Property {
   property_type: string;
   price_per_night: number;
   price_per_group?: number | null;
+  price_per_group_size?: number | null;
   currency: string | null;
   max_guests: number;
   bedrooms: number;
@@ -489,8 +490,6 @@ export default function HostDashboard() {
   const [showPropertyWizard, setShowPropertyWizard] = useState(false);
   const [showRoomWizard, setShowRoomWizard] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
-  const [propertyGroupSize, setPropertyGroupSize] = useState(2);
-  const [roomGroupSize, setRoomGroupSize] = useState(2);
   const [propertyForm, setPropertyForm] = useState({
     title: "",
     location: "",
@@ -500,6 +499,7 @@ export default function HostDashboard() {
     price_per_night: 50000,
     price_per_person: null as number | null,
     price_per_group: null as number | null,
+    price_per_group_size: 2,
     currency: "RWF",
     max_guests: 2,
     bedrooms: 1,
@@ -1073,7 +1073,12 @@ export default function HostDashboard() {
 
   // Property CRUD
   const updateProperty = async (id: string, updates: Partial<Property>) => {
-    const { error } = await supabase.from("properties").update(updates).eq("id", id);
+    let { error } = await supabase.from("properties").update(updates).eq("id", id);
+    if (error && String(error.code || "") === "42703" && String(error.message || "").includes("price_per_group_size")) {
+      const { price_per_group_size, ...fallbackUpdates } = updates as any;
+      const retry = await supabase.from("properties").update(fallbackUpdates).eq("id", id);
+      error = retry.error;
+    }
     if (error) {
       logError("host.property.update", error);
       toast({ variant: "destructive", title: "Update failed", description: uiErrorMessage(error) });
@@ -1108,6 +1113,7 @@ export default function HostDashboard() {
       description: propertyForm.description.trim() || null,
       price_per_night: propertyForm.price_per_night || 50000,
       price_per_group: propertyForm.price_per_group || null,
+      price_per_group_size: propertyForm.price_per_group_size || null,
       currency: propertyForm.currency || "RWF",
       max_guests: propertyForm.max_guests || 2,
       bedrooms: propertyForm.bedrooms || 1,
@@ -1138,11 +1144,22 @@ export default function HostDashboard() {
     console.log("[createProperty] Attempting insert with payload:", payload);
 
     try {
-      const { error, data: newProp } = await supabase
+      let { error, data: newProp } = await supabase
         .from("properties")
         .insert(payload as never)
         .select()
         .single();
+
+      if (error && String(error.code || "") === "42703" && String(error.message || "").includes("price_per_group_size")) {
+        const { price_per_group_size, ...fallbackPayload } = payload as any;
+        const retry = await supabase
+          .from("properties")
+          .insert(fallbackPayload as never)
+          .select()
+          .single();
+        error = retry.error;
+        newProp = retry.data as any;
+      }
 
       if (error) {
         console.error("[createProperty] Full error:", JSON.stringify(error, null, 2));
@@ -1177,8 +1194,6 @@ export default function HostDashboard() {
 
   const resetPropertyForm = () => {
     localStorage.removeItem(PROPERTY_FORM_KEY); // Clear draft
-    setPropertyGroupSize(2);
-    setRoomGroupSize(2);
     setPropertyForm({
       title: "",
       location: "",
@@ -1188,6 +1203,7 @@ export default function HostDashboard() {
       price_per_night: 50000,
       price_per_person: null,
       price_per_group: null,
+      price_per_group_size: 2,
       currency: "RWF",
       max_guests: 2,
       bedrooms: 1,
@@ -2223,7 +2239,6 @@ export default function HostDashboard() {
   const PropertyCard = ({ property }: { property: Property }) => {
     const isEditing = editingPropertyId === property.id;
     const [form, setForm] = useState(property);
-    const [editGroupSize, setEditGroupSize] = useState(Math.max(1, Number(property.max_guests || 2)));
     const [editUploadOpen, setEditUploadOpen] = useState(false);
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
     const integrationSummary = propertyCalendarSummaries[property.id] || null;
@@ -2236,6 +2251,7 @@ export default function HostDashboard() {
         property_type: form.property_type,
         price_per_night: form.price_per_night,
         price_per_group: form.price_per_group,
+        price_per_group_size: form.price_per_group_size,
         currency: form.currency,
         max_guests: form.max_guests,
         bedrooms: form.bedrooms,
@@ -2320,8 +2336,8 @@ export default function HostDashboard() {
                   <Input
                     type="number"
                     min={1}
-                    value={editGroupSize}
-                    onChange={(e) => setEditGroupSize(Math.max(1, Number(e.target.value) || 1))}
+                    value={form.price_per_group_size || 2}
+                    onChange={(e) => setForm((f) => ({ ...f, price_per_group_size: Math.max(1, Number(e.target.value) || 1) }))}
                   />
                 </div>
                 <div>
@@ -2343,7 +2359,7 @@ export default function HostDashboard() {
               </div>
               {form.price_per_group ? (
                 <p className="text-xs text-muted-foreground">
-                  Group price set: {editGroupSize} {editGroupSize === 1 ? "person" : "people"} for {form.currency || "RWF"} {Number(form.price_per_group).toLocaleString()}.
+                  Group price set: {form.price_per_group_size || 2} {(form.price_per_group_size || 2) === 1 ? "person" : "people"} for {form.currency || "RWF"} {Number(form.price_per_group).toLocaleString()}.
                 </p>
               ) : null}
               <div>
@@ -3708,13 +3724,19 @@ export default function HostDashboard() {
                   const payload = {
                     ...propertyForm,
                     property_type: propertyForm.property_type || "Room in Apartment",
+                    price_per_group_size: propertyForm.price_per_group_size || null,
                     host_id: user!.id,
                     is_published: true, // Published by default
                     images: propertyForm.images.length > 0 ? propertyForm.images : null,
                     main_image: propertyForm.images.length > 0 ? propertyForm.images[0] : null,
                   };
-                  
-                  const { error } = await supabase.from("properties").insert(payload);
+
+                  let { error } = await supabase.from("properties").insert(payload);
+                  if (error && String(error.code || "") === "42703" && String(error.message || "").includes("price_per_group_size")) {
+                    const { price_per_group_size, ...fallbackPayload } = payload as any;
+                    const retry = await supabase.from("properties").insert(fallbackPayload);
+                    error = retry.error;
+                  }
                   if (error) throw error;
                   
                   toast({ title: "Success!", description: "Your room has been listed." });
@@ -3848,8 +3870,8 @@ export default function HostDashboard() {
                   <Label className="text-sm font-medium">Group Size (people)</Label>
                   <Input
                     type="number"
-                    value={roomGroupSize}
-                    onChange={(e) => setRoomGroupSize(Math.max(1, Number(e.target.value) || 1))}
+                    value={propertyForm.price_per_group_size || 2}
+                    onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_group_size: Math.max(1, Number(e.target.value) || 1) }))}
                     min="1"
                     className="mt-1.5"
                   />
@@ -3884,7 +3906,7 @@ export default function HostDashboard() {
               </div>
               {propertyForm.price_per_group ? (
                 <p className="text-xs text-muted-foreground">
-                  Group price set: {roomGroupSize} {roomGroupSize === 1 ? "person" : "people"} for {propertyForm.currency} {propertyForm.price_per_group.toLocaleString()}.
+                  Group price set: {propertyForm.price_per_group_size || 2} {(propertyForm.price_per_group_size || 2) === 1 ? "person" : "people"} for {propertyForm.currency} {propertyForm.price_per_group.toLocaleString()}.
                 </p>
               ) : null}
 
@@ -4119,8 +4141,8 @@ export default function HostDashboard() {
                       <Input
                         type="number"
                         min={1}
-                        value={propertyGroupSize}
-                        onChange={(e) => setPropertyGroupSize(Math.max(1, Number(e.target.value) || 1))}
+                        value={propertyForm.price_per_group_size || 2}
+                        onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_group_size: Math.max(1, Number(e.target.value) || 1) }))}
                         className="mt-2 text-lg py-6"
                       />
                     </div>
@@ -5917,12 +5939,6 @@ export default function HostDashboard() {
                       </Select>
                     </div>
                   </div>
-                  {propertyForm.price_per_group ? (
-                    <p className="text-xs text-muted-foreground">
-                      Group price set: {propertyGroupSize} {propertyGroupSize === 1 ? "person" : "people"} for {propertyForm.currency} {propertyForm.price_per_group.toLocaleString()}.
-                    </p>
-                  ) : null}
-
                   <div>
                     <Label>Description</Label>
                     <Textarea

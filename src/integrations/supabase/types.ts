@@ -1424,6 +1424,8 @@ export type Database = {
           monthly_discount: number | null
           name: string | null
           pets_allowed: boolean | null
+          price_per_group: number | null
+          price_per_group_size: number | null
           price_per_month: number | null
           price_per_night: number
           price_per_person: number | null
@@ -1464,6 +1466,8 @@ export type Database = {
           monthly_discount?: number | null
           name?: string | null
           pets_allowed?: boolean | null
+          price_per_group?: number | null
+          price_per_group_size?: number | null
           price_per_month?: number | null
           price_per_night: number
           price_per_person?: number | null
@@ -1504,6 +1508,8 @@ export type Database = {
           monthly_discount?: number | null
           name?: string | null
           pets_allowed?: boolean | null
+          price_per_group?: number | null
+          price_per_group_size?: number | null
           price_per_month?: number | null
           price_per_night?: number
           price_per_person?: number | null
