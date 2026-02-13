@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/Navbar";
@@ -21,6 +21,8 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { BookingDateChangeDialog } from "@/components/BookingDateChangeDialog";
+
+const BOOKING_DECISION_SEEN_KEY = "guest_booking_decision_seen_at";
 
 interface Booking {
   id: string;
@@ -99,6 +101,11 @@ const MyBookings = () => {
   const [dateChangeDialogOpen, setDateChangeDialogOpen] = useState(false);
   const [bookingToChange, setBookingToChange] = useState<Booking | null>(null);
   const [bookingHostId, setBookingHostId] = useState<string>("");
+  const [decisionSeenAt, setDecisionSeenAt] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    return localStorage.getItem(BOOKING_DECISION_SEEN_KEY) || "";
+  });
+  const lastDecisionToastRef = useRef<string>("");
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -505,6 +512,51 @@ const MyBookings = () => {
     };
   };
 
+  const recentDecisionBookings = useMemo(() => {
+    const seenDate = decisionSeenAt ? new Date(decisionSeenAt) : new Date(0);
+
+    return bookings.filter((booking) => {
+      if (booking.confirmation_status !== "approved" && booking.confirmation_status !== "rejected") {
+        return false;
+      }
+
+      const decisionTimestamp = booking.confirmation_status === "approved"
+        ? booking.confirmed_at
+        : booking.rejected_at;
+
+      if (!decisionTimestamp) return false;
+      const decisionDate = new Date(decisionTimestamp);
+      if (!Number.isFinite(decisionDate.getTime())) return false;
+      return decisionDate > seenDate;
+    });
+  }, [bookings, decisionSeenAt]);
+
+  useEffect(() => {
+    if (recentDecisionBookings.length === 0) return;
+
+    const latestDecision = recentDecisionBookings
+      .map((booking) => booking.confirmed_at || booking.rejected_at || "")
+      .sort()
+      .at(-1) || "";
+
+    const signature = `${recentDecisionBookings.length}:${latestDecision}`;
+    if (lastDecisionToastRef.current === signature) return;
+
+    lastDecisionToastRef.current = signature;
+    toast({
+      title: "Booking update",
+      description: `You have ${recentDecisionBookings.length} new host decision${recentDecisionBookings.length > 1 ? "s" : ""}.`,
+    });
+  }, [recentDecisionBookings, toast]);
+
+  const markDecisionUpdatesAsRead = () => {
+    const now = new Date().toISOString();
+    setDecisionSeenAt(now);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(BOOKING_DECISION_SEEN_KEY, now);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -512,6 +564,33 @@ const MyBookings = () => {
       <div className="container mx-auto px-4 lg:px-8 py-12">
         <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">{t("bookings.title")}</h1>
         <p className="text-muted-foreground mb-8">{t("bookings.subtitle")}</p>
+
+        {recentDecisionBookings.length > 0 && (
+          <Alert className="mb-6 border-primary/30 bg-primary/5">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>New booking decisions</AlertTitle>
+            <AlertDescription className="flex flex-col gap-3">
+              <p>
+                {recentDecisionBookings.length} booking{recentDecisionBookings.length > 1 ? "s have" : " has"} been updated by hosts.
+              </p>
+              <div className="space-y-1 text-sm">
+                {recentDecisionBookings.slice(0, 3).map((booking) => (
+                  <p key={booking.id} className="text-muted-foreground">
+                    {booking.confirmation_status === "approved" ? "✅ Approved" : "❌ Rejected"} • {booking.id}
+                  </p>
+                ))}
+                {recentDecisionBookings.length > 3 && (
+                  <p className="text-muted-foreground">+{recentDecisionBookings.length - 3} more updates</p>
+                )}
+              </div>
+              <div>
+                <Button size="sm" variant="outline" onClick={markDecisionUpdatesAsRead}>
+                  Mark as read
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* {isLoading ? (
           <div className="py-20 text-center">
