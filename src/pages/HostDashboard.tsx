@@ -446,6 +446,12 @@ export default function HostDashboard() {
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [showBookingDetails, setShowBookingDetails] = useState(false);
   const [bookingFullDetails, setBookingFullDetails] = useState<any>(null);
+  const toRwfAmount = useCallback((amount: number, currency?: string | null) => {
+    const normalized = String(currency || 'RWF').toUpperCase();
+    if (normalized === 'RWF') return Number(amount) || 0;
+    const converted = convertAmount(Number(amount) || 0, normalized, 'RWF', usdRates);
+    return Number(converted ?? amount ?? 0);
+  }, [usdRates]);
   
   // Profile completion tracking
   const [hostProfile, setHostProfile] = useState<{
@@ -958,7 +964,7 @@ export default function HostDashboard() {
     }
 
     if (amount > availableForPayout) {
-      toast({ variant: 'destructive', title: 'Insufficient balance', description: `Maximum available: ${formatMoney(availableForPayout, 'USD')}` });
+      toast({ variant: 'destructive', title: 'Insufficient balance', description: `Maximum available: ${formatMoney(availableForPayout, 'RWF')}` });
       return;
     }
 
@@ -1539,41 +1545,57 @@ export default function HostDashboard() {
   };
 
   // Confirm a pending booking request
-  const confirmBookingRequest = async (id: string) => {
+  const confirmBookingRequest = async (id: string, orderId?: string | null) => {
     if (!user?.id) return;
-    const { error } = await supabase.from("bookings").update({
+    const updatePayload = {
       status: 'confirmed',
       confirmation_status: 'approved',
       confirmed_at: new Date().toISOString(),
       confirmed_by: user.id,
-    }).eq("id", id);
+      rejection_reason: null,
+      rejected_at: null,
+    };
+    const { error } = orderId
+      ? await supabase.from("bookings").update(updatePayload).eq("order_id", orderId)
+      : await supabase.from("bookings").update(updatePayload).eq("id", id);
     if (error) {
       logError("host.booking.confirm", error);
       toast({ variant: "destructive", title: "Confirmation failed", description: uiErrorMessage(error) });
       return;
     }
-    setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status: 'confirmed', confirmation_status: 'approved' as const } : b)));
-    toast({ title: "Booking confirmed", description: "The guest will be notified" });
+    setBookings((prev) => prev.map((b) => (
+      orderId
+        ? (b.order_id === orderId ? { ...b, status: 'confirmed', confirmation_status: 'approved' as const, rejection_reason: null, rejected_at: null } : b)
+        : (b.id === id ? { ...b, status: 'confirmed', confirmation_status: 'approved' as const, rejection_reason: null, rejected_at: null } : b)
+    )));
+    toast({ title: orderId ? "Order confirmed" : "Booking confirmed", description: "The guest will be notified" });
     // TODO: Send confirmation email to guest
   };
 
   // Reject a pending booking request
-  const rejectBookingRequest = async (id: string, reason: string) => {
+  const rejectBookingRequest = async (id: string, reason: string, orderId?: string | null) => {
     if (!user?.id) return;
-    const { error } = await supabase.from("bookings").update({
+    const updatePayload = {
       status: 'cancelled',
       confirmation_status: 'rejected',
       rejection_reason: reason,
       rejected_at: new Date().toISOString(),
       confirmed_by: user.id,
-    }).eq("id", id);
+    };
+    const { error } = orderId
+      ? await supabase.from("bookings").update(updatePayload).eq("order_id", orderId)
+      : await supabase.from("bookings").update(updatePayload).eq("id", id);
     if (error) {
       logError("host.booking.reject", error);
       toast({ variant: "destructive", title: "Rejection failed", description: uiErrorMessage(error) });
       return;
     }
-    setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status: 'cancelled', confirmation_status: 'rejected' as const } : b)));
-    toast({ title: "Booking rejected", description: "The guest will be notified and refunded" });
+    setBookings((prev) => prev.map((b) => (
+      orderId
+        ? (b.order_id === orderId ? { ...b, status: 'cancelled', confirmation_status: 'rejected' as const, rejection_reason: reason } : b)
+        : (b.id === id ? { ...b, status: 'cancelled', confirmation_status: 'rejected' as const, rejection_reason: reason } : b)
+    )));
+    toast({ title: orderId ? "Order rejected" : "Booking rejected", description: "The guest will be notified and refunded" });
     // TODO: Send rejection email to guest and initiate refund
   };
 
@@ -1709,16 +1731,22 @@ export default function HostDashboard() {
   // For tours: base_price = guest_paid (0% guest fee), host gets base_price - 10%
   const totalNetEarnings = confirmedBookings.reduce((sum, b) => {
     const guestPaid = Number(b.total_price);
+    const bookingCurrency = b.currency || 'RWF';
+    let hostNetInBookingCurrency = guestPaid;
+
     if (b.booking_type === 'property' || b.property_id) {
       // Property: guest paid 107%, host pays 3% of base price
       const { hostNetEarnings } = calculateHostEarningsFromGuestTotal(guestPaid, 'accommodation');
-      return sum + hostNetEarnings;
+      hostNetInBookingCurrency = hostNetEarnings;
     } else if (b.booking_type === 'tour' || b.tour_id) {
       // Tour: guest paid 100%, provider pays 10% of base price
       const { hostNetEarnings } = calculateHostEarningsFromGuestTotal(guestPaid, 'tour');
-      return sum + hostNetEarnings;
+      hostNetInBookingCurrency = hostNetEarnings;
+    } else {
+      hostNetInBookingCurrency = guestPaid; // Transport or other - no fee for now
     }
-    return sum + guestPaid; // Transport or other - no fee for now
+
+    return sum + toRwfAmount(hostNetInBookingCurrency, bookingCurrency);
   }, 0);
   
   // Keep totalEarnings as net earnings for display
@@ -1729,10 +1757,10 @@ export default function HostDashboard() {
   // Calculate available for payout (confirmed bookings - pending payouts)
   const pendingPayoutAmount = payoutHistory
     .filter(p => p.status === 'pending' || p.status === 'processing')
-    .reduce((sum, p) => sum + Number(p.amount), 0);
+    .reduce((sum, p) => sum + toRwfAmount(Number(p.amount), p.currency || 'RWF'), 0);
   const completedPayoutAmount = payoutHistory
     .filter(p => p.status === 'completed')
-    .reduce((sum, p) => sum + Number(p.amount), 0);
+    .reduce((sum, p) => sum + toRwfAmount(Number(p.amount), p.currency || 'RWF'), 0);
   const availableForPayout = Math.max(0, totalEarnings - pendingPayoutAmount - completedPayoutAmount);
 
   // Handle payout button click - always open combined dialog
@@ -5735,7 +5763,7 @@ export default function HostDashboard() {
                             <Button 
                               size="sm" 
                               className="bg-green-600 hover:bg-green-700 text-white"
-                              onClick={() => confirmBookingRequest(b.id)}
+                              onClick={() => confirmBookingRequest(b.id, b.order_id)}
                             >
                               <CheckCircle className="w-4 h-4 mr-1" /> Approve Booking
                             </Button>
@@ -5768,7 +5796,7 @@ export default function HostDashboard() {
                                         onClick={() => {
                                           const reasonEl = document.getElementById(`reject-reason-${b.id}`) as HTMLTextAreaElement;
                                           const reason = reasonEl?.value || 'No reason provided';
-                                          rejectBookingRequest(b.id, reason);
+                                          rejectBookingRequest(b.id, reason, b.order_id);
                                         }}
                                       >
                                         Confirm Rejection
@@ -6951,7 +6979,7 @@ END OF REPORT
                   <Button 
                     className="flex-1"
                     onClick={async () => {
-                      await updateBookingStatus(bookingFullDetails.id, "confirmed", bookingFullDetails.order_id);
+                      await confirmBookingRequest(bookingFullDetails.id, bookingFullDetails.order_id);
                       setShowBookingDetails(false);
                     }}
                   >
@@ -6961,7 +6989,7 @@ END OF REPORT
                   <Button 
                     variant="outline"
                     onClick={async () => {
-                      await updateBookingStatus(bookingFullDetails.id, "cancelled", bookingFullDetails.order_id);
+                      await rejectBookingRequest(bookingFullDetails.id, 'Rejected by host', bookingFullDetails.order_id);
                       setShowBookingDetails(false);
                     }}
                   >

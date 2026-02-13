@@ -176,14 +176,18 @@ export default async function handler(req, res) {
 
             const bookingData = {
               guest_id: checkoutData.user_id,
+              guest_name: checkoutData.metadata?.guest_info?.name || null,
               guest_email: checkoutData.email,
+              guest_phone: checkoutData.metadata?.guest_info?.phone || null,
               order_id: checkoutData.id,
               total_price: item.calculated_price || item.price,
-              currency: checkoutData.currency || 'RWF',
-              status: 'confirmed',
+              currency: item.calculated_price_currency || item.currency || checkoutData.currency || 'RWF',
+              status: 'pending',
+              confirmation_status: 'pending',
               payment_status: 'paid',
               payment_method: 'mobile_money',
               guests: bookingDetails?.guests || item.metadata?.guests || 1,
+              review_token: crypto.randomUUID(),
             };
 
             // Set booking_type for proper dashboard filtering

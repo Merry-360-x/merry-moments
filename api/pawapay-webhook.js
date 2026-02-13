@@ -801,16 +801,8 @@ export default async function handler(req, res) {
             continue;
           }
 
-          // For tours, check if the tour requires confirmation
-          let requiresConfirmation = false;
-          if (item.item_type === 'tour' || item.item_type === 'tour_package') {
-            const { data: tourData } = await supabase
-              .from("tour_packages")
-              .select("requires_confirmation")
-              .eq("id", item.reference_id)
-              .single();
-            requiresConfirmation = tourData?.requires_confirmation === true;
-          }
+          // Host must confirm new bookings before they become confirmed.
+          const requiresConfirmation = true;
 
           const bookingData = {
             guest_id: checkout.user_id,
