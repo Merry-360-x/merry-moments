@@ -63,12 +63,18 @@ const getCurrencySymbol = (code: string) => {
   return symbols[code] || code;
 };
 
+const BOOKING_DECISION_SEEN_KEY = "guest_booking_decision_seen_at";
+
 const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut, isHost, isAdmin, isStaff, isFinancialStaff, isOperationsStaff, isCustomerSupport } = useAuth();
   const { guestCart } = useTripCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [decisionSeenAt, setDecisionSeenAt] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    return localStorage.getItem(BOOKING_DECISION_SEEN_KEY) || "";
+  });
   const { t } = useTranslation();
   const { language, setLanguage, currency, setCurrency, resolvedTheme, setTheme } = usePreferences();
 
@@ -184,6 +190,53 @@ const Navbar = () => {
     staleTime: 10_000, // 10 seconds - keep in sync
     refetchInterval: 30_000, // Refetch every 30 seconds
   });
+
+  const { data: bookingDecisions = [] } = useQuery({
+    queryKey: ["navbar_booking_decisions", user?.id],
+    enabled: Boolean(user?.id),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("bookings")
+        .select("id, confirmation_status, confirmed_at, rejected_at")
+        .eq("guest_id", user!.id)
+        .in("confirmation_status", ["approved", "rejected"])
+        .order("updated_at", { ascending: false })
+        .limit(100);
+
+      if (error) return [];
+      return data || [];
+    },
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  });
+
+  useEffect(() => {
+    const syncSeenAt = () => {
+      setDecisionSeenAt(localStorage.getItem(BOOKING_DECISION_SEEN_KEY) || "");
+    };
+
+    syncSeenAt();
+    window.addEventListener("storage", syncSeenAt);
+    window.addEventListener("focus", syncSeenAt);
+    return () => {
+      window.removeEventListener("storage", syncSeenAt);
+      window.removeEventListener("focus", syncSeenAt);
+    };
+  }, [location.pathname]);
+
+  const unreadBookingDecisionCount = useMemo(() => {
+    if (!bookingDecisions.length) return 0;
+    const seenDate = decisionSeenAt ? new Date(decisionSeenAt) : new Date(0);
+
+    return bookingDecisions.filter((booking: any) => {
+      const ts = booking.confirmation_status === "approved"
+        ? booking.confirmed_at
+        : booking.rejected_at;
+      if (!ts) return false;
+      const dt = new Date(ts);
+      return Number.isFinite(dt.getTime()) && dt > seenDate;
+    }).length;
+  }, [bookingDecisions, decisionSeenAt]);
 
   return (
     <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
@@ -416,9 +469,14 @@ const Navbar = () => {
                     <User className="w-4 h-4 mr-2" />
                     My Profile
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/my-bookings")}>
+                  <DropdownMenuItem onClick={() => navigate("/my-bookings")} className="relative">
                     <User className="w-4 h-4 mr-2" />
                     {t("actions.myBookings")}
+                    {unreadBookingDecisionCount > 0 && (
+                      <span className="ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-semibold">
+                        {unreadBookingDecisionCount > 99 ? "99+" : unreadBookingDecisionCount}
+                      </span>
+                    )}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/favorites")}>
                     <Heart className="w-4 h-4 mr-2" />
@@ -631,13 +689,18 @@ const Navbar = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="justify-start gap-2"
+                        className="justify-start gap-2 relative"
                         onClick={() => {
                           setMobileMenuOpen(false);
                           navigate("/my-bookings");
                         }}
                       >
                         <CalendarDays className="w-4 h-4" /> Bookings
+                        {unreadBookingDecisionCount > 0 && (
+                          <span className="ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-semibold">
+                            {unreadBookingDecisionCount > 99 ? "99+" : unreadBookingDecisionCount}
+                          </span>
+                        )}
                       </Button>
                       {!isHost ? (
                         <Button
