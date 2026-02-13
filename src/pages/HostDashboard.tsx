@@ -5194,14 +5194,14 @@ export default function HostDashboard() {
 
               <div className="border rounded-lg p-3 space-y-4">
                 <div>
-                  <Label className="text-xs font-medium">Google Calendar-style Sync</Label>
-                  <p className="text-xs text-muted-foreground mt-1">Use Google Calendar "Integrate calendar" iCal addresses for live sync, or import exported files once.</p>
+                  <Label className="text-xs font-medium">Integrate calendar</Label>
+                  <p className="text-xs text-muted-foreground mt-1">Use Google Calendar iCal addresses for ongoing sync, or import an exported calendar file once.</p>
                 </div>
 
                 <div className="rounded-md border p-3 space-y-3">
                   <div>
-                    <Label className="text-xs font-medium">Import from Google (block dates here)</Label>
-                    <p className="text-xs text-muted-foreground mt-1">Paste "Public address in iCal format" or "Secret address in iCal format" from Google Calendar.</p>
+                    <Label className="text-xs font-medium">Import calendar</Label>
+                    <p className="text-xs text-muted-foreground mt-1">Paste the "Public address in iCal format" or "Secret address in iCal format" from Google Calendar.</p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -5220,11 +5220,11 @@ export default function HostDashboard() {
 
                   <Button size="sm" variant="outline" onClick={createSelectedPropertyIntegration} disabled={calendarIntegrationsSaving || !selectedCalendarPropertyId}>
                     {calendarIntegrationsSaving ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <CalendarIcon className="w-3 h-3 mr-2" />}
-                    Connect iCal URL
+                    Add iCal address
                   </Button>
 
                   <div className="border-t pt-3 space-y-2">
-                    <Label className="text-xs font-medium">Or import exported calendar file (.ics/.zip)</Label>
+                    <Label className="text-xs font-medium">Import from file (.ics or .zip)</Label>
                     <Input
                       type="file"
                       accept=".ics,.zip,text/calendar,application/zip"
@@ -5237,21 +5237,21 @@ export default function HostDashboard() {
                       disabled={calendarIcsImporting || !calendarIcsFile || !selectedCalendarPropertyId}
                     >
                       {calendarIcsImporting ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <CalendarIcon className="w-3 h-3 mr-2" />}
-                      Import calendar file
+                      Import
                     </Button>
                   </div>
                 </div>
 
                 <div className="rounded-md border p-3 space-y-3">
                   <div>
-                    <Label className="text-xs font-medium">Export to Google (show Merry360 availability there)</Label>
-                    <p className="text-xs text-muted-foreground mt-1">Copy this feed and add it in Google Calendar via "Add calendar" → "From URL".</p>
+                    <Label className="text-xs font-medium">Export calendar</Label>
+                    <p className="text-xs text-muted-foreground mt-1">In Google Calendar, go to "Add calendar" → "From URL" and paste this link.</p>
                   </div>
 
                   <Input
                     value={calendarIntegrations[0]?.export_url || ""}
                     readOnly
-                    placeholder="Export URL available after first iCal connection"
+                    placeholder="Calendar URL appears after first iCal connection"
                   />
 
                   <Button
@@ -5260,7 +5260,7 @@ export default function HostDashboard() {
                     onClick={() => copySelectedPropertyExportUrl(calendarIntegrations[0].export_url)}
                     disabled={calendarIntegrationsLoading || calendarIntegrations.length === 0}
                   >
-                    Copy export feed
+                    Copy URL
                   </Button>
                 </div>
 
