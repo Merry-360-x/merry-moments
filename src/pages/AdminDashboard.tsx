@@ -3311,7 +3311,7 @@ For support, contact: support@merry360x.com
               </div>
 
               <div className="overflow-x-auto">
-                <Table className="min-w-[1440px] table-fixed">
+                <Table className="min-w-[1680px] table-fixed">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[170px]">Reference</TableHead>
@@ -3319,9 +3319,9 @@ For support, contact: support@merry360x.com
                       <TableHead className="w-[280px]">Guest & Contact</TableHead>
                       <TableHead className="w-[210px]">Schedule</TableHead>
                       <TableHead className="w-[60px] text-center">Guests</TableHead>
-                      <TableHead className="w-[200px]">Payment & Amount</TableHead>
+                      <TableHead className="w-[240px]">Payment & Amount</TableHead>
                       <TableHead className="w-[100px]">Booking</TableHead>
-                      <TableHead className="w-[180px] text-right">Actions</TableHead>
+                      <TableHead className="w-[340px] text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -3451,7 +3451,7 @@ For support, contact: support@merry360x.com
                           </div>
                         </TableCell>
                         <TableCell className="text-center">{b.guests}</TableCell>
-                        <TableCell>
+                        <TableCell className="align-top">
                           <div className="space-y-1">
                             <div className="font-medium whitespace-nowrap">
                               {formatMoney(
@@ -3472,15 +3472,15 @@ For support, contact: support@merry360x.com
                         <TableCell>
                           <StatusBadge status={b.status} />
                         </TableCell>
-                        <TableCell>
-                          <div className="flex justify-end gap-1">
+                        <TableCell className="align-top">
+                          <div className="flex flex-wrap justify-end gap-1 min-w-[320px]">
                             {b.status === 'confirmed' && b.payment_status !== 'paid' && (
                               <Button
                                 size="sm"
                                 variant="default"
                                 onClick={() => markAsPaid(b.id)}
                                 disabled={markingPaid === b.id}
-                                className="gap-1"
+                                className="gap-1 whitespace-nowrap"
                               >
                                 <CheckCircle className="w-3 h-3" />
                                 {markingPaid === b.id ? 'Marking...' : 'Mark Paid'}
@@ -3489,6 +3489,7 @@ For support, contact: support@merry360x.com
                             <Button 
                               size="sm" 
                               variant="outline" 
+                              className="whitespace-nowrap"
                               onClick={async () => {
                                 setSelectedBooking(b);
                                 // Calculate refund if cancelled and paid
@@ -3563,6 +3564,7 @@ For support, contact: support@merry360x.com
                             <Button 
                               size="sm" 
                               variant="outline" 
+                              className="whitespace-nowrap"
                               onClick={() => exportBooking(b)}
                             >
                               <Download className="w-3 h-3 mr-1" />
@@ -3572,6 +3574,7 @@ For support, contact: support@merry360x.com
                               <Button 
                                 size="sm" 
                                 variant="outline" 
+                                className="whitespace-nowrap"
                                 onClick={() => exportReceipt(b)}
                               >
                                 <FileText className="w-3 h-3 mr-1" />
