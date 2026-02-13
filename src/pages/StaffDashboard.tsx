@@ -638,7 +638,7 @@ For support, contact: support@merry360x.com
               await refetchMetrics();
             }}
           >
-            Refresh data
+            Refresh
           </Button>
         </div>
 
@@ -810,7 +810,7 @@ For support, contact: support@merry360x.com
                               }}
                             >
                               <Eye className="w-3 h-3 mr-1" />
-                              View
+                              Details
                             </Button>
                           </TableCell>
                         </TableRow>
