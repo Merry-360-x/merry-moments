@@ -5213,14 +5213,14 @@ export default function HostDashboard() {
                     <Input
                       value={calendarIntegrationUrl}
                       onChange={(e) => setCalendarIntegrationUrl(e.target.value)}
-                      placeholder="Public/Secret iCal address or Google calendar link"
+                      placeholder={'"Public address in iCal format" or "Secret address in iCal format"'}
                       className="md:col-span-2"
                     />
                   </div>
 
                   <Button size="sm" variant="outline" onClick={createSelectedPropertyIntegration} disabled={calendarIntegrationsSaving || !selectedCalendarPropertyId}>
                     {calendarIntegrationsSaving ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <CalendarIcon className="w-3 h-3 mr-2" />}
-                    Add iCal address
+                    Add URL
                   </Button>
 
                   <div className="border-t pt-3 space-y-2">
@@ -5245,7 +5245,7 @@ export default function HostDashboard() {
                 <div className="rounded-md border p-3 space-y-3">
                   <div>
                     <Label className="text-xs font-medium">Export calendar</Label>
-                    <p className="text-xs text-muted-foreground mt-1">In Google Calendar, go to "Add calendar" → "From URL" and paste this link.</p>
+                    <p className="text-xs text-muted-foreground mt-1">In Google Calendar, go to "Add calendar" → "From URL" and paste this URL.</p>
                   </div>
 
                   <Input
