@@ -22,6 +22,8 @@ import { formatMoney } from "@/lib/money";
 import { convertAmount } from "@/lib/fx";
 import { useFxRates } from "@/hooks/useFxRates";
 import { usePreferences } from "@/hooks/usePreferences";
+import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const propertyTypes = ["Hotel", "Motel", "Resort", "Lodge", "Apartment", "Room in Apartment", "Villa", "Guesthouse"];
 const amenities = AMENITIES;
@@ -132,10 +134,11 @@ const fetchProperties = async (args: {
         return { row: r, d: haversineKm(origin, { lat, lng }) };
       })
       .filter(Boolean) as Array<{ row: (typeof rows)[number]; d: number }>;
+    withDistance.sort((a, b) => a.d - b.d);
 
-    const within = withDistance.filter((x) => x.d <= 50);
-    within.sort((a, b) => a.d - b.d);
-    return within.map((x) => x.row);
+    const withDistanceIds = new Set(withDistance.map((x) => x.row.id));
+    const withoutCoords = rows.filter((r) => !withDistanceIds.has(r.id));
+    return [...withDistance.map((x) => x.row), ...withoutCoords];
   } catch (err) {
     console.warn("[Accommodations] fetchProperties exception:", err);
     return [];
@@ -171,8 +174,16 @@ const Accommodations = () => {
       : null;
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { toast } = useToast();
   const { user } = useAuth();
   const { toggleFavorite } = useFavorites();
+  const [locationPromptDismissed, setLocationPromptDismissed] = useState(() => {
+    try {
+      return localStorage.getItem("accommodations_location_prompt_dismissed") === "1";
+    } catch {
+      return false;
+    }
+  });
   const { currency: preferredCurrency } = usePreferences();
   const { usdRates } = useFxRates();
   const maxPrice = useMemo(
@@ -211,6 +222,45 @@ const Accommodations = () => {
     const params = new URLSearchParams({ q: trimmed });
     navigate(`/accommodations?${params.toString()}`);
   };
+
+  const requestNearbyRecommendations = async () => {
+    if (!("geolocation" in navigator)) {
+      toast({ variant: "destructive", title: "Location not available", description: "Your browser does not support geolocation." });
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const params = new URLSearchParams(searchParams);
+        params.set("nearby", "1");
+        params.set("lat", String(pos.coords.latitude));
+        params.set("lng", String(pos.coords.longitude));
+
+        try {
+          const reverse = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`,
+            { headers: { Accept: "application/json" } }
+          );
+          const info = await reverse.json().catch(() => null);
+          const address = info?.address || {};
+          const region = [address.city, address.town, address.county, address.state, address.country]
+            .filter(Boolean)
+            .join(", ");
+          if (region) params.set("region", region);
+        } catch {
+          // Keep nearby coordinates even if reverse geocoding fails
+        }
+
+        navigate(`/accommodations?${params.toString()}`);
+      },
+      () => {
+        toast({ variant: "destructive", title: "Location permission denied", description: "Allow location access to get nearby recommendations." });
+      },
+      { enableHighAccuracy: false, timeout: 8000 }
+    );
+  };
+
+  const showLocationPrompt = !nearby && !searchParams.get("q") && !locationPromptDismissed;
 
   const {
     data: properties = [],
@@ -451,6 +501,26 @@ const Accommodations = () => {
               <Search className="w-5 h-5" />
             </Button>
           </div>
+          {showLocationPrompt && (
+            <Alert className="max-w-3xl mx-auto mt-4">
+              <AlertDescription className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <span>Share your location to show nearby stays first.</span>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={requestNearbyRecommendations}>Use my location</Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setLocationPromptDismissed(true);
+                      localStorage.setItem("accommodations_location_prompt_dismissed", "1");
+                    }}
+                  >
+                    Not now
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
       </div>
 

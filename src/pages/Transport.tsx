@@ -3,7 +3,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -16,6 +16,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { useFxRates } from "@/hooks/useFxRates";
 import { convertAmount } from "@/lib/fx";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 // Transport service categories
 const transportCategories = [
@@ -71,9 +72,23 @@ const Transport = () => {
   const [activeCategory, setActiveCategory] = useState("all");
   const [query, setQuery] = useState("");
   const [vehicle, setVehicle] = useState(ALL_VEHICLES_VALUE);
+  const [locationPromptDismissed, setLocationPromptDismissed] = useState(() => {
+    try {
+      return localStorage.getItem("transport_location_prompt_dismissed") === "1";
+    } catch {
+      return false;
+    }
+  });
   const { addToCart: addCartItem } = useTripCart();
   const { currency: preferredCurrency } = usePreferences();
   const { usdRates } = useFxRates();
+  const nearbyLat = searchParams.get("lat");
+  const nearbyLng = searchParams.get("lng");
+  const nearby =
+    searchParams.get("nearby") === "1" && nearbyLat && nearbyLng
+      ? { lat: Number(nearbyLat), lng: Number(nearbyLng) }
+      : null;
+  const nearbyRegion = (searchParams.get("region") ?? "").trim().toLowerCase();
 
   const displayMoney = (amount: number, fromCurrency: string | null) => {
     const code = String(fromCurrency ?? "RWF");
@@ -92,6 +107,45 @@ const Transport = () => {
     if (vehicle && vehicle !== ALL_VEHICLES_VALUE) params.set("vehicle", vehicle);
     const qs = params.toString();
     navigate(qs ? `/transport?${qs}` : "/transport");
+  };
+
+  const requestNearbyRecommendations = async () => {
+    if (!("geolocation" in navigator)) {
+      toast({ variant: "destructive", title: "Location not available", description: "Your browser does not support geolocation." });
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const params = new URLSearchParams();
+        params.set("nearby", "1");
+        params.set("lat", String(pos.coords.latitude));
+        params.set("lng", String(pos.coords.longitude));
+        if (query.trim()) params.set("q", query.trim());
+        if (vehicle && vehicle !== ALL_VEHICLES_VALUE) params.set("vehicle", vehicle);
+
+        try {
+          const reverse = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`,
+            { headers: { Accept: "application/json" } }
+          );
+          const info = await reverse.json().catch(() => null);
+          const address = info?.address || {};
+          const region = [address.city, address.town, address.county, address.state, address.country]
+            .filter(Boolean)
+            .join(", ");
+          if (region) params.set("region", region);
+        } catch {
+          // Keep nearby coords even if reverse geocoding fails
+        }
+
+        navigate(`/transport?${params.toString()}`);
+      },
+      () => {
+        toast({ variant: "destructive", title: "Location permission denied", description: "Allow location access to get nearby recommendations." });
+      },
+      { enableHighAccuracy: false, timeout: 8000 }
+    );
   };
 
   const { data: services = [] } = useQuery({
@@ -211,9 +265,35 @@ const Transport = () => {
     return acc;
   }, {} as Record<string, AirportPricing[]>);
 
-  // Group routes by direction
-  const fromAirportRoutes = airportRoutes.filter(r => r.from_location?.toLowerCase().includes("airport"));
-  const toAirportRoutes = airportRoutes.filter(r => r.to_location?.toLowerCase().includes("airport"));
+  // Group and rank routes by direction
+  const regionTokens = useMemo(
+    () => nearbyRegion
+      .split(/[\s,]+/)
+      .map((token) => token.trim().toLowerCase())
+      .filter((token) => token.length > 2),
+    [nearbyRegion]
+  );
+
+  const scoreRoute = useCallback((route: { from_location: string; to_location: string }) => {
+    if (regionTokens.length === 0) return 0;
+    const haystack = `${route.from_location || ""} ${route.to_location || ""}`.toLowerCase();
+    return regionTokens.reduce((sum, token) => (haystack.includes(token) ? sum + 1 : sum), 0);
+  }, [regionTokens]);
+
+  const rankedRoutes = useMemo(
+    () => [...airportRoutes].sort((a, b) => scoreRoute(b) - scoreRoute(a)),
+    [airportRoutes, scoreRoute]
+  );
+  const fromAirportRoutes = rankedRoutes.filter(r => r.from_location?.toLowerCase().includes("airport"));
+  const toAirportRoutes = rankedRoutes.filter(r => r.to_location?.toLowerCase().includes("airport"));
+  const intercityRoutes = useMemo(
+    () => [...routes]
+      .filter(r => !(r.from_location?.toLowerCase().includes("airport") || r.to_location?.toLowerCase().includes("airport")))
+      .sort((a, b) => scoreRoute(b) - scoreRoute(a)),
+    [routes, scoreRoute]
+  );
+
+  const showLocationPrompt = !nearby && !query.trim() && !locationPromptDismissed;
 
   const addToCart = async (payload: { item_type: string; reference_id: string }) => {
     const ok = await addCartItem(payload.item_type as any, payload.reference_id, 1);
@@ -301,6 +381,26 @@ const Transport = () => {
             </Button>
           </div>
         </div>
+        {showLocationPrompt && (
+          <Alert className="max-w-3xl mx-auto mt-4">
+            <AlertDescription className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <span>Share your location to see nearby transport services first.</span>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={requestNearbyRecommendations}>Use my location</Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setLocationPromptDismissed(true);
+                    localStorage.setItem("transport_location_prompt_dismissed", "1");
+                  }}
+                >
+                  Not now
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
       </div>
 
       {/* Content */}
@@ -540,18 +640,14 @@ const Transport = () => {
                 <Map className="w-6 h-6 text-primary" />
                 Intercity Rides
               </h2>
-              {routes.filter(r =>
-                !(r.from_location?.toLowerCase().includes("airport") || r.to_location?.toLowerCase().includes("airport"))
-              ).length === 0 ? (
+              {intercityRoutes.length === 0 ? (
                 <div className="bg-card rounded-xl p-8 shadow-card text-center">
                   <Map className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
                   <p className="text-muted-foreground">No intercity routes available yet</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {routes.filter(r =>
-                    !(r.from_location?.toLowerCase().includes("airport") || r.to_location?.toLowerCase().includes("airport"))
-                  ).map((r) => (
+                  {intercityRoutes.map((r) => (
                     <div key={r.id} className="bg-card rounded-xl shadow-card p-6">
                       <div className="flex items-center gap-2 text-foreground font-semibold mb-2">
                         <ArrowLeftRight className="w-4 h-4 text-primary" />

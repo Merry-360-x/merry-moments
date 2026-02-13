@@ -3,7 +3,8 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useEffect, useState } from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -170,7 +171,21 @@ const Tours = () => {
   const [activeCategory, setActiveCategory] = useState(ALL_CATEGORY_VALUE);
   const [query, setQuery] = useState("");
   const [duration, setDuration] = useState(ANY_DURATION_VALUE);
+  const [locationPromptDismissed, setLocationPromptDismissed] = useState(() => {
+    try {
+      return localStorage.getItem("tours_location_prompt_dismissed") === "1";
+    } catch {
+      return false;
+    }
+  });
   const navigate = useNavigate();
+  const nearbyLat = searchParams.get("lat");
+  const nearbyLng = searchParams.get("lng");
+  const nearby =
+    searchParams.get("nearby") === "1" && nearbyLat && nearbyLng
+      ? { lat: Number(nearbyLat), lng: Number(nearbyLng) }
+      : null;
+  const nearbyRegion = (searchParams.get("region") ?? "").trim().toLowerCase();
 
   // Keep local state in sync with URL
   useEffect(() => {
@@ -187,6 +202,67 @@ const Tours = () => {
     const qs = params.toString();
     navigate(qs ? `/tours?${qs}` : "/tours");
   };
+
+  const requestNearbyRecommendations = async () => {
+    if (!("geolocation" in navigator)) {
+      toast({ variant: "destructive", title: "Location not available", description: "Your browser does not support geolocation." });
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const params = new URLSearchParams();
+        params.set("nearby", "1");
+        params.set("lat", String(pos.coords.latitude));
+        params.set("lng", String(pos.coords.longitude));
+        if (duration && duration !== ANY_DURATION_VALUE) params.set("duration", duration);
+        if (activeCategory && activeCategory !== ALL_CATEGORY_VALUE) params.set("category", activeCategory);
+
+        try {
+          const reverse = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`,
+            { headers: { Accept: "application/json" } }
+          );
+          const info = await reverse.json().catch(() => null);
+          const address = info?.address || {};
+          const region = [address.city, address.town, address.county, address.state, address.country]
+            .filter(Boolean)
+            .join(", ");
+          if (region) params.set("region", region);
+        } catch {
+          // Keep nearby coords even if reverse geocoding fails
+        }
+
+        navigate(`/tours?${params.toString()}`);
+      },
+      () => {
+        toast({ variant: "destructive", title: "Location permission denied", description: "Allow location access to get nearby recommendations." });
+      },
+      { enableHighAccuracy: false, timeout: 8000 }
+    );
+  };
+
+  const rankedTours = useMemo(() => {
+    if (!nearbyRegion) return tours;
+    const tokens = nearbyRegion
+      .split(/[\s,]+/)
+      .map((token) => token.trim().toLowerCase())
+      .filter((token) => token.length > 2);
+    if (tokens.length === 0) return tours;
+
+    const score = (tour: TourRow) => {
+      const haystack = String(tour.location ?? "").toLowerCase();
+      return tokens.reduce((sum, token) => (haystack.includes(token) ? sum + 1 : sum), 0);
+    };
+
+    return [...tours].sort((a, b) => {
+      const diff = score(b) - score(a);
+      if (diff !== 0) return diff;
+      return Number(b.rating ?? 0) - Number(a.rating ?? 0);
+    });
+  }, [tours, nearbyRegion]);
+
+  const showLocationPrompt = !nearby && !query.trim() && !locationPromptDismissed;
 
   const { data: tours = [], isError, isLoading: toursLoading, refetch: refetchTours } = useQuery({
     queryKey: [
@@ -253,6 +329,26 @@ const Tours = () => {
               {t("common.search")}
             </Button>
           </div>
+            {showLocationPrompt && (
+              <Alert className="max-w-3xl mx-auto mt-4">
+                <AlertDescription className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <span>Share your location to see tours in your region first.</span>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={requestNearbyRecommendations}>Use my location</Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setLocationPromptDismissed(true);
+                        localStorage.setItem("tours_location_prompt_dismissed", "1");
+                      }}
+                    >
+                      Not now
+                    </Button>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
         </div>
       </div>
 
@@ -295,7 +391,7 @@ const Tours = () => {
           </div>
         ) : !toursLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {tours.map((tour) => (
+            {rankedTours.map((tour) => (
               <div
                 key={tour.id}
                 className="group rounded-xl overflow-hidden bg-card shadow-card hover:shadow-lg transition-all duration-300 animate-fade-in cursor-pointer"
