@@ -124,13 +124,18 @@ const MyBookings = () => {
       
       // Fetch checkout_requests separately (no FK constraint)
       const orderIds = [...new Set((data ?? []).filter(b => b.order_id).map(b => b.order_id))];
+      const transportIds = [...new Set((data ?? []).filter(b => b.transport_id).map(b => b.transport_id))];
       const checkouts = orderIds.length > 0
         ? (await supabase.from("checkout_requests").select("id, total_amount, currency, payment_method").in("id", orderIds)).data || []
+        : [];
+      const vehicles = transportIds.length > 0
+        ? (await supabase.from("transport_vehicles").select("id, title, vehicle_type, seats").in("id", transportIds)).data || []
         : [];
       // Attach checkout data to bookings
       const dataWithCheckout = (data ?? []).map(b => ({
         ...b,
-        checkout_requests: b.order_id ? checkouts.find(c => c.id === b.order_id) || null : null
+        checkout_requests: b.order_id ? checkouts.find(c => c.id === b.order_id) || null : null,
+        transport_vehicles: b.transport_id ? vehicles.find(v => v.id === b.transport_id) || null : null,
       }));
       
       // Fetch host profiles for confirmed/completed bookings
@@ -527,12 +532,16 @@ const MyBookings = () => {
               // All bookings in a group share the same status, dates, etc.
               const firstBooking = orderBookings[0];
               const isMultiItem = orderBookings.length > 1;
+              const displayReference = isMultiItem ? (firstBooking.order_id || orderId) : firstBooking.id;
               const grandTotal = orderBookings.reduce((sum, b) => sum + Number(b.total_price), 0);
               const confirmationUi = getConfirmationUi(firstBooking);
               const reviewableBookingsInOrder = orderBookings.filter(
                 (booking) => canReview(booking) && !reviewedBookingIds.has(String(booking.id))
               );
               const nextReviewBooking = reviewableBookingsInOrder[0] ?? null;
+              const accommodationCount = orderBookings.filter((booking) => (booking.booking_type || 'property') === 'property').length;
+              const tourCount = orderBookings.filter((booking) => booking.booking_type === 'tour').length;
+              const transportCount = orderBookings.filter((booking) => booking.booking_type === 'transport').length;
               
               // Calculate total amount paid (from checkout_requests)
               const totalPaid = orderBookings.reduce((sum, b) => {
@@ -562,8 +571,15 @@ const MyBookings = () => {
                           )}
                         </h3>
                         <p className="text-sm text-muted-foreground mt-0.5">
-                          Order #{orderId.slice(0, 8)}... • {new Date(firstBooking.created_at).toLocaleDateString()}
+                          Ref: {displayReference} • {new Date(firstBooking.created_at).toLocaleDateString()}
                         </p>
+                        {isMultiItem && (
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {accommodationCount > 0 && <Badge variant="outline" className="text-xs">🏠 {accommodationCount} Stay</Badge>}
+                            {tourCount > 0 && <Badge variant="outline" className="text-xs">🗺️ {tourCount} Tour</Badge>}
+                            {transportCount > 0 && <Badge variant="outline" className="text-xs">🚗 {transportCount} Transport</Badge>}
+                          </div>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge className={confirmationUi.badgeClass}>
@@ -593,6 +609,23 @@ const MyBookings = () => {
                       const bookingType = booking.booking_type || 'property';
                       const isTour = bookingType === 'tour';
                       const isTransport = bookingType === 'transport';
+                      const nights = Math.max(
+                        1,
+                        Math.round((new Date(booking.check_out).getTime() - new Date(booking.check_in).getTime()) / (1000 * 60 * 60 * 24))
+                      );
+                      const serviceLabel = isTour ? 'Tour' : isTransport ? 'Transport' : 'Stay';
+                      const unitPricingText = (() => {
+                        if (!isTour && !isTransport && booking.properties?.price_per_night) {
+                          return `${formatMoney(Number(booking.properties.price_per_night), booking.properties.currency || booking.currency || 'USD')} × ${nights} night${nights > 1 ? 's' : ''}`;
+                        }
+                        if (isTour && booking.tour_packages?.price_per_person) {
+                          return `${formatMoney(Number(booking.tour_packages.price_per_person), booking.tour_packages.currency || booking.currency || 'USD')} × ${booking.guests} guest${booking.guests > 1 ? 's' : ''}`;
+                        }
+                        if (isTransport && booking.transport_vehicles?.seats) {
+                          return `${booking.transport_vehicles.vehicle_type} • up to ${booking.transport_vehicles.seats} seats`;
+                        }
+                        return null;
+                      })();
                       
                       const getTitle = () => {
                         if (isTour && booking.tour_packages?.title) return booking.tour_packages.title;
@@ -617,44 +650,62 @@ const MyBookings = () => {
                       };
                       
                       return (
-                        <div key={booking.id} className={`flex items-start gap-4 ${idx > 0 ? 'pt-4 border-t border-dashed' : ''}`}>
-                          <div className="text-3xl flex-shrink-0">{getIcon()}</div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-medium text-foreground">{getTitle()}</h4>
-                            <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
-                              <MapPin className="w-3.5 h-3.5" />
-                              {getLocation()}
-                            </p>
-                            {!isTour && !isTransport && booking.properties?.address && (booking.status === "confirmed" || booking.status === "completed") && (
-                              <p className="text-xs text-muted-foreground mt-1">📍 {booking.properties.address}</p>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <p className="font-semibold text-foreground">
-                              {(() => {
-                                const amt = Number(booking.total_price);
-                                const fromCur = booking.booking_type === "property" && booking.properties?.currency
-                                  ? booking.properties.currency
-                                  : booking.booking_type === "tour" && booking.tour_packages?.currency
-                                    ? booking.tour_packages.currency
-                                    : String(booking.currency || "USD");
-                                const converted = convertAmount(amt, fromCur, currency, usdRates);
-                                return formatMoney(converted ?? amt, converted !== null ? currency : fromCur);
-                              })()}
-                            </p>
-                            {booking.checkout_requests && (
-                              <p className="text-xs text-green-600 font-medium mt-0.5">
-                                Paid: {(() => {
-                                  const amt = booking.checkout_requests.total_amount;
-                                  const fromCur = booking.checkout_requests.currency || "RWF";
+                        <div key={booking.id} className={`rounded-xl border border-border/70 p-4 ${idx > 0 ? 'mt-3' : ''}`}>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3 min-w-0">
+                              <div className="text-2xl flex-shrink-0 mt-0.5">{getIcon()}</div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <h4 className="font-semibold text-foreground truncate">{getTitle()}</h4>
+                                  <Badge variant="outline" className="text-[11px]">{serviceLabel}</Badge>
+                                </div>
+                                <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                                  <MapPin className="w-3.5 h-3.5" />
+                                  {getLocation() || 'Location unavailable'}
+                                </p>
+                                <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                                  <p>Booking ID: {booking.id}</p>
+                                  {booking.order_id && <p>Order ID: {booking.order_id}</p>}
+                                  {!isTour && !isTransport && booking.properties?.address && (booking.status === "confirmed" || booking.status === "completed") && (
+                                    <p>Address: {booking.properties.address}</p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="font-bold text-foreground text-base">
+                                {(() => {
+                                  const amt = Number(booking.total_price);
+                                  const fromCur = booking.booking_type === "property" && booking.properties?.currency
+                                    ? booking.properties.currency
+                                    : booking.booking_type === "tour" && booking.tour_packages?.currency
+                                      ? booking.tour_packages.currency
+                                      : String(booking.currency || "USD");
                                   const converted = convertAmount(amt, fromCur, currency, usdRates);
                                   return formatMoney(converted ?? amt, converted !== null ? currency : fromCur);
                                 })()}
                               </p>
-                            )}
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {isTour ? 'Tour' : isTransport ? 'Transport' : 'Stay'}
-                            </p>
+                              <p className="text-xs text-muted-foreground mt-0.5">Individual total</p>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 text-xs">
+                            <div className="rounded-md bg-muted/40 p-2">
+                              <p className="text-muted-foreground">Dates</p>
+                              <p className="font-medium">{new Date(booking.check_in).toLocaleDateString()} → {new Date(booking.check_out).toLocaleDateString()}</p>
+                            </div>
+                            <div className="rounded-md bg-muted/40 p-2">
+                              <p className="text-muted-foreground">Guests</p>
+                              <p className="font-medium">{booking.guests}</p>
+                            </div>
+                            <div className="rounded-md bg-muted/40 p-2">
+                              <p className="text-muted-foreground">Status</p>
+                              <p className="font-medium capitalize">{booking.status}</p>
+                            </div>
+                            <div className="rounded-md bg-muted/40 p-2">
+                              <p className="text-muted-foreground">Pricing</p>
+                              <p className="font-medium">{unitPricingText || 'Fixed package price'}</p>
+                            </div>
                           </div>
                         </div>
                       );
