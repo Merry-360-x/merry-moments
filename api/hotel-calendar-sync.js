@@ -327,10 +327,18 @@ async function runIntegrationSync(admin, integration) {
     });
 
     if (!response.ok) {
-      throw new Error(`Feed request failed (${response.status})`);
+      const err = new Error(`Could not fetch calendar URL (${response.status})`);
+      err.statusCode = response.status >= 400 && response.status < 500 ? 400 : 502;
+      throw err;
     }
 
     icsText = await response.text();
+
+    if (!icsText || !/BEGIN:VCALENDAR/i.test(icsText)) {
+      const err = new Error("Calendar URL did not return a valid iCal file");
+      err.statusCode = 400;
+      throw err;
+    }
   } finally {
     clearTimeout(timeout);
   }
@@ -735,8 +743,28 @@ export default async function handler(req, res) {
       const ownsProperty = await userOwnsProperty(admin, integration.property_id, user.id);
       if (!ownsProperty) return json(res, 403, { error: "Forbidden" });
 
-      const result = await runIntegrationSync(admin, integration);
-      return json(res, 200, { ok: true, ...result });
+      try {
+        const result = await runIntegrationSync(admin, integration);
+        return json(res, 200, { ok: true, ...result });
+      } catch (syncError) {
+        const syncMessage = String(syncError?.message || syncError).slice(0, 500);
+
+        await admin
+          .from("property_calendar_integrations")
+          .update({
+            last_synced_at: new Date().toISOString(),
+            last_sync_status: "error",
+            last_sync_error: syncMessage,
+          })
+          .eq("id", integration.id);
+
+        const statusCode = Number(syncError?.statusCode);
+        if (Number.isInteger(statusCode) && statusCode >= 400 && statusCode < 600) {
+          return json(res, statusCode, { error: syncMessage });
+        }
+
+        return json(res, 502, { error: syncMessage || "Calendar sync failed" });
+      }
     }
 
     return json(res, 400, { error: `Unknown action: ${action}` });
