@@ -1880,7 +1880,7 @@ export default function HostDashboard() {
       return;
     }
     if (!calendarIntegrationUrl.trim()) {
-      toast({ variant: "destructive", title: "Feed URL is required" });
+      toast({ variant: "destructive", title: "URL is required" });
       return;
     }
 
@@ -1962,9 +1962,9 @@ export default function HostDashboard() {
   const copySelectedPropertyExportUrl = useCallback(async (url: string) => {
     try {
       await navigator.clipboard.writeText(url);
-      toast({ title: "Feed URL copied" });
+      toast({ title: "URL copied" });
     } catch {
-      toast({ variant: "destructive", title: "Could not copy feed URL" });
+      toast({ variant: "destructive", title: "Could not copy URL" });
     }
   }, [toast]);
 
@@ -2105,7 +2105,7 @@ export default function HostDashboard() {
 
             const body = await response.json().catch(() => ({}));
             if (!response.ok) {
-              throw new Error(body?.error || "Could not connect feed for selected accommodation");
+              throw new Error(body?.error || "Could not connect URL for selected accommodation");
             }
 
             return body?.integration?.id as string | undefined;
@@ -2121,7 +2121,7 @@ export default function HostDashboard() {
         toast({
           variant: "destructive",
           title: "No integrations found",
-          description: "Paste an iCal/Google link and click Sync selected now, or import an .ics/.zip file below.",
+          description: "Paste an iCal URL and click Sync selected, or import an .ics/.zip file below.",
         });
         return;
       }
@@ -2146,7 +2146,7 @@ export default function HostDashboard() {
         ? ` ${selectedCalendarTourIds.length} selected tour(s) kept selected for your workflow.`
         : "";
       const autoConnectedNote = autoConnectedCount > 0
-        ? ` Auto-connected ${autoConnectedCount} accommodation feed(s).`
+        ? ` Auto-connected ${autoConnectedCount} accommodation URL(s).`
         : "";
 
       toast({
@@ -5108,7 +5108,7 @@ export default function HostDashboard() {
             <Card className="p-4 mb-4 space-y-4">
               <div>
                 <h3 className="text-lg font-semibold">Calendar & Availability</h3>
-                <p className="text-sm text-muted-foreground">Manage blocked dates and sync external hotel calendars.</p>
+                <p className="text-sm text-muted-foreground">Manage blocked dates and sync external calendars.</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -5175,7 +5175,7 @@ export default function HostDashboard() {
                     disabled={bulkCalendarSyncing || selectedCalendarPropertyIds.length === 0}
                   >
                     {bulkCalendarSyncing ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <CalendarIcon className="w-3 h-3 mr-2" />}
-                    Sync selected now
+                    Sync selected
                   </Button>
                 </div>
 
@@ -5267,7 +5267,7 @@ export default function HostDashboard() {
                 {calendarIntegrationsLoading ? (
                   <div className="text-xs text-muted-foreground">Loading integrations…</div>
                 ) : calendarIntegrations.length === 0 ? (
-                  <div className="text-xs text-muted-foreground">No calendar integration connected for this property yet. Export feed appears here after first connection.</div>
+                  <div className="text-xs text-muted-foreground">No calendar integration connected for this property yet. Export URL appears here after first connection.</div>
                 ) : (
                   <div className="space-y-2">
                     {calendarIntegrations.map((integration) => (
@@ -5291,7 +5291,7 @@ export default function HostDashboard() {
                             Sync now
                           </Button>
                           <Button size="sm" variant="outline" onClick={() => copySelectedPropertyExportUrl(integration.export_url)}>
-                            Copy export feed
+                            Copy URL
                           </Button>
                           <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteSelectedPropertyIntegration(integration.id)}>
                             Remove
