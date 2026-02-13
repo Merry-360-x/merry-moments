@@ -5218,6 +5218,23 @@ export default function HostDashboard() {
                 </Button>
 
                 <div className="border-t pt-3 space-y-2">
+                  <Label className="text-xs font-medium">Export feed (for external calendars)</Label>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => copySelectedPropertyExportUrl(calendarIntegrations[0].export_url)}
+                    disabled={calendarIntegrationsLoading || calendarIntegrations.length === 0}
+                  >
+                    Copy export feed
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    {calendarIntegrations.length > 0
+                      ? "Use this URL in other systems to subscribe to your Merry360 availability."
+                      : "Connect an iCal/Google feed first to enable export URL for this property."}
+                  </p>
+                </div>
+
+                <div className="border-t pt-3 space-y-2">
                   <Label className="text-xs font-medium">Import .ics or .zip file (one-time)</Label>
                   <Input
                     type="file"
@@ -5239,7 +5256,7 @@ export default function HostDashboard() {
                 {calendarIntegrationsLoading ? (
                   <div className="text-xs text-muted-foreground">Loading integrations…</div>
                 ) : calendarIntegrations.length === 0 ? (
-                  <div className="text-xs text-muted-foreground">No calendar integration connected for this property.</div>
+                  <div className="text-xs text-muted-foreground">No calendar integration connected for this property yet. Export feed appears here after first connection.</div>
                 ) : (
                   <div className="space-y-2">
                     {calendarIntegrations.map((integration) => (
