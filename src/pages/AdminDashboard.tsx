@@ -1489,16 +1489,18 @@ export default function AdminDashboard() {
     }
   };
 
-  const updateBookingStatus = async (id: string, status: string) => {
+  const updateBookingStatus = async (id: string, status: string, orderId?: string | null) => {
     try {
       const updateData: Record<string, unknown> = { status };
       if (status === "cancelled") {
         updateData.cancelled_by = user?.id;
         updateData.cancelled_at = new Date().toISOString();
       }
-      const { error } = await supabase.from("bookings").update(updateData as never).eq("id", id);
+      const { error } = orderId
+        ? await supabase.from("bookings").update(updateData as never).eq("order_id", orderId)
+        : await supabase.from("bookings").update(updateData as never).eq("id", id);
       if (error) throw error;
-      toast({ title: "Booking updated" });
+      toast({ title: orderId ? "Order updated" : "Booking updated" });
       await Promise.all([refetchBookings(), refetchMetrics()]);
     } catch (e) {
       logError("admin.updateBookingStatus", e);
@@ -3581,7 +3583,7 @@ For support, contact: support@merry360x.com
                                 Receipt
                               </Button>
                             ) : null}
-                            <Select onValueChange={(v) => updateBookingStatus(b.id, v)}>
+                            <Select onValueChange={(v) => updateBookingStatus(b.id, v, b.order_id)}>
                               <SelectTrigger className="w-28 h-8">
                                 <SelectValue placeholder="Status" />
                               </SelectTrigger>

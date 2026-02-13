@@ -360,9 +360,7 @@ const MyBookings = () => {
   };
 
   const canReview = (b: Booking) => {
-    if (b.status !== "confirmed" && b.status !== "completed") return false;
-    const end = new Date(b.check_out).getTime();
-    return Number.isFinite(end) && end < Date.now();
+    return b.status === "confirmed" || b.status === "completed";
   };
 
   const openReview = (b: Booking) => {
@@ -531,6 +529,10 @@ const MyBookings = () => {
               const isMultiItem = orderBookings.length > 1;
               const grandTotal = orderBookings.reduce((sum, b) => sum + Number(b.total_price), 0);
               const confirmationUi = getConfirmationUi(firstBooking);
+              const reviewableBookingsInOrder = orderBookings.filter(
+                (booking) => canReview(booking) && !reviewedBookingIds.has(String(booking.id))
+              );
+              const nextReviewBooking = reviewableBookingsInOrder[0] ?? null;
               
               // Calculate total amount paid (from checkout_requests)
               const totalPaid = orderBookings.reduce((sum, b) => {
@@ -736,8 +738,8 @@ const MyBookings = () => {
                           </Button>
                         </>
                       )}
-                      {canReview(firstBooking) && !reviewedBookingIds.has(String(firstBooking.id)) && (
-                        <Button size="sm" onClick={() => openReview(firstBooking)} className="flex-1">
+                      {nextReviewBooking && (
+                        <Button size="sm" onClick={() => openReview(nextReviewBooking)} className="flex-1">
                           <Star className="w-4 h-4 mr-2" /> Leave Review
                         </Button>
                       )}

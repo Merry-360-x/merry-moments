@@ -88,7 +88,7 @@ async function handleSubmitReview(req, res) {
       }
     } else if (booking.tour_id) {
       const { data: tour } = await supabase
-        .from("tours")
+        .from("tour_packages")
         .select("title, location, images")
         .eq("id", booking.tour_id)
         .single();
@@ -138,11 +138,6 @@ async function handleSubmitReview(req, res) {
 
     if (booking.status !== "confirmed" && booking.status !== "completed") {
       return json(res, 400, { error: "Booking is not eligible for review" });
-    }
-
-    const checkOutDate = new Date(booking.check_out);
-    if (checkOutDate > new Date()) {
-      return json(res, 400, { error: "You can only review after check-out" });
     }
 
     const { data: existing } = await supabase
@@ -264,7 +259,7 @@ async function handleSendEmails(req, res) {
       .select("id, guest_id, guest_name, guest_email, property_id, tour_id, transport_id, booking_type, check_in, check_out, review_token, review_email_sent")
       .eq("check_out", today)
       .in("status", ["confirmed", "completed"])
-      .eq("review_email_sent", false);
+      .or("review_email_sent.is.null,review_email_sent.eq.false");
 
     if (fetchErr) {
       console.error("❌ Error fetching bookings:", fetchErr);
@@ -319,7 +314,7 @@ async function handleSendEmails(req, res) {
           }
         } else if (booking.tour_id) {
           const { data: tour } = await supabase
-            .from("tours")
+            .from("tour_packages")
             .select("title, location, images")
             .eq("id", booking.tour_id)
             .single();

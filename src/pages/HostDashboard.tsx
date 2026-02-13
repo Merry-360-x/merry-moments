@@ -1519,15 +1519,23 @@ export default function HostDashboard() {
   };
 
   // Booking status update
-  const updateBookingStatus = async (id: string, status: string) => {
-    const { error } = await supabase.from("bookings").update({ status }).eq("id", id);
+  const updateBookingStatus = async (id: string, status: string, orderId?: string | null) => {
+    const { error } = orderId
+      ? await supabase.from("bookings").update({ status }).eq("order_id", orderId)
+      : await supabase.from("bookings").update({ status }).eq("id", id);
     if (error) {
       logError("host.booking.update", error);
       toast({ variant: "destructive", title: "Update failed", description: uiErrorMessage(error) });
       return;
     }
-    setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
-    toast({ title: "Booking updated" });
+    setBookings((prev) =>
+      prev.map((b) =>
+        orderId
+          ? (b.order_id === orderId ? { ...b, status } : b)
+          : (b.id === id ? { ...b, status } : b)
+      )
+    );
+    toast({ title: orderId ? "Order updated" : "Booking updated" });
   };
 
   // Confirm a pending booking request
@@ -5895,16 +5903,16 @@ export default function HostDashboard() {
                       </Button>
                       {b.status === "pending" && (
                         <>
-                          <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => updateBookingStatus(b.id, "confirmed")}>
+                          <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => updateBookingStatus(b.id, "confirmed", b.order_id)}>
                             <CheckCircle className="w-3 h-3 mr-1" /> Confirm
                           </Button>
-                          <Button size="sm" variant="destructive" onClick={() => updateBookingStatus(b.id, "cancelled")}>
+                          <Button size="sm" variant="destructive" onClick={() => updateBookingStatus(b.id, "cancelled", b.order_id)}>
                             <XCircle className="w-3 h-3 mr-1" /> Decline
                           </Button>
                         </>
                       )}
                       {b.status === "confirmed" && (
-                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => updateBookingStatus(b.id, "completed")}>
+                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => updateBookingStatus(b.id, "completed", b.order_id)}>
                           <CheckCircle className="w-3 h-3 mr-1" /> Mark Complete
                         </Button>
                       )}
@@ -6923,7 +6931,7 @@ END OF REPORT
                   <Button 
                     className="flex-1"
                     onClick={async () => {
-                      await updateBookingStatus(bookingFullDetails.id, "confirmed");
+                      await updateBookingStatus(bookingFullDetails.id, "confirmed", bookingFullDetails.order_id);
                       setShowBookingDetails(false);
                     }}
                   >
@@ -6933,7 +6941,7 @@ END OF REPORT
                   <Button 
                     variant="outline"
                     onClick={async () => {
-                      await updateBookingStatus(bookingFullDetails.id, "cancelled");
+                      await updateBookingStatus(bookingFullDetails.id, "cancelled", bookingFullDetails.order_id);
                       setShowBookingDetails(false);
                     }}
                   >
@@ -6947,7 +6955,7 @@ END OF REPORT
                 <Button 
                   className="w-full"
                   onClick={async () => {
-                    await updateBookingStatus(bookingFullDetails.id, "completed");
+                    await updateBookingStatus(bookingFullDetails.id, "completed", bookingFullDetails.order_id);
                     setShowBookingDetails(false);
                   }}
                 >
