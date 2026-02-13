@@ -1802,6 +1802,201 @@ For support, contact: support@merry360x.com
     toast({ title: "Receipt exported successfully" });
   };
 
+  const downloadFile = (content: string, mimeType: string, filename: string) => {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const csvEscape = (value: unknown) => {
+    const str = String(value ?? "");
+    return `"${str.replace(/"/g, '""')}"`;
+  };
+
+  const createCsv = (headers: string[], rows: Array<Array<unknown>>) => {
+    const headerLine = headers.map(csvEscape).join(',');
+    const rowLines = rows.map((row) => row.map(csvEscape).join(','));
+    return [headerLine, ...rowLines].join('\n');
+  };
+
+  const exportOverviewBookingsCsv = () => {
+    if (bookings.length === 0) {
+      toast({ variant: "destructive", title: "No bookings", description: "There are no bookings to export." });
+      return;
+    }
+
+    const headers = [
+      "Booking ID",
+      "Order ID",
+      "Type",
+      "Item",
+      "Guest",
+      "Email",
+      "Phone",
+      "Check In",
+      "Check Out",
+      "Guests",
+      "Amount",
+      "Currency",
+      "Payment Status",
+      "Status",
+      "Created At",
+    ];
+
+    const rows = bookings.map((booking) => {
+      const itemName =
+        booking.properties?.title ||
+        booking.tour_packages?.title ||
+        booking.transport_vehicles?.title ||
+        "Unknown";
+
+      const guestName = booking.is_guest_booking
+        ? booking.guest_name || "Guest"
+        : booking.profiles?.nickname || booking.profiles?.full_name || "User";
+
+      return [
+        booking.id,
+        booking.order_id || "",
+        booking.booking_type || "property",
+        itemName,
+        guestName,
+        booking.guest_email || booking.profiles?.email || "",
+        booking.guest_phone || booking.profiles?.phone || "",
+        booking.check_in,
+        booking.check_out,
+        booking.guests,
+        booking.total_price,
+        booking.currency,
+        booking.payment_status || "",
+        booking.status,
+        new Date(booking.created_at).toISOString(),
+      ];
+    });
+
+    const csv = createCsv(headers, rows);
+    const date = new Date().toISOString().split('T')[0];
+    downloadFile(csv, 'text/csv;charset=utf-8', `admin-bookings-${date}.csv`);
+    toast({ title: "Bookings CSV exported" });
+  };
+
+  const exportOverviewRevenueReport = () => {
+    const revenueRows = metrics?.revenue_by_currency ?? [];
+    const lines = [
+      "REVENUE REPORT",
+      "================",
+      `Generated: ${new Date().toLocaleString()}`,
+      "",
+      "Summary",
+      "-------",
+      `Gross Revenue (RWF): ${metrics?.revenue_gross ?? 0}`,
+      `Bookings Paid: ${metrics?.bookings_paid ?? 0}`,
+      `Refunds Total (RWF): ${metrics?.refunds_total ?? 0}`,
+      "",
+      "Revenue by Currency",
+      "-------------------",
+      ...(revenueRows.length > 0
+        ? revenueRows.map((row) => `${row.currency}: ${row.amount}`)
+        : ["No currency revenue rows available"]),
+    ];
+
+    const date = new Date().toISOString().split('T')[0];
+    downloadFile(lines.join('\n'), 'text/plain;charset=utf-8', `admin-revenue-report-${date}.txt`);
+    toast({ title: "Revenue report exported" });
+  };
+
+  const exportOverviewUserReport = () => {
+    if (adminUsers.length === 0) {
+      toast({ variant: "destructive", title: "No users", description: "There are no users to export." });
+      return;
+    }
+
+    const headers = [
+      "User ID",
+      "Email",
+      "Full Name",
+      "Phone",
+      "Roles",
+      "Suspended",
+      "Verified",
+      "Created At",
+      "Last Sign In",
+    ];
+
+    const rows = adminUsers.map((adminUser) => [
+      adminUser.user_id,
+      adminUser.email || "",
+      adminUser.full_name || "",
+      adminUser.phone || "",
+      (rolesByUserId.get(adminUser.user_id) || []).join('|'),
+      adminUser.is_suspended ? "yes" : "no",
+      adminUser.is_verified ? "yes" : "no",
+      adminUser.created_at,
+      adminUser.last_sign_in_at || "",
+    ]);
+
+    const csv = createCsv(headers, rows);
+    const date = new Date().toISOString().split('T')[0];
+    downloadFile(csv, 'text/csv;charset=utf-8', `admin-users-${date}.csv`);
+    toast({ title: "User report exported" });
+  };
+
+  const exportOverviewHostPerformance = () => {
+    const hostBookings = bookings.filter((booking) => Boolean(booking.host_id));
+    if (hostBookings.length === 0) {
+      toast({ variant: "destructive", title: "No host data", description: "No host-linked bookings found to export." });
+      return;
+    }
+
+    const hostNameById = new Map<string, string>();
+    applications.forEach((application) => {
+      if (application.user_id && application.profiles?.full_name) {
+        hostNameById.set(application.user_id, application.profiles.full_name);
+      }
+    });
+    adminUsers.forEach((adminUser) => {
+      if (adminUser.user_id && adminUser.full_name && !hostNameById.has(adminUser.user_id)) {
+        hostNameById.set(adminUser.user_id, adminUser.full_name);
+      }
+    });
+
+    const aggregate = new Map<string, { bookings: number; completed: number; confirmed: number; cancelled: number; gross: number }>();
+
+    hostBookings.forEach((booking) => {
+      const hostId = String(booking.host_id);
+      const current = aggregate.get(hostId) || { bookings: 0, completed: 0, confirmed: 0, cancelled: 0, gross: 0 };
+      current.bookings += 1;
+      if (booking.status === "completed") current.completed += 1;
+      if (booking.status === "confirmed") current.confirmed += 1;
+      if (booking.status === "cancelled") current.cancelled += 1;
+      current.gross += Number(booking.total_price || 0);
+      aggregate.set(hostId, current);
+    });
+
+    const headers = ["Host ID", "Host Name", "Bookings", "Confirmed", "Completed", "Cancelled", "Gross Revenue"];
+    const rows = Array.from(aggregate.entries())
+      .map(([hostId, stats]) => [
+        hostId,
+        hostNameById.get(hostId) || "Unknown Host",
+        stats.bookings,
+        stats.confirmed,
+        stats.completed,
+        stats.cancelled,
+        stats.gross,
+      ])
+      .sort((a, b) => Number(b[6]) - Number(a[6]));
+
+    const csv = createCsv(headers, rows);
+    const date = new Date().toISOString().split('T')[0];
+    downloadFile(csv, 'text/csv;charset=utf-8', `admin-host-performance-${date}.csv`);
+    toast({ title: "Host performance exported" });
+  };
+
   // Save legal content
   const saveLegalContent = async () => {
     setSavingLegal(true);
@@ -4196,20 +4391,20 @@ For support, contact: support@merry360x.com
                 <h3 className="font-semibold">Export Reports</h3>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" disabled>
+                <Button variant="outline" onClick={exportOverviewBookingsCsv}>
                   <Download className="w-4 h-4 mr-2" /> Bookings CSV
                 </Button>
-                <Button variant="outline" disabled>
+                <Button variant="outline" onClick={exportOverviewRevenueReport}>
                   <Download className="w-4 h-4 mr-2" /> Revenue Report
                 </Button>
-                <Button variant="outline" disabled>
+                <Button variant="outline" onClick={exportOverviewUserReport}>
                   <Download className="w-4 h-4 mr-2" /> User Report
                 </Button>
-                <Button variant="outline" disabled>
+                <Button variant="outline" onClick={exportOverviewHostPerformance}>
                   <Download className="w-4 h-4 mr-2" /> Host Performance
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground mt-2">Export functionality coming soon</p>
+              <p className="text-xs text-muted-foreground mt-2">Exports download immediately as CSV or text reports.</p>
             </Card>
           </TabsContent>
 
