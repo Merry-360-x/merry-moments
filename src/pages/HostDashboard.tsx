@@ -489,6 +489,8 @@ export default function HostDashboard() {
   const [showPropertyWizard, setShowPropertyWizard] = useState(false);
   const [showRoomWizard, setShowRoomWizard] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
+  const [propertyGroupSize, setPropertyGroupSize] = useState(2);
+  const [roomGroupSize, setRoomGroupSize] = useState(2);
   const [propertyForm, setPropertyForm] = useState({
     title: "",
     location: "",
@@ -1175,6 +1177,8 @@ export default function HostDashboard() {
 
   const resetPropertyForm = () => {
     localStorage.removeItem(PROPERTY_FORM_KEY); // Clear draft
+    setPropertyGroupSize(2);
+    setRoomGroupSize(2);
     setPropertyForm({
       title: "",
       location: "",
@@ -3722,19 +3726,22 @@ export default function HostDashboard() {
 
               <div>
                 <Label className="text-sm font-medium">Property Type</Label>
-                <Select
-                  value={propertyForm.property_type}
-                  onValueChange={(v) => setPropertyForm((f) => ({ ...f, property_type: v }))}
-                >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {propertyTypes.map((type) => (
-                      <SelectItem key={type} value={type}>{type}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-1.5">
+                  {propertyTypes.map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setPropertyForm((f) => ({ ...f, property_type: type }))}
+                      className={`px-3 py-2 rounded-lg border text-sm text-center transition-all ${
+                        propertyForm.property_type === type
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border hover:border-primary/50"
+                      }`}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div>
@@ -3800,7 +3807,7 @@ export default function HostDashboard() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div>
                   <Label className="text-sm font-medium">Price per Night</Label>
                   <Input
@@ -3823,7 +3830,17 @@ export default function HostDashboard() {
                   />
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">Price per Group</Label>
+                  <Label className="text-sm font-medium">Group Size (people)</Label>
+                  <Input
+                    type="number"
+                    value={roomGroupSize}
+                    onChange={(e) => setRoomGroupSize(Math.max(1, Number(e.target.value) || 1))}
+                    min="1"
+                    className="mt-1.5"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Group Amount</Label>
                   <Input
                     type="number"
                     value={propertyForm.price_per_group || ''}
@@ -3850,6 +3867,11 @@ export default function HostDashboard() {
                   </Select>
                 </div>
               </div>
+              {propertyForm.price_per_group ? (
+                <p className="text-xs text-muted-foreground">
+                  Group price set: {roomGroupSize} {roomGroupSize === 1 ? "person" : "people"} for {propertyForm.currency} {propertyForm.price_per_group.toLocaleString()}.
+                </p>
+              ) : null}
 
               {/* Monthly rental option for rooms */}
               <div className="mt-4 p-4 rounded-xl border border-border bg-blue-50 dark:bg-blue-950/20">
@@ -4055,7 +4077,7 @@ export default function HostDashboard() {
                 </div>
 
                 <div className="space-y-6">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                     <div>
                       <Label className="text-base font-medium">Price per Night *</Label>
                   <Input
@@ -4078,7 +4100,17 @@ export default function HostDashboard() {
                   />
                 </div>
                 <div>
-                      <Label className="text-base font-medium">Price per Group</Label>
+                      <Label className="text-base font-medium">Group Size (people)</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={propertyGroupSize}
+                        onChange={(e) => setPropertyGroupSize(Math.max(1, Number(e.target.value) || 1))}
+                        className="mt-2 text-lg py-6"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-base font-medium">Group Amount</Label>
                   <Input
                         type="number"
                         min={0}
@@ -5870,6 +5902,11 @@ export default function HostDashboard() {
                       </Select>
                     </div>
                   </div>
+                  {propertyForm.price_per_group ? (
+                    <p className="text-xs text-muted-foreground">
+                      Group price set: {propertyGroupSize} {propertyGroupSize === 1 ? "person" : "people"} for {propertyForm.currency} {propertyForm.price_per_group.toLocaleString()}.
+                    </p>
+                  ) : null}
 
                   <div>
                     <Label>Description</Label>
