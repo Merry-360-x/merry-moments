@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { Input } from "@/components/ui/input";
 import { FileText, Home, Plane, MapPin, CheckCircle, XCircle, Clock, CalendarCheck, Eye, Bell } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -130,6 +131,7 @@ export default function OperationsStaffDashboard() {
   const [tourDetailsOpen, setTourDetailsOpen] = useState(false);
   const [selectedTransport, setSelectedTransport] = useState<Transport | null>(null);
   const [transportDetailsOpen, setTransportDetailsOpen] = useState(false);
+  const [bookingIdSearch, setBookingIdSearch] = useState("");
 
   // Notification badge hook
   const { getCount, hasNew, markAsSeen, updateNotificationCount } = useNotificationBadge("operations-staff");
@@ -413,6 +415,16 @@ export default function OperationsStaffDashboard() {
   });
 
   // Cart checkouts removed - bulk bookings now shown in regular bookings tab with order details
+
+  const filteredBookings = useMemo(() => {
+    const query = bookingIdSearch.trim().toLowerCase();
+    if (!query) return bookings;
+    return bookings.filter((booking) => {
+      const bookingId = String(booking.id || "").toLowerCase();
+      const orderId = String(booking.order_id || "").toLowerCase();
+      return bookingId.includes(query) || orderId.includes(query);
+    });
+  }, [bookings, bookingIdSearch]);
 
   const approveApplicationMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -1227,15 +1239,25 @@ export default function OperationsStaffDashboard() {
           <TabsContent value="bookings">
             <Card>
               <CardHeader>
-                <CardTitle>Bookings</CardTitle>
-                <CardDescription>Manage property bookings and reservations</CardDescription>
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div>
+                    <CardTitle>Bookings</CardTitle>
+                    <CardDescription>Manage property bookings and reservations</CardDescription>
+                  </div>
+                  <Input
+                    value={bookingIdSearch}
+                    onChange={(e) => setBookingIdSearch(e.target.value)}
+                    placeholder="Search Booking ID / Order ID"
+                    className="w-full md:w-72"
+                  />
+                </div>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Item</TableHead>
-                      <TableHead>Order ID</TableHead>
+                      <TableHead>Reference</TableHead>
                       <TableHead>Guest</TableHead>
                       <TableHead>Check-in</TableHead>
                       <TableHead>Check-out</TableHead>
@@ -1246,7 +1268,7 @@ export default function OperationsStaffDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {bookings.map((booking) => {
+                    {filteredBookings.map((booking) => {
                       let itemName = "Unknown";
                       let itemType = booking.booking_type || "property";
                       
@@ -1287,14 +1309,21 @@ export default function OperationsStaffDashboard() {
                             <span className="text-sm font-medium line-clamp-1">{itemName}</span>
                           </div>
                         </TableCell>
-                        <TableCell>
-                          {booking.order_id ? (
-                            <Badge variant="secondary" className="font-mono text-xs">
-                              {booking.order_id.slice(0, 8)}...
-                            </Badge>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
+                        <TableCell className="text-xs">
+                          <div className="space-y-1">
+                            <div>
+                              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Booking</p>
+                              <p className="font-mono break-all leading-4">{booking.id}</p>
+                            </div>
+                            <div>
+                              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Order</p>
+                              {booking.order_id ? (
+                                <p className="font-mono break-all leading-4">{booking.order_id}</p>
+                              ) : (
+                                <span className="text-muted-foreground">Single booking</span>
+                              )}
+                            </div>
+                          </div>
                         </TableCell>
                         <TableCell className="font-medium text-sm">
                           {booking.guest_name || 'N/A'}
@@ -1396,10 +1425,10 @@ export default function OperationsStaffDashboard() {
                       </TableRow>
                     );
                     })}
-                    {bookings.length === 0 && (
+                    {filteredBookings.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center text-muted-foreground">
-                          No bookings found
+                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                          No bookings match this Booking ID / Order ID.
                         </TableCell>
                       </TableRow>
                     )}
@@ -1428,7 +1457,7 @@ export default function OperationsStaffDashboard() {
                 <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <Badge variant="default" className="font-mono text-xs">
-                      Cart Order: {selectedBooking.order_id.slice(0, 8)}...
+                      Cart Order: {selectedBooking.order_id}
                     </Badge>
                     <span className="text-sm text-muted-foreground">
                       {orderBookings.length} items • Total: {selectedBooking.currency} {orderBookings.reduce((sum, b) => sum + b.total_price, 0).toLocaleString()}

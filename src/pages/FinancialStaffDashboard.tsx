@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 
 type BookingRow = {
   id: string;
+  order_id: string | null;
   guest_id: string | null;
   guest_name: string | null;
   guest_email: string | null;
@@ -52,6 +53,7 @@ export default function FinancialStaffDashboard() {
   const [requestingPayment, setRequestingPayment] = useState<string | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<BookingRow | null>(null);
   const [bookingDetailsOpen, setBookingDetailsOpen] = useState(false);
+  const [bookingIdSearch, setBookingIdSearch] = useState("");
   const [processingPayout, setProcessingPayout] = useState<string | null>(null);
   const [payoutFilter, setPayoutFilter] = useState<string>("pending");
 
@@ -380,15 +382,23 @@ export default function FinancialStaffDashboard() {
 
   // Filter bookings by date range
   const filteredBookings = useMemo(() => {
-    if (!startDate && !endDate) return bookings;
     return bookings.filter(b => {
+      const query = bookingIdSearch.trim().toLowerCase();
+      const bookingId = String(b.id || "").toLowerCase();
+      const orderId = String(b.order_id || "").toLowerCase();
+
+      if (query && !bookingId.includes(query) && !orderId.includes(query)) {
+        return false;
+      }
+
+      if (!startDate && !endDate) return true;
       const bookingDate = new Date(b.created_at);
       const start = startDate ? new Date(startDate) : new Date(0);
       const end = endDate ? new Date(endDate) : new Date();
       end.setHours(23, 59, 59, 999); // Include full end date
       return bookingDate >= start && bookingDate <= end;
     });
-  }, [bookings, startDate, endDate]);
+  }, [bookings, startDate, endDate, bookingIdSearch]);
 
   const completedBookings = filteredBookings.filter(b => b.status === 'completed' || b.status === 'confirmed');
   const pendingBookings = filteredBookings.filter(b => b.status === 'pending');
@@ -643,14 +653,24 @@ export default function FinancialStaffDashboard() {
           <TabsContent value="bookings">
             <Card>
               <CardHeader>
-                <CardTitle>All Bookings</CardTitle>
-                <CardDescription>Complete booking history</CardDescription>
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div>
+                    <CardTitle>All Bookings</CardTitle>
+                    <CardDescription>Complete booking history</CardDescription>
+                  </div>
+                  <Input
+                    value={bookingIdSearch}
+                    onChange={(e) => setBookingIdSearch(e.target.value)}
+                    placeholder="Search Booking ID / Order ID"
+                    className="w-full md:w-72"
+                  />
+                </div>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>ID</TableHead>
+                      <TableHead>Reference</TableHead>
                       <TableHead>Guest Info</TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead>Amount</TableHead>
@@ -663,7 +683,22 @@ export default function FinancialStaffDashboard() {
                   <TableBody>
                     {filteredBookings.map((booking) => (
                       <TableRow key={booking.id}>
-                        <TableCell className="font-mono text-xs">{booking.id.slice(0, 8)}...</TableCell>
+                        <TableCell className="text-xs">
+                          <div className="space-y-1">
+                            <div>
+                              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Booking</p>
+                              <p className="font-mono break-all leading-4">{booking.id}</p>
+                            </div>
+                            <div>
+                              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Order</p>
+                              {booking.order_id ? (
+                                <p className="font-mono break-all leading-4">{booking.order_id}</p>
+                              ) : (
+                                <span className="text-muted-foreground">Single booking</span>
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <div className="text-sm">
                             <div className="font-medium">{booking.guest_name || 'Guest'}</div>
@@ -757,6 +792,13 @@ export default function FinancialStaffDashboard() {
                         </TableCell>
                       </TableRow>
                     ))}
+                    {filteredBookings.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                          No bookings match this Booking ID / Order ID.
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </CardContent>
