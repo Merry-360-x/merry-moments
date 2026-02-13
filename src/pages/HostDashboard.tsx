@@ -5192,33 +5192,68 @@ export default function HostDashboard() {
                 </div>
               </div>
 
-              <div className="border rounded-lg p-3 space-y-3">
+              <div className="border rounded-lg p-3 space-y-4">
                 <div>
-                  <Label className="text-xs font-medium">Hotel Calendar Sync</Label>
-                  <p className="text-xs text-muted-foreground mt-1">Connect your hotel/PMS iCal feed or paste a Google Calendar link to block external reservations.</p>
+                  <Label className="text-xs font-medium">Google Calendar-style Sync</Label>
+                  <p className="text-xs text-muted-foreground mt-1">Use Google Calendar "Integrate calendar" iCal addresses for live sync, or import exported files once.</p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  <Input
-                    value={calendarIntegrationLabel}
-                    onChange={(e) => setCalendarIntegrationLabel(e.target.value)}
-                    placeholder="Label (e.g. Front desk)"
-                  />
-                  <Input
-                    value={calendarIntegrationUrl}
-                    onChange={(e) => setCalendarIntegrationUrl(e.target.value)}
-                    placeholder="Google Calendar share link or https://your-hotel.com/calendar.ics"
-                    className="md:col-span-2"
-                  />
+                <div className="rounded-md border p-3 space-y-3">
+                  <div>
+                    <Label className="text-xs font-medium">Import from Google (block dates here)</Label>
+                    <p className="text-xs text-muted-foreground mt-1">Paste "Public address in iCal format" or "Secret address in iCal format" from Google Calendar.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <Input
+                      value={calendarIntegrationLabel}
+                      onChange={(e) => setCalendarIntegrationLabel(e.target.value)}
+                      placeholder="Calendar label (e.g. accommodation)"
+                    />
+                    <Input
+                      value={calendarIntegrationUrl}
+                      onChange={(e) => setCalendarIntegrationUrl(e.target.value)}
+                      placeholder="Public/Secret iCal address or Google calendar link"
+                      className="md:col-span-2"
+                    />
+                  </div>
+
+                  <Button size="sm" variant="outline" onClick={createSelectedPropertyIntegration} disabled={calendarIntegrationsSaving || !selectedCalendarPropertyId}>
+                    {calendarIntegrationsSaving ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <CalendarIcon className="w-3 h-3 mr-2" />}
+                    Connect iCal URL
+                  </Button>
+
+                  <div className="border-t pt-3 space-y-2">
+                    <Label className="text-xs font-medium">Or import exported calendar file (.ics/.zip)</Label>
+                    <Input
+                      type="file"
+                      accept=".ics,.zip,text/calendar,application/zip"
+                      onChange={(e) => setCalendarIcsFile(e.target.files?.[0] || null)}
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={importSelectedPropertyIcsFile}
+                      disabled={calendarIcsImporting || !calendarIcsFile || !selectedCalendarPropertyId}
+                    >
+                      {calendarIcsImporting ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <CalendarIcon className="w-3 h-3 mr-2" />}
+                      Import calendar file
+                    </Button>
+                  </div>
                 </div>
 
-                <Button size="sm" variant="outline" onClick={createSelectedPropertyIntegration} disabled={calendarIntegrationsSaving || !selectedCalendarPropertyId}>
-                  {calendarIntegrationsSaving ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <CalendarIcon className="w-3 h-3 mr-2" />}
-                  Connect iCal Feed
-                </Button>
+                <div className="rounded-md border p-3 space-y-3">
+                  <div>
+                    <Label className="text-xs font-medium">Export to Google (show Merry360 availability there)</Label>
+                    <p className="text-xs text-muted-foreground mt-1">Copy this feed and add it in Google Calendar via "Add calendar" → "From URL".</p>
+                  </div>
 
-                <div className="border-t pt-3 space-y-2">
-                  <Label className="text-xs font-medium">Export feed (for external calendars)</Label>
+                  <Input
+                    value={calendarIntegrations[0]?.export_url || ""}
+                    readOnly
+                    placeholder="Export URL available after first iCal connection"
+                  />
+
                   <Button
                     size="sm"
                     variant="outline"
@@ -5227,30 +5262,6 @@ export default function HostDashboard() {
                   >
                     Copy export feed
                   </Button>
-                  <p className="text-xs text-muted-foreground">
-                    {calendarIntegrations.length > 0
-                      ? "Use this URL in other systems to subscribe to your Merry360 availability."
-                      : "Connect an iCal/Google feed first to enable export URL for this property."}
-                  </p>
-                </div>
-
-                <div className="border-t pt-3 space-y-2">
-                  <Label className="text-xs font-medium">Import .ics or .zip file (one-time)</Label>
-                  <Input
-                    type="file"
-                    accept=".ics,.zip,text/calendar,application/zip"
-                    onChange={(e) => setCalendarIcsFile(e.target.files?.[0] || null)}
-                  />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={importSelectedPropertyIcsFile}
-                    disabled={calendarIcsImporting || !calendarIcsFile || !selectedCalendarPropertyId}
-                  >
-                    {calendarIcsImporting ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <CalendarIcon className="w-3 h-3 mr-2" />}
-                    Import calendar file
-                  </Button>
-                  <p className="text-xs text-muted-foreground">Use this if you only have a downloaded Google export `.ics` or `.zip` file instead of a live iCal URL.</p>
                 </div>
 
                 {calendarIntegrationsLoading ? (
