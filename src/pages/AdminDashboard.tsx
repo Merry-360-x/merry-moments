@@ -3293,12 +3293,12 @@ For support, contact: support@merry360x.com
               </div>
 
               <div className="overflow-x-auto">
-                <Table className="min-w-[1320px]">
+                <Table className="min-w-[1440px] table-fixed">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[170px]">Reference</TableHead>
-                      <TableHead className="w-[260px]">Service</TableHead>
-                      <TableHead className="w-[230px]">Guest & Contact</TableHead>
+                      <TableHead className="w-[280px]">Service</TableHead>
+                      <TableHead className="w-[280px]">Guest & Contact</TableHead>
                       <TableHead className="w-[210px]">Schedule</TableHead>
                       <TableHead className="w-[60px] text-center">Guests</TableHead>
                       <TableHead className="w-[200px]">Payment & Amount</TableHead>
@@ -3350,60 +3350,60 @@ For support, contact: support@merry360x.com
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
+                        <TableCell className="align-top">
+                          <div className="flex items-start gap-2 min-w-0 max-w-[280px]">
                             {/* Item Image */}
                             {itemMissing ? (
-                              <div className="w-12 h-12 rounded bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                              <div className="w-12 h-12 rounded bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
                                 <AlertTriangle className="w-6 h-6 text-red-500" />
                               </div>
                             ) : itemType === "property" && b.properties?.images?.[0] ? (
                               <img 
                                 src={b.properties.images[0]} 
                                 alt={itemName}
-                                className="w-12 h-12 rounded object-cover"
+                                className="w-12 h-12 rounded object-cover shrink-0"
                               />
                             ) : itemType === "property" ? (
-                              <div className="w-12 h-12 rounded bg-muted flex items-center justify-center">
+                              <div className="w-12 h-12 rounded bg-muted flex items-center justify-center shrink-0">
                                 <Home className="w-6 h-6 text-muted-foreground" />
                               </div>
                             ) : itemType === "tour" ? (
-                              <div className="w-12 h-12 rounded bg-primary/10 flex items-center justify-center">
+                              <div className="w-12 h-12 rounded bg-primary/10 flex items-center justify-center shrink-0">
                                 <MapPin className="w-6 h-6 text-primary" />
                               </div>
                             ) : itemType === "transport" ? (
-                              <div className="w-12 h-12 rounded bg-secondary/50 flex items-center justify-center">
+                              <div className="w-12 h-12 rounded bg-secondary/50 flex items-center justify-center shrink-0">
                                 <Car className="w-6 h-6 text-secondary-foreground" />
                               </div>
                             ) : (
-                              <div className="w-12 h-12 rounded bg-muted flex items-center justify-center">
+                              <div className="w-12 h-12 rounded bg-muted flex items-center justify-center shrink-0">
                                 <Home className="w-6 h-6 text-muted-foreground" />
                               </div>
                             )}
                             
-                            <div className="flex flex-col gap-0.5">
-                              <span className={`text-sm font-medium line-clamp-1 ${itemMissing ? 'text-red-500' : ''}`}>{itemName}</span>
+                            <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                              <span className={`text-sm font-medium truncate ${itemMissing ? 'text-red-500' : ''}`}>{itemName}</span>
                               <div className="flex items-center gap-1">
                                 {itemMissing && <span className="text-xs text-red-500">⚠️ Deleted</span>}
                                 {!itemMissing && itemType === "property" && <span className="text-xs text-muted-foreground">🏠 Property</span>}
                                 {!itemMissing && itemType === "tour" && <span className="text-xs text-muted-foreground">🗺️ Tour</span>}
                                 {!itemMissing && itemType === "transport" && <span className="text-xs text-muted-foreground">🚗 Transport</span>}
                               </div>
-                              <span className="text-[11px] text-muted-foreground">{itemType === "property" ? (b.property_id?.slice(0, 8) || "—") : itemType === "tour" ? (b.tour_id?.slice(0, 8) || "—") : (b.transport_id?.slice(0, 8) || "—")}</span>
+                              <span className="text-[11px] text-muted-foreground truncate">{itemType === "property" ? (b.property_id?.slice(0, 8) || "—") : itemType === "tour" ? (b.tour_id?.slice(0, 8) || "—") : (b.transport_id?.slice(0, 8) || "—")}</span>
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="text-sm">
+                        <TableCell className="text-sm align-top">
                           {b.is_guest_booking ? (
-                            <div className="min-w-0">
+                            <div className="min-w-0 max-w-[280px]">
                               <div className="font-medium truncate">{b.guest_name || "Guest"}</div>
                               <div className="text-xs text-muted-foreground truncate">{b.guest_email || "—"}</div>
                               {b.guest_phone && (
-                                <div className="text-xs text-muted-foreground">{b.guest_phone}</div>
+                                <div className="text-xs text-muted-foreground truncate">{b.guest_phone}</div>
                               )}
                             </div>
                           ) : b.profiles ? (
-                            <div className="min-w-0">
+                            <div className="min-w-0 max-w-[280px]">
                               <div className="font-medium truncate">
                                 {b.profiles.nickname || b.profiles.full_name || "User"}
                               </div>
@@ -3411,7 +3411,7 @@ For support, contact: support@merry360x.com
                                 <div className="text-xs text-muted-foreground truncate">{b.profiles.email}</div>
                               )}
                               {b.profiles.phone && (
-                                <div className="text-xs text-muted-foreground">{b.profiles.phone}</div>
+                                <div className="text-xs text-muted-foreground truncate">{b.profiles.phone}</div>
                               )}
                             </div>
                           ) : (
