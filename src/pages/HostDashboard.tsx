@@ -1900,7 +1900,11 @@ export default function HostDashboard() {
       if (!response.ok) throw new Error(body?.error || "Could not create integration");
 
       setCalendarIntegrationUrl("");
-      toast({ title: "Calendar connected", description: "Now syncing to prevent double bookings." });
+      if (body?.already_exists) {
+        toast({ title: "Calendar already connected", description: "This URL is already connected for this property." });
+      } else {
+        toast({ title: "Calendar connected", description: "Now syncing to prevent double bookings." });
+      }
       await Promise.all([fetchSelectedPropertyIntegrations(), fetchPropertyCalendarSummaries()]);
     } catch (error: any) {
       toast({

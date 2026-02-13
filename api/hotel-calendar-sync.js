@@ -327,6 +327,19 @@ async function runIntegrationSync(admin, integration) {
     });
 
     if (!response.ok) {
+      try {
+        const parsed = new URL(String(integration.feed_url || ""));
+        if (parsed.hostname.toLowerCase().includes("calendar.google.") && response.status === 404) {
+          const err = new Error(
+            'Google Calendar URL returned 404. Use the "Secret address in iCal format" for private calendars, or make the calendar public and use the public iCal address.'
+          );
+          err.statusCode = 400;
+          throw err;
+        }
+      } catch {
+        // Fall back to generic message below
+      }
+
       const err = new Error(`Could not fetch calendar URL (${response.status})`);
       err.statusCode = response.status >= 400 && response.status < 500 ? 400 : 502;
       throw err;
@@ -538,8 +551,17 @@ export default async function handler(req, res) {
         throw error;
       }
 
+      const dedupedRows = [];
+      const dedupeKeys = new Set();
+      for (const row of data || []) {
+        const dedupeKey = `${row.property_id}|${row.provider}|${String(row.feed_url || "").trim().toLowerCase()}`;
+        if (dedupeKeys.has(dedupeKey)) continue;
+        dedupeKeys.add(dedupeKey);
+        dedupedRows.push(row);
+      }
+
       const baseUrl = getBaseUrl(req);
-      const integrations = (data || []).map((row) => ({
+      const integrations = dedupedRows.map((row) => ({
         ...row,
         export_url: `${baseUrl}/api/hotel-calendar-sync?action=feed&token=${row.feed_token}`,
       }));
@@ -606,6 +628,36 @@ export default async function handler(req, res) {
 
       const ownsProperty = await userOwnsProperty(admin, propertyId, user.id);
       if (!ownsProperty) return json(res, 403, { error: "Forbidden" });
+
+      const { data: existingRows, error: existingError } = await admin
+        .from("property_calendar_integrations")
+        .select("id, property_id, provider, label, feed_url, feed_token, is_active, last_synced_at, last_sync_status, last_sync_error, created_at")
+        .eq("property_id", propertyId)
+        .eq("feed_url", normalizedFeedUrl)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (existingError) {
+        if (isMissingIntegrationTableError(existingError)) {
+          return json(res, 503, {
+            error: "Calendar integration database migration is not applied yet",
+          });
+        }
+        throw existingError;
+      }
+
+      if ((existingRows || []).length > 0) {
+        const existing = existingRows[0];
+        const baseUrl = getBaseUrl(req);
+        return json(res, 200, {
+          ok: true,
+          already_exists: true,
+          integration: {
+            ...existing,
+            export_url: `${baseUrl}/api/hotel-calendar-sync?action=feed&token=${existing.feed_token}`,
+          },
+        });
+      }
 
       const { data, error } = await admin
         .from("property_calendar_integrations")
