@@ -1669,6 +1669,34 @@ export default function HostDashboard() {
     });
   }, [bookings, bookingIdSearch]);
 
+  const filteredReportBookings = useMemo(() => {
+    const start = new Date(reportStartDate);
+    const end = new Date(reportEndDate);
+
+    if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) {
+      return bookings || [];
+    }
+
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+
+    return (bookings || []).filter((booking) => {
+      const bookingDate = new Date(booking.created_at);
+      return Number.isFinite(bookingDate.getTime()) && bookingDate >= start && bookingDate <= end;
+    });
+  }, [bookings, reportStartDate, reportEndDate]);
+
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
   // Stats - use safe defaults
   // Calculate earnings after platform fees
   const confirmedBookings = (bookings || []).filter((b) => b.status === "confirmed" || b.status === "completed");
@@ -6180,12 +6208,7 @@ export default function HostDashboard() {
                   </div>
                   <p className="text-2xl font-bold">
                     {formatMoney(
-                      bookings
-                        .filter(b => {
-                          const bookingDate = new Date(b.created_at);
-                          return bookingDate >= new Date(reportStartDate) && bookingDate <= new Date(reportEndDate);
-                        })
-                        .reduce((sum, b) => sum + Number(b.total_price), 0),
+                      filteredReportBookings.reduce((sum, b) => sum + Number(b.total_price), 0),
                       bookings[0]?.currency || "USD"
                     )}
                   </p>
@@ -6198,11 +6221,7 @@ export default function HostDashboard() {
                   </div>
                   <p className="text-2xl font-bold text-green-600">
                     {formatMoney(
-                      bookings
-                        .filter(b => {
-                          const bookingDate = new Date(b.created_at);
-                          return bookingDate >= new Date(reportStartDate) && bookingDate <= new Date(reportEndDate);
-                        })
+                      filteredReportBookings
                         .reduce((sum, b) => {
                           const itemType = b.property_id ? 'accommodation' : b.tour_id ? 'tour' : 'transport';
                           const { hostNetEarnings } = calculateHostEarningsFromGuestTotal(Number(b.total_price), itemType as 'accommodation' | 'tour' | 'transport');
@@ -6220,10 +6239,7 @@ export default function HostDashboard() {
                     <span className="text-sm font-medium text-muted-foreground">Bookings</span>
                   </div>
                   <p className="text-2xl font-bold">
-                    {bookings.filter(b => {
-                      const bookingDate = new Date(b.created_at);
-                      return bookingDate >= new Date(reportStartDate) && bookingDate <= new Date(reportEndDate);
-                    }).length}
+                    {filteredReportBookings.length}
                   </p>
                 </Card>
 
@@ -6233,10 +6249,7 @@ export default function HostDashboard() {
                     <span className="text-sm font-medium text-muted-foreground">Completed</span>
                   </div>
                   <p className="text-2xl font-bold">
-                    {bookings.filter(b => {
-                      const bookingDate = new Date(b.created_at);
-                      return b.status === 'completed' && bookingDate >= new Date(reportStartDate) && bookingDate <= new Date(reportEndDate);
-                    }).length}
+                    {filteredReportBookings.filter(b => b.status === 'completed').length}
                   </p>
                 </Card>
               </div>
@@ -6245,10 +6258,12 @@ export default function HostDashboard() {
               <div className="flex flex-wrap gap-3">
                 <Button 
                   onClick={() => {
-                    const filteredBookings = bookings.filter(b => {
-                      const bookingDate = new Date(b.created_at);
-                      return bookingDate >= new Date(reportStartDate) && bookingDate <= new Date(reportEndDate);
-                    });
+                    if (filteredReportBookings.length === 0) {
+                      toast({ variant: "destructive", title: "No data", description: "No bookings found for the selected period." });
+                      return;
+                    }
+
+                    const filteredBookings = filteredReportBookings;
                     
                     // CSV Export
                     const csvData = filteredBookings.map(b => ({
@@ -6266,17 +6281,25 @@ export default function HostDashboard() {
                       'Created': new Date(b.created_at).toLocaleDateString(),
                     }));
 
-                    const headers = Object.keys(csvData[0] || {}).join(',');
+                    const headers = [
+                      'Booking ID',
+                      'Property',
+                      'Guest',
+                      'Check In',
+                      'Check Out',
+                      'Guests',
+                      'Total Price',
+                      'Currency',
+                      'Status',
+                      'Payment Status',
+                      'Payment Method',
+                      'Created',
+                    ].join(',');
                     const rows = csvData.map(row => Object.values(row).map(v => `"${v}"`).join(',')).join('\\n');
                     const csv = `${headers}\\n${rows}`;
                     
                     const blob = new Blob([csv], { type: 'text/csv' });
-                    const url = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = `financial-report-${reportStartDate}-to-${reportEndDate}.csv`;
-                    link.click();
-                    URL.revokeObjectURL(url);
+                    downloadBlob(blob, `financial-report-${reportStartDate || 'all'}-to-${reportEndDate || 'now'}.csv`);
                     
                     toast({ title: "CSV exported successfully" });
                   }}
@@ -6289,10 +6312,12 @@ export default function HostDashboard() {
                 <Button 
                   variant="outline"
                   onClick={() => {
-                    const filteredBookings = bookings.filter(b => {
-                      const bookingDate = new Date(b.created_at);
-                      return bookingDate >= new Date(reportStartDate) && bookingDate <= new Date(reportEndDate);
-                    });
+                    if (filteredReportBookings.length === 0) {
+                      toast({ variant: "destructive", title: "No data", description: "No bookings found for the selected period." });
+                      return;
+                    }
+
+                    const filteredBookings = filteredReportBookings;
 
                     const totalRevenue = filteredBookings.reduce((sum, b) => sum + Number(b.total_price), 0);
                     const currency = filteredBookings[0]?.currency || 'USD';
@@ -6341,12 +6366,7 @@ END OF REPORT
                     `;
 
                     const blob = new Blob([pdfContent], { type: 'text/plain' });
-                    const url = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = `financial-report-${reportStartDate}-to-${reportEndDate}.txt`;
-                    link.click();
-                    URL.revokeObjectURL(url);
+                    downloadBlob(blob, `financial-report-${reportStartDate || 'all'}-to-${reportEndDate || 'now'}.txt`);
                     
                     toast({ title: "Report exported successfully" });
                   }}
