@@ -1544,9 +1544,64 @@ export default function HostDashboard() {
     toast({ title: orderId ? "Order updated" : "Booking updated" });
   };
 
+  const getBookingDisplayName = (booking: Booking) => {
+    if (booking.booking_type === 'property') {
+      return (booking as any).properties?.title || 'Accommodation booking';
+    }
+    if (booking.booking_type === 'tour') {
+      return (booking as any).tour_packages?.title || 'Tour booking';
+    }
+    if (booking.booking_type === 'transport') {
+      return vehicles.find((vehicle) => vehicle.id === booking.transport_id)?.title || 'Transport booking';
+    }
+    return 'Booking';
+  };
+
+  const notifyGuestsBookingDecision = async (
+    targetBookings: Booking[],
+    action: 'approved' | 'rejected',
+    rejectionReason?: string
+  ) => {
+    const uniqueByEmail = new Map<string, Booking>();
+    targetBookings.forEach((booking) => {
+      const email = String(booking.guest_email || '').trim().toLowerCase();
+      if (!email) return;
+      if (!uniqueByEmail.has(email)) {
+        uniqueByEmail.set(email, booking);
+      }
+    });
+
+    const tasks = Array.from(uniqueByEmail.values()).map(async (booking) => {
+      try {
+        await fetch('/api/booking-status-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action,
+            guestEmail: booking.guest_email,
+            guestName: booking.guest_name || 'Guest',
+            bookingId: booking.id,
+            orderId: booking.order_id,
+            itemName: getBookingDisplayName(booking),
+            checkIn: booking.check_in,
+            checkOut: booking.check_out,
+            rejectionReason: action === 'rejected' ? rejectionReason : undefined,
+          }),
+        });
+      } catch (error) {
+        logError('host.booking.notifyGuest', error);
+      }
+    });
+
+    await Promise.all(tasks);
+  };
+
   // Confirm a pending booking request
   const confirmBookingRequest = async (id: string, orderId?: string | null) => {
     if (!user?.id) return;
+    const targetBookings = bookings.filter((booking) =>
+      orderId ? booking.order_id === orderId : booking.id === id
+    );
     const updatePayload = {
       status: 'confirmed',
       confirmation_status: 'approved',
@@ -1568,13 +1623,16 @@ export default function HostDashboard() {
         ? (b.order_id === orderId ? { ...b, status: 'confirmed', confirmation_status: 'approved' as const, rejection_reason: null, rejected_at: null } : b)
         : (b.id === id ? { ...b, status: 'confirmed', confirmation_status: 'approved' as const, rejection_reason: null, rejected_at: null } : b)
     )));
+    await notifyGuestsBookingDecision(targetBookings, 'approved');
     toast({ title: orderId ? "Order confirmed" : "Booking confirmed", description: "The guest will be notified" });
-    // TODO: Send confirmation email to guest
   };
 
   // Reject a pending booking request
   const rejectBookingRequest = async (id: string, reason: string, orderId?: string | null) => {
     if (!user?.id) return;
+    const targetBookings = bookings.filter((booking) =>
+      orderId ? booking.order_id === orderId : booking.id === id
+    );
     const updatePayload = {
       status: 'cancelled',
       confirmation_status: 'rejected',
@@ -1595,8 +1653,8 @@ export default function HostDashboard() {
         ? (b.order_id === orderId ? { ...b, status: 'cancelled', confirmation_status: 'rejected' as const, rejection_reason: reason } : b)
         : (b.id === id ? { ...b, status: 'cancelled', confirmation_status: 'rejected' as const, rejection_reason: reason } : b)
     )));
+    await notifyGuestsBookingDecision(targetBookings, 'rejected', reason);
     toast({ title: orderId ? "Order rejected" : "Booking rejected", description: "The guest will be notified and refunded" });
-    // TODO: Send rejection email to guest and initiate refund
   };
 
   // View booking details
