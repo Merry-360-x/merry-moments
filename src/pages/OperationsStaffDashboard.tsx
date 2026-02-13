@@ -1237,8 +1237,8 @@ export default function OperationsStaffDashboard() {
                       <TableHead>Item</TableHead>
                       <TableHead>Order ID</TableHead>
                       <TableHead>Guest</TableHead>
-                      <TableHead>Check-In</TableHead>
-                      <TableHead>Check-Out</TableHead>
+                      <TableHead>Check-in</TableHead>
+                      <TableHead>Check-out</TableHead>
                       <TableHead>Guests</TableHead>
                       <TableHead>Total</TableHead>
                       <TableHead>Status</TableHead>
@@ -1511,11 +1511,11 @@ export default function OperationsStaffDashboard() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Check-In</p>
+                    <p className="text-sm text-muted-foreground">Check-in</p>
                     <p>{new Date(selectedBooking.check_in).toLocaleDateString()}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Check-Out</p>
+                    <p className="text-sm text-muted-foreground">Check-out</p>
                     <p>{new Date(selectedBooking.check_out).toLocaleDateString()}</p>
                   </div>
                   <div>

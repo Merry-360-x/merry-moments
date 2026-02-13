@@ -436,8 +436,8 @@ export default function StaffDashboard() {
       'Guest Name': guestName,
       'Guest Email': guestEmail || 'N/A',
       'Guest Phone': guestPhone || 'N/A',
-      'Check In': booking.check_in,
-      'Check Out': booking.check_out,
+      'Check-in': booking.check_in,
+      'Check-out': booking.check_out,
       'Number of Guests': booking.guests,
       'Total Price': `${booking.currency} ${booking.total_price}`,
       'Payment Method': booking.payment_method || 'N/A',
@@ -457,7 +457,7 @@ export default function StaffDashboard() {
     link.download = `booking-${booking.id.slice(0, 8)}-${new Date().toISOString().split('T')[0]}.txt`;
     link.click();
     URL.revokeObjectURL(url);
-    toast({ title: "Booking exported successfully" });
+    toast({ title: "Booking exported" });
   };
 
   // Export payment receipt
@@ -515,7 +515,7 @@ For support, contact: support@merry360x.com
     link.download = `receipt-${booking.id.slice(0, 8)}-${new Date().toISOString().split('T')[0]}.txt`;
     link.click();
     URL.revokeObjectURL(url);
-    toast({ title: "Receipt exported successfully" });
+    toast({ title: "Receipt exported" });
   };
 
   // Helper for status badge

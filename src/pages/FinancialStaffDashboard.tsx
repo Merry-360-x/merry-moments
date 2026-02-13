@@ -158,8 +158,8 @@ export default function FinancialStaffDashboard() {
       if (error) throw error;
 
       toast({
-        title: "Payment Confirmed",
-        description: "Booking has been marked as paid successfully.",
+        title: "Payment confirmed",
+        description: "Booking marked as paid.",
       });
 
       // Refetch data
