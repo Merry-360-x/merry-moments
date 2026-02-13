@@ -1846,6 +1846,18 @@ For support, contact: support@merry360x.com
   };
 
   const pendingApps = applications.filter((a) => a.status === "pending");
+  const bookingOrderCount = useMemo(
+    () => new Set(bookings.map((booking) => booking.order_id).filter(Boolean)).size,
+    [bookings]
+  );
+  const unpaidConfirmedBookings = useMemo(
+    () => bookings.filter((booking) => booking.status === "confirmed" && booking.payment_status !== "paid").length,
+    [bookings]
+  );
+  const cancelledPaidBookings = useMemo(
+    () => bookings.filter((booking) => booking.status === "cancelled" && booking.payment_status === "paid").length,
+    [bookings]
+  );
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -3243,9 +3255,12 @@ For support, contact: support@merry360x.com
           <TabsContent value="bookings">
             <Card className="p-6">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
-                <h2 className="text-lg font-semibold">Bookings & Orders Management</h2>
+                <div>
+                  <h2 className="text-lg font-semibold">Bookings & Orders Management</h2>
+                  <p className="text-sm text-muted-foreground">Clear view of booking references, guest details, schedule, and payment tracking</p>
+                </div>
                 <Select value={bookingStatus} onValueChange={setBookingStatus}>
-                  <SelectTrigger className="w-40">
+                  <SelectTrigger className="w-44">
                     <SelectValue placeholder="All statuses" />
                   </SelectTrigger>
                   <SelectContent>
@@ -3258,19 +3273,36 @@ For support, contact: support@merry360x.com
                 </Select>
               </div>
 
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">Bookings</p>
+                  <p className="text-xl font-semibold">{bookings.length}</p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">Orders</p>
+                  <p className="text-xl font-semibold">{bookingOrderCount}</p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">Confirmed, Unpaid</p>
+                  <p className="text-xl font-semibold text-amber-600">{unpaidConfirmedBookings}</p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">Cancelled, Paid</p>
+                  <p className="text-xl font-semibold text-destructive">{cancelledPaidBookings}</p>
+                </div>
+              </div>
+
               <div className="overflow-x-auto">
-                <Table className="min-w-[1200px]">
+                <Table className="min-w-[1320px]">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[100px]">Booking ID</TableHead>
-                      <TableHead className="w-[100px]">Order ID</TableHead>
-                      <TableHead className="w-[220px]">Item</TableHead>
-                      <TableHead className="w-[180px]">Guest</TableHead>
-                      <TableHead className="w-[180px]">Dates</TableHead>
+                      <TableHead className="w-[170px]">Reference</TableHead>
+                      <TableHead className="w-[260px]">Service</TableHead>
+                      <TableHead className="w-[230px]">Guest & Contact</TableHead>
+                      <TableHead className="w-[210px]">Schedule</TableHead>
                       <TableHead className="w-[60px] text-center">Guests</TableHead>
-                      <TableHead className="w-[120px]">Amount</TableHead>
-                      <TableHead className="w-[90px]">Status</TableHead>
-                      <TableHead className="w-[90px]">Payment</TableHead>
+                      <TableHead className="w-[200px]">Payment & Amount</TableHead>
+                      <TableHead className="w-[100px]">Booking</TableHead>
                       <TableHead className="w-[180px] text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -3301,16 +3333,22 @@ For support, contact: support@merry360x.com
                       return (
                       <TableRow key={b.id}>
                         <TableCell>
-                          <span className="font-mono text-xs">{b.id.slice(0, 8)}...</span>
-                        </TableCell>
-                        <TableCell>
-                          {b.order_id ? (
-                            <Badge variant="secondary" className="font-mono text-xs">
-                              {b.order_id.slice(0, 8)}...
-                            </Badge>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
+                          <div className="space-y-1">
+                            <div>
+                              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Booking</p>
+                              <p className="font-mono text-xs">{b.id.slice(0, 8)}...</p>
+                            </div>
+                            <div>
+                              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Order</p>
+                              {b.order_id ? (
+                                <Badge variant="secondary" className="font-mono text-[11px]">
+                                  {b.order_id.slice(0, 8)}...
+                                </Badge>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">Single booking</span>
+                              )}
+                            </div>
+                          </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
@@ -3351,6 +3389,7 @@ For support, contact: support@merry360x.com
                                 {!itemMissing && itemType === "tour" && <span className="text-xs text-muted-foreground">🗺️ Tour</span>}
                                 {!itemMissing && itemType === "transport" && <span className="text-xs text-muted-foreground">🚗 Transport</span>}
                               </div>
+                              <span className="text-[11px] text-muted-foreground">{itemType === "property" ? (b.property_id?.slice(0, 8) || "—") : itemType === "tour" ? (b.tour_id?.slice(0, 8) || "—") : (b.transport_id?.slice(0, 8) || "—")}</span>
                             </div>
                           </div>
                         </TableCell>
@@ -3376,35 +3415,44 @@ For support, contact: support@merry360x.com
                               )}
                             </div>
                           ) : (
-                            <span className="font-mono text-xs text-muted-foreground">{(b.guest_id ?? "").slice(0, 8)}...</span>
+                            <div className="min-w-0">
+                              <span className="font-mono text-xs text-muted-foreground">{(b.guest_id ?? "").slice(0, 8)}...</span>
+                            </div>
                           )}
                         </TableCell>
                         <TableCell>
-                          <div className="flex flex-col text-sm whitespace-nowrap">
-                            <span className="text-muted-foreground">{b.check_in}</span>
-                            <span className="text-muted-foreground">{b.check_out}</span>
+                          <div className="space-y-1 text-sm whitespace-nowrap">
+                            <div>
+                              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Stay</p>
+                              <p className="text-muted-foreground">{b.check_in} → {b.check_out}</p>
+                            </div>
+                            <div>
+                              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Created</p>
+                              <p className="text-muted-foreground">{new Date(b.created_at).toLocaleDateString()}</p>
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell className="text-center">{b.guests}</TableCell>
                         <TableCell>
-                          <div className="font-medium whitespace-nowrap">
-                            {formatMoney(
-                              b.total_price,
-                              b.booking_type === "property" && b.properties?.currency
-                                ? b.properties.currency
-                                : b.booking_type === "tour" && b.tour_packages?.currency
-                                  ? b.tour_packages.currency
-                                  : b.booking_type === "transport" && b.transport_vehicles?.currency
-                                    ? b.transport_vehicles.currency
-                                    : b.currency || "RWF"
-                            )}
+                          <div className="space-y-1">
+                            <div className="font-medium whitespace-nowrap">
+                              {formatMoney(
+                                b.total_price,
+                                b.booking_type === "property" && b.properties?.currency
+                                  ? b.properties.currency
+                                  : b.booking_type === "tour" && b.tour_packages?.currency
+                                    ? b.tour_packages.currency
+                                    : b.booking_type === "transport" && b.transport_vehicles?.currency
+                                      ? b.transport_vehicles.currency
+                                      : b.currency || "RWF"
+                              )}
+                            </div>
+                            <div className="text-xs text-muted-foreground">Method: {b.payment_method || "—"}</div>
+                            <PaymentStatusBadge status={b.payment_status} />
                           </div>
                         </TableCell>
                         <TableCell>
                           <StatusBadge status={b.status} />
-                        </TableCell>
-                        <TableCell>
-                          <PaymentStatusBadge status={b.payment_status} />
                         </TableCell>
                         <TableCell>
                           <div className="flex justify-end gap-1">
