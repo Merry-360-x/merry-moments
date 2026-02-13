@@ -314,6 +314,83 @@ function generateBookingConfirmationHtml(booking) {
 `;
 }
 
+function generateBookingDecisionHtml(payload) {
+  const logoUrl = "https://merry360x.com/brand/logo.png";
+  const isApproved = payload.action === "approved";
+  const title = isApproved ? "Booking Approved" : "Booking Rejected";
+  const subtitle = isApproved
+    ? "Your host accepted your booking request."
+    : "Your host could not accept your booking request.";
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; background-color: #f8fafc;">
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f8fafc;">
+    <tr>
+      <td style="padding: 32px 16px;">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 14px; border: 1px solid #e5e7eb; overflow: hidden;">
+          <tr>
+            <td style="padding: 28px 24px 16px; text-align: center;">
+              <img src="${logoUrl}" alt="Merry360X" width="56" height="56" style="border-radius: 10px;" />
+              <h1 style="margin: 12px 0 6px; color: #111827; font-size: 24px;">${title}</h1>
+              <p style="margin: 0; color: #6b7280; font-size: 14px;">${subtitle}</p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding: 0 24px 20px;">
+              <p style="margin: 0 0 14px; color: #111827; font-size: 14px;">Hi ${payload.guestName || "Guest"},</p>
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="font-size: 14px; color: #111827;">
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280;">Booking</td>
+                  <td style="padding: 6px 0; text-align: right; font-family: monospace;">${payload.bookingId || "—"}</td>
+                </tr>
+                ${payload.orderId ? `
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280;">Order</td>
+                  <td style="padding: 6px 0; text-align: right; font-family: monospace;">${payload.orderId}</td>
+                </tr>` : ""}
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280;">Service</td>
+                  <td style="padding: 6px 0; text-align: right;">${payload.itemName || "Booking"}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280;">Check-in</td>
+                  <td style="padding: 6px 0; text-align: right;">${formatDate(payload.checkIn)}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280;">Check-out</td>
+                  <td style="padding: 6px 0; text-align: right;">${formatDate(payload.checkOut)}</td>
+                </tr>
+              </table>
+              ${!isApproved && payload.rejectionReason ? `
+              <div style="margin-top: 14px; padding: 12px; border-radius: 8px; background: #fef2f2; border: 1px solid #fecaca;">
+                <p style="margin: 0 0 6px; color: #991b1b; font-size: 12px; font-weight: 700;">Reason from host</p>
+                <p style="margin: 0; color: #7f1d1d; font-size: 13px;">${String(payload.rejectionReason).replace(/</g, "&lt;")}</p>
+              </div>
+              ` : ""}
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding: 0 24px 28px; text-align: center;">
+              <a href="https://merry360x.com/my-bookings" style="display: inline-block; padding: 12px 22px; background: #dc2626; color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">View My Bookings</a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
 export default async function handler(req, res) {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -330,6 +407,68 @@ export default async function handler(req, res) {
   }
 
   try {
+    const { action } = req.body || {};
+
+    if (action === "approved" || action === "rejected") {
+      const {
+        bookingId,
+        orderId,
+        guestName,
+        guestEmail,
+        itemName,
+        checkIn,
+        checkOut,
+        rejectionReason,
+      } = req.body;
+
+      if (!bookingId || !guestEmail) {
+        return json(res, 400, { error: "Missing required fields" });
+      }
+
+      const htmlContent = generateBookingDecisionHtml({
+        action,
+        bookingId,
+        orderId,
+        guestName,
+        itemName,
+        checkIn,
+        checkOut,
+        rejectionReason,
+      });
+
+      const decisionResponse = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "api-key": BREVO_API_KEY,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          sender: {
+            name: "Merry Moments",
+            email: "support@merry360x.com",
+          },
+          to: [
+            {
+              email: guestEmail,
+              name: guestName || "Guest",
+            },
+          ],
+          subject: action === "approved"
+            ? "✅ Your booking has been approved"
+            : "❌ Update on your booking request",
+          htmlContent,
+        }),
+      });
+
+      const decisionResult = await decisionResponse.json();
+      if (!decisionResponse.ok) {
+        return json(res, 500, { error: "Failed to send email", details: decisionResult });
+      }
+
+      return json(res, 200, { ok: true, messageId: decisionResult.messageId || null });
+    }
+
     const {
       bookingId,
       guestName,

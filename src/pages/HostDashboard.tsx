@@ -1573,7 +1573,7 @@ export default function HostDashboard() {
 
     const tasks = Array.from(uniqueByEmail.values()).map(async (booking) => {
       try {
-        await fetch('/api/booking-status-email', {
+        await fetch('/api/booking-confirmation-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
