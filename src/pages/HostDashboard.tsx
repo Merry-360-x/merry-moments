@@ -2223,6 +2223,7 @@ export default function HostDashboard() {
   const PropertyCard = ({ property }: { property: Property }) => {
     const isEditing = editingPropertyId === property.id;
     const [form, setForm] = useState(property);
+    const [editGroupSize, setEditGroupSize] = useState(Math.max(1, Number(property.max_guests || 2)));
     const [editUploadOpen, setEditUploadOpen] = useState(false);
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
     const integrationSummary = propertyCalendarSummaries[property.id] || null;
@@ -2300,7 +2301,7 @@ export default function HostDashboard() {
                 rows={3}
                 className="resize-none"
               />
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
                 <div>
                   <Label className="text-xs">Price/Night</Label>
                   <Input type="number" value={form.price_per_night} onChange={(e) => setForm((f) => ({ ...f, price_per_night: Number(e.target.value) }))} />
@@ -2315,7 +2316,16 @@ export default function HostDashboard() {
                   />
                 </div>
                 <div>
-                  <Label className="text-xs">Price/Group</Label>
+                  <Label className="text-xs">Group Size (people)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={editGroupSize}
+                    onChange={(e) => setEditGroupSize(Math.max(1, Number(e.target.value) || 1))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Group Amount</Label>
                   <Input 
                     type="number" 
                     value={form.price_per_group || ''} 
@@ -2331,6 +2341,11 @@ export default function HostDashboard() {
                   </Select>
                 </div>
               </div>
+              {form.price_per_group ? (
+                <p className="text-xs text-muted-foreground">
+                  Group price set: {editGroupSize} {editGroupSize === 1 ? "person" : "people"} for {form.currency || "RWF"} {Number(form.price_per_group).toLocaleString()}.
+                </p>
+              ) : null}
               <div>
                 <Label className="text-xs">Images ({(form.images || []).length}) - Drag to reorder, first image is the cover</Label>
                 <div className="flex flex-wrap gap-2 mt-1">
