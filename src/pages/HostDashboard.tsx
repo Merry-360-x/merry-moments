@@ -2082,12 +2082,46 @@ export default function HostDashboard() {
         })
       );
 
-      const integrationIds = listResults.flat().map((integration: PropertyCalendarIntegration) => integration.id);
+      const missingIntegrationPropertyIds = selectedCalendarPropertyIds.filter((_, index) => {
+        const integrationsForProperty = listResults[index] || [];
+        return integrationsForProperty.length === 0;
+      });
+
+      let autoConnectedCount = 0;
+      let integrationIds = listResults.flat().map((integration: PropertyCalendarIntegration) => integration.id);
+
+      if (missingIntegrationPropertyIds.length > 0 && calendarIntegrationUrl.trim()) {
+        const createResults = await Promise.all(
+          missingIntegrationPropertyIds.map(async (propertyId) => {
+            const response = await fetch(`/api/hotel-calendar-sync?action=create`, {
+              method: "POST",
+              headers,
+              body: JSON.stringify({
+                propertyId,
+                feedUrl: calendarIntegrationUrl.trim(),
+                label: calendarIntegrationLabel.trim() || "Hotel calendar",
+              }),
+            });
+
+            const body = await response.json().catch(() => ({}));
+            if (!response.ok) {
+              throw new Error(body?.error || "Could not connect feed for selected accommodation");
+            }
+
+            return body?.integration?.id as string | undefined;
+          })
+        );
+
+        const createdIntegrationIds = createResults.filter((value): value is string => Boolean(value));
+        autoConnectedCount = createdIntegrationIds.length;
+        integrationIds = [...integrationIds, ...createdIntegrationIds];
+      }
+
       if (integrationIds.length === 0) {
         toast({
           variant: "destructive",
           title: "No integrations found",
-          description: "Connect an iCal or Google Calendar feed for selected accommodations first.",
+          description: "Paste an iCal/Google link and click Sync selected now, or import an .ics/.zip file below.",
         });
         return;
       }
@@ -2111,10 +2145,13 @@ export default function HostDashboard() {
       const tourNote = selectedCalendarTourIds.length > 0
         ? ` ${selectedCalendarTourIds.length} selected tour(s) kept selected for your workflow.`
         : "";
+      const autoConnectedNote = autoConnectedCount > 0
+        ? ` Auto-connected ${autoConnectedCount} accommodation feed(s).`
+        : "";
 
       toast({
         title: "Selected calendars synced",
-        description: `Synced ${integrationIds.length} integration(s), imported ${importedCount} blocked date ranges.${tourNote}`,
+        description: `Synced ${integrationIds.length} integration(s), imported ${importedCount} blocked date ranges.${autoConnectedNote}${tourNote}`,
       });
 
       setCalendarRefreshToken((value) => value + 1);
@@ -2131,6 +2168,8 @@ export default function HostDashboard() {
   }, [
     selectedCalendarPropertyIds,
     selectedCalendarTourIds,
+    calendarIntegrationUrl,
+    calendarIntegrationLabel,
     getHostAuthHeaders,
     toast,
     fetchSelectedPropertyIntegrations,
