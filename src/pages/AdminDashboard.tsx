@@ -956,12 +956,30 @@ export default function AdminDashboard() {
       if (payoutFilter !== "all") {
         query = query.eq("status", payoutFilter);
       }
-      
+
       const { data, error } = await query;
       if (error) {
-        console.error("Error fetching payouts:", error);
-        return [];
+        const fallbackQuery = supabase
+          .from("host_payouts")
+          .select(`
+            *,
+            profiles:host_id(id, full_name, email)
+          `)
+          .order("created_at", { ascending: false });
+
+        const fallbackResult =
+          payoutFilter !== "all"
+            ? await fallbackQuery.eq("status", payoutFilter)
+            : await fallbackQuery;
+
+        if (fallbackResult.error) {
+          console.error("Error fetching payouts:", fallbackResult.error);
+          return [];
+        }
+
+        return fallbackResult.data || [];
       }
+
       return data || [];
     },
     enabled: tab === "payouts" || tab === "overview",
