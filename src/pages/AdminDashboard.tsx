@@ -3696,6 +3696,29 @@ For support, contact: support@merry360x.com
                 </div>
               </div>
 
+              <div className="mb-4 flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant={bookingStatus === "all" ? "default" : "outline"}
+                  onClick={() => setBookingStatus("all")}
+                >
+                  All Bookings
+                </Button>
+                <Button
+                  size="sm"
+                  variant={bookingStatus === "refund_requested" ? "default" : "outline"}
+                  onClick={() => setBookingStatus("refund_requested")}
+                  className="gap-1"
+                >
+                  Refund Decisions
+                  {refundRequestedCount > 0 && (
+                    <Badge variant="secondary" className="h-5 min-w-[20px] px-1.5 text-xs">
+                      {refundRequestedCount}
+                    </Badge>
+                  )}
+                </Button>
+              </div>
+
               <div className="overflow-x-auto">
                 <Table className="min-w-[1680px] table-fixed">
                   <TableHeader>
