@@ -939,17 +939,7 @@ export default function AdminDashboard() {
         .from("host_payouts")
         .select(`
           *,
-          profiles:host_id(id, full_name, email),
-          host_payout_methods:payout_method_id(
-            id,
-            method_type,
-            phone_number,
-            provider,
-            bank_name,
-            account_number,
-            is_primary,
-            nickname
-          )
+          profiles:host_id(id, full_name, email)
         `)
         .order("created_at", { ascending: false });
       
@@ -959,27 +949,9 @@ export default function AdminDashboard() {
 
       const { data, error } = await query;
       if (error) {
-        const fallbackQuery = supabase
-          .from("host_payouts")
-          .select(`
-            *,
-            profiles:host_id(id, full_name, email)
-          `)
-          .order("created_at", { ascending: false });
-
-        const fallbackResult =
-          payoutFilter !== "all"
-            ? await fallbackQuery.eq("status", payoutFilter)
-            : await fallbackQuery;
-
-        if (fallbackResult.error) {
-          console.error("Error fetching payouts:", fallbackResult.error);
-          return [];
-        }
-
-        return fallbackResult.data || [];
+        console.error("Error fetching payouts:", error);
+        return [];
       }
-
       return data || [];
     },
     enabled: tab === "payouts" || tab === "overview",
@@ -1003,6 +975,10 @@ export default function AdminDashboard() {
       // If approving and mobile money, trigger PawaPay payout
       if (action === "completed" && payout.payout_method === "mobile_money") {
         const phone = payout.payout_details?.phone;
+        const provider =
+          payout.payout_details?.provider ||
+          payout.payout_details?.mobile_provider ||
+          "MTN";
         if (!phone) {
           toast({
             title: "Missing phone number",
@@ -1022,7 +998,7 @@ export default function AdminDashboard() {
             amount: Math.round(payout.amount),
             currency: payout.currency || 'RWF',
             phoneNumber: phone,
-            provider: 'MTN',
+            provider,
             description: `Host payout for ${payout.profiles?.full_name || payout.profiles?.email || 'Host'}`,
           }),
         });
@@ -1031,11 +1007,11 @@ export default function AdminDashboard() {
         console.log('PawaPay payout response:', payoutData);
 
         if (!payoutData.success) {
-          // Update status to failed
+          // Update status to rejected and log failure reason
           await supabase
             .from("host_payouts")
             .update({
-              status: "failed",
+              status: "rejected",
               admin_notes: `PawaPay Error: ${payoutData.error || 'Unknown error'}`,
               processed_by: user?.id,
               processed_at: new Date().toISOString(),
