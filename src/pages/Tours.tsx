@@ -3,7 +3,6 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -168,6 +167,7 @@ const Tours = () => {
   const { currency: preferredCurrency } = usePreferences();
   const { usdRates } = useFxRates();
   const [searchParams] = useSearchParams();
+  const [autoLocationRequested, setAutoLocationRequested] = useState(false);
   const [activeCategory, setActiveCategory] = useState(ALL_CATEGORY_VALUE);
   const [query, setQuery] = useState("");
   const [duration, setDuration] = useState(ANY_DURATION_VALUE);
@@ -203,9 +203,13 @@ const Tours = () => {
     navigate(qs ? `/tours?${qs}` : "/tours");
   };
 
-  const requestNearbyRecommendations = async () => {
+  const requestNearbyRecommendations = async (options?: { silent?: boolean }) => {
+    const silent = Boolean(options?.silent);
+
     if (!("geolocation" in navigator)) {
-      toast({ variant: "destructive", title: "Location not available", description: "Your browser does not support geolocation." });
+      if (!silent) {
+        toast({ variant: "destructive", title: "Location not available", description: "Your browser does not support geolocation." });
+      }
       return;
     }
 
@@ -236,11 +240,25 @@ const Tours = () => {
         navigate(`/tours?${params.toString()}`);
       },
       () => {
-        toast({ variant: "destructive", title: "Location permission denied", description: "Allow location access to get nearby recommendations." });
+        if (!silent) {
+          toast({ variant: "destructive", title: "Location permission denied", description: "Allow location access to get nearby recommendations." });
+        }
+        try {
+          setLocationPromptDismissed(true);
+          localStorage.setItem("tours_location_prompt_dismissed", "1");
+        } catch {
+          // ignore storage errors
+        }
       },
       { enableHighAccuracy: false, timeout: 8000 }
     );
   };
+
+  useEffect(() => {
+    if (autoLocationRequested || nearby || locationPromptDismissed) return;
+    setAutoLocationRequested(true);
+    requestNearbyRecommendations({ silent: true });
+  }, [autoLocationRequested, nearby, locationPromptDismissed]);
 
   const { data: tours = [], isError, isLoading: toursLoading, refetch: refetchTours } = useQuery({
     queryKey: [
@@ -280,8 +298,6 @@ const Tours = () => {
       return Number(b.rating ?? 0) - Number(a.rating ?? 0);
     });
   }, [tours, nearbyRegion]);
-
-  const showLocationPrompt = !nearby && !query.trim() && !locationPromptDismissed;
 
   const addToCart = async (tour: TourRow) => {
     const itemType = tour.source === "tour_packages" ? "tour_package" : "tour";
@@ -329,26 +345,6 @@ const Tours = () => {
               {t("common.search")}
             </Button>
           </div>
-            {showLocationPrompt && (
-              <Alert className="max-w-3xl mx-auto mt-4">
-                <AlertDescription className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                  <span>Share your location to see tours in your region first.</span>
-                  <div className="flex gap-2">
-                    <Button size="sm" onClick={requestNearbyRecommendations}>Use my location</Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setLocationPromptDismissed(true);
-                        localStorage.setItem("tours_location_prompt_dismissed", "1");
-                      }}
-                    >
-                      Not now
-                    </Button>
-                  </div>
-                </AlertDescription>
-              </Alert>
-            )}
         </div>
       </div>
 
