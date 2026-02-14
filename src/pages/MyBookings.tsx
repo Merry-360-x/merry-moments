@@ -80,6 +80,12 @@ interface Booking {
   } | null;
 }
 
+type SupportTicketRow = {
+  subject: string | null;
+  message: string | null;
+  status: string | null;
+};
+
 const MyBookings = () => {
   const { t } = useTranslation();
   const { user, isLoading: authLoading } = useAuth();
@@ -200,6 +206,56 @@ const MyBookings = () => {
       return new Set((reviewed ?? []).map((r) => String((r as { booking_id: string }).booking_id)));
     },
     placeholderData: new Set(),
+  });
+
+  const { data: existingRefundRequestRefs = new Set<string>() } = useQuery({
+    queryKey: ["my-refund-request-refs", user?.id],
+    enabled: Boolean(user?.id),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("support_tickets")
+        .select("subject, message, status")
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false })
+        .limit(300);
+
+      if (error) {
+        console.error("Error fetching refund request refs:", error);
+        return new Set<string>();
+      }
+
+      const refs = new Set<string>();
+      const bookingIdPattern = /-\s*Booking\s+([^:\s]+)\s*:/gi;
+
+      (data as SupportTicketRow[]).forEach((ticket) => {
+        const status = String(ticket.status || "").toLowerCase();
+        if (status === "closed" || status === "resolved") return;
+
+        const subject = String(ticket.subject || "");
+        const message = String(ticket.message || "");
+
+        const subjectMatch = subject.match(/refund request for booking\s+(.+)$/i);
+        if (subjectMatch?.[1]) {
+          refs.add(subjectMatch[1].trim().toLowerCase());
+        }
+
+        const referenceMatch = message.match(/^Reference:\s*(.+)$/im);
+        if (referenceMatch?.[1]) {
+          refs.add(referenceMatch[1].trim().toLowerCase());
+        }
+
+        let lineMatch: RegExpExecArray | null;
+        while ((lineMatch = bookingIdPattern.exec(message)) !== null) {
+          if (lineMatch[1]) {
+            refs.add(lineMatch[1].trim().toLowerCase());
+          }
+        }
+      });
+
+      return refs;
+    },
+    placeholderData: new Set<string>(),
+    staleTime: 30000,
   });
 
   // Open review dialog automatically when coming from an email link
@@ -809,6 +865,17 @@ const MyBookings = () => {
               const accommodationCount = orderBookings.filter((booking) => (booking.booking_type || 'property') === 'property').length;
               const tourCount = orderBookings.filter((booking) => booking.booking_type === 'tour').length;
               const transportCount = orderBookings.filter((booking) => booking.booking_type === 'transport').length;
+              const hasSubmittedRefundRequest =
+                requestedRefundKeys.has(orderId) ||
+                existingRefundRequestRefs.has(String(orderId || "").toLowerCase()) ||
+                orderBookings.some((booking) => {
+                  const bookingId = String(booking.id || "").toLowerCase();
+                  const bookingOrderId = String(booking.order_id || "").toLowerCase();
+                  return (
+                    existingRefundRequestRefs.has(bookingId) ||
+                    (bookingOrderId && existingRefundRequestRefs.has(bookingOrderId))
+                  );
+                });
               
               // Calculate total amount paid (from checkout_requests)
               const totalPaid = orderBookings.reduce((sum, b) => {
@@ -1094,10 +1161,10 @@ const MyBookings = () => {
                           size="sm"
                           variant="default"
                           className="flex-1"
-                          disabled={requestingRefundKey === orderId || requestedRefundKeys.has(orderId)}
+                          disabled={requestingRefundKey === orderId || hasSubmittedRefundRequest}
                           onClick={() => submitRefundRequest(orderId, orderBookings)}
                         >
-                          {requestedRefundKeys.has(orderId)
+                          {hasSubmittedRefundRequest
                             ? "Refund requested"
                             : requestingRefundKey === orderId
                               ? "Submitting..."

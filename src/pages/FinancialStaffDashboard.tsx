@@ -305,12 +305,7 @@ export default function FinancialStaffDashboard() {
           *,
           profiles:host_id (
             full_name,
-            email,
-            payout_method,
-            payout_phone,
-            payout_bank_name,
-            payout_bank_account,
-            payout_account_name
+            email
           )
         `)
         .order("created_at", { ascending: false });
@@ -334,71 +329,62 @@ export default function FinancialStaffDashboard() {
     setProcessingPayout(payoutId);
     try {
       if (action === "completed") {
-        // Fetch the payout details including payout method
+        // Fetch payout details
         const { data: payout, error: payoutError } = await supabase
           .from("host_payouts")
-          .select(`
-            *,
-            host_payout_methods (
-              id,
-              method_type,
-              phone_number,
-              provider
-            )
-          `)
+          .select("*")
           .eq("id", payoutId)
           .single();
 
         if (payoutError) throw payoutError;
 
-        // Check if this is a mobile money payout
-        if (payout.payout_method_id && payout.host_payout_methods) {
-          const payoutMethod = payout.host_payout_methods;
-          
-          if (payoutMethod.method_type === "mobile_money" && payoutMethod.phone_number) {
-            // Send via PawaPay
-            const pawapayResponse = await fetch("/api/pawapay-payout", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                amount: payout.amount,
-                currency: payout.currency || "RWF",
-                phoneNumber: payoutMethod.phone_number,
-                provider: payoutMethod.provider,
-                payoutId: payoutId,
-                hostId: payout.host_id,
-              }),
-            });
+        if (payout.payout_method === "mobile_money") {
+          const phone = payout.payout_details?.phone;
+          const provider = payout.payout_details?.provider || payout.payout_details?.mobile_provider || "MTN";
 
-            const pawapayResult = await pawapayResponse.json();
-
-            if (!pawapayResponse.ok) {
-              throw new Error(pawapayResult.error || "Failed to send payout via PawaPay");
-            }
-
-            // Update with PawaPay payout ID
-            const { error } = await supabase
-              .from("host_payouts")
-              .update({
-                status: "completed",
-                admin_notes: notes || "Sent via PawaPay",
-                processed_by: user?.id,
-                processed_at: new Date().toISOString(),
-                pawapay_payout_id: pawapayResult.pawapayPayoutId,
-              })
-              .eq("id", payoutId);
-
-            if (error) throw error;
-
-            toast({
-              title: "Payout Sent",
-              description: `Payment of ${payout.amount} ${payout.currency || "RWF"} sent to ${payoutMethod.phone_number} via PawaPay.`,
-            });
-
-            refetchPayouts();
-            setProcessingPayout(null);
-            return;
+          if (!phone) {
+            throw new Error("Missing phone number for mobile money payout");
           }
+
+          const pawapayResponse = await fetch("/api/pawapay-payout", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              amount: Math.round(Number(payout.amount || 0)),
+              currency: payout.currency || "RWF",
+              phoneNumber: phone,
+              provider,
+              payoutId,
+              hostId: payout.host_id,
+            }),
+          });
+
+          const pawapayResult = await pawapayResponse.json().catch(() => ({}));
+          if (!pawapayResponse.ok) {
+            throw new Error(pawapayResult?.error || "Failed to send payout via PawaPay");
+          }
+
+          const { error } = await supabase
+            .from("host_payouts")
+            .update({
+              status: "completed",
+              admin_notes: notes || "Sent via PawaPay",
+              processed_by: user?.id,
+              processed_at: new Date().toISOString(),
+              pawapay_payout_id: pawapayResult?.pawapayPayoutId || pawapayResult?.payoutId || null,
+            })
+            .eq("id", payoutId);
+
+          if (error) throw error;
+
+          toast({
+            title: "Payout Sent",
+            description: `Payment of ${payout.amount} ${payout.currency || "RWF"} sent to ${phone} via PawaPay.`,
+          });
+
+          refetchPayouts();
+          setProcessingPayout(null);
+          return;
         }
       }
 
