@@ -23,7 +23,6 @@ import { convertAmount } from "@/lib/fx";
 import { useFxRates } from "@/hooks/useFxRates";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useToast } from "@/hooks/use-toast";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const propertyTypes = ["Hotel", "Motel", "Resort", "Lodge", "Apartment", "Room in Apartment", "Villa", "Guesthouse"];
 const amenities = AMENITIES;
@@ -161,6 +160,7 @@ const Accommodations = () => {
   const [startDate, setStartDate] = useState(() => searchParams.get("start") ?? "");
   const [endDate, setEndDate] = useState(() => searchParams.get("end") ?? "");
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
+  const [autoLocationRequested, setAutoLocationRequested] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [monthlyRentalOnly, setMonthlyRentalOnly] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -177,13 +177,6 @@ const Accommodations = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { toggleFavorite } = useFavorites();
-  const [locationPromptDismissed, setLocationPromptDismissed] = useState(() => {
-    try {
-      return localStorage.getItem("accommodations_location_prompt_dismissed") === "1";
-    } catch {
-      return false;
-    }
-  });
   const { currency: preferredCurrency } = usePreferences();
   const { usdRates } = useFxRates();
   const maxPrice = useMemo(
@@ -223,9 +216,13 @@ const Accommodations = () => {
     navigate(`/accommodations?${params.toString()}`);
   };
 
-  const requestNearbyRecommendations = async () => {
+  const requestNearbyRecommendations = async (options?: { silent?: boolean }) => {
+    const silent = Boolean(options?.silent);
+
     if (!("geolocation" in navigator)) {
-      toast({ variant: "destructive", title: "Location not available", description: "Your browser does not support geolocation." });
+      if (!silent) {
+        toast({ variant: "destructive", title: "Location not available", description: "Your browser does not support geolocation." });
+      }
       return;
     }
 
@@ -254,13 +251,19 @@ const Accommodations = () => {
         navigate(`/accommodations?${params.toString()}`);
       },
       () => {
-        toast({ variant: "destructive", title: "Location permission denied", description: "Allow location access to get nearby recommendations." });
+        if (!silent) {
+          toast({ variant: "destructive", title: "Location permission denied", description: "Allow location access to get nearby recommendations." });
+        }
       },
       { enableHighAccuracy: false, timeout: 8000 }
     );
   };
 
-  const showLocationPrompt = !nearby && !searchParams.get("q") && !locationPromptDismissed;
+  useEffect(() => {
+    if (autoLocationRequested || nearby) return;
+    setAutoLocationRequested(true);
+    requestNearbyRecommendations({ silent: true });
+  }, [autoLocationRequested, nearby]);
 
   const {
     data: properties = [],
@@ -501,26 +504,6 @@ const Accommodations = () => {
               <Search className="w-5 h-5" />
             </Button>
           </div>
-          {showLocationPrompt && (
-            <Alert className="max-w-3xl mx-auto mt-4">
-              <AlertDescription className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                <span>Share your location to show nearby stays first.</span>
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={requestNearbyRecommendations}>Use my location</Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setLocationPromptDismissed(true);
-                      localStorage.setItem("accommodations_location_prompt_dismissed", "1");
-                    }}
-                  >
-                    Not now
-                  </Button>
-                </div>
-              </AlertDescription>
-            </Alert>
-          )}
         </div>
       </div>
 
