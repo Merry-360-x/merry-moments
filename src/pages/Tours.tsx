@@ -171,13 +171,6 @@ const Tours = () => {
   const [activeCategory, setActiveCategory] = useState(ALL_CATEGORY_VALUE);
   const [query, setQuery] = useState("");
   const [duration, setDuration] = useState(ANY_DURATION_VALUE);
-  const [locationPromptDismissed, setLocationPromptDismissed] = useState(() => {
-    try {
-      return localStorage.getItem("tours_location_prompt_dismissed") === "1";
-    } catch {
-      return false;
-    }
-  });
   const navigate = useNavigate();
   const nearbyLat = searchParams.get("lat");
   const nearbyLng = searchParams.get("lng");
@@ -243,22 +236,16 @@ const Tours = () => {
         if (!silent) {
           toast({ variant: "destructive", title: "Location permission denied", description: "Allow location access to get nearby recommendations." });
         }
-        try {
-          setLocationPromptDismissed(true);
-          localStorage.setItem("tours_location_prompt_dismissed", "1");
-        } catch {
-          // ignore storage errors
-        }
       },
       { enableHighAccuracy: false, timeout: 8000 }
     );
   };
 
   useEffect(() => {
-    if (autoLocationRequested || nearby || locationPromptDismissed) return;
+    if (autoLocationRequested || nearby) return;
     setAutoLocationRequested(true);
     requestNearbyRecommendations({ silent: true });
-  }, [autoLocationRequested, nearby, locationPromptDismissed]);
+  }, [autoLocationRequested, nearby]);
 
   const { data: tours = [], isError, isLoading: toursLoading, refetch: refetchTours } = useQuery({
     queryKey: [
