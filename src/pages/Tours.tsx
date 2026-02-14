@@ -242,6 +242,25 @@ const Tours = () => {
     );
   };
 
+  const { data: tours = [], isError, isLoading: toursLoading, refetch: refetchTours } = useQuery({
+    queryKey: [
+      "tours",
+      searchParams.get("q") ?? "",
+      searchParams.get("category") ?? ALL_CATEGORY_VALUE,
+      searchParams.get("duration") ?? ANY_DURATION_VALUE,
+    ],
+    queryFn: () =>
+      fetchTours({
+        q: searchParams.get("q") ?? "",
+        category: searchParams.get("category") ?? ALL_CATEGORY_VALUE,
+        duration: searchParams.get("duration") ?? ANY_DURATION_VALUE,
+      }),
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    gcTime: 1000 * 60 * 10,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
+
   const rankedTours = useMemo(() => {
     if (!nearbyRegion) return tours;
     const tokens = nearbyRegion
@@ -263,25 +282,6 @@ const Tours = () => {
   }, [tours, nearbyRegion]);
 
   const showLocationPrompt = !nearby && !query.trim() && !locationPromptDismissed;
-
-  const { data: tours = [], isError, isLoading: toursLoading, refetch: refetchTours } = useQuery({
-    queryKey: [
-      "tours",
-      searchParams.get("q") ?? "",
-      searchParams.get("category") ?? ALL_CATEGORY_VALUE,
-      searchParams.get("duration") ?? ANY_DURATION_VALUE,
-    ],
-    queryFn: () =>
-      fetchTours({
-        q: searchParams.get("q") ?? "",
-        category: searchParams.get("category") ?? ALL_CATEGORY_VALUE,
-        duration: searchParams.get("duration") ?? ANY_DURATION_VALUE,
-      }),
-    staleTime: 1000 * 60 * 2, // 2 minutes
-    gcTime: 1000 * 60 * 10,
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-  });
 
   const addToCart = async (tour: TourRow) => {
     const itemType = tour.source === "tour_packages" ? "tour_package" : "tour";

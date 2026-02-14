@@ -200,7 +200,6 @@ export default function OperationsStaffDashboard() {
   const { data: applications = [] } = useQuery({
     queryKey: ["operations_applications"],
     queryFn: async () => {
-      console.log('[OperationsStaff] Fetching applications...');
       const { data, error } = await supabase
         .from("host_applications")
         .select("*")
@@ -227,18 +226,15 @@ export default function OperationsStaffDashboard() {
         })
       );
       
-      console.log('[OperationsStaff] Applications fetched:', appsWithProfiles?.length || 0);
       return appsWithProfiles as HostApplication[];
     },
-    refetchInterval: 30000,
-    refetchOnWindowFocus: true,
-    staleTime: 0,
+    refetchOnWindowFocus: false,
+    staleTime: 30000,
   });
 
   const { data: properties = [] } = useQuery({
     queryKey: ["operations_properties"],
     queryFn: async () => {
-      console.log('[OperationsStaff] Fetching properties...');
       const { data, error } = await supabase
         .from("properties")
         .select("*")
@@ -248,18 +244,15 @@ export default function OperationsStaffDashboard() {
         console.error('[OperationsStaff] Properties error:', error);
         throw error;
       }
-      console.log('[OperationsStaff] Properties fetched:', data?.length || 0);
       return (data ?? []) as Property[];
     },
-    refetchInterval: 30000,
-    refetchOnWindowFocus: true,
-    staleTime: 0,
+    refetchOnWindowFocus: false,
+    staleTime: 30000,
   });
 
   const { data: tours = [] } = useQuery({
     queryKey: ["operations_tours"],
     queryFn: async () => {
-      console.log('[OperationsStaff] Fetching tours...');
       const { data, error } = await supabase
         .from("tour_packages")
         .select("id, title, status, created_at")
@@ -269,18 +262,15 @@ export default function OperationsStaffDashboard() {
         console.error('[OperationsStaff] Tours error:', error);
         throw error;
       }
-      console.log('[OperationsStaff] Tours fetched:', data?.length || 0);
       return (data ?? []) as TourPackage[];
     },
-    refetchInterval: 30000,
-    refetchOnWindowFocus: true,
-    staleTime: 0,
+    refetchOnWindowFocus: false,
+    staleTime: 30000,
   });
 
   const { data: transport = [] } = useQuery({
     queryKey: ["operations_transport"],
     queryFn: async () => {
-      console.log('[OperationsStaff] Fetching transport...');
       const { data, error } = await supabase
         .from("transport_vehicles")
         .select("id, title, is_published, created_by, created_at, vehicle_type")
@@ -290,18 +280,15 @@ export default function OperationsStaffDashboard() {
         console.error('[OperationsStaff] Transport error:', error);
         throw error;
       }
-      console.log('[OperationsStaff] Transport fetched:', data?.length || 0);
       return (data ?? []) as Transport[];
     },
-    refetchInterval: 30000,
-    refetchOnWindowFocus: true,
-    staleTime: 0,
+    refetchOnWindowFocus: false,
+    staleTime: 30000,
   });
 
   const { data: bookings = [] } = useQuery({
     queryKey: ["operations_bookings"],
     queryFn: async () => {
-      console.log('[OperationsStaff] Fetching bookings...');
       const { data, error } = await supabase
         .from("bookings")
         .select("*")
@@ -311,8 +298,6 @@ export default function OperationsStaffDashboard() {
         console.error('[OperationsStaff] Bookings error:', error);
         throw error;
       }
-      console.log('[OperationsStaff] Bookings fetched:', data?.length || 0);
-      
       // Enrich with property/tour/transport details
       if (data && data.length > 0) {
         const propertyIds = [...new Set(data.filter(b => b.property_id).map(b => b.property_id))];
@@ -350,16 +335,14 @@ export default function OperationsStaffDashboard() {
       
       return (data ?? []) as Booking[];
     },
-    refetchInterval: 30000,
-    refetchOnWindowFocus: true,
-    staleTime: 0,
+    refetchOnWindowFocus: false,
+    staleTime: 30000,
   });
 
   // Cart checkouts are bookings with order_id (bulk orders)
   const { data: cartCheckouts = [], refetch: refetchCartCheckouts } = useQuery({
     queryKey: ["operations_cart_checkouts"],
     queryFn: async () => {
-      console.log('[OperationsStaff] Fetching cart checkout bookings...');
       const { data, error } = await supabase
         .from("bookings")
         .select("*")
@@ -370,8 +353,6 @@ export default function OperationsStaffDashboard() {
         console.error('[OperationsStaff] Cart checkouts error:', error);
         throw error;
       }
-      console.log('[OperationsStaff] Cart checkouts fetched:', data?.length || 0);
-      
       // Enrich with property/tour/transport details
       if (data && data.length > 0) {
         const propertyIds = [...new Set(data.filter(b => b.property_id).map(b => b.property_id))];
@@ -409,9 +390,8 @@ export default function OperationsStaffDashboard() {
       
       return (data ?? []) as Booking[];
     },
-    refetchInterval: 30000,
-    refetchOnWindowFocus: true,
-    staleTime: 0,
+    refetchOnWindowFocus: false,
+    staleTime: 30000,
   });
 
   // Cart checkouts removed - bulk bookings now shown in regular bookings tab with order details
