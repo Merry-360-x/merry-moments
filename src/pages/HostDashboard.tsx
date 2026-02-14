@@ -256,6 +256,8 @@ interface Booking {
   // Review fields
   review_token?: string | null;
   review_email_sent?: boolean;
+  payment_status?: string | null;
+  payment_method?: string | null;
 }
 
 interface PropertyCalendarIntegration {
@@ -424,7 +426,9 @@ export default function HostDashboard() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [routes, setRoutes] = useState<TransportRoute[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [checkoutByOrderId, setCheckoutByOrderId] = useState<Record<string, { total_amount: number; currency: string | null }>>({});
   const [bookingIdSearch, setBookingIdSearch] = useState("");
+  const [bookingQuickFilter, setBookingQuickFilter] = useState<"all" | "refunds">("all");
   const [propertyCalendarSummaries, setPropertyCalendarSummaries] = useState<Record<string, {
     connected: boolean;
     lastSyncStatus: string | null;
@@ -783,8 +787,29 @@ export default function HostDashboard() {
         const results = await Promise.all(bookingQueries);
         const allBookings = results.flatMap(r => r.data || []);
         setBookings(allBookings as Booking[]);
+
+        const orderIds = [...new Set(allBookings.map((b: any) => b?.order_id).filter(Boolean))] as string[];
+        if (orderIds.length > 0) {
+          const { data: checkoutRows } = await supabase
+            .from("checkout_requests")
+            .select("id, total_amount, currency")
+            .in("id", orderIds);
+
+          const map = (checkoutRows || []).reduce((acc, row: any) => {
+            acc[row.id] = {
+              total_amount: Number(row.total_amount || 0),
+              currency: row.currency || null,
+            };
+            return acc;
+          }, {} as Record<string, { total_amount: number; currency: string | null }>);
+
+          setCheckoutByOrderId(map);
+        } else {
+          setCheckoutByOrderId({});
+        }
       } else {
         setBookings([]);
+        setCheckoutByOrderId({});
       }
     } catch (e) {
       logError("host.fetchData", e);
@@ -1438,6 +1463,123 @@ export default function HostDashboard() {
 
   // State to track review email sending
   const [sendingReviewEmail, setSendingReviewEmail] = useState<Set<string>>(new Set());
+  const [requestingPaymentBookingIds, setRequestingPaymentBookingIds] = useState<Set<string>>(new Set());
+
+  const normalizePaymentStatus = (booking: Booking) => String(booking.payment_status || "").trim().toLowerCase();
+
+  const isBookingPaymentUnpaid = (booking: Booking) => {
+    const status = normalizePaymentStatus(booking);
+    if (!status) return false;
+    return ["failed", "pending", "requested", "unpaid", "not_paid", "expired"].includes(status);
+  };
+
+  const resolveGuestContact = async (booking: Booking) => {
+    let guestName = booking.guest_name || "Guest";
+    let guestEmail = booking.guest_email || "";
+    let guestPhone = booking.guest_phone || "";
+
+    if (booking.guest_id && (!guestEmail || !guestPhone || !guestName)) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name, email, phone")
+        .eq("id", booking.guest_id)
+        .single();
+
+      if (profile) {
+        guestName = profile.full_name || guestName;
+        guestEmail = profile.email || guestEmail;
+        guestPhone = profile.phone || guestPhone;
+      }
+    }
+
+    return { guestName, guestEmail, guestPhone };
+  };
+
+  const requestBookingPayment = async (booking: Booking) => {
+    setRequestingPaymentBookingIds((prev) => new Set(prev).add(booking.id));
+    try {
+      const updatePayload = {
+        payment_status: "requested",
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error } = booking.order_id
+        ? await supabase.from("bookings").update(updatePayload).eq("order_id", booking.order_id)
+        : await supabase.from("bookings").update(updatePayload).eq("id", booking.id);
+
+      if (error) throw error;
+
+      setBookings((prev) =>
+        prev.map((b) =>
+          booking.order_id
+            ? (b.order_id === booking.order_id ? { ...b, payment_status: "requested" } : b)
+            : (b.id === booking.id ? { ...b, payment_status: "requested" } : b)
+        )
+      );
+
+      fetch("/api/booking-confirmation-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "host_payment_status",
+          bookingId: booking.id,
+          paymentStatus: "requested",
+          source: "host_dashboard_request_payment",
+        }),
+      }).catch(() => null);
+
+      toast({ title: "Payment Request Sent", description: "Booking has been marked as payment requested." });
+    } catch (error: any) {
+      logError("host.booking.requestPayment", error);
+      toast({ variant: "destructive", title: "Request failed", description: error?.message || "Could not request payment" });
+    } finally {
+      setRequestingPaymentBookingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(booking.id);
+        return next;
+      });
+    }
+  };
+
+  const sendPaymentReminderEmail = async (booking: Booking) => {
+    try {
+      const { guestName, guestEmail } = await resolveGuestContact(booking);
+      if (!guestEmail) {
+        toast({ variant: "destructive", title: "Missing email", description: "No guest email found for reminder." });
+        return;
+      }
+
+      const itemName = getBookingDisplayName(booking);
+      const subject = encodeURIComponent(`Payment reminder for booking ${booking.order_id || booking.id}`);
+      const body = encodeURIComponent(
+        `Hello ${guestName},\n\nThis is a friendly reminder to complete your payment for ${itemName}.\n` +
+          `Booking ID: ${booking.id}\n${booking.order_id ? `Order ID: ${booking.order_id}\n` : ""}` +
+          `Check-in: ${booking.check_in}\nCheck-out: ${booking.check_out}\n\n` +
+          `Please complete payment as soon as possible to secure your booking.\n\nThank you.`
+      );
+
+      window.location.href = `mailto:${guestEmail}?subject=${subject}&body=${body}`;
+      toast({ title: "Email reminder ready", description: `Opened email draft for ${guestEmail}` });
+    } catch (error) {
+      logError("host.booking.paymentReminderEmail", error);
+      toast({ variant: "destructive", title: "Email reminder failed", description: "Could not prepare reminder email." });
+    }
+  };
+
+  const callGuestForPayment = async (booking: Booking) => {
+    try {
+      const { guestPhone } = await resolveGuestContact(booking);
+      if (!guestPhone) {
+        toast({ variant: "destructive", title: "Missing phone", description: "No guest phone found for call reminder." });
+        return;
+      }
+
+      window.location.href = `tel:${guestPhone}`;
+    } catch (error) {
+      logError("host.booking.callReminder", error);
+      toast({ variant: "destructive", title: "Call failed", description: "Could not initiate call reminder." });
+    }
+  };
 
   // Send review request email to guest
   const sendReviewEmail = async (booking: Booking) => {
@@ -1741,13 +1883,19 @@ export default function HostDashboard() {
   // Stats - use safe defaults
   const filteredBookingsById = useMemo(() => {
     const query = bookingIdSearch.trim().toLowerCase();
-    if (!query) return bookings || [];
-    return (bookings || []).filter((booking) => {
+    const base = (bookings || []).filter((booking) => {
+      if (bookingQuickFilter !== "refunds") return true;
+      const paymentState = normalizePaymentStatus(booking);
+      return paymentState === "requested" || paymentState === "refunded" || paymentState.includes("refund");
+    });
+
+    if (!query) return base;
+    return base.filter((booking) => {
       const bookingId = String(booking.id || "").toLowerCase();
       const orderId = String(booking.order_id || "").toLowerCase();
       return bookingId.includes(query) || orderId.includes(query);
     });
-  }, [bookings, bookingIdSearch]);
+  }, [bookings, bookingIdSearch, bookingQuickFilter]);
 
   const filteredReportBookings = useMemo(() => {
     const start = new Date(reportStartDate);
@@ -1779,17 +1927,39 @@ export default function HostDashboard() {
 
   // Stats - use safe defaults
   // Calculate earnings after platform fees
-  const confirmedBookings = (bookings || []).filter((b) => b.status === "confirmed" || b.status === "completed");
+  const getBookingAmountAndCurrency = useCallback((booking: Booking) => {
+    const checkout = booking.order_id ? checkoutByOrderId[booking.order_id] : null;
+    const amount = Number(booking.total_price || 0);
+    const amountToUse = Number.isFinite(amount) && amount > 0
+      ? amount
+      : Number(checkout?.total_amount || 0);
+
+    const currencyToUse = checkout?.currency || booking.currency || 'RWF';
+    return {
+      amount: Number.isFinite(amountToUse) ? amountToUse : 0,
+      currency: String(currencyToUse || 'RWF').toUpperCase(),
+    };
+  }, [checkoutByOrderId]);
+
+  const confirmedBookings = (bookings || []).filter((b) => {
+    const status = String(b.status || "").toLowerCase();
+    const payment = normalizePaymentStatus(b);
+    const isConfirmed = status === "confirmed" || status === "completed";
+    const isRefundFlow = payment === "requested" || payment === "refunded" || payment.includes("refund");
+    return isConfirmed && !isRefundFlow;
+  });
   
   // Gross earnings (what guests paid)
-  const totalGrossEarnings = confirmedBookings.reduce((sum, b) => sum + Number(b.total_price), 0);
+  const totalGrossEarnings = confirmedBookings.reduce((sum, b) => {
+    const { amount, currency } = getBookingAmountAndCurrency(b);
+    return sum + toRwfAmount(amount, currency);
+  }, 0);
   
   // Net earnings after platform fees
   // For accommodation: base_price = guest_paid / 1.07, host gets base_price - 3%
   // For tours: base_price = guest_paid (0% guest fee), host gets base_price - 10%
   const totalNetEarnings = confirmedBookings.reduce((sum, b) => {
-    const guestPaid = Number(b.total_price);
-    const bookingCurrency = b.currency || 'RWF';
+    const { amount: guestPaid, currency: bookingCurrency } = getBookingAmountAndCurrency(b);
     let hostNetInBookingCurrency = guestPaid;
 
     if (b.booking_type === 'property' || b.property_id) {
@@ -3781,7 +3951,7 @@ export default function HostDashboard() {
   // Show loading while auth or roles are loading
   if (authLoading || rolesLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-background flex items-center justify-center">
         <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -3790,7 +3960,7 @@ export default function HostDashboard() {
   // If user is not logged in, they'll be redirected by useEffect
   if (!user) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-background flex items-center justify-center">
         <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -3799,7 +3969,7 @@ export default function HostDashboard() {
   // Show "become a host" if user is not a host (only after roles have loaded)
   if (!isHost) {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-[100dvh] bg-background">
       <Navbar />
         <div className="container mx-auto px-4 py-20 text-center max-w-md">
           <Home className="w-16 h-16 mx-auto text-primary mb-6" />
@@ -3829,7 +3999,7 @@ export default function HostDashboard() {
   // Room Creation Form - Minimalistic
   if (showRoomWizard) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-[100dvh] bg-background">
         <Navbar />
         <div className="container mx-auto px-4 py-8 max-w-2xl">
           <div className="mb-6">
@@ -4141,7 +4311,7 @@ export default function HostDashboard() {
   // Property Creation Wizard
   if (showPropertyWizard) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-[100dvh] bg-background">
         <Navbar />
         <div className="container mx-auto px-4 py-8 max-w-3xl">
           {/* Header */}
@@ -4924,7 +5094,7 @@ export default function HostDashboard() {
     };
 
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-[100dvh] bg-background">
         <Navbar />
         <div className="container mx-auto px-4 py-8 max-w-3xl">
           <div className="flex items-center justify-between mb-8">
@@ -5160,7 +5330,7 @@ export default function HostDashboard() {
 
   // Main Dashboard
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-[100dvh] bg-background">
       <Navbar />
 
       <div className="container mx-auto px-4 py-8">
@@ -5202,24 +5372,26 @@ export default function HostDashboard() {
         )}
 
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="mb-6">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="properties">Properties ({(properties || []).length})</TabsTrigger>
-            <TabsTrigger value="tours">Tours ({(tours || []).length})</TabsTrigger>
-            <TabsTrigger value="transport">Transport ({(vehicles || []).length})</TabsTrigger>
-            <TabsTrigger value="bookings">
-              Bookings ({(bookings || []).length})
-              {bookings.filter(b => b.status === 'pending').length > 0 && (
-                <Badge variant="destructive" className="ml-1.5 px-1.5 py-0 text-xs h-5 min-w-[20px] rounded-full">
-                  {bookings.filter(b => b.status === 'pending').length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="discounts">Discount Codes</TabsTrigger>
-            <TabsTrigger value="financial">Financial Reports</TabsTrigger>
-            <TabsTrigger value="payout-methods">Payout Methods</TabsTrigger>
-            <TabsTrigger value="calendar-availability">Calendar & Availability</TabsTrigger>
-          </TabsList>
+          <div className="mb-6 max-w-full overflow-x-auto">
+            <TabsList className="w-max min-w-full justify-start">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="properties">Properties ({(properties || []).length})</TabsTrigger>
+              <TabsTrigger value="tours">Tours ({(tours || []).length})</TabsTrigger>
+              <TabsTrigger value="transport">Transport ({(vehicles || []).length})</TabsTrigger>
+              <TabsTrigger value="bookings">
+                Bookings ({(bookings || []).length})
+                {bookings.filter(b => b.status === 'pending').length > 0 && (
+                  <Badge variant="destructive" className="ml-1.5 px-1.5 py-0 text-xs h-5 min-w-[20px] rounded-full">
+                    {bookings.filter(b => b.status === 'pending').length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="discounts">Discount Codes</TabsTrigger>
+              <TabsTrigger value="financial">Financial Reports</TabsTrigger>
+              <TabsTrigger value="payout-methods">Payout Methods</TabsTrigger>
+              <TabsTrigger value="calendar-availability">Calendar & Availability</TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Overview */}
           <TabsContent value="overview">
@@ -5693,6 +5865,22 @@ export default function HostDashboard() {
               <div>
                 <h2 className="text-2xl font-bold">Bookings</h2>
                 <p className="text-muted-foreground">Search by Booking ID or Order ID to quickly find complete details</p>
+                <div className="flex items-center gap-2 mt-2">
+                  <Button
+                    size="sm"
+                    variant={bookingQuickFilter === "all" ? "default" : "outline"}
+                    onClick={() => setBookingQuickFilter("all")}
+                  >
+                    All
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={bookingQuickFilter === "refunds" ? "default" : "outline"}
+                    onClick={() => setBookingQuickFilter("refunds")}
+                  >
+                    Refunds
+                  </Button>
+                </div>
               </div>
               <Input
                 value={bookingIdSearch}
@@ -5759,6 +5947,9 @@ export default function HostDashboard() {
                             <Badge className="bg-amber-500 hover:bg-amber-600 animate-pulse">
                               Pending Approval
                             </Badge>
+                            {isBookingPaymentUnpaid(b) && (
+                              <Badge variant="destructive" className="ml-2">Not Paid</Badge>
+                            )}
                           </div>
                           
                           {/* Content Grid */}
@@ -5818,6 +6009,29 @@ export default function HostDashboard() {
                           
                           {/* Actions Footer */}
                           <div className="flex flex-wrap items-center justify-end gap-2 px-4 py-3 bg-amber-100/50 dark:bg-amber-900/10 border-t border-amber-200">
+                            {isBookingPaymentUnpaid(b) && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={requestingPaymentBookingIds.has(b.id)}
+                                  onClick={() => requestBookingPayment(b)}
+                                >
+                                  {requestingPaymentBookingIds.has(b.id) ? (
+                                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                  ) : (
+                                    <CreditCard className="w-4 h-4 mr-1" />
+                                  )}
+                                  Request Payment
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={() => sendPaymentReminderEmail(b)}>
+                                  <Mail className="w-4 h-4 mr-1" /> Email Reminder
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={() => callGuestForPayment(b)}>
+                                  <Phone className="w-4 h-4 mr-1" /> Call Guest
+                                </Button>
+                              </>
+                            )}
                             <Button 
                               size="sm" 
                               className="bg-green-600 hover:bg-green-700 text-white"
@@ -5881,6 +6095,7 @@ export default function HostDashboard() {
                   // Get the name of the booked item based on type
                   let itemName = 'Unknown';
                   let itemType = b.booking_type || 'property';
+                  const paymentState = normalizePaymentStatus(b);
                   
                   if (b.booking_type === 'property' && (b as any).properties) {
                     itemName = (b as any).properties.title;
@@ -5934,15 +6149,24 @@ export default function HostDashboard() {
                           </div>
                         </div>
                       </div>
-                      <Badge className={`text-xs px-3 py-1 ${
-                        b.status === "confirmed" ? "bg-green-500 hover:bg-green-600" :
-                        b.status === "completed" ? "bg-blue-500 hover:bg-blue-600" :
-                        b.status === "pending" ? "bg-yellow-500 hover:bg-yellow-600" :
-                        b.status === "cancelled" ? "bg-red-500 hover:bg-red-600" :
-                        "bg-gray-500"
-                      }`}>
-                        {b.status.charAt(0).toUpperCase() + b.status.slice(1)}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge className={`text-xs px-3 py-1 ${
+                          b.status === "confirmed" ? "bg-green-500 hover:bg-green-600" :
+                          b.status === "completed" ? "bg-blue-500 hover:bg-blue-600" :
+                          b.status === "pending" ? "bg-yellow-500 hover:bg-yellow-600" :
+                          b.status === "cancelled" ? "bg-red-500 hover:bg-red-600" :
+                          "bg-gray-500"
+                        }`}>
+                          {b.status.charAt(0).toUpperCase() + b.status.slice(1)}
+                        </Badge>
+                        {paymentState === "requested" && (
+                          <Badge variant="secondary" className="text-amber-700 bg-amber-100 border-amber-300">Refund Requested</Badge>
+                        )}
+                        {paymentState === "refunded" && (
+                          <Badge variant="outline" className="text-emerald-700 border-emerald-300 bg-emerald-50">Refunded</Badge>
+                        )}
+                        {isBookingPaymentUnpaid(b) && <Badge variant="destructive">Not Paid</Badge>}
+                      </div>
                     </div>
                     
                     {/* Content Grid */}
@@ -6012,6 +6236,29 @@ export default function HostDashboard() {
                     
                     {/* Actions Footer */}
                     <div className="flex flex-wrap items-center justify-end gap-2 px-4 py-3 bg-muted/20 border-t">
+                      {isBookingPaymentUnpaid(b) && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={requestingPaymentBookingIds.has(b.id)}
+                            onClick={() => requestBookingPayment(b)}
+                          >
+                            {requestingPaymentBookingIds.has(b.id) ? (
+                              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                            ) : (
+                              <CreditCard className="w-3 h-3 mr-1" />
+                            )}
+                            Request Payment
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => sendPaymentReminderEmail(b)}>
+                            <Mail className="w-3 h-3 mr-1" /> Email Reminder
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => callGuestForPayment(b)}>
+                            <Phone className="w-3 h-3 mr-1" /> Call Guest
+                          </Button>
+                        </>
+                      )}
                       <Button size="sm" variant="outline" onClick={() => viewBookingDetails(b)}>
                         <Eye className="w-3 h-3 mr-1" /> Details
                       </Button>

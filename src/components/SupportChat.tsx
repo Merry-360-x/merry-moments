@@ -67,6 +67,23 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [userName, setUserName] = useState<string>("");
   const [otherUserTyping, setOtherUserTyping] = useState(false);
+
+  const notifyRefundStatus = async (status: string) => {
+    try {
+      await fetch("/api/booking-confirmation-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "refund_status",
+          ticketId: ticket.id,
+          refundStatus: status,
+          source: "support_chat",
+        }),
+      });
+    } catch (error) {
+      console.warn("Failed to notify refund status by email", error);
+    }
+  };
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const messagesChannelRef = useRef<any>(null);
   const presenceChannelRef = useRef<any>(null);
@@ -360,6 +377,7 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
           .from("support_tickets")
           .update({ status: "in_progress" })
           .eq("id", ticket.id);
+        await notifyRefundStatus("in_progress");
         onStatusChange?.("in_progress");
       }
 
@@ -467,7 +485,7 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4 max-h-[600px] overflow-y-auto" ref={scrollRef}>
+      <ScrollArea className="flex-1 p-4 max-h-[60vh] sm:max-h-[600px] overflow-y-auto" ref={scrollRef}>
         <div className="space-y-4">
           {/* Initial ticket message - always from customer (left side) */}
           <div className="flex gap-2">
@@ -676,7 +694,10 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
                   .from("support_tickets")
                   .update({ status: "open" })
                   .eq("id", ticket.id)
-                  .then(() => onStatusChange("open"));
+                  .then(async () => {
+                    await notifyRefundStatus("open");
+                    onStatusChange("open");
+                  });
               }}
             >
               Reopen Conversation

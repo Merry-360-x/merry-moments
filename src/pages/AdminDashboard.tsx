@@ -618,6 +618,23 @@ export default function AdminDashboard() {
       toast({ variant: "destructive", title: "Failed", description: uiErrorMessage(e) });
     }
   };
+  const notifyRefundStatus = async (ticketId: string, status: string, note?: string) => {
+    try {
+      await fetch("/api/booking-confirmation-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "refund_status",
+          ticketId,
+          refundStatus: status,
+          note,
+          source: "admin",
+        }),
+      });
+    } catch (error) {
+      console.warn("Failed to notify refund status by email", error);
+    }
+  };
 
   const deleteBanner = async (id: string) => {
     if (!confirm("Delete this banner?")) return;
@@ -707,6 +724,17 @@ export default function AdminDashboard() {
         .eq("id", bookingId);
 
       if (error) throw error;
+
+      fetch("/api/booking-confirmation-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "host_payment_status",
+          bookingId,
+          paymentStatus: "paid",
+          source: "admin_mark_paid",
+        }),
+      }).catch(() => null);
 
       toast({
         title: "Payment Confirmed",
@@ -838,7 +866,9 @@ export default function AdminDashboard() {
         .select("*")
         .order("created_at", { ascending: false })
         .limit(500);
-      if (bookingStatus && bookingStatus !== "all") q = q.eq("status", bookingStatus);
+      if (bookingStatus && bookingStatus !== "all" && bookingStatus !== "refund_requested") {
+        q = q.eq("status", bookingStatus);
+      }
       const { data, error } = await q;
       if (error) {
         console.error("Error fetching bookings:", error);
@@ -1099,6 +1129,36 @@ export default function AdminDashboard() {
     refetchOnWindowFocus: true,
     placeholderData: (previousData) => previousData,
   });
+
+  const refundRequestRefs = useMemo(() => {
+    const refs = new Set<string>();
+    const bookingIdPattern = /-\s*Booking\s+([^:\s]+)\s*:/gi;
+
+    tickets.forEach((ticket) => {
+      const status = String(ticket.status || "").toLowerCase();
+      if (status === "closed" || status === "resolved") return;
+
+      const subjectMatch = String(ticket.subject || "").match(/refund request for booking\s+(.+)$/i);
+      if (subjectMatch?.[1]) {
+        refs.add(subjectMatch[1].trim().toLowerCase());
+      }
+
+      const message = String(ticket.message || "");
+      let lineMatch: RegExpExecArray | null;
+      while ((lineMatch = bookingIdPattern.exec(message)) !== null) {
+        if (lineMatch[1]) {
+          refs.add(lineMatch[1].trim().toLowerCase());
+        }
+      }
+
+      const referenceMatch = message.match(/^Reference:\s*(.+)$/im);
+      if (referenceMatch?.[1]) {
+        refs.add(referenceMatch[1].trim().toLowerCase());
+      }
+    });
+
+    return refs;
+  }, [tickets]);
 
   // Incidents
   const { data: incidents = [], refetch: refetchIncidents } = useQuery({
@@ -1601,6 +1661,7 @@ export default function AdminDashboard() {
         } as never)
         .eq("id", respondingTicket.id);
       if (error) throw error;
+      await notifyRefundStatus(respondingTicket.id, "resolved", responseDraft.trim());
       toast({ title: "Response sent" });
       setRespondingTicket(null);
       setResponseDraft("");
@@ -1617,6 +1678,7 @@ export default function AdminDashboard() {
     try {
       const { error } = await supabase.from("support_tickets").update({ status } as never).eq("id", ticketId);
       if (error) throw error;
+      await notifyRefundStatus(ticketId, status);
       toast({ title: "Ticket updated" });
       await Promise.all([refetchTickets(), refetchMetrics()]);
     } catch (e) {
@@ -2046,13 +2108,22 @@ For support, contact: support@merry360x.com
   const pendingApps = applications.filter((a) => a.status === "pending");
   const filteredBookingsById = useMemo(() => {
     const query = bookingIdSearch.trim().toLowerCase();
-    if (!query) return bookings;
-    return bookings.filter((booking) => {
+
+    const filteredByRefundRequest = bookingStatus === "refund_requested"
+      ? bookings.filter((booking) => {
+          const bookingId = String(booking.id || "").toLowerCase();
+          const orderId = String(booking.order_id || "").toLowerCase();
+          return refundRequestRefs.has(bookingId) || (orderId && refundRequestRefs.has(orderId));
+        })
+      : bookings;
+
+    if (!query) return filteredByRefundRequest;
+    return filteredByRefundRequest.filter((booking) => {
       const bookingId = String(booking.id || "").toLowerCase();
       const orderId = String(booking.order_id || "").toLowerCase();
       return bookingId.includes(query) || orderId.includes(query);
     });
-  }, [bookings, bookingIdSearch]);
+  }, [bookings, bookingIdSearch, bookingStatus, refundRequestRefs]);
   const bookingOrderCount = useMemo(
     () => new Set(bookings.map((booking) => booking.order_id).filter(Boolean)).size,
     [bookings]
@@ -2064,6 +2135,14 @@ For support, contact: support@merry360x.com
   const cancelledPaidBookings = useMemo(
     () => bookings.filter((booking) => booking.status === "cancelled" && booking.payment_status === "paid").length,
     [bookings]
+  );
+  const refundRequestedCount = useMemo(
+    () => bookings.filter((booking) => {
+      const bookingId = String(booking.id || "").toLowerCase();
+      const orderId = String(booking.order_id || "").toLowerCase();
+      return refundRequestRefs.has(bookingId) || (orderId && refundRequestRefs.has(orderId));
+    }).length,
+    [bookings, refundRequestRefs]
   );
 
   return (
@@ -3483,12 +3562,13 @@ For support, contact: support@merry360x.com
                       <SelectItem value="confirmed">Confirmed</SelectItem>
                       <SelectItem value="completed">Completed</SelectItem>
                       <SelectItem value="cancelled">Cancelled</SelectItem>
+                      <SelectItem value="refund_requested">Refund Requested</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
                 <div className="rounded-lg border p-3">
                   <p className="text-xs text-muted-foreground">Bookings</p>
                   <p className="text-xl font-semibold">{bookings.length}</p>
@@ -3504,6 +3584,10 @@ For support, contact: support@merry360x.com
                 <div className="rounded-lg border p-3">
                   <p className="text-xs text-muted-foreground">Cancelled, Paid</p>
                   <p className="text-xl font-semibold text-destructive">{cancelledPaidBookings}</p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">Refund Requested</p>
+                  <p className="text-xl font-semibold text-amber-600">{refundRequestedCount}</p>
                 </div>
               </div>
 
@@ -3664,6 +3748,9 @@ For support, contact: support@merry360x.com
                             </div>
                             <div className="text-xs text-muted-foreground">Method: {b.payment_method || "—"}</div>
                             <PaymentStatusBadge status={b.payment_status} />
+                            {(refundRequestRefs.has(String(b.id || "").toLowerCase()) || (b.order_id && refundRequestRefs.has(String(b.order_id).toLowerCase()))) && (
+                              <Badge className="bg-amber-100 text-amber-800">Refund Requested</Badge>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -4096,7 +4183,7 @@ For support, contact: support@merry360x.com
           <TabsContent value="support">
             <div className="grid gap-6">
               {/* Ticket Activity Logs */}
-              <TicketActivityLogs limit={100} />
+              <TicketActivityLogs limit={100} filterStorageKey="ticket_activity_filter_admin_dashboard" />
 
               {/* Support Tickets */}
               <Card className="p-6">

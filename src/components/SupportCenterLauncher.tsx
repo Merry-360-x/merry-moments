@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck - support_ticket_messages table not in generated types yet
-import { useMemo, useRef, useState, useEffect } from "react";
+import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { MessageCircle, ChevronLeft, Bot, Headset, X, Maximize2, Minimize2, Send, Paperclip, Smile, Reply, User, Image as ImageIcon, FileText, Clock, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -73,6 +73,7 @@ export default function SupportCenterLauncher() {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [userName, setUserName] = useState<string>("Customer");
   const [staffTyping, setStaffTyping] = useState(false);
+  const [activeSupportName, setActiveSupportName] = useState<string>("Support Team");
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const lastSeenMessageIdRef = useRef<string | null>(null);
@@ -153,8 +154,48 @@ export default function SupportCenterLauncher() {
       }
       return msg;
     });
+
+    const lastStaffMessage = [...enriched].reverse().find((m) => m.sender_type === "staff" && m.sender_name);
+    if (lastStaffMessage?.sender_name) {
+      setActiveSupportName(lastStaffMessage.sender_name);
+    }
+
     setMessages(enriched);
   };
+
+  const handleIncomingMessage = useCallback((newMsg: Message) => {
+    setMessages((prev) => {
+      const exists = prev.some((m) => m.id === newMsg.id);
+      if (exists) return prev;
+
+      if (newMsg.sender_type === "staff" && newMsg.sender_name) {
+        setActiveSupportName(newMsg.sender_name);
+      }
+
+      if (newMsg.sender_type === "staff") {
+        if (!open || step !== "chat") {
+          setUnreadCount((count) => count + 1);
+        } else {
+          toast({
+            title: `New message from ${newMsg.sender_name || "Support Team"}`,
+            description: (newMsg.message || "").slice(0, 80),
+          });
+        }
+      }
+
+      const updated = [...prev, newMsg];
+      setTimeout(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTo({
+            top: scrollRef.current.scrollHeight,
+            behavior: "smooth",
+          });
+        }
+      }, 10);
+
+      return updated;
+    });
+  }, [open, step, toast]);
 
   // Real-time subscription
   useEffect(() => {
@@ -178,31 +219,8 @@ export default function SupportCenterLauncher() {
         ({ payload }) => {
           console.log('[CustomerChat] Broadcast message received:', payload);
           const newMsg = payload as Message;
-          setMessages((prev) => {
-            const exists = prev.some(m => m.id === newMsg.id);
-            if (exists) {
-              console.log('[CustomerChat] Message already exists, skipping');
-              return prev;
-            }
-            console.log('[CustomerChat] Adding broadcast message instantly');
-            
-            // Increment unread count if window is closed and message is from staff
-            if (!open && newMsg.sender_type === 'staff') {
-              setUnreadCount(prev => prev + 1);
-            }
-            
-            const updated = [...prev, newMsg];
-            // Immediate scroll to new message
-            setTimeout(() => {
-              if (scrollRef.current) {
-                scrollRef.current.scrollTo({
-                  top: scrollRef.current.scrollHeight,
-                  behavior: 'smooth'
-                });
-              }
-            }, 10);
-            return updated;
-          });
+          console.log('[CustomerChat] Adding broadcast message instantly');
+          handleIncomingMessage(newMsg);
         }
       )
       .on(
@@ -211,31 +229,8 @@ export default function SupportCenterLauncher() {
         (payload) => {
           console.log('[CustomerChat] DB change received:', payload.new);
           const newMsg = payload.new as Message;
-          setMessages((prev) => {
-            const exists = prev.some(m => m.id === newMsg.id);
-            if (exists) {
-              console.log('[CustomerChat] Message already exists from broadcast, skipping DB change');
-              return prev;
-            }
-            console.log('[CustomerChat] Adding message from DB change');
-            
-            // Increment unread count if window is closed and message is from staff
-            if (!open && newMsg.sender_type === 'staff') {
-              setUnreadCount(prev => prev + 1);
-            }
-            
-            const updated = [...prev, newMsg];
-            // Immediate scroll to new message
-            setTimeout(() => {
-              if (scrollRef.current) {
-                scrollRef.current.scrollTo({
-                  top: scrollRef.current.scrollHeight,
-                  behavior: 'smooth'
-                });
-              }
-            }, 10);
-            return updated;
-          });
+          console.log('[CustomerChat] Adding message from DB change');
+          handleIncomingMessage(newMsg);
         }
       )
       .subscribe((status) => {
@@ -288,7 +283,7 @@ export default function SupportCenterLauncher() {
       messagesChannelRef.current = null;
       presenceChannelRef.current = null;
     };
-  }, [activeTicket, user?.id]);
+  }, [activeTicket, user, handleIncomingMessage]);
 
   // Auto-scroll to bottom on new messages and typing indicator
   useEffect(() => {
@@ -584,8 +579,8 @@ export default function SupportCenterLauncher() {
   };
 
   // Dynamic sizing
-  const popupWidth = expanded ? "w-96" : "w-80";
-  const popupHeight = expanded ? "h-[600px]" : "h-[480px]";
+  const popupWidth = expanded ? "w-[calc(100vw-1rem)] sm:w-96" : "w-[calc(100vw-1rem)] sm:w-80";
+  const popupHeight = expanded ? "h-[min(80dvh,600px)] sm:h-[600px]" : "h-[min(75dvh,480px)] sm:h-[480px]";
 
   const autoCloseWarning = getAutoCloseWarning();
 
@@ -616,7 +611,7 @@ export default function SupportCenterLauncher() {
 
       {/* Popup */}
       {open && (
-        <div className={`fixed bottom-20 right-5 z-50 ${popupWidth} ${popupHeight} bg-card rounded-2xl shadow-2xl border border-border overflow-hidden animate-in slide-in-from-bottom-2 fade-in duration-200 flex flex-col transition-all`}>
+        <div className={`fixed bottom-20 left-2 right-2 sm:left-auto sm:right-5 z-50 ${popupWidth} ${popupHeight} bg-card rounded-2xl shadow-2xl border border-border overflow-hidden animate-in slide-in-from-bottom-2 fade-in duration-200 flex flex-col transition-all`}>
           
           {step === "home" ? (
             /* Home menu */
@@ -750,8 +745,10 @@ export default function SupportCenterLauncher() {
                   <Headset className="h-4 w-4 text-white" />
                 </div>
                 <div className="flex-1">
-                  <div className="text-sm font-medium text-white">Support Team</div>
-                  <div className="text-[10px] text-white/70">Usually responds within minutes</div>
+                  <div className="text-sm font-medium text-white">{activeSupportName}</div>
+                  <div className="text-[10px] text-white/70">
+                    {staffTyping ? `${activeSupportName} is typing...` : "Usually responds within minutes"}
+                  </div>
                 </div>
                 <div className="flex items-center gap-1">
                   <button type="button" onClick={() => setExpanded(!expanded)} className="text-white/70 hover:text-white p-1">
@@ -851,6 +848,11 @@ export default function SupportCenterLauncher() {
                                 ? "bg-primary text-primary-foreground rounded-tr-sm" 
                                 : "bg-muted text-foreground rounded-tl-sm"
                             }`}>
+                              {!isMe && (
+                                <div className="text-[10px] font-medium text-blue-600 dark:text-blue-400 mb-1">
+                                  {msg.sender_name || activeSupportName}
+                                </div>
+                              )}
                               <div className="whitespace-pre-wrap">{msg.message}</div>
                               
                               {/* Attachments */}

@@ -1,88 +1,39 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Confirm Your Email</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Confirm your email</title>
 </head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; background-color: #f8fafc; -webkit-font-smoothing: antialiased;">
-    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f8fafc;">
-        <tr>
-            <td style="padding: 40px 20px;">
-                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 520px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
-                    
-                    <!-- Logo Header -->
-                    <tr>
-                        <td style="padding: 40px 40px 24px; text-align: center;">
-                            <img src="https://merry360x.com/brand/logo.png" alt="Merry Moments" width="56" height="56" style="display: inline-block; max-width: 56px; height: auto; border-radius: 12px;" />
-                        </td>
-                    </tr>
-
-                    <!-- Welcome Title -->
-                    <tr>
-                        <td style="padding: 0 40px 24px; text-align: center;">
-                            <h1 style="margin: 0 0 8px; color: #1f2937; font-size: 24px; font-weight: 600;">
-                                Welcome to Merry Moments
-                            </h1>
-                            <p style="margin: 0; color: #6b7280; font-size: 15px; line-height: 1.5;">
-                                Confirm your email to start exploring unforgettable experiences
-                            </p>
-                        </td>
-                    </tr>
-
-                    <!-- Divider -->
-                    <tr>
-                        <td style="padding: 0 40px;">
-                            <div style="border-top: 1px solid #e5e7eb;"></div>
-                        </td>
-                    </tr>
-
-                    <!-- Content -->
-                    <tr>
-                        <td style="padding: 32px 40px;">
-                            <p style="margin: 0 0 24px; color: #4b5563; font-size: 15px; line-height: 1.6; text-align: center;">
-                                You're almost there! Click the button below to verify your email address and activate your account.
-                            </p>
-
-                            <!-- Button -->
-                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                                <tr>
-                                    <td style="text-align: center;">
-                                        <a href="{{ .ConfirmationURL }}" style="display: inline-block; padding: 14px 40px; background-color: #E64980; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 500; font-size: 15px;">
-                                            Confirm Email
-                                        </a>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-
-                    <!-- Security Note -->
-                    <tr>
-                        <td style="padding: 0 40px 32px;">
-                            <div style="background-color: #f9fafb; border-radius: 10px; padding: 16px; text-align: center;">
-                                <p style="margin: 0; color: #6b7280; font-size: 13px; line-height: 1.5;">
-                                    ⏱️ This link expires in 24 hours<br>
-                                    If you didn't create an account, you can safely ignore this email.
-                                </p>
-                            </div>
-                        </td>
-                    </tr>
-
-                    <!-- Footer -->
-                    <tr>
-                        <td style="padding: 24px 40px; background-color: #fafafa; text-align: center;">
-                            <p style="margin: 0 0 8px; color: #9ca3af; font-size: 12px;">
-                                Merry Moments · Book local. Travel better.
-                            </p>
-                            <p style="margin: 0; color: #9ca3af; font-size: 11px;">
-                                <a href="https://merry360x.com" style="color: #9ca3af; text-decoration: none;">merry360x.com</a>
-                            </p>
-                        </td>
-                    </tr>
-                </table>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#f3f4f6;padding:24px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width:560px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+          <tr><td style="padding:28px 28px 12px;text-align:center;"><img src="https://merry360x.com/brand/logo.png" alt="Merry Moments" width="44" height="44" style="border-radius:10px;" /></td></tr>
+          <tr>
+            <td style="padding:0 28px 10px;text-align:center;">
+              <p style="margin:0 0 8px;color:#6b7280;font-size:11px;letter-spacing:.08em;text-transform:uppercase;">Account Security</p>
+              <h1 style="margin:0;color:#111827;font-size:24px;">Confirm your email</h1>
+              <p style="margin:10px 0 0;color:#4b5563;font-size:14px;line-height:1.6;">Welcome to Merry Moments. Confirm your email to activate your account.</p>
             </td>
-        </tr>
-    </table>
+          </tr>
+          <tr><td style="padding:16px 28px 0;"><div style="height:1px;background:#e5e7eb;"></div></td></tr>
+          <tr>
+            <td style="padding:20px 28px;text-align:center;">
+              <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#111827;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:14px;font-weight:600;">Confirm Email</a>
+              <p style="margin:14px 0 0;color:#6b7280;font-size:13px;line-height:1.6;">This link expires in 24 hours. If you didn’t sign up, you can ignore this email.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f9fafb;padding:16px 28px;text-align:center;border-top:1px solid #e5e7eb;">
+              <p style="margin:0;color:#6b7280;font-size:12px;">Merry Moments · Book local. Travel better.</p>
+              <p style="margin:6px 0 0;font-size:11px;"><a href="https://merry360x.com" style="color:#6b7280;text-decoration:none;">merry360x.com</a> · <a href="mailto:support@merry360x.com" style="color:#6b7280;text-decoration:none;">support@merry360x.com</a></p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>

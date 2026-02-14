@@ -492,6 +492,34 @@ export default function OperationsStaffDashboard() {
     },
   });
 
+  const approveRefundMutation = useMutation({
+    mutationFn: async (booking: Booking) => {
+      if (booking.order_id) {
+        const { error } = await supabase
+          .from("bookings")
+          .update({ payment_status: "refunded" } as never)
+          .eq("order_id", booking.order_id);
+        if (error) throw error;
+        return;
+      }
+
+      const { error } = await supabase
+        .from("bookings")
+        .update({ payment_status: "refunded" } as never)
+        .eq("id", booking.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["operations_bookings"] });
+      toast({ title: "Refund approved" });
+      setSelectedBooking((prev) => (prev ? { ...prev, payment_status: "refunded" } : prev));
+      setOrderBookings((prev) => prev.map((b) => ({ ...b, payment_status: "refunded" })));
+    },
+    onError: () => {
+      toast({ title: "Failed to approve refund", variant: "destructive" });
+    },
+  });
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex flex-col">
       <Navbar />
@@ -1573,7 +1601,7 @@ export default function OperationsStaffDashboard() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Payment Status</p>
-                    <Badge variant={selectedBooking.payment_status === "paid" ? "default" : "secondary"}>
+                    <Badge variant={selectedBooking.payment_status === "paid" ? "default" : selectedBooking.payment_status === "refunded" ? "outline" : selectedBooking.payment_status === "requested" ? "secondary" : "secondary"}>
                       {selectedBooking.payment_status || 'pending'}
                     </Badge>
                   </div>
@@ -1614,10 +1642,36 @@ export default function OperationsStaffDashboard() {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Payment Status</p>
-                      <Badge variant={selectedBooking.payment_status === "paid" ? "default" : "secondary"}>
+                      <Badge variant={selectedBooking.payment_status === "paid" ? "default" : selectedBooking.payment_status === "refunded" ? "outline" : selectedBooking.payment_status === "requested" ? "secondary" : "secondary"}>
                         {selectedBooking.payment_status || 'pending'}
                       </Badge>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedBooking.status === "cancelled" && (selectedBooking.payment_status === "requested" || selectedBooking.payment_status === "refunded") && (
+                <div>
+                  <h3 className="font-semibold mb-3">Refund</h3>
+                  <div className="rounded-lg border p-3 bg-muted/30 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium">Refund status</p>
+                      <p className="text-xs text-muted-foreground">
+                        {selectedBooking.payment_status === "requested" ? "Refund requested by guest" : "Refund already approved"}
+                      </p>
+                    </div>
+                    {selectedBooking.payment_status === "requested" ? (
+                      <Button
+                        size="sm"
+                        onClick={() => approveRefundMutation.mutate(selectedBooking)}
+                        disabled={approveRefundMutation.isPending}
+                      >
+                        <CheckCircle className="w-4 h-4 mr-1" />
+                        {approveRefundMutation.isPending ? "Approving..." : "Approve Refund"}
+                      </Button>
+                    ) : (
+                      <Badge variant="outline">Approved</Badge>
+                    )}
                   </div>
                 </div>
               )}

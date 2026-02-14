@@ -9,7 +9,12 @@ const GUEST_PASSWORD = process.env.E2E_GUEST_PASSWORD;
 const APPROVE_BOOKING_ID = process.env.E2E_APPROVE_BOOKING_ID;
 const REJECT_BOOKING_ID = process.env.E2E_REJECT_BOOKING_ID;
 const PENDING_BOOKING_ID = process.env.E2E_PENDING_BOOKING_ID;
+const REAL_BOOKING_ID = process.env.E2E_REAL_BOOKING_ID;
 const REJECTION_REASON = process.env.E2E_REJECTION_REASON || "Host unavailable for selected date";
+const API_BASE_URL =
+  process.env.E2E_API_BASE_URL ||
+  process.env.E2E_BASE_URL ||
+  "https://merry360x.com";
 
 function requireEnv(name: string, value?: string) {
   if (!value) {
@@ -108,5 +113,52 @@ test.describe("Host booking confirmation flow", () => {
     }
 
     await guestContext.close();
+  });
+});
+
+test.describe("Booking confirmation API contract", () => {
+  test("OPTIONS preflight succeeds", async ({ request }) => {
+    const response = await request.fetch(`${API_BASE_URL}/api/booking-confirmation-email`, {
+      method: "OPTIONS",
+      headers: {
+        Origin: API_BASE_URL,
+        "Access-Control-Request-Method": "POST",
+      },
+    });
+
+    expect(response.ok()).toBeTruthy();
+    await expect(response.json()).resolves.toMatchObject({ ok: true });
+  });
+
+  test("host_payment_status returns 404 for unknown booking", async ({ request }) => {
+    const response = await request.post(`${API_BASE_URL}/api/booking-confirmation-email`, {
+      headers: { "Content-Type": "application/json" },
+      data: {
+        action: "host_payment_status",
+        bookingId: "00000000-0000-0000-0000-000000000000",
+        paymentStatus: "paid",
+        source: "playwright_smoke_test",
+      },
+    });
+
+    expect(response.status()).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ error: "Booking not found" });
+  });
+
+  test("host_payment_status returns 200 for real booking when configured", async ({ request }) => {
+    test.skip(!REAL_BOOKING_ID, "Set E2E_REAL_BOOKING_ID to run real-booking success-path validation.");
+
+    const response = await request.post(`${API_BASE_URL}/api/booking-confirmation-email`, {
+      headers: { "Content-Type": "application/json" },
+      data: {
+        action: "host_payment_status",
+        bookingId: REAL_BOOKING_ID,
+        paymentStatus: "paid",
+        source: "playwright_real_booking_test",
+      },
+    });
+
+    expect(response.status()).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ ok: true });
   });
 });

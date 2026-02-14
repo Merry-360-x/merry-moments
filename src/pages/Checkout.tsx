@@ -21,6 +21,8 @@ import { getFriendlyPaymentErrorMessage } from "@/lib/ui-errors";
 import { 
   ArrowLeft, 
   ArrowRight, 
+  ChevronDown,
+  ChevronUp,
   Check, 
   CreditCard,
   Phone,
@@ -127,7 +129,7 @@ function getSortedCountries(userCountryCode: string): [string, typeof METHODS_BY
 export default function CheckoutNew() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const { currency: preferredCurrency, setCurrency, detectedCountry } = usePreferences();
@@ -165,6 +167,29 @@ export default function CheckoutNew() {
   const [paymentMethod, setPaymentMethod] = useState<string>(geoDefaults.method);
   const [geoApplied, setGeoApplied] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
+  const [showPriceBreakdown, setShowPriceBreakdown] = useState(false);
+
+  const mode = searchParams.get("mode");
+  const isDirectPropertyCheckout = mode === "booking" && Boolean(searchParams.get("propertyId"));
+  const checkInParam = searchParams.get("checkIn") || "";
+  const checkOutParam = searchParams.get("checkOut") || "";
+
+  const updateCheckoutDates = (nextCheckIn: string, nextCheckOut: string) => {
+    if (!nextCheckIn || !nextCheckOut) return;
+    if (new Date(nextCheckOut) <= new Date(nextCheckIn)) {
+      toast({
+        title: "Invalid dates",
+        description: "Check-out must be after check-in.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("checkIn", nextCheckIn);
+    nextParams.set("checkOut", nextCheckOut);
+    setSearchParams(nextParams, { replace: true });
+  };
 
   // When geo-detection resolves, update payment defaults (only once, before user interacts)
   useEffect(() => {
@@ -962,7 +987,7 @@ export default function CheckoutNew() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       <Navbar />
       
       <div className="max-w-6xl mx-auto px-4 py-8 md:py-12">
@@ -1050,6 +1075,58 @@ export default function CheckoutNew() {
                   </div>
                   
                   <div className="grid gap-4">
+                    {isDirectPropertyCheckout && (
+                      <div className="rounded-xl border border-border/60 bg-muted/20 p-4 space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-medium">Stay Dates</p>
+                          <span className="text-xs text-muted-foreground">Editable on mobile</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <Label htmlFor="checkInDate">Check-in</Label>
+                            <Input
+                              id="checkInDate"
+                              type="date"
+                              value={checkInParam}
+                              min={new Date().toISOString().split("T")[0]}
+                              onChange={(e) => {
+                                const nextCheckIn = e.target.value;
+                                if (!nextCheckIn) return;
+
+                                const currentOut = checkOutParam;
+                                if (!currentOut || new Date(currentOut) <= new Date(nextCheckIn)) {
+                                  const adjustedOut = new Date(nextCheckIn);
+                                  adjustedOut.setDate(adjustedOut.getDate() + 1);
+                                  updateCheckoutDates(nextCheckIn, adjustedOut.toISOString().split("T")[0]);
+                                  return;
+                                }
+
+                                updateCheckoutDates(nextCheckIn, currentOut);
+                              }}
+                              className="mt-1.5"
+                            />
+                          </div>
+
+                          <div>
+                            <Label htmlFor="checkOutDate">Check-out</Label>
+                            <Input
+                              id="checkOutDate"
+                              type="date"
+                              value={checkOutParam}
+                              min={checkInParam || new Date().toISOString().split("T")[0]}
+                              onChange={(e) => {
+                                const nextCheckOut = e.target.value;
+                                if (!nextCheckOut || !checkInParam) return;
+                                updateCheckoutDates(checkInParam, nextCheckOut);
+                              }}
+                              className="mt-1.5"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     <div>
                       <Label htmlFor="fullName">{t("checkout.contact.fullName")}</Label>
                       <Input
@@ -1532,7 +1609,7 @@ export default function CheckoutNew() {
 
           {/* Booking Summary Sidebar */}
           <div className="lg:col-span-1">
-            <div className="bg-card rounded-2xl border border-border/50 p-6 sticky top-24">
+            <div className="bg-card rounded-2xl border border-border/50 p-4 md:p-6 lg:sticky lg:top-24">
               <h2 className="text-lg font-semibold mb-4">{t("checkout.summary.title")}</h2>
               
               {/* Items Preview */}
@@ -1597,7 +1674,7 @@ export default function CheckoutNew() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <Input
                         value={discountCodeInput}
                         onChange={(e) => {
@@ -1612,7 +1689,7 @@ export default function CheckoutNew() {
                         variant="outline"
                         size="sm"
                         disabled={discountLoading || !discountCodeInput.trim()}
-                        className="h-10 px-4"
+                        className="h-10 px-4 w-full sm:w-auto"
                       >
                         {discountLoading ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -1628,7 +1705,18 @@ export default function CheckoutNew() {
                 )}
               </div>
 
-              <div className="border-t pt-4 space-y-3 text-sm">
+              <button
+                type="button"
+                onClick={() => setShowPriceBreakdown((prev) => !prev)}
+                className="w-full border-t pt-4 flex items-center justify-between text-sm font-medium text-foreground"
+              >
+                <span>Price breakdown</span>
+                {showPriceBreakdown ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+
+              {showPriceBreakdown && (
+              <>
+              <div className="space-y-3 text-sm">
                 {/* Base price (before any discounts) */}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{t("common.basePrice")}</span>
@@ -1691,6 +1779,8 @@ export default function CheckoutNew() {
                     )}
                   </p>
                 </div>
+              )}
+              </>
               )}
 
               {/* Payment Type Selector - only show for group bookings */}

@@ -42,6 +42,13 @@ type Metrics = {
   revenue_by_currency: Array<{ currency: string; amount: number }>;
 };
 
+type SupportTicketRow = {
+  id: string;
+  subject: string;
+  message: string;
+  status: string;
+};
+
 export default function FinancialStaffDashboard() {
   const { user, isAdmin } = useAuth();
   const { toast } = useToast();
@@ -54,6 +61,7 @@ export default function FinancialStaffDashboard() {
   const [selectedBooking, setSelectedBooking] = useState<BookingRow | null>(null);
   const [bookingDetailsOpen, setBookingDetailsOpen] = useState(false);
   const [bookingIdSearch, setBookingIdSearch] = useState("");
+  const [bookingStatusFilter, setBookingStatusFilter] = useState<string>("all");
   const [processingPayout, setProcessingPayout] = useState<string | null>(null);
   const [payoutFilter, setPayoutFilter] = useState<string>("pending");
 
@@ -149,6 +157,57 @@ export default function FinancialStaffDashboard() {
     staleTime: 30000, // Cache for 30 seconds - real-time handles updates
   });
 
+  const { data: tickets = [] } = useQuery({
+    queryKey: ["financial-support-tickets-refunds"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("support_tickets")
+        .select("id, subject, message, status")
+        .order("created_at", { ascending: false })
+        .limit(400);
+
+      if (error) {
+        if (error.message?.includes("does not exist") || error.code === "42P01" || error.code === "PGRST204") {
+          return [];
+        }
+        throw error;
+      }
+
+      return (data ?? []) as SupportTicketRow[];
+    },
+    staleTime: 30000,
+  });
+
+  const refundRequestRefs = useMemo(() => {
+    const refs = new Set<string>();
+    const bookingIdPattern = /-\s*Booking\s+([^:\s]+)\s*:/gi;
+
+    tickets.forEach((ticket) => {
+      const status = String(ticket.status || "").toLowerCase();
+      if (status === "closed" || status === "resolved") return;
+
+      const subjectMatch = String(ticket.subject || "").match(/refund request for booking\s+(.+)$/i);
+      if (subjectMatch?.[1]) {
+        refs.add(subjectMatch[1].trim().toLowerCase());
+      }
+
+      const message = String(ticket.message || "");
+      let lineMatch: RegExpExecArray | null;
+      while ((lineMatch = bookingIdPattern.exec(message)) !== null) {
+        if (lineMatch[1]) {
+          refs.add(lineMatch[1].trim().toLowerCase());
+        }
+      }
+
+      const referenceMatch = message.match(/^Reference:\s*(.+)$/im);
+      if (referenceMatch?.[1]) {
+        refs.add(referenceMatch[1].trim().toLowerCase());
+      }
+    });
+
+    return refs;
+  }, [tickets]);
+
   const markAsPaid = async (bookingId: string) => {
     setMarkingPaid(bookingId);
     try {
@@ -158,6 +217,17 @@ export default function FinancialStaffDashboard() {
         .eq("id", bookingId);
 
       if (error) throw error;
+
+      fetch("/api/booking-confirmation-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "host_payment_status",
+          bookingId,
+          paymentStatus: "paid",
+          source: "financial_staff_mark_paid",
+        }),
+      }).catch(() => null);
 
       toast({
         title: "Payment confirmed",
@@ -192,6 +262,17 @@ export default function FinancialStaffDashboard() {
         .eq("id", bookingId);
 
       if (error) throw error;
+
+      fetch("/api/booking-confirmation-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "host_payment_status",
+          bookingId,
+          paymentStatus: "requested",
+          source: "financial_staff_request_payment",
+        }),
+      }).catch(() => null);
 
       // In a real implementation, you would send an email here
       // For now, we'll just show a toast
@@ -383,6 +464,15 @@ export default function FinancialStaffDashboard() {
   // Filter bookings by date range
   const filteredBookings = useMemo(() => {
     return bookings.filter(b => {
+      if (bookingStatusFilter === 'refund_requested') {
+        const bookingId = String(b.id || '').toLowerCase();
+        const orderId = String(b.order_id || '').toLowerCase();
+        const isRefundRequested = refundRequestRefs.has(bookingId) || (orderId && refundRequestRefs.has(orderId));
+        if (!isRefundRequested) return false;
+      } else if (bookingStatusFilter !== 'all' && b.status !== bookingStatusFilter) {
+        return false;
+      }
+
       const query = bookingIdSearch.trim().toLowerCase();
       const bookingId = String(b.id || "").toLowerCase();
       const orderId = String(b.order_id || "").toLowerCase();
@@ -398,7 +488,15 @@ export default function FinancialStaffDashboard() {
       end.setHours(23, 59, 59, 999); // Include full end date
       return bookingDate >= start && bookingDate <= end;
     });
-  }, [bookings, startDate, endDate, bookingIdSearch]);
+  }, [bookings, startDate, endDate, bookingIdSearch, bookingStatusFilter, refundRequestRefs]);
+
+  const refundRequestedCount = useMemo(() => {
+    return bookings.filter((booking) => {
+      const bookingId = String(booking.id || '').toLowerCase();
+      const orderId = String(booking.order_id || '').toLowerCase();
+      return refundRequestRefs.has(bookingId) || (orderId && refundRequestRefs.has(orderId));
+    }).length;
+  }, [bookings, refundRequestRefs]);
 
   const completedBookings = filteredBookings.filter(b => b.status === 'completed' || b.status === 'confirmed');
   const pendingBookings = filteredBookings.filter(b => b.status === 'pending');
@@ -656,14 +754,31 @@ export default function FinancialStaffDashboard() {
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                   <div>
                     <CardTitle>All Bookings</CardTitle>
-                    <CardDescription>Complete booking history</CardDescription>
+                    <CardDescription>
+                      Complete booking history • Refund Requested: {refundRequestedCount}
+                    </CardDescription>
                   </div>
-                  <Input
-                    value={bookingIdSearch}
-                    onChange={(e) => setBookingIdSearch(e.target.value)}
-                    placeholder="Search Booking ID / Order ID"
-                    className="w-full md:w-72"
-                  />
+                  <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+                    <Input
+                      value={bookingIdSearch}
+                      onChange={(e) => setBookingIdSearch(e.target.value)}
+                      placeholder="Search Booking ID / Order ID"
+                      className="w-full md:w-72"
+                    />
+                    <Select value={bookingStatusFilter} onValueChange={setBookingStatusFilter}>
+                      <SelectTrigger className="w-full sm:w-44">
+                        <SelectValue placeholder="All statuses" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="confirmed">Confirmed</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                        <SelectItem value="refund_requested">Refund Requested</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -733,6 +848,9 @@ export default function FinancialStaffDashboard() {
                           </Badge>
                         </TableCell>
                         <TableCell>
+                          {(refundRequestRefs.has(String(booking.id || '').toLowerCase()) || (booking.order_id && refundRequestRefs.has(String(booking.order_id).toLowerCase()))) && (
+                            <Badge className="bg-amber-100 text-amber-800 mb-1">Refund Requested</Badge>
+                          )}
                           <Badge
                             variant={
                               booking.payment_status === "paid"

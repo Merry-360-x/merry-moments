@@ -3,6 +3,7 @@
 // Default: submit-review (GET fetches booking info, POST submits review)
 
 import { createClient } from "@supabase/supabase-js";
+import { escapeHtml, keyValueRows, renderMinimalEmail } from "../lib/email-template-kit.js";
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -381,87 +382,29 @@ async function handleSendEmails(req, res) {
 
 // ─── Email template ─────────────────────────────────────────────────────────
 function generateReviewEmailHtml({ guestName, propertyTitle, propertyImage, location, checkIn, checkOut, reviewUrl }) {
-  const logoUrl = "https://merry360x.com/brand/logo.png";
-  const primaryColor = "#E64980";
-  const lightPink = "#FDF2F8";
-  const starColor = "#f59e0b";
+  const details = keyValueRows([
+    { label: "Stay", value: escapeHtml(propertyTitle || "Your booking") },
+    { label: "Location", value: escapeHtml(location || "—") },
+    { label: "Dates", value: `${escapeHtml(checkIn || "—")} → ${escapeHtml(checkOut || "—")}` },
+  ]);
 
-  return `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>How was your stay?</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; background-color: #f8fafc;">
-  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f8fafc;">
-    <tr>
-      <td style="padding: 40px 20px;">
-        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 520px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
-          <tr>
-            <td style="padding: 40px 40px 16px; text-align: center;">
-              <img src="${logoUrl}" alt="Merry Moments" width="56" height="56" style="display: inline-block; max-width: 56px; height: auto; border-radius: 12px;" />
-            </td>
-          </tr>
-          <tr>
-            <td style="padding: 0 40px 24px; text-align: center;">
-              <h1 style="margin: 0 0 8px; color: #1f2937; font-size: 24px; font-weight: 600;">How was your stay?</h1>
-              <p style="margin: 0; color: #6b7280; font-size: 15px;">Hi ${guestName || "there"}, we hope you had a wonderful experience!</p>
-            </td>
-          </tr>
-          ${propertyImage ? `
-          <tr>
-            <td style="padding: 0 40px 20px;">
-              <img src="${propertyImage}" alt="${propertyTitle}" style="width: 100%; height: 160px; object-fit: cover; border-radius: 12px;" />
-            </td>
-          </tr>` : ""}
-          <tr>
-            <td style="padding: 0 40px 24px; text-align: center;">
-              <h2 style="margin: 0 0 6px; color: #1f2937; font-size: 18px; font-weight: 600;">${propertyTitle || "Your Stay"}</h2>
-              ${location ? `<p style="margin: 0 0 4px; color: #6b7280; font-size: 14px;">📍 ${location}</p>` : ""}
-              <p style="margin: 0; color: #9ca3af; font-size: 13px;">${checkIn} → ${checkOut}</p>
-            </td>
-          </tr>
-          <tr><td style="padding: 0 40px;"><div style="border-top: 1px solid #e5e7eb;"></div></td></tr>
-          <tr>
-            <td style="padding: 28px 40px 8px; text-align: center;">
-              <p style="margin: 0 0 4px; color: #4b5563; font-size: 15px; font-weight: 600;">Rate your accommodation</p>
-              <p style="margin: 0 0 16px; color: #9ca3af; font-size: 13px;">Tap a star to start your review</p>
-              <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 0 auto;">
-                <tr>
-                  ${[1,2,3,4,5].map(s => `<td style="padding: 0 4px;"><a href="${reviewUrl}?rating=${s}" style="display: inline-block; width: 48px; height: 48px; line-height: 48px; text-align: center; border-radius: 12px; border: 2px solid ${s <= 3 ? '#e5e7eb' : starColor}; text-decoration: none; font-size: 24px; background-color: #fffbeb;">⭐</a></td>`).join('')}
-                </tr>
-                <tr>
-                  ${[1,2,3,4,5].map(s => `<td style="padding: 4px 4px 0; text-align: center;"><span style="font-size: 11px; color: #9ca3af;">${s}</span></td>`).join('')}
-                </tr>
-              </table>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding: 20px 40px 8px; text-align: center;">
-              <div style="background-color: ${lightPink}; border-radius: 12px; padding: 16px 20px;">
-                <p style="margin: 0 0 4px; color: ${primaryColor}; font-size: 14px; font-weight: 600;">✨ Quick & easy review</p>
-                <p style="margin: 0; color: #6b7280; font-size: 13px; line-height: 1.5;">Rate both the accommodation and our service on a simple page — no login required. Takes less than a minute!</p>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding: 24px 40px 32px; text-align: center;">
-              <a href="${reviewUrl}" style="display: inline-block; padding: 14px 40px; background-color: ${primaryColor}; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">Leave Your Review</a>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding: 24px 40px; background-color: #fafafa; text-align: center;">
-              <p style="margin: 0 0 8px; color: #6b7280; font-size: 13px;">Your feedback helps other travelers and our hosts improve.</p>
-              <p style="margin: 0; color: #9ca3af; font-size: 12px;">Merry Moments · Book local. Travel better.</p>
-              <p style="margin: 8px 0 0; color: #9ca3af; font-size: 11px;"><a href="${SITE_URL}" style="color: #9ca3af; text-decoration: none;">merry360x.com</a></p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
+  const stars = [1, 2, 3, 4, 5]
+    .map(
+      (value) => `<a href="${reviewUrl}?rating=${value}" style="display:inline-block;text-decoration:none;border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;margin-right:6px;color:#111827;font-size:13px;">${"★".repeat(value)}</a>`
+    )
+    .join("");
+
+  const image = propertyImage
+    ? `<img src="${propertyImage}" alt="${escapeHtml(propertyTitle || "Stay")}" style="display:block;width:100%;max-height:180px;object-fit:cover;border-radius:10px;margin:0 0 14px;" />`
+    : "";
+
+  return renderMinimalEmail({
+    eyebrow: "Guest Feedback",
+    title: "How was your stay?",
+    subtitle: `Hi ${guestName || "there"}, your feedback helps travelers and hosts alike.`,
+    bodyHtml: `${image}${details}<div style="margin-top:14px;">${stars}</div>`,
+    ctaText: "Leave a Review",
+    ctaUrl: reviewUrl,
+    footerLink: SITE_URL,
+  });
 }

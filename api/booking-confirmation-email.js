@@ -1,6 +1,10 @@
 // API endpoint to send booking confirmation email to guests
+import { createClient } from "@supabase/supabase-js";
+import { escapeHtml, keyValueRows, renderMinimalEmail } from "../lib/email-template-kit.js";
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 function json(res, status, body) {
   res.statusCode = status;
@@ -34,361 +38,239 @@ function formatMoney(amount, currency = "RWF") {
   }).format(num);
 }
 
+function paymentLabel(paymentStatus) {
+  const normalized = String(paymentStatus || "").toLowerCase();
+  return normalized === "paid" ? "Paid" : "Not Paid";
+}
+
+function paymentBadgeColor(paymentStatus) {
+  const normalized = String(paymentStatus || "").toLowerCase();
+  return normalized === "paid"
+    ? { bg: "#dcfce7", text: "#166534" }
+    : { bg: "#fee2e2", text: "#991b1b" };
+}
+
+async function resolveHostAndItem(supabase, booking) {
+  let hostId = null;
+  let itemTitle = "Booking";
+
+  if (booking.booking_type === "property" && booking.property_id) {
+    const { data } = await supabase
+      .from("properties")
+      .select("title, host_id")
+      .eq("id", booking.property_id)
+      .single();
+    if (data) {
+      hostId = data.host_id;
+      itemTitle = data.title || itemTitle;
+    }
+  } else if (booking.booking_type === "tour" && booking.tour_id) {
+    const { data: pkg } = await supabase
+      .from("tour_packages")
+      .select("title, host_id")
+      .eq("id", booking.tour_id)
+      .single();
+
+    if (pkg?.host_id) {
+      hostId = pkg.host_id;
+      itemTitle = pkg.title || itemTitle;
+    } else {
+      const { data: tour } = await supabase
+        .from("tours")
+        .select("title, created_by")
+        .eq("id", booking.tour_id)
+        .single();
+      if (tour) {
+        hostId = tour.created_by;
+        itemTitle = tour.title || itemTitle;
+      }
+    }
+  } else if (booking.booking_type === "transport" && booking.transport_id) {
+    const { data } = await supabase
+      .from("transport_vehicles")
+      .select("title, owner_id, created_by")
+      .eq("id", booking.transport_id)
+      .single();
+    if (data) {
+      hostId = data.owner_id || data.created_by;
+      itemTitle = data.title || itemTitle;
+    }
+  }
+
+  if (!hostId) return null;
+
+  let profile = null;
+
+  const profileById = await supabase
+    .from("profiles")
+    .select("full_name, email")
+    .eq("id", hostId)
+    .single();
+
+  profile = profileById.data;
+
+  if (profileById.error || !profile?.email) {
+    const profileByUserId = await supabase
+      .from("profiles")
+      .select("full_name, email")
+      .eq("user_id", hostId)
+      .single();
+    profile = profileByUserId.data || profile;
+  }
+
+  if (!profile?.email) return null;
+
+  return {
+    hostEmail: profile.email,
+    hostName: profile.full_name || "Host",
+    itemTitle,
+  };
+}
+
+function generateHostPaymentStatusHtml({ resolved, booking, source, effectivePaymentStatus }) {
+  const statusLabel = paymentLabel(effectivePaymentStatus);
+  const statusColors = paymentBadgeColor(effectivePaymentStatus);
+  const bodyHtml = `
+    <p style="margin:0 0 12px;color:#374151;font-size:14px;">Hi ${escapeHtml(resolved.hostName)}, the payment state of a booking has changed.</p>
+    ${keyValueRows([
+      { label: "Item", value: escapeHtml(resolved.itemTitle) },
+      { label: "Booking ID", value: escapeHtml(booking.id) },
+      { label: "Order ID", value: escapeHtml(booking.order_id || "—") },
+      { label: "Guest", value: escapeHtml(booking.guest_name || "Guest") },
+      { label: "Amount", value: escapeHtml(formatMoney(booking.total_price, booking.currency || "RWF")) },
+      { label: "Dates", value: `${escapeHtml(booking.check_in || "-")} → ${escapeHtml(booking.check_out || "-")}` },
+      { label: "Status", value: `<span style="display:inline-block;background:${statusColors.bg};color:${statusColors.text};padding:4px 10px;border-radius:999px;font-weight:600;">${escapeHtml(statusLabel)}</span>` },
+      { label: "Source", value: escapeHtml(source || "system") },
+    ])}
+    <p style="margin:10px 0 0;color:#6b7280;font-size:12px;">Raw payment state: ${escapeHtml(String(effectivePaymentStatus).toUpperCase())}</p>
+  `;
+
+  return renderMinimalEmail({
+    eyebrow: "Payments",
+    title: "Payment status update",
+    subtitle: "A booking payment state has been updated.",
+    bodyHtml,
+    ctaText: "Open Host Dashboard",
+    ctaUrl: "https://merry360x.com/host-dashboard",
+  });
+}
+
 function generateBookingConfirmationHtml(booking) {
-  const logoUrl = "https://merry360x.com/brand/logo.png";
-  const primaryColor = "#E64980";
-  const lightPink = "#FDF2F8";
   const reviewUrl = booking.reviewToken
     ? `https://merry360x.com/review/${booking.reviewToken}`
     : `https://merry360x.com/my-bookings`;
-  
-  // Check if this is a multi-item booking (items array exists)
+
   const isMultiItem = booking.items && Array.isArray(booking.items) && booking.items.length > 1;
-  
-  return `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Booking Confirmed</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; background-color: #f8fafc; -webkit-font-smoothing: antialiased;">
-  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f8fafc;">
-    <tr>
-      <td style="padding: 40px 20px;">
-        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 520px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
-          
-          <!-- Logo Header -->
-          <tr>
-            <td style="padding: 40px 40px 24px; text-align: center;">
-              <img src="${logoUrl}" alt="Merry Moments" width="56" height="56" style="display: inline-block; max-width: 56px; height: auto; border-radius: 12px;" />
-            </td>
-          </tr>
+  const itemsHtml = isMultiItem
+    ? `<div style="margin:0 0 14px;">${booking.items
+        .map(
+          (item) => `<p style="margin:0 0 6px;color:#374151;font-size:14px;">• ${escapeHtml(item.title || "Item")} — ${escapeHtml(formatMoney(item.price, item.currency || booking.currency))}</p>`
+        )
+        .join("")}</div>`
+    : "";
 
-          <!-- Success Icon & Title -->
-          <tr>
-            <td style="padding: 0 40px 24px; text-align: center;">
-              <div style="width: 64px; height: 64px; margin: 0 auto 20px; background-color: ${lightPink}; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                <span style="font-size: 32px; line-height: 64px;">✓</span>
-              </div>
-              <h1 style="margin: 0 0 8px; color: #1f2937; font-size: 24px; font-weight: 600;">
-                Booking Confirmed!
-              </h1>
-              <p style="margin: 0; color: #6b7280; font-size: 15px;">
-                Thank you for booking with Merry Moments
-              </p>
-            </td>
-          </tr>
+  const details = keyValueRows([
+    { label: isMultiItem ? "Order" : "Booking", value: escapeHtml(booking.bookingId?.slice(0, 8).toUpperCase() || "—") },
+    { label: "Service", value: escapeHtml(booking.propertyTitle || "Booking") },
+    { label: "Location", value: escapeHtml(booking.location || "—") },
+    { label: "Check-in", value: escapeHtml(formatDate(booking.checkIn)) },
+    { label: "Check-out", value: escapeHtml(formatDate(booking.checkOut)) },
+    { label: "Guests", value: escapeHtml(`${booking.guests || 1}`) },
+    { label: "Nights", value: escapeHtml(`${booking.nights || 1}`) },
+    { label: "Total Paid", value: escapeHtml(formatMoney(booking.totalPrice, booking.currency)) },
+  ]);
 
-          <!-- Booking Reference -->
-          <tr>
-            <td style="padding: 0 40px 32px; text-align: center;">
-              <div style="display: inline-block; background-color: #f3f4f6; padding: 12px 24px; border-radius: 8px;">
-                <p style="margin: 0 0 4px; color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
-                  ${isMultiItem ? 'Order Number' : 'Confirmation Number'}
-                </p>
-                <p style="margin: 0; color: #1f2937; font-size: 18px; font-weight: 600; font-family: monospace;">
-                  ${booking.bookingId?.slice(0, 8).toUpperCase() || "—"}
-                </p>
-              </div>
-            </td>
-          </tr>
+  const stars = [1, 2, 3, 4, 5]
+    .map((star) => `<a href="${reviewUrl}?rating=${star}" style="display:inline-block;text-decoration:none;border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;margin-right:6px;color:#111827;font-size:13px;">${"★".repeat(star)}</a>`)
+    .join("");
 
-          <!-- Divider -->
-          <tr>
-            <td style="padding: 0 40px;">
-              <div style="border-top: 1px solid #e5e7eb;"></div>
-            </td>
-          </tr>
-
-          <!-- Booking Items -->
-          <tr>
-            <td style="padding: 32px 40px;">
-              ${isMultiItem ? `
-              <h2 style="margin: 0 0 20px; color: #1f2937; font-size: 18px; font-weight: 600;">
-                Your Booking
-              </h2>
-              
-              <!-- Items Breakdown -->
-              ${booking.items.map((item, idx) => `
-              <div style="padding: 16px 0; ${idx > 0 ? 'border-top: 1px dashed #e5e7eb;' : ''}">
-                <div style="display: flex; align-items: flex-start; gap: 12px;">
-                  <span style="font-size: 28px; line-height: 1;">${item.icon || (item.type === 'tour' ? '🗺️' : item.type === 'transport' ? '🚗' : '🏠')}</span>
-                  <div style="flex: 1;">
-                    <h3 style="margin: 0 0 4px; color: #1f2937; font-size: 15px; font-weight: 600;">${item.title || 'Item'}</h3>
-                    <p style="margin: 0; color: #6b7280; font-size: 13px;">${item.location || ''}</p>
-                    <p style="margin: 4px 0 0; color: #9ca3af; font-size: 12px;">${item.type === 'tour' ? 'Tour' : item.type === 'transport' ? 'Transport' : 'Accommodation'}</p>
-                  </div>
-                  <div style="text-align: right;">
-                    <p style="margin: 0; color: #1f2937; font-size: 15px; font-weight: 600;">${formatMoney(item.price, item.currency || booking.currency)}</p>
-                  </div>
-                </div>
-              </div>
-              `).join('')}
-              ` : `
-              ${booking.propertyImage ? `
-              <img src="${booking.propertyImage}" alt="${booking.propertyTitle}" style="width: 100%; height: 160px; object-fit: cover; border-radius: 12px; margin-bottom: 20px;" />
-              ` : ""}
-              
-              <h2 style="margin: 0 0 16px; color: #1f2937; font-size: 18px; font-weight: 600;">
-                ${booking.propertyTitle || "Your Booking"}
-              </h2>
-              `}
-              
-              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-top: 20px;">
-                <tr>
-                  <td style="padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
-                    <p style="margin: 0; color: #6b7280; font-size: 13px;">Check-in</p>
-                    <p style="margin: 4px 0 0; color: #1f2937; font-size: 15px; font-weight: 500;">${formatDate(booking.checkIn)}</p>
-                  </td>
-                  <td style="padding: 12px 0; border-bottom: 1px solid #f3f4f6; text-align: right;">
-                    <p style="margin: 0; color: #6b7280; font-size: 13px;">Check-out</p>
-                    <p style="margin: 4px 0 0; color: #1f2937; font-size: 15px; font-weight: 500;">${formatDate(booking.checkOut)}</p>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
-                    <p style="margin: 0; color: #6b7280; font-size: 13px;">Guests</p>
-                    <p style="margin: 4px 0 0; color: #1f2937; font-size: 15px; font-weight: 500;">${booking.guests || 1} guest${(booking.guests || 1) > 1 ? "s" : ""}</p>
-                  </td>
-                  <td style="padding: 12px 0; border-bottom: 1px solid #f3f4f6; text-align: right;">
-                    <p style="margin: 0; color: #6b7280; font-size: 13px;">Nights</p>
-                    <p style="margin: 4px 0 0; color: #1f2937; font-size: 15px; font-weight: 500;">${booking.nights || 1}</p>
-                  </td>
-                </tr>
-                <tr>
-                  <td colspan="2" style="padding: 16px 0 0;">
-                    <p style="margin: 0; color: #6b7280; font-size: 13px;">Location</p>
-                    <p style="margin: 4px 0 0; color: #1f2937; font-size: 15px;">${booking.location || "—"}</p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Divider -->
-          <tr>
-            <td style="padding: 0 40px;">
-              <div style="border-top: 1px solid #e5e7eb;"></div>
-            </td>
-          </tr>
-
-          <!-- Total -->
-          <tr>
-            <td style="padding: 24px 40px;">
-              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                ${isMultiItem ? `
-                <tr>
-                  <td colspan="2" style="padding-bottom: 8px;">
-                    <p style="margin: 0; color: #6b7280; font-size: 13px; font-weight: 500;">Booking Summary</p>
-                  </td>
-                </tr>
-                ${booking.items?.map(item => `
-                <tr>
-                  <td style="padding: 4px 0;">
-                    <p style="margin: 0; color: #6b7280; font-size: 14px;">${item.title}</p>
-                  </td>
-                  <td style="text-align: right; padding: 4px 0;">
-                    <p style="margin: 0; color: #1f2937; font-size: 14px;">${formatMoney(item.price, item.currency || booking.currency)}</p>
-                  </td>
-                </tr>
-                `).join('') || ''}
-                <tr>
-                  <td colspan="2" style="padding: 12px 0 0; border-top: 2px solid #e5e7eb;"></td>
-                </tr>
-                ` : ''}
-                
-                <!-- Fee Breakdown Section -->
-                ${booking.basePriceAmount ? `
-                <tr>
-                  <td style="padding: 4px 0;">
-                    <p style="margin: 0; color: #6b7280; font-size: 14px;">Subtotal</p>
-                  </td>
-                  <td style="text-align: right; padding: 4px 0;">
-                    <p style="margin: 0; color: #6b7280; font-size: 14px;">${formatMoney(booking.basePriceAmount, booking.currency)}</p>
-                  </td>
-                </tr>
-                ` : ''}
-                ${booking.serviceFeeAmount ? `
-                <tr>
-                  <td style="padding: 4px 0;">
-                    <p style="margin: 0; color: #6b7280; font-size: 14px;">Service Fee</p>
-                  </td>
-                  <td style="text-align: right; padding: 4px 0;">
-                    <p style="margin: 0; color: #6b7280; font-size: 14px;">${formatMoney(booking.serviceFeeAmount, booking.currency)}</p>
-                  </td>
-                </tr>
-                ` : ''}
-                
-                <tr>
-                  <td>
-                    <p style="margin: 0; color: #1f2937; font-size: 16px; font-weight: 600;">Total Paid</p>
-                  </td>
-                  <td style="text-align: right;">
-                    <p style="margin: 0; color: ${primaryColor}; font-size: 20px; font-weight: 700;">
-                      ${formatMoney(booking.totalPrice, booking.currency)}
-                    </p>
-                  </td>
-                </tr>
-                
-                ${booking.hostEarningsAmount ? `
-                <tr>
-                  <td colspan="2" style="padding: 12px 0 0;">
-                    <div style="background-color: #f3f4f6; padding: 12px; border-radius: 8px;">
-                      <p style="margin: 0; color: #6b7280; font-size: 12px;">Host Earnings</p>
-                      <p style="margin: 4px 0 0; color: #059669; font-size: 16px; font-weight: 600;">${formatMoney(booking.hostEarningsAmount, booking.currency)}</p>
-                      <p style="margin: 2px 0 0; color: #9ca3af; font-size: 11px;">After platform fees</p>
-                    </div>
-                  </td>
-                </tr>
-                ` : ''}
-              </table>
-            </td>
-          </tr>
-
-          <!-- Review Prompt -->
-          <tr>
-            <td style="padding: 8px 40px 24px; text-align: center;">
-              <p style="margin: 0 0 8px; color: #6b7280; font-size: 13px;">
-                After your stay, we'd love to hear how it went.
-              </p>
-              <p style="margin: 0 0 12px; color: #4b5563; font-size: 13px; font-weight: 500;">
-                Rate your experience from this email:
-              </p>
-              <div style="display: inline-flex; gap: 6px;">
-                ${[1,2,3,4,5].map((star) => `
-                  <a href="${reviewUrl}?rating=${star}" 
-                     style="display: inline-block; padding: 8px 10px; border-radius: 999px; border: 1px solid #e5e7eb; text-decoration: none; font-size: 13px; color: #f59e0b; background-color: #fffbeb;">
-                    ${'★'.repeat(star)}
-                  </a>
-                `).join('')}
-              </div>
-              <p style="margin: 10px 0 0; color: #9ca3af; font-size: 11px;">
-                Quick review — no login required!
-              </p>
-            </td>
-          </tr>
-
-          <!-- CTA Button -->
-          <tr>
-            <td style="padding: 8px 40px 32px; text-align: center;">
-              <a href="https://merry360x.com/my-bookings" style="display: inline-block; padding: 14px 32px; background-color: ${primaryColor}; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 500; font-size: 15px;">
-                View My Bookings
-              </a>
-            </td>
-          </tr>
-
-          <!-- Help Section -->
-          <tr>
-            <td style="padding: 24px 40px; background-color: #fafafa;">
-              <p style="margin: 0 0 8px; color: #6b7280; font-size: 13px; text-align: center;">
-                Questions about your booking?
-              </p>
-              <p style="margin: 0; text-align: center;">
-                <a href="mailto:support@merry360x.com" style="color: ${primaryColor}; text-decoration: none; font-size: 13px; font-weight: 500;">
-                  Contact Support
-                </a>
-              </p>
-            </td>
-          </tr>
-
-          <!-- Footer -->
-          <tr>
-            <td style="padding: 24px 40px; text-align: center;">
-              <p style="margin: 0 0 8px; color: #9ca3af; font-size: 12px;">
-                Merry Moments · Book local. Travel better.
-              </p>
-              <p style="margin: 0; color: #9ca3af; font-size: 11px;">
-                <a href="https://merry360x.com" style="color: #9ca3af; text-decoration: none;">merry360x.com</a>
-              </p>
-            </td>
-          </tr>
-          
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-`;
+  return renderMinimalEmail({
+    eyebrow: "Booking Confirmation",
+    title: "Your booking is confirmed",
+    subtitle: "Thank you for booking with Merry Moments.",
+    bodyHtml: `${itemsHtml}${details}<div style="margin-top:14px;"><p style="margin:0 0 8px;color:#6b7280;font-size:12px;">Rate your experience:</p>${stars}</div>`,
+    ctaText: "View My Bookings",
+    ctaUrl: "https://merry360x.com/my-bookings",
+  });
 }
 
 function generateBookingDecisionHtml(payload) {
-  const logoUrl = "https://merry360x.com/brand/logo.png";
   const isApproved = payload.action === "approved";
-  const title = isApproved ? "Booking Approved" : "Booking Rejected";
+  const title = isApproved ? "Booking approved" : "Booking update";
   const subtitle = isApproved
     ? "Your host accepted your booking request."
-    : "Your host could not accept your booking request.";
+    : "Your host could not accept this booking request.";
 
-  return `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title}</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; background-color: #f8fafc;">
-  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f8fafc;">
-    <tr>
-      <td style="padding: 32px 16px;">
-        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 14px; border: 1px solid #e5e7eb; overflow: hidden;">
-          <tr>
-            <td style="padding: 28px 24px 16px; text-align: center;">
-              <img src="${logoUrl}" alt="Merry360X" width="56" height="56" style="border-radius: 10px;" />
-              <h1 style="margin: 12px 0 6px; color: #111827; font-size: 24px;">${title}</h1>
-              <p style="margin: 0; color: #6b7280; font-size: 14px;">${subtitle}</p>
-            </td>
-          </tr>
+  const bodyHtml = `
+    <p style="margin:0 0 12px;color:#374151;font-size:14px;">Hi ${escapeHtml(payload.guestName || "Guest")},</p>
+    ${keyValueRows([
+      { label: "Booking", value: escapeHtml(payload.bookingId || "—") },
+      { label: "Order", value: escapeHtml(payload.orderId || "—") },
+      { label: "Service", value: escapeHtml(payload.itemName || "Booking") },
+      { label: "Check-in", value: escapeHtml(formatDate(payload.checkIn)) },
+      { label: "Check-out", value: escapeHtml(formatDate(payload.checkOut)) },
+      { label: "Status", value: isApproved ? "Approved" : "Rejected" },
+    ])}
+    ${!isApproved && payload.rejectionReason ? `<div style="margin-top:12px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:12px;"><p style="margin:0 0 4px;color:#6b7280;font-size:12px;">Reason</p><p style="margin:0;color:#111827;font-size:14px;">${escapeHtml(payload.rejectionReason)}</p></div>` : ""}
+  `;
 
-          <tr>
-            <td style="padding: 0 24px 20px;">
-              <p style="margin: 0 0 14px; color: #111827; font-size: 14px;">Hi ${payload.guestName || "Guest"},</p>
-              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="font-size: 14px; color: #111827;">
-                <tr>
-                  <td style="padding: 6px 0; color: #6b7280;">Booking</td>
-                  <td style="padding: 6px 0; text-align: right; font-family: monospace;">${payload.bookingId || "—"}</td>
-                </tr>
-                ${payload.orderId ? `
-                <tr>
-                  <td style="padding: 6px 0; color: #6b7280;">Order</td>
-                  <td style="padding: 6px 0; text-align: right; font-family: monospace;">${payload.orderId}</td>
-                </tr>` : ""}
-                <tr>
-                  <td style="padding: 6px 0; color: #6b7280;">Service</td>
-                  <td style="padding: 6px 0; text-align: right;">${payload.itemName || "Booking"}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 6px 0; color: #6b7280;">Check-in</td>
-                  <td style="padding: 6px 0; text-align: right;">${formatDate(payload.checkIn)}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 6px 0; color: #6b7280;">Check-out</td>
-                  <td style="padding: 6px 0; text-align: right;">${formatDate(payload.checkOut)}</td>
-                </tr>
-              </table>
-              ${!isApproved && payload.rejectionReason ? `
-              <div style="margin-top: 14px; padding: 12px; border-radius: 8px; background: #fef2f2; border: 1px solid #fecaca;">
-                <p style="margin: 0 0 6px; color: #991b1b; font-size: 12px; font-weight: 700;">Reason from host</p>
-                <p style="margin: 0; color: #7f1d1d; font-size: 13px;">${String(payload.rejectionReason).replace(/</g, "&lt;")}</p>
-              </div>
-              ` : ""}
-            </td>
-          </tr>
+  return renderMinimalEmail({
+    eyebrow: "Booking Request",
+    title,
+    subtitle,
+    bodyHtml,
+    ctaText: "View My Bookings",
+    ctaUrl: "https://merry360x.com/my-bookings",
+  });
+}
 
-          <tr>
-            <td style="padding: 0 24px 28px; text-align: center;">
-              <a href="https://merry360x.com/my-bookings" style="display: inline-block; padding: 12px 22px; background: #dc2626; color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">View My Bookings</a>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
+function normalizeRefundStatus(status) {
+  const value = String(status || "").toLowerCase();
+  if (["in_progress", "processing", "requested", "pending"].includes(value)) {
+    return { label: "Processing", tone: "#92400e", bg: "#fef3c7" };
+  }
+  if (["resolved", "confirmed", "approved", "processed", "completed", "refunded"].includes(value)) {
+    return { label: "Confirmed", tone: "#166534", bg: "#dcfce7" };
+  }
+  if (["declined", "rejected", "failed", "closed", "cancelled"].includes(value)) {
+    return { label: "Declined", tone: "#991b1b", bg: "#fee2e2" };
+  }
+  return { label: "Received", tone: "#1f2937", bg: "#e5e7eb" };
+}
+
+function generateRefundStatusHtml({
+  guestName,
+  bookingId,
+  orderId,
+  itemName,
+  amount,
+  currency,
+  refundStatus,
+  note,
+  source,
+}) {
+  const normalized = normalizeRefundStatus(refundStatus);
+  const bodyHtml = `
+    <p style="margin:0 0 12px;color:#374151;font-size:14px;">Hi ${escapeHtml(guestName || "Guest")}, here is an update on your refund request.</p>
+    ${keyValueRows([
+      { label: "Booking", value: escapeHtml(bookingId || "—") },
+      { label: "Order", value: escapeHtml(orderId || "—") },
+      { label: "Service", value: escapeHtml(itemName || "Booking") },
+      { label: "Refund Status", value: `<span style="display:inline-block;background:${normalized.bg};color:${normalized.tone};padding:4px 10px;border-radius:999px;font-weight:600;">${escapeHtml(normalized.label)}</span>` },
+      { label: "Amount", value: amount ? escapeHtml(formatMoney(amount, currency || "RWF")) : "TBD" },
+      { label: "Source", value: escapeHtml(source || "support") },
+    ])}
+    ${note ? `<div style="margin-top:12px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:12px;"><p style="margin:0 0 4px;color:#6b7280;font-size:12px;">Update note</p><p style="margin:0;color:#111827;font-size:14px;">${escapeHtml(note)}</p></div>` : ""}
+  `;
+
+  return renderMinimalEmail({
+    eyebrow: "Refund Update",
+    title: "Your refund request update",
+    subtitle: "We are keeping you informed at each stage of the refund process.",
+    bodyHtml,
+    ctaText: "Open My Bookings",
+    ctaUrl: "https://merry360x.com/my-bookings",
+  });
 }
 
 export default async function handler(req, res) {
@@ -407,7 +289,182 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { action } = req.body || {};
+    const { action, previewTo } = req.body || {};
+
+    if (action === "host_payment_status") {
+      if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+        return json(res, 500, { error: "Supabase configuration missing" });
+      }
+
+      const { bookingId, paymentStatus, source } = req.body || {};
+      if (!bookingId) {
+        return json(res, 400, { error: "Missing bookingId" });
+      }
+
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+      const { data: booking, error: bookingError } = await supabase
+        .from("bookings")
+        .select("id, order_id, booking_type, property_id, tour_id, transport_id, guest_name, guest_email, check_in, check_out, total_price, currency, payment_status")
+        .eq("id", bookingId)
+        .single();
+
+      if (bookingError || !booking) {
+        return json(res, 404, { error: "Booking not found" });
+      }
+
+      const resolved = await resolveHostAndItem(supabase, booking);
+      if (!resolved) {
+        return json(res, 404, { error: "Host email not found for booking" });
+      }
+
+      const effectivePaymentStatus = paymentStatus || booking.payment_status || "pending";
+      const htmlContent = generateHostPaymentStatusHtml({
+        resolved,
+        booking,
+        source,
+        effectivePaymentStatus,
+      });
+
+      const emailRes = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "api-key": BREVO_API_KEY,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          sender: { name: "Merry360X Payments", email: "support@merry360x.com" },
+          to: [{ email: previewTo || resolved.hostEmail, name: previewTo ? "Template Preview" : resolved.hostName }],
+          subject: `${previewTo ? "[Preview] " : ""}Payment Update: ${paymentLabel(effectivePaymentStatus)} • ${resolved.itemTitle}`,
+          htmlContent,
+        }),
+      });
+
+      const emailResult = await emailRes.json().catch(() => ({}));
+      if (!emailRes.ok) {
+        return json(res, 502, { error: "Failed to send host email", details: emailResult });
+      }
+
+      return json(res, 200, { ok: true, messageId: emailResult.messageId || null });
+    }
+
+    if (action === "refund_status") {
+      if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+        return json(res, 500, { error: "Supabase configuration missing" });
+      }
+
+      const {
+        ticketId,
+        bookingId,
+        orderId,
+        guestEmail,
+        guestName,
+        itemName,
+        amount,
+        currency,
+        refundStatus,
+        note,
+        source,
+      } = req.body || {};
+
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+      let resolvedBookingId = bookingId || null;
+      let resolvedOrderId = orderId || null;
+      let resolvedGuestEmail = guestEmail || null;
+      let resolvedGuestName = guestName || null;
+      let resolvedItemName = itemName || "Booking";
+      let resolvedAmount = amount || null;
+      let resolvedCurrency = currency || null;
+      let resolvedRefundStatus = refundStatus || "processing";
+
+      if (ticketId) {
+        const { data: ticket } = await supabase
+          .from("support_tickets")
+          .select("id, user_id, subject, status, category, response")
+          .eq("id", ticketId)
+          .single();
+
+        if (ticket) {
+          resolvedRefundStatus = refundStatus || ticket.status || "processing";
+          const subjectText = String(ticket.subject || "");
+          const isRefundTicket = /refund request/i.test(subjectText) || String(ticket.category || "").toLowerCase() === "payment";
+          if (!isRefundTicket) {
+            return json(res, 200, { ok: true, skipped: true, reason: "Not a refund ticket" });
+          }
+
+          const refMatch = subjectText.match(/refund request for booking\s+(.+)$/i);
+          const ref = refMatch?.[1]?.trim();
+          if (ref && !resolvedBookingId && !resolvedOrderId) {
+            const { data: booking } = await supabase
+              .from("bookings")
+              .select("id, order_id, guest_email, guest_name, total_price, currency, booking_type, check_in, check_out")
+              .or(`id.eq.${ref},order_id.eq.${ref}`)
+              .limit(1)
+              .maybeSingle();
+
+            if (booking) {
+              resolvedBookingId = booking.id;
+              resolvedOrderId = booking.order_id || null;
+              resolvedGuestEmail = resolvedGuestEmail || booking.guest_email || null;
+              resolvedGuestName = resolvedGuestName || booking.guest_name || "Guest";
+              resolvedAmount = resolvedAmount || booking.total_price || null;
+              resolvedCurrency = resolvedCurrency || booking.currency || null;
+            }
+          }
+
+          if (!resolvedGuestEmail && ticket.user_id) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("full_name, email")
+              .eq("user_id", ticket.user_id)
+              .single();
+            resolvedGuestEmail = profile?.email || null;
+            resolvedGuestName = resolvedGuestName || profile?.full_name || "Guest";
+          }
+        }
+      }
+
+      const targetEmail = previewTo || resolvedGuestEmail;
+      if (!targetEmail) {
+        return json(res, 400, { error: "Missing recipient email for refund status update" });
+      }
+
+      const htmlContent = generateRefundStatusHtml({
+        guestName: resolvedGuestName,
+        bookingId: resolvedBookingId,
+        orderId: resolvedOrderId,
+        itemName: resolvedItemName,
+        amount: resolvedAmount,
+        currency: resolvedCurrency,
+        refundStatus: resolvedRefundStatus,
+        note,
+        source,
+      });
+
+      const normalized = normalizeRefundStatus(resolvedRefundStatus);
+      const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "api-key": BREVO_API_KEY,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          sender: { name: "Merry Moments Support", email: "support@merry360x.com" },
+          to: [{ email: targetEmail, name: previewTo ? "Template Preview" : (resolvedGuestName || "Guest") }],
+          subject: `${previewTo ? "[Preview] " : ""}Refund Update: ${normalized.label}${resolvedBookingId ? ` • ${resolvedBookingId.slice(0, 8).toUpperCase()}` : ""}`,
+          htmlContent,
+        }),
+      });
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        return json(res, 500, { error: "Failed to send refund status email", details: result });
+      }
+      return json(res, 200, { ok: true, messageId: result.messageId || null });
+    }
 
     if (action === "approved" || action === "rejected") {
       const {
@@ -450,13 +507,13 @@ export default async function handler(req, res) {
           },
           to: [
             {
-              email: guestEmail,
-              name: guestName || "Guest",
+              email: previewTo || guestEmail,
+              name: previewTo ? "Template Preview" : (guestName || "Guest"),
             },
           ],
           subject: action === "approved"
-            ? "✅ Your booking has been approved"
-            : "❌ Update on your booking request",
+            ? `${previewTo ? "[Preview] " : ""}Your booking has been approved`
+            : `${previewTo ? "[Preview] " : ""}Update on your booking request`,
           htmlContent,
         }),
       });
@@ -525,11 +582,11 @@ export default async function handler(req, res) {
         },
         to: [
           {
-            email: guestEmail,
-            name: guestName || "Guest",
+            email: previewTo || guestEmail,
+            name: previewTo ? "Template Preview" : (guestName || "Guest"),
           },
         ],
-        subject: `✓ Booking Confirmed – ${propertyTitle || "Your Stay"}`,
+        subject: `${previewTo ? "[Preview] " : ""}Booking Confirmed – ${propertyTitle || "Your Stay"}`,
         htmlContent: html,
       }),
     });

@@ -101,6 +101,8 @@ const MyBookings = () => {
   const [dateChangeDialogOpen, setDateChangeDialogOpen] = useState(false);
   const [bookingToChange, setBookingToChange] = useState<Booking | null>(null);
   const [bookingHostId, setBookingHostId] = useState<string>("");
+  const [requestingRefundKey, setRequestingRefundKey] = useState<string | null>(null);
+  const [requestedRefundKeys, setRequestedRefundKeys] = useState<Set<string>>(new Set());
   const [decisionSeenAt, setDecisionSeenAt] = useState<string>(() => {
     if (typeof window === "undefined") return "";
     return localStorage.getItem(BOOKING_DECISION_SEEN_KEY) || "";
@@ -262,6 +264,192 @@ const MyBookings = () => {
       'non_refundable': 'This booking is non-refundable. No refunds will be issued for cancellations.',
     };
     return policies[policyType] || policyType;
+  };
+
+  const getPolicyKeyForRefund = (booking: Booking): string => {
+    const rawPolicy = String(getCancellationPolicy(booking) || "fair").toLowerCase().trim();
+    if (["flexible", "moderate", "standard", "strict", "fair", "non_refundable", "multiday_private"].includes(rawPolicy)) {
+      return rawPolicy;
+    }
+    if (rawPolicy === "standard_day") return "standard";
+    return "fair";
+  };
+
+  const getRefundRule = (policyKey: string, daysUntilCheckIn: number) => {
+    const rules: Record<string, Array<{ minDays: number; refundPct: number }>> = {
+      flexible: [
+        { minDays: 1, refundPct: 100 },
+        { minDays: 0, refundPct: 50 },
+        { minDays: -36500, refundPct: 0 },
+      ],
+      moderate: [
+        { minDays: 5, refundPct: 100 },
+        { minDays: -36500, refundPct: 0 },
+      ],
+      standard: [
+        { minDays: 3, refundPct: 100 },
+        { minDays: -36500, refundPct: 0 },
+      ],
+      strict: [
+        { minDays: 14, refundPct: 100 },
+        { minDays: -36500, refundPct: 0 },
+      ],
+      fair: [
+        { minDays: 7, refundPct: 100 },
+        { minDays: 0, refundPct: 50 },
+        { minDays: -36500, refundPct: 0 },
+      ],
+      non_refundable: [
+        { minDays: -36500, refundPct: 0 },
+      ],
+      multiday_private: [
+        { minDays: 14, refundPct: 100 },
+        { minDays: -36500, refundPct: 0 },
+      ],
+    };
+    const policyRules = rules[policyKey] || rules.fair;
+    return policyRules.find((rule) => daysUntilCheckIn >= rule.minDays) || policyRules[policyRules.length - 1];
+  };
+
+  const getDaysUntilCheckIn = (booking: Booking): number => {
+    const checkIn = new Date(booking.check_in);
+    checkIn.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return Math.floor((checkIn.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  };
+
+  const getRefundRuleExplanation = (daysUntilCheckIn: number, refundPercentage: number) => {
+    if (daysUntilCheckIn < 0) {
+      const daysAfter = Math.abs(daysUntilCheckIn);
+      return `${daysAfter} day${daysAfter === 1 ? "" : "s"} after check-in → ${refundPercentage}%`;
+    }
+    if (daysUntilCheckIn === 0) {
+      return `On check-in day → ${refundPercentage}%`;
+    }
+    return `${daysUntilCheckIn} day${daysUntilCheckIn === 1 ? "" : "s"} before check-in → ${refundPercentage}%`;
+  };
+
+  const getEstimatedRefund = (booking: Booking): { refundAmount: number; refundPercentage: number; policyKey: string; daysUntilCheckIn: number; ruleExplanation: string } => {
+    const policyKey = getPolicyKeyForRefund(booking);
+    const daysUntilCheckIn = getDaysUntilCheckIn(booking);
+    const rule = daysUntilCheckIn <= 0
+      ? { minDays: daysUntilCheckIn, refundPct: 0 }
+      : getRefundRule(policyKey, daysUntilCheckIn);
+    const total = Number(booking.total_price || 0);
+    const refundAmount = (total * rule.refundPct) / 100;
+    return {
+      refundAmount,
+      refundPercentage: rule.refundPct,
+      policyKey,
+      daysUntilCheckIn,
+      ruleExplanation: getRefundRuleExplanation(daysUntilCheckIn, rule.refundPct),
+    };
+  };
+
+  const submitRefundRequest = async (refundKey: string, orderBookings: Booking[]) => {
+    if (!user?.id || !user?.email) return;
+
+    const refundableBookings = orderBookings.filter(
+      (booking) => booking.status === "cancelled" && booking.payment_status === "paid"
+    );
+
+    if (refundableBookings.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "No refundable booking found",
+        description: "Only cancelled paid bookings can request a refund.",
+      });
+      return;
+    }
+
+    setRequestingRefundKey(refundKey);
+    try {
+      const userName =
+        (user.user_metadata && (user.user_metadata.full_name || user.user_metadata.name)) ||
+        user.email.split("@")[0] ||
+        "Guest";
+
+      const policyLines = refundableBookings.map((booking) => {
+        const estimate = getEstimatedRefund(booking);
+        const bookingCurrency =
+          booking.booking_type === "property" && booking.properties?.currency
+            ? booking.properties.currency
+            : booking.booking_type === "tour" && booking.tour_packages?.currency
+              ? booking.tour_packages.currency
+              : String(booking.currency || "USD");
+
+        return `- Booking ${booking.id}: ${estimate.refundPercentage}% (${formatMoney(estimate.refundAmount, bookingCurrency)}) • Rule: ${estimate.ruleExplanation} • Policy: ${getCancellationPolicy(booking)}`;
+      });
+
+      const totalEstimatedRefund = refundableBookings.reduce((sum, booking) => {
+        const estimate = getEstimatedRefund(booking);
+        return sum + estimate.refundAmount;
+      }, 0);
+
+      const displayReference = orderBookings[0]?.order_id || orderBookings[0]?.id || refundKey;
+      const currencyCode =
+        orderBookings[0]?.booking_type === "property" && orderBookings[0]?.properties?.currency
+          ? orderBookings[0].properties.currency
+          : orderBookings[0]?.booking_type === "tour" && orderBookings[0]?.tour_packages?.currency
+            ? orderBookings[0].tour_packages.currency
+            : String(orderBookings[0]?.currency || "USD");
+
+      const subject = `Refund request for booking ${displayReference}`;
+      const message = [
+        `Guest requested a refund for cancelled paid booking(s).`,
+        `Reference: ${displayReference}`,
+        `User ID: ${user.id}`,
+        `User Email: ${user.email}`,
+        `Estimated total refund: ${formatMoney(totalEstimatedRefund, currencyCode)}`,
+        ``,
+        `Policy & item details:`,
+        ...policyLines,
+      ].join("\n");
+
+      const { error: ticketError } = await supabase.from("support_tickets").insert({
+        user_id: user.id,
+        category: "booking",
+        subject,
+        message,
+        status: "open",
+      });
+
+      if (ticketError) throw ticketError;
+
+      fetch("/api/support-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          category: "booking",
+          subject,
+          message,
+          userId: user.id,
+          userEmail: user.email,
+          userName,
+        }),
+      }).catch(() => {});
+
+      setRequestedRefundKeys((prev) => {
+        const next = new Set(prev);
+        next.add(refundKey);
+        return next;
+      });
+
+      toast({
+        title: "Refund request submitted",
+        description: "Support has received your refund request and will follow up shortly.",
+      });
+    } catch (e) {
+      logError("bookings.refund.request", e);
+      toast({
+        variant: "destructive",
+        title: "Refund request failed",
+        description: uiErrorMessage(e, "Please try again."),
+      });
+    } finally {
+      setRequestingRefundKey(null);
+    }
   };
 
   const openCancelDialog = (booking: Booking) => {
@@ -558,7 +746,7 @@ const MyBookings = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-[100dvh] bg-background">
       <Navbar />
 
       <div className="container mx-auto px-4 lg:px-8 py-12">
@@ -727,6 +915,14 @@ const MyBookings = () => {
                         if (isTransport) return '🚗';
                         return '🏠';
                       };
+
+                      const cancellationPolicy = getCancellationPolicy(booking);
+                      const estimatedRefund = getEstimatedRefund(booking);
+                      const bookingCurrency = booking.booking_type === "property" && booking.properties?.currency
+                        ? booking.properties.currency
+                        : booking.booking_type === "tour" && booking.tour_packages?.currency
+                          ? booking.tour_packages.currency
+                          : String(booking.currency || "USD");
                       
                       return (
                         <div key={booking.id} className={`rounded-xl border border-border/70 p-4 ${idx > 0 ? 'mt-3' : ''}`}>
@@ -786,6 +982,25 @@ const MyBookings = () => {
                               <p className="font-medium">{unitPricingText || 'Fixed package price'}</p>
                             </div>
                           </div>
+
+                          {booking.status === "cancelled" && (
+                            <div className="mt-3 rounded-md border border-amber-300/70 bg-amber-50/70 dark:bg-amber-950/20 p-3">
+                              <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">Cancellation Policy</p>
+                              <p className="text-xs text-amber-800 dark:text-amber-300 mt-1 whitespace-pre-line">
+                                {getPolicyDescription(cancellationPolicy)}
+                              </p>
+                              {booking.payment_status === "paid" && (
+                                <div className="mt-2 space-y-1">
+                                  <p className="text-xs font-medium text-amber-900 dark:text-amber-200">
+                                    Estimated refund: {formatMoney(estimatedRefund.refundAmount, bookingCurrency)} ({estimatedRefund.refundPercentage}%)
+                                  </p>
+                                  <p className="text-[11px] text-amber-800 dark:text-amber-300">
+                                    Applied rule: {estimatedRefund.ruleExplanation}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -871,6 +1086,22 @@ const MyBookings = () => {
                       {nextReviewBooking && (
                         <Button size="sm" onClick={() => openReview(nextReviewBooking)} className="flex-1">
                           <Star className="w-4 h-4 mr-2" /> Leave Review
+                        </Button>
+                      )}
+
+                      {firstBooking.status === "cancelled" && firstBooking.payment_status === "paid" && (
+                        <Button
+                          size="sm"
+                          variant="default"
+                          className="flex-1"
+                          disabled={requestingRefundKey === orderId || requestedRefundKeys.has(orderId)}
+                          onClick={() => submitRefundRequest(orderId, orderBookings)}
+                        >
+                          {requestedRefundKeys.has(orderId)
+                            ? "Refund requested"
+                            : requestingRefundKey === orderId
+                              ? "Submitting..."
+                              : "Ask for Refund"}
                         </Button>
                       )}
                     </div>

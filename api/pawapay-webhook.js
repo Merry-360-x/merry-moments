@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { escapeHtml, keyValueRows, renderMinimalEmail } from "../lib/email-template-kit.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -42,157 +43,36 @@ function generateConfirmationEmail(checkout, items, bookingIds, reviewTokens) {
     ? `https://merry360x.com/review/${singleToken}`
     : `https://merry360x.com/my-bookings`;
 
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f8fafc;">
-  <table width="100%" cellspacing="0" cellpadding="0" style="max-width: 500px; margin: 0 auto; background-color: #ffffff;">
-    
-    <!-- Logo Header -->
-    <tr>
-      <td style="padding: 32px 24px; text-align: center; border-bottom: 1px solid #f3f4f6;">
-        <img src="https://merry360x.com/brand/logo.png" alt="Merry360X" width="60" height="60" style="display: block; margin: 0 auto 12px auto;">
-        <h1 style="margin: 0; color: #dc2626; font-size: 22px; font-weight: 700;">Merry360X</h1>
-      </td>
-    </tr>
-    
-    <!-- Success Message -->
-    <tr>
-      <td style="padding: 32px 24px; text-align: center;">
-        <div style="background-color: #22c55e; border-radius: 50%; width: 48px; height: 48px; line-height: 48px; margin: 0 auto 16px auto;">
-          <span style="font-size: 24px; color: #fff;">✓</span>
-        </div>
-        <h2 style="margin: 0 0 8px 0; color: #1f2937; font-size: 20px;">Booking Confirmed</h2>
-        <p style="margin: 0; color: #6b7280; font-size: 15px;">Hi ${guestName}, your payment was successful.</p>
-      </td>
-    </tr>
-    
-    ${isMultiItem ? `
-    <!-- Items Breakdown -->
-    <tr>
-      <td style="padding: 0 24px 24px 24px;">
-        <div style="background-color: #f9fafb; border-radius: 12px; padding: 20px;">
-          <p style="margin: 0 0 16px 0; color: #1f2937; font-size: 14px; font-weight: 600;">Your Booking</p>
-          ${items.map((item, idx) => {
-            const itemPrice = formatMoney(item.calculated_price || item.price, item.calculated_price_currency || item.currency || 'USD');
-            const itemTitle = item.title || item.name || "Item";
-            const itemIcon = item.metadata?.type === 'tour' ? '🗺️' : item.metadata?.type === 'transport' ? '🚗' : '🏠';
-            return `
-            <div style="display: flex; align-items: center; gap: 12px; padding: ${idx > 0 ? '12px 0 0 0; border-top: 1px dashed #e5e7eb;' : '0;'}">
-              <span style="font-size: 24px;">${itemIcon}</span>
-              <div style="flex: 1;">
-                <p style="margin: 0; color: #1f2937; font-size: 14px; font-weight: 500;">${itemTitle}</p>
-                <p style="margin: 2px 0 0 0; color: #9ca3af; font-size: 12px;">${item.metadata?.type === 'tour' ? 'Tour' : item.metadata?.type === 'transport' ? 'Transport' : 'Stay'}</p>
-              </div>
-              <p style="margin: 0; color: #1f2937; font-size: 14px; font-weight: 600;">${itemPrice}</p>
-            </div>
-            `;
-          }).join('')}
-          <div style="border-top: 2px solid #e5e7eb; margin-top: 16px; padding-top: 12px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <p style="margin: 0; color: #1f2937; font-size: 15px; font-weight: 600;">Total</p>
-              <p style="margin: 0; color: #dc2626; font-size: 18px; font-weight: 700;">${totalAmount}</p>
-            </div>
-          </div>
-        </div>
-      </td>
-    </tr>
-    ` : ''}
-    
-    <!-- Receipt Summary -->
-    <tr>
-      <td style="padding: 0 24px 24px 24px;">
-        <div style="background-color: #f9fafb; border-radius: 12px; padding: 20px;">
-          <table width="100%" cellspacing="0" cellpadding="0" style="font-size: 14px;">
-            <tr>
-              <td style="color: #6b7280; padding: 6px 0;">Receipt #</td>
-              <td style="text-align: right; color: #1f2937; font-weight: 600;">${receiptNumber}</td>
-            </tr>
-            ${checkout.base_price_amount ? `
-            <tr>
-              <td style="color: #6b7280; padding: 6px 0;">Subtotal</td>
-              <td style="text-align: right; color: #1f2937;">${formatMoney(checkout.base_price_amount, checkout.currency)}</td>
-            </tr>
-            ` : ''}
-            ${checkout.service_fee_amount ? `
-            <tr>
-              <td style="color: #6b7280; padding: 6px 0;">Service Fee</td>
-              <td style="text-align: right; color: #1f2937;">+${formatMoney(checkout.service_fee_amount, checkout.currency)}</td>
-            </tr>
-            ` : ''}
-            ${!isMultiItem ? `
-            <tr>
-              <td style="color: #6b7280; padding: 6px 0;">Amount Paid</td>
-              <td style="text-align: right; color: #dc2626; font-weight: 700; font-size: 16px;">${totalAmount}</td>
-            </tr>
-            ` : ''}
-            ${checkout.host_earnings_amount ? `
-            <tr>
-              <td style="color: #6b7280; padding: 6px 0;">Host Receives</td>
-              <td style="text-align: right; color: #059669; font-weight: 600;">${formatMoney(checkout.host_earnings_amount, checkout.currency)}</td>
-            </tr>
-            ` : ''}
-            <tr>
-              <td style="color: #6b7280; padding: 6px 0;">Status</td>
-              <td style="text-align: right;">
-                <span style="background: #dcfce7; color: #166534; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600;">PAID</span>
-              </td>
-            </tr>
-          </table>
-        </div>
-      </td>
-    </tr>
-    
-    <!-- Download Receipt Button -->
-    <tr>
-      <td style="padding: 0 24px 32px 24px; text-align: center;">
-        <p style="margin: 0 0 16px 0; color: #6b7280; font-size: 13px;">📎 Your receipt is attached to this email</p>
-        <a href="https://merry360x.com/my-bookings" style="display: inline-block; background-color: #dc2626; color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: 600; font-size: 14px;">
-          View Booking
-        </a>
-      </td>
-    </tr>
+  const itemsHtml = isMultiItem
+    ? `<div style="margin-bottom:12px;">${items
+        .map((item) => {
+          const itemPrice = formatMoney(item.calculated_price || item.price, item.calculated_price_currency || item.currency || "USD");
+          const itemTitle = item.title || item.name || "Item";
+          return `<p style="margin:0 0 6px;color:#374151;font-size:14px;">• ${escapeHtml(itemTitle)} — ${escapeHtml(itemPrice)}</p>`;
+        })
+        .join("")}</div>`
+    : "";
 
-    <!-- Review Prompt -->
-    <tr>
-      <td style="padding: 0 24px 32px 24px; text-align: center;">
-        <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 13px;">
-          After your stay, please share your experience.
-        </p>
-        <p style="margin: 0 0 12px 0; color: #4b5563; font-size: 13px; font-weight: 500;">
-          Quick rating from this email:
-        </p>
-        <div style="display: inline-flex; gap: 6px;">
-          ${[1,2,3,4,5].map((star) => `
-            <a href="${reviewUrl}${reviewUrl.includes('?') ? '&' : '?'}rating=${star}" 
-               style="display: inline-block; padding: 8px 10px; border-radius: 999px; border: 1px solid #e5e7eb; text-decoration: none; font-size: 13px; color: #f59e0b; background-color: #fffbeb;">
-              ${'★'.repeat(star)}
-            </a>
-          `).join('')}
-        </div>
-        <p style="margin: 10px 0 0 0; color: #9ca3af; font-size: 11px;">
-          Quick review — no login required!
-        </p>
-      </td>
-    </tr>
-    
-    <!-- Footer -->
-    <tr>
-      <td style="background-color: #1f2937; padding: 20px 24px; text-align: center;">
-        <p style="margin: 0; color: #9ca3af; font-size: 12px;">
-          Questions? <a href="mailto:support@merry360x.com" style="color: #ef4444; text-decoration: none;">support@merry360x.com</a>
-        </p>
-        <p style="margin: 8px 0 0 0; color: #6b7280; font-size: 11px;">© 2026 Merry360X</p>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-  `;
+  const stars = [1, 2, 3, 4, 5]
+    .map((star) => `<a href="${reviewUrl}${reviewUrl.includes("?") ? "&" : "?"}rating=${star}" style="display:inline-block;text-decoration:none;border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;margin-right:6px;color:#111827;font-size:13px;">${"★".repeat(star)}</a>`)
+    .join("");
+
+  const details = keyValueRows([
+    { label: "Receipt", value: escapeHtml(receiptNumber) },
+    { label: "Guest", value: escapeHtml(guestName) },
+    { label: "Amount Paid", value: escapeHtml(totalAmount) },
+    { label: "Status", value: "Paid" },
+    { label: "Bookings", value: escapeHtml(String(Array.isArray(bookingIds) ? bookingIds.length : 1)) },
+  ]);
+
+  return renderMinimalEmail({
+    eyebrow: "Payment Receipt",
+    title: "Booking confirmed",
+    subtitle: "Your payment was successful and your booking is complete.",
+    bodyHtml: `${itemsHtml}${details}<div style="margin-top:14px;"><p style="margin:0 0 8px;color:#6b7280;font-size:12px;">Rate your experience:</p>${stars}</div>`,
+    ctaText: "View My Bookings",
+    ctaUrl: "https://merry360x.com/my-bookings",
+  });
 }
 
 // Generate PDF receipt as base64
@@ -469,118 +349,24 @@ async function sendHostNotification(supabase, booking, item) {
     const totalAmount = formatMoney(booking.total_price, booking.currency);
     const bookingRef = `MRY-${booking.id.slice(0, 8).toUpperCase()}`;
 
-    const hostHtml = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f8fafc;">
-  <table width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
-    
-    <!-- Logo Header -->
-    <tr>
-      <td style="padding: 32px 24px; text-align: center; border-bottom: 1px solid #f3f4f6;">
-        <img src="https://merry360x.com/brand/logo.png" alt="Merry360X" width="60" height="60" style="display: block; margin: 0 auto 12px auto;">
-        <h1 style="margin: 0; color: #dc2626; font-size: 22px; font-weight: 700;">Merry360X</h1>
-      </td>
-    </tr>
-    
-    <!-- Notification -->
-    <tr>
-      <td style="padding: 32px 24px; text-align: center;">
-        <div style="background-color: #3b82f6; border-radius: 50%; width: 48px; height: 48px; line-height: 48px; margin: 0 auto 16px auto;">
-          <span style="font-size: 24px; color: #fff;">🔔</span>
-        </div>
-        <h2 style="margin: 0 0 8px 0; color: #1f2937; font-size: 20px;">New Booking Received!</h2>
-        <p style="margin: 0; color: #6b7280; font-size: 15px;">Hi ${hostName || "Host"}, you have a new booking for your ${itemType}.</p>
-      </td>
-    </tr>
-    
-    <!-- Booking Details -->
-    <tr>
-      <td style="padding: 0 24px 24px 24px;">
-        <div style="background-color: #f9fafb; border-radius: 12px; padding: 20px;">
-          <h3 style="margin: 0 0 16px 0; color: #1f2937; font-size: 16px; font-weight: 600;">${itemTitle}</h3>
-          
-          <table width="100%" cellspacing="0" cellpadding="0" style="font-size: 14px;">
-            <tr>
-              <td style="color: #6b7280; padding: 8px 0; width: 40%;">Booking Ref</td>
-              <td style="text-align: right; color: #1f2937; font-weight: 600;">${bookingRef}</td>
-            </tr>
-            <tr>
-              <td style="color: #6b7280; padding: 8px 0;">Guest Name</td>
-              <td style="text-align: right; color: #1f2937; font-weight: 500;">${guestName}</td>
-            </tr>
-            ${guestEmail ? `
-            <tr>
-              <td style="color: #6b7280; padding: 8px 0;">Guest Email</td>
-              <td style="text-align: right; color: #1f2937; font-size: 13px;"><a href="mailto:${guestEmail}" style="color: #3b82f6; text-decoration: none;">${guestEmail}</a></td>
-            </tr>
-            ` : ''}
-            ${guestPhone ? `
-            <tr>
-              <td style="color: #6b7280; padding: 8px 0;">Guest Phone</td>
-              <td style="text-align: right; color: #1f2937;"><a href="tel:${guestPhone}" style="color: #3b82f6; text-decoration: none;">${guestPhone}</a></td>
-            </tr>
-            ` : ''}
-            <tr>
-              <td style="color: #6b7280; padding: 8px 0;">Check-in</td>
-              <td style="text-align: right; color: #1f2937; font-weight: 500;">${checkIn}</td>
-            </tr>
-            <tr>
-              <td style="color: #6b7280; padding: 8px 0;">Check-out</td>
-              <td style="text-align: right; color: #1f2937; font-weight: 500;">${checkOut}</td>
-            </tr>
-            <tr>
-              <td style="color: #6b7280; padding: 8px 0;">Guests</td>
-              <td style="text-align: right; color: #1f2937;">${booking.guests || 1}</td>
-            </tr>
-            <tr>
-              <td colspan="2" style="padding: 12px 0;"><div style="border-top: 1px solid #e5e7eb;"></div></td>
-            </tr>
-            <tr>
-              <td style="color: #1f2937; padding: 8px 0; font-weight: 600;">Total Amount</td>
-              <td style="text-align: right; color: #dc2626; font-size: 18px; font-weight: 700;">${totalAmount}</td>
-            </tr>
-          </table>
-        </div>
-      </td>
-    </tr>
-    
-    <!-- Action Required -->
-    <tr>
-      <td style="padding: 0 24px 24px 24px;">
-        <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 16px;">
-          <p style="margin: 0; color: #92400e; font-size: 14px; font-weight: 600;">⚠️ Action Required</p>
-          <p style="margin: 8px 0 0 0; color: #78350f; font-size: 13px;">Please prepare your ${itemType} for the guest and ensure all arrangements are in place for ${checkIn}.</p>
-        </div>
-      </td>
-    </tr>
-    
-    <!-- View Booking Button -->
-    <tr>
-      <td style="padding: 0 24px 32px 24px; text-align: center;">
-        <a href="https://merry360x.com/host-dashboard" style="display: inline-block; background-color: #dc2626; color: #fff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 14px;">
-          View in Dashboard
-        </a>
-      </td>
-    </tr>
-    
-    <!-- Footer -->
-    <tr>
-      <td style="background-color: #1f2937; padding: 20px 24px; text-align: center;">
-        <p style="margin: 0; color: #9ca3af; font-size: 12px;">
-          Questions? <a href="mailto:support@merry360x.com" style="color: #ef4444; text-decoration: none;">support@merry360x.com</a>
-        </p>
-        <p style="margin: 8px 0 0 0; color: #6b7280; font-size: 11px;">© 2026 Merry360X</p>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-    `;
+    const hostHtml = renderMinimalEmail({
+      eyebrow: "New Booking",
+      title: "You received a new booking",
+      subtitle: `Hi ${hostName || "Host"}, a guest booked your ${itemType}.`,
+      bodyHtml: keyValueRows([
+        { label: "Item", value: escapeHtml(itemTitle) },
+        { label: "Booking Ref", value: escapeHtml(bookingRef) },
+        { label: "Guest", value: escapeHtml(guestName) },
+        { label: "Guest Email", value: guestEmail ? `<a href="mailto:${escapeHtml(guestEmail)}" style="color:#111827;text-decoration:none;">${escapeHtml(guestEmail)}</a>` : "—" },
+        { label: "Guest Phone", value: guestPhone ? `<a href="tel:${escapeHtml(guestPhone)}" style="color:#111827;text-decoration:none;">${escapeHtml(guestPhone)}</a>` : "—" },
+        { label: "Check-in", value: escapeHtml(checkIn) },
+        { label: "Check-out", value: escapeHtml(checkOut) },
+        { label: "Guests", value: escapeHtml(`${booking.guests || 1}`) },
+        { label: "Total Amount", value: escapeHtml(totalAmount) },
+      ]),
+      ctaText: "Open Host Dashboard",
+      ctaUrl: "https://merry360x.com/host-dashboard",
+    });
 
     const response = await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST",

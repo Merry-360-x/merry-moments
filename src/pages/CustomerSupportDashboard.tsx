@@ -217,6 +217,24 @@ export default function CustomerSupportDashboard() {
     return { name: null as string | null, message: response };
   };
 
+  const notifyRefundStatus = async (ticketId: string, status: string, note?: string) => {
+    try {
+      await fetch("/api/booking-confirmation-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "refund_status",
+          ticketId,
+          refundStatus: status,
+          note,
+          source: "support",
+        }),
+      });
+    } catch (error) {
+      console.warn("Failed to notify refund status by email", error);
+    }
+  };
+
   // Respond to ticket function
   const respondToTicket = async () => {
     if (!selectedTicket || !ticketResponse.trim()) return;
@@ -241,6 +259,7 @@ export default function CustomerSupportDashboard() {
         } as never)
         .eq("id", selectedTicket.id);
       if (error) throw error;
+      await notifyRefundStatus(selectedTicket.id, "resolved", ticketResponse.trim());
       setTicketDetailsOpen(false);
       setTicketResponse("");
       setSelectedTicket(null);
@@ -258,6 +277,7 @@ export default function CustomerSupportDashboard() {
         .update({ status } as never)
         .eq("id", ticketId);
       if (error) throw error;
+      await notifyRefundStatus(ticketId, status);
       refetchTickets();
     } catch (e) {
       console.error("Failed to update ticket status:", e);
@@ -606,7 +626,7 @@ export default function CustomerSupportDashboard() {
           <TabsContent value="tickets">
             <div className="grid gap-6">
               {/* Ticket Activity Logs */}
-              <TicketActivityLogs limit={100} />
+              <TicketActivityLogs limit={100} filterStorageKey="ticket_activity_filter_support_dashboard" />
 
               {/* Support Tickets Table */}
               <Card>
