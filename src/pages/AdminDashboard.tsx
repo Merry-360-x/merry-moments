@@ -374,6 +374,7 @@ export default function AdminDashboard() {
   const [orderBookings, setOrderBookings] = useState<BookingRow[]>([]);
   const [bookingDetailsOpen, setBookingDetailsOpen] = useState(false);
   const [markingPaid, setMarkingPaid] = useState<string | null>(null);
+  const [processingRefundBooking, setProcessingRefundBooking] = useState<string | null>(null);
   const [refundInfo, setRefundInfo] = useState<{
     refundAmount: number;
     refundPercentage: number;
@@ -1126,33 +1127,143 @@ export default function AdminDashboard() {
 
   const refundRequestRefs = useMemo(() => {
     const refs = new Set<string>();
-    const bookingIdPattern = /-\s*Booking\s+([^:\s]+)\s*:/gi;
+
+    const extractRefundRefs = (ticket: SupportTicketRow) => {
+      const ticketRefs = new Set<string>();
+      const bookingIdPattern = /-\s*Booking\s+([^:\s]+)\s*:/gi;
+
+      const subjectMatch = String(ticket.subject || "").match(/refund request for booking\s+(.+)$/i);
+      if (subjectMatch?.[1]) {
+        ticketRefs.add(subjectMatch[1].trim().toLowerCase());
+      }
+
+      const message = String(ticket.message || "");
+      const referenceMatch = message.match(/^Reference:\s*(.+)$/im);
+      if (referenceMatch?.[1]) {
+        ticketRefs.add(referenceMatch[1].trim().toLowerCase());
+      }
+
+      let lineMatch: RegExpExecArray | null;
+      while ((lineMatch = bookingIdPattern.exec(message)) !== null) {
+        if (lineMatch[1]) {
+          ticketRefs.add(lineMatch[1].trim().toLowerCase());
+        }
+      }
+
+      return Array.from(ticketRefs);
+    };
 
     tickets.forEach((ticket) => {
       const status = String(ticket.status || "").toLowerCase();
       if (status === "closed" || status === "resolved") return;
-
-      const subjectMatch = String(ticket.subject || "").match(/refund request for booking\s+(.+)$/i);
-      if (subjectMatch?.[1]) {
-        refs.add(subjectMatch[1].trim().toLowerCase());
-      }
-
-      const message = String(ticket.message || "");
-      let lineMatch: RegExpExecArray | null;
-      while ((lineMatch = bookingIdPattern.exec(message)) !== null) {
-        if (lineMatch[1]) {
-          refs.add(lineMatch[1].trim().toLowerCase());
-        }
-      }
-
-      const referenceMatch = message.match(/^Reference:\s*(.+)$/im);
-      if (referenceMatch?.[1]) {
-        refs.add(referenceMatch[1].trim().toLowerCase());
-      }
+      extractRefundRefs(ticket).forEach((ref) => refs.add(ref));
     });
 
     return refs;
   }, [tickets]);
+
+  const findOpenRefundTicket = (booking: BookingRow) => {
+    const bookingRef = String(booking.id || "").toLowerCase();
+    const orderRef = String(booking.order_id || "").toLowerCase();
+
+    const extractRefundRefs = (ticket: SupportTicketRow) => {
+      const ticketRefs = new Set<string>();
+      const bookingIdPattern = /-\s*Booking\s+([^:\s]+)\s*:/gi;
+
+      const subjectMatch = String(ticket.subject || "").match(/refund request for booking\s+(.+)$/i);
+      if (subjectMatch?.[1]) {
+        ticketRefs.add(subjectMatch[1].trim().toLowerCase());
+      }
+
+      const message = String(ticket.message || "");
+      const referenceMatch = message.match(/^Reference:\s*(.+)$/im);
+      if (referenceMatch?.[1]) {
+        ticketRefs.add(referenceMatch[1].trim().toLowerCase());
+      }
+
+      let lineMatch: RegExpExecArray | null;
+      while ((lineMatch = bookingIdPattern.exec(message)) !== null) {
+        if (lineMatch[1]) {
+          ticketRefs.add(lineMatch[1].trim().toLowerCase());
+        }
+      }
+
+      return Array.from(ticketRefs);
+    };
+
+    return (
+      tickets.find((ticket) => {
+        const status = String(ticket.status || "").toLowerCase();
+        if (status === "closed" || status === "resolved") return false;
+        const refs = extractRefundRefs(ticket);
+        return refs.includes(bookingRef) || (!!orderRef && refs.includes(orderRef));
+      }) || null
+    );
+  };
+
+  const handleRefundDecision = async (booking: BookingRow, decision: "approve" | "decline") => {
+    const actionKey = `${booking.id}:${decision}`;
+    setProcessingRefundBooking(actionKey);
+
+    try {
+      const bookingUpdate =
+        decision === "approve"
+          ? {
+              payment_status: "refunded",
+              status: "cancelled",
+            }
+          : {
+              payment_status: "paid",
+              status: "confirmed",
+            };
+
+      const bookingQuery = supabase
+        .from("bookings")
+        .update({ ...bookingUpdate, updated_at: new Date().toISOString() } as never);
+
+      const bookingResult = booking.order_id
+        ? await bookingQuery.eq("order_id", booking.order_id)
+        : await bookingQuery.eq("id", booking.id);
+
+      if (bookingResult.error) throw bookingResult.error;
+
+      const ticket = findOpenRefundTicket(booking);
+      if (ticket) {
+        const response =
+          decision === "approve"
+            ? "Admin: Refund approved and completed."
+            : "Admin: Refund declined. Booking reactivated.";
+
+        const { error: ticketError } = await supabase
+          .from("support_tickets")
+          .update({ status: "resolved", response } as never)
+          .eq("id", ticket.id);
+
+        if (ticketError) {
+          console.error("Failed to resolve refund ticket:", ticketError);
+        }
+      }
+
+      toast({
+        title: decision === "approve" ? "Refund completed" : "Refund declined",
+        description:
+          decision === "approve"
+            ? "Refund marked as completed and booking remains cancelled."
+            : "Refund declined and booking restored to confirmed/paid.",
+      });
+
+      await Promise.all([refetchBookings(), refetchTickets(), refetchMetrics()]);
+    } catch (error) {
+      console.error("Error processing refund decision:", error);
+      toast({
+        variant: "destructive",
+        title: "Action failed",
+        description: error instanceof Error ? error.message : "Failed to update refund status.",
+      });
+    } finally {
+      setProcessingRefundBooking(null);
+    }
+  };
 
   // Incidents
   const { data: incidents = [], refetch: refetchIncidents } = useQuery({
@@ -3751,6 +3862,14 @@ For support, contact: support@merry360x.com
                           <StatusBadge status={b.status} />
                         </TableCell>
                         <TableCell className="align-top">
+                          {(() => {
+                            const isRefundRequested =
+                              refundRequestRefs.has(String(b.id || "").toLowerCase()) ||
+                              (b.order_id && refundRequestRefs.has(String(b.order_id).toLowerCase()));
+                            const isApproveLoading = processingRefundBooking === `${b.id}:approve`;
+                            const isDeclineLoading = processingRefundBooking === `${b.id}:decline`;
+
+                            return (
                           <div className="flex flex-wrap justify-end gap-1 min-w-[320px]">
                             {b.status === 'confirmed' && b.payment_status !== 'paid' && (
                               <Button
@@ -3763,6 +3882,28 @@ For support, contact: support@merry360x.com
                                 <CheckCircle className="w-3 h-3" />
                                 {markingPaid === b.id ? 'Marking...' : 'Mark Paid'}
                               </Button>
+                            )}
+                            {isRefundRequested && b.status === 'cancelled' && b.payment_status === 'paid' && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  className="whitespace-nowrap"
+                                  onClick={() => handleRefundDecision(b, "approve")}
+                                  disabled={isApproveLoading || isDeclineLoading}
+                                >
+                                  {isApproveLoading ? 'Processing...' : 'Complete Refund'}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  className="whitespace-nowrap"
+                                  onClick={() => handleRefundDecision(b, "decline")}
+                                  disabled={isApproveLoading || isDeclineLoading}
+                                >
+                                  {isDeclineLoading ? 'Processing...' : 'Decline & Reactivate'}
+                                </Button>
+                              </>
                             )}
                             <Button 
                               size="sm" 
@@ -3878,6 +4019,8 @@ For support, contact: support@merry360x.com
                               <Trash2 className="w-3 h-3" />
                             </Button>
                           </div>
+                            );
+                          })()}
                         </TableCell>
                       </TableRow>
                       );
