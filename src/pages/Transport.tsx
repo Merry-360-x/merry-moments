@@ -16,7 +16,6 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { useFxRates } from "@/hooks/useFxRates";
 import { convertAmount } from "@/lib/fx";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 
 // Transport service categories
 const transportCategories = [
@@ -72,13 +71,7 @@ const Transport = () => {
   const [activeCategory, setActiveCategory] = useState("all");
   const [query, setQuery] = useState("");
   const [vehicle, setVehicle] = useState(ALL_VEHICLES_VALUE);
-  const [locationPromptDismissed, setLocationPromptDismissed] = useState(() => {
-    try {
-      return localStorage.getItem("transport_location_prompt_dismissed") === "1";
-    } catch {
-      return false;
-    }
-  });
+  const [autoLocationRequested, setAutoLocationRequested] = useState(false);
   const { addToCart: addCartItem } = useTripCart();
   const { currency: preferredCurrency } = usePreferences();
   const { usdRates } = useFxRates();
@@ -109,9 +102,13 @@ const Transport = () => {
     navigate(qs ? `/transport?${qs}` : "/transport");
   };
 
-  const requestNearbyRecommendations = async () => {
+  const requestNearbyRecommendations = async (options?: { silent?: boolean }) => {
+    const silent = Boolean(options?.silent);
+
     if (!("geolocation" in navigator)) {
-      toast({ variant: "destructive", title: "Location not available", description: "Your browser does not support geolocation." });
+      if (!silent) {
+        toast({ variant: "destructive", title: "Location not available", description: "Your browser does not support geolocation." });
+      }
       return;
     }
 
@@ -142,11 +139,19 @@ const Transport = () => {
         navigate(`/transport?${params.toString()}`);
       },
       () => {
-        toast({ variant: "destructive", title: "Location permission denied", description: "Allow location access to get nearby recommendations." });
+        if (!silent) {
+          toast({ variant: "destructive", title: "Location permission denied", description: "Allow location access to get nearby recommendations." });
+        }
       },
       { enableHighAccuracy: false, timeout: 8000 }
     );
   };
+
+  useEffect(() => {
+    if (autoLocationRequested || nearby) return;
+    setAutoLocationRequested(true);
+    requestNearbyRecommendations({ silent: true });
+  }, [autoLocationRequested, nearby]);
 
   const { data: services = [] } = useQuery({
     queryKey: ["transport_services"],
@@ -274,26 +279,72 @@ const Transport = () => {
     [nearbyRegion]
   );
 
+  const strictLocationMode = Boolean(nearby) && regionTokens.length > 0;
+
+  const scoreText = useCallback((text: string) => {
+    if (regionTokens.length === 0) return 0;
+    const haystack = text.toLowerCase();
+    return regionTokens.reduce((sum, token) => (haystack.includes(token) ? sum + 1 : sum), 0);
+  }, [regionTokens]);
+
   const scoreRoute = useCallback((route: { from_location: string; to_location: string }) => {
     if (regionTokens.length === 0) return 0;
     const haystack = `${route.from_location || ""} ${route.to_location || ""}`.toLowerCase();
     return regionTokens.reduce((sum, token) => (haystack.includes(token) ? sum + 1 : sum), 0);
   }, [regionTokens]);
 
-  const rankedRoutes = useMemo(
-    () => [...airportRoutes].sort((a, b) => scoreRoute(b) - scoreRoute(a)),
-    [airportRoutes, scoreRoute]
-  );
+  const rankedRoutes = useMemo(() => {
+    const scored = airportRoutes
+      .map((route) => ({ route, score: scoreRoute(route) }))
+      .filter((item) => !strictLocationMode || item.score > 0)
+      .sort((a, b) => {
+        const byScore = b.score - a.score;
+        if (byScore !== 0) return byScore;
+        return Number(a.route.base_price ?? 0) - Number(b.route.base_price ?? 0);
+      });
+    return scored.map((item) => item.route);
+  }, [airportRoutes, scoreRoute, strictLocationMode]);
   const fromAirportRoutes = rankedRoutes.filter(r => r.from_location?.toLowerCase().includes("airport"));
   const toAirportRoutes = rankedRoutes.filter(r => r.to_location?.toLowerCase().includes("airport"));
-  const intercityRoutes = useMemo(
-    () => [...routes]
+  const intercityRoutes = useMemo(() => {
+    const scored = [...routes]
       .filter(r => !(r.from_location?.toLowerCase().includes("airport") || r.to_location?.toLowerCase().includes("airport")))
-      .sort((a, b) => scoreRoute(b) - scoreRoute(a)),
-    [routes, scoreRoute]
-  );
+      .map((route) => ({ route, score: scoreRoute(route) }))
+      .filter((item) => !strictLocationMode || item.score > 0)
+      .sort((a, b) => {
+        const byScore = b.score - a.score;
+        if (byScore !== 0) return byScore;
+        return Number(a.route.base_price ?? 0) - Number(b.route.base_price ?? 0);
+      });
 
-  const showLocationPrompt = !nearby && !query.trim() && !locationPromptDismissed;
+    return scored.map((item) => item.route);
+  }, [routes, scoreRoute, strictLocationMode]);
+
+  const filteredServices = useMemo(() => {
+    const scored = services
+      .map((service) => ({
+        service,
+        score: scoreText(`${service.title || ""} ${service.description || ""}`),
+      }))
+      .filter((item) => !strictLocationMode || item.score > 0)
+      .sort((a, b) => b.score - a.score);
+
+    return scored.map((item) => item.service);
+  }, [services, scoreText, strictLocationMode]);
+
+  const filteredVehicles = useMemo(() => {
+    const scored = vehicles
+      .map((vehicleRow) => ({
+        vehicleRow,
+        score: scoreText(
+          `${vehicleRow.provider_name || ""} ${vehicleRow.title || ""} ${vehicleRow.car_brand || ""} ${vehicleRow.car_model || ""}`
+        ),
+      }))
+      .filter((item) => !strictLocationMode || item.score > 0)
+      .sort((a, b) => b.score - a.score);
+
+    return scored.map((item) => item.vehicleRow);
+  }, [vehicles, scoreText, strictLocationMode]);
 
   const addToCart = async (payload: { item_type: string; reference_id: string }) => {
     const ok = await addCartItem(payload.item_type as any, payload.reference_id, 1);
@@ -381,26 +432,6 @@ const Transport = () => {
             </Button>
           </div>
         </div>
-        {showLocationPrompt && (
-          <Alert className="max-w-3xl mx-auto mt-4">
-            <AlertDescription className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-              <span>Share your location to see nearby transport services first.</span>
-              <div className="flex gap-2">
-                <Button size="sm" onClick={requestNearbyRecommendations}>Use my location</Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setLocationPromptDismissed(true);
-                    localStorage.setItem("transport_location_prompt_dismissed", "1");
-                  }}
-                >
-                  Not now
-                </Button>
-              </div>
-            </AlertDescription>
-          </Alert>
-        )}
       </div>
 
       {/* Content */}
@@ -601,14 +632,14 @@ const Transport = () => {
                 <Building2 className="w-6 h-6 text-primary" />
                 Intracity Rides
               </h2>
-              {services.length === 0 ? (
+              {filteredServices.length === 0 ? (
                 <div className="bg-card rounded-xl p-8 shadow-card text-center">
                   <Building2 className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
                   <p className="text-muted-foreground">No intracity ride services available yet</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {services.map((s) => (
+                  {filteredServices.map((s) => (
                     <div key={s.id} className="bg-card rounded-xl shadow-card p-6">
                       <div className="flex items-center gap-3 mb-3">
                         <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -682,14 +713,14 @@ const Transport = () => {
                   <Frown className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">{t("transport.couldNotLoadVehicles")}</p>
                 </div>
-              ) : vehicles.length === 0 ? (
+              ) : filteredVehicles.length === 0 ? (
                 <div className="bg-card rounded-xl p-8 shadow-card text-center">
                   <Key className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
                   <p className="text-muted-foreground">{t("transport.noRentalVehicles")}</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {vehicles.map((v) => {
+                  {filteredVehicles.map((v) => {
                     // Determine if verified (has all required docs)
                     const isVerified = !!(v.insurance_document_url && v.registration_document_url && v.roadworthiness_certificate_url);
                     // Get all images
