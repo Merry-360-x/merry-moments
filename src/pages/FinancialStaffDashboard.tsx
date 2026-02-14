@@ -63,6 +63,7 @@ export default function FinancialStaffDashboard() {
   const [bookingIdSearch, setBookingIdSearch] = useState("");
   const [bookingStatusFilter, setBookingStatusFilter] = useState<string>("all");
   const [processingPayout, setProcessingPayout] = useState<string | null>(null);
+  const [processingRefundBooking, setProcessingRefundBooking] = useState<string | null>(null);
   const [payoutFilter, setPayoutFilter] = useState<string>("pending");
 
   // Notification badge hook
@@ -157,7 +158,7 @@ export default function FinancialStaffDashboard() {
     staleTime: 30000, // Cache for 30 seconds - real-time handles updates
   });
 
-  const { data: tickets = [] } = useQuery({
+  const { data: tickets = [], refetch: refetchTickets } = useQuery({
     queryKey: ["financial-support-tickets-refunds"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -178,35 +179,121 @@ export default function FinancialStaffDashboard() {
     staleTime: 30000,
   });
 
-  const refundRequestRefs = useMemo(() => {
+  const extractRefundRefs = (ticket: SupportTicketRow): string[] => {
     const refs = new Set<string>();
     const bookingIdPattern = /-\s*Booking\s+([^:\s]+)\s*:/gi;
+    const subjectMatch = String(ticket.subject || "").match(/refund request for booking\s+(.+)$/i);
+    if (subjectMatch?.[1]) {
+      refs.add(subjectMatch[1].trim().toLowerCase());
+    }
+
+    const message = String(ticket.message || "");
+    const referenceMatch = message.match(/^Reference:\s*(.+)$/im);
+    if (referenceMatch?.[1]) {
+      refs.add(referenceMatch[1].trim().toLowerCase());
+    }
+
+    let lineMatch: RegExpExecArray | null;
+    while ((lineMatch = bookingIdPattern.exec(message)) !== null) {
+      if (lineMatch[1]) {
+        refs.add(lineMatch[1].trim().toLowerCase());
+      }
+    }
+
+    return Array.from(refs);
+  };
+
+  const refundRequestRefs = useMemo(() => {
+    const refs = new Set<string>();
 
     tickets.forEach((ticket) => {
       const status = String(ticket.status || "").toLowerCase();
       if (status === "closed" || status === "resolved") return;
-
-      const subjectMatch = String(ticket.subject || "").match(/refund request for booking\s+(.+)$/i);
-      if (subjectMatch?.[1]) {
-        refs.add(subjectMatch[1].trim().toLowerCase());
-      }
-
-      const message = String(ticket.message || "");
-      let lineMatch: RegExpExecArray | null;
-      while ((lineMatch = bookingIdPattern.exec(message)) !== null) {
-        if (lineMatch[1]) {
-          refs.add(lineMatch[1].trim().toLowerCase());
-        }
-      }
-
-      const referenceMatch = message.match(/^Reference:\s*(.+)$/im);
-      if (referenceMatch?.[1]) {
-        refs.add(referenceMatch[1].trim().toLowerCase());
-      }
+      extractRefundRefs(ticket).forEach((ref) => refs.add(ref));
     });
 
     return refs;
   }, [tickets]);
+
+  const findOpenRefundTicket = (booking: BookingRow) => {
+    const bookingRef = String(booking.id || "").toLowerCase();
+    const orderRef = String(booking.order_id || "").toLowerCase();
+
+    return (
+      tickets.find((ticket) => {
+        const status = String(ticket.status || "").toLowerCase();
+        if (status === "closed" || status === "resolved") return false;
+        const refs = extractRefundRefs(ticket);
+        return refs.includes(bookingRef) || (!!orderRef && refs.includes(orderRef));
+      }) || null
+    );
+  };
+
+  const handleRefundDecision = async (booking: BookingRow, decision: "approve" | "decline") => {
+    const targetKey = `${booking.id}:${decision}`;
+    setProcessingRefundBooking(targetKey);
+
+    try {
+      const bookingUpdate =
+        decision === "approve"
+          ? {
+              payment_status: "refunded",
+              status: "cancelled",
+              updated_at: new Date().toISOString(),
+            }
+          : {
+              payment_status: "paid",
+              status: "confirmed",
+              updated_at: new Date().toISOString(),
+            };
+
+      const bookingQuery = supabase.from("bookings").update(bookingUpdate as never);
+      const bookingResult = booking.order_id
+        ? await bookingQuery.eq("order_id", booking.order_id)
+        : await bookingQuery.eq("id", booking.id);
+
+      if (bookingResult.error) throw bookingResult.error;
+
+      const ticket = findOpenRefundTicket(booking);
+      if (ticket) {
+        const response =
+          decision === "approve"
+            ? "Finance: Refund approved and completed."
+            : "Finance: Refund declined. Booking reactivated.";
+
+        const { error: ticketError } = await supabase
+          .from("support_tickets")
+          .update({
+            status: "resolved",
+            response,
+          } as never)
+          .eq("id", ticket.id);
+
+        if (ticketError) {
+          console.error("Failed to update refund ticket status:", ticketError);
+        }
+      }
+
+      toast({
+        title: decision === "approve" ? "Refund completed" : "Refund declined",
+        description:
+          decision === "approve"
+            ? "Refund marked as completed and booking remains cancelled."
+            : "Refund declined and booking restored to confirmed/paid.",
+      });
+
+      await Promise.all([refetchBookings(), refetchTickets(), refetchMetrics()]);
+    } catch (error) {
+      console.error("Error processing refund decision:", error);
+      toast({
+        variant: "destructive",
+        title: "Action failed",
+        description: error instanceof Error ? error.message : "Failed to update refund status.",
+      });
+    } finally {
+      setProcessingRefundBooking(null);
+    }
+  };
 
   const markAsPaid = async (bookingId: string) => {
     setMarkingPaid(bookingId);
@@ -784,6 +871,15 @@ export default function FinancialStaffDashboard() {
                   <TableBody>
                     {filteredBookings.map((booking) => (
                       <TableRow key={booking.id}>
+                        {(() => {
+                          const isRefundRequested =
+                            refundRequestRefs.has(String(booking.id || '').toLowerCase()) ||
+                            (booking.order_id && refundRequestRefs.has(String(booking.order_id).toLowerCase()));
+                          const isApproveLoading = processingRefundBooking === `${booking.id}:approve`;
+                          const isDeclineLoading = processingRefundBooking === `${booking.id}:decline`;
+
+                          return (
+                            <>
                         <TableCell className="text-xs">
                           <div className="space-y-1">
                             <div>
@@ -834,7 +930,7 @@ export default function FinancialStaffDashboard() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {(refundRequestRefs.has(String(booking.id || '').toLowerCase()) || (booking.order_id && refundRequestRefs.has(String(booking.order_id).toLowerCase()))) && (
+                          {isRefundRequested && (
                             <Badge className="bg-amber-100 text-amber-800 mb-1">Refund Requested</Badge>
                           )}
                           <Badge
@@ -889,11 +985,34 @@ export default function FinancialStaffDashboard() {
                                 {markingPaid === booking.id ? 'Marking...' : 'Mark Paid'}
                               </Button>
                             )}
+                            {isRefundRequested && booking.status === 'cancelled' && booking.payment_status === 'paid' && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  onClick={() => handleRefundDecision(booking, "approve")}
+                                  disabled={isApproveLoading || isDeclineLoading}
+                                >
+                                  {isApproveLoading ? "Processing..." : "Complete Refund"}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => handleRefundDecision(booking, "decline")}
+                                  disabled={isApproveLoading || isDeclineLoading}
+                                >
+                                  {isDeclineLoading ? "Processing..." : "Decline & Reactivate"}
+                                </Button>
+                              </>
+                            )}
                             {booking.payment_status === 'paid' && (
                               <span className="text-sm text-muted-foreground">✓ Paid</span>
                             )}
                           </div>
                         </TableCell>
+                            </>
+                          );
+                        })()}
                       </TableRow>
                     ))}
                     {filteredBookings.length === 0 && (
