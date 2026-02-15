@@ -24,7 +24,8 @@
     "verify:currencies": "node verify-currencies.mjs",
     "check:bookings": "node show-booking-currencies.mjs",
     "test:booking-ui": "node test-booking-ui.mjs",
-    "create:bulk-booking": "node create-bulk-booking-test.mjs"
+    "create:bulk-booking": "node create-bulk-booking-test.mjs",
+    "seo:audit": "node scripts/seo-index-audit.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
