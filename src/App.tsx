@@ -252,6 +252,36 @@ const ROUTE_SEO_CONFIGS: RouteSeoConfig[] = [
     description: "Reach Merry360X support at support@merry360x.com for booking and account help.",
     pageType: "ContactPage",
   },
+  {
+    path: "/about",
+    title: "About Merry360X — Stays, Tours & Transport",
+    description: "Learn about Merry360X and how we help travelers book stays, tours, and transport in one place.",
+    pageType: "AboutPage",
+  },
+  {
+    path: "/help-center",
+    title: "Help Center — Merry360X",
+    description: "Get support articles and booking help from the Merry360X help center.",
+    pageType: "WebPage",
+  },
+  {
+    path: "/privacy-policy",
+    title: "Privacy Policy — Merry360X",
+    description: "Read how Merry360X collects, uses, and protects personal data.",
+    pageType: "WebPage",
+  },
+  {
+    path: "/terms-and-conditions",
+    title: "Terms & Conditions — Merry360X",
+    description: "Review the terms and conditions for using Merry360X services.",
+    pageType: "WebPage",
+  },
+  {
+    path: "/refund-policy",
+    title: "Refund Policy — Merry360X",
+    description: "Understand cancellations, refunds, and policy timelines for bookings.",
+    pageType: "WebPage",
+  },
 ];
 
 function getRouteSeoConfig(pathname: string): RouteSeoConfig {
