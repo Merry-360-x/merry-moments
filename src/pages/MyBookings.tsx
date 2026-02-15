@@ -78,6 +78,14 @@ interface Booking {
     email: string | null;
     phone: string | null;
   } | null;
+  checkout_requests?: {
+    id: string;
+    total_amount: number;
+    currency: string | null;
+    payment_method: string | null;
+    base_price_amount?: number | null;
+    service_fee_amount?: number | null;
+  } | null;
 }
 
 type SupportTicketRow = {
@@ -141,7 +149,7 @@ const MyBookings = () => {
       const orderIds = [...new Set((data ?? []).filter(b => b.order_id).map(b => b.order_id))];
       const transportIds = [...new Set((data ?? []).filter(b => b.transport_id).map(b => b.transport_id))];
       const checkouts = orderIds.length > 0
-        ? (await supabase.from("checkout_requests").select("id, total_amount, currency, payment_method").in("id", orderIds)).data || []
+        ? (await supabase.from("checkout_requests").select("id, total_amount, currency, payment_method, base_price_amount, service_fee_amount").in("id", orderIds)).data || []
         : [];
       const vehicles = transportIds.length > 0
         ? (await supabase.from("transport_vehicles").select("id, title, vehicle_type, seats").in("id", transportIds)).data || []
@@ -392,8 +400,18 @@ const MyBookings = () => {
     const rule = daysUntilCheckIn <= 0
       ? { minDays: daysUntilCheckIn, refundPct: 0 }
       : getRefundRule(policyKey, daysUntilCheckIn);
-    const total = Number(booking.total_price || 0);
-    const refundAmount = (total * rule.refundPct) / 100;
+    const listedTotal = Number(booking.total_price || 0);
+    const checkoutTotal = Number(booking.checkout_requests?.total_amount || 0);
+    const checkoutBasePrice = Number(booking.checkout_requests?.base_price_amount || 0);
+    const checkoutServiceFee = Number(booking.checkout_requests?.service_fee_amount || 0);
+    const refundableBase =
+      checkoutBasePrice > 0
+        ? checkoutBasePrice
+        : checkoutTotal > 0
+          ? Math.max(checkoutTotal - Math.max(checkoutServiceFee, 0), 0)
+          : listedTotal;
+
+    const refundAmount = (refundableBase * rule.refundPct) / 100;
     return {
       refundAmount,
       refundPercentage: rule.refundPct,

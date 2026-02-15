@@ -2,7 +2,7 @@
 import { escapeHtml, keyValueRows, renderMinimalEmail } from "../lib/email-template-kit.js";
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
-const ADMIN_EMAIL = process.env.SUPPORT_EMAIL || "davyncidavy@gmail.com";
+const ADMIN_EMAIL = "support@merry360x.com";
 
 function json(res, status, body) {
   res.statusCode = status;

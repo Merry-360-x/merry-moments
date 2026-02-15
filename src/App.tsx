@@ -11,6 +11,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import AuthCallback from "./pages/AuthCallback";
+import ReviewPage from "./pages/ReviewPage";
 import RequireAuth from "@/components/RequireAuth";
 import RequireRole from "@/components/RequireRole";
 
@@ -43,7 +44,6 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const AdminIntegrations = lazy(() => import("./pages/AdminIntegrations"));
 const HostReviews = lazy(() => import("./pages/HostReviews"));
 const HostAbout = lazy(() => import("./pages/HostAbout"));
-const ReviewPage = lazy(() => import("./pages/ReviewPage"));
 const ConnectionTest = lazy(() => import("./pages/ConnectionTest"));
 const CreateTour = lazy(() => import("./pages/CreateTour"));
 const CreateTourPackage = lazy(() => import("./pages/CreateTourPackage"));
@@ -202,6 +202,161 @@ function RouteTransitionWrapper({ children }: { children: ReactNode }) {
   );
 }
 
+type RouteSeoConfig = {
+  title: string;
+  description: string;
+  path: string;
+  pageType: string;
+};
+
+const ROUTE_SEO_CONFIGS: RouteSeoConfig[] = [
+  {
+    path: "/",
+    title: "Merry Moments — Stays, Tours & Transport",
+    description: "Book accommodations, tours, transport, and travel experiences in one place.",
+    pageType: "WebPage",
+  },
+  {
+    path: "/accommodations",
+    title: "Accommodations — Merry360X",
+    description: "Browse stays and accommodations across Rwanda with transparent pricing and easy booking.",
+    pageType: "CollectionPage",
+  },
+  {
+    path: "/tours",
+    title: "Tours & Tour Packages — Merry360X",
+    description: "Discover curated tours and tour packages for nature, culture, and adventure.",
+    pageType: "CollectionPage",
+  },
+  {
+    path: "/transport",
+    title: "Transport Services — Merry360X",
+    description: "Book trusted transport options including airport transfer and private rides.",
+    pageType: "CollectionPage",
+  },
+  {
+    path: "/stories",
+    title: "Travel Stories — Merry360X",
+    description: "Read travel stories, inspiration, and destination highlights from Merry360X.",
+    pageType: "CollectionPage",
+  },
+  {
+    path: "/search",
+    title: "Search Stays, Tours & Transport — Merry360X",
+    description: "Search accommodations, tours, tour packages, and transport by your travel preferences.",
+    pageType: "SearchResultsPage",
+  },
+  {
+    path: "/contact",
+    title: "Contact Support — Merry360X",
+    description: "Reach Merry360X support at support@merry360x.com for booking and account help.",
+    pageType: "ContactPage",
+  },
+];
+
+function getRouteSeoConfig(pathname: string): RouteSeoConfig {
+  if (pathname.startsWith("/tours/")) {
+    return {
+      path: pathname,
+      title: "Tour Details — Merry360X",
+      description: "View tour details, inclusions, and availability before booking.",
+      pageType: "WebPage",
+    };
+  }
+
+  if (pathname.startsWith("/properties/")) {
+    return {
+      path: pathname,
+      title: "Property Details — Merry360X",
+      description: "View accommodation details, amenities, cancellation policy, and availability.",
+      pageType: "WebPage",
+    };
+  }
+
+  return ROUTE_SEO_CONFIGS.find((config) => config.path === pathname) || ROUTE_SEO_CONFIGS[0];
+}
+
+function upsertMetaTag(key: "name" | "property", value: string, content: string) {
+  const selector = `meta[${key}="${value}"]`;
+  const existing = document.head.querySelector(selector) as HTMLMetaElement | null;
+  if (existing) {
+    existing.setAttribute("content", content);
+    return;
+  }
+  const meta = document.createElement("meta");
+  meta.setAttribute(key, value);
+  meta.setAttribute("content", content);
+  document.head.appendChild(meta);
+}
+
+function upsertCanonicalLink(href: string) {
+  const existing = document.head.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
+  if (existing) {
+    existing.setAttribute("href", href);
+    return;
+  }
+  const link = document.createElement("link");
+  link.setAttribute("rel", "canonical");
+  link.setAttribute("href", href);
+  document.head.appendChild(link);
+}
+
+function upsertRouteJsonLd(payload: Record<string, unknown>) {
+  const scriptId = "route-jsonld";
+  const existing = document.getElementById(scriptId) as HTMLScriptElement | null;
+  const content = JSON.stringify(payload);
+  if (existing) {
+    existing.text = content;
+    return;
+  }
+  const script = document.createElement("script");
+  script.id = scriptId;
+  script.type = "application/ld+json";
+  script.text = content;
+  document.head.appendChild(script);
+}
+
+function RouteSeoManager() {
+  const location = useLocation();
+
+  useEffect(() => {
+    const config = getRouteSeoConfig(location.pathname);
+    const canonicalUrl = `https://merry360x.com${config.path === "/" ? "/" : config.path}`;
+
+    document.title = config.title;
+    upsertMetaTag("name", "description", config.description);
+    upsertMetaTag("name", "contact", "support@merry360x.com");
+    upsertMetaTag("property", "og:title", config.title);
+    upsertMetaTag("property", "og:description", config.description);
+    upsertMetaTag("property", "og:url", canonicalUrl);
+    upsertMetaTag("property", "og:email", "support@merry360x.com");
+    upsertMetaTag("name", "twitter:title", config.title);
+    upsertMetaTag("name", "twitter:description", config.description);
+    upsertCanonicalLink(canonicalUrl);
+
+    upsertRouteJsonLd({
+      "@context": "https://schema.org",
+      "@type": config.pageType,
+      name: config.title,
+      description: config.description,
+      url: canonicalUrl,
+      isPartOf: {
+        "@type": "WebSite",
+        name: "Merry360X",
+        url: "https://merry360x.com",
+      },
+      publisher: {
+        "@type": "Organization",
+        name: "Merry360X",
+        url: "https://merry360x.com",
+        email: "support@merry360x.com",
+      },
+    });
+  }, [location.pathname]);
+
+  return null;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
@@ -213,6 +368,7 @@ const App = () => (
           <BrowserRouter>
             <ScrollToTop />
             <SupportCenterLauncher />
+            <RouteSeoManager />
             <RoutePrefetch />
             <Suspense fallback={null}>
             <RouteTransitionWrapper>

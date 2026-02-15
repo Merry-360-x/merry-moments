@@ -397,6 +397,7 @@ export default function HostDashboard() {
     return { canEdit: daysSinceCreation >= 30, daysRemaining };
   };
   const [payoutMethods, setPayoutMethods] = useState<PayoutMethod[]>([]);
+  const [selectedPayoutMethodId, setSelectedPayoutMethodId] = useState("");
   const [showAddPayoutMethod, setShowAddPayoutMethod] = useState(false);
   const [editingPayoutMethod, setEditingPayoutMethod] = useState<PayoutMethod | null>(null);
   const [payoutMethodForm, setPayoutMethodForm] = useState({
@@ -411,6 +412,15 @@ export default function HostDashboard() {
     nickname: '',
   });
   const [savingPayoutMethod, setSavingPayoutMethod] = useState(false);
+
+  const selectedPayoutMethod = useMemo(() => {
+    if (!payoutMethods.length) return null;
+    return (
+      payoutMethods.find((method) => method.id === selectedPayoutMethodId) ||
+      payoutMethods.find((method) => method.is_primary) ||
+      payoutMethods[0]
+    );
+  }, [payoutMethods, selectedPayoutMethodId]);
   
   // Financial reports date range
   const [reportStartDate, setReportStartDate] = useState(() => {
@@ -978,9 +988,31 @@ export default function HostDashboard() {
     fetchPayoutInfo();
   }, [user]);
 
+  useEffect(() => {
+    if (!payoutMethods.length) {
+      setSelectedPayoutMethodId("");
+      return;
+    }
+
+    if (!selectedPayoutMethodId || !payoutMethods.some((method) => method.id === selectedPayoutMethodId)) {
+      const preferredMethod = payoutMethods.find((method) => method.is_primary) || payoutMethods[0];
+      setSelectedPayoutMethodId(preferredMethod.id);
+    }
+  }, [payoutMethods, selectedPayoutMethodId]);
+
   // Request payout (saves payout info if needed and sends email notification)
   const requestPayout = async () => {
     if (!user) return;
+
+    const selectedMethod = payoutMethods.find((method) => method.id === selectedPayoutMethodId);
+    if (!selectedMethod) {
+      toast({
+        variant: 'destructive',
+        title: 'Payout method required',
+        description: 'Please select one of your saved payout methods.',
+      });
+      return;
+    }
     
     const amount = parseFloat(payoutAmount);
     if (isNaN(amount) || amount <= 0) {
@@ -998,12 +1030,23 @@ export default function HostDashboard() {
       return;
     }
 
-    // Validate payout form
-    if (payoutForm.method === 'mobile_money' && !payoutForm.phone) {
+    const resolvedPayoutForm = {
+      method: selectedMethod.method_type,
+      phone: selectedMethod.phone_number || '',
+      bank_name: selectedMethod.bank_name || '',
+      bank_account: selectedMethod.bank_account_number || '',
+      account_name:
+        selectedMethod.method_type === 'mobile_money'
+          ? selectedMethod.nickname || ''
+          : selectedMethod.bank_account_name || selectedMethod.nickname || '',
+    };
+
+    // Validate selected payout method details
+    if (resolvedPayoutForm.method === 'mobile_money' && !resolvedPayoutForm.phone) {
       toast({ variant: 'destructive', title: 'Phone required', description: 'Please enter your mobile money phone number.' });
       return;
     }
-    if (payoutForm.method === 'bank_transfer' && (!payoutForm.bank_name || !payoutForm.bank_account)) {
+    if (resolvedPayoutForm.method === 'bank_transfer' && (!resolvedPayoutForm.bank_name || !resolvedPayoutForm.bank_account)) {
       toast({ variant: 'destructive', title: 'Bank details required', description: 'Please enter your bank name and account number.' });
       return;
     }
@@ -1015,10 +1058,10 @@ export default function HostDashboard() {
         .from('profiles')
         .update({
           payout_method: payoutForm.method,
-          payout_phone: payoutForm.method === 'mobile_money' ? payoutForm.phone : null,
-          payout_bank_name: payoutForm.method === 'bank_transfer' ? payoutForm.bank_name : null,
-          payout_bank_account: payoutForm.method === 'bank_transfer' ? payoutForm.bank_account : null,
-          payout_account_name: payoutForm.account_name || null,
+          payout_phone: resolvedPayoutForm.method === 'mobile_money' ? resolvedPayoutForm.phone : null,
+          payout_bank_name: resolvedPayoutForm.method === 'bank_transfer' ? resolvedPayoutForm.bank_name : null,
+          payout_bank_account: resolvedPayoutForm.method === 'bank_transfer' ? resolvedPayoutForm.bank_account : null,
+          payout_account_name: resolvedPayoutForm.account_name || null,
         })
         .eq('user_id', user.id);
 
@@ -1026,17 +1069,26 @@ export default function HostDashboard() {
 
       // Update local state
       setPayoutInfo({
-        method: payoutForm.method,
-        phone: payoutForm.phone,
-        bank_name: payoutForm.bank_name,
-        bank_account: payoutForm.bank_account,
-        account_name: payoutForm.account_name,
+        method: resolvedPayoutForm.method,
+        phone: resolvedPayoutForm.phone,
+        bank_name: resolvedPayoutForm.bank_name,
+        bank_account: resolvedPayoutForm.bank_account,
+        account_name: resolvedPayoutForm.account_name,
       });
 
       // Create payout details object
-      const payoutDetails = payoutForm.method === 'mobile_money'
-        ? { phone: payoutForm.phone, account_name: payoutForm.account_name }
-        : { bank_name: payoutForm.bank_name, bank_account: payoutForm.bank_account, account_name: payoutForm.account_name };
+      const payoutDetails = resolvedPayoutForm.method === 'mobile_money'
+        ? {
+            phone: resolvedPayoutForm.phone,
+            account_name: resolvedPayoutForm.account_name,
+            mobile_provider: selectedMethod.mobile_provider,
+          }
+        : {
+            bank_name: resolvedPayoutForm.bank_name,
+            bank_account: resolvedPayoutForm.bank_account,
+            account_name: resolvedPayoutForm.account_name,
+            bank_swift_code: selectedMethod.bank_swift_code,
+          };
 
       // Insert payout request (pending approval)
       const { error } = await supabase
@@ -1046,7 +1098,7 @@ export default function HostDashboard() {
           amount,
           currency: 'RWF',
           status: 'pending',
-          payout_method: payoutForm.method,
+          payout_method: resolvedPayoutForm.method,
           payout_details: payoutDetails,
         });
 
@@ -1068,11 +1120,11 @@ export default function HostDashboard() {
             hostEmail: profileData?.email || user.email,
             amount,
             currency: 'RWF',
-            method: payoutForm.method,
-            phone: payoutForm.phone,
-            bankName: payoutForm.bank_name,
-            bankAccount: payoutForm.bank_account,
-            accountName: payoutForm.account_name,
+            method: resolvedPayoutForm.method,
+            phone: resolvedPayoutForm.phone,
+            bankName: resolvedPayoutForm.bank_name,
+            bankAccount: resolvedPayoutForm.bank_account,
+            accountName: resolvedPayoutForm.account_name,
           }),
         });
       } catch (emailError) {
@@ -1993,6 +2045,18 @@ export default function HostDashboard() {
 
   // Handle payout button click - always open combined dialog
   const handlePayoutClick = () => {
+    if (payoutMethods.length === 0) {
+      toast({
+        variant: 'destructive',
+        title: 'No payout method found',
+        description: 'Please add a payout method first.',
+      });
+      setTab('payout-methods');
+      return;
+    }
+
+    const preferredMethod = payoutMethods.find((method) => method.is_primary) || payoutMethods[0];
+    setSelectedPayoutMethodId(preferredMethod.id);
     setShowPayoutDialog(true);
   };
 
@@ -7528,7 +7592,7 @@ END OF REPORT
               Request Payout
             </DialogTitle>
             <DialogDescription>
-              Enter your payout details and the amount you'd like to withdraw.
+              Select one of your saved payout methods and enter the amount you'd like to withdraw.
             </DialogDescription>
           </DialogHeader>
           
@@ -7544,46 +7608,64 @@ END OF REPORT
 
             {/* Payout Method Selection */}
             <div className="space-y-3">
-              <Label>Payout Method</Label>
-              <Select 
-                value={payoutForm.method} 
-                onValueChange={(v) => setPayoutForm(f => ({ ...f, method: v as 'mobile_money' | 'bank_transfer' }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select method" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="mobile_money">📱 Mobile Money</SelectItem>
-                  <SelectItem value="bank_transfer">🏦 Bank Transfer</SelectItem>
-                </SelectContent>
-              </Select>
-
-              {payoutForm.method === 'mobile_money' ? (
-                <Input 
-                  placeholder="Phone number (078...)" 
-                  value={payoutForm.phone}
-                  onChange={(e) => setPayoutForm(f => ({ ...f, phone: e.target.value }))}
-                />
-              ) : (
+              <Label>Saved Payout Method</Label>
+              {payoutMethods.length > 0 ? (
                 <>
-                  <Input 
-                    placeholder="Bank name"
-                    value={payoutForm.bank_name}
-                    onChange={(e) => setPayoutForm(f => ({ ...f, bank_name: e.target.value }))}
-                  />
-                  <Input 
-                    placeholder="Account number"
-                    value={payoutForm.bank_account}
-                    onChange={(e) => setPayoutForm(f => ({ ...f, bank_account: e.target.value }))}
-                  />
-                </>
-              )}
+                  <Select value={selectedPayoutMethodId} onValueChange={setSelectedPayoutMethodId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select saved method" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {payoutMethods.map((method) => {
+                        const methodLabel =
+                          method.nickname || (method.method_type === 'mobile_money' ? 'Mobile Money' : 'Bank Transfer');
+                        const methodDetail =
+                          method.method_type === 'mobile_money'
+                            ? `${method.mobile_provider || 'Provider'} • ${method.phone_number || 'No phone'}`
+                            : `${method.bank_name || 'Bank'} • ${method.bank_account_number || 'No account'}`;
 
-              <Input 
-                placeholder="Account holder name"
-                value={payoutForm.account_name}
-                onChange={(e) => setPayoutForm(f => ({ ...f, account_name: e.target.value }))}
-              />
+                        return (
+                          <SelectItem key={method.id} value={method.id}>
+                            {methodLabel} {method.is_primary ? '• Primary' : ''} — {methodDetail}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+
+                  {selectedPayoutMethod && (
+                    <div className="rounded-md border border-border p-3 text-sm">
+                      <p className="font-medium text-foreground mb-1">
+                        {selectedPayoutMethod.nickname || (selectedPayoutMethod.method_type === 'mobile_money' ? 'Mobile Money' : 'Bank Transfer')}
+                      </p>
+                      {selectedPayoutMethod.method_type === 'mobile_money' ? (
+                        <p className="text-muted-foreground">
+                          {selectedPayoutMethod.mobile_provider || 'Provider'} • {selectedPayoutMethod.phone_number || 'No phone'}
+                        </p>
+                      ) : (
+                        <p className="text-muted-foreground">
+                          {selectedPayoutMethod.bank_name || 'Bank'} • {selectedPayoutMethod.bank_account_number || 'No account'}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground space-y-2">
+                  <p>No saved payout methods. Add one in the Payout Methods tab first.</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setShowPayoutDialog(false);
+                      setTab('payout-methods');
+                    }}
+                  >
+                    Manage methods
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* Amount input */}
@@ -7639,15 +7721,15 @@ END OF REPORT
               onClick={requestPayout} 
               disabled={
                 requestingPayout || 
+                payoutMethods.length === 0 ||
+                !selectedPayoutMethod ||
                 !payoutAmount || 
                 parseFloat(payoutAmount) < 101 || 
-                parseFloat(payoutAmount) > availableForPayout ||
-                (payoutForm.method === 'mobile_money' && !payoutForm.phone) ||
-                (payoutForm.method === 'bank_transfer' && (!payoutForm.bank_name || !payoutForm.bank_account))
+                parseFloat(payoutAmount) > availableForPayout
               }
             >
               {requestingPayout ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-              {payoutForm.method === 'mobile_money' ? 'Send to Mobile Money' : 'Submit Request'}
+              {selectedPayoutMethod?.method_type === 'mobile_money' ? 'Send to Mobile Money' : 'Submit Request'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useFavorites } from "@/hooks/useFavorites";
-import { ArrowLeft, BadgeCheck, CalendarIcon, ChevronLeft, ChevronRight, Heart, Star, User } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Ban, CalendarIcon, ChevronLeft, ChevronRight, Heart, Star, User } from "lucide-react";
 import { amenityByValue } from "@/lib/amenities";
 import PropertyCard from "@/components/PropertyCard";
 import { formatMoney } from "@/lib/money";
@@ -25,6 +25,7 @@ import { useFxRates } from "@/hooks/useFxRates";
 import { convertAmount } from "@/lib/fx";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format } from "date-fns";
 
 type PropertyRow = {
@@ -73,6 +74,49 @@ const isoTomorrow = () => {
   const d = new Date();
   d.setDate(d.getDate() + 1);
   return d.toISOString().slice(0, 10);
+};
+
+const TOUR_RECOMMENDATION_PHRASES = [
+  "Don't just stay — explore.",
+  "Your adventure starts here.",
+  "Turn your stay into unforgettable memories.",
+  "Step out and discover the best local experiences.",
+  "More than a room — an experience.",
+  "Explore top tours just minutes away.",
+  "Guests who stay here love these experiences.",
+  "Make every day of your stay an adventure.",
+  "Stay here. Experience more.",
+  "Discover what's beyond your door.",
+];
+
+const TRANSPORT_RECOMMENDATION_PHRASES = [
+  "Arrive stress-free. Your ride is ready.",
+  "From airport to comfort — smoothly.",
+  "No waiting. No stress. Just ride.",
+  "Secure your transport in one click.",
+  "Travel smart. Move with confidence.",
+  "Your journey, handled.",
+  "Book your stay. We'll handle the ride.",
+  "Comfortable, reliable transport at your service.",
+  "Skip the hassle — add transport now.",
+  "Move easily during your stay.",
+];
+
+const BUNDLE_RECOMMENDATION_PHRASES = [
+  "Complete your trip in one place.",
+  "One stay. One ride. One adventure.",
+  "Most guests book transport and tours together.",
+  "Everything your trip needs — right here.",
+  "Plan once. Enjoy everything.",
+  "Travel made simple.",
+];
+
+const phraseSeed = (value: string) => {
+  let seed = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    seed = (seed * 31 + value.charCodeAt(i)) >>> 0;
+  }
+  return seed;
 };
 
 export default function PropertyDetails() {
@@ -242,6 +286,55 @@ export default function PropertyDetails() {
     queryKey: ["property-blocked-dates", propertyId],
     enabled: Boolean(propertyId),
     queryFn: async () => {
+      const normalizeAndDeduplicate = (
+        rows: Array<{ start_date: string; end_date: string; reason: string | null; source?: string }>
+      ) => {
+        const normalized = rows
+          .map((row) => ({
+            start_date: String(row.start_date || "").slice(0, 10),
+            end_date: String(row.end_date || "").slice(0, 10),
+            reason: row.reason,
+            source: row.source,
+          }))
+          .filter((row) => row.start_date && row.end_date)
+          .sort((a, b) => {
+            if (a.start_date !== b.start_date) return a.start_date.localeCompare(b.start_date);
+            return a.end_date.localeCompare(b.end_date);
+          });
+
+        const addOneDay = (dateText: string) => {
+          const date = new Date(`${dateText}T00:00:00`);
+          date.setDate(date.getDate() + 1);
+          return date.toISOString().slice(0, 10);
+        };
+
+        const merged: Array<{ start_date: string; end_date: string; reason: string | null; source?: string }> = [];
+        for (const row of normalized) {
+          const last = merged[merged.length - 1];
+          if (!last) {
+            merged.push(row);
+            continue;
+          }
+
+          if (row.start_date <= addOneDay(last.end_date)) {
+            if (row.end_date > last.end_date) {
+              last.end_date = row.end_date;
+            }
+            if (last.reason !== "booked" && row.reason === "booked") {
+              last.reason = "booked";
+            } else if (!last.reason && row.reason) {
+              last.reason = row.reason;
+            }
+            last.source = last.source || row.source;
+            continue;
+          }
+
+          merged.push(row);
+        }
+
+        return merged;
+      };
+
       // First try the combined view, fallback to table if view doesn't exist
       const { data: viewData, error: viewError } = await supabase
         .from("property_unavailable_dates")
@@ -250,7 +343,9 @@ export default function PropertyDetails() {
         .order("start_date", { ascending: true });
       
       if (!viewError && viewData) {
-        return viewData as Array<{ start_date: string; end_date: string; reason: string | null; source?: string }>;
+        return normalizeAndDeduplicate(
+          viewData as Array<{ start_date: string; end_date: string; reason: string | null; source?: string }>
+        );
       }
       
       // Fallback: fetch from property_blocked_dates table + bookings separately
@@ -282,7 +377,9 @@ export default function PropertyDetails() {
         source: "booking"
       }));
       
-      return [...blocked, ...booked] as Array<{ start_date: string; end_date: string; reason: string | null; source?: string }>;
+      return normalizeAndDeduplicate(
+        [...blocked, ...booked] as Array<{ start_date: string; end_date: string; reason: string | null; source?: string }>
+      );
     },
   });
 
@@ -342,6 +439,28 @@ export default function PropertyDetails() {
     return false;
   }, [blockedDates]);
 
+  const getBlockedReasonForDate = useCallback((date: Date) => {
+    if (!date || blockedDates.length === 0) return null;
+    const checkDate = new Date(date);
+    checkDate.setHours(0, 0, 0, 0);
+
+    for (const blocked of blockedDates) {
+      const blockedStart = new Date(blocked.start_date);
+      const blockedEnd = new Date(blocked.end_date);
+      blockedStart.setHours(0, 0, 0, 0);
+      blockedEnd.setHours(0, 0, 0, 0);
+
+      if (checkDate >= blockedStart && checkDate <= blockedEnd) {
+        if (blocked.reason === "booked") return "Already booked";
+        if (blocked.reason === "maintenance") return "Maintenance";
+        if (blocked.reason === "personal use") return "Host unavailable";
+        return blocked.reason || "Unavailable";
+      }
+    }
+
+    return null;
+  }, [blockedDates]);
+
   // Create disabled dates matcher for Calendar component
   const disabledDates = useMemo(() => {
     const before = new Date();
@@ -358,6 +477,11 @@ export default function PropertyDetails() {
       ...blockedRanges // Disable all blocked date ranges
     ];
   }, [blockedDates]);
+
+  const blockedDateRanges = useMemo(
+    () => blockedDates.map((blocked) => ({ from: new Date(blocked.start_date), to: new Date(blocked.end_date) })),
+    [blockedDates]
+  );
 
   // Check if selected dates overlap with blocked dates
   useEffect(() => {
@@ -584,6 +708,26 @@ export default function PropertyDetails() {
       (i) => i.item_type === "property" && String(i.reference_id) === String(propertyId)
     );
   }, [guestCart, inCartRow?.id, isGuest, propertyId]);
+
+  const recommendationSeed = useMemo(
+    () => phraseSeed(`${propertyId ?? ""}:${data?.id ?? ""}`),
+    [data?.id, propertyId]
+  );
+
+  const tourRecommendationPhrase = useMemo(
+    () => TOUR_RECOMMENDATION_PHRASES[recommendationSeed % TOUR_RECOMMENDATION_PHRASES.length],
+    [recommendationSeed]
+  );
+
+  const transportRecommendationPhrase = useMemo(
+    () => TRANSPORT_RECOMMENDATION_PHRASES[recommendationSeed % TRANSPORT_RECOMMENDATION_PHRASES.length],
+    [recommendationSeed]
+  );
+
+  const bundleRecommendationPhrase = useMemo(
+    () => BUNDLE_RECOMMENDATION_PHRASES[recommendationSeed % BUNDLE_RECOMMENDATION_PHRASES.length],
+    [recommendationSeed]
+  );
 
   const { data: relatedTours = [] } = useQuery({
     queryKey: ["related-tours"],
@@ -877,7 +1021,7 @@ export default function PropertyDetails() {
               {/* Related Tours + Transport - Hidden on mobile, shown on lg screens */}
               <div className="hidden lg:block bg-card rounded-xl shadow-card p-5">
                 <div className="flex items-center justify-between gap-4 mb-3">
-                  <div className="text-sm font-semibold text-foreground">{t("propertyDetails.toursAndTransport")}</div>
+                  <div className="text-sm font-semibold text-foreground">{bundleRecommendationPhrase}</div>
                   <div className="flex items-center gap-2">
                     <Link to="/tours" className="text-sm text-primary hover:underline">
                       {t("propertyDetails.viewTours")}
@@ -887,10 +1031,9 @@ export default function PropertyDetails() {
                     </Link>
                   </div>
                 </div>
-
                 <div className="space-y-6">
                   <div>
-                    <div className="text-xs font-medium text-muted-foreground mb-2">{t("propertyDetails.availableTours")}</div>
+                    <div className="text-sm font-semibold text-foreground mb-3">{tourRecommendationPhrase}</div>
                     {relatedTours.length === 0 ? (
                       <div className="text-sm text-muted-foreground">{t("propertyDetails.noToursFound")}</div>
                     ) : (
@@ -937,8 +1080,8 @@ export default function PropertyDetails() {
                     )}
             </div>
 
-            <div>
-                    <div className="text-xs font-medium text-muted-foreground mb-2">{t("propertyDetails.transportVehicles")}</div>
+                <div>
+                  <div className="text-sm font-semibold text-foreground mb-3">{transportRecommendationPhrase}</div>
                     {relatedTransportVehicles.length === 0 ? (
                       <div className="text-sm text-muted-foreground">{t("propertyDetails.noTransportFound")}</div>
                     ) : (
@@ -1305,13 +1448,41 @@ export default function PropertyDetails() {
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={checkIn}
-                          onSelect={setCheckIn}
-                          disabled={disabledDates}
-                          initialFocus
-                        />
+                        <TooltipProvider delayDuration={120}>
+                          <Calendar
+                            mode="single"
+                            selected={checkIn}
+                            onSelect={setCheckIn}
+                            disabled={disabledDates}
+                            modifiers={{ blocked: blockedDateRanges }}
+                            modifiersClassNames={{ blocked: "line-through text-destructive font-medium" }}
+                            components={{
+                              DayContent: ({ date }: any) => {
+                                const blocked = isDateBlocked(date);
+                                const blockedReason = blocked ? getBlockedReasonForDate(date) : null;
+                                const content = (
+                                  <div
+                                    className="relative flex h-9 w-9 items-center justify-center"
+                                    aria-label={blockedReason ? `${date.getDate()} - ${blockedReason}` : undefined}
+                                  >
+                                    <span>{date.getDate()}</span>
+                                    {blocked ? <Ban className="absolute h-3.5 w-3.5 text-destructive" /> : null}
+                                  </div>
+                                );
+
+                                if (!blockedReason) return content;
+
+                                return (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>{content}</TooltipTrigger>
+                                    <TooltipContent side="top">{blockedReason}</TooltipContent>
+                                  </Tooltip>
+                                );
+                              },
+                            }}
+                            initialFocus
+                          />
+                        </TooltipProvider>
                       </PopoverContent>
                     </Popover>
                   </div>
@@ -1328,16 +1499,44 @@ export default function PropertyDetails() {
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={checkOut}
-                          onSelect={setCheckOut}
-                          disabled={[
-                            ...disabledDates,
-                            ...(checkIn ? [{ before: checkIn }] : [])
-                          ]}
-                          initialFocus
-                        />
+                        <TooltipProvider delayDuration={120}>
+                          <Calendar
+                            mode="single"
+                            selected={checkOut}
+                            onSelect={setCheckOut}
+                            disabled={[
+                              ...disabledDates,
+                              ...(checkIn ? [{ before: checkIn }] : [])
+                            ]}
+                            modifiers={{ blocked: blockedDateRanges }}
+                            modifiersClassNames={{ blocked: "line-through text-destructive font-medium" }}
+                            components={{
+                              DayContent: ({ date }: any) => {
+                                const blocked = isDateBlocked(date);
+                                const blockedReason = blocked ? getBlockedReasonForDate(date) : null;
+                                const content = (
+                                  <div
+                                    className="relative flex h-9 w-9 items-center justify-center"
+                                    aria-label={blockedReason ? `${date.getDate()} - ${blockedReason}` : undefined}
+                                  >
+                                    <span>{date.getDate()}</span>
+                                    {blocked ? <Ban className="absolute h-3.5 w-3.5 text-destructive" /> : null}
+                                  </div>
+                                );
+
+                                if (!blockedReason) return content;
+
+                                return (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>{content}</TooltipTrigger>
+                                    <TooltipContent side="top">{blockedReason}</TooltipContent>
+                                  </Tooltip>
+                                );
+                              },
+                            }}
+                            initialFocus
+                          />
+                        </TooltipProvider>
                       </PopoverContent>
                     </Popover>
                   </div>
@@ -1356,29 +1555,23 @@ export default function PropertyDetails() {
 
                 {/* Show blocked dates if any */}
                 {blockedDates.length > 0 && (
-                  <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                    <p className="text-sm font-medium text-amber-900 dark:text-amber-100 mb-2">
+                  <div className="mt-3">
+                    <p className="mb-2 text-sm font-medium text-muted-foreground">
                       Unavailable Dates:
                     </p>
-                    <div className="space-y-1">
-                      {blockedDates.slice(0, 5).map((blocked, idx) => {
-                        const start = new Date(blocked.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                        const end = new Date(blocked.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                        return (
-                          <div key={idx} className="text-xs text-amber-800 dark:text-amber-200">
-                            • {start} - {end}
-                            {blocked.reason === 'booked' && ' (Already booked)'}
-                            {blocked.reason === 'maintenance' && ' (Maintenance)'}
-                            {blocked.reason === 'personal use' && ' (Host unavailable)'}
-                          </div>
-                        );
-                      })}
-                      {blockedDates.length > 5 && (
-                        <p className="text-xs text-amber-700 dark:text-amber-300 italic">
-                          +{blockedDates.length - 5} more blocked period{blockedDates.length - 5 > 1 ? 's' : ''}
-                        </p>
-                      )}
-                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {blockedDates
+                        .slice(0, 5)
+                        .map((blocked) => {
+                          const start = new Date(blocked.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                          const end = new Date(blocked.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                          return `${start} - ${end}`;
+                        })
+                        .join(', ')}
+                      {blockedDates.length > 5
+                        ? ` +${blockedDates.length - 5} more`
+                        : ''}
+                    </p>
                   </div>
                 )}
 
@@ -1489,7 +1682,7 @@ export default function PropertyDetails() {
               {/* Mobile Tours & Transport - Only shown on mobile after booking section */}
               <div className="lg:hidden mt-8 bg-card rounded-xl shadow-card p-5">
                 <div className="flex items-center justify-between gap-4 mb-3">
-                  <div className="text-sm font-semibold text-foreground">{t("propertyDetails.toursAndTransport")}</div>
+                  <div className="text-sm font-semibold text-foreground">{bundleRecommendationPhrase}</div>
                   <div className="flex items-center gap-2">
                     <Link to="/tours" className="text-sm text-primary hover:underline">
                       {t("propertyDetails.viewTours")}
@@ -1499,12 +1692,9 @@ export default function PropertyDetails() {
                     </Link>
                   </div>
                 </div>
-
                 <div className="space-y-6">
                   <div>
-                    <div className="text-xs font-medium text-muted-foreground mb-2">
-                      {t("propertyDetails.availableTours")} ({relatedTours.length})
-                    </div>
+                    <div className="text-sm font-semibold text-foreground mb-3">{tourRecommendationPhrase}</div>
                     {relatedTours.length === 0 ? (
                       <div className="text-sm text-muted-foreground">{t("propertyDetails.noToursFound")}</div>
                     ) : (
@@ -1551,9 +1741,7 @@ export default function PropertyDetails() {
                   </div>
 
                   <div>
-                    <div className="text-xs font-medium text-muted-foreground mb-2">
-                      {t("propertyDetails.transportVehicles")} ({relatedTransportVehicles.length})
-                    </div>
+                    <div className="text-sm font-semibold text-foreground mb-3">{transportRecommendationPhrase}</div>
                     {relatedTransportVehicles.length === 0 ? (
                       <div className="text-sm text-muted-foreground">{t("propertyDetails.noTransportFound")}</div>
                     ) : (

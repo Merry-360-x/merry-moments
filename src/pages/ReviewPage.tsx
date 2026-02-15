@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { Star, CheckCircle, AlertCircle, MapPin } from "lucide-react";
+import { Star, CheckCircle, AlertCircle, MapPin, Loader2 } from "lucide-react";
 
 /** Standalone review page — no login required, token-based.
  *  URL: /review/:token?rating=3

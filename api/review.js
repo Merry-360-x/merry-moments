@@ -3,6 +3,7 @@
 // Default: submit-review (GET fetches booking info, POST submits review)
 
 import { createClient } from "@supabase/supabase-js";
+import JSZip from "jszip";
 import { escapeHtml, keyValueRows, renderMinimalEmail } from "../lib/email-template-kit.js";
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
@@ -25,6 +26,53 @@ function formatDate(dateStr) {
   return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
 
+function safeName(value, fallback) {
+  const cleaned = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-_]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+  return cleaned || fallback;
+}
+
+function extensionFromContentType(contentType) {
+  const ct = String(contentType || "").toLowerCase().split(";")[0].trim();
+  if (ct === "image/jpeg") return "jpg";
+  if (ct === "image/png") return "png";
+  if (ct === "image/webp") return "webp";
+  if (ct === "image/gif") return "gif";
+  if (ct === "application/pdf") return "pdf";
+  if (ct.startsWith("image/")) return ct.split("/")[1] || "img";
+  return "bin";
+}
+
+function extensionFromUrl(url) {
+  try {
+    const pathname = new URL(url).pathname;
+    const last = pathname.split("/").pop() || "";
+    const ext = last.includes(".") ? last.split(".").pop() : "";
+    if (!ext) return "";
+    return ext.toLowerCase().replace(/[^a-z0-9]/g, "");
+  } catch {
+    return "";
+  }
+}
+
+function isAllowedSource(url) {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return (
+      host.endsWith("supabase.co") ||
+      host.endsWith("supabase.in") ||
+      host.endsWith("cloudinary.com") ||
+      host.endsWith("merry360x.com")
+    );
+  } catch {
+    return false;
+  }
+}
+
 // ─── Main handler ────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") return json(res, 200, { ok: true });
@@ -32,6 +80,8 @@ export default async function handler(req, res) {
   const action = req.query.action || "submit-review";
 
   switch (action) {
+    case "export-user-data":
+      return handleExportUserData(req, res);
     case "send-emails":
       return handleSendEmails(req, res);
     case "send-email":
@@ -377,6 +427,94 @@ async function handleSendEmails(req, res) {
   } catch (error) {
     console.error("❌ Cron error:", error.message);
     return json(res, 500, { error: error.message });
+  }
+}
+
+async function handleExportUserData(req, res) {
+  if (req.method !== "POST") return json(res, 405, { error: "Method not allowed" });
+
+  try {
+    const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+    const user = body?.user || {};
+    const documents = body?.documents || {};
+
+    if (!user?.user_id) {
+      return json(res, 400, { error: "Missing user_id" });
+    }
+
+    const entries = [
+      ["profile_picture", documents.profile_picture],
+      ["national_id", documents.national_id],
+      ["selfie", documents.selfie],
+      ["tour_license", documents.tour_license],
+      ["rdb_certificate", documents.rdb_certificate],
+    ].filter(([, value]) => Boolean(value));
+
+    const zip = new JSZip();
+    const rootFolderName = `${safeName(user.full_name, "user")}-${String(user.user_id).slice(0, 8)}`;
+    const root = zip.folder(rootFolderName);
+    const docsFolder = root.folder("documents");
+
+    const fetched = [];
+    const skipped = [];
+
+    for (const [key, url] of entries) {
+      const sourceUrl = String(url);
+      if (!isAllowedSource(sourceUrl)) {
+        skipped.push({ key, url: sourceUrl, reason: "source_not_allowed" });
+        continue;
+      }
+
+      try {
+        const response = await fetch(sourceUrl);
+        if (!response.ok) {
+          skipped.push({ key, url: sourceUrl, reason: `fetch_failed_${response.status}` });
+          continue;
+        }
+
+        const contentType = response.headers.get("content-type") || "application/octet-stream";
+        const buffer = await response.arrayBuffer();
+        const ext = extensionFromUrl(sourceUrl) || extensionFromContentType(contentType);
+        const fileName = `${key}.${ext}`;
+
+        docsFolder.file(fileName, Buffer.from(buffer));
+        fetched.push({ key, url: sourceUrl, file: `documents/${fileName}`, content_type: contentType });
+      } catch (error) {
+        skipped.push({ key, url: sourceUrl, reason: error?.message || "fetch_error" });
+      }
+    }
+
+    root.file(
+      "manifest.json",
+      JSON.stringify(
+        {
+          exported_at: new Date().toISOString(),
+          user,
+          summary: {
+            requested: entries.length,
+            fetched: fetched.length,
+            skipped: skipped.length,
+          },
+          fetched,
+          skipped,
+        },
+        null,
+        2
+      )
+    );
+
+    const content = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+
+    res.statusCode = 200;
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="user-data-${String(user.user_id).slice(0, 8)}-${new Date().toISOString().split("T")[0]}.zip"`
+    );
+    return res.end(content);
+  } catch (error) {
+    return json(res, 500, { error: error?.message || "Failed to export user data" });
   }
 }
 

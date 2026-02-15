@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
-import { FileText, Home, Plane, MapPin, CheckCircle, XCircle, Clock, CalendarCheck, Eye, Bell } from "lucide-react";
+import { FileText, Home, Plane, MapPin, CheckCircle, XCircle, Clock, CalendarCheck, Eye, Bell, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNotificationBadge, NotificationBadge } from "@/hooks/useNotificationBadge";
@@ -50,7 +50,15 @@ type HostApplication = {
   profiles?: {
     full_name: string | null;
     email: string | null;
+    avatar_url?: string | null;
   } | null;
+};
+
+type ProfileUser = {
+  user_id: string;
+  full_name: string | null;
+  email: string | null;
+  avatar_url: string | null;
 };
 
 type Property = {
@@ -119,7 +127,10 @@ export default function OperationsStaffDashboard() {
   const { toast } = useToast();
   const { isAdmin, user } = useAuth();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<"overview" | "applications" | "accommodations" | "tours" | "transport" | "bookings">("overview");
+  const [tab, setTab] = useState<"overview" | "applications" | "user-data" | "accommodations" | "tours" | "transport" | "bookings">("overview");
+  const [userDataSearch, setUserDataSearch] = useState("");
+  const [userDataFilter, setUserDataFilter] = useState<"all" | "collected" | "missing">("all");
+  const [userDataScope, setUserDataScope] = useState<"all" | "users" | "hosts">("all");
   const [selectedApplication, setSelectedApplication] = useState<HostApplication | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
@@ -215,7 +226,7 @@ export default function OperationsStaffDashboard() {
         (data ?? []).map(async (app) => {
           const { data: profile } = await supabase
             .from("profiles")
-            .select("full_name, email")
+            .select("full_name, email, avatar_url")
             .eq("user_id", app.user_id)
             .single();
           
@@ -245,6 +256,24 @@ export default function OperationsStaffDashboard() {
         throw error;
       }
       return (data ?? []) as Property[];
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 30000,
+  });
+
+  const { data: profileUsers = [] } = useQuery({
+    queryKey: ["operations_profile_users"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, email, avatar_url")
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (error) {
+        console.error('[OperationsStaff] Profiles error:', error);
+        throw error;
+      }
+      return (data ?? []) as ProfileUser[];
     },
     refetchOnWindowFocus: false,
     staleTime: 30000,
@@ -453,6 +482,220 @@ export default function OperationsStaffDashboard() {
   const pendingBookings = bookings.filter(b => b.status === 'pending_confirmation');
   const confirmedBookings = bookings.filter(b => b.status === 'confirmed');
 
+  const userDataRows = useMemo(() => {
+    const latestByUserId = new Map<string, HostApplication>();
+    applications.forEach((app) => {
+      if (!latestByUserId.has(app.user_id)) {
+        latestByUserId.set(app.user_id, app);
+      }
+    });
+
+    const profileByUserId = new Map<string, ProfileUser>();
+    profileUsers.forEach((profile) => {
+      profileByUserId.set(profile.user_id, profile);
+    });
+
+    const allUserIds = Array.from(new Set([
+      ...profileUsers.map((profile) => profile.user_id),
+      ...applications.map((application) => application.user_id),
+    ]));
+
+    const rows = allUserIds.map((userId) => {
+      const app = latestByUserId.get(userId);
+      const profile = profileByUserId.get(userId);
+      const avatarUrl = profile?.avatar_url || app?.profiles?.avatar_url || null;
+      const idUrl = app?.national_id_photo_url || null;
+      const selfieUrl = app?.selfie_photo_url || null;
+      const tourLicenseUrl = app?.tour_license_url || null;
+      const rdbCertificateUrl = app?.rdb_certificate_url || null;
+      const isCollected = Boolean(avatarUrl && idUrl && selfieUrl);
+
+      return {
+        user_id: userId,
+        full_name: profile?.full_name || app?.full_name || app?.profiles?.full_name || "—",
+        email: profile?.email || app?.profiles?.email || "—",
+        user_type: app ? "host" : "user",
+        avatar_url: avatarUrl,
+        national_id_photo_url: idUrl,
+        selfie_photo_url: selfieUrl,
+        tour_license_url: tourLicenseUrl,
+        rdb_certificate_url: rdbCertificateUrl,
+        is_collected: isCollected,
+        collected_count: [avatarUrl, idUrl, selfieUrl, tourLicenseUrl, rdbCertificateUrl].filter(Boolean).length,
+      };
+    });
+
+    const query = userDataSearch.trim().toLowerCase();
+    return rows.filter((row) => {
+      if (userDataScope === "hosts" && row.user_type !== "host") return false;
+      if (userDataScope === "users" && row.user_type !== "user") return false;
+      if (userDataFilter === "collected" && !row.is_collected) return false;
+      if (userDataFilter === "missing" && row.is_collected) return false;
+      if (!query) return true;
+      return (
+        String(row.full_name || "").toLowerCase().includes(query) ||
+        String(row.email || "").toLowerCase().includes(query) ||
+        String(row.user_id || "").toLowerCase().includes(query)
+      );
+    });
+  }, [applications, profileUsers, userDataFilter, userDataScope, userDataSearch]);
+
+  const userDataStats = useMemo(() => {
+    const total = userDataRows.length;
+    const users = userDataRows.filter((row) => row.user_type === "user").length;
+    const hosts = userDataRows.filter((row) => row.user_type === "host").length;
+    const collected = userDataRows.filter((row) => row.is_collected).length;
+    const missing = total - collected;
+    return { total, users, hosts, collected, missing };
+  }, [userDataRows]);
+
+  const downloadUserDataBundle = async (row: {
+    user_id: string;
+    full_name: string;
+    email: string;
+    user_type: "host" | "user";
+    avatar_url: string | null;
+    national_id_photo_url: string | null;
+    selfie_photo_url: string | null;
+    tour_license_url: string | null;
+    rdb_certificate_url: string | null;
+    is_collected: boolean;
+    collected_count: number;
+  }) => {
+    try {
+      const response = await fetch("/api/review?action=export-user-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user: {
+            user_id: row.user_id,
+            full_name: row.full_name,
+            email: row.email,
+            type: row.user_type,
+          },
+          documents: {
+            profile_picture: row.avatar_url,
+            national_id: row.national_id_photo_url,
+            selfie: row.selfie_photo_url,
+            tour_license: row.tour_license_url,
+            rdb_certificate: row.rdb_certificate_url,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body?.error || "Failed to create ZIP export");
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `operations-user-data-${row.user_id.slice(0, 8)}-${new Date().toISOString().split("T")[0]}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+      toast({ title: "User ZIP downloaded" });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Download failed",
+        description: error?.message || "Could not download user ZIP bundle.",
+      });
+    }
+  };
+
+  const exportAllUserDataCsv = () => {
+    if (userDataRows.length === 0) {
+      toast({ variant: "destructive", title: "No rows", description: "No user data rows to export." });
+      return;
+    }
+
+    const csvEscape = (value: unknown) => {
+      const str = String(value ?? "");
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
+    const headers = [
+      "User ID",
+      "Full Name",
+      "Email",
+      "Type",
+      "Profile Picture",
+      "National ID",
+      "Selfie",
+      "Tour License",
+      "RDB Certificate",
+      "Collected",
+      "Collected Count",
+    ];
+
+    const rows = userDataRows.map((row) => [
+      row.user_id,
+      row.full_name,
+      row.email,
+      row.user_type,
+      row.avatar_url || "",
+      row.national_id_photo_url || "",
+      row.selfie_photo_url || "",
+      row.tour_license_url || "",
+      row.rdb_certificate_url || "",
+      row.is_collected ? "yes" : "no",
+      row.collected_count,
+    ]);
+
+    const content = [
+      headers.map(csvEscape).join(","),
+      ...rows.map((row) => row.map(csvEscape).join(",")),
+    ].join("\n");
+
+    const date = new Date().toISOString().split("T")[0];
+    const blob = new Blob([content], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `operations-user-data-report-${date}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+    toast({ title: "User data CSV exported" });
+  };
+
+  const exportAllUserDataJson = () => {
+    if (userDataRows.length === 0) {
+      toast({ variant: "destructive", title: "No rows", description: "No user data rows to export." });
+      return;
+    }
+
+    const payload = {
+      exported_at: new Date().toISOString(),
+      total_rows: userDataRows.length,
+      filters: {
+        search: userDataSearch,
+        status: userDataFilter,
+        scope: userDataScope,
+      },
+      users: userDataRows,
+    };
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `operations-user-data-report-${new Date().toISOString().split("T")[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+    toast({ title: "User data JSON exported" });
+  };
+
   // Mutation to manually confirm a booking
   const confirmBookingMutation = useMutation({
     mutationFn: async (bookingId: string) => {
@@ -577,6 +820,7 @@ export default function OperationsStaffDashboard() {
                 <Badge className="ml-2" variant="destructive">{pendingApplications.length}</Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="user-data">User Data</TabsTrigger>
             <TabsTrigger value="bookings">
               Bookings
               {pendingBookings.length > 0 && (
@@ -666,8 +910,9 @@ export default function OperationsStaffDashboard() {
                 <CardDescription>Complete application history</CardDescription>
               </CardHeader>
               <CardContent>
+                <div className="overflow-x-auto">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-24 md:top-28 z-20 bg-background">
                     <TableRow>
                       <TableHead>Name</TableHead>
                       <TableHead>Email</TableHead>
@@ -748,6 +993,7 @@ export default function OperationsStaffDashboard() {
                     ))}
                   </TableBody>
                 </Table>
+                </div>
               </CardContent>
             </Card>
 
@@ -1046,6 +1292,194 @@ export default function OperationsStaffDashboard() {
                 )}
               </DialogContent>
             </Dialog>
+          </TabsContent>
+
+          <TabsContent value="user-data">
+            <Card>
+              <CardHeader>
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div>
+                    <CardTitle>User Data Collection</CardTitle>
+                    <CardDescription>Download all profile and verification data per user</CardDescription>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+                    <Input
+                      value={userDataSearch}
+                      onChange={(e) => setUserDataSearch(e.target.value)}
+                      placeholder="Search user name, email, ID"
+                      className="w-full sm:w-72"
+                    />
+                    <div className="flex gap-1">
+                      <Button
+                        size="sm"
+                        variant={userDataFilter === "all" ? "default" : "outline"}
+                        onClick={() => setUserDataFilter("all")}
+                      >
+                        All
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={userDataFilter === "collected" ? "default" : "outline"}
+                        onClick={() => setUserDataFilter("collected")}
+                      >
+                        Collected
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={userDataFilter === "missing" ? "default" : "outline"}
+                        onClick={() => setUserDataFilter("missing")}
+                      >
+                        Missing
+                      </Button>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        size="sm"
+                        variant={userDataScope === "all" ? "default" : "outline"}
+                        onClick={() => setUserDataScope("all")}
+                      >
+                        All Users
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={userDataScope === "users" ? "default" : "outline"}
+                        onClick={() => setUserDataScope("users")}
+                      >
+                        Users
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={userDataScope === "hosts" ? "default" : "outline"}
+                        onClick={() => setUserDataScope("hosts")}
+                      >
+                        Hosts
+                      </Button>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button size="sm" variant="outline" onClick={exportAllUserDataCsv}>
+                        <Download className="w-3 h-3 mr-1" />
+                        Export CSV
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={exportAllUserDataJson}>
+                        <Download className="w-3 h-3 mr-1" />
+                        Export JSON
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                  <Badge
+                    variant="secondary"
+                    className="cursor-pointer"
+                    onClick={() => {
+                      setUserDataScope("all");
+                      setUserDataFilter("all");
+                    }}
+                  >
+                    Total: {userDataStats.total}
+                  </Badge>
+                  <Badge
+                    variant={userDataScope === "users" ? "default" : "outline"}
+                    className="cursor-pointer"
+                    onClick={() => setUserDataScope("users")}
+                  >
+                    Users: {userDataStats.users}
+                  </Badge>
+                  <Badge
+                    variant={userDataScope === "hosts" ? "default" : "outline"}
+                    className="cursor-pointer"
+                    onClick={() => setUserDataScope("hosts")}
+                  >
+                    Hosts: {userDataStats.hosts}
+                  </Badge>
+                  <Badge
+                    className="cursor-pointer bg-green-100 text-green-800"
+                    onClick={() => setUserDataFilter("collected")}
+                  >
+                    Collected: {userDataStats.collected}
+                  </Badge>
+                  <Badge
+                    variant="destructive"
+                    className="cursor-pointer"
+                    onClick={() => setUserDataFilter("missing")}
+                  >
+                    Missing: {userDataStats.missing}
+                  </Badge>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Profile Pic</TableHead>
+                      <TableHead>ID</TableHead>
+                      <TableHead>Selfie</TableHead>
+                      <TableHead>Tour License</TableHead>
+                      <TableHead>RDB Cert</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {userDataRows.map((row) => (
+                      <TableRow key={row.user_id}>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{row.full_name}</p>
+                            <p className="text-xs text-muted-foreground">{row.email}</p>
+                            <p className="text-xs font-mono text-muted-foreground">{row.user_id.slice(0, 8)}...</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={row.user_type === "host" ? "default" : "outline"} className="capitalize">
+                            {row.user_type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {row.avatar_url ? <CheckCircle className="w-4 h-4 text-green-600" /> : <XCircle className="w-4 h-4 text-destructive" />}
+                        </TableCell>
+                        <TableCell>
+                          {row.national_id_photo_url ? <CheckCircle className="w-4 h-4 text-green-600" /> : <XCircle className="w-4 h-4 text-destructive" />}
+                        </TableCell>
+                        <TableCell>
+                          {row.selfie_photo_url ? <CheckCircle className="w-4 h-4 text-green-600" /> : <XCircle className="w-4 h-4 text-destructive" />}
+                        </TableCell>
+                        <TableCell>
+                          {row.tour_license_url ? <CheckCircle className="w-4 h-4 text-green-600" /> : <XCircle className="w-4 h-4 text-destructive" />}
+                        </TableCell>
+                        <TableCell>
+                          {row.rdb_certificate_url ? <CheckCircle className="w-4 h-4 text-green-600" /> : <XCircle className="w-4 h-4 text-destructive" />}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {row.is_collected ? <CheckCircle className="w-4 h-4 text-green-600" /> : <XCircle className="w-4 h-4 text-destructive" />}
+                            <span className="text-sm">{row.is_collected ? "Collected" : "Missing"}</span>
+                            <Badge variant="outline" className="text-xs">{row.collected_count}/5</Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex justify-end">
+                            <Button size="sm" variant="outline" onClick={() => downloadUserDataBundle(row)}>
+                              <Download className="w-3 h-3 mr-1" />
+                              Download
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {userDataRows.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={9} className="text-center text-muted-foreground">
+                          No users found for this filter.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="accommodations">

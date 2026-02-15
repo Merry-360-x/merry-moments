@@ -46,6 +46,12 @@ export interface RefundCalculation {
   currency: string;
 }
 
+function parsePositiveNumber(value: unknown): number | null {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return parsed;
+}
+
 /**
  * Calculate refund amount for a single booking based on cancellation policy
  */
@@ -125,22 +131,48 @@ export async function calculateBookingRefund(
     const policy = REFUND_POLICIES[policyType as keyof typeof REFUND_POLICIES] || REFUND_POLICIES.fair;
     const refundRule = policy.find(rule => daysUntilCheckIn >= rule.minDays) || policy[policy.length - 1];
 
-    const refundAmount = (Number(booking.total_price) * refundRule.refundPct) / 100;
+    let refundBaseAmount = Number(booking.total_price) || 0;
+    let refundCurrency = booking.currency || 'USD';
+
+    if (booking.order_id) {
+      const { data: checkout } = await supabase
+        .from('checkout_requests')
+        .select('total_amount, currency, base_price_amount, service_fee_amount')
+        .eq('id', booking.order_id)
+        .maybeSingle() as any;
+
+      if (checkout) {
+        const basePriceAmount = parsePositiveNumber(checkout.base_price_amount);
+        const checkoutTotal = parsePositiveNumber(checkout.total_amount);
+        const serviceFeeAmount = Number(checkout.service_fee_amount || 0);
+
+        if (basePriceAmount !== null) {
+          refundBaseAmount = basePriceAmount;
+        } else if (checkoutTotal !== null) {
+          refundBaseAmount = Math.max(checkoutTotal - Math.max(serviceFeeAmount, 0), 0);
+        }
+
+        refundCurrency = checkout.currency || refundCurrency;
+      }
+    }
+
+    const refundAmount = (refundBaseAmount * refundRule.refundPct) / 100;
 
     console.log('Refund calculation:', {
       policy: policyType,
       rule: refundRule,
-      totalPrice: booking.total_price,
+      refundBaseAmount,
       refundPct: refundRule.refundPct,
-      refundAmount
+      refundAmount,
+      currency: refundCurrency,
     });
 
     return {
       refundAmount,
       refundPercentage: refundRule.refundPct,
       policyType,
-      description: refundRule.description,
-      currency: booking.currency || 'USD'
+      description: `${refundRule.description} (excluding service/processing fees where applicable)`,
+      currency: refundCurrency
     };
   } catch (error) {
     console.error('Error calculating refund:', error);

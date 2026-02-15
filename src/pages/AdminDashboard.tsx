@@ -131,6 +131,13 @@ type AdminUserRow = {
   is_verified: boolean;
 };
 
+type ProfileMediaRow = {
+  user_id: string;
+  full_name: string | null;
+  email: string | null;
+  avatar_url: string | null;
+};
+
 type RoleRow = { user_id: string; role: string; created_at: string };
 
 type PropertyRow = {
@@ -320,6 +327,7 @@ type TabValue =
   | "ads"
   | "host-applications"
   | "users"
+  | "user-data"
   | "accommodations"
   | "tours"
   | "transport"
@@ -332,6 +340,24 @@ type TabValue =
   | "reports"
   | "legal-content"
   | "affiliates";
+
+const ADMIN_FX_TO_RWF: Record<string, number> = {
+  USD: 1455.5,
+  EUR: 1716.76225,
+  GBP: 1972.4936,
+  KES: 11.283036,
+  UGX: 0.408996,
+  TZS: 0.563279,
+  AED: 396.323917,
+};
+
+const toRwfAmount = (amount: number, currency: string | null | undefined): number => {
+  const safeAmount = Number.isFinite(Number(amount)) ? Number(amount) : 0;
+  const code = String(currency || "RWF").toUpperCase();
+  if (code === "RWF") return safeAmount;
+  const rate = ADMIN_FX_TO_RWF[code] ?? ADMIN_FX_TO_RWF.USD;
+  return safeAmount * rate;
+};
 
 const statusColors: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800",
@@ -363,6 +389,9 @@ export default function AdminDashboard() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<TabValue>("overview");
   const [userSearch, setUserSearch] = useState("");
+  const [userDataSearch, setUserDataSearch] = useState("");
+  const [userDataFilter, setUserDataFilter] = useState<"all" | "collected" | "missing">("all");
+  const [userDataScope, setUserDataScope] = useState<"all" | "users" | "hosts">("all");
   const [bookingStatus, setBookingStatus] = useState<"all" | string>("all");
   const [bookingIdSearch, setBookingIdSearch] = useState("");
   const [ticketStatus, setTicketStatus] = useState<"all" | string>("all");
@@ -772,6 +801,29 @@ export default function AdminDashboard() {
     // Always enabled for better dashboard responsiveness
   });
 
+  const userIdsForDocs = useMemo(
+    () => Array.from(new Set(adminUsers.map((adminUser) => adminUser.user_id).filter(Boolean))),
+    [adminUsers]
+  );
+
+  const { data: profileMedia = [] } = useQuery({
+    queryKey: ["admin-profile-media", userIdsForDocs],
+    queryFn: async () => {
+      if (userIdsForDocs.length === 0) return [] as ProfileMediaRow[];
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, email, avatar_url")
+        .in("user_id", userIdsForDocs);
+      if (error) throw error;
+      return (data ?? []) as ProfileMediaRow[];
+    },
+    enabled: userIdsForDocs.length > 0,
+    staleTime: 1000 * 60,
+    gcTime: 1000 * 60 * 15,
+    refetchOnWindowFocus: true,
+    placeholderData: (previousData) => previousData,
+  });
+
   // Properties with images - enhanced loading
   const { data: properties = [], refetch: refetchProperties } = useQuery({
     queryKey: ["admin-properties"],
@@ -859,7 +911,7 @@ export default function AdminDashboard() {
   });
 
   // Bookings - direct query with enhanced loading
-  const { data: bookings = [], refetch: refetchBookings } = useQuery({
+  const { data: bookings = [], refetch: refetchBookings, isFetched: bookingsFetched } = useQuery({
     queryKey: ["admin-bookings-direct", bookingStatus],
     queryFn: async () => {
       let q = supabase
@@ -2164,6 +2216,198 @@ For support, contact: support@merry360x.com
     toast({ title: "Host performance exported" });
   };
 
+  const profileMediaByUserId = useMemo(() => {
+    const map = new Map<string, ProfileMediaRow>();
+    profileMedia.forEach((row) => {
+      map.set(row.user_id, row);
+    });
+    return map;
+  }, [profileMedia]);
+
+  const latestApplicationByUserId = useMemo(() => {
+    const map = new Map<string, HostApplicationRow>();
+    applications.forEach((application) => {
+      if (!map.has(application.user_id)) {
+        map.set(application.user_id, application);
+      }
+    });
+    return map;
+  }, [applications]);
+
+  const userDataRows = useMemo(() => {
+    const rows = adminUsers.map((adminUser) => {
+      const profile = profileMediaByUserId.get(adminUser.user_id);
+      const application = latestApplicationByUserId.get(adminUser.user_id);
+
+      const avatarUrl = profile?.avatar_url ?? null;
+      const idUrl = application?.national_id_photo_url ?? null;
+      const selfieUrl = application?.selfie_photo_url ?? null;
+      const tourLicenseUrl = application?.tour_license_url ?? null;
+      const rdbCertificateUrl = application?.rdb_certificate_url ?? null;
+      const isCoreCollected = Boolean(avatarUrl && idUrl && selfieUrl);
+
+      return {
+        user_id: adminUser.user_id,
+        full_name: adminUser.full_name || profile?.full_name || application?.full_name || "—",
+        email: adminUser.email || profile?.email || application?.profiles?.email || "—",
+        user_type: application ? "host" : "user",
+        avatar_url: avatarUrl,
+        national_id_photo_url: idUrl,
+        selfie_photo_url: selfieUrl,
+        tour_license_url: tourLicenseUrl,
+        rdb_certificate_url: rdbCertificateUrl,
+        is_collected: isCoreCollected,
+        collected_count: [avatarUrl, idUrl, selfieUrl, tourLicenseUrl, rdbCertificateUrl].filter(Boolean).length,
+      };
+    });
+
+    const query = userDataSearch.trim().toLowerCase();
+    return rows.filter((row) => {
+      if (userDataScope === "hosts" && row.user_type !== "host") return false;
+      if (userDataScope === "users" && row.user_type !== "user") return false;
+      if (userDataFilter === "collected" && !row.is_collected) return false;
+      if (userDataFilter === "missing" && row.is_collected) return false;
+      if (!query) return true;
+      return (
+        String(row.full_name || "").toLowerCase().includes(query) ||
+        String(row.email || "").toLowerCase().includes(query) ||
+        String(row.user_id || "").toLowerCase().includes(query)
+      );
+    });
+  }, [adminUsers, latestApplicationByUserId, profileMediaByUserId, userDataFilter, userDataScope, userDataSearch]);
+
+  const userDataStats = useMemo(() => {
+    const total = userDataRows.length;
+    const users = userDataRows.filter((row) => row.user_type === "user").length;
+    const hosts = userDataRows.filter((row) => row.user_type === "host").length;
+    const collected = userDataRows.filter((row) => row.is_collected).length;
+    const missing = total - collected;
+    return { total, users, hosts, collected, missing };
+  }, [userDataRows]);
+
+  const downloadUserDataBundle = async (row: {
+    user_id: string;
+    full_name: string;
+    email: string;
+    user_type: "host" | "user";
+    avatar_url: string | null;
+    national_id_photo_url: string | null;
+    selfie_photo_url: string | null;
+    tour_license_url: string | null;
+    rdb_certificate_url: string | null;
+    is_collected: boolean;
+    collected_count: number;
+  }) => {
+    try {
+      const response = await fetch("/api/review?action=export-user-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user: {
+            user_id: row.user_id,
+            full_name: row.full_name,
+            email: row.email,
+            type: row.user_type,
+          },
+          documents: {
+            profile_picture: row.avatar_url,
+            national_id: row.national_id_photo_url,
+            selfie: row.selfie_photo_url,
+            tour_license: row.tour_license_url,
+            rdb_certificate: row.rdb_certificate_url,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body?.error || "Failed to create ZIP export");
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `admin-user-data-${row.user_id.slice(0, 8)}-${new Date().toISOString().split("T")[0]}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast({ title: "User ZIP downloaded" });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Download failed",
+        description: error?.message || "Could not download user ZIP bundle.",
+      });
+    }
+  };
+
+  const exportAllUserDataCsv = () => {
+    if (userDataRows.length === 0) {
+      toast({ variant: "destructive", title: "No rows", description: "No user data rows to export." });
+      return;
+    }
+
+    const headers = [
+      "User ID",
+      "Full Name",
+      "Email",
+      "Type",
+      "Profile Picture",
+      "National ID",
+      "Selfie",
+      "Tour License",
+      "RDB Certificate",
+      "Collected",
+      "Collected Count",
+    ];
+
+    const rows = userDataRows.map((row) => [
+      row.user_id,
+      row.full_name,
+      row.email,
+      row.user_type,
+      row.avatar_url || "",
+      row.national_id_photo_url || "",
+      row.selfie_photo_url || "",
+      row.tour_license_url || "",
+      row.rdb_certificate_url || "",
+      row.is_collected ? "yes" : "no",
+      row.collected_count,
+    ]);
+
+    const date = new Date().toISOString().split("T")[0];
+    downloadFile(createCsv(headers, rows), "text/csv;charset=utf-8", `admin-user-data-report-${date}.csv`);
+    toast({ title: "User data CSV exported" });
+  };
+
+  const exportAllUserDataJson = () => {
+    if (userDataRows.length === 0) {
+      toast({ variant: "destructive", title: "No rows", description: "No user data rows to export." });
+      return;
+    }
+
+    const payload = {
+      exported_at: new Date().toISOString(),
+      total_rows: userDataRows.length,
+      filters: {
+        search: userDataSearch,
+        status: userDataFilter,
+        scope: userDataScope,
+      },
+      users: userDataRows,
+    };
+
+    const date = new Date().toISOString().split("T")[0];
+    downloadFile(
+      JSON.stringify(payload, null, 2),
+      "application/json;charset=utf-8",
+      `admin-user-data-report-${date}.json`
+    );
+    toast({ title: "User data JSON exported" });
+  };
+
   // Save legal content
   const saveLegalContent = async () => {
     setSavingLegal(true);
@@ -2250,6 +2494,18 @@ For support, contact: support@merry360x.com
     [bookings, refundRequestRefs]
   );
 
+  const correctedRevenueGross = useMemo(() => {
+    return bookings.reduce((sum, booking) => {
+      const status = String(booking.status || "").toLowerCase();
+      if (status !== "confirmed" && status !== "completed") return sum;
+      return sum + toRwfAmount(Number(booking.total_price || 0), booking.currency);
+    }, 0);
+  }, [bookings]);
+
+  const displayedRevenueGross = bookingsFetched
+    ? correctedRevenueGross
+    : (metrics?.revenue_gross ?? 0);
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Navbar />
@@ -2283,6 +2539,9 @@ For support, contact: support@merry360x.com
             </TabsTrigger>
             <TabsTrigger value="users" className="gap-1">
               <Users className="w-4 h-4" /> Users
+            </TabsTrigger>
+            <TabsTrigger value="user-data" className="gap-1">
+              <Download className="w-4 h-4" /> User Data
             </TabsTrigger>
             <TabsTrigger value="accommodations" className="gap-1">
               <Home className="w-4 h-4" /> Stays
@@ -2351,7 +2610,7 @@ For support, contact: support@merry360x.com
                   <span className="text-sm">Revenue</span>
                 </div>
                 <p className="text-2xl font-bold text-primary">
-                  {formatMoney(metrics?.revenue_gross ?? 0, "RWF")}
+                  {formatMoney(displayedRevenueGross, "RWF")}
                 </p>
           </Card>
           <Card className="p-4">
@@ -3280,7 +3539,7 @@ For support, contact: support@merry360x.com
 
               <div className="overflow-x-auto">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-24 md:top-28 z-20 bg-background">
                     <TableRow>
                       <TableHead>User</TableHead>
                       <TableHead>Email</TableHead>
@@ -3383,6 +3642,190 @@ For support, contact: support@merry360x.com
                         </TableRow>
                       );
                     })}
+                  </TableBody>
+                </Table>
+              </div>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="user-data">
+            <Card className="p-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+                <h2 className="text-lg font-semibold">User Data Collection</h2>
+                <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+                  <Input
+                    value={userDataSearch}
+                    onChange={(e) => setUserDataSearch(e.target.value)}
+                    placeholder="Search user name, email, ID"
+                    className="w-full sm:w-72"
+                  />
+                  <div className="flex gap-1">
+                    <Button
+                      size="sm"
+                      variant={userDataFilter === "all" ? "default" : "outline"}
+                      onClick={() => setUserDataFilter("all")}
+                    >
+                      All
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={userDataFilter === "collected" ? "default" : "outline"}
+                      onClick={() => setUserDataFilter("collected")}
+                    >
+                      Collected
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={userDataFilter === "missing" ? "default" : "outline"}
+                      onClick={() => setUserDataFilter("missing")}
+                    >
+                      Missing
+                    </Button>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button
+                      size="sm"
+                      variant={userDataScope === "all" ? "default" : "outline"}
+                      onClick={() => setUserDataScope("all")}
+                    >
+                      All Users
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={userDataScope === "users" ? "default" : "outline"}
+                      onClick={() => setUserDataScope("users")}
+                    >
+                      Users
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={userDataScope === "hosts" ? "default" : "outline"}
+                      onClick={() => setUserDataScope("hosts")}
+                    >
+                      Hosts
+                    </Button>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button size="sm" variant="outline" onClick={exportAllUserDataCsv}>
+                      <Download className="w-3 h-3 mr-1" />
+                      Export CSV
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={exportAllUserDataJson}>
+                      <Download className="w-3 h-3 mr-1" />
+                      Export JSON
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                  <Badge
+                    variant="secondary"
+                    className="cursor-pointer"
+                    onClick={() => {
+                      setUserDataScope("all");
+                      setUserDataFilter("all");
+                    }}
+                  >
+                    Total: {userDataStats.total}
+                  </Badge>
+                  <Badge
+                    variant={userDataScope === "users" ? "default" : "outline"}
+                    className="cursor-pointer"
+                    onClick={() => setUserDataScope("users")}
+                  >
+                    Users: {userDataStats.users}
+                  </Badge>
+                  <Badge
+                    variant={userDataScope === "hosts" ? "default" : "outline"}
+                    className="cursor-pointer"
+                    onClick={() => setUserDataScope("hosts")}
+                  >
+                    Hosts: {userDataStats.hosts}
+                  </Badge>
+                  <Badge
+                    className="cursor-pointer bg-green-100 text-green-800"
+                    onClick={() => setUserDataFilter("collected")}
+                  >
+                    Collected: {userDataStats.collected}
+                  </Badge>
+                  <Badge
+                    variant="destructive"
+                    className="cursor-pointer"
+                    onClick={() => setUserDataFilter("missing")}
+                  >
+                    Missing: {userDataStats.missing}
+                  </Badge>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Profile Pic</TableHead>
+                      <TableHead>ID</TableHead>
+                      <TableHead>Selfie</TableHead>
+                      <TableHead>Tour License</TableHead>
+                      <TableHead>RDB Cert</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {userDataRows.map((row) => (
+                      <TableRow key={row.user_id}>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{row.full_name}</p>
+                            <p className="text-xs text-muted-foreground">{row.email}</p>
+                            <p className="text-xs font-mono text-muted-foreground">{row.user_id.slice(0, 8)}...</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={row.user_type === "host" ? "default" : "outline"} className="capitalize">
+                            {row.user_type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {row.avatar_url ? <CheckCircle className="w-4 h-4 text-green-600" /> : <XCircle className="w-4 h-4 text-destructive" />}
+                        </TableCell>
+                        <TableCell>
+                          {row.national_id_photo_url ? <CheckCircle className="w-4 h-4 text-green-600" /> : <XCircle className="w-4 h-4 text-destructive" />}
+                        </TableCell>
+                        <TableCell>
+                          {row.selfie_photo_url ? <CheckCircle className="w-4 h-4 text-green-600" /> : <XCircle className="w-4 h-4 text-destructive" />}
+                        </TableCell>
+                        <TableCell>
+                          {row.tour_license_url ? <CheckCircle className="w-4 h-4 text-green-600" /> : <XCircle className="w-4 h-4 text-destructive" />}
+                        </TableCell>
+                        <TableCell>
+                          {row.rdb_certificate_url ? <CheckCircle className="w-4 h-4 text-green-600" /> : <XCircle className="w-4 h-4 text-destructive" />}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {row.is_collected ? <CheckCircle className="w-4 h-4 text-green-600" /> : <XCircle className="w-4 h-4 text-destructive" />}
+                            <span className="text-sm">{row.is_collected ? "Collected" : "Missing"}</span>
+                            <Badge variant="outline" className="text-xs">{row.collected_count}/5</Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex justify-end">
+                            <Button size="sm" variant="outline" onClick={() => downloadUserDataBundle(row)}>
+                              <Download className="w-3 h-3 mr-1" />
+                              Download
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {userDataRows.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                          No users found for this filter.
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -4068,6 +4511,7 @@ For support, contact: support@merry360x.com
               <Card className="p-4">
                 <p className="text-sm text-muted-foreground">Total Revenue</p>
                 <p className="text-2xl font-bold text-primary">{formatMoney(metrics?.revenue_gross ?? 0, "RWF")}</p>
+                              <p className="text-2xl font-bold text-primary">{formatMoney(displayedRevenueGross, "RWF")}</p>
               </Card>
               <Card className="p-4">
                 <p className="text-sm text-muted-foreground">Paid Bookings</p>
