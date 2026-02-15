@@ -35,3 +35,6 @@ supabase/.temp/
 
 # Archived development files
 archive/
+
+# Local temporary assets/scripts
+.tmp/
