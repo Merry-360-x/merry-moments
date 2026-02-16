@@ -10,10 +10,10 @@ export async function requestPasswordReset(email: string): Promise<void> {
   const redirectTo = `${window.location.origin}/reset-password`;
 
   try {
-    const response = await fetch("/api/password-reset-email", {
+    const response = await fetch("/api/support-email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, redirectTo }),
+      body: JSON.stringify({ action: "password_reset", email, redirectTo }),
     });
 
     const payload = (await response.json().catch(() => ({}))) as PasswordResetApiResponse;
