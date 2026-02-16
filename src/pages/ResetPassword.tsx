@@ -48,6 +48,63 @@ const ResetPassword = () => {
     // Check if we have a valid recovery token from the URL
     const checkSession = async () => {
       setIsChecking(true);
+
+      const code = searchParams.get('code');
+      const tokenHash = searchParams.get('token_hash');
+      const queryType = searchParams.get('type');
+
+      // PKCE flow: recover session via auth code
+      if (code) {
+        console.log('[ResetPassword] Found auth code, exchanging for session...');
+
+        try {
+          const { data: existing } = await supabase.auth.getSession();
+          if (existing.session) {
+            console.log('[ResetPassword] Existing session found');
+            window.history.replaceState(null, '', window.location.pathname);
+            setIsValidToken(true);
+            setIsChecking(false);
+            return;
+          }
+
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+
+          if (data.session) {
+            console.log('[ResetPassword] Session established from auth code');
+            window.history.replaceState(null, '', window.location.pathname);
+            setIsValidToken(true);
+            setIsChecking(false);
+            return;
+          }
+        } catch (err) {
+          console.error('[ResetPassword] Failed to exchange auth code:', err);
+        }
+      }
+
+      // OTP flow: verify token hash for recovery
+      if (tokenHash && queryType === 'recovery') {
+        console.log('[ResetPassword] Found token_hash, verifying recovery token...');
+
+        try {
+          const { data, error } = await supabase.auth.verifyOtp({
+            type: 'recovery',
+            token_hash: tokenHash,
+          });
+
+          if (error) throw error;
+
+          if (data.session) {
+            console.log('[ResetPassword] Session established from token_hash');
+            window.history.replaceState(null, '', window.location.pathname);
+            setIsValidToken(true);
+            setIsChecking(false);
+            return;
+          }
+        } catch (err) {
+          console.error('[ResetPassword] Failed to verify token_hash:', err);
+        }
+      }
       
       // Check for hash fragment with recovery token
       const hashFragment = window.location.hash;
@@ -57,11 +114,11 @@ const ResetPassword = () => {
         const params = new URLSearchParams(hashFragment.substring(1));
         const accessToken = params.get('access_token');
         const refreshToken = params.get('refresh_token');
-        const type = params.get('type');
+        const hashType = params.get('type');
         
-        console.log('[ResetPassword] Token type:', type);
+        console.log('[ResetPassword] Token type:', hashType);
         
-        if (accessToken && type === 'recovery') {
+        if (accessToken && hashType === 'recovery') {
           console.log('[ResetPassword] Found recovery token, setting session...');
           
           try {
@@ -114,7 +171,7 @@ const ResetPassword = () => {
     };
 
     checkSession();
-  }, [navigate, toast]);
+  }, [navigate, searchParams, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
