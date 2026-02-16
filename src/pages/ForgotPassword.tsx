@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import Logo from "@/components/Logo";
 import { ArrowLeft, Mail } from "lucide-react";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
+import { requestPasswordReset } from "@/lib/password-reset";
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
@@ -21,16 +21,12 @@ const ForgotPassword = () => {
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
-
-      if (error) throw error;
+      await requestPasswordReset(email);
 
       setEmailSent(true);
       toast({
-        title: "Password reset email sent",
-        description: "Check your inbox for the password reset link.",
+        title: "Reset email requested",
+        description: "If this account exists, check inbox/spam for the reset link.",
       });
     } catch (error: any) {
       logError(error, "ForgotPassword.handleSubmit");
