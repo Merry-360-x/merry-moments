@@ -25,7 +25,8 @@
     "check:bookings": "node show-booking-currencies.mjs",
     "test:booking-ui": "node test-booking-ui.mjs",
     "create:bulk-booking": "node create-bulk-booking-test.mjs",
-    "seo:audit": "node scripts/seo-index-audit.mjs"
+    "seo:audit": "node scripts/seo-index-audit.mjs",
+    "migrate:cloudinary": "node scripts/migrate-cloudinary-assets.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
