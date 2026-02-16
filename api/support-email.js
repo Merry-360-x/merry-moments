@@ -6,13 +6,14 @@ const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || "support@merry360x.com";
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const ADMIN_HEALTHCHECK_KEY = process.env.ADMIN_HEALTHCHECK_KEY;
 
 function json(res, status, body) {
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Admin-Health-Key");
   res.end(JSON.stringify(body));
 }
 
@@ -87,6 +88,30 @@ export default async function handler(req, res) {
 
   if (req.method !== "POST") {
     return json(res, 405, { error: "Method not allowed" });
+  }
+
+  if (req.body?.action === "password_reset_health") {
+    const providedKey =
+      req.headers["x-admin-health-key"] ||
+      req.body?.adminKey ||
+      "";
+
+    if (!ADMIN_HEALTHCHECK_KEY || providedKey !== ADMIN_HEALTHCHECK_KEY) {
+      return json(res, 404, { error: "Not found" });
+    }
+
+    return json(res, 200, {
+      ok: true,
+      service: "password_reset",
+      configured: {
+        brevoApiKey: Boolean(BREVO_API_KEY),
+        supabaseUrl: Boolean(SUPABASE_URL),
+        supabaseServiceRoleKey: Boolean(SUPABASE_SERVICE_ROLE_KEY),
+        adminHealthcheckKey: Boolean(ADMIN_HEALTHCHECK_KEY),
+      },
+      ready: Boolean(BREVO_API_KEY && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY),
+      checkedAt: new Date().toISOString(),
+    });
   }
 
   if (req.body?.action === "password_reset") {
