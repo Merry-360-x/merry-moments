@@ -9,8 +9,12 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { TrendingUp } from "lucide-react";
 
-// Cloudinary optimized video URL with transformations for faster loading
-const HERO_VIDEO_URL = "https://res.cloudinary.com/dxdblhmbm/video/upload/q_auto,f_auto,w_1920/merry360x/merry-hero-banner.mp4";
+const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || "dxdblhmbm";
+const HERO_VIDEO_PATH = "video/upload/q_auto,f_auto,w_1920/merry360x/merry-hero-banner.mp4";
+
+// Primary source uses current Cloudinary env account; fallback keeps homepage video working during migration.
+const HERO_VIDEO_URL = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/${HERO_VIDEO_PATH}`;
+const HERO_VIDEO_FALLBACK_URL = `https://res.cloudinary.com/dxdblhmbm/${HERO_VIDEO_PATH}`;
 
 const Index = () => {
   const { user } = useAuth();
@@ -36,6 +40,7 @@ const Index = () => {
           style={{ objectPosition: 'center center' }}
         >
           <source src={HERO_VIDEO_URL} type="video/mp4" />
+          <source src={HERO_VIDEO_FALLBACK_URL} type="video/mp4" />
         </video>
 
         {/* Overlay */}
