@@ -141,8 +141,13 @@ export default async function handler(req, res) {
         return json(res, 200, { ok: true });
       }
 
+      const tokenHash = data?.properties?.hashed_token;
       const actionLink = data?.properties?.action_link;
-      if (!actionLink) {
+      const resetUrl = tokenHash
+        ? `${redirectTo}${redirectTo.includes("?") ? "&" : "?"}token_hash=${encodeURIComponent(tokenHash)}&type=recovery`
+        : actionLink;
+
+      if (!resetUrl) {
         return json(res, 200, { ok: true });
       }
 
@@ -160,7 +165,7 @@ export default async function handler(req, res) {
           },
           to: [{ email }],
           subject: "Reset your Merry360X password",
-          htmlContent: generatePasswordResetHtml(actionLink, email),
+          htmlContent: generatePasswordResetHtml(resetUrl, email),
         }),
       });
 

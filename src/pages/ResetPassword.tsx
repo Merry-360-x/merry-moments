@@ -21,6 +21,7 @@ const ResetPassword = () => {
   const [success, setSuccess] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [recoveryTokenHash, setRecoveryTokenHash] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -84,26 +85,12 @@ const ResetPassword = () => {
 
       // OTP flow: verify token hash for recovery
       if (tokenHash && queryType === 'recovery') {
-        console.log('[ResetPassword] Found token_hash, verifying recovery token...');
-
-        try {
-          const { data, error } = await supabase.auth.verifyOtp({
-            type: 'recovery',
-            token_hash: tokenHash,
-          });
-
-          if (error) throw error;
-
-          if (data.session) {
-            console.log('[ResetPassword] Session established from token_hash');
-            window.history.replaceState(null, '', window.location.pathname);
-            setIsValidToken(true);
-            setIsChecking(false);
-            return;
-          }
-        } catch (err) {
-          console.error('[ResetPassword] Failed to verify token_hash:', err);
-        }
+        console.log('[ResetPassword] Found token_hash, waiting for password submit to verify...');
+        setRecoveryTokenHash(tokenHash);
+        window.history.replaceState(null, '', window.location.pathname);
+        setIsValidToken(true);
+        setIsChecking(false);
+        return;
       }
       
       // Check for hash fragment with recovery token
@@ -197,6 +184,15 @@ const ResetPassword = () => {
     setIsLoading(true);
 
     try {
+      if (recoveryTokenHash) {
+        const { error: verifyError } = await supabase.auth.verifyOtp({
+          type: 'recovery',
+          token_hash: recoveryTokenHash,
+        });
+
+        if (verifyError) throw verifyError;
+      }
+
       const { error } = await supabase.auth.updateUser({
         password: password,
       });
@@ -204,6 +200,7 @@ const ResetPassword = () => {
       if (error) throw error;
 
       setSuccess(true);
+      setRecoveryTokenHash(null);
       toast({
         title: "Password updated",
         description: "Your password has been successfully reset.",
