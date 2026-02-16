@@ -122,20 +122,52 @@ async function copyResource(resource, resourceType) {
     return;
   }
 
+  const sourceResourceType = resourceType;
+  const targetResourceType = resourceType;
+  const sourceUrl = resource.secure_url;
+
   configureCloudinary(newConfig);
 
-  await retry(
-    () =>
-      cloudinary.uploader.upload(resource.secure_url, {
-        resource_type: resourceType,
+  const uploadFromSource = (url) =>
+    cloudinary.uploader.upload(url, {
+      resource_type: targetResourceType,
+      type: "upload",
+      public_id: resource.public_id,
+      overwrite: false,
+      use_filename: false,
+      unique_filename: false,
+    });
+
+  try {
+    await retry(
+      () => uploadFromSource(sourceUrl),
+      `copy ${resourceType}:${resource.public_id}`
+    );
+  } catch (error) {
+    const message = String(error?.message || error || "");
+    const isUnauthorized = message.includes("401") || message.toLowerCase().includes("unauthorized");
+
+    if (!isUnauthorized) throw error;
+
+    // Fallback for restricted assets (commonly PDFs): generate a signed short-lived download URL.
+    configureCloudinary(oldConfig);
+    const expiresAt = Math.floor(Date.now() / 1000) + 600;
+    const signedDownloadUrl = cloudinary.utils.private_download_url(
+      resource.public_id,
+      String(resource?.format || "").toLowerCase() || undefined,
+      {
+        resource_type: sourceResourceType,
         type: "upload",
-        public_id: resource.public_id,
-        overwrite: false,
-        use_filename: false,
-        unique_filename: false,
-      }),
-    `copy ${resourceType}:${resource.public_id}`
-  );
+        expires_at: expiresAt,
+      }
+    );
+
+    configureCloudinary(newConfig);
+    await retry(
+      () => uploadFromSource(signedDownloadUrl),
+      `copy-signed ${resourceType}:${resource.public_id}`
+    );
+  }
 }
 
 async function migrateResourceType(resourceType, state) {
