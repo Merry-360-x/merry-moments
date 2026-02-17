@@ -788,7 +788,7 @@ export default function HostDashboard() {
         bookingQueries.push(
           supabase
             .from("bookings")
-            .select("*, properties(title)")
+            .select("*, properties(title, price_per_night, price_per_group, price_per_group_size, currency)")
             .eq("booking_type", "property")
             .in("property_id", propertyIds)
             .order("created_at", { ascending: false })
@@ -800,7 +800,7 @@ export default function HostDashboard() {
         bookingQueries.push(
           supabase
             .from("bookings")
-            .select("*, tour_packages(title)")
+            .select("*, tour_packages(title, price_per_adult, currency)")
             .eq("booking_type", "tour")
             .in("tour_id", tourPackageIds)
             .order("created_at", { ascending: false })
@@ -1952,21 +1952,21 @@ export default function HostDashboard() {
       if (booking.booking_type === 'property' && booking.property_id) {
         const { data: property } = await supabase
           .from("properties")
-          .select("title, location, address, property_type, amenities, images, currency")
+          .select("title, location, address, property_type, amenities, images, currency, price_per_night, price_per_group, price_per_group_size")
           .eq("id", booking.property_id)
           .single();
         relatedEntity = { properties: property };
       } else if (booking.booking_type === 'tour' && booking.tour_id) {
         const { data: tour } = await supabase
           .from("tour_packages")
-          .select("title, location, city, duration, categories, included_services, currency")
+          .select("title, location, city, duration, categories, included_services, currency, price_per_adult")
           .eq("id", booking.tour_id)
           .single();
         relatedEntity = { tour_packages: tour };
       } else if (booking.booking_type === 'transport' && booking.transport_id) {
         const { data: vehicle } = await supabase
           .from("transport_vehicles")
-          .select("title, vehicle_type, seats, driver_included, currency")
+          .select("title, vehicle_type, seats, driver_included, currency, price_per_day")
           .eq("id", booking.transport_id)
           .single();
         relatedEntity = { transport_vehicles: vehicle };
@@ -2083,8 +2083,69 @@ export default function HostDashboard() {
     booking_type?: string | null;
     property_id?: string | null;
     tour_id?: string | null;
+    transport_id?: string | null;
+    check_in?: string | null;
+    check_out?: string | null;
+    guests?: number | null;
+    properties?: {
+      price_per_night?: number | null;
+      currency?: string | null;
+    } | null;
+    tour_packages?: {
+      price_per_adult?: number | null;
+      currency?: string | null;
+    } | null;
+    transport_vehicles?: {
+      price_per_day?: number | null;
+      currency?: string | null;
+    } | null;
   }) => {
     const checkout = booking.order_id ? checkoutByOrderId[booking.order_id] : null;
+
+    const parsedCheckIn = booking.check_in ? new Date(booking.check_in) : null;
+    const parsedCheckOut = booking.check_out ? new Date(booking.check_out) : null;
+    const nights = parsedCheckIn && parsedCheckOut
+      ? Math.max(1, Math.ceil((parsedCheckOut.getTime() - parsedCheckIn.getTime()) / (1000 * 60 * 60 * 24)))
+      : 1;
+    const guests = Math.max(1, Number(booking.guests || 1));
+
+    if (booking.booking_type === 'property' || Boolean(booking.property_id)) {
+      const nightly = Number(booking.properties?.price_per_night || 0);
+      if (Number.isFinite(nightly) && nightly > 0) {
+        return {
+          listingSubtotal: nightly * nights,
+          currency: String(booking.properties?.currency || booking.currency || checkout?.currency || 'RWF').toUpperCase(),
+          serviceType: 'accommodation' as const,
+        };
+      }
+    }
+
+    if (booking.booking_type === 'tour' || Boolean(booking.tour_id)) {
+      const perAdult = Number(booking.tour_packages?.price_per_adult || 0);
+      if (Number.isFinite(perAdult) && perAdult > 0) {
+        return {
+          listingSubtotal: perAdult * guests,
+          currency: String(booking.tour_packages?.currency || booking.currency || checkout?.currency || 'RWF').toUpperCase(),
+          serviceType: 'tour' as const,
+        };
+      }
+    }
+
+    if (booking.booking_type === 'transport' || Boolean(booking.transport_id)) {
+      const transportFromJoin = Number(booking.transport_vehicles?.price_per_day || 0);
+      const vehicle = booking.transport_id ? vehicles.find((v) => v.id === booking.transport_id) : null;
+      const transportPrice = Number.isFinite(transportFromJoin) && transportFromJoin > 0
+        ? transportFromJoin
+        : Number(vehicle?.price_per_day || 0);
+      if (Number.isFinite(transportPrice) && transportPrice > 0) {
+        return {
+          listingSubtotal: transportPrice,
+          currency: String(booking.transport_vehicles?.currency || vehicle?.currency || booking.currency || checkout?.currency || 'RWF').toUpperCase(),
+          serviceType: 'transport' as const,
+        };
+      }
+    }
+
     const guestPaid = getBookingGuestPaidAmount(booking);
 
     const serviceType: 'accommodation' | 'tour' | 'transport' =
@@ -2109,10 +2170,10 @@ export default function HostDashboard() {
 
     return {
       listingSubtotal: Number.isFinite(basePrice) ? Math.max(0, basePrice) : 0,
-      currency: String(booking.currency || checkout?.currency || 'RWF').toUpperCase(),
+      currency: String(checkout?.currency || booking.currency || 'RWF').toUpperCase(),
       serviceType,
     };
-  }, [bookings, checkoutByOrderId, getBookingGuestPaidAmount]);
+  }, [bookings, checkoutByOrderId, getBookingGuestPaidAmount, vehicles]);
 
   const confirmedBookings = (bookings || []).filter((b) => {
     const status = String(b.status || "").toLowerCase();
