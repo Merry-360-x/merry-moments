@@ -2065,16 +2065,55 @@ export default function HostDashboard() {
     return remaining / missingCount;
   }, [bookings, checkoutByOrderId]);
 
+  const getCheckoutItemForBooking = useCallback((booking: {
+    order_id?: string | null;
+    booking_type?: string | null;
+    property_id?: string | null;
+    tour_id?: string | null;
+    transport_id?: string | null;
+  }) => {
+    if (!booking.order_id) return null;
+    const checkout = checkoutByOrderId[booking.order_id];
+    const items = checkout?.metadata?.items;
+    if (!Array.isArray(items) || items.length === 0) return null;
+
+    const bookingType = String(booking.booking_type || '').toLowerCase();
+    const targetReferenceId = bookingType === 'property'
+      ? booking.property_id
+      : bookingType === 'tour'
+        ? booking.tour_id
+        : booking.transport_id;
+
+    if (!targetReferenceId) return null;
+
+    const allowedItemTypes = bookingType === 'property'
+      ? ['property']
+      : bookingType === 'tour'
+        ? ['tour', 'tour_package']
+        : ['transport_vehicle', 'transport'];
+
+    return items.find((item: any) => {
+      const itemType = String(item?.item_type || '').toLowerCase();
+      const itemReferenceId = String(item?.reference_id || '');
+      return allowedItemTypes.includes(itemType) && itemReferenceId === String(targetReferenceId);
+    }) || null;
+  }, [checkoutByOrderId]);
+
   const getBookingAmountAndCurrency = useCallback((booking: Booking) => {
     const checkout = booking.order_id ? checkoutByOrderId[booking.order_id] : null;
-    const amountToUse = getBookingGuestPaidAmount(booking);
+    const checkoutItem = getCheckoutItemForBooking(booking);
 
-    const currencyToUse = checkout?.currency || booking.currency || 'RWF';
+    const checkoutItemPaid = Number(checkoutItem?.calculated_price || 0);
+    const amountToUse = Number.isFinite(checkoutItemPaid) && checkoutItemPaid > 0
+      ? checkoutItemPaid
+      : getBookingGuestPaidAmount(booking);
+
+    const currencyToUse = checkoutItem?.calculated_price_currency || checkout?.currency || booking.currency || 'RWF';
     return {
       amount: Number.isFinite(amountToUse) ? amountToUse : 0,
       currency: String(currencyToUse || 'RWF').toUpperCase(),
     };
-  }, [checkoutByOrderId, getBookingGuestPaidAmount]);
+  }, [checkoutByOrderId, getBookingGuestPaidAmount, getCheckoutItemForBooking]);
 
   const getOriginalListingSubtotal = useCallback((booking: {
     order_id?: string | null;
@@ -2101,6 +2140,29 @@ export default function HostDashboard() {
     } | null;
   }) => {
     const checkout = booking.order_id ? checkoutByOrderId[booking.order_id] : null;
+    const checkoutItem = getCheckoutItemForBooking(booking);
+
+    const serviceType: 'accommodation' | 'tour' | 'transport' =
+      booking.booking_type === 'property' || Boolean(booking.property_id)
+        ? 'accommodation'
+        : booking.booking_type === 'tour' || Boolean(booking.tour_id)
+          ? 'tour'
+          : 'transport';
+
+    if (checkoutItem) {
+      const quantity = Math.max(1, Number(checkoutItem.quantity || 1));
+      const itemPrice = Number(checkoutItem.price || 0);
+      const itemDiscount = Number(checkoutItem.discount_applied || 0);
+      const listingSubtotalFromCheckout = (itemPrice * quantity) - itemDiscount;
+
+      if (Number.isFinite(listingSubtotalFromCheckout) && listingSubtotalFromCheckout >= 0) {
+        return {
+          listingSubtotal: listingSubtotalFromCheckout,
+          currency: String(checkoutItem.calculated_price_currency || booking.currency || checkout?.currency || 'RWF').toUpperCase(),
+          serviceType,
+        };
+      }
+    }
 
     const parsedCheckIn = booking.check_in ? new Date(booking.check_in) : null;
     const parsedCheckOut = booking.check_out ? new Date(booking.check_out) : null;
@@ -2148,13 +2210,6 @@ export default function HostDashboard() {
 
     const guestPaid = getBookingGuestPaidAmount(booking);
 
-    const serviceType: 'accommodation' | 'tour' | 'transport' =
-      booking.booking_type === 'property' || Boolean(booking.property_id)
-        ? 'accommodation'
-        : booking.booking_type === 'tour' || Boolean(booking.tour_id)
-          ? 'tour'
-          : 'transport';
-
     const orderDiscount = Number(checkout?.metadata?.discount_amount || 0);
     let bookingDiscountShare = 0;
     if (orderDiscount > 0 && booking.order_id) {
@@ -2173,7 +2228,7 @@ export default function HostDashboard() {
       currency: String(checkout?.currency || booking.currency || 'RWF').toUpperCase(),
       serviceType,
     };
-  }, [bookings, checkoutByOrderId, getBookingGuestPaidAmount, vehicles]);
+  }, [bookings, checkoutByOrderId, getBookingGuestPaidAmount, getCheckoutItemForBooking, vehicles]);
 
   const confirmedBookings = (bookings || []).filter((b) => {
     const status = String(b.status || "").toLowerCase();
@@ -6464,6 +6519,7 @@ export default function HostDashboard() {
                       }
 
                       const { listingSubtotal, currency: listingCurrency } = getOriginalListingSubtotal(b);
+                      const { amount: guestPaidAmount, currency: guestPaidCurrency } = getBookingAmountAndCurrency(b);
                       const listingTotal = listingSubtotal;
                       const nights = Math.max(
                         1,
@@ -6479,6 +6535,7 @@ export default function HostDashboard() {
                           : serviceType === 'tour'
                             ? 'Price per participant'
                             : 'Base listing fare';
+                      const listingAmountLabel = serviceType === 'accommodation' ? 'Apartment Amount' : 'Listing Amount';
                       const unitValue =
                         serviceType === 'accommodation'
                           ? listingTotal / nights
@@ -6555,8 +6612,12 @@ export default function HostDashboard() {
                                       : `${guests} guest${guests !== 1 ? 's' : ''}`}
                                   </p>
                                   <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
-                                    <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Subtotal</span>
+                                    <span className="text-[11px] text-muted-foreground uppercase tracking-wide">{listingAmountLabel}</span>
                                     <span className="text-sm font-semibold">{formatMoney(listingTotal, listingCurrency)}</span>
+                                  </div>
+                                  <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
+                                    <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Guest Paid</span>
+                                    <span className="text-sm font-semibold">{formatMoney(guestPaidAmount, guestPaidCurrency)}</span>
                                   </div>
                                   <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
                                     <span className="text-[11px] text-muted-foreground uppercase tracking-wide">You will earn</span>
@@ -6698,6 +6759,7 @@ export default function HostDashboard() {
                   // Calculate original listing price breakdown
                   const serviceType = itemType === 'property' ? 'accommodation' : itemType === 'tour' ? 'tour' : 'transport';
                   const { listingSubtotal, currency: listingCurrency } = getOriginalListingSubtotal(b);
+                  const { amount: guestPaidAmount, currency: guestPaidCurrency } = getBookingAmountAndCurrency(b);
                   const listingTotal = listingSubtotal;
                   const nights = Math.max(
                     1,
@@ -6713,6 +6775,7 @@ export default function HostDashboard() {
                       : serviceType === 'tour'
                         ? 'Price per participant'
                         : 'Base listing fare';
+                  const listingAmountLabel = serviceType === 'accommodation' ? 'Apartment Amount' : 'Listing Amount';
                   const unitValue =
                     serviceType === 'accommodation'
                       ? listingTotal / nights
@@ -6815,8 +6878,12 @@ export default function HostDashboard() {
                                 : `${guests} guest${guests !== 1 ? 's' : ''}`}
                             </p>
                             <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
-                              <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Subtotal</span>
+                              <span className="text-[11px] text-muted-foreground uppercase tracking-wide">{listingAmountLabel}</span>
                               <span className="text-sm font-semibold">{formatMoney(listingTotal, listingCurrency)}</span>
+                            </div>
+                            <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
+                              <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Guest Paid</span>
+                              <span className="text-sm font-semibold">{formatMoney(guestPaidAmount, guestPaidCurrency)}</span>
                             </div>
                             <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
                               <span className="text-[11px] text-muted-foreground uppercase tracking-wide">You will earn</span>
@@ -7799,6 +7866,7 @@ END OF REPORT
                       listingSubtotal: listingTotal,
                       currency: listingCurrency,
                     } = getOriginalListingSubtotal(bookingFullDetails);
+                    const { amount: guestPaidAmount, currency: guestPaidCurrency } = getBookingAmountAndCurrency(bookingFullDetails as Booking);
                     const displayCurrency = preferredCurrency || listingCurrency;
                     const nights = Math.max(
                       1,
@@ -7815,6 +7883,7 @@ END OF REPORT
                         : bookingFullDetails.booking_type === 'tour'
                           ? 'Price per participant'
                           : 'Base listing fare';
+                    const listingAmountLabel = bookingFullDetails.booking_type === 'property' ? 'Apartment Amount' : 'Listing Amount';
 
                     const unitValue =
                       bookingFullDetails.booking_type === 'property'
@@ -7836,6 +7905,7 @@ END OF REPORT
                           : PLATFORM_FEES.transport.providerFeePercent;
                     const hostNetEarnings = listingTotal * (1 - feePercent / 100);
                     const convertedListingTotal = convertAmount(listingTotal, listingCurrency, displayCurrency, usdRates) ?? listingTotal;
+                    const convertedGuestPaid = convertAmount(guestPaidAmount, guestPaidCurrency, displayCurrency, usdRates) ?? guestPaidAmount;
                     const convertedUnitValue = convertAmount(unitValue, listingCurrency, displayCurrency, usdRates) ?? unitValue;
                     const convertedHostNetEarnings = convertAmount(hostNetEarnings, listingCurrency, displayCurrency, usdRates) ?? hostNetEarnings;
 
@@ -7867,8 +7937,13 @@ END OF REPORT
                           )}
 
                           <div className="border-t pt-2 mt-2 flex justify-between items-center">
-                            <span className="font-medium">Listing subtotal</span>
+                            <span className="font-medium">{listingAmountLabel}</span>
                             <span className="text-base font-semibold">{formatMoney(convertedListingTotal, displayCurrency)}</span>
+                          </div>
+
+                          <div className="border-t pt-2 mt-2 flex justify-between items-center">
+                            <span className="font-medium">Guest paid</span>
+                            <span className="text-base font-semibold">{formatMoney(convertedGuestPaid, displayCurrency)}</span>
                           </div>
 
                           <div className="border-t pt-2 mt-2 flex justify-between items-center">
