@@ -1,0 +1,422 @@
+{
+  "generatedAt": "2026-02-16T11:56:18.646Z",
+  "cloudinary": {
+    "oldCloud": "dxdblhmbm",
+    "newCloud": "dghg9uebh",
+    "resourceTypes": [
+      "image",
+      "video",
+      "raw"
+    ],
+    "oldCounts": {
+      "image": 3363,
+      "video": 6,
+      "raw": 19
+    },
+    "newCounts": {
+      "image": 854,
+      "video": 4,
+      "raw": 0
+    },
+    "oldTotal": 3388,
+    "newTotal": 858,
+    "missingInNewSample": [
+      "image:merry360x/pwa3otxpntmsudjruv6c",
+      "image:merry360x/rsgr9jbparfkt1zstczp",
+      "image:merry360x/putdlwpbvc9j3vveqfqt",
+      "image:merry360x/rpi9imi3ft3c4jfbrdxu",
+      "image:merry360x/ynrxb2fenqnabcvhi0pp",
+      "image:merry360x/leuckim07cxtdphhwuoc",
+      "image:merry360x/sfg597o8qc8hlyiy5lqr",
+      "image:merry360x/xjagkyyw5ammknkr8ug0",
+      "image:merry360x/iyvte02evgmijfjl4ggz",
+      "image:merry360x/y3xpld5tdmodbogz554e",
+      "image:merry360x/fpspn5uz666zegjlsrso",
+      "image:merry360x/vbkc0w39remzzoi1n31t",
+      "image:merry360x/yy9fkcgtgc7ycatwai77",
+      "image:merry360x/iwfe3qjucrurtazky2d2",
+      "image:merry360x/djkqdrqidzmw5e5nd8nn",
+      "image:merry360x/udevbsakdihfxbde3epu",
+      "image:merry360x/wn3rv9kekn0fdxuxxhxd",
+      "image:merry360x/kb6owr17kz9hnmxsgjpo",
+      "image:merry360x/rahbej78uakbsldxae4s",
+      "image:merry360x/mv3grwzct31tpfy1wmd4",
+      "image:merry360x/zjl2n5kyjwxw2f0recpv",
+      "image:merry360x/yzmowub9xqnsbl3l6cef",
+      "image:merry360x/bk9jarrv90os3tmngstd",
+      "image:merry360x/kv4uhsqb1bechfku6yoa",
+      "image:merry360x/xxezzpb7qfvce7qhuqmi",
+      "image:merry360x/q9mrmx5fzfmmzzrghgxa",
+      "image:merry360x/ghu0adxz4g1jgtbhbka7",
+      "image:merry360x/pv0a4vkojrwpubxcqd3s",
+      "image:merry360x/owdqtzhxty16oe5zaydi",
+      "image:merry360x/cmyr21xj3vx9n6gddcaf",
+      "image:merry360x/m891dae9naaagalb435v",
+      "image:merry360x/bweso3mxsjhaoqlcy16q",
+      "image:merry360x/kjuernf76sgh1hxxkrnf",
+      "image:merry360x/oicexi0btjhubm2pi3xn",
+      "image:merry360x/ifxc1kp2u8f5okpir1xh",
+      "image:merry360x/had7t2p72x4vh8alb6na",
+      "image:merry360x/wamkk2if10nzskogxrth",
+      "image:merry360x/sy2d8bakg3y3sknalgtc",
+      "image:merry360x/mkqnipnazrki2sk8xbum",
+      "image:merry360x/d6fgo8pama4m3gieeu60",
+      "image:merry360x/aycasvyqe8vnqtrnqek5",
+      "image:merry360x/pklu0fvmrwjvutj5x5qx",
+      "image:merry360x/llyki9hnhqldfvrhmwmn",
+      "image:merry360x/t1t9j5qcqdmazm5hvm8d",
+      "image:merry360x/t92h5q9ykc9qas0s5gjs",
+      "image:merry360x/rnrh5fv2nzwl7ouwgr9z",
+      "image:merry360x/zax4ds0igcmf9cgkkxls",
+      "image:merry360x/r6iyxfygkdxvklnjsfns",
+      "image:merry360x/wncv6eznx0uyhk3dtpu3",
+      "image:merry360x/jmrbhch9a2myrhtquogi",
+      "image:merry360x/prbybkxbynd9c1fxiu9n",
+      "image:merry360x/y8fweqlqwud0wjra3g78",
+      "image:merry360x/dxgqtou83nwzfax9toib",
+      "image:merry360x/h2wxqxp7hbsp1foomg1m",
+      "image:merry360x/nhbbajpydb4miyklbh4e",
+      "image:merry360x/mlzx8sujddhvskeug23w",
+      "image:merry360x/qsvf7qwl8boq34g5enkr",
+      "image:merry360x/dmyonlvuy7qsb2b5jcd1",
+      "image:merry360x/ywq2d48zsin9rhvm5zzc",
+      "image:merry360x/qjjsaduiexrpgmjmthpf",
+      "image:merry360x/qa0ktesekttbqdfkuefa",
+      "image:merry360x/cxkrljnydtmulndqggod",
+      "image:merry360x/hdg4kdrdoyjtrs26htx0",
+      "image:merry360x/uctmliun9tymm65rs9vn",
+      "image:merry360x/oofearfffmujumwstlxs",
+      "image:merry360x/zzphls2bvnwb9inujcix",
+      "image:merry360x/ofopbe3s6hsudiwj9qyj",
+      "image:merry360x/hfhxmxun2dgfx2f9mk6f",
+      "image:merry360x/oykxy7sxkqbrgeiw6wz9",
+      "image:merry360x/fuhwgl7zhmeyip5s2whx",
+      "image:merry360x/i3qs5t3gdtna7235vtg6",
+      "image:merry360x/dgbbfbd2itygwngpdpuo",
+      "image:merry360x/lypxy76qkdefacwmhfaa",
+      "image:merry360x/wubam65bfvowpdag1awe",
+      "image:merry360x/pggn2i4hfkjtd5ou89zk",
+      "image:merry360x/lxlmkadcbtekwjgxidaq",
+      "image:merry360x/h3x5fxn8wnwczod1xcl3",
+      "image:merry360x/fnyii3gqeevlrmhvfgil",
+      "image:merry360x/e77qvqhyn2yobjzfwwts",
+      "image:merry360x/vklrk50rt8fex3hpivwg",
+      "image:merry360x/wqs4rxpmqcgb53wbjvkq",
+      "image:merry360x/aykdlqx1cqpnajroexey",
+      "image:merry360x/lvtr74jkann1ibg2yopo",
+      "image:merry360x/jkveglzk8e2td3smmbso",
+      "image:merry360x/e1zjsriqigcax9aq5n4p",
+      "image:merry360x/s6n4hyqzxhv3saznlfib",
+      "image:merry360x/u9nv84slci4hbbrpn8rw",
+      "image:merry360x/oc9xkbixcr5zjescxf49",
+      "image:merry360x/ljafkwegumwqptitinas",
+      "image:merry360x/jswfyckgj5rhqpppar8w",
+      "image:merry360x/zybzasslncrtzqqh9pwb",
+      "image:merry360x/ol9zljmsnxtezahmqnlf",
+      "image:merry360x/ece80ov6qjutrkzfqcz3",
+      "image:merry360x/zqywiuw2y3ksdy3du1tr",
+      "image:merry360x/lzkoov5ywklfr50cn0uc",
+      "image:merry360x/z7ykckzhlsfua033i78q",
+      "image:merry360x/rw67qzhuwl7lalbzacx6",
+      "image:merry360x/ldbidwktl3cvqhnuaup4",
+      "image:merry360x/as6145caiughhkhv4jsa",
+      "image:merry360x/xzjo0a4bxvkqulwgxl03",
+      "image:merry360x/rddibjyto6hniyqciinf",
+      "image:merry360x/otnmdlzoyka62abo8vsv",
+      "image:merry360x/h9dxwwy1o0qc2dtpzog0",
+      "image:merry360x/bs9hsxouqtgyhdmkmkbc",
+      "image:merry360x/h6pjvg4jbsgdjnpocwkt",
+      "image:merry360x/emywrdm8bygakcalqzmc",
+      "image:merry360x/gvmtntq6akxsfacs3prd",
+      "image:merry360x/nnirrzax6fbfu0tb6i1l",
+      "image:merry360x/yoiqm2uqf2cdxztgd6nc",
+      "image:merry360x/elo2uyccug5j5krm7iyn",
+      "image:merry360x/dxf1miyikykgejo6bpuw",
+      "image:merry360x/dphmlqmiu9btm1piatid",
+      "image:merry360x/gtajbupblxbiwkmpzeir",
+      "image:merry360x/xscwrlqf5dyhtbt5jjj5",
+      "image:merry360x/dqmtvxl2t2mdwzak3p9f",
+      "image:merry360x/s3nb1srobhhbkpvqnpv8",
+      "image:merry360x/q8hdwjcvqos1j8qpx37j",
+      "image:merry360x/asqeeisqwj0nsej51ye6",
+      "image:merry360x/le6yvh4qbmhaiygqdyd7",
+      "image:merry360x/fuclehonwjae29k2w4ls",
+      "image:merry360x/rrony36qlk8bk7rjjjuj",
+      "image:merry360x/p7amjzogh8j3vklqbu9l",
+      "image:merry360x/sl6djfoky280l4orlqst",
+      "image:merry360x/nc429vizytgb4ecp6qag",
+      "image:merry360x/t0ezfoa3exkm0oyerzgj",
+      "image:merry360x/xxau8r8zp9b5rrxgmawm",
+      "image:merry360x/sh9l401orlvzdnn25mep",
+      "image:merry360x/edrfb0gxove2jeekzvxe",
+      "image:merry360x/koqvn0mrlja0t5giqej6",
+      "image:merry360x/ewmmrt9ks2xb1uror2cj",
+      "image:merry360x/xq1h29bpsisjeiibz6vq",
+      "image:merry360x/kzjypzjvkpluarstrkke",
+      "image:merry360x/vxwlawthozrhrymt7nsj",
+      "image:merry360x/qdc282c9mnsj5fge1dhn",
+      "image:merry360x/uddncjp1fu1t3ell6id3",
+      "image:merry360x/zxdku9prezfvv4tfa6z0",
+      "image:merry360x/w5ue31x8pjuafvaot4kg",
+      "image:merry360x/j0fh4gdlenuev4auk1wx",
+      "image:merry360x/crlbigx6bhgglveqcsxv",
+      "image:merry360x/d4pmynu8radchcjnnylb",
+      "image:merry360x/namoyag6aksimtegq3tv",
+      "image:merry360x/e5xari5mnvduejvgl13n",
+      "image:merry360x/ehcg5msoiqfafpqs3a7t",
+      "image:merry360x/kxmqt5atgfqdrowbqeak",
+      "image:merry360x/bj6ruves8jrqtztfv2wx",
+      "image:merry360x/cszk3nxolpgiyf0qhq9k",
+      "image:merry360x/efvv7hu6hahawqn3fbtv",
+      "image:merry360x/pqhnjbcqqiieqr3cahf6",
+      "image:merry360x/xhzvbvw6pq0unaebbr6c",
+      "image:merry360x/ds8x6fmw4ihdf4wxpvj8",
+      "image:merry360x/nhutc1bl6anjr4kw7lrj",
+      "image:merry360x/bxr7sk0aiqgfeoy5yasg",
+      "image:merry360x/y6ucdajkneio58zw7ptz",
+      "image:merry360x/nst1apsqbfkblgysl1tk",
+      "image:merry360x/fhz33soq4ojypqdqelr3",
+      "image:merry360x/lvjontrx4ffifmdrqjbt",
+      "image:merry360x/vmz4aaczd1whtvfutdtf",
+      "image:merry360x/ptjowwsg7abaanlyuejx",
+      "image:merry360x/b2vmqxgka58cpcu3rqck",
+      "image:merry360x/xfxifrs8eo8vykvifcsn",
+      "image:merry360x/mqvg5jcnpqfaimcefj7i",
+      "image:merry360x/amthnrkkpzdubc6lmrez",
+      "image:merry360x/ict6vnevjymis61v7cui",
+      "image:merry360x/s03x4rwzuvoax4otqcb4",
+      "image:merry360x/t91safsdwx3jml9w2lqo",
+      "image:merry360x/ogjwu6khuaitbedp347e",
+      "image:merry360x/ioxa2sjjp0givwofjrsk",
+      "image:merry360x/vo2oku2hplzdi8qinfzc",
+      "image:merry360x/vz7tjgxoy24vcqszukve",
+      "image:merry360x/hg9gfcxrtqqnabohomlc",
+      "image:merry360x/uoxd0zbq6ndij6xq7gsi",
+      "image:merry360x/hlsq6rtplxpqo8ozmhor",
+      "image:merry360x/qobu8lyes3qg4utvhxmt",
+      "image:merry360x/vdvapozezwazq2xso1r5",
+      "image:merry360x/dkzie0gydrp2i0tcyjdf",
+      "image:merry360x/peea5ppxhdcpeinmrnyb",
+      "image:merry360x/fktuxivev1e2vfqj8uip",
+      "image:merry360x/pdnstwpzibvbewwijqlt",
+      "image:merry360x/ta3kzz8j4s24zaww1djv",
+      "image:merry360x/llhlpj02fqhd3nyyyg8t",
+      "image:merry360x/haw6akqnqb28h7n7p2xu",
+      "image:merry360x/ovxy16rzwt0wg01xy4jf",
+      "image:merry360x/nqgiq77woxfuitwlkpjg",
+      "image:merry360x/ryfxzngjepubnmjbqxmg",
+      "image:merry360x/loazr7xrvsuwwdnojieh",
+      "image:merry360x/tlmv27qwia2etyx3mirs",
+      "image:merry360x/iu1zse62w9sfjr8osqj8",
+      "image:merry360x/dc4iqyoo6g0hhlzjudel",
+      "image:merry360x/y1awfknuwywugqlhkcn4",
+      "image:merry360x/ilrbws4hvajo84n5khvf",
+      "image:merry360x/wyh5k33bdyqc0swwcoso",
+      "image:merry360x/irr1g5ssil6snee72ivk",
+      "image:merry360x/skaki1pqcoiy53sm76ay",
+      "image:merry360x/rrwcbataa1fjuxq96g8c",
+      "image:merry360x/ezhhz78s736iecs4weld",
+      "image:merry360x/j38su62deum7eoyhjdtq",
+      "image:merry360x/acoieecvec2c5e0ms8sf",
+      "image:merry360x/mebr8hcahtvsixkrfnll",
+      "image:merry360x/icvugple4fyl3rzanid0",
+      "image:merry360x/rgzgtcuow8fhnrw0oyva"
+    ],
+    "missingInNewSampleCount": 200,
+    "exactMatch": false
+  },
+  "database": {
+    "oldDomain": "res.cloudinary.com/dxdblhmbm",
+    "newDomain": "res.cloudinary.com/dghg9uebh",
+    "tableChecks": [
+      {
+        "table": "profiles",
+        "columns": [
+          "avatar_url"
+        ],
+        "rowsScanned": 37,
+        "oldCount": 4,
+        "newCount": 0,
+        "samplesOld": [
+          {
+            "id": "d2da1695-532b-4059-b5cb-c13b3db69835",
+            "column": "avatar_url",
+            "value": "https://res.cloudinary.com/dxdblhmbm/image/upload/v1769259527/merry360x/o9asnjhbty7vjkt9ccf5.jpg"
+          },
+          {
+            "id": "3b94377e-8dd2-4c9f-bcc2-5749aa8952a6",
+            "column": "avatar_url",
+            "value": "https://res.cloudinary.com/dxdblhmbm/image/upload/v1768454742/merry360x/oqovu9qqavjcopitx04f.jpg"
+          },
+          {
+            "id": "9c1c9604-5844-4ccd-a8d5-862831ababfa",
+            "column": "avatar_url",
+            "value": "https://res.cloudinary.com/dxdblhmbm/image/upload/v1770331735/merry360x/xyrodzgk8tfu3r7n8rvo.jpg"
+          },
+          {
+            "id": "cab21106-dead-40e0-a164-0966d2cf36a2",
+            "column": "avatar_url",
+            "value": "https://res.cloudinary.com/dxdblhmbm/image/upload/v1771032585/merry360x/ydd9gdvy3as9xbwkuwqu.jpg"
+          }
+        ],
+        "samplesNew": []
+      },
+      {
+        "table": "properties",
+        "columns": [
+          "images"
+        ],
+        "rowsScanned": 55,
+        "oldCount": 1133,
+        "newCount": 0,
+        "samplesOld": [
+          {
+            "id": "8f8bfb15-482e-40f5-af6f-64acbe6aff1b",
+            "column": "images",
+            "value": "https://res.cloudinary.com/dxdblhmbm/image/upload/v1769089965/merry360x/nmyb5jbmovkz1aojkjf9.jpg"
+          },
+          {
+            "id": "8f8bfb15-482e-40f5-af6f-64acbe6aff1b",
+            "column": "images",
+            "value": "https://res.cloudinary.com/dxdblhmbm/image/upload/v1769089965/merry360x/jeh6souave6oq0kmohry.jpg"
+          },
+          {
+            "id": "8f8bfb15-482e-40f5-af6f-64acbe6aff1b",
+            "column": "images",
+            "value": "https://res.cloudinary.com/dxdblhmbm/image/upload/v1769089966/merry360x/unyhp6ez5ovtmql8zitt.jpg"
+          },
+          {
+            "id": "8f8bfb15-482e-40f5-af6f-64acbe6aff1b",
+            "column": "images",
+            "value": "https://res.cloudinary.com/dxdblhmbm/image/upload/v1769089969/merry360x/nvbtq3p2geprueyyldmv.jpg"
+          },
+          {
+            "id": "8f8bfb15-482e-40f5-af6f-64acbe6aff1b",
+            "column": "images",
+            "value": "https://res.cloudinary.com/dxdblhmbm/image/upload/v1769089970/merry360x/l8cmm0q4puqq09v2aypa.jpg"
+          }
+        ],
+        "samplesNew": []
+      },
+      {
+        "table": "tours",
+        "columns": [
+          "image_url",
+          "media"
+        ],
+        "error": "column tours.image_url does not exist",
+        "rowsScanned": 0,
+        "oldCount": 0,
+        "newCount": 0
+      },
+      {
+        "table": "tour_packages",
+        "columns": [
+          "image_url",
+          "gallery_images",
+          "media"
+        ],
+        "error": "column tour_packages.image_url does not exist",
+        "rowsScanned": 0,
+        "oldCount": 0,
+        "newCount": 0
+      },
+      {
+        "table": "transport_vehicles",
+        "columns": [
+          "image_url",
+          "interior_images",
+          "exterior_images"
+        ],
+        "rowsScanned": 0,
+        "oldCount": 0,
+        "newCount": 0,
+        "samplesOld": [],
+        "samplesNew": []
+      },
+      {
+        "table": "stories",
+        "columns": [
+          "media_url",
+          "image_url"
+        ],
+        "rowsScanned": 6,
+        "oldCount": 11,
+        "newCount": 0,
+        "samplesOld": [
+          {
+            "id": "bfc018e8-2a15-475d-ac90-208ee41f6799",
+            "column": "media_url",
+            "value": "https://res.cloudinary.com/dxdblhmbm/image/upload/v1768432576/merry360x/ksv4jk6aw5mxfca19nkc.jpg"
+          },
+          {
+            "id": "bfc018e8-2a15-475d-ac90-208ee41f6799",
+            "column": "image_url",
+            "value": "https://res.cloudinary.com/dxdblhmbm/image/upload/v1768432576/merry360x/ksv4jk6aw5mxfca19nkc.jpg"
+          },
+          {
+            "id": "42dff7c0-3cf9-4d06-9d01-dd04199c41b4",
+            "column": "media_url",
+            "value": "https://res.cloudinary.com/dxdblhmbm/image/upload/v1768454437/merry360x/dtdspajpwnjhdsxliym7.jpg"
+          },
+          {
+            "id": "42dff7c0-3cf9-4d06-9d01-dd04199c41b4",
+            "column": "image_url",
+            "value": "https://res.cloudinary.com/dxdblhmbm/image/upload/v1768454437/merry360x/dtdspajpwnjhdsxliym7.jpg"
+          },
+          {
+            "id": "4f4d6ce6-9117-448e-96fd-5c4d1fa1f3cf",
+            "column": "media_url",
+            "value": "https://res.cloudinary.com/dxdblhmbm/image/upload/v1768542192/merry360x/vtvwnsigrs1s3dr2qxox.jpg"
+          }
+        ],
+        "samplesNew": []
+      },
+      {
+        "table": "host_applications",
+        "columns": [
+          "image_url",
+          "media",
+          "tour_package_data"
+        ],
+        "error": "column host_applications.image_url does not exist",
+        "rowsScanned": 0,
+        "oldCount": 0,
+        "newCount": 0
+      },
+      {
+        "table": "reviews",
+        "columns": [
+          "images"
+        ],
+        "error": "column reviews.images does not exist",
+        "rowsScanned": 0,
+        "oldCount": 0,
+        "newCount": 0
+      },
+      {
+        "table": "support_tickets",
+        "columns": [
+          "attachments"
+        ],
+        "error": "column support_tickets.attachments does not exist",
+        "rowsScanned": 0,
+        "oldCount": 0,
+        "newCount": 0
+      },
+      {
+        "table": "checkout_requests",
+        "columns": [
+          "items"
+        ],
+        "rowsScanned": 17,
+        "oldCount": 0,
+        "newCount": 0,
+        "samplesOld": [],
+        "samplesNew": []
+      }
+    ],
+    "totalOldRefs": 1148,
+    "totalNewRefs": 0
+  }
+}

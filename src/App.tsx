@@ -25,7 +25,6 @@ const Accommodations = lazy(() => import("./pages/Accommodations"));
 const Tours = lazy(() => import("./pages/Tours"));
 const TourDetails = lazy(() => import("./pages/TourDetails"));
 const Transport = lazy(() => import("./pages/Transport"));
-const Stories = lazy(() => import("./pages/Stories"));
 const HostDashboard = lazy(() => import("./pages/HostDashboard"));
 const MyBookings = lazy(() => import("./pages/MyBookings"));
 const Favorites = lazy(() => import("./pages/Favorites"));
@@ -58,6 +57,8 @@ const TermsAndConditions = lazy(() => import("./pages/TermsAndConditions"));
 const SafetyGuidelines = lazy(() => import("./pages/SafetyGuidelines"));
 const RefundPolicy = lazy(() => import("./pages/RefundPolicy"));
 const HelpCenter = lazy(() => import("./pages/HelpCenter"));
+const Stories = lazy(() => import("./pages/Stories"));
+const CreateStory = lazy(() => import("./pages/CreateStory"));
 const AffiliateSignup = lazy(() => import("./pages/AffiliateSignup"));
 const AffiliateDashboard = lazy(() => import("./pages/AffiliateDashboard"));
 const AffiliatePortal = lazy(() => import("./pages/AffiliatePortal"));
@@ -235,12 +236,6 @@ const ROUTE_SEO_CONFIGS: RouteSeoConfig[] = [
     pageType: "CollectionPage",
   },
   {
-    path: "/stories",
-    title: "Travel Stories — Merry360X",
-    description: "Read travel stories, inspiration, and destination highlights from Merry360X.",
-    pageType: "CollectionPage",
-  },
-  {
     path: "/search",
     title: "Search Stays, Tours & Transport — Merry360X",
     description: "Search accommodations, tours, tour packages, and transport by your travel preferences.",
@@ -263,6 +258,12 @@ const ROUTE_SEO_CONFIGS: RouteSeoConfig[] = [
     title: "Help Center — Merry360X",
     description: "Get support articles and booking help from the Merry360X help center.",
     pageType: "WebPage",
+  },
+  {
+    path: "/stories",
+    title: "Travel Stories — Merry360X",
+    description: "Discover stories shared by the Merry360X community.",
+    pageType: "CollectionPage",
   },
   {
     path: "/privacy-policy",
@@ -419,6 +420,14 @@ const App = () => (
               <Route path="/transport" element={<Transport />} />
               <Route path="/services" element={<Navigate to="/" replace />} />
               <Route path="/stories" element={<Stories />} />
+              <Route
+                path="/create-story"
+                element={
+                  <RequireAuth>
+                    <CreateStory />
+                  </RequireAuth>
+                }
+              />
               <Route
                 path="/host-dashboard"
                 element={

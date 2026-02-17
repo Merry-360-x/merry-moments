@@ -227,7 +227,20 @@ export default function TourDetails() {
       .sort((a, b) => b.group_size - a.group_size);
   })();
 
-  if (!isLoading && !tour) {
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-20 text-center">
+          <h1 className="text-2xl font-bold mb-2">{t("common.loading")}</h1>
+          <p className="text-muted-foreground">{t("tourDetails.loading", "Loading tour details...")}</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!tour) {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />

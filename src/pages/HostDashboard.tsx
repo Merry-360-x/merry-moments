@@ -456,6 +456,8 @@ export default function HostDashboard() {
   const [checkoutByOrderId, setCheckoutByOrderId] = useState<Record<string, {
     total_amount: number;
     currency: string | null;
+    base_price_amount?: number | null;
+    service_fee_amount?: number | null;
     metadata?: Record<string, any> | null;
   }>>({});
   const [bookingIdSearch, setBookingIdSearch] = useState("");
@@ -826,19 +828,23 @@ export default function HostDashboard() {
         if (orderIds.length > 0) {
           const { data: checkoutRows } = await supabase
             .from("checkout_requests")
-            .select("id, total_amount, currency, metadata")
+            .select("id, total_amount, currency, base_price_amount, service_fee_amount, metadata")
             .in("id", orderIds);
 
           const map = (checkoutRows || []).reduce((acc, row: any) => {
             acc[row.id] = {
               total_amount: Number(row.total_amount || 0),
               currency: row.currency || null,
+              base_price_amount: row.base_price_amount == null ? null : Number(row.base_price_amount || 0),
+              service_fee_amount: row.service_fee_amount == null ? null : Number(row.service_fee_amount || 0),
               metadata: row.metadata || null,
             };
             return acc;
           }, {} as Record<string, {
             total_amount: number;
             currency: string | null;
+            base_price_amount?: number | null;
+            service_fee_amount?: number | null;
             metadata?: Record<string, any> | null;
           }>);
 
@@ -2028,19 +2034,47 @@ export default function HostDashboard() {
 
   // Stats - use safe defaults
   // Calculate earnings after platform fees
+  const getBookingGuestPaidAmount = useCallback((booking: {
+    id?: string | null;
+    order_id?: string | null;
+    total_price?: number | null;
+  }) => {
+    const listedAmount = Number(booking.total_price || 0);
+    if (Number.isFinite(listedAmount) && listedAmount > 0) return listedAmount;
+
+    if (!booking.order_id) return 0;
+
+    const checkout = checkoutByOrderId[booking.order_id];
+    const checkoutTotal = Number(checkout?.total_amount || 0);
+    if (!Number.isFinite(checkoutTotal) || checkoutTotal <= 0) return 0;
+
+    const orderBookings = (bookings || []).filter((row) => row.order_id === booking.order_id);
+    if (orderBookings.length <= 1) return checkoutTotal;
+
+    const positiveRows = orderBookings.filter((row) => Number(row.total_price || 0) > 0);
+    const positiveTotal = positiveRows.reduce((sum, row) => sum + Number(row.total_price || 0), 0);
+
+    if (positiveRows.length === 0) {
+      return checkoutTotal / orderBookings.length;
+    }
+
+    const missingCount = orderBookings.length - positiveRows.length;
+    if (missingCount <= 0) return 0;
+
+    const remaining = Math.max(0, checkoutTotal - positiveTotal);
+    return remaining / missingCount;
+  }, [bookings, checkoutByOrderId]);
+
   const getBookingAmountAndCurrency = useCallback((booking: Booking) => {
     const checkout = booking.order_id ? checkoutByOrderId[booking.order_id] : null;
-    const amount = Number(booking.total_price || 0);
-    const amountToUse = Number.isFinite(amount) && amount > 0
-      ? amount
-      : Number(checkout?.total_amount || 0);
+    const amountToUse = getBookingGuestPaidAmount(booking);
 
     const currencyToUse = checkout?.currency || booking.currency || 'RWF';
     return {
       amount: Number.isFinite(amountToUse) ? amountToUse : 0,
       currency: String(currencyToUse || 'RWF').toUpperCase(),
     };
-  }, [checkoutByOrderId]);
+  }, [checkoutByOrderId, getBookingGuestPaidAmount]);
 
   const getOriginalListingSubtotal = useCallback((booking: {
     order_id?: string | null;
@@ -2051,7 +2085,7 @@ export default function HostDashboard() {
     tour_id?: string | null;
   }) => {
     const checkout = booking.order_id ? checkoutByOrderId[booking.order_id] : null;
-    const guestPaid = Number(booking.total_price || checkout?.total_amount || 0);
+    const guestPaid = getBookingGuestPaidAmount(booking);
 
     const serviceType: 'accommodation' | 'tour' | 'transport' =
       booking.booking_type === 'property' || Boolean(booking.property_id)
@@ -2064,7 +2098,7 @@ export default function HostDashboard() {
     let bookingDiscountShare = 0;
     if (orderDiscount > 0 && booking.order_id) {
       const orderBookings = (bookings || []).filter((b) => b.order_id === booking.order_id);
-      const orderBookingsTotal = orderBookings.reduce((sum, row) => sum + Number(row.total_price || 0), 0);
+      const orderBookingsTotal = orderBookings.reduce((sum, row) => sum + getBookingGuestPaidAmount(row), 0);
       if (orderBookingsTotal > 0 && guestPaid > 0) {
         bookingDiscountShare = orderDiscount * (guestPaid / orderBookingsTotal);
       }
@@ -2078,7 +2112,7 @@ export default function HostDashboard() {
       currency: String(booking.currency || checkout?.currency || 'RWF').toUpperCase(),
       serviceType,
     };
-  }, [bookings, checkoutByOrderId]);
+  }, [bookings, checkoutByOrderId, getBookingGuestPaidAmount]);
 
   const confirmedBookings = (bookings || []).filter((b) => {
     const status = String(b.status || "").toLowerCase();

@@ -1,0 +1,21 @@
+{
+  "startedAt": "2026-02-16T11:51:37.255Z",
+  "finishedAt": "2026-02-16T11:51:37.255Z",
+  "oldCloud": "dxdblhmbm",
+  "newCloud": "dghg9uebh",
+  "resourceTypes": [
+    "image"
+  ],
+  "pageSize": 100,
+  "maxPagesPerRun": 1,
+  "prefix": null,
+  "stateFile": "tmp/cloudinary-migration-state.json",
+  "stats": {
+    "scanned": 100,
+    "copied": 100,
+    "skippedExisting": 0,
+    "skippedNoUrl": 0,
+    "failed": 0
+  },
+  "failures": []
+}

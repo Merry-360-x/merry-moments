@@ -146,6 +146,7 @@ const allAmenities: AmenityOption[] = [
   
   // Business & Services
   { value: "meeting_room", label: "Meeting Room", icon: Presentation, category: "Services" },
+  { value: "conference_room", label: "Conference Room", icon: Presentation, category: "Services" },
   { value: "reception", label: "24/7 Reception", icon: Phone, category: "Services" },
   { value: "concierge", label: "Concierge Service", icon: Phone, category: "Services" },
   { value: "restaurant", label: "On-site Restaurant", icon: Utensils, category: "Services" },

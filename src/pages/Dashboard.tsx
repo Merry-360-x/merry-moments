@@ -14,7 +14,7 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
-import { CalendarDays, Camera, Heart, LogOut, Mail, Shield, Star, Bell } from "lucide-react";
+import { CalendarDays, Camera, Heart, LogOut, Mail, Shield, Star, Bell, PlusCircle } from "lucide-react";
 import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { extractNeighborhood } from "@/lib/location";
@@ -292,9 +292,19 @@ export default function Dashboard() {
 
       <div className="container mx-auto px-4 lg:px-8 py-10">
         <div className="mb-8">
-          <h1 className="text-2xl lg:text-3xl font-bold text-foreground">My Profile</h1>
-            <p className="text-muted-foreground">Manage your account information and preferences</p>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div>
+              <h1 className="text-2xl lg:text-3xl font-bold text-foreground">My Profile</h1>
+              <p className="text-muted-foreground">Manage your account information and preferences</p>
+            </div>
+            <Link to="/create-story">
+              <Button className="gap-2">
+                <PlusCircle className="w-4 h-4" />
+                Add Story
+              </Button>
+            </Link>
           </div>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left profile card */}

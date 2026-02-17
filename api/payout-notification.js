@@ -44,6 +44,34 @@ function generatePayoutEmailHtml(payout) {
   });
 }
 
+function generateHostPayoutConfirmationHtml(payout) {
+  const createdAt = new Date().toLocaleString("en-US", {
+    weekday: "short",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const methodDisplay = payout.method === "mobile_money" ? "Mobile Money" : "Bank Transfer";
+  const detailsTable = keyValueRows([
+    { label: "Amount", value: `${escapeHtml(payout.currency || "")}&nbsp;${escapeHtml(Number(payout.amount || 0).toLocaleString())}` },
+    { label: "Method", value: escapeHtml(methodDisplay) },
+    { label: "Requested", value: escapeHtml(createdAt) },
+    { label: "Status", value: "Pending review" },
+  ]);
+
+  return renderMinimalEmail({
+    eyebrow: "Payout Request",
+    title: "Your payout request was received",
+    subtitle: "Our team will review and process it shortly.",
+    bodyHtml: detailsTable,
+    ctaText: "Open Host Dashboard",
+    ctaUrl: "https://merry360x.com/host-dashboard",
+  });
+}
+
 export default async function handler(req, res) {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -63,8 +91,8 @@ export default async function handler(req, res) {
 
     console.log("📧 Sending payout notification email for:", payout.amount, payout.currency);
 
-    // Send email notification
-    await sendPayoutEmail(payout, payout.previewTo);
+    // Send email notifications
+    await sendPayoutEmails(payout, payout.previewTo);
 
     return json(res, 200, { success: true, message: "Notification sent" });
   } catch (error) {
@@ -73,14 +101,25 @@ export default async function handler(req, res) {
   }
 }
 
-async function sendPayoutEmail(payout, previewTo) {
+async function sendPayoutEmails(payout, previewTo) {
   if (!BREVO_API_KEY) {
     console.log("⚠️ Brevo API key not configured, skipping email");
     return;
   }
 
-  const htmlContent = generatePayoutEmailHtml(payout);
-  const textContent = `
+  if (previewTo) {
+    await sendBrevoEmail({
+      toEmail: previewTo,
+      toName: "Template Preview",
+      subject: `[Preview] Payout Request: ${payout.currency} ${Number(payout.amount).toLocaleString()} - ${payout.hostName || 'Host'}`,
+      htmlContent: generatePayoutEmailHtml(payout),
+      textContent: `Preview payout request for ${payout.hostName || 'Host'} (${payout.currency} ${Number(payout.amount).toLocaleString()})`,
+    });
+    return;
+  }
+
+  const supportHtml = generatePayoutEmailHtml(payout);
+  const supportText = `
 New Payout Request
 
 Host: ${payout.hostName || 'N/A'} (${payout.hostEmail || 'N/A'})
@@ -92,6 +131,54 @@ Account Name: ${payout.accountName || 'N/A'}
 Process this payout at: https://merry360x.com/admin-dashboard
   `.trim();
 
+  const hostHtml = generateHostPayoutConfirmationHtml(payout);
+  const hostText = `
+Hi ${payout.hostName || 'Host'},
+
+Your payout request has been received.
+Amount: ${payout.currency} ${Number(payout.amount).toLocaleString()}
+Method: ${payout.method === 'mobile_money' ? 'Mobile Money' : 'Bank Transfer'}
+
+Current status: Pending review
+You can track updates in your host dashboard: https://merry360x.com/host-dashboard
+  `.trim();
+
+  const sendTasks = [
+    sendBrevoEmail({
+      toEmail: ADMIN_EMAIL,
+      toName: "Merry Moments Support",
+      subject: `Payout Request: ${payout.currency} ${Number(payout.amount).toLocaleString()} - ${payout.hostName || 'Host'}`,
+      htmlContent: supportHtml,
+      textContent: supportText,
+    }),
+  ];
+
+  if (payout.hostEmail) {
+    sendTasks.push(
+      sendBrevoEmail({
+        toEmail: payout.hostEmail,
+        toName: payout.hostName || "Host",
+        subject: `Payout Request Received: ${payout.currency} ${Number(payout.amount).toLocaleString()}`,
+        htmlContent: hostHtml,
+        textContent: hostText,
+      })
+    );
+  }
+
+  const results = await Promise.allSettled(sendTasks);
+  const supportFailed = results[0]?.status === "rejected";
+  if (supportFailed) {
+    throw results[0].reason;
+  }
+
+  if (results[1]?.status === "rejected") {
+    console.warn("⚠️ Host payout confirmation email failed:", results[1].reason);
+  }
+
+  console.log("✅ Payout notifications sent (support + host where available)");
+}
+
+async function sendBrevoEmail({ toEmail, toName, subject, htmlContent, textContent }) {
   try {
     const response = await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST",
@@ -102,8 +189,8 @@ Process this payout at: https://merry360x.com/admin-dashboard
       },
       body: JSON.stringify({
         sender: { name: "Merry Moments", email: "support@merry360x.com" },
-        to: [{ email: previewTo || ADMIN_EMAIL, name: previewTo ? "Template Preview" : "Merry Moments Admin" }],
-        subject: `${previewTo ? "[Preview] " : ""}Payout Request: ${payout.currency} ${Number(payout.amount).toLocaleString()} - ${payout.hostName || 'Host'}`,
+        to: [{ email: toEmail, name: toName }],
+        subject,
         htmlContent,
         textContent,
       }),
@@ -115,10 +202,10 @@ Process this payout at: https://merry360x.com/admin-dashboard
       throw new Error(result.message || "Failed to send email");
     }
 
-    console.log("✅ Payout notification email sent successfully");
+    console.log("✅ Payout notification email sent successfully:", toEmail);
     return result;
   } catch (error) {
-    console.error("❌ Error sending payout email:", error);
+    console.error("❌ Error sending payout email:", toEmail, error);
     throw error;
   }
 }

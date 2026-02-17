@@ -56,6 +56,9 @@ type PropertyRow = {
   smoking_allowed?: boolean | null;
   events_allowed?: boolean | null;
   pets_allowed?: boolean | null;
+  conference_room_capacity?: number | null;
+  conference_room_min_rooms_required?: number | null;
+  conference_room_equipment?: string[] | null;
 };
 
 const fetchProperty = async (id: string) => {
@@ -335,6 +338,14 @@ export default function PropertyDetails() {
         return merged;
       };
 
+      const toLastNightDate = (checkIn: string, checkOut: string) => {
+        const start = new Date(`${checkIn}T00:00:00`);
+        const end = new Date(`${checkOut}T00:00:00`);
+        end.setDate(end.getDate() - 1);
+        if (end < start) return checkIn;
+        return end.toISOString().slice(0, 10);
+      };
+
       // First try the combined view, fallback to table if view doesn't exist
       const { data: viewData, error: viewError } = await supabase
         .from("property_unavailable_dates")
@@ -372,7 +383,7 @@ export default function PropertyDetails() {
       
       const booked = (bookingsResult.data || []).map(d => ({
         start_date: d.check_in,
-        end_date: d.check_out,
+        end_date: toLastNightDate(d.check_in, d.check_out),
         reason: "Booked",
         source: "booking"
       }));
@@ -419,6 +430,24 @@ export default function PropertyDetails() {
     }
     return null;
   }, [customPrices]);
+
+  const doesStayOverlapBlockedRange = useCallback(
+    (selectedStart: Date, selectedCheckoutExclusive: Date, blockedStart: Date, blockedEndInclusive: Date) => {
+      const normalizedSelectedStart = new Date(selectedStart);
+      const normalizedSelectedCheckout = new Date(selectedCheckoutExclusive);
+      const normalizedBlockedStart = new Date(blockedStart);
+      const normalizedBlockedEndExclusive = new Date(blockedEndInclusive);
+
+      normalizedSelectedStart.setHours(0, 0, 0, 0);
+      normalizedSelectedCheckout.setHours(0, 0, 0, 0);
+      normalizedBlockedStart.setHours(0, 0, 0, 0);
+      normalizedBlockedEndExclusive.setHours(0, 0, 0, 0);
+      normalizedBlockedEndExclusive.setDate(normalizedBlockedEndExclusive.getDate() + 1);
+
+      return normalizedSelectedStart < normalizedBlockedEndExclusive && normalizedSelectedCheckout > normalizedBlockedStart;
+    },
+    []
+  );
 
   // Helper to check if a date falls within any blocked range
   const isDateBlocked = useCallback((date: Date) => {
@@ -483,6 +512,35 @@ export default function PropertyDetails() {
     [blockedDates]
   );
 
+  const isCheckoutDateDisabled = useCallback((date: Date) => {
+    if (!date) return false;
+
+    const candidateCheckout = new Date(date);
+    candidateCheckout.setHours(0, 0, 0, 0);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (candidateCheckout < today) return true;
+
+    if (!checkIn) return false;
+
+    const selectedStart = new Date(checkIn);
+    selectedStart.setHours(0, 0, 0, 0);
+
+    if (candidateCheckout <= selectedStart) return true;
+
+    for (const blocked of blockedDates) {
+      const blockedStart = new Date(blocked.start_date);
+      const blockedEnd = new Date(blocked.end_date);
+
+      if (doesStayOverlapBlockedRange(selectedStart, candidateCheckout, blockedStart, blockedEnd)) {
+        return true;
+      }
+    }
+
+    return false;
+  }, [checkIn, blockedDates, doesStayOverlapBlockedRange]);
+
   // Check if selected dates overlap with blocked dates
   useEffect(() => {
     if (!checkIn || !checkOut || blockedDates.length === 0) return;
@@ -494,8 +552,7 @@ export default function PropertyDetails() {
       const blockedStart = new Date(blocked.start_date);
       const blockedEnd = new Date(blocked.end_date);
       
-      // Check if dates overlap
-      if (selectedStart <= blockedEnd && selectedEnd >= blockedStart) {
+      if (doesStayOverlapBlockedRange(selectedStart, selectedEnd, blockedStart, blockedEnd)) {
         const startDate = blockedStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         const endDate = blockedEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         
@@ -519,7 +576,7 @@ export default function PropertyDetails() {
         break; // Only show one toast
       }
     }
-  }, [checkIn, checkOut, blockedDates, toast]);
+  }, [checkIn, checkOut, blockedDates, toast, doesStayOverlapBlockedRange]);
 
   useEffect(() => {
     if (!propertyId) return;
@@ -542,6 +599,18 @@ export default function PropertyDetails() {
   }, [checkIn, checkOut]);
 
   const media = useMemo(() => (data?.images ?? []).filter(Boolean), [data?.images]);
+  const hasConferenceRoom = useMemo(
+    () =>
+      Boolean(
+        data?.property_type === "Conference Room" ||
+          (data?.amenities || []).includes("conference_room")
+      ),
+    [data?.property_type, data?.amenities]
+  );
+  const conferenceEquipmentLabels = useMemo(
+    () => (data?.conference_room_equipment || []).map((item) => item.replace(/_/g, " ")),
+    [data?.conference_room_equipment]
+  );
 
   const displayMoney = useCallback(
     (amount: number, fromCurrency: string | null) => {
@@ -648,8 +717,7 @@ export default function PropertyDetails() {
       blockedStart.setHours(0, 0, 0, 0);
       blockedEnd.setHours(0, 0, 0, 0);
       
-      // Check if dates overlap
-      if (selectedStart <= blockedEnd && selectedEnd >= blockedStart) {
+      if (doesStayOverlapBlockedRange(selectedStart, selectedEnd, blockedStart, blockedEnd)) {
         const startDate = blockedStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         const endDate = blockedEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         
@@ -1202,6 +1270,25 @@ export default function PropertyDetails() {
                   </div>
                 ) : null}
 
+                {hasConferenceRoom ? (
+                  <div className="mt-4 rounded-lg border border-border p-3">
+                    <div className="text-sm font-semibold text-foreground">Conference room available</div>
+                    <div className="mt-1 text-xs text-muted-foreground space-y-1">
+                      {data.conference_room_capacity ? (
+                        <p>Capacity: {data.conference_room_capacity} people</p>
+                      ) : null}
+                      {typeof data.conference_room_min_rooms_required === "number" ? (
+                        <p>
+                          Minimum rooms to book for access: {Math.max(0, data.conference_room_min_rooms_required)}
+                        </p>
+                      ) : null}
+                      {conferenceEquipmentLabels.length > 0 ? (
+                        <p>Equipment: {conferenceEquipmentLabels.join(", ")}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+
                 <div className="mt-5 flex flex-col sm:flex-row gap-3">
                   <Button variant="outline" onClick={addPropertyToTripCart}>
                     {isInTripCart ? t("common.addedToCart") : t("common.addToTripCart")}
@@ -1504,10 +1591,7 @@ export default function PropertyDetails() {
                             mode="single"
                             selected={checkOut}
                             onSelect={setCheckOut}
-                            disabled={[
-                              ...disabledDates,
-                              ...(checkIn ? [{ before: checkIn }] : [])
-                            ]}
+                            disabled={isCheckoutDateDisabled}
                             modifiers={{ blocked: blockedDateRanges }}
                             modifiersClassNames={{ blocked: "line-through text-destructive font-medium" }}
                             components={{
@@ -1574,6 +1658,20 @@ export default function PropertyDetails() {
                     </p>
                   </div>
                 )}
+
+                {hasConferenceRoom ? (
+                  <div className="mt-3 rounded-md border border-border p-3 text-xs text-muted-foreground">
+                    <p className="font-medium text-foreground mb-1">Conference room policy</p>
+                    {typeof data.conference_room_min_rooms_required === "number" ? (
+                      <p>
+                        Book at least {Math.max(0, data.conference_room_min_rooms_required)} room
+                        {Math.max(0, data.conference_room_min_rooms_required) === 1 ? "" : "s"} to access the conference room.
+                      </p>
+                    ) : (
+                      <p>Conference room access is available with qualifying hotel bookings.</p>
+                    )}
+                  </div>
+                ) : null}
 
                 <div className="mt-4 flex items-center justify-between gap-4">
                   <div className="text-sm text-muted-foreground">

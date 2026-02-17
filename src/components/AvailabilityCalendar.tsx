@@ -114,6 +114,14 @@ export default function AvailabilityCalendar({ propertyId, currency = "RWF", ref
   };
 
   const fetchBlockedDates = async () => {
+    const toLastNightDate = (checkIn: string, checkOut: string) => {
+      const start = new Date(`${checkIn}T00:00:00`);
+      const end = new Date(`${checkOut}T00:00:00`);
+      end.setDate(end.getDate() - 1);
+      if (end < start) return checkIn;
+      return end.toISOString().slice(0, 10);
+    };
+
     // Fetch both manual blocked dates and bookings
     const [blockedResult, bookingsResult] = await Promise.all([
       supabase
@@ -145,13 +153,13 @@ export default function AvailabilityCalendar({ propertyId, currency = "RWF", ref
     // Convert bookings to blocked date format, excluding those already in manual blocks
     const bookingBlocks: BlockedDate[] = (bookingsResult.data || [])
       .filter(b => !manualBlocks.some(m => 
-        m.start_date === b.check_in && m.end_date === b.check_out && m.reason === "Booked"
+        m.start_date === b.check_in && m.reason === "Booked"
       ))
       .map(b => ({
         id: b.id,
         property_id: b.property_id,
         start_date: b.check_in,
-        end_date: b.check_out,
+        end_date: toLastNightDate(b.check_in, b.check_out),
         reason: `Booked (${b.status})`,
         created_at: b.created_at,
         source: "booking" as const

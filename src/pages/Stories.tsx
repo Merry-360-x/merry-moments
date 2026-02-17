@@ -1,1033 +1,907 @@
-import { Plus, MapPin, Heart, MessageCircle, Clock } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { useAuth } from "@/contexts/AuthContext";
-import { useTranslation } from "react-i18next";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
-import { useMemo, useState, useEffect } from "react";
-import { logError, uiErrorMessage } from "@/lib/ui-errors";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { Heart, MessageCircle, Send, Volume2, VolumeX, X } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
-const Stories = () => {
-  const { t } = useTranslation();
-  const { user, isLoading: authLoading } = useAuth();
+type StoryRow = {
+  id: string;
+  title: string;
+  body: string;
+  location: string | null;
+  media_url: string | null;
+  media_type: string | null;
+  image_url: string | null;
+  user_id: string;
+  created_at: string | null;
+};
+
+type AuthorRow = {
+  user_id: string;
+  full_name: string | null;
+  nickname: string | null;
+  avatar_url: string | null;
+};
+
+type StoryWithAuthor = StoryRow & {
+  authorName: string;
+  authorAvatar: string | null;
+};
+
+type StoryLikeRow = {
+  story_id: string;
+  user_id: string;
+};
+
+type StoryCommentRow = {
+  id: string;
+  story_id: string;
+  user_id: string;
+  comment_text: string;
+  created_at: string;
+};
+
+type StoryGroup = {
+  userId: string;
+  authorName: string;
+  authorAvatar: string | null;
+  stories: StoryWithAuthor[];
+};
+
+const VIEWED_STORIES_KEY = "viewed_story_ids";
+const IMAGE_STORY_DURATION_MS = 5500;
+
+const isVideo = (url?: string | null) => {
+  if (!url) return false;
+  return /\/video\/upload\//i.test(url) || /\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i.test(url);
+};
+
+export default function Stories() {
+  const { user, isAdmin } = useAuth();
   const { toast } = useToast();
-  const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [location, setLocation] = useState("");
-  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
-  const mediaType = useMemo(() => (mediaUrl ? (/\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i.test(mediaUrl) || /\/video\/upload\//i.test(mediaUrl) ? "video" : "image") : null), [mediaUrl]);
-  const [saving, setSaving] = useState(false);
+  const queryClient = useQueryClient();
   const [viewerOpen, setViewerOpen] = useState(false);
-  const [activeStoryId, setActiveStoryId] = useState<string | null>(null);
-  const [commentText, setCommentText] = useState("");
-  const [showComments, setShowComments] = useState(false);
-  const [floatingCommentsOpen, setFloatingCommentsOpen] = useState(false);
-  const [floatingCommentsStoryId, setFloatingCommentsStoryId] = useState<string | null>(null);
-
-  const canPost = Boolean(user?.id) && !authLoading;
+  const [activeGroupIndex, setActiveGroupIndex] = useState(0);
+  const [activeStoryIndex, setActiveStoryIndex] = useState(0);
+  const [activeProgress, setActiveProgress] = useState(0);
+  const [isHolding, setIsHolding] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+  const [commentDraft, setCommentDraft] = useState("");
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [deletingStoryId, setDeletingStoryId] = useState<string | null>(null);
+  const [viewedIds, setViewedIds] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set<string>();
+    try {
+      const raw = localStorage.getItem(VIEWED_STORIES_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(parsed)) return new Set<string>();
+      return new Set(parsed as string[]);
+    } catch {
+      return new Set<string>();
+    }
+  });
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const holdStartRef = useRef<number | null>(null);
+  const suppressTapUntilRef = useRef<number>(0);
+  const touchStartRef = useRef<{ x: number; y: number; at: number } | null>(null);
 
   const { data: stories = [], isLoading } = useQuery({
-    queryKey: ["stories"],
+    queryKey: ["stories", "public-feed"],
     queryFn: async () => {
-      // Fetch all stories - no expiration time limit
       const { data, error } = await supabase
         .from("stories")
         .select("id, title, body, location, media_url, media_type, image_url, user_id, created_at")
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(100);
       if (error) throw error;
-      return (data ?? []) as Array<{
-        id: string;
-        title: string;
-        body: string;
-        location: string | null;
-        media_url: string | null;
-        media_type: string | null;
-        image_url: string | null;
-        user_id: string;
-        created_at: string;
-      }>;
+      return (data ?? []) as StoryRow[];
     },
   });
 
-  const { data: authorProfiles = {} } = useQuery({
-    queryKey: ["stories-authors", stories.map((s) => s.user_id).join("|")],
-    enabled: stories.length > 0,
+  const storyIds = useMemo(() => stories.map((story) => story.id), [stories]);
+
+  const { data: storyLikes = [] } = useQuery({
+    queryKey: ["stories", "likes", storyIds.join("|")],
+    enabled: storyIds.length > 0,
     queryFn: async () => {
-      const ids = Array.from(new Set(stories.map((s) => s.user_id)));
+      const { data, error } = await supabase
+        .from("story_likes")
+        .select("story_id, user_id")
+        .in("story_id", storyIds);
+      if (error) throw error;
+      return (data ?? []) as StoryLikeRow[];
+    },
+  });
+
+  const { data: storyComments = [] } = useQuery({
+    queryKey: ["stories", "comments", storyIds.join("|")],
+    enabled: storyIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("story_comments")
+        .select("id, story_id, user_id, comment_text, created_at")
+        .in("story_id", storyIds)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as StoryCommentRow[];
+    },
+  });
+
+  const profileIds = useMemo(() => {
+    const ids = new Set<string>();
+    stories.forEach((story) => ids.add(story.user_id));
+    storyComments.forEach((comment) => ids.add(comment.user_id));
+    return Array.from(ids);
+  }, [stories, storyComments]);
+
+  const { data: authors = [] } = useQuery({
+    queryKey: ["stories", "authors", profileIds.join("|")],
+    enabled: profileIds.length > 0,
+    queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("user_id, full_name, avatar_url")
-        .in("user_id", ids);
-      if (error) return {};
-      const map: Record<string, { full_name: string | null; avatar_url: string | null }> = {};
-      (data ?? []).forEach((p) => {
-        map[String((p as { user_id: string }).user_id)] = {
-          full_name: (p as { full_name: string | null }).full_name ?? null,
-          avatar_url: (p as { avatar_url: string | null }).avatar_url ?? null,
-        };
-      });
-      return map;
-    },
-  });
-
-  const activeStory = useMemo(
-    () => stories.find((s) => s.id === activeStoryId) || null,
-    [stories, activeStoryId]
-  );
-
-  // Get likes for active story
-  const { data: likesData = [], refetch: refetchLikes } = useQuery({
-    queryKey: ["story-likes", activeStoryId],
-    queryFn: async () => {
-      if (!activeStoryId) return [];
-      const { data, error } = await supabase
-        .from("story_likes")
-        .select("id, user_id")
-        .eq("story_id", activeStoryId);
+        .select("user_id, full_name, nickname, avatar_url")
+        .in("user_id", profileIds);
       if (error) throw error;
-      return data || [];
+      return (data ?? []) as AuthorRow[];
     },
-    enabled: !!activeStoryId,
   });
 
-  // Get comments for active story
-  const { data: commentsData = [], refetch: refetchComments } = useQuery({
-    queryKey: ["story-comments", activeStoryId],
-    queryFn: async () => {
-      if (!activeStoryId) return [];
-      console.log("[Stories] Fetching comments for story:", activeStoryId);
-      const { data, error } = await supabase
-        .from("story_comments")
-        .select(`
-          id, comment_text, created_at, user_id,
-          profiles:user_id (full_name, avatar_url)
-        `)
-        .eq("story_id", activeStoryId)
-        .order("created_at", { ascending: true });
-      if (error) {
-        console.error("[Stories] Error fetching comments:", error);
-        throw error;
+  const authorMap = useMemo(() => {
+    const map = new Map<string, AuthorRow>();
+    authors.forEach((author) => map.set(author.user_id, author));
+    return map;
+  }, [authors]);
+
+  const storiesWithAuthor = useMemo<StoryWithAuthor[]>(() => {
+    return stories.map((story) => {
+      const author = authorMap.get(story.user_id);
+      return {
+        ...story,
+        authorName: author?.nickname || author?.full_name || "Traveler",
+        authorAvatar: author?.avatar_url || null,
+      };
+    });
+  }, [stories, authorMap]);
+
+  const storyGroups = useMemo<StoryGroup[]>(() => {
+    const grouped = new Map<string, StoryGroup>();
+
+    storiesWithAuthor.forEach((story) => {
+      if (!grouped.has(story.user_id)) {
+        grouped.set(story.user_id, {
+          userId: story.user_id,
+          authorName: story.authorName,
+          authorAvatar: story.authorAvatar,
+          stories: [],
+        });
       }
-      console.log("[Stories] Fetched comments:", data?.length || 0, "comments");
-      return data || [];
-    },
-    enabled: !!activeStoryId,
-  });
 
-  // Get comments for floating comment section
-  const { data: floatingCommentsData = [], refetch: refetchFloatingComments } = useQuery({
-    queryKey: ["floating-story-comments", floatingCommentsStoryId],
-    queryFn: async () => {
-      if (!floatingCommentsStoryId) return [];
-      const { data, error } = await supabase
-        .from("story_comments")
-        .select(`
-          id, comment_text, created_at, user_id,
-          profiles:user_id (full_name, avatar_url)
-        `)
-        .eq("story_id", floatingCommentsStoryId)
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!floatingCommentsStoryId && floatingCommentsOpen,
-  });
+      grouped.get(story.user_id)?.stories.push(story);
+    });
 
-  // Get engagement counts for all stories
-  const { data: engagementCounts = {} } = useQuery({
-    queryKey: ["story-engagement-counts", stories.map(s => s.id).join("|")],
-    queryFn: async () => {
-      if (stories.length === 0) return {};
-      
-      const storyIds = stories.map(s => s.id);
-      
-      // Get likes count for all stories
-      const { data: likesData, error: likesError } = await supabase
-        .from("story_likes")
-        .select("story_id")
-        .in("story_id", storyIds);
-      
-      // Get comments count for all stories
-      const { data: commentsData, error: commentsError } = await supabase
-        .from("story_comments")
-        .select("story_id")
-        .in("story_id", storyIds);
-      
-      if (likesError || commentsError) {
-        console.warn("Error fetching engagement:", { likesError, commentsError });
-        return {};
+    return Array.from(grouped.values()).map((group) => ({
+      ...group,
+      stories: [...group.stories].sort((a, b) => {
+        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return timeA - timeB;
+      }),
+    }));
+  }, [storiesWithAuthor]);
+
+  const activeGroup = storyGroups[activeGroupIndex] || null;
+  const activeStory = activeGroup?.stories[activeStoryIndex] || null;
+  const activeMedia = activeStory ? activeStory.media_url || activeStory.image_url : null;
+  const activeStoryIsVideo = activeStory ? activeStory.media_type === "video" || isVideo(activeMedia) : false;
+
+  const likeCountByStory = useMemo(() => {
+    const counts = new Map<string, number>();
+    storyLikes.forEach((like) => {
+      counts.set(like.story_id, (counts.get(like.story_id) || 0) + 1);
+    });
+    return counts;
+  }, [storyLikes]);
+
+  const likedStoryIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (!user) return ids;
+    storyLikes.forEach((like) => {
+      if (like.user_id === user.id) ids.add(like.story_id);
+    });
+    return ids;
+  }, [storyLikes, user]);
+
+  const commentsByStory = useMemo(() => {
+    const map = new Map<string, StoryCommentRow[]>();
+    storyComments.forEach((comment) => {
+      if (!map.has(comment.story_id)) {
+        map.set(comment.story_id, []);
       }
-      
-      // Count engagement for each story
-      const counts: Record<string, { likes: number; comments: number }> = {};
-      
-      storyIds.forEach(id => {
-        counts[id] = {
-          likes: (likesData || []).filter(like => like.story_id === id).length,
-          comments: (commentsData || []).filter(comment => comment.story_id === id).length
-        };
-      });
-      
-      return counts;
-    },
-    enabled: stories.length > 0,
-  });
+      map.get(comment.story_id)?.push(comment);
+    });
+    return map;
+  }, [storyComments]);
 
-  // Real-time subscriptions for likes and comments
-  useEffect(() => {
-    if (!activeStoryId) return;
+  const commentCountByStory = useMemo(() => {
+    const counts = new Map<string, number>();
+    commentsByStory.forEach((entries, storyId) => counts.set(storyId, entries.length));
+    return counts;
+  }, [commentsByStory]);
 
-    console.log("[Stories] Setting up real-time subscriptions for story:", activeStoryId);
-
-    // Subscribe to likes for active story
-    const likesChannel = supabase
-      .channel(`story-likes-${activeStoryId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'story_likes',
-          filter: `story_id=eq.${activeStoryId}`
-        },
-        (payload) => {
-          console.log("[Stories] Likes change detected:", payload);
-          refetchLikes();
-          qc.invalidateQueries({ queryKey: ["story-engagement-counts"] });
-        }
-      )
-      .subscribe();
-
-    // Subscribe to comments for active story
-    const commentsChannel = supabase
-      .channel(`story-comments-${activeStoryId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'story_comments',
-          filter: `story_id=eq.${activeStoryId}`
-        },
-        (payload) => {
-          console.log("[Stories] Comments change detected:", payload);
-          refetchComments();
-          if (floatingCommentsStoryId === activeStoryId) {
-            refetchFloatingComments();
-          }
-          qc.invalidateQueries({ queryKey: ["story-engagement-counts"] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      console.log("[Stories] Cleaning up real-time subscriptions");
-      supabase.removeChannel(likesChannel);
-      supabase.removeChannel(commentsChannel);
-    };
-  }, [activeStoryId, floatingCommentsStoryId, refetchLikes, refetchComments, refetchFloatingComments, qc]);
-
-  const openFloatingComments = (storyId: string) => {
-    setFloatingCommentsStoryId(storyId);
-    setFloatingCommentsOpen(true);
+  const canDeleteStory = (story: StoryWithAuthor | StoryRow | null | undefined) => {
+    if (!story || !user) return false;
+    return isAdmin || story.user_id === user.id;
   };
 
-  const closeFloatingComments = () => {
-    setFloatingCommentsOpen(false);
-    setFloatingCommentsStoryId(null);
+  const saveViewed = (nextSet: Set<string>) => {
+    setViewedIds(new Set(nextSet));
+    if (typeof window === "undefined") return;
+    localStorage.setItem(VIEWED_STORIES_KEY, JSON.stringify(Array.from(nextSet)));
   };
 
-  const reset = () => {
-    setLocation("");
-    setBody("");
-    setMediaUrl(null);
+  const markStoryViewed = (storyId: string) => {
+    const next = new Set(viewedIds);
+    next.add(storyId);
+    saveViewed(next);
   };
 
-  const handleLike = async () => {
-    if (!user || !activeStoryId) {
-      toast({ variant: "destructive", title: "Sign in required", description: "Please sign in to like stories." });
+  const openGroupViewer = (groupIndex: number, storyIndex = 0) => {
+    setActiveGroupIndex(groupIndex);
+    setActiveStoryIndex(storyIndex);
+    setViewerOpen(true);
+  };
+
+  const goToNextStory = () => {
+    if (!activeGroup || !activeStory) return;
+    markStoryViewed(activeStory.id);
+
+    const hasNextInGroup = activeStoryIndex < activeGroup.stories.length - 1;
+    if (hasNextInGroup) {
+      setActiveStoryIndex((prev) => prev + 1);
       return;
     }
 
+    const hasNextGroup = activeGroupIndex < storyGroups.length - 1;
+    if (hasNextGroup) {
+      setActiveGroupIndex((prev) => prev + 1);
+      setActiveStoryIndex(0);
+      return;
+    }
+
+    setViewerOpen(false);
+  };
+
+  const goToPreviousStory = () => {
+    if (!activeGroup) return;
+
+    const hasPreviousInGroup = activeStoryIndex > 0;
+    if (hasPreviousInGroup) {
+      setActiveStoryIndex((prev) => prev - 1);
+      return;
+    }
+
+    const hasPreviousGroup = activeGroupIndex > 0;
+    if (hasPreviousGroup) {
+      const previousGroup = storyGroups[activeGroupIndex - 1];
+      setActiveGroupIndex((prev) => prev - 1);
+      setActiveStoryIndex(Math.max(0, previousGroup.stories.length - 1));
+    }
+  };
+
+  useEffect(() => {
+    if (!viewerOpen || !activeStory) return;
+    markStoryViewed(activeStory.id);
+  }, [viewerOpen, activeStory?.id]);
+
+  useEffect(() => {
+    if (!viewerOpen || !activeStory || activeStoryIsVideo) return;
+
+    if (isHolding) return;
+
+    const stepMs = 50;
+    const progressPerStep = (100 * stepMs) / IMAGE_STORY_DURATION_MS;
+    const timer = window.setInterval(() => {
+      setActiveProgress((prev) => Math.min(100, prev + progressPerStep));
+    }, stepMs);
+
+    return () => window.clearInterval(timer);
+  }, [viewerOpen, activeStory?.id, activeStoryIsVideo, isHolding]);
+
+  useEffect(() => {
+    if (!viewerOpen || !activeStory || activeStoryIsVideo) return;
+    if (isHolding) return;
+    if (activeProgress < 100) return;
+    goToNextStory();
+  }, [viewerOpen, activeStory?.id, activeStoryIsVideo, activeProgress, isHolding]);
+
+  useEffect(() => {
+    if (!viewerOpen || !activeStory) return;
+
+    setIsHolding(false);
+
+    if (activeStoryIsVideo) {
+      setActiveProgress(0);
+      return;
+    }
+
+    setActiveProgress(0);
+  }, [viewerOpen, activeStory?.id, activeStoryIsVideo]);
+
+  useEffect(() => {
+    if (!viewerOpen || !activeStory) return;
+    setCommentDraft("");
+  }, [viewerOpen, activeStory?.id]);
+
+  useEffect(() => {
+    if (!viewerOpen || !activeStory || !activeStoryIsVideo || !videoRef.current) return;
+
+    const video = videoRef.current;
+    const syncProgress = () => {
+      if (!video.duration || !Number.isFinite(video.duration) || video.duration <= 0) {
+        setActiveProgress(0);
+        return;
+      }
+      setActiveProgress(Math.min(100, (video.currentTime / video.duration) * 100));
+    };
+
+    video.addEventListener("timeupdate", syncProgress);
+    video.addEventListener("loadedmetadata", syncProgress);
+    syncProgress();
+
+    return () => {
+      video.removeEventListener("timeupdate", syncProgress);
+      video.removeEventListener("loadedmetadata", syncProgress);
+    };
+  }, [viewerOpen, activeStory?.id, activeStoryIsVideo]);
+
+  const handleHoldStart = () => {
+    if (!viewerOpen) return;
+    holdStartRef.current = Date.now();
+    setIsHolding(true);
+    if (activeStoryIsVideo && videoRef.current && !videoRef.current.paused) {
+      videoRef.current.pause();
+    }
+  };
+
+  const handleHoldEnd = (direction: "next" | "prev") => {
+    if (!viewerOpen) return;
+    const startedAt = holdStartRef.current;
+    holdStartRef.current = null;
+
+    setIsHolding(false);
+
+    if (activeStoryIsVideo && videoRef.current && videoRef.current.paused) {
+      void videoRef.current.play().catch(() => null);
+    }
+
+    if (Date.now() < suppressTapUntilRef.current) return;
+
+    const heldMs = startedAt ? Date.now() - startedAt : 0;
+    const isTap = heldMs < 180;
+
+    if (!isTap) return;
+    if (direction === "next") goToNextStory();
+    else goToPreviousStory();
+  };
+
+  const handleViewerTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (event.touches.length !== 1) return;
+    const touch = event.touches[0];
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY, at: Date.now() };
+  };
+
+  const handleViewerTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+    if (!start) return;
+    if (event.changedTouches.length !== 1) return;
+
+    const touch = event.changedTouches[0];
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    const duration = Date.now() - start.at;
+
+    const isHorizontalSwipe = Math.abs(deltaX) >= 50 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2 && duration < 700;
+    if (!isHorizontalSwipe) return;
+
+    suppressTapUntilRef.current = Date.now() + 250;
+
+    if (deltaX < 0) goToNextStory();
+    else goToPreviousStory();
+  };
+
+  useEffect(() => {
+    if (!viewerOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setViewerOpen(false);
+      if (event.key === "ArrowRight") goToNextStory();
+      if (event.key === "ArrowLeft") goToPreviousStory();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [viewerOpen, goToNextStory, goToPreviousStory]);
+
+  const deleteStory = async (story: StoryWithAuthor | StoryRow) => {
+    if (!user || !canDeleteStory(story)) return;
+    const confirmed = window.confirm("Delete this story?");
+    if (!confirmed) return;
+
+    setDeletingStoryId(story.id);
     try {
-      const userLiked = likesData.some(like => like.user_id === user.id);
-      
-      if (userLiked) {
-        // Unlike
+      let query = supabase.from("stories").delete().eq("id", story.id);
+      if (!isAdmin) {
+        query = query.eq("user_id", user.id);
+      }
+      const { error } = await query;
+      if (error) throw error;
+
+      toast({ title: "Story deleted" });
+
+      if (activeStory?.id === story.id) {
+        setViewerOpen(false);
+      }
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["stories", "public-feed"] }),
+        queryClient.invalidateQueries({ queryKey: ["stories"] }),
+      ]);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Delete failed",
+        description: error instanceof Error ? error.message : "Unable to delete story.",
+      });
+    } finally {
+      setDeletingStoryId(null);
+    }
+  };
+
+  const toggleLike = async (storyId: string) => {
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Login required",
+        description: "Please sign in to like stories.",
+      });
+      return;
+    }
+
+    const hasLiked = likedStoryIds.has(storyId);
+    try {
+      if (hasLiked) {
         const { error } = await supabase
           .from("story_likes")
           .delete()
-          .eq("story_id", activeStoryId)
+          .eq("story_id", storyId)
           .eq("user_id", user.id);
         if (error) throw error;
-        
-        console.log("[Stories] Story unliked successfully");
       } else {
-        // Like
-        const { error } = await supabase
-          .from("story_likes")
-          .insert({ story_id: activeStoryId, user_id: user.id });
+        const { error } = await supabase.from("story_likes").insert({ story_id: storyId, user_id: user.id });
         if (error) throw error;
-        
-        console.log("[Stories] Story liked successfully");
       }
-      
-      // Real-time subscription will handle the refetch
-    } catch (e) {
-      logError("story.like", e);
-      toast({ variant: "destructive", title: "Error", description: "Could not update like." });
-    }
-  };
 
-  const handleComment = async () => {
-    if (!user || !activeStoryId || !commentText.trim()) {
-      if (!user) {
-        toast({ variant: "destructive", title: "Sign in required", description: "Please sign in to comment." });
-      }
-      return;
-    }
-
-    try {
-      console.log("[Stories] Posting comment to story:", activeStoryId);
-      
-      const commentToPost = commentText.trim();
-      setCommentText(""); // Clear immediately for better UX
-      
-      const { data: insertedComment, error } = await supabase
-        .from("story_comments")
-        .insert({ 
-          story_id: activeStoryId, 
-          user_id: user.id,
-          comment_text: commentToPost
-        })
-        .select(`
-          id, comment_text, created_at, user_id,
-          profiles:user_id (full_name, avatar_url)
-        `)
-        .single();
-      
-      if (error) throw error;
-      
-      console.log("[Stories] Comment inserted successfully:", insertedComment);
-      
-      // Immediate UI update - no need to wait for refetch
-      toast({ title: "Comment added!", description: "Your comment has been posted." });
-      
-      // Refetch will happen via real-time subscription
-    } catch (e) {
-      logError("story.comment", e);
-      toast({ variant: "destructive", title: "Error", description: "Could not add comment." });
-      // Restore comment text on error
-      setCommentText(commentText);
-    }
-  };
-
-  const submit = async () => {
-    if (!user) {
-      toast({ variant: "destructive", title: "Sign in required", description: "Please sign in to post a story." });
-      return;
-    }
-    if (!body.trim()) {
-      toast({ variant: "destructive", title: "Missing info", description: "Please add a caption." });
-      return;
-    }
-    if (!mediaUrl) {
-      toast({ variant: "destructive", title: "Missing media", description: "Please upload an image or video." });
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const { error } = await supabase.from("stories").insert({
-        user_id: user.id,
-        title: body.trim().substring(0, 100), // Use first part of caption as title
-        location: location.trim() || null,
-        body: body.trim(),
-        media_url: mediaUrl,
-        media_type: mediaType,
-        // Backward compatibility: keep image_url populated for image stories
-        image_url: mediaType === "image" ? mediaUrl : null,
-      });
-      if (error) throw error;
-      toast({ title: "Story posted" });
-      setOpen(false);
-      reset();
-      await qc.invalidateQueries({ queryKey: ["stories"] });
-    } catch (e) {
-      logError("stories.insert", e);
+      await queryClient.invalidateQueries({ queryKey: ["stories", "likes"] });
+    } catch (error) {
       toast({
         variant: "destructive",
-        title: "Could not post story",
-        description: uiErrorMessage(e, "Please try again."),
+        title: "Action failed",
+        description: error instanceof Error ? error.message : "Could not update like.",
+      });
+    }
+  };
+
+  const submitComment = async () => {
+    if (!activeStory) return;
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Login required",
+        description: "Please sign in to comment on stories.",
+      });
+      return;
+    }
+
+    const text = commentDraft.trim();
+    if (!text) return;
+
+    setIsSubmittingComment(true);
+    try {
+      const { error } = await supabase.from("story_comments").insert({
+        story_id: activeStory.id,
+        user_id: user.id,
+        comment_text: text,
+      });
+      if (error) throw error;
+
+      setCommentDraft("");
+      await queryClient.invalidateQueries({ queryKey: ["stories", "comments"] });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Comment failed",
+        description: error instanceof Error ? error.message : "Could not send comment.",
       });
     } finally {
-      setSaving(false);
+      setIsSubmittingComment(false);
     }
-  };
-
-  const heroSubtitle = useMemo(
-    () => (canPost ? t("stories.createDesc") : t("stories.title")),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [canPost]
-  );
-
-  const markViewed = (id: string) => {
-    try {
-      const raw = localStorage.getItem("viewed_story_ids");
-      const set = new Set<string>(raw ? JSON.parse(raw) : []);
-      set.add(id);
-      localStorage.setItem("viewed_story_ids", JSON.stringify(Array.from(set)));
-    } catch {
-      // ignore
-    }
-  };
-
-  const isViewed = (id: string) => {
-    try {
-      const raw = localStorage.getItem("viewed_story_ids");
-      const set = new Set<string>(raw ? JSON.parse(raw) : []);
-      return set.has(id);
-    } catch {
-      return false;
-    }
-  };
-
-  const openViewer = (id: string) => {
-    setActiveStoryId(id);
-    setViewerOpen(true);
-    markViewed(id);
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Navbar />
-
-      {/* Hero */}
-      <section className="bg-gradient-primary py-12 px-4 lg:px-8">
-        <div className="container mx-auto">
-          <h1 className="text-2xl lg:text-3xl font-bold text-primary-foreground mb-6">{t("stories.title")}</h1>
-          <p className="text-primary-foreground/90 mb-6">{heroSubtitle}</p>
-
-          {/* Stories row (Instagram-style) */}
-          <div className="flex items-center gap-4 overflow-x-auto pb-2">
-            <button
-              className="flex flex-col items-center gap-2 group disabled:opacity-60"
-              onClick={() => setOpen(true)}
-              disabled={!canPost}
-              type="button"
-            >
-              <div className="w-16 h-16 rounded-full bg-primary-foreground flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Plus className="w-6 h-6 text-primary" />
-              </div>
-              <span className="text-sm text-primary-foreground">{canPost ? t("stories.yourStory") : t("stories.signInToPost")}</span>
-            </button>
-
-            {stories.slice(0, 12).map((s) => {
-              const author = authorProfiles[s.user_id];
-              const media = s.media_url || s.image_url;
-              const viewed = isViewed(s.id);
-              const ring = viewed ? "bg-muted/40" : "bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-400";
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => openViewer(s.id)}
-                  className="flex flex-col items-center gap-2"
-                >
-                  <div className={`p-[2px] rounded-full ${ring}`}>
-                    <div className="w-16 h-16 rounded-full bg-background flex items-center justify-center overflow-hidden">
-                      {media ? (
-                        /\/video\/upload\//i.test(media) || (s.media_type === "video") ? (
-                          <video
-                            src={media}
-                            className="w-full h-full object-cover"
-                            muted
-                            playsInline
-                            preload="metadata"
-                          />
-                        ) : (
-                          <img src={media} alt={s.title} className="w-full h-full object-cover" loading="lazy" />
-                        )
-                      ) : author?.avatar_url ? (
-                        <img src={author.avatar_url} alt={author.full_name ?? "Traveler"} className="w-full h-full object-cover" loading="lazy" />
-                      ) : (
-                        <div className="w-full h-full bg-muted" />
-                      )}
-                    </div>
-                  </div>
-                  <span className="text-xs text-primary-foreground max-w-[72px] truncate">
-                    {author?.full_name ?? "Traveler"}
-                  </span>
-                </button>
-              );
-            })}
+      <main className="flex-1 container mx-auto max-w-5xl px-4 lg:px-8 py-10">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-8">
+          <div>
+            <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Stories</h1>
+            <p className="text-muted-foreground">Status-style stories from the community.</p>
           </div>
+          <Link to={user ? "/create-story" : "/auth?redirect=/create-story"}>
+            <Button>Add Story</Button>
+          </Link>
         </div>
-      </section>
 
-      {/* Stories Content */}
-      <section className="container mx-auto px-4 lg:px-8 py-12">
-        {/* {isLoading ? (
-          <div className="py-20 text-center">
-            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-muted-foreground">Loading stories…</p>
-          </div>
-        ) : */ stories.length === 0 ? (
-          <div className="bg-card rounded-xl p-10 shadow-card text-center">
-            <h2 className="text-xl font-semibold text-foreground mb-2">No stories yet</h2>
-            <p className="text-muted-foreground max-w-xl mx-auto">
-              Be the first to share a travel moment.
-            </p>
-          </div>
+        {isLoading ? (
+          <Card className="p-8 text-center text-muted-foreground">Loading stories...</Card>
+        ) : stories.length === 0 ? (
+          <Card className="p-8 text-center">
+            <p className="text-lg font-medium text-foreground">No stories yet</p>
+            <p className="text-muted-foreground mt-2">Be the first to share one.</p>
+          </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {stories.map((s) => {
-              const author = authorProfiles[s.user_id];
-              const media = s.media_url || s.image_url;
-              return (
-                <div 
-                  key={s.id} 
-                  className="relative bg-card rounded-2xl shadow-card overflow-hidden cursor-pointer group hover:shadow-lg transition-all duration-300 hover:scale-[1.02]"
-                  onClick={() => openViewer(s.id)}
-                >
-                  {/* Media Background */}
-                  <div className="relative h-80">
-                    {media ? (
-                      (/\/video\/upload\//i.test(String(media)) || s.media_type === "video" ? (
-                        <video
-                          src={String(media)}
-                          className="w-full h-full object-cover"
-                          muted
-                          loop
-                          playsInline
-                          preload="metadata"
-                        />
-                      ) : (
-                        <img
-                          src={String(media)}
-                          alt={s.title}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
-                      ))
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-primary/20 via-primary/10 to-primary/5" />
-                    )}
-                    
-                    {/* Gradient Overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/70" />
-                    
-                    {/* Author Info - Top */}
-                    <div className="absolute top-4 left-4 right-4 flex items-center gap-3">
-                      {author?.avatar_url ? (
-                        <img
-                          src={author.avatar_url}
-                          alt={author.full_name ?? "Traveler"}
-                          className="w-10 h-10 rounded-full object-cover border-2 border-white/50"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full bg-white/20 border-2 border-white/50" />
-                      )}
-                      <div>
-                        <div className="text-white text-sm font-medium drop-shadow-sm">
-                          {author?.full_name ?? "Traveler"}
-                        </div>
-                        <div className="text-white/80 text-xs drop-shadow-sm flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                        </div>
+          <div className="space-y-8">
+            <div className="flex items-start gap-4 overflow-x-auto pb-2">
+              {storyGroups.map((group, groupIndex) => {
+                const latestStory = group.stories[group.stories.length - 1];
+                const latestMedia = latestStory.media_url || latestStory.image_url;
+                const allSeen = group.stories.every((story) => viewedIds.has(story.id));
+                return (
+                  <button
+                    key={group.userId}
+                    type="button"
+                    onClick={() => openGroupViewer(groupIndex, 0)}
+                    className="flex flex-col items-center gap-2 min-w-[74px]"
+                  >
+                    <div className={`p-[2px] rounded-full ${allSeen ? "bg-muted" : "bg-primary"}`}>
+                      <div className="w-16 h-16 rounded-full overflow-hidden bg-background border border-border">
+                        {latestMedia ? (
+                          isVideo(latestMedia) || latestStory.media_type === "video" ? (
+                            <video src={latestMedia} className="w-full h-full object-cover" muted preload="metadata" />
+                          ) : (
+                            <img src={latestMedia} alt={group.authorName} className="w-full h-full object-cover" loading="lazy" />
+                          )
+                        ) : (
+                          <Avatar className="w-full h-full rounded-none">
+                            <AvatarImage src={group.authorAvatar || undefined} alt={group.authorName} />
+                            <AvatarFallback>{group.authorName.slice(0, 1).toUpperCase()}</AvatarFallback>
+                          </Avatar>
+                        )}
                       </div>
                     </div>
-                    
-                    {/* Content Overlay - Bottom */}
-                    <div className="absolute bottom-0 left-0 right-0 p-4">
-                      {/* Caption */}
-                      <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 mb-3">
-                        <p className="text-white text-sm leading-relaxed line-clamp-3 drop-shadow-sm">
-                          {s.body}
+                    <span className="text-xs text-foreground truncate max-w-[72px]">{group.authorName}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div>
+              <h2 className="text-lg font-semibold text-foreground mb-4">Recent Stories</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {storiesWithAuthor.map((story) => {
+                  const mediaUrl = story.media_url || story.image_url;
+                  const groupIndex = storyGroups.findIndex((group) => group.userId === story.user_id);
+                  const storyIndex = storyGroups[groupIndex]?.stories.findIndex((entry) => entry.id === story.id) ?? 0;
+                  const likeCount = likeCountByStory.get(story.id) || 0;
+                  const commentCount = commentCountByStory.get(story.id) || 0;
+                  const hasLiked = likedStoryIds.has(story.id);
+                  const latestComment = commentsByStory.get(story.id)?.[0] || null;
+                  const latestCommentAuthor = latestComment ? authorMap.get(latestComment.user_id) : null;
+
+                  return (
+                    <Card
+                      key={story.id}
+                      className="overflow-hidden cursor-pointer"
+                      onClick={() => {
+                        if (groupIndex >= 0) openGroupViewer(groupIndex, Math.max(0, storyIndex));
+                      }}
+                    >
+                      {mediaUrl ? (
+                        <div className="aspect-[16/10] bg-muted">
+                          {isVideo(mediaUrl) || story.media_type === "video" ? (
+                            <video src={mediaUrl} className="w-full h-full object-cover" preload="metadata" muted />
+                          ) : (
+                            <img src={mediaUrl} alt={story.title} className="w-full h-full object-cover" loading="lazy" />
+                          )}
+                        </div>
+                      ) : null}
+
+                      <div className="p-4 space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage src={story.authorAvatar || undefined} alt={story.authorName} />
+                              <AvatarFallback>{story.authorName.slice(0, 1).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm font-medium truncate">{story.authorName}</span>
+                          </div>
+                          {story.location ? <Badge variant="outline">{story.location}</Badge> : null}
+                        </div>
+
+                        <div>
+                          <h3 className="font-semibold text-foreground line-clamp-1">{story.title}</h3>
+                          <p className="text-sm text-muted-foreground line-clamp-3 mt-1">{story.body}</p>
+                        </div>
+
+                        <p className="text-xs text-muted-foreground">
+                          {story.created_at ? new Date(story.created_at).toLocaleString() : ""}
                         </p>
-                        
-                        {/* Location */}
-                        {s.location && (
-                          <div className="flex items-center gap-1 mt-2 text-white/90 text-xs">
-                            <MapPin className="w-3 h-3 drop-shadow-sm" />
-                            <span className="drop-shadow-sm">{s.location}</span>
-                          </div>
-                        )}
-                      </div>
-                      
-                      {/* Floating Engagement Badges */}
-                      <div className="absolute -top-12 right-4 flex flex-col gap-2">
-                        {/* Likes Badge */}
-                        {(engagementCounts[s.id]?.likes || 0) > 0 && (
-                          <div className="bg-red-500 text-white rounded-full px-3 py-1.5 flex items-center gap-1.5 shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-500">
-                            <Heart className="w-4 h-4 fill-white" />
-                            <span className="text-sm font-bold">{engagementCounts[s.id]?.likes}</span>
-                          </div>
-                        )}
-                        
-                        {/* Comments Badge */}
-                        {(engagementCounts[s.id]?.comments || 0) > 0 && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openFloatingComments(s.id);
-                            }}
-                            className="bg-blue-500 text-white rounded-full px-3 py-1.5 flex items-center gap-1.5 shadow-lg hover:bg-blue-600 transition-all hover:scale-110 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100"
-                          >
-                            <MessageCircle className="w-4 h-4 fill-white" />
-                            <span className="text-sm font-bold">{engagementCounts[s.id]?.comments}</span>
-                          </button>
-                        )}
-                      </div>
-                      
-                      {/* Interaction Preview */}
-                      <div className="flex items-center justify-between text-white/80 text-xs">
+
                         <div className="flex items-center gap-3">
-                          {(engagementCounts[s.id]?.likes || 0) > 0 && (
-                            <div className="flex items-center gap-1">
-                              <Heart className="w-4 h-4" />
-                              <span>{engagementCounts[s.id]?.likes}</span>
-                            </div>
-                          )}
-                          {(engagementCounts[s.id]?.comments || 0) > 0 && (
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openFloatingComments(s.id);
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              toggleLike(story.id);
+                            }}
+                          >
+                            <Heart className={`w-4 h-4 mr-1 ${hasLiked ? "fill-primary text-primary" : ""}`} />
+                            {likeCount}
+                          </Button>
+                          <div className="text-xs text-muted-foreground flex items-center gap-1">
+                            <MessageCircle className="w-4 h-4" />
+                            {commentCount}
+                          </div>
+                        </div>
+
+                        {latestComment ? (
+                          <p className="text-xs text-muted-foreground line-clamp-2">
+                            <span className="font-medium text-foreground">
+                              {latestCommentAuthor?.nickname || latestCommentAuthor?.full_name || "Traveler"}:
+                            </span>{" "}
+                            {latestComment.comment_text}
+                          </p>
+                        ) : null}
+
+                        {canDeleteStory(story) ? (
+                          <div className="pt-1">
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="sm"
+                              disabled={deletingStoryId === story.id}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                deleteStory(story);
                               }}
-                              className="flex items-center gap-1 hover:text-white transition-colors"
                             >
-                              <MessageCircle className="w-4 h-4" />
-                              <span>{engagementCounts[s.id]?.comments}</span>
-                            </button>
-                          )}
-                          {!engagementCounts[s.id]?.likes && !engagementCounts[s.id]?.comments && (
-                            <span className="text-white/60 text-xs">No engagement yet</span>
-                          )}
-                        </div>
-                        <div className="text-white/60 text-xs">
-                          Tap to view
-                        </div>
+                              {deletingStoryId === story.id ? "Deleting..." : "Delete"}
+                            </Button>
+                          </div>
+                        ) : null}
                       </div>
-                    </div>
-                    
-                    {/* Hover Effect */}
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
-                  </div>
-                </div>
-              );
-            })}
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
-      </section>
+      </main>
 
-      {/* Instagram-style Story viewer */}
-      <Dialog open={viewerOpen} onOpenChange={setViewerOpen}>
-        <DialogContent className="p-0 max-w-sm mx-auto h-[80vh] overflow-hidden rounded-2xl [&>button]:hidden" aria-describedby={undefined}>
-          <div className="relative w-full h-full bg-black">
-            {activeStory ? (
-              (() => {
-                const media = activeStory.media_url || activeStory.image_url;
-                const author = authorProfiles[activeStory.user_id];
-                if (!media) {
-                  return <div className="h-full flex items-center justify-center text-white/70">No media</div>;
-                }
-                const isVid = /\/video\/upload\//i.test(media) || activeStory.media_type === "video";
-                
-                return (
-                  <div className="relative w-full h-full">
-                    {/* Media Background */}
-                    {isVid ? (
-                      <video 
-                        src={media} 
-                        className="w-full h-full object-cover" 
-                        autoPlay 
-                        muted 
-                        loop 
-                        playsInline 
-                      />
-                    ) : (
-                      <img 
-                        src={media} 
-                        className="w-full h-full object-cover" 
-                        alt={activeStory.title} 
-                      />
-                    )}
-                    
-                    {/* Gradient Overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/60" />
-                    
-                    {/* Top Section - Author Info */}
-                    <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        {author?.avatar_url ? (
-                          <img
-                            src={author.avatar_url}
-                            alt={author.full_name ?? "Traveler"}
-                            className="w-8 h-8 rounded-full object-cover border-2 border-white"
-                          />
-                        ) : (
-                          <div className="w-8 h-8 rounded-full bg-white/20 border-2 border-white" />
-                        )}
-                        <div>
-                          <div className="text-white text-sm font-medium">
-                            {author?.full_name ?? "Traveler"}
-                          </div>
-                          <div className="text-white/80 text-xs flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {new Date(activeStory.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                          </div>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        className="w-8 h-8 rounded-full bg-black/30 flex items-center justify-center text-white"
-                        onClick={() => setViewerOpen(false)}
-                        aria-label="Close"
-                      >
-                        <span className="text-lg leading-none">×</span>
-                      </button>
-                    </div>
-                    
-                    {/* Progress bar */}
-                    <div className="absolute top-2 left-4 right-4 h-0.5 bg-white/30 rounded-full">
-                      <div className="h-full w-full bg-white rounded-full" />
-                    </div>
-                    
-                    {/* Bottom Section - Caption & Location */}
-                    <div className="absolute bottom-16 left-4 right-4">
-                      {/* Caption */}
-                      <div className="bg-black/40 backdrop-blur-sm rounded-lg p-3 mb-3">
-                        <p className="text-white text-sm leading-relaxed">
-                          {activeStory.body}
-                        </p>
-                        {/* Location */}
-                        {activeStory.location && (
-                          <div className="flex items-center gap-1 mt-2 text-white/90 text-xs">
-                            <MapPin className="w-3 h-3" />
-                            <span>{activeStory.location}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* Interaction Section */}
-                    <div className="absolute bottom-4 left-4 right-4 flex items-center justify-center">
-                      <div className="flex items-center gap-6">
-                        <button 
-                          onClick={handleLike}
-                          className={`flex flex-col items-center gap-1 transition-colors ${
-                            likesData.some(like => like.user_id === user?.id) 
-                              ? 'text-red-500' 
-                              : 'text-white/90 hover:text-white'
-                          }`}
-                        >
-                          <Heart className={`w-6 h-6 ${
-                            likesData.some(like => like.user_id === user?.id) ? 'fill-current' : ''
-                          }`} />
-                          <span className="text-xs">{likesData.length}</span>
-                        </button>
-                        <button 
-                          onClick={() => setShowComments(!showComments)}
-                          className="flex flex-col items-center gap-1 text-white/90 hover:text-white transition-colors"
-                        >
-                          <MessageCircle className="w-6 h-6" />
-                          <span className="text-xs">{commentsData.length}</span>
-                        </button>
-                      </div>
-                    </div>
-                    
-                    {/* Comments Section */}
-                    {showComments && (
-                      <div className="absolute bottom-16 left-4 right-4 max-h-48 bg-black/60 backdrop-blur-sm rounded-lg">
-                        <div className="p-3 max-h-32 overflow-y-auto space-y-2">
-                          {commentsData.map((comment: any) => (
-                            <div key={comment.id} className="flex gap-2 text-white text-xs">
-                              <span className="font-medium text-white/90">
-                                {comment.profiles?.full_name || 'User'}:
-                              </span>
-                              <span>{comment.comment_text}</span>
-                            </div>
-                          ))}
-                          {commentsData.length === 0 && (
-                            <div className="text-white/60 text-xs text-center py-2">
-                              No comments yet. Be the first to comment!
-                            </div>
-                          )}
-                        </div>
-                        <div className="border-t border-white/20 p-2 flex gap-2">
-                          <input
-                            type="text"
-                            value={commentText}
-                            onChange={(e) => setCommentText(e.target.value)}
-                            placeholder="Add a comment..."
-                            className="flex-1 bg-transparent text-white text-xs placeholder-white/60 border-0 outline-0"
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && commentText.trim()) {
-                                handleComment();
-                              }
-                            }}
-                          />
-                          <button
-                            onClick={handleComment}
-                            disabled={!commentText.trim()}
-                            className="text-blue-400 text-xs font-medium disabled:opacity-50"
-                          >
-                            Post
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()
+      {viewerOpen && activeStory ? (
+        <div
+          className="fixed inset-0 z-50 bg-black"
+          onTouchStart={handleViewerTouchStart}
+          onTouchEnd={handleViewerTouchEnd}
+        >
+          <div className="absolute inset-0">
+            {activeMedia ? (
+              activeStoryIsVideo ? (
+                <video
+                  key={activeStory.id}
+                  ref={videoRef}
+                  src={activeMedia}
+                  className="w-full h-full object-contain"
+                  autoPlay
+                  playsInline
+                  muted={isMuted}
+                  controls
+                  onEnded={goToNextStory}
+                />
+              ) : (
+                <img src={activeMedia} alt={activeStory.title} className="w-full h-full object-contain" />
+              )
             ) : (
-              <div className="h-full flex items-center justify-center text-white/70">No media</div>
+              <div className="w-full h-full flex items-center justify-center text-white">No media available</div>
             )}
           </div>
-        </DialogContent>
-      </Dialog>
 
-      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{t("stories.createTitle")}</DialogTitle>
-            <DialogDescription>{t("stories.createDesc")}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="storyLocation">{t("stories.location")}</Label>
-              <Input 
-                id="storyLocation" 
-                value={location} 
-                onChange={(e) => setLocation(e.target.value)} 
-                placeholder="e.g., Kigali, Rwanda" 
-              />
-            </div>
-            <div>
-              <Label htmlFor="storyBody">{t("stories.caption")}</Label>
-              <Textarea 
-                id="storyBody" 
-                value={body} 
-                onChange={(e) => setBody(e.target.value)} 
-                placeholder="Share your experience and what made it special..." 
-                rows={4}
-              />
-            </div>
-            <div>
-              <Label>{t("stories.media")}</Label>
-              <div className="mt-2">
-                <CloudinaryUploadDialog
-                  title="Upload story media"
-                  folder="merry360/stories"
-                  multiple={false}
-                  accept="image/*,video/*"
-                  value={mediaUrl ? [mediaUrl] : []}
-                  onChange={(urls) => setMediaUrl(urls[0] ?? null)}
-                  buttonLabel={mediaUrl ? "Change media" : "Upload image/video"}
-                />
-                {mediaUrl && (
-                  <div className="mt-3">
-                    {mediaType === "video" ? (
-                      <video src={mediaUrl} className="w-full h-40 object-cover rounded-lg" controls />
-                    ) : (
-                      <img src={mediaUrl} className="w-full h-40 object-cover rounded-lg" alt="Preview" />
-                    )}
+          <div className="absolute top-0 left-0 right-0 p-3 sm:p-4 space-y-3 bg-gradient-to-b from-black/70 to-transparent">
+            <div className="flex items-center gap-1.5">
+              {activeGroup?.stories.map((story, index) => {
+                const isDone = index < activeStoryIndex;
+                const isCurrent = index === activeStoryIndex;
+                return (
+                  <div key={story.id} className="h-1 flex-1 rounded bg-white/30 overflow-hidden">
+                    <div
+                      className={`h-full ${isDone || isCurrent ? "bg-white" : "bg-transparent"}`}
+                      style={{
+                        width: isDone ? "100%" : isCurrent ? `${activeProgress}%` : "0%",
+                        transition: isCurrent && !activeStoryIsVideo ? "width 50ms linear" : "none",
+                      }}
+                    />
                   </div>
-                )}
-              </div>
+                );
+              })}
             </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>
-                Cancel
-              </Button>
-              <Button onClick={submit} disabled={saving || !mediaUrl || !body.trim()}>
-                {saving ? t("stories.posting") : t("stories.postStory")}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
-      {/* Floating Comment Section */}
-      {floatingCommentsOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[70vh] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-primary to-primary/80 text-white p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <MessageCircle className="w-5 h-5" />
-                <div>
-                  <h3 className="font-semibold">{t("stories.comments")}</h3>
-                  <p className="text-xs text-white/80">
-                    {floatingCommentsData.length} {floatingCommentsData.length === 1 ? 'comment' : 'comments'}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 min-w-0 text-white">
+                <Avatar className="h-8 w-8 border border-white/40">
+                  <AvatarImage src={activeStory.authorAvatar || undefined} alt={activeStory.authorName} />
+                  <AvatarFallback>{activeStory.authorName.slice(0, 1).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">{activeStory.authorName}</p>
+                  <p className="text-xs text-white/80 truncate">
+                    {activeStory.created_at ? new Date(activeStory.created_at).toLocaleString() : ""}
                   </p>
                 </div>
               </div>
-              <button
-                onClick={closeFloatingComments}
-                className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors"
-              >
-                <span className="text-lg leading-none">×</span>
-              </button>
-            </div>
-            
-            {/* Comments List */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 max-h-96">
-              {floatingCommentsData.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground animate-in fade-in duration-500">
-                  <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p className="text-sm">No comments yet</p>
-                  <p className="text-xs mt-1">Be the first to share your thoughts!</p>
-                </div>
-              ) : (
-                floatingCommentsData.map((comment: any, index: number) => (
-                  <div 
-                    key={comment.id} 
-                    className="flex gap-3 animate-in fade-in slide-in-from-left-2 duration-300"
-                    style={{ animationDelay: `${index * 50}ms` }}
+
+              <div className="flex items-center gap-2">
+                {activeStoryIsVideo ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="text-white hover:bg-white/20"
+                    onClick={() => setIsMuted((prev) => !prev)}
+                    aria-label={isMuted ? "Unmute story video" : "Mute story video"}
                   >
-                    {comment.profiles?.avatar_url ? (
-                      <img
-                        src={comment.profiles.avatar_url}
-                        alt={comment.profiles.full_name || 'User'}
-                        className="w-8 h-8 rounded-full object-cover flex-shrink-0 ring-2 ring-primary/20"
-                      />
-                    ) : (
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex-shrink-0 ring-2 ring-primary/20" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="bg-gradient-to-br from-muted/50 to-muted/30 rounded-2xl px-3 py-2 hover:shadow-sm transition-shadow">
-                        <div className="font-medium text-sm text-foreground mb-1">
-                          {comment.profiles?.full_name || 'Anonymous User'}
-                        </div>
-                        <p className="text-sm text-foreground/90 leading-relaxed">
-                          {comment.comment_text}
-                        </p>
-                      </div>
-                      <div className="flex items-center justify-between mt-1 px-3">
-                        <div className="text-xs text-muted-foreground">
-                          {new Date(comment.created_at).toLocaleDateString()} at {new Date(comment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </div>
-                        <button
-                          onClick={async () => {
-                            if (!user?.id) {
-                              toast({
-                                title: "Please sign in",
-                                description: "You need to be signed in to like comments",
-                                variant: "destructive"
-                              });
-                              return;
-                            }
-                            // Placeholder for like comment functionality
-                            toast({
-                              title: "Coming soon",
-                              description: "Comment likes will be available soon!"
-                            });
-                          }}
-                          className="text-xs text-muted-foreground hover:text-red-500 transition-colors flex items-center gap-1 group"
-                        >
-                          <Heart className="w-3 h-3 group-hover:fill-red-500" />
-                          <span className="group-hover:font-medium">Like</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-            
-            {/* Quick Actions */}
-            <div className="border-t bg-muted/20 p-4 flex gap-2">
-              {floatingCommentsStoryId && (
-                <button
-                  onClick={async () => {
-                    if (!user?.id) {
-                      toast({
-                        title: "Please sign in",
-                        description: "You need to be signed in to like stories",
-                        variant: "destructive"
-                      });
-                      return;
-                    }
-                    
-                    // Check if already liked
-                    const { data: existingLike } = await supabase
-                      .from('story_likes')
-                      .select('id')
-                      .eq('story_id', floatingCommentsStoryId)
-                      .eq('user_id', user.id)
-                      .single();
-                    
-                    if (existingLike) {
-                      // Unlike
-                      await supabase
-                        .from('story_likes')
-                        .delete()
-                        .eq('story_id', floatingCommentsStoryId)
-                        .eq('user_id', user.id);
-                      
-                      toast({
-                        title: "Unliked",
-                        description: "Story removed from your likes"
-                      });
-                    } else {
-                      // Like
-                      await supabase
-                        .from('story_likes')
-                        .insert({ story_id: floatingCommentsStoryId, user_id: user.id });
-                      
-                      toast({
-                        title: "Liked! ❤️",
-                        description: "You liked this story"
-                      });
-                    }
-                    
-                    qc.invalidateQueries({ queryKey: ["story-engagement-counts"] });
-                  }}
-                  className="bg-gradient-to-r from-red-500 to-pink-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-red-600 hover:to-pink-600 transition-all hover:scale-105 flex items-center gap-2"
+                    {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+                  </Button>
+                ) : null}
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="text-white hover:bg-white/20"
+                  onClick={() => setViewerOpen(false)}
                 >
-                  <Heart className="w-4 h-4" />
-                  Like
-                </button>
-              )}
-              <button
-                onClick={() => {
-                  closeFloatingComments();
-                  if (floatingCommentsStoryId) {
-                    openViewer(floatingCommentsStoryId);
-                  }
-                }}
-                className="flex-1 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
-              >
-                View Story
-              </button>
-              <button
-                onClick={closeFloatingComments}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-              >
-                Close
-              </button>
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
             </div>
+
+            {canDeleteStory(activeStory) ? (
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  disabled={deletingStoryId === activeStory.id}
+                  onClick={() => deleteStory(activeStory)}
+                >
+                  {deletingStoryId === activeStory.id ? "Deleting..." : "Delete Story"}
+                </Button>
+              </div>
+            ) : null}
+          </div>
+
+          <button
+            type="button"
+            aria-label="Previous story"
+            className="absolute left-0 top-0 bottom-0 w-1/3"
+            onPointerDown={handleHoldStart}
+            onPointerUp={() => handleHoldEnd("prev")}
+            onPointerCancel={() => handleHoldEnd("prev")}
+            onPointerLeave={() => {
+              if (isHolding) handleHoldEnd("prev");
+            }}
+          />
+          <button
+            type="button"
+            aria-label="Next story"
+            className="absolute right-0 top-0 bottom-0 w-2/3"
+            onPointerDown={handleHoldStart}
+            onPointerUp={() => handleHoldEnd("next")}
+            onPointerCancel={() => handleHoldEnd("next")}
+            onPointerLeave={() => {
+              if (isHolding) handleHoldEnd("next");
+            }}
+          />
+
+          <div className="absolute left-3 right-3 bottom-4">
+            <Card className="bg-black/55 border-white/20 text-white p-3">
+              <p className="font-medium line-clamp-1">{activeStory.title}</p>
+              <p className="text-sm text-white/90 line-clamp-3 mt-1">{activeStory.body}</p>
+              {activeStory.location ? (
+                <Badge variant="outline" className="mt-2 border-white/50 text-white">
+                  {activeStory.location}
+                </Badge>
+              ) : null}
+
+              <div className="mt-3 flex items-center gap-4">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2 text-white hover:bg-white/20"
+                  onClick={() => toggleLike(activeStory.id)}
+                >
+                  <Heart
+                    className={`w-4 h-4 mr-1 ${likedStoryIds.has(activeStory.id) ? "fill-white text-white" : "text-white"}`}
+                  />
+                  {likeCountByStory.get(activeStory.id) || 0}
+                </Button>
+                <div className="text-xs text-white/90 flex items-center gap-1">
+                  <MessageCircle className="w-4 h-4" />
+                  {commentCountByStory.get(activeStory.id) || 0}
+                </div>
+              </div>
+
+              {(commentsByStory.get(activeStory.id)?.length || 0) > 0 ? (
+                <div className="mt-2 space-y-1">
+                  {(commentsByStory.get(activeStory.id) || []).slice(0, 2).map((comment) => {
+                    const commentAuthor = authorMap.get(comment.user_id);
+                    return (
+                      <p key={comment.id} className="text-xs text-white/90 line-clamp-2">
+                        <span className="font-medium text-white">
+                          {commentAuthor?.nickname || commentAuthor?.full_name || "Traveler"}:
+                        </span>{" "}
+                        {comment.comment_text}
+                      </p>
+                    );
+                  })}
+                </div>
+              ) : null}
+
+              <div className="mt-3 flex items-center gap-2">
+                <Input
+                  value={commentDraft}
+                  onChange={(event) => setCommentDraft(event.target.value)}
+                  placeholder={user ? "Reply to this story..." : "Login to comment"}
+                  disabled={!user || isSubmittingComment}
+                  className="h-8 bg-white/10 border-white/30 text-white placeholder:text-white/60"
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      void submitComment();
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 px-2"
+                  onClick={() => void submitComment()}
+                  disabled={!user || !commentDraft.trim() || isSubmittingComment}
+                >
+                  <Send className="w-4 h-4" />
+                </Button>
+              </div>
+            </Card>
           </div>
         </div>
-      )}
+      ) : null}
 
       <Footer />
     </div>
   );
-};
-
-export default Stories;
+}

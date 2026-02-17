@@ -56,7 +56,8 @@ async function checkPropertyAvailability(
     .select("id")
     .eq("property_id", propertyId)
     .in("status", ["confirmed", "pending"])
-    .or(`check_in.lte.${checkOut},check_out.gte.${checkIn}`);
+    .lt("check_in", checkOut)
+    .gt("check_out", checkIn);
 
   if (conflicts && conflicts.length > 0) {
     return { available: false, reason: "Already booked for these dates" };

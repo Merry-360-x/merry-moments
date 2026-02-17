@@ -1405,6 +1405,9 @@ export type Database = {
           cancellation_policy: string | null
           check_in_time: string | null
           check_out_time: string | null
+          conference_room_capacity: number | null
+          conference_room_equipment: string[] | null
+          conference_room_min_rooms_required: number | null
           created_at: string | null
           currency: string | null
           description: string | null
@@ -1447,6 +1450,9 @@ export type Database = {
           cancellation_policy?: string | null
           check_in_time?: string | null
           check_out_time?: string | null
+          conference_room_capacity?: number | null
+          conference_room_equipment?: string[] | null
+          conference_room_min_rooms_required?: number | null
           created_at?: string | null
           currency?: string | null
           description?: string | null
@@ -1489,6 +1495,9 @@ export type Database = {
           cancellation_policy?: string | null
           check_in_time?: string | null
           check_out_time?: string | null
+          conference_room_capacity?: number | null
+          conference_room_equipment?: string[] | null
+          conference_room_min_rooms_required?: number | null
           created_at?: string | null
           currency?: string | null
           description?: string | null

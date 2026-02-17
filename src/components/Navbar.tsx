@@ -12,7 +12,6 @@ import {
   Building2,
   Map,
   Car,
-  BookOpen,
   CalendarDays,
   LayoutDashboard,
   Shield,
@@ -622,7 +621,7 @@ const Navbar = () => {
                   { to: "/accommodations", label: t("nav.accommodations"), icon: Building2 },
                   { to: "/tours", label: t("nav.tours"), icon: Map },
                   { to: "/transport", label: t("nav.transport"), icon: Car },
-                  { to: "/stories", label: t("nav.stories"), icon: BookOpen },
+                  { to: "/stories", label: t("nav.stories"), icon: MessageSquare },
                   ...(user && isHost
                     ? [{ to: "/host-dashboard", label: t("actions.hostDashboard"), icon: LayoutDashboard }]
                     : []),
@@ -793,7 +792,7 @@ const Navbar = () => {
                   </div>
                 ) : (
                   <div className="flex items-center justify-between gap-3">
-                    <div className="text-sm text-muted-foreground">Sign in to book and post stories.</div>
+                    <div className="text-sm text-muted-foreground">Sign in to book your next trip.</div>
                     <Link to="/auth" onClick={() => setMobileMenuOpen(false)}>
                       <Button size="sm">{t("actions.signIn")}</Button>
                     </Link>
