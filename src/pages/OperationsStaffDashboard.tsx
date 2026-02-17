@@ -14,6 +14,10 @@ import { FileText, Home, Plane, MapPin, CheckCircle, XCircle, Clock, CalendarChe
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNotificationBadge, NotificationBadge } from "@/hooks/useNotificationBadge";
+import { usePreferences } from "@/hooks/usePreferences";
+import { useFxRates } from "@/hooks/useFxRates";
+import { convertAmount } from "@/lib/fx";
+import { formatMoney } from "@/lib/money";
 
 type HostApplication = {
   id: string;
@@ -126,6 +130,8 @@ type Booking = {
 export default function OperationsStaffDashboard() {
   const { toast } = useToast();
   const { isAdmin, user } = useAuth();
+  const { currency: preferredCurrency } = usePreferences();
+  const { usdRates } = useFxRates();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<"overview" | "applications" | "user-data" | "accommodations" | "tours" | "transport" | "bookings">("overview");
   const [userDataSearch, setUserDataSearch] = useState("");
@@ -841,7 +847,7 @@ export default function OperationsStaffDashboard() {
                 </CardHeader>
                 <CardContent>
                   <Table>
-                    <TableHeader>
+                    <TableHeader className="sticky top-0 z-10 bg-background">
                       <TableRow>
                         <TableHead>Name</TableHead>
                         <TableHead>Email</TableHead>
@@ -912,7 +918,7 @@ export default function OperationsStaffDashboard() {
               <CardContent>
                 <div className="overflow-x-auto">
                 <Table>
-                  <TableHeader className="sticky top-24 md:top-28 z-20 bg-background">
+                  <TableHeader className="sticky top-0 z-10 bg-background">
                     <TableRow>
                       <TableHead>Name</TableHead>
                       <TableHead>Email</TableHead>
@@ -1409,7 +1415,7 @@ export default function OperationsStaffDashboard() {
                   </Badge>
                 </div>
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-background">
                     <TableRow>
                       <TableHead>User</TableHead>
                       <TableHead>Type</TableHead>
@@ -1490,7 +1496,7 @@ export default function OperationsStaffDashboard() {
               </CardHeader>
               <CardContent>
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-background">
                     <TableRow>
                       <TableHead>Title</TableHead>
                       <TableHead>ID</TableHead>
@@ -1554,7 +1560,7 @@ export default function OperationsStaffDashboard() {
               </CardHeader>
               <CardContent>
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-background">
                     <TableRow>
                       <TableHead>Title</TableHead>
                       <TableHead>ID</TableHead>
@@ -1620,7 +1626,7 @@ export default function OperationsStaffDashboard() {
               </CardHeader>
               <CardContent>
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-background">
                     <TableRow>
                       <TableHead>Title</TableHead>
                       <TableHead>Type</TableHead>
@@ -1696,7 +1702,7 @@ export default function OperationsStaffDashboard() {
               </CardHeader>
               <CardContent>
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-background">
                     <TableRow>
                       <TableHead>Item</TableHead>
                       <TableHead>Reference</TableHead>
@@ -1902,7 +1908,17 @@ export default function OperationsStaffDashboard() {
                       Cart Order: {selectedBooking.order_id}
                     </Badge>
                     <span className="text-sm text-muted-foreground">
-                      {orderBookings.length} items • Total: {selectedBooking.currency} {orderBookings.reduce((sum, b) => sum + b.total_price, 0).toLocaleString()}
+                      {orderBookings.length} items • Total: {formatMoney(
+                        Number(
+                          convertAmount(
+                            orderBookings.reduce((sum, b) => sum + Number(b.total_price || 0), 0),
+                            selectedBooking.currency || "RWF",
+                            preferredCurrency,
+                            usdRates
+                          ) ?? orderBookings.reduce((sum, b) => sum + Number(b.total_price || 0), 0)
+                        ),
+                        preferredCurrency
+                      )}
                     </span>
                   </div>
                   <div className="space-y-2">
@@ -1945,7 +1961,17 @@ export default function OperationsStaffDashboard() {
                               {orderBooking.status.replace('_', ' ')}
                             </Badge>
                             <span className="font-mono text-sm">
-                              {orderBooking.currency} {orderBooking.total_price.toLocaleString()}
+                              {formatMoney(
+                                Number(
+                                  convertAmount(
+                                    Number(orderBooking.total_price || 0),
+                                    orderBooking.currency || "RWF",
+                                    preferredCurrency,
+                                    usdRates
+                                  ) ?? Number(orderBooking.total_price || 0)
+                                ),
+                                preferredCurrency
+                              )}
                             </span>
                           </div>
                         </div>
@@ -1995,7 +2021,19 @@ export default function OperationsStaffDashboard() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Total Price</p>
-                    <p className="font-mono">{selectedBooking.currency} {selectedBooking.total_price.toLocaleString()}</p>
+                    <p className="font-mono">
+                      {formatMoney(
+                        Number(
+                          convertAmount(
+                            Number(selectedBooking.total_price || 0),
+                            selectedBooking.currency || "RWF",
+                            preferredCurrency,
+                            usdRates
+                          ) ?? Number(selectedBooking.total_price || 0)
+                        ),
+                        preferredCurrency
+                      )}
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Status</p>
@@ -2052,7 +2090,17 @@ export default function OperationsStaffDashboard() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-muted-foreground">Payment Method</p>
-                      <p className="capitalize">{selectedBooking.payment_method}</p>
+                      <p>
+                        {String(selectedBooking.payment_method || "not_specified")
+                          .replace(/_/g, " ")
+                          .replace(/\bmomo\b/gi, "MoMo")
+                          .replace(/\bmtn\b/gi, "MTN")
+                          .replace(/\bairtel\b/gi, "Airtel")
+                          .replace(/\bvisa\b/gi, "Visa")
+                          .replace(/\bmastercard\b/gi, "Mastercard")
+                          .replace(/\bbank transfer\b/gi, "Bank Transfer")
+                          .replace(/\b\w/g, (char) => char.toUpperCase())}
+                      </p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Payment Status</p>

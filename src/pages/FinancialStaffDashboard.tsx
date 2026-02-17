@@ -16,6 +16,9 @@ import { DollarSign, TrendingUp, CreditCard, Wallet, Calendar, Download, CheckCi
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useNotificationBadge, NotificationBadge } from "@/hooks/useNotificationBadge";
 import { useToast } from "@/hooks/use-toast";
+import { usePreferences } from "@/hooks/usePreferences";
+import { useFxRates } from "@/hooks/useFxRates";
+import { convertAmount } from "@/lib/fx";
 
 type BookingRow = {
   id: string;
@@ -52,6 +55,8 @@ type SupportTicketRow = {
 export default function FinancialStaffDashboard() {
   const { user, isAdmin } = useAuth();
   const { toast } = useToast();
+  const { currency: preferredCurrency } = usePreferences();
+  const { usdRates } = useFxRates();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<"overview" | "bookings" | "revenue" | "payouts">("overview");
   const [startDate, setStartDate] = useState<string>("");
@@ -745,7 +750,7 @@ export default function FinancialStaffDashboard() {
                 </CardHeader>
                 <CardContent>
                   <Table>
-                    <TableHeader>
+                    <TableHeader className="sticky top-0 z-10 bg-background">
                       <TableRow>
                         <TableHead>Date</TableHead>
                         <TableHead>Amount</TableHead>
@@ -786,7 +791,7 @@ export default function FinancialStaffDashboard() {
                 </CardHeader>
                 <CardContent>
                   <Table>
-                    <TableHeader>
+                    <TableHeader className="sticky top-0 z-10 bg-background">
                       <TableRow>
                         <TableHead>Date</TableHead>
                         <TableHead>Amount</TableHead>
@@ -856,7 +861,7 @@ export default function FinancialStaffDashboard() {
               </CardHeader>
               <CardContent>
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-background">
                     <TableRow>
                       <TableHead>Reference</TableHead>
                       <TableHead>Guest Info</TableHead>
@@ -1036,7 +1041,7 @@ export default function FinancialStaffDashboard() {
               </CardHeader>
               <CardContent>
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-background">
                     <TableRow>
                       <TableHead>Currency</TableHead>
                       <TableHead className="text-right">Total Revenue</TableHead>
@@ -1092,7 +1097,7 @@ export default function FinancialStaffDashboard() {
               </CardHeader>
               <CardContent>
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-background">
                     <TableRow>
                       <TableHead>Host</TableHead>
                       <TableHead>Amount</TableHead>
@@ -1271,45 +1276,75 @@ export default function FinancialStaffDashboard() {
                 {/* Payment Information */}
                 <div className="border-t pt-4">
                   <h3 className="font-semibold mb-3">Payment Information</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Listing Price</p>
-                      <p className="text-lg font-bold">
-                        {formatMoney(
-                          Number(selectedBooking.total_price),
-                          // Prefer listing's original currency
-                          selectedBooking.booking_type === "property" && selectedBooking.properties?.currency
-                            ? selectedBooking.properties.currency
-                            : selectedBooking.booking_type === "tour" && selectedBooking.tour_packages?.currency
-                              ? selectedBooking.tour_packages.currency
-                              : selectedBooking.booking_type === "transport" && selectedBooking.transport_vehicles?.currency
-                                ? selectedBooking.transport_vehicles.currency
-                                : String(selectedBooking.currency ?? "USD")
+                  {(() => {
+                    const displayCurrency = preferredCurrency || "RWF";
+                    const listingSourceCurrency =
+                      selectedBooking.booking_type === "property" && selectedBooking.properties?.currency
+                        ? selectedBooking.properties.currency
+                        : selectedBooking.booking_type === "tour" && selectedBooking.tour_packages?.currency
+                          ? selectedBooking.tour_packages.currency
+                          : selectedBooking.booking_type === "transport" && selectedBooking.transport_vehicles?.currency
+                            ? selectedBooking.transport_vehicles.currency
+                            : String(selectedBooking.currency ?? "RWF");
+
+                    const listingAmount = convertAmount(
+                      Number(selectedBooking.total_price || 0),
+                      listingSourceCurrency,
+                      displayCurrency,
+                      usdRates
+                    );
+
+                    const paidAmount = selectedBooking.checkout_requests
+                      ? convertAmount(
+                          Number(selectedBooking.checkout_requests.total_amount || 0),
+                          selectedBooking.checkout_requests.currency || "RWF",
+                          displayCurrency,
+                          usdRates
+                        )
+                      : null;
+
+                    const paymentMethodRaw = String(
+                      selectedBooking.checkout_requests?.payment_method || selectedBooking.payment_method || "not_specified"
+                    );
+                    const paymentMethodLabel = paymentMethodRaw
+                      .replace(/_/g, " ")
+                      .replace(/\bmomo\b/gi, "MoMo")
+                      .replace(/\bmtn\b/gi, "MTN")
+                      .replace(/\bairtel\b/gi, "Airtel")
+                      .replace(/\bvisa\b/gi, "Visa")
+                      .replace(/\bmastercard\b/gi, "Mastercard")
+                      .replace(/\bbank transfer\b/gi, "Bank Transfer")
+                      .replace(/\b\w/g, (char) => char.toUpperCase());
+
+                    return (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm text-muted-foreground">Listing Price ({String(displayCurrency).toUpperCase()})</p>
+                          <p className="text-lg font-bold">
+                            {formatMoney(Number(listingAmount ?? selectedBooking.total_price ?? 0), displayCurrency)}
+                          </p>
+                        </div>
+                        {selectedBooking.checkout_requests && (
+                          <div>
+                            <p className="text-sm text-muted-foreground">Amount Paid ({String(displayCurrency).toUpperCase()})</p>
+                            <p className="text-lg font-bold text-green-600">
+                              {formatMoney(Number(paidAmount ?? selectedBooking.checkout_requests.total_amount ?? 0), displayCurrency)}
+                            </p>
+                          </div>
                         )}
-                      </p>
-                    </div>
-                    {selectedBooking.checkout_requests && (
-                      <div>
-                        <p className="text-sm text-muted-foreground">Amount Paid</p>
-                        <p className="text-lg font-bold text-green-600">
-                          {formatMoney(
-                            selectedBooking.checkout_requests.total_amount,
-                            selectedBooking.checkout_requests.currency || "RWF"
-                          )}
-                        </p>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Payment Method</p>
+                          <p className="text-sm">{paymentMethodLabel || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Payment Status</p>
+                          <Badge variant={selectedBooking.payment_status === 'paid' ? 'default' : 'secondary'}>
+                            {selectedBooking.payment_status || 'pending'}
+                          </Badge>
+                        </div>
                       </div>
-                    )}
-                    <div>
-                      <p className="text-sm text-muted-foreground">Payment Method</p>
-                      <p className="text-sm">{(selectedBooking.checkout_requests?.payment_method || selectedBooking.payment_method)?.replace('_', ' ').toUpperCase() || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Payment Status</p>
-                      <Badge variant={selectedBooking.payment_status === 'paid' ? 'default' : 'secondary'}>
-                        {selectedBooking.payment_status || 'pending'}
-                      </Badge>
-                    </div>
-                  </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Actions */}

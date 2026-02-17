@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
+import { usePreferences } from "@/hooks/usePreferences";
 import { Eye, Download, FileText, DollarSign, AlertCircle } from "lucide-react";
 
 type HostApplicationStatus = "draft" | "pending" | "approved" | "rejected";
@@ -84,13 +85,6 @@ type TransportRouteRow = {
   created_at: string;
 };
 
-type StoryRow = {
-  id: string;
-  title: string;
-  user_id: string;
-  created_at: string;
-};
-
 type BookingRow = {
   id: string;
   order_id: string | null;
@@ -128,7 +122,6 @@ type BookingRow = {
 
 type Metrics = {
   users_total: number;
-  stories_total: number;
   properties_total: number;
   properties_published: number;
   tours_total: number;
@@ -144,6 +137,40 @@ type Metrics = {
   orders_total: number;
   revenue_gross: number;
   revenue_by_currency: Array<{ currency: string; amount: number }>;
+};
+
+const STAFF_FX_TO_RWF: Record<string, number> = {
+  USD: 1455.5,
+  EUR: 1716.76225,
+  GBP: 1972.4936,
+  CNY: 209.732456,
+  KES: 11.283036,
+  UGX: 0.408996,
+  TZS: 0.563279,
+  AED: 396.323917,
+};
+
+const toRwfAmount = (amount: number, currency: string | null | undefined): number => {
+  const safeAmount = Number.isFinite(Number(amount)) ? Number(amount) : 0;
+  const code = String(currency || "RWF").toUpperCase();
+  if (code === "RWF") return safeAmount;
+  const rate = STAFF_FX_TO_RWF[code] ?? STAFF_FX_TO_RWF.USD;
+  return safeAmount * rate;
+};
+
+const convertStaffCurrency = (
+  amount: number,
+  fromCurrency: string | null | undefined,
+  toCurrency: string | null | undefined
+): number => {
+  const from = String(fromCurrency || "RWF").toUpperCase();
+  const to = String(toCurrency || "RWF").toUpperCase();
+  const safeAmount = Number.isFinite(Number(amount)) ? Number(amount) : 0;
+  if (from === to) return safeAmount;
+  const inRwf = toRwfAmount(safeAmount, from);
+  if (to === "RWF") return inRwf;
+  const toRate = STAFF_FX_TO_RWF[to] ?? STAFF_FX_TO_RWF.USD;
+  return inRwf / toRate;
 };
 
 const fetchPending = async () => {
@@ -171,8 +198,9 @@ const statusColors: Record<string, string> = {
 export default function StaffDashboard() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { currency: preferredCurrency } = usePreferences();
   const [tab, setTab] = useState<
-    "overview" | "applications" | "users" | "accommodations" | "tours" | "transport" | "stories"
+    "overview" | "applications" | "users" | "accommodations" | "tours" | "transport"
   >("overview");
   const [userSearch, setUserSearch] = useState("");
   const [bookingIdSearch, setBookingIdSearch] = useState("");
@@ -323,23 +351,6 @@ export default function StaffDashboard() {
     staleTime: 0,
   });
 
-  const { data: stories = [], refetch: refetchStories } = useQuery({
-    queryKey: ["staff-stories"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("stories")
-        .select("id, title, user_id, created_at")
-        .order("created_at", { ascending: false })
-        .limit(200);
-      if (error) throw error;
-      return (data ?? []) as StoryRow[];
-    },
-    enabled: tab === "stories",
-    refetchInterval: 30000,
-    refetchOnWindowFocus: true,
-    staleTime: 0,
-  });
-
   const { data: recentBookings = [] } = useQuery({
     queryKey: ["staff-recent-bookings"],
     queryFn: async () => {
@@ -418,7 +429,6 @@ export default function StaffDashboard() {
       if (table === "tours") await refetchTours();
       if (table === "transport_vehicles") await refetchVehicles();
       if (table === "transport_routes") await refetchRoutes();
-      if (table === "stories") await refetchStories();
     } catch (e) {
       logError("staff.deleteRow", { table, id, e });
       toast({
@@ -576,10 +586,6 @@ For support, contact: support@merry360x.com
         await refetchMetrics();
         if (tab === "transport") await refetchRoutes();
       })
-      .on("postgres_changes", { event: "*", schema: "public", table: "stories" }, async () => {
-        await refetchMetrics();
-        if (tab === "stories") await refetchStories();
-      })
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
@@ -641,7 +647,7 @@ For support, contact: support@merry360x.com
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Staff Dashboard</h1>
-            <p className="text-muted-foreground">Manage accommodations, tours, transport and stories (staff scope)</p>
+            <p className="text-muted-foreground">Manage accommodations, tours, and transport (staff scope)</p>
           </div>
           <Button
             className="bg-primary text-primary-foreground hover:bg-primary/90"
@@ -694,7 +700,7 @@ For support, contact: support@merry360x.com
             </div>
           </div>
           <Table>
-            <TableHeader>
+            <TableHeader className="sticky top-0 z-10 bg-background">
               <TableRow>
                 <TableHead>Reference</TableHead>
                 <TableHead>Guest</TableHead>
@@ -794,14 +800,13 @@ For support, contact: support@merry360x.com
             <TabsTrigger value="accommodations">Accommodations</TabsTrigger>
             <TabsTrigger value="tours">Tours</TabsTrigger>
             <TabsTrigger value="transport">Transport</TabsTrigger>
-            <TabsTrigger value="stories">Stories</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="mt-6">
             <Card className="p-6 mb-6">
               <h2 className="text-lg font-semibold text-foreground mb-2">What you can manage</h2>
               <p className="text-muted-foreground">
-                Staff can manage transport, tours, accommodations publishing, and stories. User emails are view-only.
+                Staff can manage transport, tours, and accommodations publishing. User emails are view-only.
               </p>
             </Card>
 
@@ -816,7 +821,7 @@ For support, contact: support@merry360x.com
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
-                    <TableHeader>
+                    <TableHeader className="sticky top-0 z-10 bg-background">
                       <TableRow>
                         <TableHead>Reference</TableHead>
                         <TableHead>Guest</TableHead>
@@ -1139,36 +1144,6 @@ For support, contact: support@merry360x.com
             </div>
           </TabsContent>
 
-          <TabsContent value="stories" className="mt-6">
-            <Card className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-foreground">Stories</h2>
-                <Button variant="outline" onClick={() => refetchStories()}>
-                  Refresh
-                </Button>
-              </div>
-              {stories.length === 0 ? (
-                <p className="text-muted-foreground">No stories.</p>
-              ) : (
-                <div className="space-y-3">
-                  {stories.map((s) => (
-                    <div
-                      key={s.id}
-                      className="rounded-lg border border-border p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
-                    >
-                      <div className="min-w-0">
-                        <div className="font-medium text-foreground">{s.title}</div>
-                        <div className="text-xs text-muted-foreground break-all">user: {s.user_id}</div>
-                      </div>
-                      <Button variant="outline" onClick={() => deleteRow("stories", s.id)}>
-                        Delete
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
-          </TabsContent>
         </Tabs>
 
         {/* BOOKING DETAILS DIALOG */}
@@ -1273,39 +1248,65 @@ For support, contact: support@merry360x.com
 
                 <div className="border-t pt-4">
                   <h3 className="font-semibold mb-3">Payment Information</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Listing Price</p>
-                      <p className="text-lg font-bold">
-                        {formatMoney(
-                          selectedBooking.total_price,
-                          // Prefer the listing's original currency when available
-                          selectedBooking.booking_type === "property" && selectedBooking.properties?.currency
-                            ? selectedBooking.properties.currency
-                            : selectedBooking.booking_type === "tour" && selectedBooking.tour_packages?.currency
-                              ? selectedBooking.tour_packages.currency
-                              : selectedBooking.booking_type === "transport" && selectedBooking.transport_vehicles?.currency
-                                ? selectedBooking.transport_vehicles.currency
-                                : selectedBooking.currency || "USD"
+                  {(() => {
+                    const listingSourceCurrency =
+                      selectedBooking.booking_type === "property" && selectedBooking.properties?.currency
+                        ? selectedBooking.properties.currency
+                        : selectedBooking.booking_type === "tour" && selectedBooking.tour_packages?.currency
+                          ? selectedBooking.tour_packages.currency
+                          : selectedBooking.booking_type === "transport" && selectedBooking.transport_vehicles?.currency
+                            ? selectedBooking.transport_vehicles.currency
+                            : selectedBooking.currency || "RWF";
+
+                    const displayCurrency = preferredCurrency || "RWF";
+
+                    const listingAmount = convertStaffCurrency(
+                      Number(selectedBooking.total_price || 0),
+                      listingSourceCurrency,
+                      displayCurrency
+                    );
+                    const paidAmount = selectedBooking.checkout_requests
+                      ? convertStaffCurrency(
+                          Number(selectedBooking.checkout_requests.total_amount || 0),
+                          selectedBooking.checkout_requests.currency || "RWF",
+                          displayCurrency
+                        )
+                      : null;
+
+                    const paymentMethodRaw = String(
+                      selectedBooking.checkout_requests?.payment_method || selectedBooking.payment_method || "not_specified"
+                    );
+                    const paymentMethodLabel = paymentMethodRaw
+                      .replace(/_/g, " ")
+                      .replace(/\bmomo\b/gi, "MoMo")
+                      .replace(/\bmtn\b/gi, "MTN")
+                      .replace(/\bairtel\b/gi, "Airtel")
+                      .replace(/\bvisa\b/gi, "Visa")
+                      .replace(/\bmastercard\b/gi, "Mastercard")
+                      .replace(/\bbank transfer\b/gi, "Bank Transfer")
+                      .replace(/\b\w/g, (char) => char.toUpperCase());
+
+                    return (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm text-muted-foreground">Listing Price ({String(displayCurrency).toUpperCase()})</p>
+                          <p className="text-lg font-bold">{formatMoney(Number(listingAmount || 0), displayCurrency)}</p>
+                        </div>
+                        {selectedBooking.checkout_requests && (
+                          <div>
+                            <p className="text-sm text-muted-foreground">Amount Paid ({String(displayCurrency).toUpperCase()})</p>
+                            <p className="text-lg font-bold text-green-600">
+                              {formatMoney(Number(paidAmount || 0), displayCurrency)}
+                            </p>
+                          </div>
                         )}
-                      </p>
-                    </div>
-                    {selectedBooking.checkout_requests && (
-                      <div>
-                        <p className="text-sm text-muted-foreground">Amount Paid</p>
-                        <p className="text-lg font-bold text-green-600">
-                          {formatMoney(
-                            selectedBooking.checkout_requests.total_amount,
-                            selectedBooking.checkout_requests.currency || "RWF"
-                          )}
-                        </p>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Payment Method</p>
+                          <p className="text-sm">{paymentMethodLabel || "Not specified"}</p>
+                        </div>
                       </div>
-                    )}
-                    <div>
-                      <p className="text-sm text-muted-foreground">Payment Method</p>
-                      <p className="text-sm">{selectedBooking.checkout_requests?.payment_method || selectedBooking.payment_method || "Not specified"}</p>
-                    </div>
-                  </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Show refund information for cancelled paid bookings */}

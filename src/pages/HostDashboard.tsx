@@ -21,6 +21,7 @@ import { formatMoney } from "@/lib/money";
 import { AMENITIES, AMENITIES_BY_CATEGORY } from "@/lib/amenities";
 import { calculateHostEarningsFromGuestTotal, PLATFORM_FEES } from "@/lib/fees";
 import { useFxRates } from "@/hooks/useFxRates";
+import { usePreferences } from "@/hooks/usePreferences";
 import { convertAmount } from "@/lib/fx";
 import { uploadFile } from "@/lib/uploads";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -154,6 +155,9 @@ interface Property {
   smoking_allowed?: boolean | null;
   events_allowed?: boolean | null;
   pets_allowed?: boolean | null;
+  conference_room_capacity?: number | null;
+  conference_room_min_rooms_required?: number | null;
+  conference_room_equipment?: string[] | null;
 }
 
 interface Tour {
@@ -277,7 +281,19 @@ interface PropertyCalendarIntegration {
 
 import { CURRENCY_OPTIONS } from "@/lib/currencies";
 
-const propertyTypes = ["Hotel", "Apartment", "Room in Apartment", "Villa", "Guesthouse", "Resort", "Lodge", "Motel", "House", "Cabin"];
+const propertyTypes = ["Hotel", "Apartment", "Room in Apartment", "Conference Room", "Villa", "Guesthouse", "Resort", "Lodge", "Motel", "House", "Cabin"];
+const roomPropertyTypeOptions = propertyTypes.map((type) => ({
+  value: type,
+  label: type === "Hotel" ? "Hotel Room" : type,
+}));
+const conferenceRoomEquipmentOptions = [
+  { value: "tv", label: "TV" },
+  { value: "monitor", label: "Monitor" },
+  { value: "projector", label: "Projector" },
+  { value: "whiteboard", label: "Whiteboard" },
+  { value: "sound_system", label: "Sound System" },
+  { value: "video_conferencing", label: "Video Conferencing" },
+];
 const currencies = CURRENCY_OPTIONS;
 const cancellationPolicies = [
   { value: "strict", label: "Strict - Less refunds" },
@@ -348,6 +364,7 @@ export default function HostDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { usdRates } = useFxRates();
+  const { currency: preferredCurrency } = usePreferences();
 
   const [tab, setTab] = useState("overview");
   const [isLoading, setIsLoading] = useState(true);
@@ -436,7 +453,11 @@ export default function HostDashboard() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [routes, setRoutes] = useState<TransportRoute[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [checkoutByOrderId, setCheckoutByOrderId] = useState<Record<string, { total_amount: number; currency: string | null }>>({});
+  const [checkoutByOrderId, setCheckoutByOrderId] = useState<Record<string, {
+    total_amount: number;
+    currency: string | null;
+    metadata?: Record<string, any> | null;
+  }>>({});
   const [bookingIdSearch, setBookingIdSearch] = useState("");
   const [bookingQuickFilter, setBookingQuickFilter] = useState<"all" | "refunds">("all");
   const [propertyCalendarSummaries, setPropertyCalendarSummaries] = useState<Record<string, {
@@ -541,6 +562,9 @@ export default function HostDashboard() {
     smoking_allowed: false,
     events_allowed: false,
     pets_allowed: false,
+    conference_room_capacity: 0,
+    conference_room_min_rooms_required: 0,
+    conference_room_equipment: [] as string[],
   });
   const [creatingProperty, setCreatingProperty] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -802,16 +826,21 @@ export default function HostDashboard() {
         if (orderIds.length > 0) {
           const { data: checkoutRows } = await supabase
             .from("checkout_requests")
-            .select("id, total_amount, currency")
+            .select("id, total_amount, currency, metadata")
             .in("id", orderIds);
 
           const map = (checkoutRows || []).reduce((acc, row: any) => {
             acc[row.id] = {
               total_amount: Number(row.total_amount || 0),
               currency: row.currency || null,
+              metadata: row.metadata || null,
             };
             return acc;
-          }, {} as Record<string, { total_amount: number; currency: string | null }>);
+          }, {} as Record<string, {
+            total_amount: number;
+            currency: string | null;
+            metadata?: Record<string, any> | null;
+          }>);
 
           setCheckoutByOrderId(map);
         } else {
@@ -1208,9 +1237,17 @@ export default function HostDashboard() {
       is_published: true, // Published by default
     };
 
+    const hasConferenceRoom =
+      propertyForm.property_type === "Conference Room" ||
+      propertyForm.amenities.includes("conference_room");
+
     // Add optional columns only if they have values
     if (propertyForm.beds) payload.beds = propertyForm.beds;
-    if (propertyForm.amenities?.length > 0) payload.amenities = propertyForm.amenities;
+    if (propertyForm.amenities?.length > 0 || hasConferenceRoom) {
+      payload.amenities = hasConferenceRoom
+        ? Array.from(new Set([...(propertyForm.amenities || []), "conference_room"]))
+        : propertyForm.amenities;
+    }
     if (propertyForm.cancellation_policy) payload.cancellation_policy = propertyForm.cancellation_policy;
     // Discounts / rules (these columns exist in prod; save them so details page reflects host choices)
     payload.weekly_discount = Number(propertyForm.weekly_discount || 0);
@@ -1224,6 +1261,15 @@ export default function HostDashboard() {
     payload.smoking_allowed = Boolean(propertyForm.smoking_allowed);
     payload.events_allowed = Boolean(propertyForm.events_allowed);
     payload.pets_allowed = Boolean(propertyForm.pets_allowed);
+    payload.conference_room_capacity = hasConferenceRoom
+      ? Math.max(1, Number(propertyForm.conference_room_capacity || 1))
+      : null;
+    payload.conference_room_min_rooms_required = hasConferenceRoom
+      ? Math.max(0, Number(propertyForm.conference_room_min_rooms_required || 0))
+      : null;
+    payload.conference_room_equipment = hasConferenceRoom
+      ? (propertyForm.conference_room_equipment || [])
+      : null;
 
     console.log("[createProperty] Attempting insert with payload:", payload);
 
@@ -1305,6 +1351,9 @@ export default function HostDashboard() {
       smoking_allowed: false,
       events_allowed: false,
       pets_allowed: false,
+      conference_room_capacity: 0,
+      conference_room_min_rooms_required: 0,
+      conference_room_equipment: [],
     });
   };
 
@@ -1993,6 +2042,44 @@ export default function HostDashboard() {
     };
   }, [checkoutByOrderId]);
 
+  const getOriginalListingSubtotal = useCallback((booking: {
+    order_id?: string | null;
+    total_price?: number | null;
+    currency?: string | null;
+    booking_type?: string | null;
+    property_id?: string | null;
+    tour_id?: string | null;
+  }) => {
+    const checkout = booking.order_id ? checkoutByOrderId[booking.order_id] : null;
+    const guestPaid = Number(booking.total_price || checkout?.total_amount || 0);
+
+    const serviceType: 'accommodation' | 'tour' | 'transport' =
+      booking.booking_type === 'property' || Boolean(booking.property_id)
+        ? 'accommodation'
+        : booking.booking_type === 'tour' || Boolean(booking.tour_id)
+          ? 'tour'
+          : 'transport';
+
+    const orderDiscount = Number(checkout?.metadata?.discount_amount || 0);
+    let bookingDiscountShare = 0;
+    if (orderDiscount > 0 && booking.order_id) {
+      const orderBookings = (bookings || []).filter((b) => b.order_id === booking.order_id);
+      const orderBookingsTotal = orderBookings.reduce((sum, row) => sum + Number(row.total_price || 0), 0);
+      if (orderBookingsTotal > 0 && guestPaid > 0) {
+        bookingDiscountShare = orderDiscount * (guestPaid / orderBookingsTotal);
+      }
+    }
+
+    const adjustedGuestPaid = guestPaid + bookingDiscountShare;
+    const { basePrice } = calculateHostEarningsFromGuestTotal(adjustedGuestPaid, serviceType);
+
+    return {
+      listingSubtotal: Number.isFinite(basePrice) ? Math.max(0, basePrice) : 0,
+      currency: String(booking.currency || checkout?.currency || 'RWF').toUpperCase(),
+      serviceType,
+    };
+  }, [bookings, checkoutByOrderId]);
+
   const confirmedBookings = (bookings || []).filter((b) => {
     const status = String(b.status || "").toLowerCase();
     const payment = normalizePaymentStatus(b);
@@ -2629,6 +2716,9 @@ export default function HostDashboard() {
         cancellation_policy: form.cancellation_policy,
         images: form.images,
         is_published: form.is_published,
+        conference_room_capacity: form.conference_room_capacity ?? null,
+        conference_room_min_rooms_required: form.conference_room_min_rooms_required ?? null,
+        conference_room_equipment: form.conference_room_equipment ?? [],
       });
       if (success) setEditingPropertyId(null);
     };
@@ -2842,6 +2932,9 @@ export default function HostDashboard() {
                 <span className="flex items-center gap-1"><Users className="w-3 h-3" />{property.max_guests}</span>
                 <span className="flex items-center gap-1"><Bed className="w-3 h-3" />{property.bedrooms}</span>
                 <span className="flex items-center gap-1"><Bath className="w-3 h-3" />{property.bathrooms}</span>
+                {(property.property_type === "Conference Room" || property.amenities?.includes("conference_room")) && (
+                  <span className="flex items-center gap-1"><Presentation className="w-3 h-3" />Conference</span>
+                )}
               </div>
               <div className="flex items-center justify-between pt-2">
                 <Link to={`/properties/${property.id}`} className="text-xs text-primary hover:underline flex items-center gap-1">
@@ -4062,6 +4155,10 @@ export default function HostDashboard() {
 
   // Room Creation Form - Minimalistic
   if (showRoomWizard) {
+    const isConferenceRoomSelected =
+      propertyForm.property_type === "Conference Room" ||
+      propertyForm.amenities.includes("conference_room");
+
     return (
       <div className="min-h-[100dvh] bg-background">
         <Navbar />
@@ -4089,10 +4186,26 @@ export default function HostDashboard() {
                 }
                 
                 try {
+                  const hasConferenceRoom = isConferenceRoomSelected;
+
                   const payload = {
                     ...propertyForm,
                     property_type: propertyForm.property_type || "Room in Apartment",
                     price_per_group_size: propertyForm.price_per_group_size || null,
+                    amenities: hasConferenceRoom
+                      ? Array.from(new Set([...(propertyForm.amenities || []), "conference_room"]))
+                      : propertyForm.amenities,
+                    conference_room_capacity: hasConferenceRoom
+                      ? Math.max(1, Number(propertyForm.conference_room_capacity || 1))
+                      : null,
+                    conference_room_min_rooms_required: hasConferenceRoom
+                      ? Math.max(0, Number(propertyForm.conference_room_min_rooms_required || 0))
+                      : null,
+                    conference_room_equipment: hasConferenceRoom
+                      ? (propertyForm.conference_room_equipment || [])
+                      : null,
+                    bedrooms: hasConferenceRoom ? 0 : propertyForm.bedrooms,
+                    beds: hasConferenceRoom ? null : propertyForm.beds,
                     host_id: user!.id,
                     is_published: true, // Published by default
                     images: propertyForm.images.length > 0 ? propertyForm.images : null,
@@ -4130,20 +4243,32 @@ export default function HostDashboard() {
               </div>
 
               <div>
-                <Label className="text-sm font-medium">Property Type</Label>
+                <Label className="text-sm font-medium">Room Type</Label>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-1.5">
-                  {propertyTypes.map((type) => (
+                  {roomPropertyTypeOptions.map((typeOption) => (
                     <button
-                      key={type}
+                      key={typeOption.value}
                       type="button"
-                      onClick={() => setPropertyForm((f) => ({ ...f, property_type: type }))}
+                      onClick={() =>
+                        setPropertyForm((f) => {
+                          const nextAmenities =
+                            typeOption.value === "Conference Room"
+                              ? Array.from(new Set([...(f.amenities || []), "conference_room"]))
+                              : (f.amenities || []).filter((amenity) => amenity !== "conference_room");
+                          return {
+                            ...f,
+                            property_type: typeOption.value,
+                            amenities: nextAmenities,
+                          };
+                        })
+                      }
                       className={`px-3 py-2 rounded-lg border text-sm text-center transition-all ${
-                        propertyForm.property_type === type
+                        propertyForm.property_type === typeOption.value
                           ? "border-primary bg-primary/10 text-primary"
                           : "border-border hover:border-primary/50"
                       }`}
                     >
-                      {type}
+                      {typeOption.label}
                     </button>
                   ))}
                 </div>
@@ -4317,37 +4442,174 @@ export default function HostDashboard() {
                 )}
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label className="text-sm font-medium">Beds</Label>
-                  <Input
-                    type="number"
-                    value={propertyForm.beds}
-                    onChange={(e) => setPropertyForm((f) => ({ ...f, beds: Number(e.target.value) }))}
-                    min="1"
-                    className="mt-1.5"
+              {!isConferenceRoomSelected && (
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium">Beds</Label>
+                    <Input
+                      type="number"
+                      value={propertyForm.beds}
+                      onChange={(e) => setPropertyForm((f) => ({ ...f, beds: Number(e.target.value) }))}
+                      min="1"
+                      className="mt-1.5"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Max Guests</Label>
+                    <Input
+                      type="number"
+                      value={propertyForm.max_guests}
+                      onChange={(e) => setPropertyForm((f) => ({ ...f, max_guests: Number(e.target.value) }))}
+                      min="1"
+                      className="mt-1.5"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Bathrooms</Label>
+                    <Input
+                      type="number"
+                      value={propertyForm.bathrooms}
+                      onChange={(e) => setPropertyForm((f) => ({ ...f, bathrooms: Number(e.target.value) }))}
+                      min="0"
+                      step="0.5"
+                      className="mt-1.5"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {isConferenceRoomSelected && (
+                <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
+                  <p className="text-sm text-primary font-medium">Conference room mode: showing conference-specific details only.</p>
+                </div>
+              )}
+
+              <div className="rounded-xl border p-4 space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <Label className="text-sm font-medium">Conference room available</Label>
+                    <p className="text-xs text-muted-foreground">Show conference room as an amenity for this listing.</p>
+                  </div>
+                  <Switch
+                    checked={isConferenceRoomSelected}
+                    onCheckedChange={(checked) => {
+                      setPropertyForm((f) => {
+                        const nextAmenities = checked
+                          ? Array.from(new Set([...(f.amenities || []), "conference_room"]))
+                          : (f.amenities || []).filter((amenity) => amenity !== "conference_room");
+                        return { ...f, amenities: nextAmenities };
+                      });
+                    }}
                   />
                 </div>
+
+                {isConferenceRoomSelected && (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-sm font-medium">Conference capacity (people)</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={propertyForm.conference_room_capacity || 1}
+                          onChange={(e) =>
+                            setPropertyForm((f) => ({
+                              ...f,
+                              conference_room_capacity: Math.max(1, Number(e.target.value) || 1),
+                            }))
+                          }
+                          className="mt-1.5"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium">Minimum hotel rooms to book</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={propertyForm.conference_room_min_rooms_required || 0}
+                          onChange={(e) =>
+                            setPropertyForm((f) => ({
+                              ...f,
+                              conference_room_min_rooms_required: Math.max(0, Number(e.target.value) || 0),
+                            }))
+                          }
+                          className="mt-1.5"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label className="text-sm font-medium block mb-2">Conference equipment</Label>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {conferenceRoomEquipmentOptions.map((equipment) => {
+                          const selected = (propertyForm.conference_room_equipment || []).includes(equipment.value);
+                          return (
+                            <button
+                              key={equipment.value}
+                              type="button"
+                              onClick={() =>
+                                setPropertyForm((f) => ({
+                                  ...f,
+                                  conference_room_equipment: selected
+                                    ? (f.conference_room_equipment || []).filter((item) => item !== equipment.value)
+                                    : [...(f.conference_room_equipment || []), equipment.value],
+                                }))
+                              }
+                              className={`px-3 py-2 rounded-lg border text-xs text-left ${
+                                selected
+                                  ? "border-primary bg-primary/10 text-primary"
+                                  : "border-border hover:border-primary/50"
+                              }`}
+                            >
+                              {equipment.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="rounded-xl border p-4 space-y-4">
                 <div>
-                  <Label className="text-sm font-medium">Max Guests</Label>
-                  <Input
-                    type="number"
-                    value={propertyForm.max_guests}
-                    onChange={(e) => setPropertyForm((f) => ({ ...f, max_guests: Number(e.target.value) }))}
-                    min="1"
-                    className="mt-1.5"
-                  />
+                  <Label className="text-sm font-medium">Room Amenities</Label>
+                  <p className="text-xs text-muted-foreground mt-1">Select all amenities available in this room.</p>
+                  <p className="text-xs text-primary mt-1">Scrollable list: scroll down to see more amenities.</p>
                 </div>
-                <div>
-                  <Label className="text-sm font-medium">Bathrooms</Label>
-                  <Input
-                    type="number"
-                    value={propertyForm.bathrooms}
-                    onChange={(e) => setPropertyForm((f) => ({ ...f, bathrooms: Number(e.target.value) }))}
-                    min="0"
-                    step="0.5"
-                    className="mt-1.5"
-                  />
+
+                <div className="space-y-4 max-h-[28rem] overflow-y-scroll pr-1 border rounded-lg p-3 bg-muted/20">
+                  {AMENITIES_BY_CATEGORY.map((category) => (
+                    <div key={category.name}>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">{category.name}</p>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {category.items.map((amenity) => {
+                          const isSelected = propertyForm.amenities.includes(amenity.value);
+                          return (
+                            <button
+                              key={amenity.value}
+                              type="button"
+                              onClick={() =>
+                                setPropertyForm((f) => ({
+                                  ...f,
+                                  amenities: isSelected
+                                    ? f.amenities.filter((a) => a !== amenity.value)
+                                    : [...f.amenities, amenity.value],
+                                }))
+                              }
+                              className={`px-3 py-2 rounded-lg border text-xs text-left transition-all ${
+                                isSelected
+                                  ? "border-primary bg-primary/10 text-primary"
+                                  : "border-border hover:border-primary/50"
+                              }`}
+                            >
+                              {amenity.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -4456,7 +4718,19 @@ export default function HostDashboard() {
                         <button
                           key={type}
                           type="button"
-                          onClick={() => setPropertyForm((f) => ({ ...f, property_type: type }))}
+                          onClick={() =>
+                            setPropertyForm((f) => {
+                              const nextAmenities =
+                                type === "Conference Room"
+                                  ? Array.from(new Set([...(f.amenities || []), "conference_room"]))
+                                  : (f.amenities || []).filter((amenity) => amenity !== "conference_room");
+                              return {
+                                ...f,
+                                property_type: type,
+                                amenities: nextAmenities,
+                              };
+                            })
+                          }
                           className={`p-4 rounded-xl border-2 text-center transition-all ${
                             propertyForm.property_type === type
                               ? "border-primary bg-primary/10 text-primary"
@@ -4577,6 +4851,97 @@ export default function HostDashboard() {
                         className="mt-2"
                       />
                     </div>
+                  </div>
+
+                  <div className="rounded-xl border p-4 space-y-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <Label className="text-base font-medium">Conference room amenity</Label>
+                        <p className="text-sm text-muted-foreground">Enable if guests can access a conference room with room bookings.</p>
+                      </div>
+                      <Switch
+                        checked={
+                          propertyForm.property_type === "Conference Room" ||
+                          propertyForm.amenities.includes("conference_room")
+                        }
+                        onCheckedChange={(checked) => {
+                          setPropertyForm((f) => {
+                            const nextAmenities = checked
+                              ? Array.from(new Set([...(f.amenities || []), "conference_room"]))
+                              : (f.amenities || []).filter((amenity) => amenity !== "conference_room");
+                            return { ...f, amenities: nextAmenities };
+                          });
+                        }}
+                      />
+                    </div>
+
+                    {(propertyForm.property_type === "Conference Room" ||
+                      propertyForm.amenities.includes("conference_room")) && (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-base font-medium">Conference capacity (people)</Label>
+                            <Input
+                              type="number"
+                              min={1}
+                              value={propertyForm.conference_room_capacity || 1}
+                              onChange={(e) =>
+                                setPropertyForm((f) => ({
+                                  ...f,
+                                  conference_room_capacity: Math.max(1, Number(e.target.value) || 1),
+                                }))
+                              }
+                              className="mt-2"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-base font-medium">Minimum rooms to book for access</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={propertyForm.conference_room_min_rooms_required || 0}
+                              onChange={(e) =>
+                                setPropertyForm((f) => ({
+                                  ...f,
+                                  conference_room_min_rooms_required: Math.max(0, Number(e.target.value) || 0),
+                                }))
+                              }
+                              className="mt-2"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <Label className="text-base font-medium block mb-2">Conference equipment</Label>
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                            {conferenceRoomEquipmentOptions.map((equipment) => {
+                              const selected = (propertyForm.conference_room_equipment || []).includes(equipment.value);
+                              return (
+                                <button
+                                  key={equipment.value}
+                                  type="button"
+                                  onClick={() =>
+                                    setPropertyForm((f) => ({
+                                      ...f,
+                                      conference_room_equipment: selected
+                                        ? (f.conference_room_equipment || []).filter((item) => item !== equipment.value)
+                                        : [...(f.conference_room_equipment || []), equipment.value],
+                                    }))
+                                  }
+                                  className={`p-2 rounded-lg border text-sm text-left ${
+                                    selected
+                                      ? "border-primary bg-primary/10 text-primary"
+                                      : "border-border hover:border-primary/50"
+                                  }`}
+                                >
+                                  {equipment.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   <div>
@@ -5024,7 +5389,25 @@ export default function HostDashboard() {
                       {propertyForm.amenities.map((a) => (
                         <Badge key={a} variant="secondary" className="capitalize">{a.replace(/_/g, " ")}</Badge>
                       ))}
+                    </div>
+
+                    {(propertyForm.property_type === "Conference Room" ||
+                      propertyForm.amenities.includes("conference_room")) && (
+                      <div className="pt-3 border-t border-border">
+                        <div className="text-sm font-medium mb-1">Conference room details</div>
+                        <div className="text-sm text-muted-foreground space-y-1">
+                          <p>Capacity: {Math.max(1, Number(propertyForm.conference_room_capacity || 1))} people</p>
+                          <p>
+                            Minimum rooms to book for access: {Math.max(0, Number(propertyForm.conference_room_min_rooms_required || 0))}
+                          </p>
+                          {!!propertyForm.conference_room_equipment?.length && (
+                            <p>
+                              Equipment: {propertyForm.conference_room_equipment.map((item) => item.replace(/_/g, " ")).join(", ")}
+                            </p>
+                          )}
+                        </div>
                       </div>
+                    )}
 
                     {propertyForm.description && (
                       <div className="pt-3 border-t border-border">
@@ -5985,7 +6368,35 @@ export default function HostDashboard() {
                         serviceType = 'transport';
                       }
 
-                      const { hostNetEarnings } = calculateHostEarningsFromGuestTotal(Number(b.total_price), serviceType);
+                      const { listingSubtotal, currency: listingCurrency } = getOriginalListingSubtotal(b);
+                      const listingTotal = listingSubtotal;
+                      const nights = Math.max(
+                        1,
+                        Math.ceil(
+                          (new Date(b.check_out).getTime() - new Date(b.check_in).getTime()) /
+                            (1000 * 60 * 60 * 24)
+                        )
+                      );
+                      const guests = Math.max(1, Number(b.guests || 1));
+                      const unitLabel =
+                        serviceType === 'accommodation'
+                          ? 'Nightly listing rate'
+                          : serviceType === 'tour'
+                            ? 'Price per participant'
+                            : 'Base listing fare';
+                      const unitValue =
+                        serviceType === 'accommodation'
+                          ? listingTotal / nights
+                          : serviceType === 'tour'
+                            ? listingTotal / guests
+                            : listingTotal;
+                      const feePercent =
+                        serviceType === 'accommodation'
+                          ? PLATFORM_FEES.accommodation.hostFeePercent
+                          : serviceType === 'tour'
+                            ? PLATFORM_FEES.tour.providerFeePercent
+                            : PLATFORM_FEES.transport.providerFeePercent;
+                      const hostNetEarnings = listingTotal * (1 - feePercent / 100);
                       
                       return (
                         <Card key={b.id} className="overflow-hidden border-2 border-amber-300 shadow-md">
@@ -6037,12 +6448,25 @@ export default function HostDashboard() {
                                 </div>
                               </div>
                               
-                              {/* Earnings Section */}
+                              {/* Original Listing Price */}
                               <div className="space-y-1">
-                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Your Earnings</p>
-                                <div className="flex items-center gap-2">
-                                  <Wallet className="w-4 h-4 text-green-600" />
-                                  <span className="font-semibold text-green-600">{formatMoney(hostNetEarnings, b.currency || 'RWF')}</span>
+                                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Original Listing Price (No coupon, No fees)</p>
+                                <div className="rounded-xl border border-border/70 bg-background/90 px-3 py-2.5">
+                                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{unitLabel}</p>
+                                  <p className="text-base font-semibold leading-tight mt-1">{formatMoney(unitValue, listingCurrency)}</p>
+                                  <p className="text-[11px] text-muted-foreground mt-1">
+                                    {serviceType === 'accommodation'
+                                      ? `${nights} night${nights !== 1 ? 's' : ''}`
+                                      : `${guests} guest${guests !== 1 ? 's' : ''}`}
+                                  </p>
+                                  <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
+                                    <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Subtotal</span>
+                                    <span className="text-sm font-semibold">{formatMoney(listingTotal, listingCurrency)}</span>
+                                  </div>
+                                  <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
+                                    <span className="text-[11px] text-muted-foreground uppercase tracking-wide">You will earn</span>
+                                    <span className="text-sm font-semibold text-emerald-600">{formatMoney(hostNetEarnings, listingCurrency)}</span>
+                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -6158,7 +6582,7 @@ export default function HostDashboard() {
                 filteredBookingsById.filter(b => !(b.confirmation_status === 'pending' || b.status === 'pending')).map((b) => {
                   // Get the name of the booked item based on type
                   let itemName = 'Unknown';
-                  let itemType = b.booking_type || 'property';
+                  const itemType = b.booking_type || 'property';
                   const paymentState = normalizePaymentStatus(b);
                   
                   if (b.booking_type === 'property' && (b as any).properties) {
@@ -6176,10 +6600,37 @@ export default function HostDashboard() {
                     : 1;
                   const isBulkOrder = orderItemCount > 1;
                   
-                  // Calculate net earnings after platform fee
+                  // Calculate original listing price breakdown
                   const serviceType = itemType === 'property' ? 'accommodation' : itemType === 'tour' ? 'tour' : 'transport';
-                  const { hostNetEarnings, hostFee } = calculateHostEarningsFromGuestTotal(Number(b.total_price), serviceType as 'accommodation' | 'tour' | 'transport');
-                  const feePercent = serviceType === 'accommodation' ? PLATFORM_FEES.accommodation.hostFeePercent : serviceType === 'tour' ? PLATFORM_FEES.tour.providerFeePercent : 0;
+                  const { listingSubtotal, currency: listingCurrency } = getOriginalListingSubtotal(b);
+                  const listingTotal = listingSubtotal;
+                  const nights = Math.max(
+                    1,
+                    Math.ceil(
+                      (new Date(b.check_out).getTime() - new Date(b.check_in).getTime()) /
+                        (1000 * 60 * 60 * 24)
+                    )
+                  );
+                  const guests = Math.max(1, Number(b.guests || 1));
+                  const unitLabel =
+                    serviceType === 'accommodation'
+                      ? 'Nightly listing rate'
+                      : serviceType === 'tour'
+                        ? 'Price per participant'
+                        : 'Base listing fare';
+                  const unitValue =
+                    serviceType === 'accommodation'
+                      ? listingTotal / nights
+                      : serviceType === 'tour'
+                        ? listingTotal / guests
+                        : listingTotal;
+                  const feePercent =
+                    serviceType === 'accommodation'
+                      ? PLATFORM_FEES.accommodation.hostFeePercent
+                      : serviceType === 'tour'
+                        ? PLATFORM_FEES.tour.providerFeePercent
+                        : PLATFORM_FEES.transport.providerFeePercent;
+                  const hostNetEarnings = listingTotal * (1 - feePercent / 100);
                   
                   return (
                   <Card key={b.id} className="overflow-hidden border shadow-sm hover:shadow-md transition-shadow">
@@ -6257,16 +6708,24 @@ export default function HostDashboard() {
                           </div>
                         </div>
                         
-                        {/* Earnings Section */}
+                        {/* Original Listing Price */}
                         <div className="space-y-1">
-                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Your Earnings</p>
-                          <div className="flex items-center gap-2">
-                            <Wallet className="w-4 h-4 text-green-600" />
-                            <div>
-                              <p className="font-semibold text-green-600">{formatMoney(hostNetEarnings, b.currency || 'RWF')}</p>
-                              {feePercent > 0 && (
-                                <p className="text-xs text-muted-foreground">after {feePercent}% platform fee</p>
-                              )}
+                          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Original Listing Price (No coupon, No fees)</p>
+                          <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2.5">
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{unitLabel}</p>
+                            <p className="text-base font-semibold leading-tight mt-1">{formatMoney(unitValue, listingCurrency)}</p>
+                            <p className="text-[11px] text-muted-foreground mt-1">
+                              {serviceType === 'accommodation'
+                                ? `${nights} night${nights !== 1 ? 's' : ''}`
+                                : `${guests} guest${guests !== 1 ? 's' : ''}`}
+                            </p>
+                            <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
+                              <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Subtotal</span>
+                              <span className="text-sm font-semibold">{formatMoney(listingTotal, listingCurrency)}</span>
+                            </div>
+                            <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
+                              <span className="text-[11px] text-muted-foreground uppercase tracking-wide">You will earn</span>
+                              <span className="text-sm font-semibold text-emerald-600">{formatMoney(hostNetEarnings, listingCurrency)}</span>
                             </div>
                           </div>
                         </div>
@@ -6789,7 +7248,7 @@ END OF REPORT
                 ) : (
                   <div className="border rounded-lg overflow-hidden">
                     <Table>
-                      <TableHeader>
+                      <TableHeader className="sticky top-0 z-10 bg-background">
                         <TableRow>
                           <TableHead>Date</TableHead>
                           <TableHead>Amount</TableHead>
@@ -7240,83 +7699,137 @@ END OF REPORT
                   Payment Information
                 </h3>
                 <Card className="p-4">
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Listing Price:</span>
-                      <span className="text-xl font-bold">
-                        {formatMoney(
-                          bookingFullDetails.total_price,
-                          bookingFullDetails.booking_type === 'property' && bookingFullDetails.properties?.currency
-                            ? bookingFullDetails.properties.currency
-                            : bookingFullDetails.booking_type === 'tour' && bookingFullDetails.tour_packages?.currency
-                              ? bookingFullDetails.tour_packages.currency
-                              : bookingFullDetails.booking_type === 'transport' && bookingFullDetails.transport_vehicles?.currency
-                                ? bookingFullDetails.transport_vehicles.currency
-                                : bookingFullDetails.currency || 'RWF'
-                        )}
-                      </span>
-                    </div>
-                    {bookingFullDetails.checkout_requests && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">Amount Paid:</span>
-                        <span className="text-xl font-bold text-green-600">
-                          {formatMoney(
-                            bookingFullDetails.checkout_requests.total_amount,
-                            bookingFullDetails.checkout_requests.currency || 'RWF'
-                          )}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Payment Status:</span>
-                      <Badge variant={bookingFullDetails.payment_status === 'paid' ? 'default' : 'secondary'}>
-                        {bookingFullDetails.payment_status}
-                      </Badge>
-                    </div>
-                    {bookingFullDetails.checkout_requests && (
-                      <>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Payment Method:</span>
-                          <span className="font-medium">{bookingFullDetails.checkout_requests.payment_method || 'Mobile Money'}</span>
+                  {(() => {
+                    const {
+                      listingSubtotal: listingTotal,
+                      currency: listingCurrency,
+                    } = getOriginalListingSubtotal(bookingFullDetails);
+                    const displayCurrency = preferredCurrency || listingCurrency;
+                    const nights = Math.max(
+                      1,
+                      Math.ceil(
+                        (new Date(bookingFullDetails.check_out).getTime() - new Date(bookingFullDetails.check_in).getTime()) /
+                          (1000 * 60 * 60 * 24)
+                      )
+                    );
+                    const guests = Math.max(1, Number(bookingFullDetails.guests || 1));
+
+                    const unitLabel =
+                      bookingFullDetails.booking_type === 'property'
+                        ? 'Nightly listing rate'
+                        : bookingFullDetails.booking_type === 'tour'
+                          ? 'Price per participant'
+                          : 'Base listing fare';
+
+                    const unitValue =
+                      bookingFullDetails.booking_type === 'property'
+                        ? listingTotal / nights
+                        : bookingFullDetails.booking_type === 'tour'
+                          ? listingTotal / guests
+                          : listingTotal;
+                    const modalServiceType =
+                      bookingFullDetails.booking_type === 'property'
+                        ? 'accommodation'
+                        : bookingFullDetails.booking_type === 'tour'
+                          ? 'tour'
+                          : 'transport';
+                    const feePercent =
+                      modalServiceType === 'accommodation'
+                        ? PLATFORM_FEES.accommodation.hostFeePercent
+                        : modalServiceType === 'tour'
+                          ? PLATFORM_FEES.tour.providerFeePercent
+                          : PLATFORM_FEES.transport.providerFeePercent;
+                    const hostNetEarnings = listingTotal * (1 - feePercent / 100);
+                    const convertedListingTotal = convertAmount(listingTotal, listingCurrency, displayCurrency, usdRates) ?? listingTotal;
+                    const convertedUnitValue = convertAmount(unitValue, listingCurrency, displayCurrency, usdRates) ?? unitValue;
+                    const convertedHostNetEarnings = convertAmount(hostNetEarnings, listingCurrency, displayCurrency, usdRates) ?? hostNetEarnings;
+
+                    return (
+                      <div className="space-y-4">
+                        <div className="rounded-xl border bg-muted/20 p-4">
+                          <p className="text-xs uppercase tracking-wide text-muted-foreground">Original Listing Price (No coupon, No fees)</p>
+                          <p className="text-2xl font-bold mt-1">{formatMoney(convertedListingTotal, displayCurrency)}</p>
                         </div>
-                        {bookingFullDetails.checkout_requests.dpo_transaction_id && (
+
+                        <div className="rounded-xl border p-4 space-y-2">
                           <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Transaction ID:</span>
-                            <span className="font-mono text-xs">{bookingFullDetails.checkout_requests.dpo_transaction_id}</span>
+                            <span className="text-muted-foreground">{unitLabel}</span>
+                            <span className="font-medium">{formatMoney(convertedUnitValue, displayCurrency)}</span>
                           </div>
-                        )}
-                      </>
-                    )}
-                    
-                    {/* Calculate and show earnings */}
-                    {(() => {
-                      const serviceType = bookingFullDetails.booking_type === 'property' ? 'accommodation' : bookingFullDetails.booking_type === 'tour' ? 'tour' : 'transport';
-                      const { hostNetEarnings, hostFee } = calculateHostEarningsFromGuestTotal(Number(bookingFullDetails.total_price), serviceType as 'accommodation' | 'tour' | 'transport');
-                      const feePercent = serviceType === 'accommodation' ? PLATFORM_FEES.accommodation.hostFeePercent : serviceType === 'tour' ? PLATFORM_FEES.tour.providerFeePercent : 0;
-                      
-                      // Get listing's currency
-                      const listingCurrency = bookingFullDetails.booking_type === 'property' && bookingFullDetails.properties?.currency
-                        ? bookingFullDetails.properties.currency
-                        : bookingFullDetails.booking_type === 'tour' && bookingFullDetails.tour_packages?.currency
-                          ? bookingFullDetails.tour_packages.currency
-                          : bookingFullDetails.booking_type === 'transport' && bookingFullDetails.transport_vehicles?.currency
-                            ? bookingFullDetails.transport_vehicles.currency
-                            : bookingFullDetails.currency || 'RWF';
-                      
-                      return (
-                        <div className="border-t pt-3 mt-3">
-                          <div className="flex justify-between text-sm mb-1">
-                            <span className="text-muted-foreground">Platform Fee ({feePercent}%):</span>
-                            <span>-{formatMoney(hostFee, listingCurrency)}</span>
+
+                          {bookingFullDetails.booking_type === 'property' && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Nights</span>
+                              <span className="font-medium">{nights}</span>
+                            </div>
+                          )}
+
+                          {(bookingFullDetails.booking_type === 'property' || bookingFullDetails.booking_type === 'tour') && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Guests</span>
+                              <span className="font-medium">{guests}</span>
+                            </div>
+                          )}
+
+                          <div className="border-t pt-2 mt-2 flex justify-between items-center">
+                            <span className="font-medium">Listing subtotal</span>
+                            <span className="text-base font-semibold">{formatMoney(convertedListingTotal, displayCurrency)}</span>
                           </div>
-                          <div className="flex justify-between items-center">
-                            <span className="font-semibold">Your Earnings:</span>
-                            <span className="text-lg font-bold text-green-600">{formatMoney(hostNetEarnings, listingCurrency)}</span>
+
+                          <div className="border-t pt-2 mt-2 flex justify-between items-center">
+                            <span className="font-medium">You will earn</span>
+                            <span className="text-base font-semibold text-emerald-600">{formatMoney(convertedHostNetEarnings, displayCurrency)}</span>
                           </div>
                         </div>
-                      );
-                    })()}
-                  </div>
+
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Payment Status:</span>
+                          <Badge variant={bookingFullDetails.payment_status === 'paid' ? 'default' : 'secondary'}>
+                            {bookingFullDetails.payment_status}
+                          </Badge>
+                        </div>
+
+                        {bookingFullDetails.checkout_requests && (
+                          <>
+                            {(() => {
+                              const paymentMethod = String(bookingFullDetails.checkout_requests.payment_method || "mobile_money").toLowerCase();
+                              const paymentLabel = paymentMethod
+                                .replace(/_/g, " ")
+                                .replace(/\bmomo\b/g, "MoMo")
+                                .replace(/\bmtn\b/g, "MTN")
+                                .replace(/\bairtel\b/g, "Airtel")
+                                .replace(/\bvisa\b/g, "Visa")
+                                .replace(/\bmastercard\b/g, "Mastercard")
+                                .replace(/\b\w/g, (char) => char.toUpperCase());
+
+                              const MethodIcon =
+                                /momo|mobile/.test(paymentMethod)
+                                  ? Smartphone
+                                  : /card|visa|master/.test(paymentMethod)
+                                    ? CreditCard
+                                    : Building;
+
+                              return (
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-muted-foreground">Payment Method:</span>
+                                  <span className="font-medium inline-flex items-center gap-1.5">
+                                    <MethodIcon className="w-3.5 h-3.5 text-muted-foreground" />
+                                    {paymentLabel || 'Mobile Money'}
+                                  </span>
+                                </div>
+                              );
+                            })()}
+                            {bookingFullDetails.checkout_requests.dpo_transaction_id && (
+                              <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Transaction ID:</span>
+                                <span className="font-mono text-xs">{bookingFullDetails.checkout_requests.dpo_transaction_id}</span>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </Card>
               </div>
 

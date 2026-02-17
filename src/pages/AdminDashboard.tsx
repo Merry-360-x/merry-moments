@@ -2726,7 +2726,7 @@ For support, contact: support@merry360x.com
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
-                    <TableHeader>
+                    <TableHeader className="sticky top-0 z-10 bg-background">
                       <TableRow>
                         <TableHead>Booking ID</TableHead>
                         <TableHead>Guest</TableHead>
@@ -3382,7 +3382,7 @@ For support, contact: support@merry360x.com
                     <h3 className="text-md font-semibold mb-3">All Hosts</h3>
                     <div className="overflow-x-auto">
                       <Table>
-                        <TableHeader>
+                        <TableHeader className="sticky top-0 z-10 bg-background">
                           <TableRow>
                             <TableHead>Host</TableHead>
                             <TableHead>Phone</TableHead>
@@ -3553,7 +3553,7 @@ For support, contact: support@merry360x.com
 
               <div className="overflow-x-auto">
                 <Table>
-                  <TableHeader className="bg-background">
+                  <TableHeader className="sticky top-0 z-10 bg-background">
                     <TableRow>
                       <TableHead>User</TableHead>
                       <TableHead>Email</TableHead>
@@ -3773,7 +3773,7 @@ For support, contact: support@merry360x.com
                   </Badge>
                 </div>
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-background">
                     <TableRow>
                       <TableHead>User</TableHead>
                       <TableHead>Type</TableHead>
@@ -3860,7 +3860,7 @@ For support, contact: support@merry360x.com
               ) : */ (
                 <div className="overflow-x-auto">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-background">
                     <TableRow>
                       <TableHead className="w-16">Image</TableHead>
                       <TableHead>Property</TableHead>
@@ -3958,7 +3958,7 @@ For support, contact: support@merry360x.com
               ) : */ (
                 <div className="overflow-x-auto">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-background">
                     <TableRow>
                       <TableHead className="w-16">Image</TableHead>
                       <TableHead>Tour</TableHead>
@@ -4038,7 +4038,7 @@ For support, contact: support@merry360x.com
               <h2 className="text-lg font-semibold mb-4">Transport Management</h2>
               <div className="overflow-x-auto">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-background">
                     <TableRow>
                       <TableHead className="w-16">Image</TableHead>
                       <TableHead>Vehicle</TableHead>
@@ -4178,7 +4178,7 @@ For support, contact: support@merry360x.com
 
               <div className="overflow-x-auto">
                 <Table className="min-w-[1680px] table-fixed">
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-background">
                     <TableRow>
                       <TableHead className="w-[170px]">Reference</TableHead>
                       <TableHead className="w-[280px]">Service</TableHead>
@@ -4579,7 +4579,7 @@ For support, contact: support@merry360x.com
               </CardHeader>
               <CardContent>
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-background">
                     <TableRow>
                       <TableHead>Host</TableHead>
                       <TableHead>Amount</TableHead>
@@ -4735,7 +4735,7 @@ For support, contact: support@merry360x.com
 
               <div className="overflow-x-auto">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-background">
                     <TableRow>
                       <TableHead>Property ID</TableHead>
                       <TableHead>User ID</TableHead>

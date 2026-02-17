@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { SupportChat } from "@/components/SupportChat";
@@ -18,6 +18,10 @@ import { Users, MessageSquare, Mail, AlertCircle, Eye, Bell, Headset, Send, Cloc
 import { formatMoney } from "@/lib/money";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNotificationBadge, NotificationBadge } from "@/hooks/useNotificationBadge";
+import { usePreferences } from "@/hooks/usePreferences";
+import { useFxRates } from "@/hooks/useFxRates";
+import { useToast } from "@/hooks/use-toast";
+import { convertAmount } from "@/lib/fx";
 
 type User = {
   id: string;
@@ -49,6 +53,7 @@ type SupportTicket = {
 
 type Booking = {
   id: string;
+  order_id?: string | null;
   property_id: string;
   guest_id?: string;
   guest_name: string;
@@ -58,12 +63,17 @@ type Booking = {
   check_out: string;
   guests: number;
   total_price: number;
+  currency?: string | null;
   status: string;
+  payment_status?: string | null;
   created_at: string;
 };
 
 export default function CustomerSupportDashboard() {
   const { user } = useAuth();
+  const { currency: preferredCurrency } = usePreferences();
+  const { usdRates } = useFxRates();
+  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<"overview" | "users" | "tickets" | "bookings">("overview");
   const [searchQuery, setSearchQuery] = useState("");
@@ -74,6 +84,7 @@ export default function CustomerSupportDashboard() {
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [ticketDetailsOpen, setTicketDetailsOpen] = useState(false);
   const [ticketResponse, setTicketResponse] = useState("");
+  const [processingRefundBooking, setProcessingRefundBooking] = useState<string | null>(null);
 
   // Notification badge hook
   const { getCount, hasNew, markAsSeen, updateNotificationCount } = useNotificationBadge("customer-support");
@@ -156,7 +167,7 @@ export default function CustomerSupportDashboard() {
       console.log('[CustomerSupport] Fetching bookings...');
       const { data, error } = await supabase
         .from("bookings")
-        .select("id, property_id, guest_id, guest_name, guest_email, guest_phone, check_in, check_out, guests, total_price, status, created_at")
+        .select("id, order_id, property_id, guest_id, guest_name, guest_email, guest_phone, check_in, check_out, guests, total_price, currency, status, payment_status, created_at")
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) {
@@ -284,6 +295,122 @@ export default function CustomerSupportDashboard() {
     }
   };
 
+  const extractRefundRefs = (ticket: SupportTicket) => {
+    const refs = new Set<string>();
+    const status = String(ticket.status || "").toLowerCase();
+    if (status === "resolved" || status === "closed") return refs;
+
+    const subject = String(ticket.subject || "");
+    const category = String(ticket.category || "").toLowerCase();
+    const isRefundTicket = /refund request/i.test(subject) || category === "payment";
+    if (!isRefundTicket) return refs;
+
+    const subjectMatch = subject.match(/refund request for booking\s+(.+)$/i);
+    if (subjectMatch?.[1]) refs.add(subjectMatch[1].trim().toLowerCase());
+
+    const bodyText = `${ticket.message || ""}\n${ticket.response || ""}`;
+    const patterns = [
+      /booking\s*id\s*[:#-]?\s*([a-z0-9-]{6,})/gi,
+      /order\s*id\s*[:#-]?\s*([a-z0-9-]{6,})/gi,
+      /refund request for booking\s+([a-z0-9-]{6,})/gi,
+    ];
+
+    for (const pattern of patterns) {
+      let match: RegExpExecArray | null;
+      while ((match = pattern.exec(bodyText)) !== null) {
+        if (match[1]) refs.add(match[1].trim().toLowerCase());
+      }
+    }
+
+    return refs;
+  };
+
+  const refundRequestRefs = useMemo(() => {
+    const refs = new Set<string>();
+    tickets.forEach((ticket) => {
+      extractRefundRefs(ticket).forEach((ref) => refs.add(ref));
+    });
+    return refs;
+  }, [tickets]);
+
+  const isRefundRequestedForBooking = (booking: Booking | null) => {
+    if (!booking) return false;
+    const bookingRef = String(booking.id || "").toLowerCase();
+    const orderRef = String(booking.order_id || "").toLowerCase();
+    return refundRequestRefs.has(bookingRef) || (!!orderRef && refundRequestRefs.has(orderRef));
+  };
+
+  const handleRefundDecision = async (booking: Booking, decision: "approve" | "decline") => {
+    const targetKey = `${booking.id}:${decision}`;
+    setProcessingRefundBooking(targetKey);
+
+    try {
+      const bookingUpdate =
+        decision === "approve"
+          ? {
+              payment_status: "refunded",
+              status: "cancelled",
+              updated_at: new Date().toISOString(),
+            }
+          : {
+              payment_status: "paid",
+              status: "confirmed",
+              updated_at: new Date().toISOString(),
+            };
+
+      const bookingQuery = supabase.from("bookings").update(bookingUpdate as never);
+      const bookingResult = booking.order_id
+        ? await bookingQuery.eq("order_id", booking.order_id)
+        : await bookingQuery.eq("id", booking.id);
+
+      if (bookingResult.error) throw bookingResult.error;
+
+      fetch("/api/booking-confirmation-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "refund_status",
+          bookingId: booking.id,
+          orderId: booking.order_id,
+          guestEmail: booking.guest_email,
+          guestName: booking.guest_name,
+          amount: booking.total_price,
+          currency: booking.currency || "RWF",
+          refundStatus: decision === "approve" ? "refunded" : "declined",
+          source: "customer_support_refund_action",
+        }),
+      }).catch(() => null);
+
+      toast({
+        title: decision === "approve" ? "Refund completed" : "Refund declined",
+        description:
+          decision === "approve"
+            ? "Booking is cancelled and marked as refunded."
+            : "Booking has been reactivated and marked as paid.",
+      });
+
+      await queryClient.invalidateQueries({ queryKey: ["support_bookings"] });
+      setSelectedBooking((prev) =>
+        prev && prev.id === booking.id
+          ? {
+              ...prev,
+              status: decision === "approve" ? "cancelled" : "confirmed",
+              payment_status: decision === "approve" ? "refunded" : "paid",
+            }
+          : prev
+      );
+    } catch (error) {
+      console.error("Failed to process refund decision:", error);
+      toast({
+        variant: "destructive",
+        title: "Action failed",
+        description: error instanceof Error ? error.message : "Failed to update refund status.",
+      });
+    } finally {
+      setProcessingRefundBooking(null);
+    }
+  };
+
   const filteredUsers = users.filter(user => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
@@ -391,7 +518,7 @@ export default function CustomerSupportDashboard() {
                 </CardHeader>
                 <CardContent>
                   <Table>
-                    <TableHeader>
+                    <TableHeader className="sticky top-0 z-10 bg-background">
                       <TableRow>
                         <TableHead>Name</TableHead>
                         <TableHead>Phone</TableHead>
@@ -439,7 +566,7 @@ export default function CustomerSupportDashboard() {
                     </div>
                   ) : (
                     <Table>
-                      <TableHeader>
+                      <TableHeader className="sticky top-0 z-10 bg-background">
                         <TableRow>
                           <TableHead>Subject</TableHead>
                           <TableHead>User</TableHead>
@@ -494,7 +621,7 @@ export default function CustomerSupportDashboard() {
               </CardHeader>
               <CardContent>
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-background">
                     <TableRow>
                       <TableHead>User ID</TableHead>
                       <TableHead>Name</TableHead>
@@ -552,7 +679,7 @@ export default function CustomerSupportDashboard() {
               </CardHeader>
               <CardContent>
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-background">
                     <TableRow>
                       <TableHead>ID</TableHead>
                       <TableHead>Guest Name</TableHead>
@@ -563,6 +690,7 @@ export default function CustomerSupportDashboard() {
                       <TableHead>Guests</TableHead>
                       <TableHead>Total</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -581,19 +709,26 @@ export default function CustomerSupportDashboard() {
                         <TableCell>{booking.guests}</TableCell>
                         <TableCell>${booking.total_price}</TableCell>
                         <TableCell>
-                          <Badge
-                            variant={
-                              booking.status === "confirmed"
-                                ? "default"
-                                : booking.status === "pending_confirmation"
-                                ? "secondary"
-                                : booking.status === "cancelled"
-                                ? "destructive"
-                                : "outline"
-                            }
-                          >
-                            {booking.status}
-                          </Badge>
+                          <div className="space-y-1">
+                            <Badge
+                              variant={
+                                booking.status === "confirmed"
+                                  ? "default"
+                                  : booking.status === "pending_confirmation"
+                                  ? "secondary"
+                                  : booking.status === "cancelled"
+                                  ? "destructive"
+                                  : "outline"
+                              }
+                            >
+                              {booking.status}
+                            </Badge>
+                            {booking.payment_status ? (
+                              <Badge variant="outline" className="block w-fit">
+                                {booking.payment_status}
+                              </Badge>
+                            ) : null}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Button
@@ -612,7 +747,7 @@ export default function CustomerSupportDashboard() {
                     ))}
                     {recentBookings.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center text-muted-foreground">
+                        <TableCell colSpan={10} className="text-center text-muted-foreground">
                           No bookings found
                         </TableCell>
                       </TableRow>
@@ -625,9 +760,6 @@ export default function CustomerSupportDashboard() {
 
           <TabsContent value="tickets">
             <div className="grid gap-6">
-              {/* Ticket Activity Logs */}
-              <TicketActivityLogs limit={100} filterStorageKey="ticket_activity_filter_support_dashboard" />
-
               {/* Support Tickets Table */}
               <Card>
                 <CardHeader>
@@ -645,7 +777,7 @@ export default function CustomerSupportDashboard() {
                   </div>
                 ) : (
                   <Table>
-                    <TableHeader>
+                    <TableHeader className="sticky top-0 z-10 bg-background">
                       <TableRow>
                         <TableHead>Subject</TableHead>
                         <TableHead>Category</TableHead>
@@ -712,6 +844,9 @@ export default function CustomerSupportDashboard() {
                 )}
               </CardContent>
             </Card>
+
+              {/* Ticket Activity Logs */}
+              <TicketActivityLogs limit={100} filterStorageKey="ticket_activity_filter_support_dashboard" />
             </div>
           </TabsContent>
         </Tabs>
@@ -805,11 +940,38 @@ export default function CustomerSupportDashboard() {
                       <Badge>{selectedBooking.status}</Badge>
                     </div>
                     <div>
+                      <p className="text-sm text-muted-foreground">Payment Status</p>
+                      <Badge variant="outline">{selectedBooking.payment_status || "N/A"}</Badge>
+                    </div>
+                    <div>
                       <p className="text-sm text-muted-foreground">Created Date</p>
                       <p className="text-sm">{new Date(selectedBooking.created_at).toLocaleString()}</p>
                     </div>
                   </div>
                 </div>
+
+                {isRefundRequestedForBooking(selectedBooking) && selectedBooking.status === "cancelled" && selectedBooking.payment_status === "paid" && (
+                  <div className="border-t pt-4">
+                    <h3 className="font-semibold mb-3">Refund Actions</h3>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => handleRefundDecision(selectedBooking, "approve")}
+                        disabled={processingRefundBooking === `${selectedBooking.id}:approve` || processingRefundBooking === `${selectedBooking.id}:decline`}
+                      >
+                        {processingRefundBooking === `${selectedBooking.id}:approve` ? "Processing..." : "Approve"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleRefundDecision(selectedBooking, "decline")}
+                        disabled={processingRefundBooking === `${selectedBooking.id}:approve` || processingRefundBooking === `${selectedBooking.id}:decline`}
+                      >
+                        {processingRefundBooking === `${selectedBooking.id}:decline` ? "Processing..." : "Reject"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Guest Information */}
                 <div className="border-t pt-4">
@@ -855,7 +1017,17 @@ export default function CustomerSupportDashboard() {
                     <div>
                       <p className="text-sm text-muted-foreground">Total Amount</p>
                       <p className="text-lg font-bold">
-                        {formatMoney(Number(selectedBooking.total_price), String(selectedBooking.currency ?? 'USD'))}
+                        {formatMoney(
+                          Number(
+                            convertAmount(
+                              Number(selectedBooking.total_price || 0),
+                              String(selectedBooking.currency || "RWF"),
+                              preferredCurrency,
+                              usdRates
+                            ) ?? Number(selectedBooking.total_price || 0)
+                          ),
+                          preferredCurrency
+                        )}
                       </p>
                     </div>
                   </div>
