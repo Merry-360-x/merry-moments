@@ -22,6 +22,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatMoney } from "@/lib/money";
 import { normalizeAdminMetrics } from "@/lib/admin-metrics";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
+import { usePreferences } from "@/hooks/usePreferences";
 import {
   Users,
   Home,
@@ -218,6 +219,7 @@ type BookingRow = {
     vehicle_type: string;
   } | null;
   profiles?: {
+    id?: string;
     full_name: string | null;
     nickname: string | null;
     email: string | null;
@@ -275,7 +277,6 @@ type Metrics = {
   users_total: number;
   users_suspended: number;
   hosts_total: number;
-  stories_total: number;
   properties_total: number;
   properties_published: number;
   properties_featured: number;
@@ -345,6 +346,7 @@ const ADMIN_FX_TO_RWF: Record<string, number> = {
   USD: 1455.5,
   EUR: 1716.76225,
   GBP: 1972.4936,
+  CNY: 209.732456,
   KES: 11.283036,
   UGX: 0.408996,
   TZS: 0.563279,
@@ -357,6 +359,21 @@ const toRwfAmount = (amount: number, currency: string | null | undefined): numbe
   if (code === "RWF") return safeAmount;
   const rate = ADMIN_FX_TO_RWF[code] ?? ADMIN_FX_TO_RWF.USD;
   return safeAmount * rate;
+};
+
+const convertAdminCurrency = (
+  amount: number,
+  fromCurrency: string | null | undefined,
+  toCurrency: string | null | undefined
+): number => {
+  const from = String(fromCurrency || "RWF").toUpperCase();
+  const to = String(toCurrency || "RWF").toUpperCase();
+  const safeAmount = Number.isFinite(Number(amount)) ? Number(amount) : 0;
+  if (from === to) return safeAmount;
+  const inRwf = toRwfAmount(safeAmount, from);
+  if (to === "RWF") return inRwf;
+  const toRate = ADMIN_FX_TO_RWF[to] ?? ADMIN_FX_TO_RWF.USD;
+  return inRwf / toRate;
 };
 
 const statusColors: Record<string, string> = {
@@ -386,6 +403,7 @@ const Thumb = ({ src, alt }: { src: string | null | undefined; alt: string }) =>
 export default function AdminDashboard() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { currency: preferredCurrency } = usePreferences();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<TabValue>("overview");
   const [userSearch, setUserSearch] = useState("");
@@ -947,7 +965,7 @@ export default function AdminDashboard() {
           ? supabase.from("transport_vehicles").select("id, title, vehicle_type, currency").in("id", transportIds).then(r => r.data || [])
           : Promise.resolve([]),
         guestIds.length > 0
-          ? supabase.from("profiles").select("user_id, full_name, nickname, email, phone").in("user_id", guestIds).then(r => r.data || [])
+          ? supabase.from("profiles").select("id, full_name, nickname, email, phone").in("id", guestIds).then(r => r.data || [])
           : Promise.resolve([]),
         orderIds.length > 0
           ? supabase.from("checkout_requests").select("id, total_amount, currency, payment_method").in("id", orderIds).then(r => r.data || [])
@@ -967,7 +985,7 @@ export default function AdminDashboard() {
           enriched.transport_vehicles = vehicles.find(v => v.id === booking.transport_id) || null;
         }
         if (booking.guest_id && !booking.is_guest_booking) {
-          enriched.profiles = profiles.find(p => p.user_id === booking.guest_id) || null;
+          enriched.profiles = profiles.find(p => p.id === booking.guest_id) || null;
         }
         if (booking.order_id) {
           enriched.checkout_requests = checkouts.find(c => c.id === booking.order_id) || null;
@@ -2658,10 +2676,6 @@ For support, contact: support@merry360x.com
                     <span>{metrics?.reviews_total ?? 0}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Stories</span>
-                    <span>{metrics?.stories_total ?? 0}</span>
-                  </div>
-                  <div className="flex justify-between">
                     <span className="text-muted-foreground">Cart Items</span>
                     <span>{metrics?.orders_total ?? 0}</span>
                   </div>
@@ -3539,7 +3553,7 @@ For support, contact: support@merry360x.com
 
               <div className="overflow-x-auto">
                 <Table>
-                  <TableHeader className="sticky top-24 md:top-28 z-20 bg-background">
+                  <TableHeader className="bg-background">
                     <TableRow>
                       <TableHead>User</TableHead>
                       <TableHead>Email</TableHead>
@@ -4275,13 +4289,11 @@ For support, contact: support@merry360x.com
                           ) : b.profiles ? (
                             <div className="min-w-0 max-w-[280px]">
                               <div className="font-medium truncate">
-                                {b.profiles.nickname || b.profiles.full_name || "User"}
+                                {b.profiles.nickname || b.profiles.full_name || b.guest_name || "User"}
                               </div>
-                              {b.profiles.email && (
-                                <div className="text-xs text-muted-foreground truncate">{b.profiles.email}</div>
-                              )}
-                              {b.profiles.phone && (
-                                <div className="text-xs text-muted-foreground truncate">{b.profiles.phone}</div>
+                              <div className="text-xs text-muted-foreground truncate">{b.profiles.email || b.guest_email || "—"}</div>
+                              {(b.profiles.phone || b.guest_phone) && (
+                                <div className="text-xs text-muted-foreground truncate">{b.profiles.phone || b.guest_phone}</div>
                               )}
                             </div>
                           ) : (
@@ -5052,10 +5064,6 @@ For support, contact: support@merry360x.com
                     <span className="font-medium text-red-600">{reviews.filter((r) => r.is_hidden).length}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Stories</span>
-                    <span className="font-medium">{metrics?.stories_total ?? 0}</span>
-                  </div>
-                  <div className="flex justify-between">
                     <span>Cart Items</span>
                     <span className="font-medium">{metrics?.orders_total ?? 0}</span>
                   </div>
@@ -5512,7 +5520,7 @@ For support, contact: support@merry360x.com
                           <p className="font-medium">
                             {selectedBooking.is_guest_booking 
                               ? selectedBooking.guest_name || "Guest"
-                              : (selectedBooking.profiles?.nickname || selectedBooking.profiles?.full_name || "User")}
+                              : (selectedBooking.profiles?.nickname || selectedBooking.profiles?.full_name || selectedBooking.guest_name || "User")}
                           </p>
                         </div>
                       </div>
@@ -5523,7 +5531,7 @@ For support, contact: support@merry360x.com
                           <p className="text-sm truncate">
                             {selectedBooking.is_guest_booking
                               ? selectedBooking.guest_email || "N/A"
-                              : selectedBooking.profiles?.email || "N/A"}
+                              : selectedBooking.profiles?.email || selectedBooking.guest_email || "N/A"}
                           </p>
                         </div>
                       </div>
@@ -5534,7 +5542,7 @@ For support, contact: support@merry360x.com
                           <p className="text-sm">
                             {selectedBooking.is_guest_booking
                               ? selectedBooking.guest_phone || "N/A"
-                              : selectedBooking.profiles?.phone || "N/A"}
+                              : selectedBooking.profiles?.phone || selectedBooking.guest_phone || "N/A"}
                           </p>
                         </div>
                       </div>
@@ -5581,38 +5589,67 @@ For support, contact: support@merry360x.com
                     </h3>
                   </div>
                   <div className="p-4">
+                    {(() => {
+                      const listingSourceCurrency =
+                        selectedBooking.booking_type === "property" && selectedBooking.properties?.currency
+                          ? selectedBooking.properties.currency
+                          : selectedBooking.booking_type === "tour" && selectedBooking.tour_packages?.currency
+                            ? selectedBooking.tour_packages.currency
+                            : selectedBooking.booking_type === "transport" && selectedBooking.transport_vehicles?.currency
+                              ? selectedBooking.transport_vehicles.currency
+                              : selectedBooking.currency || "RWF";
+
+                      const displayCurrency = preferredCurrency || "RWF";
+
+                      const listingAmount = convertAdminCurrency(
+                        Number(selectedBooking.total_price || 0),
+                        listingSourceCurrency,
+                        displayCurrency
+                      );
+                      const paidAmount = selectedBooking.checkout_requests
+                        ? convertAdminCurrency(
+                            Number(selectedBooking.checkout_requests.total_amount || 0),
+                            selectedBooking.checkout_requests.currency || "RWF",
+                            displayCurrency
+                          )
+                        : null;
+
+                      const paymentMethodRaw = String(
+                        selectedBooking.checkout_requests?.payment_method || selectedBooking.payment_method || "not_specified"
+                      );
+                      const paymentMethodLabel = paymentMethodRaw
+                        .replace(/_/g, " ")
+                        .replace(/\bmomo\b/gi, "MoMo")
+                        .replace(/\bmtn\b/gi, "MTN")
+                        .replace(/\bairtel\b/gi, "Airtel")
+                        .replace(/\bvisa\b/gi, "Visa")
+                        .replace(/\bmastercard\b/gi, "Mastercard")
+                        .replace(/\bbank transfer\b/gi, "Bank Transfer")
+                        .replace(/\b\w/g, (char) => char.toUpperCase());
+
+                      return (
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-xs text-muted-foreground">Listing Price</p>
+                        <p className="text-xs text-muted-foreground">Listing Price ({String(displayCurrency).toUpperCase()})</p>
                         <p className="text-xl font-bold text-primary">
-                          {formatMoney(
-                            selectedBooking.total_price,
-                            selectedBooking.booking_type === "property" && selectedBooking.properties?.currency
-                              ? selectedBooking.properties.currency
-                              : selectedBooking.booking_type === "tour" && selectedBooking.tour_packages?.currency
-                                ? selectedBooking.tour_packages.currency
-                                : selectedBooking.booking_type === "transport" && selectedBooking.transport_vehicles?.currency
-                                  ? selectedBooking.transport_vehicles.currency
-                                  : selectedBooking.currency || "RWF"
-                          )}
+                          {formatMoney(Number(listingAmount || 0), displayCurrency)}
                         </p>
                       </div>
                       {selectedBooking.checkout_requests && (
                         <div>
-                          <p className="text-xs text-muted-foreground">Amount Paid</p>
+                          <p className="text-xs text-muted-foreground">Amount Paid ({String(displayCurrency).toUpperCase()})</p>
                           <p className="text-xl font-bold text-green-600">
-                            {formatMoney(
-                              selectedBooking.checkout_requests.total_amount,
-                              selectedBooking.checkout_requests.currency || "RWF"
-                            )}
+                            {formatMoney(Number(paidAmount || 0), displayCurrency)}
                           </p>
                         </div>
                       )}
                       <div>
                         <p className="text-xs text-muted-foreground">Payment Method</p>
-                        <p className="text-sm font-medium">{selectedBooking.checkout_requests?.payment_method || selectedBooking.payment_method || "Not specified"}</p>
+                        <p className="text-sm font-medium">{paymentMethodLabel || "Not specified"}</p>
                       </div>
                     </div>
+                      );
+                    })()}
                   </div>
                 </div>
 
