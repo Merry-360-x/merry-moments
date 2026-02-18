@@ -909,12 +909,12 @@ const MyBookings = () => {
                   : String(firstBooking.currency || "USD");
               
               return (
-                <div key={orderId} className="bg-card rounded-2xl overflow-hidden border border-border shadow-sm hover:shadow-md transition-shadow">
+                <div key={orderId} className="bg-card rounded-2xl overflow-hidden border border-border/80 shadow-sm">
                   {/* Header */}
-                  <div className="bg-gradient-to-r from-primary/5 to-primary/10 px-6 py-4 border-b border-border">
-                    <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="px-6 py-5 border-b border-border bg-muted/20">
+                    <div className="flex items-start justify-between flex-wrap gap-3">
                       <div>
-                        <h3 className="font-semibold text-lg text-foreground">
+                        <h3 className="font-semibold text-lg text-foreground leading-tight">
                           {isMultiItem ? 'Multi-Item Booking' : (
                             firstBooking.properties?.title || 
                             firstBooking.tour_packages?.title || 
@@ -922,23 +922,23 @@ const MyBookings = () => {
                             'Booking'
                           )}
                         </h3>
-                        <p className="text-sm text-muted-foreground mt-0.5">
-                          Ref: {displayReference} • {new Date(firstBooking.created_at).toLocaleDateString()}
+                        <p className="text-sm text-muted-foreground mt-1">
+                          #{displayReference} • {new Date(firstBooking.created_at).toLocaleDateString()}
                         </p>
                         {isMultiItem && (
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {accommodationCount > 0 && <Badge variant="outline" className="text-xs">🏠 {accommodationCount} Stay</Badge>}
-                            {tourCount > 0 && <Badge variant="outline" className="text-xs">🗺️ {tourCount} Tour</Badge>}
-                            {transportCount > 0 && <Badge variant="outline" className="text-xs">🚗 {transportCount} Transport</Badge>}
+                          <div className="flex flex-wrap gap-2 mt-2.5">
+                            {accommodationCount > 0 && <Badge variant="secondary" className="text-xs">{accommodationCount} Stay</Badge>}
+                            {tourCount > 0 && <Badge variant="secondary" className="text-xs">{tourCount} Tour</Badge>}
+                            {transportCount > 0 && <Badge variant="secondary" className="text-xs">{transportCount} Transport</Badge>}
                           </div>
                         )}
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 self-start">
                         <Badge className={confirmationUi.badgeClass}>
                           {confirmationUi.badgeLabel}
                         </Badge>
                         {firstBooking.payment_status && (
-                          <Badge variant="outline" className="text-xs">
+                          <Badge variant="outline" className="text-xs bg-background">
                             {firstBooking.payment_status === 'paid' ? '✓ Paid' : firstBooking.payment_status}
                           </Badge>
                         )}
@@ -956,7 +956,7 @@ const MyBookings = () => {
                   )}
 
                   {/* Items Breakdown */}
-                  <div className="p-6 space-y-4">
+                  <div className="p-6 space-y-5">
                     {orderBookings.map((booking, idx) => {
                       const bookingType = booking.booking_type || 'property';
                       const isTour = bookingType === 'tour';
@@ -996,9 +996,9 @@ const MyBookings = () => {
                       };
                       
                       const getIcon = () => {
-                        if (isTour) return '🗺️';
-                        if (isTransport) return '🚗';
-                        return '🏠';
+                        if (isTour) return <MapPin className="w-4 h-4" />;
+                        if (isTransport) return <Users className="w-4 h-4" />;
+                        return <Calendar className="w-4 h-4" />;
                       };
 
                       const cancellationPolicy = getCancellationPolicy(booking);
@@ -1010,22 +1010,22 @@ const MyBookings = () => {
                           : String(booking.currency || "USD");
                       
                       return (
-                        <div key={booking.id} className={`rounded-xl border border-border/70 p-4 ${idx > 0 ? 'mt-3' : ''}`}>
+                        <div key={booking.id} className={`rounded-xl border border-border bg-background p-4 ${idx > 0 ? 'mt-3' : ''}`}>
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-start gap-3 min-w-0">
-                              <div className="text-2xl flex-shrink-0 mt-0.5">{getIcon()}</div>
+                              <div className="w-8 h-8 rounded-md border border-border bg-muted/40 flex items-center justify-center flex-shrink-0 mt-0.5 text-muted-foreground">{getIcon()}</div>
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <h4 className="font-semibold text-foreground truncate">{getTitle()}</h4>
-                                  <Badge variant="outline" className="text-[11px]">{serviceLabel}</Badge>
+                                  <Badge variant="secondary" className="text-[11px]">{serviceLabel}</Badge>
                                 </div>
                                 <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
                                   <MapPin className="w-3.5 h-3.5" />
                                   {getLocation() || 'Location unavailable'}
                                 </p>
-                                <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
-                                  <p>Booking ID: {booking.id}</p>
-                                  {booking.order_id && <p>Order ID: {booking.order_id}</p>}
+                                <div className="text-xs text-muted-foreground mt-1.5 space-y-0.5">
+                                  <p>ID: {booking.id}</p>
+                                  {booking.order_id && <p>Order: {booking.order_id}</p>}
                                   {!isTour && !isTransport && booking.properties?.address && (booking.status === "confirmed" || booking.status === "completed") && (
                                     <p>Address: {booking.properties.address}</p>
                                   )}
@@ -1050,19 +1050,19 @@ const MyBookings = () => {
                           </div>
 
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 text-xs">
-                            <div className="rounded-md bg-muted/40 p-2">
+                            <div className="rounded-md border border-border bg-muted/20 p-2.5">
                               <p className="text-muted-foreground">Dates</p>
                               <p className="font-medium">{new Date(booking.check_in).toLocaleDateString()} → {new Date(booking.check_out).toLocaleDateString()}</p>
                             </div>
-                            <div className="rounded-md bg-muted/40 p-2">
+                            <div className="rounded-md border border-border bg-muted/20 p-2.5">
                               <p className="text-muted-foreground">Guests</p>
                               <p className="font-medium">{booking.guests}</p>
                             </div>
-                            <div className="rounded-md bg-muted/40 p-2">
+                            <div className="rounded-md border border-border bg-muted/20 p-2.5">
                               <p className="text-muted-foreground">Status</p>
                               <p className="font-medium capitalize">{booking.status}</p>
                             </div>
-                            <div className="rounded-md bg-muted/40 p-2">
+                            <div className="rounded-md border border-border bg-muted/20 p-2.5">
                               <p className="text-muted-foreground">Pricing</p>
                               <p className="font-medium">{unitPricingText || 'Fixed package price'}</p>
                             </div>
@@ -1117,16 +1117,16 @@ const MyBookings = () => {
                     )}
 
                     {/* Booking Info */}
-                    <div className="grid grid-cols-3 gap-4 pt-4 border-t">
-                      <div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 border-t">
+                      <div className="rounded-md border border-border bg-muted/20 p-3">
                         <p className="text-xs text-muted-foreground">Check-in</p>
                         <p className="font-medium text-sm">{new Date(firstBooking.check_in).toLocaleDateString()}</p>
                       </div>
-                      <div>
+                      <div className="rounded-md border border-border bg-muted/20 p-3">
                         <p className="text-xs text-muted-foreground">Check-out</p>
                         <p className="font-medium text-sm">{new Date(firstBooking.check_out).toLocaleDateString()}</p>
                       </div>
-                      <div>
+                      <div className="rounded-md border border-border bg-muted/20 p-3">
                         <p className="text-xs text-muted-foreground">Guests</p>
                         <p className="font-medium text-sm flex items-center gap-1">
                           <Users className="w-4 h-4" /> {firstBooking.guests}
@@ -1157,19 +1157,19 @@ const MyBookings = () => {
                     )}
 
                     {/* Actions */}
-                    <div className="flex gap-2 pt-4">
+                    <div className="flex flex-wrap gap-2 pt-4">
                       {(firstBooking.status === "pending" || firstBooking.status === "confirmed") && (
                         <>
-                          <Button variant="outline" size="sm" onClick={() => openDateChangeDialog(firstBooking)} className="flex-1">
+                          <Button variant="outline" size="sm" onClick={() => openDateChangeDialog(firstBooking)} className="flex-1 min-w-[170px]">
                             <CalendarClock className="w-4 h-4 mr-2" /> Change Dates
                           </Button>
-                          <Button variant="outline" size="sm" onClick={() => openCancelDialog(firstBooking)} className="flex-1">
+                          <Button variant="outline" size="sm" onClick={() => openCancelDialog(firstBooking)} className="flex-1 min-w-[140px]">
                             <XCircle className="w-4 h-4 mr-2" /> Cancel
                           </Button>
                         </>
                       )}
                       {nextReviewBooking && (
-                        <Button size="sm" onClick={() => openReview(nextReviewBooking)} className="flex-1">
+                        <Button size="sm" onClick={() => openReview(nextReviewBooking)} className="flex-1 min-w-[170px]">
                           <Star className="w-4 h-4 mr-2" /> Leave Review
                         </Button>
                       )}
@@ -1178,7 +1178,7 @@ const MyBookings = () => {
                         <Button
                           size="sm"
                           variant="default"
-                          className="flex-1"
+                          className="flex-1 min-w-[170px]"
                           disabled={requestingRefundKey === orderId || hasSubmittedRefundRequest}
                           onClick={() => submitRefundRequest(orderId, orderBookings)}
                         >

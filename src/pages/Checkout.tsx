@@ -714,6 +714,25 @@ export default function CheckoutNew() {
     }
   };
 
+  const toDateOnly = (value?: string | null) => {
+    if (!value) return null;
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed.toISOString().slice(0, 10);
+  };
+
+  const addDays = (dateOnly: string, days: number) => {
+    const parsed = new Date(`${dateOnly}T00:00:00Z`);
+    if (Number.isNaN(parsed.getTime())) return dateOnly;
+    parsed.setUTCDate(parsed.getUTCDate() + days);
+    return parsed.toISOString().slice(0, 10);
+  };
+
+  const getDefaultBookingDates = () => {
+    const today = new Date().toISOString().slice(0, 10);
+    return { checkIn: today, checkOut: addDays(today, 1) };
+  };
+
   // Process payment
   const handlePayment = async () => {
     // Validate required guest info for non-logged-in users
@@ -903,6 +922,55 @@ export default function CheckoutNew() {
 
       // For card/bank transfer, just create checkout and show confirmation
       if (paymentMethod === 'card' || paymentMethod === 'bank') {
+        const defaultDates = getDefaultBookingDates();
+        const bookingRows = cartItemsWithPrices.map((item) => {
+          const mappedBookingType: 'property' | 'tour' | 'transport' =
+            item.item_type === 'property'
+              ? 'property'
+              : item.item_type === 'transport_vehicle'
+                ? 'transport'
+                : 'tour';
+
+          const isProperty = item.item_type === 'property';
+          const propertyCheckIn = toDateOnly(item.metadata?.check_in) || toDateOnly(bookingDetails?.check_in) || defaultDates.checkIn;
+          const propertyCheckOut = toDateOnly(item.metadata?.check_out) || toDateOnly(bookingDetails?.check_out) || addDays(propertyCheckIn, 1);
+
+          const itemAmount = Math.max(0, Number(item.calculated_price ?? 0));
+
+          return {
+            order_id: checkoutId,
+            guest_id: user?.id || null,
+            property_id: item.item_type === 'property' ? item.reference_id : null,
+            tour_id: item.item_type === 'tour_package' ? item.reference_id : null,
+            transport_id: item.item_type === 'transport_vehicle' ? item.reference_id : null,
+            booking_type: mappedBookingType,
+            check_in: isProperty ? propertyCheckIn : defaultDates.checkIn,
+            check_out: isProperty ? propertyCheckOut : defaultDates.checkOut,
+            guests: isProperty
+              ? Number(item.metadata?.guests || bookingDetails?.guests || 1)
+              : Number(item.quantity || 1),
+            total_price: Math.round(itemAmount),
+            currency: item.calculated_price_currency || item.currency || 'RWF',
+            status: 'pending',
+            payment_status: 'pending',
+            payment_method: paymentMethod === 'bank' ? 'bank_transfer' : 'card',
+            special_requests: formData.notes || null,
+            guest_name: formData.fullName || null,
+            guest_email: formData.email || null,
+            guest_phone: fullPhone || formData.phone || null,
+            is_guest_booking: !user,
+          };
+        });
+
+        const { error: pendingBookingsError } = await (supabase
+          .from('bookings')
+          .insert(bookingRows as any) as any);
+
+        if (pendingBookingsError) {
+          console.error('❌ Pending bookings insert error:', pendingBookingsError);
+          throw pendingBookingsError;
+        }
+
         try {
           const pendingOrderEmailRes = await fetch("/api/booking-confirmation-email", {
             method: "POST",

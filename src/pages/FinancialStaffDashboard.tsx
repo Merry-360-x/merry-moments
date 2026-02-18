@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +16,6 @@ import { DollarSign, TrendingUp, CreditCard, Wallet, Calendar, Download, CheckCi
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useNotificationBadge, NotificationBadge } from "@/hooks/useNotificationBadge";
 import { useToast } from "@/hooks/use-toast";
-import { usePreferences } from "@/hooks/usePreferences";
 import { useFxRates } from "@/hooks/useFxRates";
 import { convertAmount } from "@/lib/fx";
 
@@ -33,6 +32,12 @@ type BookingRow = {
   total_price: number;
   currency: string;
   created_at: string;
+  checkout_requests?: {
+    id: string;
+    total_amount: number;
+    currency: string | null;
+    payment_method: string | null;
+  } | null;
 };
 
 type Metrics = {
@@ -55,7 +60,6 @@ type SupportTicketRow = {
 export default function FinancialStaffDashboard() {
   const { user, isAdmin } = useAuth();
   const { toast } = useToast();
-  const { currency: preferredCurrency } = usePreferences();
   const { usdRates } = useFxRates();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<"overview" | "bookings" | "revenue" | "payouts">("overview");
@@ -70,6 +74,7 @@ export default function FinancialStaffDashboard() {
   const [processingPayout, setProcessingPayout] = useState<string | null>(null);
   const [processingRefundBooking, setProcessingRefundBooking] = useState<string | null>(null);
   const [payoutFilter, setPayoutFilter] = useState<string>("pending");
+  const dashboardCurrency = "RWF";
 
   // Notification badge hook
   const { getCount, hasNew, markAsSeen, updateNotificationCount } = useNotificationBadge("financial-staff");
@@ -303,12 +308,27 @@ export default function FinancialStaffDashboard() {
   const markAsPaid = async (bookingId: string) => {
     setMarkingPaid(bookingId);
     try {
-      const { error } = await supabase
+      const booking = bookings.find((entry) => entry.id === bookingId);
+      if (!booking) throw new Error("Booking not found");
+
+      const bookingUpdate = supabase
         .from("bookings")
-        .update({ payment_status: 'paid' })
-        .eq("id", bookingId);
+        .update({ payment_status: 'paid', updated_at: new Date().toISOString() } as never);
+
+      const { error } = booking.order_id
+        ? await bookingUpdate.eq("order_id", booking.order_id)
+        : await bookingUpdate.eq("id", bookingId);
 
       if (error) throw error;
+
+      if (booking.order_id) {
+        const { error: checkoutError } = await supabase
+          .from("checkout_requests")
+          .update({ payment_status: 'paid', updated_at: new Date().toISOString() } as never)
+          .eq("id", booking.order_id);
+
+        if (checkoutError) throw checkoutError;
+      }
 
       fetch("/api/booking-confirmation-email", {
         method: "POST",
@@ -344,16 +364,31 @@ export default function FinancialStaffDashboard() {
   const requestPayment = async (bookingId: string, guestEmail: string, guestName: string) => {
     setRequestingPayment(bookingId);
     try {
+      const booking = bookings.find((entry) => entry.id === bookingId);
+      if (!booking) throw new Error("Booking not found");
+
       // Update booking to indicate payment was requested
-      const { error } = await supabase
+      const bookingUpdate = supabase
         .from("bookings")
         .update({ 
           payment_status: 'requested',
           updated_at: new Date().toISOString()
-        })
-        .eq("id", bookingId);
+        } as never);
+
+      const { error } = booking.order_id
+        ? await bookingUpdate.eq("order_id", booking.order_id)
+        : await bookingUpdate.eq("id", bookingId);
 
       if (error) throw error;
+
+      if (booking.order_id) {
+        const { error: checkoutError } = await supabase
+          .from("checkout_requests")
+          .update({ payment_status: 'requested', updated_at: new Date().toISOString() } as never)
+          .eq("id", booking.order_id);
+
+        if (checkoutError) throw checkoutError;
+      }
 
       fetch("/api/booking-confirmation-email", {
         method: "POST",
@@ -532,12 +567,30 @@ export default function FinancialStaffDashboard() {
 
   // Checkout requests removed - bulk bookings now handled through regular bookings with order_id
 
+  const convertToDashboardCurrency = useCallback((amount: number, fromCurrency?: string | null) => {
+    const sourceCurrency = String(fromCurrency || dashboardCurrency).toUpperCase();
+    if (!Number.isFinite(amount)) return 0;
+    if (sourceCurrency === dashboardCurrency) return amount;
+    return convertAmount(amount, sourceCurrency, dashboardCurrency, usdRates) ?? amount;
+  }, [dashboardCurrency, usdRates]);
+
+  const getBookingDisplayAmount = useCallback((booking: BookingRow) => {
+    const checkoutAmount = Number(booking.checkout_requests?.total_amount || 0);
+    const checkoutCurrency = booking.checkout_requests?.currency || null;
+    if (checkoutAmount > 0) {
+      return convertToDashboardCurrency(checkoutAmount, checkoutCurrency);
+    }
+    return convertToDashboardCurrency(Number(booking.total_price || 0), booking.currency);
+  }, [convertToDashboardCurrency]);
+
   const revenueDisplay = useMemo(() => {
     const list = metrics?.revenue_by_currency ?? [];
     if (list.length === 0) return "No revenue yet";
-    if (list.length === 1) return formatMoney(Number(list[0].amount), String(list[0].currency ?? "USD"));
-    return `${formatMoney(Number(list[0].amount), String(list[0].currency ?? "USD"))} (+${list.length - 1} currencies)`;
-  }, [metrics?.revenue_by_currency]);
+    const totalInDashboardCurrency = list.reduce((sum, item) => {
+      return sum + convertToDashboardCurrency(Number(item.amount || 0), String(item.currency || dashboardCurrency));
+    }, 0);
+    return formatMoney(totalInDashboardCurrency, dashboardCurrency);
+  }, [metrics?.revenue_by_currency, dashboardCurrency, usdRates]);
 
   const isPendingBookingStatus = (status: string | null | undefined) =>
     status === 'pending' || status === 'pending_confirmation';
@@ -585,8 +638,8 @@ export default function FinancialStaffDashboard() {
   const pendingBookings = filteredBookings.filter(b => isPendingBookingStatus(b.status));
 
   const filteredRevenue = useMemo(() => {
-    return completedBookings.reduce((sum, b) => sum + (b.total_price || 0), 0);
-  }, [completedBookings]);
+    return completedBookings.reduce((sum, b) => sum + getBookingDisplayAmount(b), 0);
+  }, [completedBookings, dashboardCurrency, usdRates]);
 
   const exportReport = () => {
     const csvContent = [
@@ -667,7 +720,7 @@ export default function FinancialStaffDashboard() {
               <div className="mt-4 p-3 bg-muted/50 rounded-lg">
                 <p className="text-sm font-medium">
                   Showing {filteredBookings.length} bookings | 
-                  Filtered Revenue: {formatMoney(filteredRevenue, "RWF")}
+                  Filtered Revenue: {formatMoney(filteredRevenue, dashboardCurrency)}
                 </p>
               </div>
             )}
@@ -769,7 +822,7 @@ export default function FinancialStaffDashboard() {
                             {new Date(booking.created_at).toLocaleDateString()}
                           </TableCell>
                           <TableCell className="font-medium">
-                            {formatMoney(Number(booking.total_price), String(booking.currency ?? "USD"))}
+                            {formatMoney(getBookingDisplayAmount(booking), dashboardCurrency)}
                           </TableCell>
                           <TableCell>
                             <Badge variant="default">{booking.status === 'completed' ? 'Completed' : 'Confirmed'}</Badge>
@@ -810,7 +863,7 @@ export default function FinancialStaffDashboard() {
                             {new Date(booking.created_at).toLocaleDateString()}
                           </TableCell>
                           <TableCell className="font-medium">
-                            {formatMoney(Number(booking.total_price), String(booking.currency ?? "USD"))}
+                            {formatMoney(getBookingDisplayAmount(booking), dashboardCurrency)}
                           </TableCell>
                           <TableCell>
                             <Badge variant="secondary">Pending</Badge>
@@ -917,7 +970,7 @@ export default function FinancialStaffDashboard() {
                         </TableCell>
                         <TableCell>{new Date(booking.created_at).toLocaleDateString()}</TableCell>
                         <TableCell className="font-medium">
-                          {formatMoney(Number(booking.total_price), String(booking.currency ?? "USD"))}
+                          {formatMoney(getBookingDisplayAmount(booking), dashboardCurrency)}
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className="text-xs">
@@ -1057,7 +1110,7 @@ export default function FinancialStaffDashboard() {
                       <TableRow key={item.currency}>
                         <TableCell className="font-medium">{item.currency}</TableCell>
                         <TableCell className="text-right text-lg font-bold">
-                          {formatMoney(Number(item.amount), String(item.currency))}
+                          {formatMoney(convertToDashboardCurrency(Number(item.amount || 0), String(item.currency || dashboardCurrency)), dashboardCurrency)}
                         </TableCell>
                       </TableRow>
                     ))}

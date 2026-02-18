@@ -482,6 +482,8 @@ export default function HostDashboard() {
   const [checkoutByOrderId, setCheckoutByOrderId] = useState<Record<string, {
     total_amount: number;
     currency: string | null;
+    payment_status?: string | null;
+    payment_method?: string | null;
     base_price_amount?: number | null;
     service_fee_amount?: number | null;
     metadata?: Record<string, any> | null;
@@ -857,13 +859,15 @@ export default function HostDashboard() {
         if (orderIds.length > 0) {
           const { data: checkoutRows } = await supabase
             .from("checkout_requests")
-            .select("id, total_amount, currency, base_price_amount, service_fee_amount, metadata")
+            .select("id, total_amount, currency, payment_status, payment_method, base_price_amount, service_fee_amount, metadata")
             .in("id", orderIds);
 
           const map = (checkoutRows || []).reduce((acc, row: any) => {
             acc[row.id] = {
               total_amount: Number(row.total_amount || 0),
               currency: row.currency || null,
+              payment_status: row.payment_status || null,
+              payment_method: row.payment_method || null,
               base_price_amount: row.base_price_amount == null ? null : Number(row.base_price_amount || 0),
               service_fee_amount: row.service_fee_amount == null ? null : Number(row.service_fee_amount || 0),
               metadata: row.metadata || null,
@@ -872,6 +876,8 @@ export default function HostDashboard() {
           }, {} as Record<string, {
             total_amount: number;
             currency: string | null;
+            payment_status?: string | null;
+            payment_method?: string | null;
             base_price_amount?: number | null;
             service_fee_amount?: number | null;
             metadata?: Record<string, any> | null;
@@ -1710,7 +1716,10 @@ export default function HostDashboard() {
     fetchManualReviewRequests();
   }, [isHost, user?.id, fetchManualReviewRequests]);
 
-  const normalizePaymentStatus = (booking: Booking) => String(booking.payment_status || "").trim().toLowerCase();
+  const normalizePaymentStatus = useCallback((booking: Booking) => {
+    const checkoutStatus = booking.order_id ? checkoutByOrderId[booking.order_id]?.payment_status : null;
+    return String(checkoutStatus || booking.payment_status || "").trim().toLowerCase();
+  }, [checkoutByOrderId]);
 
   const isBookingPaymentUnpaid = (booking: Booking) => {
     const status = normalizePaymentStatus(booking);
@@ -2140,7 +2149,7 @@ export default function HostDashboard() {
       const orderId = String(booking.order_id || "").toLowerCase();
       return bookingId.includes(query) || orderId.includes(query);
     });
-  }, [bookings, bookingIdSearch, bookingQuickFilter]);
+  }, [bookings, bookingIdSearch, bookingQuickFilter, normalizePaymentStatus]);
 
   const filteredReportBookings = useMemo(() => {
     const start = new Date(reportStartDate);
@@ -2177,17 +2186,20 @@ export default function HostDashboard() {
     order_id?: string | null;
     total_price?: number | null;
   }) => {
-    const listedAmount = Number(booking.total_price || 0);
-    if (Number.isFinite(listedAmount) && listedAmount > 0) return listedAmount;
-
     if (!booking.order_id) return 0;
 
     const checkout = checkoutByOrderId[booking.order_id];
     const checkoutTotal = Number(checkout?.total_amount || 0);
-    if (!Number.isFinite(checkoutTotal) || checkoutTotal <= 0) return 0;
+    if (!Number.isFinite(checkoutTotal) || checkoutTotal <= 0) {
+      const listedAmount = Number(booking.total_price || 0);
+      return Number.isFinite(listedAmount) && listedAmount > 0 ? listedAmount : 0;
+    }
 
     const orderBookings = (bookings || []).filter((row) => row.order_id === booking.order_id);
     if (orderBookings.length <= 1) return checkoutTotal;
+
+    const listedAmount = Number(booking.total_price || 0);
+    if (Number.isFinite(listedAmount) && listedAmount > 0) return listedAmount;
 
     const positiveRows = orderBookings.filter((row) => Number(row.total_price || 0) > 0);
     const positiveTotal = positiveRows.reduce((sum, row) => sum + Number(row.total_price || 0), 0);
@@ -6297,6 +6309,7 @@ export default function HostDashboard() {
                   </Badge>
                 )}
               </TabsTrigger>
+              <TabsTrigger value="manual-reviews">Manual Reviews</TabsTrigger>
               <TabsTrigger value="discounts">Discount Codes</TabsTrigger>
               <TabsTrigger value="financial">Financial Reports</TabsTrigger>
               <TabsTrigger value="payout-methods">Payout Methods</TabsTrigger>
@@ -6373,10 +6386,10 @@ export default function HostDashboard() {
           <TabsContent value="properties">
             <div className="flex justify-between items-center gap-2 mb-4">
               <div className="text-sm text-muted-foreground">
-                Need to send a direct review link? Use <span className="font-medium text-foreground">Bookings → Manual Review Requests</span>.
+                Need to send a direct review link? Use <span className="font-medium text-foreground">Manual Reviews</span>.
               </div>
               <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setTab("bookings")}>
+              <Button variant="outline" onClick={() => setTab("manual-reviews")}>
                 <Send className="w-4 h-4 mr-2" /> Send Review Request
               </Button>
               <Button variant="outline" onClick={() => setShowRoomWizard(true)}>
@@ -6809,95 +6822,6 @@ export default function HostDashboard() {
               />
             </div>
 
-            <Card className="p-4 mb-6">
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <div>
-                  <h3 className="text-lg font-semibold">Manual Review Requests</h3>
-                  <p className="text-sm text-muted-foreground">Send a direct review link for a selected property. No account or booking is required.</p>
-                </div>
-                {loadingManualReviewRequests ? <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /> : null}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
-                <div>
-                  <Label>Property</Label>
-                  <Select
-                    value={manualReviewForm.propertyId}
-                    onValueChange={(value) => setManualReviewForm((prev) => ({ ...prev, propertyId: value }))}
-                    disabled={properties.length === 0}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={properties.length === 0 ? "No properties available" : "Select property"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {properties.map((property) => (
-                        <SelectItem key={property.id} value={property.id}>
-                          {property.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label>Reviewer Email</Label>
-                  <Input
-                    type="email"
-                    value={manualReviewForm.reviewerEmail}
-                    onChange={(e) => setManualReviewForm((prev) => ({ ...prev, reviewerEmail: e.target.value }))}
-                    placeholder="name@example.com"
-                  />
-                </div>
-
-                <div>
-                  <Label>Reviewer Name (Optional)</Label>
-                  <Input
-                    value={manualReviewForm.reviewerName}
-                    onChange={(e) => setManualReviewForm((prev) => ({ ...prev, reviewerName: e.target.value }))}
-                    placeholder="Guest name"
-                  />
-                </div>
-
-                <div className="flex items-end">
-                  <Button
-                    className="w-full"
-                    onClick={sendManualReviewRequest}
-                    disabled={sendingManualReviewRequest || properties.length === 0}
-                  >
-                    {sendingManualReviewRequest ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                    Send Request
-                  </Button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                {manualReviewRequests.slice(0, 6).map((request) => {
-                  const isCollected = request.status === "collected" || !!request.reviewId;
-                  return (
-                    <div key={request.id} className="flex items-center justify-between border rounded-lg px-3 py-2">
-                      <div>
-                        <p className="text-sm font-medium">{request.propertyTitle}</p>
-                        <p className="text-xs text-muted-foreground">{request.reviewerEmail}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {isCollected ? (
-                          <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white">
-                            <BadgeCheck className="w-3 h-3 mr-1" />
-                            Manual Review Collected
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline">{request.status}</Badge>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-                {!loadingManualReviewRequests && manualReviewRequests.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No manual review requests yet.</p>
-                ) : null}
-              </div>
-            </Card>
-
             {/* Pending Booking Requests Section */}
             {(() => {
               const pendingRequests = filteredBookingsById.filter(
@@ -6962,15 +6886,15 @@ export default function HostDashboard() {
                       const hostNetEarnings = listingTotal * (1 - feePercent / 100);
                       
                       return (
-                        <Card key={b.id} className="overflow-hidden border-2 border-amber-300 shadow-md">
+                        <Card key={b.id} className="overflow-hidden border border-border shadow-sm">
                           {/* Header */}
-                          <div className="flex items-center justify-between px-4 py-3 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200">
+                          <div className="flex items-center justify-between px-2.5 py-2 border-b border-border bg-background">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center text-lg">
+                              <div className="w-8 h-8 rounded-md border border-border bg-muted/20 flex items-center justify-center text-sm">
                                 🗺️
                               </div>
                               <div>
-                                <h4 className="font-semibold text-base">{itemName}</h4>
+                                <h4 className="font-semibold text-sm">{itemName}</h4>
                                   <div className="text-xs text-muted-foreground space-y-0.5">
                                     <div className="flex items-center gap-1">
                                       <Hash className="w-3 h-3" />
@@ -6982,7 +6906,7 @@ export default function HostDashboard() {
                                   </div>
                               </div>
                             </div>
-                            <Badge className="bg-amber-500 hover:bg-amber-600 animate-pulse">
+                            <Badge variant="outline" className="text-xs">
                               Pending Approval
                             </Badge>
                             {isBookingPaymentUnpaid(b) && (
@@ -6991,14 +6915,14 @@ export default function HostDashboard() {
                           </div>
                           
                           {/* Content Grid */}
-                          <div className="p-4 bg-amber-50/30 dark:bg-amber-900/5">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                          <div className="p-2.5">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 mb-2.5">
                               {/* Date Section */}
                               <div className="space-y-1">
                                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Date</p>
                                 <div className="flex items-center gap-2">
                                   <Calendar className="w-4 h-4 text-primary" />
-                                  <span className="font-medium">{b.check_in}</span>
+                                  <span className="text-sm font-medium">{b.check_in}</span>
                                 </div>
                               </div>
                               
@@ -7007,14 +6931,14 @@ export default function HostDashboard() {
                                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Guests</p>
                                 <div className="flex items-center gap-2">
                                   <Users className="w-4 h-4 text-primary" />
-                                  <span className="font-medium">{b.guests} {b.guests === 1 ? 'guest' : 'guests'}</span>
+                                  <span className="text-sm font-medium">{b.guests} {b.guests === 1 ? 'guest' : 'guests'}</span>
                                 </div>
                               </div>
                               
                               {/* Original Listing Price */}
                               <div className="space-y-1">
                                 <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Original Listing Price (No coupon, No fees)</p>
-                                <div className="rounded-xl border border-border/70 bg-background/90 px-3 py-2.5">
+                                <div className="rounded-lg border border-border bg-background px-2.5 py-2">
                                   <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{unitLabel}</p>
                                   <p className="text-base font-semibold leading-tight mt-1">{formatMoney(unitValue, listingCurrency)}</p>
                                   <p className="text-[11px] text-muted-foreground mt-1">
@@ -7027,8 +6951,8 @@ export default function HostDashboard() {
                                     <span className="text-sm font-semibold">{formatMoney(listingTotal, listingCurrency)}</span>
                                   </div>
                                   <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
-                                    <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Guest Paid</span>
-                                    <span className="text-sm font-semibold">{formatMoney(guestPaidAmount, guestPaidCurrency)}</span>
+                                    <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Platform fee deducted ({feePercent}%)</span>
+                                    <span className="text-sm font-semibold text-destructive">-{formatMoney(listingTotal * (feePercent / 100), listingCurrency)}</span>
                                   </div>
                                   <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
                                     <span className="text-[11px] text-muted-foreground uppercase tracking-wide">You will earn</span>
@@ -7039,7 +6963,7 @@ export default function HostDashboard() {
                             </div>
                             
                             {/* Guest Info */}
-                            <div className="p-3 bg-white dark:bg-gray-800/50 rounded-lg border">
+                            <div className="p-2 rounded-lg border border-border bg-background">
                               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Guest Information</p>
                               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 <div className="flex items-center gap-2">
@@ -7063,12 +6987,13 @@ export default function HostDashboard() {
                           </div>
                           
                           {/* Actions Footer */}
-                          <div className="flex flex-wrap items-center justify-end gap-2 px-4 py-3 bg-amber-100/50 dark:bg-amber-900/10 border-t border-amber-200">
+                          <div className="flex flex-wrap items-center justify-end gap-1.5 px-2.5 py-2 bg-background border-t border-border">
                             {isBookingPaymentUnpaid(b) && (
                               <>
                                 <Button
                                   size="sm"
                                   variant="outline"
+                                  className="h-8 px-2.5 text-xs"
                                   disabled={requestingPaymentBookingIds.has(b.id)}
                                   onClick={() => requestBookingPayment(b)}
                                 >
@@ -7079,24 +7004,24 @@ export default function HostDashboard() {
                                   )}
                                   Request Payment
                                 </Button>
-                                <Button size="sm" variant="outline" onClick={() => sendPaymentReminderEmail(b)}>
+                                <Button size="sm" variant="outline" className="h-8 px-2.5 text-xs" onClick={() => sendPaymentReminderEmail(b)}>
                                   <Mail className="w-4 h-4 mr-1" /> Email Reminder
                                 </Button>
-                                <Button size="sm" variant="outline" onClick={() => callGuestForPayment(b)}>
+                                <Button size="sm" variant="outline" className="h-8 px-2.5 text-xs" onClick={() => callGuestForPayment(b)}>
                                   <Phone className="w-4 h-4 mr-1" /> Call Guest
                                 </Button>
                               </>
                             )}
                             <Button 
                               size="sm" 
-                              className="bg-green-600 hover:bg-green-700 text-white"
+                              className="h-8 px-2.5 text-xs bg-green-600 hover:bg-green-700 text-white"
                               onClick={() => confirmBookingRequest(b.id, b.order_id)}
                             >
                               <CheckCircle className="w-4 h-4 mr-1" /> Approve Booking
                             </Button>
                             <Dialog>
                               <DialogTrigger asChild>
-                                <Button size="sm" variant="outline" className="text-red-600 border-red-300 hover:bg-red-50">
+                                <Button size="sm" variant="outline" className="h-8 px-2.5 text-xs text-red-600 border-red-300 hover:bg-red-50">
                                   <XCircle className="w-4 h-4 mr-1" /> Reject
                                 </Button>
                               </DialogTrigger>
@@ -7254,16 +7179,16 @@ export default function HostDashboard() {
                     </div>
                     
                     {/* Content Grid */}
-                    <div className="p-4">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div className="p-3">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
                         {/* Dates Section */}
                         <div className="space-y-1">
                           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Dates</p>
                           <div className="flex items-center gap-2">
                             <Calendar className="w-4 h-4 text-primary" />
                             <div>
-                              <p className="font-medium">{b.check_in}</p>
-                              <p className="text-sm text-muted-foreground">to {b.check_out}</p>
+                              <p className="text-sm font-medium">{b.check_in}</p>
+                              <p className="text-xs text-muted-foreground">to {b.check_out}</p>
                             </div>
                           </div>
                         </div>
@@ -7273,14 +7198,14 @@ export default function HostDashboard() {
                           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Guests</p>
                           <div className="flex items-center gap-2">
                             <Users className="w-4 h-4 text-primary" />
-                            <span className="font-medium">{b.guests} {b.guests === 1 ? 'guest' : 'guests'}</span>
+                            <span className="text-sm font-medium">{b.guests} {b.guests === 1 ? 'guest' : 'guests'}</span>
                           </div>
                         </div>
                         
                         {/* Original Listing Price */}
                         <div className="space-y-1">
                           <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Original Listing Price (No coupon, No fees)</p>
-                          <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2.5">
+                          <div className="rounded-lg border border-border bg-background px-2.5 py-2">
                             <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{unitLabel}</p>
                             <p className="text-base font-semibold leading-tight mt-1">{formatMoney(unitValue, listingCurrency)}</p>
                             <p className="text-[11px] text-muted-foreground mt-1">
@@ -7293,8 +7218,8 @@ export default function HostDashboard() {
                               <span className="text-sm font-semibold">{formatMoney(listingTotal, listingCurrency)}</span>
                             </div>
                             <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
-                              <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Guest Paid</span>
-                              <span className="text-sm font-semibold">{formatMoney(guestPaidAmount, guestPaidCurrency)}</span>
+                              <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Platform fee deducted ({feePercent}%)</span>
+                              <span className="text-sm font-semibold text-destructive">-{formatMoney(listingTotal * (feePercent / 100), listingCurrency)}</span>
                             </div>
                             <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
                               <span className="text-[11px] text-muted-foreground uppercase tracking-wide">You will earn</span>
@@ -7306,7 +7231,7 @@ export default function HostDashboard() {
                       
                       {/* Guest Info */}
                       {b.is_guest_booking && b.guest_name && (
-                        <div className="mt-3 p-3 bg-muted/50 rounded-lg border border-muted">
+                        <div className="mt-2.5 p-2.5 bg-background rounded-lg border border-border">
                           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Guest Information</p>
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div className="flex items-center gap-2">
@@ -7331,12 +7256,13 @@ export default function HostDashboard() {
                     </div>
                     
                     {/* Actions Footer */}
-                    <div className="flex flex-wrap items-center justify-end gap-2 px-4 py-3 bg-muted/20 border-t">
+                    <div className="flex flex-wrap items-center justify-end gap-1.5 px-3 py-2 bg-background border-t border-border">
                       {isBookingPaymentUnpaid(b) && (
                         <>
                           <Button
                             size="sm"
                             variant="outline"
+                            className="h-8 px-2.5 text-xs"
                             disabled={requestingPaymentBookingIds.has(b.id)}
                             onClick={() => requestBookingPayment(b)}
                           >
@@ -7347,23 +7273,23 @@ export default function HostDashboard() {
                             )}
                             Request Payment
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => sendPaymentReminderEmail(b)}>
+                          <Button size="sm" variant="outline" className="h-8 px-2.5 text-xs" onClick={() => sendPaymentReminderEmail(b)}>
                             <Mail className="w-3 h-3 mr-1" /> Email Reminder
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => callGuestForPayment(b)}>
+                          <Button size="sm" variant="outline" className="h-8 px-2.5 text-xs" onClick={() => callGuestForPayment(b)}>
                             <Phone className="w-3 h-3 mr-1" /> Call Guest
                           </Button>
                         </>
                       )}
-                      <Button size="sm" variant="outline" onClick={() => viewBookingDetails(b)}>
+                      <Button size="sm" variant="outline" className="h-8 px-2.5 text-xs" onClick={() => viewBookingDetails(b)}>
                         <Eye className="w-3 h-3 mr-1" /> Details
                       </Button>
                       {isPendingBookingStatus(b.status) && (
                         <>
-                          <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => updateBookingStatus(b.id, "confirmed", b.order_id)}>
+                          <Button size="sm" className="h-8 px-2.5 text-xs bg-green-600 hover:bg-green-700" onClick={() => updateBookingStatus(b.id, "confirmed", b.order_id)}>
                             <CheckCircle className="w-3 h-3 mr-1" /> Confirm
                           </Button>
-                          <Button size="sm" variant="destructive" onClick={() => updateBookingStatus(b.id, "cancelled", b.order_id)}>
+                          <Button size="sm" variant="destructive" className="h-8 px-2.5 text-xs" onClick={() => updateBookingStatus(b.id, "cancelled", b.order_id)}>
                             <XCircle className="w-3 h-3 mr-1" /> Decline
                           </Button>
                         </>
@@ -7395,6 +7321,98 @@ export default function HostDashboard() {
                 })
               )}
             </div>
+          </TabsContent>
+
+          {/* Manual Reviews */}
+          <TabsContent value="manual-reviews">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+              <div>
+                <h2 className="text-2xl font-bold">Manual Reviews</h2>
+                <p className="text-muted-foreground">Send a direct review link for a selected property. No account or booking is required.</p>
+              </div>
+              {loadingManualReviewRequests ? <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /> : null}
+            </div>
+
+            <Card className="p-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+                <div>
+                  <Label>Property</Label>
+                  <Select
+                    value={manualReviewForm.propertyId}
+                    onValueChange={(value) => setManualReviewForm((prev) => ({ ...prev, propertyId: value }))}
+                    disabled={properties.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={properties.length === 0 ? "No properties available" : "Select property"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {properties.map((property) => (
+                        <SelectItem key={property.id} value={property.id}>
+                          {property.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label>Reviewer Email</Label>
+                  <Input
+                    type="email"
+                    value={manualReviewForm.reviewerEmail}
+                    onChange={(e) => setManualReviewForm((prev) => ({ ...prev, reviewerEmail: e.target.value }))}
+                    placeholder="name@example.com"
+                  />
+                </div>
+
+                <div>
+                  <Label>Reviewer Name (Optional)</Label>
+                  <Input
+                    value={manualReviewForm.reviewerName}
+                    onChange={(e) => setManualReviewForm((prev) => ({ ...prev, reviewerName: e.target.value }))}
+                    placeholder="Guest name"
+                  />
+                </div>
+
+                <div className="flex items-end">
+                  <Button
+                    className="w-full"
+                    onClick={sendManualReviewRequest}
+                    disabled={sendingManualReviewRequest || properties.length === 0}
+                  >
+                    {sendingManualReviewRequest ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                    Send Request
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {manualReviewRequests.slice(0, 6).map((request) => {
+                  const isCollected = request.status === "collected" || !!request.reviewId;
+                  return (
+                    <div key={request.id} className="flex items-center justify-between border rounded-lg px-3 py-2">
+                      <div>
+                        <p className="text-sm font-medium">{request.propertyTitle}</p>
+                        <p className="text-xs text-muted-foreground">{request.reviewerEmail}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {isCollected ? (
+                          <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white">
+                            <BadgeCheck className="w-3 h-3 mr-1" />
+                            Manual Review Collected
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline">{request.status}</Badge>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {!loadingManualReviewRequests && manualReviewRequests.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No manual review requests yet.</p>
+                ) : null}
+              </div>
+            </Card>
           </TabsContent>
 
           {/* Discount Codes */}
@@ -8316,9 +8334,20 @@ END OF REPORT
                           : PLATFORM_FEES.transport.providerFeePercent;
                     const hostNetEarnings = listingTotal * (1 - feePercent / 100);
                     const convertedListingTotal = convertAmount(listingTotal, listingCurrency, displayCurrency, usdRates) ?? listingTotal;
-                    const convertedGuestPaid = convertAmount(guestPaidAmount, guestPaidCurrency, displayCurrency, usdRates) ?? guestPaidAmount;
                     const convertedUnitValue = convertAmount(unitValue, listingCurrency, displayCurrency, usdRates) ?? unitValue;
                     const convertedHostNetEarnings = convertAmount(hostNetEarnings, listingCurrency, displayCurrency, usdRates) ?? hostNetEarnings;
+                    const convertedFeeDeduction = convertAmount(listingTotal * (feePercent / 100), listingCurrency, displayCurrency, usdRates) ?? (listingTotal * (feePercent / 100));
+                    const convertedGuestPaidAmount = convertAmount(guestPaidAmount, guestPaidCurrency, displayCurrency, usdRates) ?? guestPaidAmount;
+                    const effectivePaymentStatus = String(
+                      bookingFullDetails.checkout_requests?.payment_status || bookingFullDetails.payment_status || "unknown"
+                    )
+                      .trim()
+                      .toLowerCase();
+                    const rawPaymentMethod = String(
+                      bookingFullDetails.checkout_requests?.payment_method || bookingFullDetails.payment_method || "not_specified"
+                    )
+                      .trim()
+                      .toLowerCase();
 
                     return (
                       <div className="space-y-4">
@@ -8353,8 +8382,8 @@ END OF REPORT
                           </div>
 
                           <div className="border-t pt-2 mt-2 flex justify-between items-center">
-                            <span className="font-medium">Guest paid</span>
-                            <span className="text-base font-semibold">{formatMoney(convertedGuestPaid, displayCurrency)}</span>
+                            <span className="font-medium">Platform fee deducted ({feePercent}%)</span>
+                            <span className="text-base font-semibold text-destructive">-{formatMoney(convertedFeeDeduction, displayCurrency)}</span>
                           </div>
 
                           <div className="border-t pt-2 mt-2 flex justify-between items-center">
@@ -8364,17 +8393,20 @@ END OF REPORT
                         </div>
 
                         <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Amount Paid ({String(displayCurrency).toUpperCase()}):</span>
+                          <span className="font-semibold text-emerald-600">{formatMoney(convertedGuestPaidAmount, displayCurrency)}</span>
+                        </div>
+
+                        <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">Payment Status:</span>
-                          <Badge variant={bookingFullDetails.payment_status === 'paid' ? 'default' : 'secondary'}>
-                            {bookingFullDetails.payment_status}
+                          <Badge variant={effectivePaymentStatus === 'paid' ? 'default' : 'secondary'}>
+                            {effectivePaymentStatus || "unknown"}
                           </Badge>
                         </div>
 
-                        {bookingFullDetails.checkout_requests && (
-                          <>
-                            {(() => {
-                              const paymentMethod = String(bookingFullDetails.checkout_requests.payment_method || "mobile_money").toLowerCase();
-                              const paymentLabel = paymentMethod
+                        {(() => {
+                          const paymentMethod = rawPaymentMethod || "mobile_money";
+                          const paymentLabel = paymentMethod
                                 .replace(/_/g, " ")
                                 .replace(/\bmomo\b/g, "MoMo")
                                 .replace(/\bmtn\b/g, "MTN")
@@ -8383,30 +8415,29 @@ END OF REPORT
                                 .replace(/\bmastercard\b/g, "Mastercard")
                                 .replace(/\b\w/g, (char) => char.toUpperCase());
 
-                              const MethodIcon =
-                                /momo|mobile/.test(paymentMethod)
-                                  ? Smartphone
-                                  : /card|visa|master/.test(paymentMethod)
-                                    ? CreditCard
-                                    : Building;
+                          const MethodIcon =
+                            /momo|mobile/.test(paymentMethod)
+                              ? Smartphone
+                              : /card|visa|master/.test(paymentMethod)
+                                ? CreditCard
+                                : Building;
 
-                              return (
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-muted-foreground">Payment Method:</span>
-                                  <span className="font-medium inline-flex items-center gap-1.5">
-                                    <MethodIcon className="w-3.5 h-3.5 text-muted-foreground" />
-                                    {paymentLabel || 'Mobile Money'}
-                                  </span>
-                                </div>
-                              );
-                            })()}
-                            {bookingFullDetails.checkout_requests.dpo_transaction_id && (
-                              <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Transaction ID:</span>
-                                <span className="font-mono text-xs">{bookingFullDetails.checkout_requests.dpo_transaction_id}</span>
-                              </div>
-                            )}
-                          </>
+                          return (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Payment Method:</span>
+                              <span className="font-medium inline-flex items-center gap-1.5">
+                                <MethodIcon className="w-3.5 h-3.5 text-muted-foreground" />
+                                {paymentLabel || 'Not specified'}
+                              </span>
+                            </div>
+                          );
+                        })()}
+
+                        {bookingFullDetails.checkout_requests?.dpo_transaction_id && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Transaction ID:</span>
+                            <span className="font-mono text-xs">{bookingFullDetails.checkout_requests.dpo_transaction_id}</span>
+                          </div>
                         )}
                       </div>
                     );
