@@ -22,6 +22,7 @@ import { convertAmount } from "@/lib/fx";
 type BookingRow = {
   id: string;
   order_id: string | null;
+  booking_type?: "property" | "tour" | "transport" | null;
   guest_id: string | null;
   guest_name: string | null;
   guest_email: string | null;
@@ -32,10 +33,14 @@ type BookingRow = {
   total_price: number;
   currency: string;
   created_at: string;
+  properties?: { currency?: string | null } | null;
+  tour_packages?: { currency?: string | null } | null;
+  transport_vehicles?: { currency?: string | null } | null;
   checkout_requests?: {
     id: string;
     total_amount: number;
     currency: string | null;
+    payment_status?: string | null;
     payment_method: string | null;
   } | null;
 };
@@ -157,7 +162,7 @@ export default function FinancialStaffDashboard() {
       // Fetch checkout_requests separately (no FK constraint)
       const orderIds = [...new Set((data ?? []).filter(b => b.order_id).map(b => b.order_id))];
       const checkouts = orderIds.length > 0
-        ? (await supabase.from("checkout_requests").select("id, total_amount, currency, payment_method").in("id", orderIds)).data || []
+        ? (await supabase.from("checkout_requests").select("id, total_amount, currency, payment_status, payment_method").in("id", orderIds)).data || []
         : [];
       
       return (data ?? []).map(b => ({
@@ -1335,7 +1340,7 @@ export default function FinancialStaffDashboard() {
                 <div className="border-t pt-4">
                   <h3 className="font-semibold mb-3">Payment Information</h3>
                   {(() => {
-                    const displayCurrency = preferredCurrency || "RWF";
+                    const displayCurrency = dashboardCurrency;
                     const listingSourceCurrency =
                       selectedBooking.booking_type === "property" && selectedBooking.properties?.currency
                         ? selectedBooking.properties.currency
@@ -1360,6 +1365,10 @@ export default function FinancialStaffDashboard() {
                           usdRates
                         )
                       : null;
+
+                    const effectivePaymentStatus = String(
+                      selectedBooking.checkout_requests?.payment_status || selectedBooking.payment_status || "pending"
+                    ).toLowerCase();
 
                     const paymentMethodRaw = String(
                       selectedBooking.checkout_requests?.payment_method || selectedBooking.payment_method || "not_specified"
@@ -1396,8 +1405,8 @@ export default function FinancialStaffDashboard() {
                         </div>
                         <div>
                           <p className="text-sm text-muted-foreground">Payment Status</p>
-                          <Badge variant={selectedBooking.payment_status === 'paid' ? 'default' : 'secondary'}>
-                            {selectedBooking.payment_status || 'pending'}
+                          <Badge variant={effectivePaymentStatus === 'paid' ? 'default' : 'secondary'}>
+                            {effectivePaymentStatus}
                           </Badge>
                         </div>
                       </div>
