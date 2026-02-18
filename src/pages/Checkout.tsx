@@ -101,6 +101,14 @@ function formatCardNumberByBrand(cardDigits: string, brand: CardBrand): string {
     .trim();
 }
 
+function getCardBrandIcon(brand: CardBrand): string | null {
+  if (brand === "visa") return "/payment-icons/visa.svg";
+  if (brand === "mastercard") return "/payment-icons/mastercard.svg";
+  if (brand === "amex") return "/payment-icons/amex.svg";
+  if (brand === "discover") return "/payment-icons/discover.svg";
+  return null;
+}
+
 const PAWAPAY_METHODS: PaymentMethodInfo[] = [
   // Rwanda (+250) - RWF — MTN_MOMO_RWA, AIRTEL_RWA
   { id: 'mtn_rwa', name: 'MTN Mobile Money', shortName: 'MTN', provider: 'MTN', countryCode: '+250', country: 'Rwanda', flag: '🇷🇼', currency: 'RWF', color: 'bg-yellow-400', textColor: 'text-black' },
@@ -662,6 +670,7 @@ export default function CheckoutNew() {
           : cardBrand === "discover"
             ? "Discover"
             : "Card";
+  const cardBrandIcon = getCardBrandIcon(cardBrand);
   const isCardValid =
     cardForm.cardholderName.trim().length >= 2 &&
     /^(\d{16}|\d{15})$/.test(normalizedCardNumber) &&
@@ -1401,18 +1410,36 @@ export default function CheckoutNew() {
 
                   {/* Credit Card Form */}
                   {paymentMethod === 'card' && (
-                    <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 md:p-5 space-y-4">
+                    <div className="rounded-xl border border-border bg-card p-4 md:p-5 space-y-4">
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-sm font-semibold text-foreground">Enter card details</p>
-                        <span className="text-xs px-2 py-1 rounded-full border border-primary/20 bg-background text-foreground/80">
-                          {cardBrandLabel}
-                        </span>
+                        <div className="text-xs px-2 py-1 rounded-full border border-border bg-background text-foreground/80 flex items-center gap-2">
+                          {cardBrandIcon ? (
+                            <img
+                              src={cardBrandIcon}
+                              alt={cardBrandLabel}
+                              className="h-4 w-auto"
+                              loading="lazy"
+                            />
+                          ) : null}
+                          <span>{cardBrandLabel}</span>
+                        </div>
                       </div>
 
                       <div className="rounded-xl border border-border bg-background p-4">
                         <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
                           <span>Card preview</span>
-                          <span>{cardBrandLabel}</span>
+                          <span className="flex items-center gap-2">
+                            {cardBrandIcon ? (
+                              <img
+                                src={cardBrandIcon}
+                                alt={cardBrandLabel}
+                                className="h-5 w-auto"
+                                loading="lazy"
+                              />
+                            ) : null}
+                            {cardBrandLabel}
+                          </span>
                         </div>
                         <div className="text-base md:text-lg font-semibold tracking-[0.12em] text-foreground">
                           {normalizedCardNumber
