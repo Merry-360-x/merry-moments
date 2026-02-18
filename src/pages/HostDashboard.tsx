@@ -1223,6 +1223,13 @@ export default function HostDashboard() {
     // Use only columns guaranteed to exist in the database schema
     // NOTE: Database has both 'name' (required NOT NULL) and 'title' columns
     const propertyName = propertyForm.title.trim();
+    const isConferenceRoom = propertyForm.property_type === "Conference Room";
+    const conferenceAmount = Number(propertyForm.price_per_group || 0);
+    const baseNightlyPrice = Number(propertyForm.price_per_night || 0);
+    const normalizedNightlyPrice =
+      isConferenceRoom && conferenceAmount > 0
+        ? conferenceAmount
+        : (baseNightlyPrice > 0 ? baseNightlyPrice : 50000);
     const payload: Record<string, unknown> = {
       name: propertyName,  // Required column (NOT NULL)
       title: propertyName,
@@ -1230,7 +1237,7 @@ export default function HostDashboard() {
       address: propertyForm.address.trim() || null,
       property_type: propertyForm.property_type || "Apartment",
       description: propertyForm.description.trim() || null,
-      price_per_night: propertyForm.price_per_night || 50000,
+      price_per_night: normalizedNightlyPrice,
       price_per_group: propertyForm.price_per_group || null,
       price_per_group_size: propertyForm.price_per_group_size || null,
       currency: propertyForm.currency || "RWF",
@@ -2331,6 +2338,9 @@ export default function HostDashboard() {
       case 1:
         return propertyForm.title.trim() && propertyForm.location.trim();
       case 2:
+        if (propertyForm.property_type === "Conference Room") {
+          return Number(propertyForm.price_per_group || 0) > 0;
+        }
         return propertyForm.price_per_night > 0;
       case 3:
         return true; // Images optional
@@ -4489,7 +4499,9 @@ export default function HostDashboard() {
 
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div>
-                  <Label className="text-sm font-medium">Price per Night</Label>
+                  <Label className="text-sm font-medium">
+                    {propertyForm.property_type === "Conference Room" ? "Conference Base Price" : "Price per Night"}
+                  </Label>
                   <Input
                     type="number"
                     value={propertyForm.price_per_night}
@@ -4499,7 +4511,9 @@ export default function HostDashboard() {
                   />
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">Price per Person</Label>
+                  <Label className="text-sm font-medium">
+                    {propertyForm.property_type === "Conference Room" ? "Attendee Price" : "Price per Person"}
+                  </Label>
                   <Input
                     type="number"
                     value={propertyForm.price_per_person || ''}
@@ -4510,7 +4524,9 @@ export default function HostDashboard() {
                   />
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">Group Size (people)</Label>
+                  <Label className="text-sm font-medium">
+                    {propertyForm.property_type === "Conference Room" ? "Included Attendees" : "Group Size (people)"}
+                  </Label>
                   <Input
                     type="number"
                     value={propertyForm.price_per_group_size || 2}
@@ -4520,7 +4536,9 @@ export default function HostDashboard() {
                   />
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">Group Amount</Label>
+                  <Label className="text-sm font-medium">
+                    {propertyForm.property_type === "Conference Room" ? "Conference Room Amount *" : "Group Amount"}
+                  </Label>
                   <Input
                     type="number"
                     value={propertyForm.price_per_group || ''}
@@ -4547,6 +4565,11 @@ export default function HostDashboard() {
                   </Select>
                 </div>
               </div>
+              {propertyForm.property_type === "Conference Room" && (
+                <p className="text-xs text-muted-foreground">
+                  Set a conference room amount for the included attendee count.
+                </p>
+              )}
               {propertyForm.price_per_group ? (
                 <p className="text-xs text-muted-foreground">
                   Group price set: {propertyForm.price_per_group_size || 2} {(propertyForm.price_per_group_size || 2) === 1 ? "person" : "people"} for {propertyForm.currency} {propertyForm.price_per_group.toLocaleString()}.
@@ -4908,7 +4931,9 @@ export default function HostDashboard() {
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                     <div>
-                      <Label className="text-base font-medium">Price per Night *</Label>
+                      <Label className="text-sm font-medium">
+                        {propertyForm.property_type === "Conference Room" ? "Conference Base Price" : "Price per Night"}
+                      </Label>
                   <Input
                         type="number"
                         min={1}
@@ -4918,7 +4943,9 @@ export default function HostDashboard() {
                   />
                 </div>
                 <div>
-                      <Label className="text-base font-medium">Price per Person</Label>
+                      <Label className="text-sm font-medium">
+                        {propertyForm.property_type === "Conference Room" ? "Attendee Price" : "Price per Person"}
+                      </Label>
                   <Input
                         type="number"
                         min={0}
@@ -4929,7 +4956,9 @@ export default function HostDashboard() {
                   />
                 </div>
                 <div>
-                      <Label className="text-base font-medium">Group Size (people)</Label>
+                      <Label className="text-base font-medium">
+                        {propertyForm.property_type === "Conference Room" ? "Included Attendees" : "Group Size (people)"}
+                      </Label>
                       <Input
                         type="number"
                         min={1}
@@ -4939,7 +4968,9 @@ export default function HostDashboard() {
                       />
                     </div>
                     <div>
-                      <Label className="text-base font-medium">Group Amount</Label>
+                      <Label className="text-base font-medium">
+                        {propertyForm.property_type === "Conference Room" ? "Conference Room Amount *" : "Group Amount"}
+                      </Label>
                   <Input
                         type="number"
                         min={0}
@@ -4959,6 +4990,11 @@ export default function HostDashboard() {
                       </Select>
                     </div>
                   </div>
+                  {propertyForm.property_type === "Conference Room" && (
+                    <p className="text-xs text-muted-foreground">
+                      Set a conference room amount for the included attendee count.
+                    </p>
+                  )}
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div>
@@ -5350,7 +5386,7 @@ export default function HostDashboard() {
                 {/* Upload Area */}
                 <div
                   onClick={() => setUploadDialogOpen(true)}
-                  className="border-2 border-dashed border-border rounded-2xl p-12 text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-all"
+                  className="border-2 border-dashed border-border rounded-2xl p-10 text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors"
                 >
                   <Upload className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                   <p className="text-lg font-medium text-foreground">Click to upload photos</p>
@@ -5794,7 +5830,7 @@ export default function HostDashboard() {
 
                 <div
                   onClick={() => setVehicleUploadDialogOpen(true)}
-                  className="border-2 border-dashed border-border rounded-2xl p-12 text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-all"
+                  className="border-2 border-dashed border-border rounded-2xl p-10 text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors"
                 >
                   <Upload className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                   <p className="text-lg font-medium text-foreground">Click to upload media</p>
