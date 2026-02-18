@@ -149,6 +149,8 @@ interface Property {
   // Discounts (optional until DB migration is applied)
   weekly_discount?: number | null;
   monthly_discount?: number | null;
+  available_for_monthly_rental?: boolean | null;
+  price_per_month?: number | null;
   // Rules (optional until DB migration is applied)
   check_in_time?: string | null;
   check_out_time?: string | null;
@@ -1234,13 +1236,28 @@ export default function HostDashboard() {
       return null;
     }
 
+    const nightlyPrice = Number(propertyForm.price_per_night || 0);
+    const monthlyPrice = Number(propertyForm.price_per_month || 0);
+    const isMonthlyOnly = Boolean(propertyForm.available_for_monthly_rental) && nightlyPrice <= 0 && monthlyPrice > 0;
+    if (nightlyPrice <= 0 && !isMonthlyOnly) {
+      toast({
+        variant: "destructive",
+        title: "Price required",
+        description: "Set a nightly price or enable monthly rental with a monthly price.",
+      });
+      return null;
+    }
+
     setCreatingProperty(true);
 
     // Use only columns guaranteed to exist in the database schema
     // NOTE: Database has both 'name' (required NOT NULL) and 'title' columns
     const propertyName = propertyForm.title.trim();
     const baseNightlyPrice = Number(propertyForm.price_per_night || 0);
-    const normalizedNightlyPrice = baseNightlyPrice > 0 ? baseNightlyPrice : 50000;
+    const monthlyOnlyDerivedNightlyPrice = Math.max(1, Math.round(monthlyPrice / 30));
+    const normalizedNightlyPrice = baseNightlyPrice > 0
+      ? baseNightlyPrice
+      : (isMonthlyOnly ? monthlyOnlyDerivedNightlyPrice : 50000);
     const payload: Record<string, unknown> = {
       name: propertyName,  // Required column (NOT NULL)
       title: propertyName,
@@ -2399,6 +2416,8 @@ export default function HostDashboard() {
         images: propertyForm.images,
         weekly_discount: Number(propertyForm.weekly_discount || 0),
         monthly_discount: Number(propertyForm.monthly_discount || 0),
+        available_for_monthly_rental: Boolean(propertyForm.available_for_monthly_rental),
+        price_per_month: propertyForm.price_per_month,
         check_in_time: propertyForm.check_in_time,
         check_out_time: propertyForm.check_out_time,
         smoking_allowed: Boolean(propertyForm.smoking_allowed),
@@ -2424,6 +2443,15 @@ export default function HostDashboard() {
   };
 
 
+  const hasValidPropertyPricing = () => {
+    const nightlyPrice = Number(propertyForm.price_per_night || 0);
+    const monthlyPrice = Number(propertyForm.price_per_month || 0);
+    const hasNightlyPrice = nightlyPrice > 0;
+    const hasMonthlyPrice = propertyForm.available_for_monthly_rental && monthlyPrice > 0;
+    return hasNightlyPrice || hasMonthlyPrice;
+  };
+
+
 
   const openVehicleWizard = () => {
     const hasDraft = localStorage.getItem(VEHICLE_FORM_KEY);
@@ -2443,13 +2471,13 @@ export default function HostDashboard() {
       case 2:
         if (propertyForm.amenities.includes("conference_room")) {
           return (
-            propertyForm.price_per_night > 0 &&
+            hasValidPropertyPricing() &&
             Number(propertyForm.conference_room_price || 0) > 0 &&
             Number(propertyForm.conference_room_capacity || 0) > 0 &&
             Number(propertyForm.conference_room_duration_hours || 0) > 0
           );
         }
-        return propertyForm.price_per_night > 0;
+        return hasValidPropertyPricing();
       case 3:
         return true; // Images optional
       case 4:
@@ -4474,13 +4502,37 @@ export default function HostDashboard() {
                   toast({ variant: "destructive", title: "Missing info", description: "Please fill in all required fields." });
                   return;
                 }
+
+                const nightlyPrice = Number(propertyForm.price_per_night || 0);
+                const monthlyPrice = Number(propertyForm.price_per_month || 0);
+                const isMonthlyOnly = Boolean(propertyForm.available_for_monthly_rental) && nightlyPrice <= 0 && monthlyPrice > 0;
+                if (nightlyPrice <= 0 && !isMonthlyOnly) {
+                  toast({
+                    variant: "destructive",
+                    title: "Price required",
+                    description: "Set a nightly price or enable monthly rental with a monthly price.",
+                  });
+                  return;
+                }
+
+                setCreatingProperty(true);
                 
                 try {
                   const hasConferenceRoom = isConferenceRoomSelected;
+                  const propertyName = propertyForm.title.trim();
+                  const monthlyOnlyDerivedNightlyPrice = Math.max(1, Math.round(monthlyPrice / 30));
+                  const normalizedNightlyPrice = nightlyPrice > 0
+                    ? nightlyPrice
+                    : monthlyOnlyDerivedNightlyPrice;
 
                   const payload = {
                     ...propertyForm,
+                    name: propertyName,
+                    title: propertyName,
                     property_type: propertyForm.property_type || "Room in Apartment",
+                    price_per_night: normalizedNightlyPrice,
+                    available_for_monthly_rental: Boolean(propertyForm.available_for_monthly_rental),
+                    price_per_month: propertyForm.price_per_month ? Number(propertyForm.price_per_month) : null,
                     price_per_group_size: propertyForm.price_per_group_size || null,
                     amenities: hasConferenceRoom
                       ? Array.from(new Set([...(propertyForm.amenities || []), "conference_room"]))
@@ -4521,6 +4573,8 @@ export default function HostDashboard() {
                 } catch (e) {
                   logError("host.createRoom", e);
                   toast({ variant: "destructive", title: "Error", description: uiErrorMessage(e, "Could not create room.") });
+                } finally {
+                  setCreatingProperty(false);
                 }
               }}
               className="space-y-6"
@@ -4911,8 +4965,14 @@ export default function HostDashboard() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" className="flex-1">
-                  Create Room
+                <Button type="submit" className="flex-1" disabled={creatingProperty}>
+                  {creatingProperty ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Creating...
+                    </>
+                  ) : (
+                    "Create Room"
+                  )}
                 </Button>
               </div>
             </form>
@@ -5735,10 +5795,16 @@ export default function HostDashboard() {
                 Next <ChevronRight className="w-4 h-4 ml-2" />
               </Button>
             ) : (
-              <Button onClick={submitPropertyWizard} disabled={!canProceed()}>
-                <>
-                  <CheckCircle className="w-4 h-4 mr-2" /> {propertyWizardEditId ? "Update Property" : "Create Property"}
-                </>
+              <Button onClick={submitPropertyWizard} disabled={!canProceed() || creatingProperty}>
+                {creatingProperty ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Creating...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4 mr-2" /> {propertyWizardEditId ? "Update Property" : "Create Property"}
+                  </>
+                )}
               </Button>
             )}
           </div>
