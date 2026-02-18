@@ -378,6 +378,7 @@ const convertAdminCurrency = (
 
 const statusColors: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800",
+  pending_confirmation: "bg-yellow-100 text-yellow-800",
   approved: "bg-green-100 text-green-800",
   rejected: "bg-red-100 text-red-800",
   confirmed: "bg-green-100 text-green-800",
@@ -399,6 +400,9 @@ const Thumb = ({ src, alt }: { src: string | null | undefined; alt: string }) =>
     )}
   </div>
 );
+
+const isPendingBookingStatus = (status: string | null | undefined) =>
+  status === "pending" || status === "pending_confirmation";
 
 export default function AdminDashboard() {
   const { toast } = useToast();
@@ -938,7 +942,9 @@ export default function AdminDashboard() {
         .order("created_at", { ascending: false })
         .limit(500);
       if (bookingStatus && bookingStatus !== "all" && bookingStatus !== "refund_requested") {
-        q = q.eq("status", bookingStatus);
+        q = bookingStatus === "pending"
+          ? q.in("status", ["pending", "pending_confirmation"])
+          : q.eq("status", bookingStatus);
       }
       const { data, error } = await q;
       if (error) {
@@ -2572,9 +2578,9 @@ For support, contact: support@merry360x.com
             </TabsTrigger>
             <TabsTrigger value="bookings" className="gap-1">
               <Calendar className="w-4 h-4" /> Bookings
-              {bookings.filter(b => b.status === 'pending').length > 0 && (
+              {bookings.filter(b => isPendingBookingStatus(b.status)).length > 0 && (
                 <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-xs h-5 min-w-[20px] rounded-full">
-                  {bookings.filter(b => b.status === 'pending').length}
+                  {bookings.filter(b => isPendingBookingStatus(b.status)).length}
                 </Badge>
               )}
             </TabsTrigger>

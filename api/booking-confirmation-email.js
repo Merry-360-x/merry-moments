@@ -5,6 +5,8 @@ import { buildBrevoSmtpPayload, escapeHtml, keyValueRows, renderMinimalEmail } f
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const FINANCE_EMAIL = process.env.FINANCE_EMAIL || process.env.PAYMENTS_EMAIL || "support@merry360x.com";
+const FINANCE_NAME = process.env.FINANCE_NAME || "Finance Team";
 
 function json(res, status, body) {
   res.statusCode = status;
@@ -224,6 +226,214 @@ function generateBookingDecisionHtml(payload) {
   });
 }
 
+function toOrderRef(orderId) {
+  if (!orderId) return "—";
+  return String(orderId).slice(0, 8).toUpperCase();
+}
+
+function paymentMethodLabel(method) {
+  const value = String(method || "").toLowerCase();
+  if (value === "bank" || value === "bank_transfer") return "Bank Transfer";
+  if (value === "card") return "Card";
+  if (value === "mobile_money" || value.includes("momo")) return "Mobile Money";
+  return value ? value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase()) : "Not specified";
+}
+
+function itemTypeLabel(type) {
+  const value = String(type || "").toLowerCase();
+  if (value === "property") return "Accommodation";
+  if (value === "tour" || value === "tour_package") return "Tour";
+  if (value === "transport" || value === "transport_vehicle") return "Transport";
+  return "Service";
+}
+
+async function resolveProfileEmail(supabase, hostId) {
+  if (!hostId) return null;
+
+  const byId = await supabase
+    .from("profiles")
+    .select("full_name, email")
+    .eq("id", hostId)
+    .single();
+
+  let profile = byId.data || null;
+  if (byId.error || !profile?.email) {
+    const byUserId = await supabase
+      .from("profiles")
+      .select("full_name, email")
+      .eq("user_id", hostId)
+      .single();
+    profile = byUserId.data || profile;
+  }
+
+  if (!profile?.email) return null;
+  return { hostId, hostEmail: profile.email, hostName: profile.full_name || "Host" };
+}
+
+async function resolveHostRecipientsFromItems(supabase, items = []) {
+  const hostMap = new Map();
+
+  for (const item of items) {
+    const itemType = String(item?.item_type || "").toLowerCase();
+    const referenceId = item?.reference_id;
+    if (!itemType || !referenceId) continue;
+
+    let hostId = null;
+    let resolvedTitle = item?.title || "Listing";
+
+    if (itemType === "property") {
+      const { data } = await supabase
+        .from("properties")
+        .select("host_id, title")
+        .eq("id", referenceId)
+        .single();
+      hostId = data?.host_id || null;
+      resolvedTitle = data?.title || resolvedTitle;
+    } else if (itemType === "tour_package") {
+      const { data } = await supabase
+        .from("tour_packages")
+        .select("host_id, title")
+        .eq("id", referenceId)
+        .single();
+      hostId = data?.host_id || null;
+      resolvedTitle = data?.title || resolvedTitle;
+    } else if (itemType === "tour") {
+      const { data } = await supabase
+        .from("tours")
+        .select("created_by, title")
+        .eq("id", referenceId)
+        .single();
+      hostId = data?.created_by || null;
+      resolvedTitle = data?.title || resolvedTitle;
+    } else if (itemType === "transport_vehicle" || itemType === "transport") {
+      const { data } = await supabase
+        .from("transport_vehicles")
+        .select("owner_id, created_by, title")
+        .eq("id", referenceId)
+        .single();
+      hostId = data?.owner_id || data?.created_by || null;
+      resolvedTitle = data?.title || resolvedTitle;
+    }
+
+    if (!hostId) continue;
+
+    const key = String(hostId);
+    const existing = hostMap.get(key) || { hostId, hostEmail: null, hostName: "Host", items: [] };
+    existing.items.push({
+      title: resolvedTitle,
+      type: itemType,
+      quantity: Number(item?.quantity || 1),
+    });
+    hostMap.set(key, existing);
+  }
+
+  const recipients = [];
+  for (const [, recipient] of hostMap.entries()) {
+    const profile = await resolveProfileEmail(supabase, recipient.hostId);
+    if (!profile?.hostEmail) continue;
+    recipients.push({
+      ...recipient,
+      hostEmail: profile.hostEmail,
+      hostName: profile.hostName,
+    });
+  }
+
+  return recipients;
+}
+
+function generatePendingOrderGuestHtml(payload) {
+  const items = Array.isArray(payload.items) ? payload.items : [];
+  const details = keyValueRows([
+    { label: "Order ID", value: escapeHtml(toOrderRef(payload.checkoutId)) },
+    { label: "Payment Method", value: escapeHtml(paymentMethodLabel(payload.paymentMethod)) },
+    { label: "Order Total", value: escapeHtml(formatMoney(payload.totalAmount, payload.currency || "RWF")) },
+    { label: "Items", value: escapeHtml(`${items.length}`) },
+  ]);
+
+  return renderMinimalEmail({
+    eyebrow: "Order Update",
+    title: "Your order is being processed",
+    subtitle: "We received your order and our team is processing payment confirmation.",
+    bodyHtml: `
+      <p style="margin:0 0 12px;color:#374151;font-size:14px;">Hi ${escapeHtml(payload.guestName || "Guest")}, thanks for booking with Merry Moments.</p>
+      ${details}
+      <p style="margin:12px 0 0;color:#4b5563;font-size:13px;">You will receive another email/SMS once payment is confirmed.</p>
+    `,
+    ctaText: "View My Bookings",
+    ctaUrl: "https://merry360x.com/my-bookings",
+  });
+}
+
+function generatePendingOrderFinanceHtml(payload) {
+  const items = Array.isArray(payload.items) ? payload.items : [];
+  const details = keyValueRows([
+    { label: "Order ID", value: escapeHtml(toOrderRef(payload.checkoutId)) },
+    { label: "Guest", value: escapeHtml(payload.guestName || "Guest") },
+    { label: "Guest Email", value: escapeHtml(payload.guestEmail || "—") },
+    { label: "Phone", value: escapeHtml(payload.guestPhone || "—") },
+    { label: "Payment Method", value: escapeHtml(paymentMethodLabel(payload.paymentMethod)) },
+    { label: "Order Total", value: escapeHtml(formatMoney(payload.totalAmount, payload.currency || "RWF")) },
+    { label: "Items", value: escapeHtml(`${items.length}`) },
+  ]);
+
+  return renderMinimalEmail({
+    eyebrow: "Finance",
+    title: "Pending order needs payment processing",
+    subtitle: "A new order is awaiting finance action.",
+    bodyHtml: details,
+    ctaText: "Open Financial Dashboard",
+    ctaUrl: "https://merry360x.com/financial-dashboard",
+  });
+}
+
+function generatePendingOrderHostHtml({ hostName, checkoutId, paymentMethod, totalAmount, currency, guestName, items }) {
+  const listHtml = (items || [])
+    .map((item) => `<p style="margin:0 0 6px;color:#374151;font-size:14px;">• ${escapeHtml(item.title || "Listing")} (${escapeHtml(itemTypeLabel(item.type))}) × ${escapeHtml(item.quantity || 1)}</p>`)
+    .join("");
+
+  return renderMinimalEmail({
+    eyebrow: "Host Alert",
+    title: "New pending order for your listing",
+    subtitle: "A guest placed an order and payment is being processed.",
+    bodyHtml: `
+      <p style="margin:0 0 12px;color:#374151;font-size:14px;">Hi ${escapeHtml(hostName || "Host")},</p>
+      ${keyValueRows([
+        { label: "Order ID", value: escapeHtml(toOrderRef(checkoutId)) },
+        { label: "Guest", value: escapeHtml(guestName || "Guest") },
+        { label: "Payment Method", value: escapeHtml(paymentMethodLabel(paymentMethod)) },
+        { label: "Order Total", value: escapeHtml(formatMoney(totalAmount, currency || "RWF")) },
+      ])}
+      <div style="margin-top:12px;">${listHtml || ""}</div>
+    `,
+    ctaText: "Open Host Dashboard",
+    ctaUrl: "https://merry360x.com/host-dashboard",
+  });
+}
+
+async function sendBrevoEmail({ to, subject, htmlContent, tags = [] }) {
+  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "api-key": BREVO_API_KEY,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(
+      buildBrevoSmtpPayload({
+        senderName: "Merry Moments",
+        senderEmail: "support@merry360x.com",
+        to,
+        subject,
+        htmlContent,
+        tags,
+      })
+    ),
+  });
+
+  const result = await response.json().catch(() => ({}));
+  return { ok: response.ok, status: response.status, result };
+}
+
 function normalizeRefundStatus(status) {
   const value = String(status || "").toLowerCase();
   if (["in_progress", "processing", "requested", "pending"].includes(value)) {
@@ -290,6 +500,93 @@ export default async function handler(req, res) {
 
   try {
     const { action, previewTo } = req.body || {};
+
+    if (action === "pending_order") {
+      const {
+        checkoutId,
+        guestName,
+        guestEmail,
+        guestPhone,
+        totalAmount,
+        currency,
+        paymentMethod,
+        items,
+      } = req.body || {};
+
+      if (!checkoutId || !guestEmail) {
+        return json(res, 400, { error: "Missing checkoutId or guestEmail" });
+      }
+
+      const itemList = Array.isArray(items) ? items : [];
+      const normalizedPayload = {
+        checkoutId,
+        guestName: guestName || "Guest",
+        guestEmail,
+        guestPhone: guestPhone || "",
+        totalAmount: Number(totalAmount || 0),
+        currency: currency || "RWF",
+        paymentMethod: paymentMethod || "card",
+        items: itemList,
+      };
+
+      const guestEmailSend = await sendBrevoEmail({
+        to: [{ email: previewTo || normalizedPayload.guestEmail, name: previewTo ? "Template Preview" : normalizedPayload.guestName }],
+        subject: `${previewTo ? "[Preview] " : ""}Your order is being processed • ${toOrderRef(normalizedPayload.checkoutId)}`,
+        htmlContent: generatePendingOrderGuestHtml(normalizedPayload),
+        tags: ["order", "pending", "guest-update"],
+      });
+
+      if (!guestEmailSend.ok) {
+        return json(res, 502, { error: "Failed to send guest pending-order email", details: guestEmailSend.result });
+      }
+
+      const financeEmailSend = await sendBrevoEmail({
+        to: [{ email: previewTo || FINANCE_EMAIL, name: previewTo ? "Template Preview" : FINANCE_NAME }],
+        subject: `${previewTo ? "[Preview] " : ""}Pending payment to process • ${toOrderRef(normalizedPayload.checkoutId)}`,
+        htmlContent: generatePendingOrderFinanceHtml(normalizedPayload),
+        tags: ["order", "pending", "finance"],
+      });
+
+      if (!financeEmailSend.ok) {
+        return json(res, 502, { error: "Failed to send finance pending-order email", details: financeEmailSend.result });
+      }
+
+      let hostEmailsSent = 0;
+      let hostRecipientsCount = 0;
+
+      if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const hostRecipients = await resolveHostRecipientsFromItems(supabase, itemList);
+        hostRecipientsCount = hostRecipients.length;
+
+        for (const recipient of hostRecipients) {
+          const hostEmailSend = await sendBrevoEmail({
+            to: [{ email: previewTo || recipient.hostEmail, name: previewTo ? "Template Preview" : recipient.hostName }],
+            subject: `${previewTo ? "[Preview] " : ""}New pending order • ${toOrderRef(normalizedPayload.checkoutId)}`,
+            htmlContent: generatePendingOrderHostHtml({
+              hostName: recipient.hostName,
+              checkoutId: normalizedPayload.checkoutId,
+              paymentMethod: normalizedPayload.paymentMethod,
+              totalAmount: normalizedPayload.totalAmount,
+              currency: normalizedPayload.currency,
+              guestName: normalizedPayload.guestName,
+              items: recipient.items,
+            }),
+            tags: ["order", "pending", "host-alert"],
+          });
+
+          if (hostEmailSend.ok) hostEmailsSent += 1;
+        }
+      }
+
+      return json(res, 200, {
+        ok: true,
+        guestEmailSent: true,
+        financeEmailSent: true,
+        hostEmailsSent,
+        hostRecipientsCount,
+      });
+    }
 
     if (action === "host_payment_status") {
       if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {

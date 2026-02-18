@@ -2406,7 +2406,9 @@ export default function HostDashboard() {
   
   // Keep totalEarnings as net earnings for display
   const totalEarnings = totalNetEarnings;
-  const pendingBookings = (bookings || []).filter((b) => b.status === "pending").length;
+  const isPendingBookingStatus = (status: string | null | undefined) =>
+    status === "pending" || status === "pending_confirmation";
+  const pendingBookings = (bookings || []).filter((b) => isPendingBookingStatus(b.status)).length;
   const publishedProperties = (properties || []).filter((p) => p.is_published).length;
 
   // Calculate available for payout (confirmed bookings - pending payouts)
@@ -6289,9 +6291,9 @@ export default function HostDashboard() {
               <TabsTrigger value="transport">Transport ({(vehicles || []).length})</TabsTrigger>
               <TabsTrigger value="bookings">
                 Bookings ({(bookings || []).length})
-                {bookings.filter(b => b.status === 'pending').length > 0 && (
+                {bookings.filter(b => isPendingBookingStatus(b.status)).length > 0 && (
                   <Badge variant="destructive" className="ml-1.5 px-1.5 py-0 text-xs h-5 min-w-[20px] rounded-full">
-                    {bookings.filter(b => b.status === 'pending').length}
+                    {bookings.filter(b => isPendingBookingStatus(b.status)).length}
                   </Badge>
                 )}
               </TabsTrigger>
@@ -6899,7 +6901,7 @@ export default function HostDashboard() {
             {/* Pending Booking Requests Section */}
             {(() => {
               const pendingRequests = filteredBookingsById.filter(
-                b => b.confirmation_status === 'pending' || b.status === 'pending'
+                b => b.confirmation_status === 'pending' || isPendingBookingStatus(b.status)
               );
               if (pendingRequests.length === 0) return null;
               return (
@@ -7141,10 +7143,10 @@ export default function HostDashboard() {
             })()}
             
             <div className="space-y-3">
-              {filteredBookingsById.filter(b => !(b.confirmation_status === 'pending' || b.status === 'pending')).length === 0 && filteredBookingsById.filter(b => b.confirmation_status === 'pending' || b.status === 'pending').length === 0 ? (
+              {filteredBookingsById.filter(b => !(b.confirmation_status === 'pending' || isPendingBookingStatus(b.status))).length === 0 && filteredBookingsById.filter(b => b.confirmation_status === 'pending' || isPendingBookingStatus(b.status)).length === 0 ? (
                 <p className="text-muted-foreground text-center py-8">No bookings yet</p>
-              ) : filteredBookingsById.filter(b => !(b.confirmation_status === 'pending' || b.status === 'pending')).length === 0 ? null : (
-                filteredBookingsById.filter(b => !(b.confirmation_status === 'pending' || b.status === 'pending')).map((b) => {
+              ) : filteredBookingsById.filter(b => !(b.confirmation_status === 'pending' || isPendingBookingStatus(b.status))).length === 0 ? null : (
+                filteredBookingsById.filter(b => !(b.confirmation_status === 'pending' || isPendingBookingStatus(b.status))).map((b) => {
                   // Get the name of the booked item based on type
                   let itemName = 'Unknown';
                   const itemType = b.booking_type || 'property';
@@ -7235,7 +7237,7 @@ export default function HostDashboard() {
                         <Badge className={`text-xs px-3 py-1 ${
                           b.status === "confirmed" ? "bg-green-500 hover:bg-green-600" :
                           b.status === "completed" ? "bg-blue-500 hover:bg-blue-600" :
-                          b.status === "pending" ? "bg-yellow-500 hover:bg-yellow-600" :
+                          isPendingBookingStatus(b.status) ? "bg-yellow-500 hover:bg-yellow-600" :
                           b.status === "cancelled" ? "bg-red-500 hover:bg-red-600" :
                           "bg-gray-500"
                         }`}>
@@ -7356,7 +7358,7 @@ export default function HostDashboard() {
                       <Button size="sm" variant="outline" onClick={() => viewBookingDetails(b)}>
                         <Eye className="w-3 h-3 mr-1" /> Details
                       </Button>
-                      {b.status === "pending" && (
+                      {isPendingBookingStatus(b.status) && (
                         <>
                           <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => updateBookingStatus(b.id, "confirmed", b.order_id)}>
                             <CheckCircle className="w-3 h-3 mr-1" /> Confirm
@@ -7761,7 +7763,7 @@ SUMMARY
 Total Bookings: ${filteredBookings.length}
 Total Revenue: ${formatMoney(totalRevenue, currency)}
 Completed Bookings: ${filteredBookings.filter(b => b.status === 'completed').length}
-Pending Bookings: ${filteredBookings.filter(b => b.status === 'pending').length}
+Pending Bookings: ${filteredBookings.filter(b => isPendingBookingStatus(b.status)).length}
 Cancelled Bookings: ${filteredBookings.filter(b => b.status === 'cancelled').length}
 
 PAYMENT METHODS BREAKDOWN
@@ -8134,7 +8136,7 @@ END OF REPORT
                 <Badge className={
                   bookingFullDetails.status === "confirmed" ? "bg-green-500" :
                   bookingFullDetails.status === "completed" ? "bg-blue-500" :
-                  bookingFullDetails.status === "pending" ? "bg-yellow-500" :
+                  isPendingBookingStatus(bookingFullDetails.status) ? "bg-yellow-500" :
                   "bg-gray-500"
                 }>
                   {bookingFullDetails.status}
@@ -8435,7 +8437,7 @@ END OF REPORT
               </div>
 
               {/* Action Buttons */}
-              {bookingFullDetails.status === "pending" && (
+              {isPendingBookingStatus(bookingFullDetails.status) && (
                 <div className="flex gap-2">
                   <Button 
                     className="flex-1"

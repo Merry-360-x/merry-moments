@@ -539,6 +539,9 @@ export default function FinancialStaffDashboard() {
     return `${formatMoney(Number(list[0].amount), String(list[0].currency ?? "USD"))} (+${list.length - 1} currencies)`;
   }, [metrics?.revenue_by_currency]);
 
+  const isPendingBookingStatus = (status: string | null | undefined) =>
+    status === 'pending' || status === 'pending_confirmation';
+
   // Filter bookings by date range
   const filteredBookings = useMemo(() => {
     return bookings.filter(b => {
@@ -547,6 +550,8 @@ export default function FinancialStaffDashboard() {
         const orderId = String(b.order_id || '').toLowerCase();
         const isRefundRequested = refundRequestRefs.has(bookingId) || (orderId && refundRequestRefs.has(orderId));
         if (!isRefundRequested) return false;
+      } else if (bookingStatusFilter === 'pending' && !isPendingBookingStatus(b.status)) {
+        return false;
       } else if (bookingStatusFilter !== 'all' && b.status !== bookingStatusFilter) {
         return false;
       }
@@ -577,7 +582,7 @@ export default function FinancialStaffDashboard() {
   }, [bookings, refundRequestRefs]);
 
   const completedBookings = filteredBookings.filter(b => b.status === 'completed' || b.status === 'confirmed');
-  const pendingBookings = filteredBookings.filter(b => b.status === 'pending');
+  const pendingBookings = filteredBookings.filter(b => isPendingBookingStatus(b.status));
 
   const filteredRevenue = useMemo(() => {
     return completedBookings.reduce((sum, b) => sum + (b.total_price || 0), 0);
@@ -924,14 +929,14 @@ export default function FinancialStaffDashboard() {
                             variant={
                               booking.status === "confirmed"
                                 ? "default"
-                                : booking.status === "pending"
+                                : isPendingBookingStatus(booking.status)
                                 ? "secondary"
                                 : booking.status === "cancelled"
                                 ? "destructive"
                                 : "outline"
                             }
                           >
-                            {booking.status}
+                            {isPendingBookingStatus(booking.status) ? 'pending' : booking.status}
                           </Badge>
                         </TableCell>
                         <TableCell>

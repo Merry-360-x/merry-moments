@@ -23,7 +23,6 @@ import {
   ArrowRight, 
   ChevronDown,
   ChevronUp,
-  Check, 
   CreditCard,
   Phone,
   Loader2,
@@ -904,6 +903,36 @@ export default function CheckoutNew() {
 
       // For card/bank transfer, just create checkout and show confirmation
       if (paymentMethod === 'card' || paymentMethod === 'bank') {
+        try {
+          const pendingOrderEmailRes = await fetch("/api/booking-confirmation-email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "pending_order",
+              checkoutId,
+              guestName: formData.fullName,
+              guestEmail: formData.email,
+              guestPhone: fullPhone || formData.phone || null,
+              totalAmount: Math.round(amountInRwf),
+              currency: 'RWF',
+              paymentMethod: paymentMethod === 'bank' ? 'bank_transfer' : 'card',
+              items: cartItemsWithPrices.map((item) => ({
+                item_type: item.item_type,
+                reference_id: item.reference_id,
+                title: item.title,
+                quantity: item.quantity,
+              })),
+            }),
+          });
+
+          if (!pendingOrderEmailRes.ok) {
+            const details = await pendingOrderEmailRes.json().catch(() => ({}));
+            console.warn("Pending-order email notification failed", details);
+          }
+        } catch (emailError) {
+          console.warn("Pending-order email request failed", emailError);
+        }
+
         await clearCart();
         localStorage.removeItem("applied_discount");
 
@@ -1113,7 +1142,7 @@ export default function CheckoutNew() {
                         isCompleted && "bg-green-500 text-white",
                         !isActive && !isCompleted && "bg-muted text-muted-foreground"
                       )}>
-                        {isCompleted ? <Check className="w-4 h-4" /> : stepNumber}
+                        {stepNumber}
                       </div>
                       <span className="text-sm font-medium hidden sm:inline">{labels[step]}</span>
                     </button>
@@ -2049,7 +2078,7 @@ export default function CheckoutNew() {
                   {t("common.securePayment")}
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Check className="w-4 h-4" />
+                  <Shield className="w-4 h-4" />
                   {t("checkout.summary.instantConfirmation")}
                 </div>
               </div>

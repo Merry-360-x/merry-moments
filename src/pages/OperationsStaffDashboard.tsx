@@ -479,13 +479,16 @@ export default function OperationsStaffDashboard() {
   const pendingApplications = applications.filter(a => a.status === 'pending');
   const approvedApplications = applications.filter(a => a.status === 'approved');
 
+  const isPendingBookingStatus = (status: string | null | undefined) =>
+    status === 'pending' || status === 'pending_confirmation';
+
   const pendingProperties = properties.filter(p => !p.is_published);
   const activeProperties = properties.filter(p => p.is_published);
 
   const pendingTours = tours.filter(t => t.status === 'pending');
   const activeTours = tours.filter(t => t.status === 'approved');
 
-  const pendingBookings = bookings.filter(b => b.status === 'pending_confirmation');
+  const pendingBookings = bookings.filter(b => isPendingBookingStatus(b.status));
   const confirmedBookings = bookings.filter(b => b.status === 'confirmed');
 
   const userDataRows = useMemo(() => {
@@ -1792,7 +1795,7 @@ export default function OperationsStaffDashboard() {
                             variant={
                               booking.status === "confirmed"
                                 ? "default"
-                                : booking.status === "pending_confirmation"
+                                : isPendingBookingStatus(booking.status)
                                 ? "secondary"
                                 : booking.status === "completed"
                                 ? "outline"
@@ -2041,7 +2044,7 @@ export default function OperationsStaffDashboard() {
                       variant={
                         selectedBooking.status === "confirmed"
                           ? "default"
-                          : selectedBooking.status === "pending_confirmation"
+                          : isPendingBookingStatus(selectedBooking.status)
                           ? "secondary"
                           : selectedBooking.status === "completed"
                           ? "outline"
