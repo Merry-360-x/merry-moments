@@ -77,6 +77,30 @@ interface PaymentMethodInfo {
   textColor: string;
 }
 
+type CardBrand = "visa" | "mastercard" | "amex" | "discover" | "unknown";
+
+function detectCardBrand(cardDigits: string): CardBrand {
+  if (/^4\d*/.test(cardDigits)) return "visa";
+  if (/^(5[1-5]|2(2[2-9]|[3-7]\d))\d*/.test(cardDigits)) return "mastercard";
+  if (/^3[47]\d*/.test(cardDigits)) return "amex";
+  if (/^6(?:011|5)\d*/.test(cardDigits)) return "discover";
+  return "unknown";
+}
+
+function formatCardNumberByBrand(cardDigits: string, brand: CardBrand): string {
+  if (brand === "amex") {
+    const trimmed = cardDigits.slice(0, 15);
+    if (trimmed.length <= 4) return trimmed;
+    if (trimmed.length <= 10) return `${trimmed.slice(0, 4)} ${trimmed.slice(4)}`;
+    return `${trimmed.slice(0, 4)} ${trimmed.slice(4, 10)} ${trimmed.slice(10)}`;
+  }
+
+  return cardDigits
+    .slice(0, 16)
+    .replace(/(\d{4})(?=\d)/g, "$1 ")
+    .trim();
+}
+
 const PAWAPAY_METHODS: PaymentMethodInfo[] = [
   // Rwanda (+250) - RWF — MTN_MOMO_RWA, AIRTEL_RWA
   { id: 'mtn_rwa', name: 'MTN Mobile Money', shortName: 'MTN', provider: 'MTN', countryCode: '+250', country: 'Rwanda', flag: '🇷🇼', currency: 'RWF', color: 'bg-yellow-400', textColor: 'text-black' },
@@ -168,6 +192,7 @@ export default function CheckoutNew() {
   const [geoApplied, setGeoApplied] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
   const [showPriceBreakdown, setShowPriceBreakdown] = useState(false);
+  const [lastMobileMethod, setLastMobileMethod] = useState<string>(geoDefaults.method);
   const [cardForm, setCardForm] = useState({
     cardholderName: "",
     cardNumber: "",
@@ -626,9 +651,20 @@ export default function CheckoutNew() {
   const isMobileMoneyMethod = paymentMethod !== 'card' && paymentMethod !== 'bank';
 
   const normalizedCardNumber = cardForm.cardNumber.replace(/\s/g, "");
+  const cardBrand = detectCardBrand(normalizedCardNumber);
+  const cardBrandLabel =
+    cardBrand === "visa"
+      ? "VISA"
+      : cardBrand === "mastercard"
+        ? "Mastercard"
+        : cardBrand === "amex"
+          ? "AmEx"
+          : cardBrand === "discover"
+            ? "Discover"
+            : "Card";
   const isCardValid =
     cardForm.cardholderName.trim().length >= 2 &&
-    /^\d{16}$/.test(normalizedCardNumber) &&
+    /^(\d{16}|\d{15})$/.test(normalizedCardNumber) &&
     /^(0[1-9]|1[0-2])\/[0-9]{2}$/.test(cardForm.expiry) &&
     /^\d{3,4}$/.test(cardForm.cvv);
 
@@ -832,12 +868,7 @@ export default function CheckoutNew() {
                 card_payment_details: {
                   cardholder_name: cardForm.cardholderName.trim(),
                   card_last4: normalizedCardNumber.slice(-4),
-                  card_brand:
-                    normalizedCardNumber.startsWith('4')
-                      ? 'visa'
-                      : /^(5[1-5]|2(2[2-9]|[3-7]\d))/.test(normalizedCardNumber)
-                        ? 'mastercard'
-                        : 'card',
+                  card_brand: cardBrand,
                   expiry: cardForm.expiry,
                 },
               }
@@ -1226,8 +1257,80 @@ export default function CheckoutNew() {
                     <p className="text-xs md:text-sm text-muted-foreground">{t("checkout.payment.subtitle")}</p>
                   </div>
 
+                  <div className="grid grid-cols-3 gap-2 md:gap-3">
+                    <button
+                      onClick={() => {
+                        const nextMethod = isMobileMoneyMethod ? paymentMethod : lastMobileMethod;
+                        setPaymentMethod(nextMethod || geoDefaults.method);
+                        setShowContactModal(false);
+                      }}
+                      className={cn(
+                        "border-2 rounded-lg md:rounded-xl p-2.5 md:p-4 text-left transition-all",
+                        isMobileMoneyMethod ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                      )}
+                    >
+                      <div className="flex items-center gap-2 md:gap-3">
+                        <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-emerald-500 flex items-center justify-center flex-shrink-0">
+                          <Smartphone className="w-4 h-4 md:w-5 md:h-5 text-white" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-medium text-xs md:text-base truncate">Mobile Money</p>
+                          <p className="text-[10px] md:text-xs text-muted-foreground hidden sm:block">MTN, Airtel, M-Pesa, Zamtel</p>
+                        </div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        if (isMobileMoneyMethod) setLastMobileMethod(paymentMethod);
+                        setPaymentMethod('card');
+                        setShowContactModal(false);
+                      }}
+                      className={cn(
+                        "border-2 rounded-lg md:rounded-xl p-2.5 md:p-4 text-left transition-all",
+                        paymentMethod === 'card'
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/50"
+                      )}
+                    >
+                      <div className="flex items-center gap-2 md:gap-3">
+                        <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                          <CreditCard className="w-4 h-4 md:w-5 md:h-5 text-white" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-medium text-xs md:text-base truncate">{t("checkout.payment.card")}</p>
+                          <p className="text-[10px] md:text-xs text-muted-foreground hidden sm:block">Visa, Mastercard, AmEx</p>
+                        </div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        if (isMobileMoneyMethod) setLastMobileMethod(paymentMethod);
+                        setPaymentMethod('bank');
+                        setShowContactModal(true);
+                      }}
+                      className={cn(
+                        "border-2 rounded-lg md:rounded-xl p-2.5 md:p-4 text-left transition-all",
+                        paymentMethod === 'bank'
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/50"
+                      )}
+                    >
+                      <div className="flex items-center gap-2 md:gap-3">
+                        <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-emerald-500 flex items-center justify-center flex-shrink-0">
+                          <Building2 className="w-4 h-4 md:w-5 md:h-5 text-white" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-medium text-xs md:text-base truncate">{t("checkout.payment.bankTransfer")}</p>
+                          <p className="text-[10px] md:text-xs text-muted-foreground hidden sm:block">{t("checkout.payment.bankTransferDesc")}</p>
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+
                   {/* Payment Methods by Country */}
-                  <div className="space-y-4">
+                  {isMobileMoneyMethod && <div className="space-y-4">
                     {getSortedCountries(countryCode).map(([country, { flag, countryCode: cc, currency, methods }]) => {
                       const selectedMethod = PAWAPAY_METHODS.find(m => m.id === paymentMethod);
                       const isCountrySelected = selectedMethod?.country === country;
@@ -1266,6 +1369,7 @@ export default function CheckoutNew() {
                                 <button
                                   key={method.id}
                                   onClick={() => {
+                                    setLastMobileMethod(method.id);
                                     setPaymentMethod(method.id);
                                     setCountryCode(method.countryCode);
                                     setCurrency(method.currency as any);
@@ -1293,59 +1397,34 @@ export default function CheckoutNew() {
                         </div>
                       );
                     })}
-                  </div>
-
-                  {/* Card and Bank options */}
-                  <div className="grid grid-cols-2 gap-2 md:gap-3">
-                    {/* Credit Card */}
-                    <button
-                      onClick={() => {
-                        setPaymentMethod('card');
-                        setShowContactModal(false);
-                      }}
-                      className={cn(
-                        "border-2 rounded-lg md:rounded-xl p-2.5 md:p-4 text-left transition-all",
-                        paymentMethod === 'card' 
-                          ? "border-primary bg-primary/5" 
-                          : "border-border hover:border-primary/50"
-                      )}
-                    >
-                      <div className="flex items-center gap-2 md:gap-3">
-                        <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
-                          <CreditCard className="w-4 h-4 md:w-5 md:h-5 text-white" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-medium text-xs md:text-base truncate">{t("checkout.payment.card")}</p>
-                          <p className="text-[10px] md:text-xs text-muted-foreground hidden sm:block">{t("checkout.payment.cardDesc")}</p>
-                        </div>
-                      </div>
-                    </button>
-                    
-                    {/* Bank Transfer */}
-                    <button
-                      onClick={() => { setPaymentMethod('bank'); setShowContactModal(true); }}
-                      className={cn(
-                        "border-2 rounded-lg md:rounded-xl p-2.5 md:p-4 text-left transition-all",
-                        paymentMethod === 'bank' 
-                          ? "border-primary bg-primary/5" 
-                          : "border-border hover:border-primary/50"
-                      )}
-                    >
-                      <div className="flex items-center gap-2 md:gap-3">
-                        <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-emerald-500 flex items-center justify-center flex-shrink-0">
-                          <Building2 className="w-4 h-4 md:w-5 md:h-5 text-white" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-medium text-xs md:text-base truncate">{t("checkout.payment.bankTransfer")}</p>
-                          <p className="text-[10px] md:text-xs text-muted-foreground hidden sm:block">{t("checkout.payment.bankTransferDesc")}</p>
-                        </div>
-                      </div>
-                    </button>
-                  </div>
+                  </div>}
 
                   {/* Credit Card Form */}
                   {paymentMethod === 'card' && (
-                    <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
+                    <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 md:p-5 space-y-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-foreground">Enter card details</p>
+                        <span className="text-xs px-2 py-1 rounded-full border border-primary/20 bg-background text-foreground/80">
+                          {cardBrandLabel}
+                        </span>
+                      </div>
+
+                      <div className="rounded-xl border border-border bg-background p-4">
+                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
+                          <span>Card preview</span>
+                          <span>{cardBrandLabel}</span>
+                        </div>
+                        <div className="text-base md:text-lg font-semibold tracking-[0.12em] text-foreground">
+                          {normalizedCardNumber
+                            ? formatCardNumberByBrand(normalizedCardNumber, cardBrand)
+                            : "•••• •••• •••• ••••"}
+                        </div>
+                        <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                          <span>{cardForm.cardholderName || "CARDHOLDER NAME"}</span>
+                          <span>{cardForm.expiry || "MM/YY"}</span>
+                        </div>
+                      </div>
+
                       <div>
                         <Label htmlFor="cardholderName">Cardholder Name</Label>
                         <Input
@@ -1366,8 +1445,9 @@ export default function CheckoutNew() {
                           id="cardNumber"
                           value={cardForm.cardNumber}
                           onChange={(e) => {
-                            const digits = e.target.value.replace(/\D/g, '').slice(0, 16);
-                            const formatted = digits.replace(/(\d{4})(?=\d)/g, '$1 ').trim();
+                            const digits = e.target.value.replace(/\D/g, '').slice(0, 19);
+                            const nextBrand = detectCardBrand(digits);
+                            const formatted = formatCardNumberByBrand(digits, nextBrand);
                             setCardForm((prev) => ({ ...prev, cardNumber: formatted }));
                           }}
                           placeholder="1234 5678 9012 3456"
@@ -1476,7 +1556,7 @@ export default function CheckoutNew() {
                       size="lg" 
                       className="flex-1"
                       onClick={() => goToStep('confirm')}
-                      disabled={paymentMethod !== 'card' && paymentMethod !== 'bank' && !isPaymentValid}
+                      disabled={!isPaymentValid}
                     >
                       {t("checkout.payment.reviewBooking")}
                       <ArrowRight className="w-4 h-4 ml-2" />
@@ -1562,7 +1642,7 @@ export default function CheckoutNew() {
                             {(paymentMethod === 'card' || paymentMethod === 'bank') && (
                               <p className="text-sm text-muted-foreground">
                                 {paymentMethod === 'card'
-                                  ? `Card ending ${normalizedCardNumber.slice(-4) || '••••'} • Processing update via SMS/email`
+                                  ? `${cardBrandLabel} • ending ${normalizedCardNumber.slice(-4) || '••••'} • Processing update via SMS/email`
                                   : 'Agent will call you'}
                               </p>
                             )}
