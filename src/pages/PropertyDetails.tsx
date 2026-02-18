@@ -1101,7 +1101,7 @@ export default function PropertyDetails() {
                   {data.description ? (
                     <div className={media.length > 1 ? "mt-4" : ""}>
                       <div className="text-sm font-semibold text-foreground mb-2">{t("propertyDetails.description")}</div>
-                      <div className="max-h-56 overflow-y-auto rounded-lg border border-border bg-card p-4 pr-3 shadow-sm">
+                      <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
                         <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-line">
                           {data.description}
                         </p>
