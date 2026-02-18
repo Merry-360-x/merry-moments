@@ -168,6 +168,12 @@ export default function CheckoutNew() {
   const [geoApplied, setGeoApplied] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
   const [showPriceBreakdown, setShowPriceBreakdown] = useState(false);
+  const [cardForm, setCardForm] = useState({
+    cardholderName: "",
+    cardNumber: "",
+    expiry: "",
+    cvv: "",
+  });
 
   const mode = searchParams.get("mode");
   const isDirectPropertyCheckout = mode === "booking" && Boolean(searchParams.get("propertyId"));
@@ -618,10 +624,23 @@ export default function CheckoutNew() {
 
   // Check if payment method is a mobile money method (not card or bank)
   const isMobileMoneyMethod = paymentMethod !== 'card' && paymentMethod !== 'bank';
+
+  const normalizedCardNumber = cardForm.cardNumber.replace(/\s/g, "");
+  const isCardValid =
+    cardForm.cardholderName.trim().length >= 2 &&
+    /^\d{16}$/.test(normalizedCardNumber) &&
+    /^(0[1-9]|1[0-2])\/[0-9]{2}$/.test(cardForm.expiry) &&
+    /^\d{3,4}$/.test(cardForm.cvv);
+
+  const isBankValid = true;
   
   // Step validation
   const isDetailsValid = formData.fullName.trim() && formData.email.trim();
-  const isPaymentValid = !isMobileMoneyMethod || phoneNumber.length >= 9;
+  const isPaymentValid = isMobileMoneyMethod
+    ? phoneNumber.length >= 9
+    : paymentMethod === 'card'
+      ? isCardValid
+      : isBankValid;
 
   const goToStep = (step: Step) => {
     if (step === 'payment' && !isDetailsValid) {
@@ -629,9 +648,11 @@ export default function CheckoutNew() {
       return;
     }
     if (step === 'confirm' && !isPaymentValid) {
-      const message = isMobileMoneyMethod 
-        ? "Please enter your phone number" 
-        : "Please select a payment method";
+      const message = isMobileMoneyMethod
+        ? "Please enter your phone number"
+        : paymentMethod === 'card'
+          ? "Please complete your card details"
+          : "Please select a payment method";
       toast({ variant: "destructive", title: message });
       return;
     }
@@ -806,6 +827,21 @@ export default function CheckoutNew() {
             const methodInfo = PAWAPAY_METHODS.find(m => m.id === paymentMethod);
             return methodInfo?.provider || paymentMethod.toUpperCase();
           })(),
+          ...(paymentMethod === 'card'
+            ? {
+                card_payment_details: {
+                  cardholder_name: cardForm.cardholderName.trim(),
+                  card_last4: normalizedCardNumber.slice(-4),
+                  card_brand:
+                    normalizedCardNumber.startsWith('4')
+                      ? 'visa'
+                      : /^(5[1-5]|2(2[2-9]|[3-7]\d))/.test(normalizedCardNumber)
+                        ? 'mastercard'
+                        : 'card',
+                  expiry: cardForm.expiry,
+                },
+              }
+            : {}),
         },
       };
 
@@ -830,6 +866,13 @@ export default function CheckoutNew() {
       if (paymentMethod === 'card' || paymentMethod === 'bank') {
         await clearCart();
         localStorage.removeItem("applied_discount");
+
+        if (paymentMethod === 'card') {
+          toast({
+            title: "Payment is being processed",
+            description: "You will get an SMS or email once your payment is confirmed.",
+          });
+        }
         
         // Redirect to booking success with a message about expecting a call
         navigate(`/booking-success?checkoutId=${checkoutId}&method=${paymentMethod}`);
@@ -1256,7 +1299,10 @@ export default function CheckoutNew() {
                   <div className="grid grid-cols-2 gap-2 md:gap-3">
                     {/* Credit Card */}
                     <button
-                      onClick={() => { setPaymentMethod('card'); setShowContactModal(true); }}
+                      onClick={() => {
+                        setPaymentMethod('card');
+                        setShowContactModal(false);
+                      }}
                       className={cn(
                         "border-2 rounded-lg md:rounded-xl p-2.5 md:p-4 text-left transition-all",
                         paymentMethod === 'card' 
@@ -1296,6 +1342,82 @@ export default function CheckoutNew() {
                       </div>
                     </button>
                   </div>
+
+                  {/* Credit Card Form */}
+                  {paymentMethod === 'card' && (
+                    <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
+                      <div>
+                        <Label htmlFor="cardholderName">Cardholder Name</Label>
+                        <Input
+                          id="cardholderName"
+                          value={cardForm.cardholderName}
+                          onChange={(e) =>
+                            setCardForm((prev) => ({ ...prev, cardholderName: e.target.value }))
+                          }
+                          placeholder="Name on card"
+                          className="mt-1.5"
+                          autoComplete="cc-name"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="cardNumber">Card Number</Label>
+                        <Input
+                          id="cardNumber"
+                          value={cardForm.cardNumber}
+                          onChange={(e) => {
+                            const digits = e.target.value.replace(/\D/g, '').slice(0, 16);
+                            const formatted = digits.replace(/(\d{4})(?=\d)/g, '$1 ').trim();
+                            setCardForm((prev) => ({ ...prev, cardNumber: formatted }));
+                          }}
+                          placeholder="1234 5678 9012 3456"
+                          className="mt-1.5"
+                          inputMode="numeric"
+                          autoComplete="cc-number"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label htmlFor="cardExpiry">Expiry (MM/YY)</Label>
+                          <Input
+                            id="cardExpiry"
+                            value={cardForm.expiry}
+                            onChange={(e) => {
+                              const digits = e.target.value.replace(/\D/g, '').slice(0, 4);
+                              const formatted = digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits;
+                              setCardForm((prev) => ({ ...prev, expiry: formatted }));
+                            }}
+                            placeholder="MM/YY"
+                            className="mt-1.5"
+                            inputMode="numeric"
+                            autoComplete="cc-exp"
+                          />
+                        </div>
+
+                        <div>
+                          <Label htmlFor="cardCvv">CVV</Label>
+                          <Input
+                            id="cardCvv"
+                            type="password"
+                            value={cardForm.cvv}
+                            onChange={(e) => {
+                              const digits = e.target.value.replace(/\D/g, '').slice(0, 4);
+                              setCardForm((prev) => ({ ...prev, cvv: digits }));
+                            }}
+                            placeholder="123"
+                            className="mt-1.5"
+                            inputMode="numeric"
+                            autoComplete="cc-csc"
+                          />
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-muted-foreground">
+                        Your card payment will be processed securely and you will receive confirmation by SMS or email.
+                      </p>
+                    </div>
+                  )}
 
                   {/* Phone Number Input - only for mobile money */}
                   {paymentMethod !== 'card' && paymentMethod !== 'bank' && (
@@ -1438,7 +1560,11 @@ export default function CheckoutNew() {
                               <p className="text-sm text-muted-foreground">{countryCode} {phoneNumber}</p>
                             )}
                             {(paymentMethod === 'card' || paymentMethod === 'bank') && (
-                              <p className="text-sm text-muted-foreground">Agent will call you</p>
+                              <p className="text-sm text-muted-foreground">
+                                {paymentMethod === 'card'
+                                  ? `Card ending ${normalizedCardNumber.slice(-4) || '••••'} • Processing update via SMS/email`
+                                  : 'Agent will call you'}
+                              </p>
                             )}
                           </>
                         );
@@ -1453,10 +1579,12 @@ export default function CheckoutNew() {
                         <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                         <div className="text-sm">
                           <p className="font-medium text-amber-700 dark:text-amber-300 mb-1">
-                            Expect a call within 5 minutes
+                            {paymentMethod === 'card' ? 'Payment processing notice' : 'Expect a call within 5 minutes'}
                           </p>
                           <p className="text-amber-600 dark:text-amber-400">
-                            After clicking "Confirm Booking", our payment team will call you at <span className="font-medium">{formData.email}</span> to complete your {paymentMethod === 'card' ? 'card' : 'bank transfer'} payment securely.
+                            {paymentMethod === 'card'
+                              ? <>After clicking "Confirm Booking", your card payment will be marked as processing and you will receive confirmation by <span className="font-medium">SMS or email</span>.</>
+                              : <>After clicking "Confirm Booking", our payment team will call you at <span className="font-medium">{formData.email}</span> to complete your bank transfer payment securely.</>}
                           </p>
                           <div className="mt-2 pt-2 border-t border-amber-200 dark:border-amber-800/50 space-y-1">
                             <p className="flex items-center gap-2">
@@ -1899,7 +2027,7 @@ export default function CheckoutNew() {
               <Button
                 variant="outline"
                 className="flex-1"
-                onClick={() => { setShowContactModal(false); setPaymentMethod('mtn'); }}
+                onClick={() => { setShowContactModal(false); setPaymentMethod('mtn_rwa'); }}
               >
                 Use Mobile Money
               </Button>
