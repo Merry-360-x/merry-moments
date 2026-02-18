@@ -1,6 +1,6 @@
 // API endpoint to send email notification when support ticket is created
 import { createClient } from "@supabase/supabase-js";
-import { escapeHtml, keyValueRows, renderMinimalEmail } from "../lib/email-template-kit.js";
+import { buildBrevoSmtpPayload, escapeHtml, keyValueRows, renderMinimalEmail } from "../lib/email-template-kit.js";
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || "support@merry360x.com";
@@ -158,15 +158,16 @@ export default async function handler(req, res) {
           "api-key": BREVO_API_KEY,
           "content-type": "application/json",
         },
-        body: JSON.stringify({
-          sender: {
-            name: "Merry360X",
-            email: "support@merry360x.com",
-          },
-          to: [{ email }],
-          subject: "Reset your Merry360X password",
-          htmlContent: generatePasswordResetHtml(resetUrl, email),
-        }),
+        body: JSON.stringify(
+          buildBrevoSmtpPayload({
+            senderName: "Merry Moments",
+            senderEmail: "support@merry360x.com",
+            to: [{ email }],
+            subject: "Reset your Merry360X password",
+            htmlContent: generatePasswordResetHtml(resetUrl, email),
+            tags: ["security", "password-reset"],
+          })
+        ),
       });
 
       if (!response.ok) {
@@ -201,24 +202,25 @@ export default async function handler(req, res) {
         "api-key": BREVO_API_KEY,
         "content-type": "application/json",
       },
-      body: JSON.stringify({
-        sender: {
-          name: "Merry360X Support",
-          email: "support@merry360x.com",
-        },
-        to: [
-          {
-            email: previewTo || "support@merry360x.com",
-            name: previewTo ? "Template Preview" : "Merry360X Support",
+      body: JSON.stringify(
+        buildBrevoSmtpPayload({
+          senderName: "Merry Moments",
+          senderEmail: "support@merry360x.com",
+          to: [
+            {
+              email: previewTo || "support@merry360x.com",
+              name: previewTo ? "Template Preview" : "Merry360X Support",
+            },
+          ],
+          replyTo: {
+            email: userEmail,
+            name: userName || "Customer",
           },
-        ],
-        replyTo: {
-          email: userEmail,
-          name: userName || "Customer",
-        },
-        subject: `${previewTo ? "[Preview] " : ""}[${(category || "other").toUpperCase()}] ${subject}`,
-        htmlContent: html,
-      }),
+          subject: `${previewTo ? "[Preview] " : ""}[${(category || "other").toUpperCase()}] ${subject}`,
+          htmlContent: html,
+          tags: ["support", "ticket"],
+        })
+      ),
     });
 
     const result = await response.json();

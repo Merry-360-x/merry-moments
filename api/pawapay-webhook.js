@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { escapeHtml, keyValueRows, renderMinimalEmail } from "../lib/email-template-kit.js";
+import { buildBrevoSmtpPayload, escapeHtml, keyValueRows, renderMinimalEmail } from "../lib/email-template-kit.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -204,26 +204,27 @@ async function sendConfirmationEmail(checkout, items, bookingIds, reviewTokens) 
         "api-key": BREVO_API_KEY,
         "content-type": "application/json",
       },
-      body: JSON.stringify({
-        sender: {
-          name: "Merry360X",
-          email: "support@merry360x.com",
-        },
-        to: [
-          {
-            email: checkout.email,
-            name: guestName,
-          },
-        ],
-        subject: `Booking Confirmed - ${receiptNumber}`,
-        htmlContent: html,
-        attachment: [
-          {
-            content: receiptBase64,
-            name: `Receipt-${receiptNumber}.html`,
-          },
-        ],
-      }),
+      body: JSON.stringify(
+        buildBrevoSmtpPayload({
+          senderName: "Merry Moments",
+          senderEmail: "support@merry360x.com",
+          to: [
+            {
+              email: checkout.email,
+              name: guestName,
+            },
+          ],
+          subject: `Booking Confirmed - ${receiptNumber}`,
+          htmlContent: html,
+          attachment: [
+            {
+              content: receiptBase64,
+              name: `Receipt-${receiptNumber}.html`,
+            },
+          ],
+          tags: ["booking", "payment-confirmation"],
+        })
+      ),
     });
 
     const result = await response.json();
@@ -375,20 +376,21 @@ async function sendHostNotification(supabase, booking, item) {
         "api-key": BREVO_API_KEY,
         "content-type": "application/json",
       },
-      body: JSON.stringify({
-        sender: {
-          name: "Merry360X Bookings",
-          email: "support@merry360x.com",
-        },
-        to: [
-          {
-            email: hostEmail,
-            name: hostName || "Host",
-          },
-        ],
-        subject: `🔔 New Booking: ${itemTitle} - ${bookingRef}`,
-        htmlContent: hostHtml,
-      }),
+      body: JSON.stringify(
+        buildBrevoSmtpPayload({
+          senderName: "Merry Moments",
+          senderEmail: "support@merry360x.com",
+          to: [
+            {
+              email: hostEmail,
+              name: hostName || "Host",
+            },
+          ],
+          subject: `New Booking: ${itemTitle} - ${bookingRef}`,
+          htmlContent: hostHtml,
+          tags: ["booking", "host-notification"],
+        })
+      ),
     });
 
     const result = await response.json();

@@ -1099,9 +1099,14 @@ export default function PropertyDetails() {
                     </>
                   ) : null}
                   {data.description ? (
-                    <p className={media.length > 1 ? "mt-4 text-sm text-muted-foreground leading-relaxed" : "text-sm text-muted-foreground leading-relaxed"}>
-                      {data.description}
-                    </p>
+                    <div className={media.length > 1 ? "mt-4" : ""}>
+                      <div className="text-sm font-semibold text-foreground mb-2">{t("propertyDetails.description")}</div>
+                      <div className="max-h-48 overflow-y-auto rounded-lg border border-border bg-muted/30 p-3 pr-2">
+                        <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                          {data.description}
+                        </p>
+                      </div>
+                    </div>
                   ) : null}
                 </div>
               ) : null}
@@ -1234,23 +1239,8 @@ export default function PropertyDetails() {
                     {displayMoney(Number(data.price_per_night), String(data.currency ?? "RWF"))}
                     <span className="text-sm text-muted-foreground"> {t("common.perNight")}</span>
                   </div>
-                  {data.description ? (
-                    <p className="mt-2 text-xs text-muted-foreground max-w-[34ch] ml-auto leading-relaxed line-clamp-3">
-                      {data.description}
-                    </p>
-                  ) : null}
                 </div>
               </div>
-
-              {/* Description - Prominent Section */}
-              {data.description && (
-                <div className="mt-6 bg-card rounded-xl shadow-card p-5">
-                  <h3 className="text-lg font-bold text-foreground mb-3">{t("propertyDetails.description")}</h3>
-                  <p className="text-foreground leading-relaxed whitespace-pre-line">
-                    {data.description}
-                  </p>
-                </div>
-              )}
 
               {/* Details */}
               <div className="mt-6 bg-card rounded-xl shadow-card p-5">

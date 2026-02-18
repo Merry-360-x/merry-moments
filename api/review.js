@@ -4,7 +4,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import JSZip from "jszip";
-import { escapeHtml, keyValueRows, renderMinimalEmail } from "../lib/email-template-kit.js";
+import { buildBrevoSmtpPayload, escapeHtml, keyValueRows, renderMinimalEmail } from "../lib/email-template-kit.js";
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -434,12 +434,16 @@ async function handleSendManualEmail(req, res) {
         "api-key": BREVO_API_KEY,
         "content-type": "application/json",
       },
-      body: JSON.stringify({
-        sender: { name: "Merry Moments", email: "support@merry360x.com" },
-        to: [{ email: normalizedEmail, name: String(reviewerName || "").trim() || "Guest" }],
-        subject: `⭐ Share your feedback on ${property.title || "your stay"}`,
-        htmlContent: html,
-      }),
+      body: JSON.stringify(
+        buildBrevoSmtpPayload({
+          senderName: "Merry Moments",
+          senderEmail: "support@merry360x.com",
+          to: [{ email: normalizedEmail, name: String(reviewerName || "").trim() || "Guest" }],
+          subject: `Share your feedback on ${property.title || "your stay"}`,
+          htmlContent: html,
+          tags: ["review", "manual-request"],
+        })
+      ),
     });
 
     if (!response.ok) {
@@ -492,12 +496,16 @@ async function handleSendEmail(req, res) {
         "api-key": BREVO_API_KEY,
         "content-type": "application/json",
       },
-      body: JSON.stringify({
-        sender: { name: "Merry Moments", email: "support@merry360x.com" },
-        to: [{ email: guestEmail, name: guestName || "Guest" }],
-        subject: `⭐ How was your stay at ${propertyTitle || "your accommodation"}?`,
-        htmlContent: html,
-      }),
+      body: JSON.stringify(
+        buildBrevoSmtpPayload({
+          senderName: "Merry Moments",
+          senderEmail: "support@merry360x.com",
+          to: [{ email: guestEmail, name: guestName || "Guest" }],
+          subject: `How was your stay at ${propertyTitle || "your accommodation"}?`,
+          htmlContent: html,
+          tags: ["review"],
+        })
+      ),
     });
 
     const result = await response.json();
@@ -617,20 +625,24 @@ async function handleSendEmails(req, res) {
             "api-key": BREVO_API_KEY,
             "content-type": "application/json",
           },
-          body: JSON.stringify({
-            sender: { name: "Merry Moments", email: "support@merry360x.com" },
-            to: [{ email, name: name || "Guest" }],
-            subject: `⭐ How was your stay at ${itemTitle}?`,
-            htmlContent: generateReviewEmailHtml({
-              guestName: name,
-              propertyTitle: itemTitle,
-              propertyImage: itemImage,
-              location: itemLocation,
-              checkIn: formatDate(booking.check_in),
-              checkOut: formatDate(booking.check_out),
-              reviewUrl,
-            }),
-          }),
+          body: JSON.stringify(
+            buildBrevoSmtpPayload({
+              senderName: "Merry Moments",
+              senderEmail: "support@merry360x.com",
+              to: [{ email, name: name || "Guest" }],
+              subject: `How was your stay at ${itemTitle}?`,
+              htmlContent: generateReviewEmailHtml({
+                guestName: name,
+                propertyTitle: itemTitle,
+                propertyImage: itemImage,
+                location: itemLocation,
+                checkIn: formatDate(booking.check_in),
+                checkOut: formatDate(booking.check_out),
+                reviewUrl,
+              }),
+              tags: ["review", "checkout-followup"],
+            })
+          ),
         });
 
         if (response.ok) {

@@ -1,5 +1,5 @@
 // API endpoint to send confirmation email to customer when they submit a support ticket
-import { escapeHtml, keyValueRows, renderMinimalEmail } from "../lib/email-template-kit.js";
+import { buildBrevoSmtpPayload, escapeHtml, keyValueRows, renderMinimalEmail } from "../lib/email-template-kit.js";
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 
@@ -80,20 +80,21 @@ export default async function handler(req, res) {
         "api-key": BREVO_API_KEY,
         "content-type": "application/json",
       },
-      body: JSON.stringify({
-        sender: {
-          name: "Merry Moments Support",
-          email: "support@merry360x.com",
-        },
-        to: [
-          {
-            email: previewTo || userEmail,
-            name: previewTo ? "Template Preview" : (userName || "Customer"),
-          },
-        ],
-        subject: `${previewTo ? "[Preview] " : ""}We received your message – ${subject}`,
-        htmlContent: html,
-      }),
+      body: JSON.stringify(
+        buildBrevoSmtpPayload({
+          senderName: "Merry Moments",
+          senderEmail: "support@merry360x.com",
+          to: [
+            {
+              email: previewTo || userEmail,
+              name: previewTo ? "Template Preview" : (userName || "Customer"),
+            },
+          ],
+          subject: `${previewTo ? "[Preview] " : ""}We received your message – ${subject}`,
+          htmlContent: html,
+          tags: ["support", "ticket-confirmation"],
+        })
+      ),
     });
 
     const result = await response.json();

@@ -1,6 +1,6 @@
 // API endpoint to send booking confirmation email to guests
 import { createClient } from "@supabase/supabase-js";
-import { escapeHtml, keyValueRows, renderMinimalEmail } from "../lib/email-template-kit.js";
+import { buildBrevoSmtpPayload, escapeHtml, keyValueRows, renderMinimalEmail } from "../lib/email-template-kit.js";
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
@@ -333,12 +333,16 @@ export default async function handler(req, res) {
           "api-key": BREVO_API_KEY,
           "content-type": "application/json",
         },
-        body: JSON.stringify({
-          sender: { name: "Merry360X Payments", email: "support@merry360x.com" },
-          to: [{ email: previewTo || resolved.hostEmail, name: previewTo ? "Template Preview" : resolved.hostName }],
-          subject: `${previewTo ? "[Preview] " : ""}Payment Update: ${paymentLabel(effectivePaymentStatus)} • ${resolved.itemTitle}`,
-          htmlContent,
-        }),
+        body: JSON.stringify(
+          buildBrevoSmtpPayload({
+            senderName: "Merry Moments",
+            senderEmail: "support@merry360x.com",
+            to: [{ email: previewTo || resolved.hostEmail, name: previewTo ? "Template Preview" : resolved.hostName }],
+            subject: `${previewTo ? "[Preview] " : ""}Payment Update: ${paymentLabel(effectivePaymentStatus)} • ${resolved.itemTitle}`,
+            htmlContent,
+            tags: ["payments", "host-update"],
+          })
+        ),
       });
 
       const emailResult = await emailRes.json().catch(() => ({}));
@@ -451,12 +455,16 @@ export default async function handler(req, res) {
           "api-key": BREVO_API_KEY,
           "content-type": "application/json",
         },
-        body: JSON.stringify({
-          sender: { name: "Merry Moments Support", email: "support@merry360x.com" },
-          to: [{ email: targetEmail, name: previewTo ? "Template Preview" : (resolvedGuestName || "Guest") }],
-          subject: `${previewTo ? "[Preview] " : ""}Refund Update: ${normalized.label}${resolvedBookingId ? ` • ${resolvedBookingId.slice(0, 8).toUpperCase()}` : ""}`,
-          htmlContent,
-        }),
+        body: JSON.stringify(
+          buildBrevoSmtpPayload({
+            senderName: "Merry Moments",
+            senderEmail: "support@merry360x.com",
+            to: [{ email: targetEmail, name: previewTo ? "Template Preview" : (resolvedGuestName || "Guest") }],
+            subject: `${previewTo ? "[Preview] " : ""}Refund Update: ${normalized.label}${resolvedBookingId ? ` • ${resolvedBookingId.slice(0, 8).toUpperCase()}` : ""}`,
+            htmlContent,
+            tags: ["refund", "guest-update"],
+          })
+        ),
       });
 
       const result = await response.json().catch(() => ({}));
@@ -500,22 +508,23 @@ export default async function handler(req, res) {
           "api-key": BREVO_API_KEY,
           "content-type": "application/json",
         },
-        body: JSON.stringify({
-          sender: {
-            name: "Merry Moments",
-            email: "support@merry360x.com",
-          },
-          to: [
-            {
-              email: previewTo || guestEmail,
-              name: previewTo ? "Template Preview" : (guestName || "Guest"),
-            },
-          ],
-          subject: action === "approved"
-            ? `${previewTo ? "[Preview] " : ""}Your booking has been approved`
-            : `${previewTo ? "[Preview] " : ""}Update on your booking request`,
-          htmlContent,
-        }),
+        body: JSON.stringify(
+          buildBrevoSmtpPayload({
+            senderName: "Merry Moments",
+            senderEmail: "support@merry360x.com",
+            to: [
+              {
+                email: previewTo || guestEmail,
+                name: previewTo ? "Template Preview" : (guestName || "Guest"),
+              },
+            ],
+            subject: action === "approved"
+              ? `${previewTo ? "[Preview] " : ""}Your booking has been approved`
+              : `${previewTo ? "[Preview] " : ""}Update on your booking request`,
+            htmlContent,
+            tags: ["booking", action],
+          })
+        ),
       });
 
       const decisionResult = await decisionResponse.json();
@@ -575,20 +584,21 @@ export default async function handler(req, res) {
         "api-key": BREVO_API_KEY,
         "content-type": "application/json",
       },
-      body: JSON.stringify({
-        sender: {
-          name: "Merry Moments",
-          email: "support@merry360x.com",
-        },
-        to: [
-          {
-            email: previewTo || guestEmail,
-            name: previewTo ? "Template Preview" : (guestName || "Guest"),
-          },
-        ],
-        subject: `${previewTo ? "[Preview] " : ""}Booking Confirmed – ${propertyTitle || "Your Stay"}`,
-        htmlContent: html,
-      }),
+      body: JSON.stringify(
+        buildBrevoSmtpPayload({
+          senderName: "Merry Moments",
+          senderEmail: "support@merry360x.com",
+          to: [
+            {
+              email: previewTo || guestEmail,
+              name: previewTo ? "Template Preview" : (guestName || "Guest"),
+            },
+          ],
+          subject: `${previewTo ? "[Preview] " : ""}Booking Confirmed – ${propertyTitle || "Your Stay"}`,
+          htmlContent: html,
+          tags: ["booking", "confirmation"],
+        })
+      ),
     });
 
     const result = await response.json();

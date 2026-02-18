@@ -1,5 +1,5 @@
 // API endpoint to send email notification when a payout is requested
-import { escapeHtml, keyValueRows, renderMinimalEmail } from "../lib/email-template-kit.js";
+import { buildBrevoSmtpPayload, escapeHtml, keyValueRows, renderMinimalEmail } from "../lib/email-template-kit.js";
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const ADMIN_EMAIL = "support@merry360x.com";
@@ -187,13 +187,17 @@ async function sendBrevoEmail({ toEmail, toName, subject, htmlContent, textConte
         "content-type": "application/json",
         "api-key": BREVO_API_KEY,
       },
-      body: JSON.stringify({
-        sender: { name: "Merry Moments", email: "support@merry360x.com" },
-        to: [{ email: toEmail, name: toName }],
-        subject,
-        htmlContent,
-        textContent,
-      }),
+      body: JSON.stringify(
+        buildBrevoSmtpPayload({
+          senderName: "Merry Moments",
+          senderEmail: "support@merry360x.com",
+          to: [{ email: toEmail, name: toName }],
+          subject,
+          htmlContent,
+          textContent,
+          tags: ["payout"],
+        })
+      ),
     });
 
     const result = await response.json();
