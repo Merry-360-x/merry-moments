@@ -82,8 +82,12 @@ export default async function handler(req, res) {
   switch (action) {
     case "export-user-data":
       return handleExportUserData(req, res);
+    case "list-manual-requests":
+      return handleListManualRequests(req, res);
     case "send-emails":
       return handleSendEmails(req, res);
+    case "send-manual-email":
+      return handleSendManualEmail(req, res);
     case "send-email":
       return handleSendEmail(req, res);
     default:
@@ -104,10 +108,47 @@ async function handleSubmitReview(req, res) {
       .from("bookings")
       .select("id, property_id, tour_id, transport_id, booking_type, check_in, check_out, guest_name, guest_email, total_price, currency, status, review_token")
       .eq("review_token", token)
-      .single();
+      .maybeSingle();
 
-    if (error || !booking) {
-      return json(res, 404, { error: "Booking not found or invalid token" });
+    if (error) {
+      return json(res, 500, { error: "Failed to load review details" });
+    }
+
+    if (!booking) {
+      const { data: manualRequest, error: manualError } = await supabase
+        .from("manual_review_requests")
+        .select("id, property_id, reviewer_name, review_id, collected_at, request_status, properties(title, location, main_image, images)")
+        .eq("review_token", token)
+        .maybeSingle();
+
+      if (manualError || !manualRequest) {
+        return json(res, 404, { error: "Booking not found or invalid token" });
+      }
+
+      const property = manualRequest.properties || {};
+
+      if (manualRequest.review_id || manualRequest.collected_at || manualRequest.request_status === "collected") {
+        return json(res, 200, {
+          alreadyReviewed: true,
+          booking: { id: manualRequest.id },
+        });
+      }
+
+      return json(res, 200, {
+        booking: {
+          id: manualRequest.id,
+          checkIn: null,
+          checkOut: null,
+          guestName: manualRequest.reviewer_name || "Guest",
+          bookingType: "manual",
+        },
+        item: {
+          title: property.title || "Your Stay",
+          location: property.location || null,
+          image: property.main_image || (property.images && property.images[0]) || null,
+        },
+        alreadyReviewed: false,
+      });
     }
 
     // Check if already reviewed
@@ -181,10 +222,58 @@ async function handleSubmitReview(req, res) {
       .from("bookings")
       .select("id, guest_id, property_id, tour_id, transport_id, status, check_out, review_token")
       .eq("review_token", token)
-      .single();
+      .maybeSingle();
 
-    if (bookingErr || !booking) {
-      return json(res, 404, { error: "Invalid or expired review link" });
+    if (bookingErr) {
+      return json(res, 500, { error: "Failed to validate review token" });
+    }
+
+    if (!booking) {
+      const { data: manualRequest, error: manualError } = await supabase
+        .from("manual_review_requests")
+        .select("id, property_id, review_id, collected_at, request_status")
+        .eq("review_token", token)
+        .maybeSingle();
+
+      if (manualError || !manualRequest) {
+        return json(res, 404, { error: "Invalid or expired review link" });
+      }
+
+      if (manualRequest.review_id || manualRequest.collected_at || manualRequest.request_status === "collected") {
+        return json(res, 409, { error: "You have already submitted this review" });
+      }
+
+      const reviewData = {
+        booking_id: null,
+        property_id: manualRequest.property_id,
+        reviewer_id: null,
+        rating: accommodationRating,
+        comment: accommodationComment?.trim() || null,
+        service_rating: serviceRating || null,
+        service_comment: serviceComment?.trim() || null,
+      };
+
+      const { data: insertedReview, error: insertErr } = await supabase
+        .from("property_reviews")
+        .insert(reviewData)
+        .select("id")
+        .single();
+
+      if (insertErr || !insertedReview) {
+        console.error("❌ Manual review insert error:", insertErr);
+        return json(res, 500, { error: "Failed to save review" });
+      }
+
+      await supabase
+        .from("manual_review_requests")
+        .update({
+          request_status: "collected",
+          collected_at: new Date().toISOString(),
+          review_id: insertedReview.id,
+        })
+        .eq("id", manualRequest.id);
+
+      return json(res, 200, { ok: true, message: "Review submitted successfully" });
     }
 
     if (booking.status !== "confirmed" && booking.status !== "completed") {
@@ -229,6 +318,143 @@ async function handleSubmitReview(req, res) {
   } catch (error) {
     console.error("❌ Review submission error:", error.message);
     return json(res, 500, { error: error.message });
+  }
+}
+
+async function handleListManualRequests(req, res) {
+  if (req.method !== "GET") return json(res, 405, { error: "Method not allowed" });
+
+  const hostId = String(req.query.hostId || "").trim();
+  if (!hostId) return json(res, 400, { error: "Missing hostId" });
+
+  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+  const { data, error } = await supabase
+    .from("manual_review_requests")
+    .select("id, property_id, reviewer_email, reviewer_name, request_status, review_id, sent_at, collected_at, created_at, properties(title)")
+    .eq("host_id", hostId)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  if (error) {
+    return json(res, 500, { error: "Failed to fetch manual review requests" });
+  }
+
+  const requests = (data || []).map((row) => ({
+    id: row.id,
+    propertyId: row.property_id,
+    propertyTitle: row.properties?.title || "Property",
+    reviewerEmail: row.reviewer_email,
+    reviewerName: row.reviewer_name || null,
+    status: row.request_status,
+    reviewId: row.review_id || null,
+    sentAt: row.sent_at || null,
+    collectedAt: row.collected_at || null,
+    createdAt: row.created_at,
+  }));
+
+  return json(res, 200, { ok: true, requests });
+}
+
+async function handleSendManualEmail(req, res) {
+  if (req.method !== "POST") return json(res, 405, { error: "Method not allowed" });
+
+  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+  try {
+    const { hostId, propertyId, reviewerEmail, reviewerName } = req.body || {};
+
+    const normalizedEmail = String(reviewerEmail || "").trim().toLowerCase();
+    if (!hostId || !propertyId || !normalizedEmail) {
+      return json(res, 400, { error: "Missing required fields (hostId, propertyId, reviewerEmail)" });
+    }
+
+    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) {
+      return json(res, 400, { error: "Invalid email address" });
+    }
+
+    const { data: property, error: propertyError } = await supabase
+      .from("properties")
+      .select("id, host_id, title, location, main_image, images")
+      .eq("id", propertyId)
+      .maybeSingle();
+
+    if (propertyError || !property) {
+      return json(res, 404, { error: "Property not found" });
+    }
+
+    if (property.host_id !== hostId) {
+      return json(res, 403, { error: "You can only send manual requests for your own properties" });
+    }
+
+    const sentAt = new Date().toISOString();
+    const { data: requestRow, error: insertError } = await supabase
+      .from("manual_review_requests")
+      .insert({
+        host_id: hostId,
+        property_id: propertyId,
+        reviewer_email: normalizedEmail,
+        reviewer_name: String(reviewerName || "").trim() || null,
+        request_status: "pending",
+        sent_at: sentAt,
+      })
+      .select("id, review_token")
+      .single();
+
+    if (insertError || !requestRow) {
+      return json(res, 500, { error: "Failed to create manual review request" });
+    }
+
+    const reviewUrl = `${SITE_URL}/review/${requestRow.review_token}`;
+
+    if (!BREVO_API_KEY) {
+      return json(res, 200, {
+        ok: true,
+        skipped: true,
+        requestId: requestRow.id,
+        reviewUrl,
+        reason: "No Brevo API key",
+      });
+    }
+
+    const html = generateReviewEmailHtml({
+      guestName: String(reviewerName || "").trim() || "there",
+      propertyTitle: property.title,
+      propertyImage: property.main_image || (property.images && property.images[0]) || null,
+      location: property.location,
+      checkIn: "Any time",
+      checkOut: "Any time",
+      reviewUrl,
+    });
+
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "api-key": BREVO_API_KEY,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        sender: { name: "Merry Moments", email: "support@merry360x.com" },
+        to: [{ email: normalizedEmail, name: String(reviewerName || "").trim() || "Guest" }],
+        subject: `⭐ Share your feedback on ${property.title || "your stay"}`,
+        htmlContent: html,
+      }),
+    });
+
+    if (!response.ok) {
+      const details = await response.text();
+      return json(res, 500, { error: "Failed to send email", details });
+    }
+
+    await supabase
+      .from("manual_review_requests")
+      .update({ request_status: "sent", sent_at: sentAt })
+      .eq("id", requestRow.id);
+
+    return json(res, 200, { ok: true, requestId: requestRow.id, reviewUrl });
+  } catch (error) {
+    return json(res, 500, { error: error?.message || "Failed to send manual review request" });
   }
 }
 

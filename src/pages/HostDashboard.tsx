@@ -284,6 +284,19 @@ interface PropertyCalendarIntegration {
   created_at: string;
 }
 
+interface ManualReviewRequest {
+  id: string;
+  propertyId: string;
+  propertyTitle: string;
+  reviewerEmail: string;
+  reviewerName: string | null;
+  status: "pending" | "sent" | "collected" | "expired" | "cancelled";
+  reviewId: string | null;
+  sentAt: string | null;
+  collectedAt: string | null;
+  createdAt: string;
+}
+
 import { CURRENCY_OPTIONS } from "@/lib/currencies";
 
 const propertyTypes = ["Hotel", "Apartment", "Room in Apartment", "Villa", "Guesthouse", "Resort", "Lodge", "Motel", "House", "Cabin"];
@@ -458,6 +471,14 @@ export default function HostDashboard() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [routes, setRoutes] = useState<TransportRoute[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [manualReviewRequests, setManualReviewRequests] = useState<ManualReviewRequest[]>([]);
+  const [loadingManualReviewRequests, setLoadingManualReviewRequests] = useState(false);
+  const [sendingManualReviewRequest, setSendingManualReviewRequest] = useState(false);
+  const [manualReviewForm, setManualReviewForm] = useState({
+    propertyId: "",
+    reviewerEmail: "",
+    reviewerName: "",
+  });
   const [checkoutByOrderId, setCheckoutByOrderId] = useState<Record<string, {
     total_amount: number;
     currency: string | null;
@@ -1612,6 +1633,82 @@ export default function HostDashboard() {
   // State to track review email sending
   const [sendingReviewEmail, setSendingReviewEmail] = useState<Set<string>>(new Set());
   const [requestingPaymentBookingIds, setRequestingPaymentBookingIds] = useState<Set<string>>(new Set());
+
+  const fetchManualReviewRequests = useCallback(async () => {
+    if (!user?.id) return;
+    setLoadingManualReviewRequests(true);
+    try {
+      const response = await fetch(`/api/review?action=list-manual-requests&hostId=${encodeURIComponent(user.id)}`);
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result?.error || "Failed to fetch manual review requests");
+      }
+      setManualReviewRequests(Array.isArray(result.requests) ? result.requests : []);
+    } catch (error) {
+      logError("host.fetchManualReviewRequests", error);
+      setManualReviewRequests([]);
+    } finally {
+      setLoadingManualReviewRequests(false);
+    }
+  }, [user?.id]);
+
+  const sendManualReviewRequest = async () => {
+    if (!user?.id) return;
+
+    const propertyId = String(manualReviewForm.propertyId || "").trim();
+    const reviewerEmail = String(manualReviewForm.reviewerEmail || "").trim();
+    const reviewerName = String(manualReviewForm.reviewerName || "").trim();
+
+    if (!propertyId || !reviewerEmail) {
+      toast({ variant: "destructive", title: "Missing details", description: "Select a property and enter an email." });
+      return;
+    }
+
+    setSendingManualReviewRequest(true);
+    try {
+      const response = await fetch("/api/review?action=send-manual-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hostId: user.id,
+          propertyId,
+          reviewerEmail,
+          reviewerName: reviewerName || undefined,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok || !result.ok) {
+        throw new Error(result?.error || "Failed to send manual review request");
+      }
+
+      toast({ title: "Request sent", description: `Review request sent to ${reviewerEmail}` });
+      setManualReviewForm((prev) => ({ ...prev, reviewerEmail: "", reviewerName: "" }));
+      await fetchManualReviewRequests();
+    } catch (error: any) {
+      logError("host.sendManualReviewRequest", error);
+      toast({
+        variant: "destructive",
+        title: "Send failed",
+        description: error?.message || "Could not send manual review request",
+      });
+    } finally {
+      setSendingManualReviewRequest(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!properties.length) return;
+    setManualReviewForm((prev) => {
+      if (prev.propertyId) return prev;
+      return { ...prev, propertyId: properties[0].id };
+    });
+  }, [properties]);
+
+  useEffect(() => {
+    if (!isHost || !user?.id) return;
+    fetchManualReviewRequests();
+  }, [isHost, user?.id, fetchManualReviewRequests]);
 
   const normalizePaymentStatus = (booking: Booking) => String(booking.payment_status || "").trim().toLowerCase();
 
@@ -6701,6 +6798,95 @@ export default function HostDashboard() {
                 className="w-full md:w-72"
               />
             </div>
+
+            <Card className="p-4 mb-6">
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div>
+                  <h3 className="text-lg font-semibold">Manual Review Requests</h3>
+                  <p className="text-sm text-muted-foreground">Send a direct review link for a selected property. No account or booking is required.</p>
+                </div>
+                {loadingManualReviewRequests ? <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /> : null}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+                <div>
+                  <Label>Property</Label>
+                  <Select
+                    value={manualReviewForm.propertyId}
+                    onValueChange={(value) => setManualReviewForm((prev) => ({ ...prev, propertyId: value }))}
+                    disabled={properties.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={properties.length === 0 ? "No properties available" : "Select property"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {properties.map((property) => (
+                        <SelectItem key={property.id} value={property.id}>
+                          {property.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label>Reviewer Email</Label>
+                  <Input
+                    type="email"
+                    value={manualReviewForm.reviewerEmail}
+                    onChange={(e) => setManualReviewForm((prev) => ({ ...prev, reviewerEmail: e.target.value }))}
+                    placeholder="name@example.com"
+                  />
+                </div>
+
+                <div>
+                  <Label>Reviewer Name (Optional)</Label>
+                  <Input
+                    value={manualReviewForm.reviewerName}
+                    onChange={(e) => setManualReviewForm((prev) => ({ ...prev, reviewerName: e.target.value }))}
+                    placeholder="Guest name"
+                  />
+                </div>
+
+                <div className="flex items-end">
+                  <Button
+                    className="w-full"
+                    onClick={sendManualReviewRequest}
+                    disabled={sendingManualReviewRequest || properties.length === 0}
+                  >
+                    {sendingManualReviewRequest ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                    Send Request
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {manualReviewRequests.slice(0, 6).map((request) => {
+                  const isCollected = request.status === "collected" || !!request.reviewId;
+                  return (
+                    <div key={request.id} className="flex items-center justify-between border rounded-lg px-3 py-2">
+                      <div>
+                        <p className="text-sm font-medium">{request.propertyTitle}</p>
+                        <p className="text-xs text-muted-foreground">{request.reviewerEmail}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {isCollected ? (
+                          <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white">
+                            <BadgeCheck className="w-3 h-3 mr-1" />
+                            Manual Review Collected
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline">{request.status}</Badge>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {!loadingManualReviewRequests && manualReviewRequests.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No manual review requests yet.</p>
+                ) : null}
+              </div>
+            </Card>
 
             {/* Pending Booking Requests Section */}
             {(() => {

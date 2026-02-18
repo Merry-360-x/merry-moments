@@ -11,6 +11,8 @@ export default function ReviewPage() {
   const { token } = useParams<{ token: string }>();
   const [searchParams] = useSearchParams();
   const initialRating = Number(searchParams.get("rating")) || 0;
+  const googleReviewUrl =
+    import.meta.env.VITE_GOOGLE_REVIEW_URL || "https://www.google.com/search?q=Merry+Moments+reviews";
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -185,6 +187,16 @@ export default function ReviewPage() {
                 ))}
               </div>
               <p className="text-sm text-gray-400">{ratingLabel(accRating)}</p>
+              {svcRating > 0 && (
+                <a
+                  href={googleReviewUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-block mt-4 px-4 py-2 border border-pink-300 text-pink-600 rounded-lg font-medium hover:bg-pink-50 transition-colors"
+                >
+                  Leave a Service Review on Google
+                </a>
+              )}
               <a
                 href="https://merry360x.com"
                 className="inline-block mt-8 px-6 py-3 bg-pink-500 text-white rounded-lg font-medium hover:bg-pink-600 transition-colors"
@@ -292,7 +304,7 @@ export default function ReviewPage() {
                       Rate Our Service
                     </label>
                     <p className="text-xs text-gray-400 text-center mb-3">
-                      How was the booking experience with Merry Moments?
+                      How was the booking experience with Merry Moments? You can also leave a public Google service review after submit.
                     </p>
                     <StarRating
                       value={svcRating}
