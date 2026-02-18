@@ -852,7 +852,7 @@ export default function CheckoutNew() {
         base_price_amount: Math.round(earningsFullCalc.basePrice),
         service_fee_amount: Math.round(serviceFees * (displayCurrency === 'RWF' ? 1 : (amountInRwf / payableAmount))),
         host_earnings_amount: Math.round(earningsFullCalc.hostNetEarnings),
-        payment_status: paymentMethod === 'card' || paymentMethod === 'bank' ? 'awaiting_callback' : 'pending',
+        payment_status: 'pending',
         payment_method: paymentMethod === 'card' ? 'card' : paymentMethod === 'bank' ? 'bank_transfer' : 'mobile_money',
         metadata: {
           items: cartItemsWithPrices,
