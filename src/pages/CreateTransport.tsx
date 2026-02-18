@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -116,7 +116,10 @@ export default function CreateTransport() {
   const { user, isHost, isLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [hostProfileComplete, setHostProfileComplete] = useState(false);
+  const editId = searchParams.get("editId");
+  const isEditMode = Boolean(editId);
 
   const [formData, setFormData] = useState({
     // Basic info
@@ -154,17 +157,24 @@ export default function CreateTransport() {
   const [exteriorPreviews, setExteriorPreviews] = useState<string[]>([]);
   const [interiorImages, setInteriorImages] = useState<File[]>([]);
   const [interiorPreviews, setInteriorPreviews] = useState<string[]>([]);
+  const [existingExteriorUrls, setExistingExteriorUrls] = useState<string[]>([]);
+  const [existingInteriorUrls, setExistingInteriorUrls] = useState<string[]>([]);
   
   // Documents
   const [insuranceDoc, setInsuranceDoc] = useState<File | null>(null);
   const [registrationDoc, setRegistrationDoc] = useState<File | null>(null);
   const [roadworthinessDoc, setRoadworthinessDoc] = useState<File | null>(null);
   const [ownerIdDoc, setOwnerIdDoc] = useState<File | null>(null);
+  const [existingInsuranceUrl, setExistingInsuranceUrl] = useState<string>("");
+  const [existingRegistrationUrl, setExistingRegistrationUrl] = useState<string>("");
+  const [existingRoadworthinessUrl, setExistingRoadworthinessUrl] = useState<string>("");
+  const [existingOwnerIdUrl, setExistingOwnerIdUrl] = useState<string>("");
 
   const [uploading, setUploading] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
+  const [isEditLoading, setIsEditLoading] = useState(false);
 
   const STORAGE_KEY = 'create_transport_progress';
 
@@ -183,8 +193,82 @@ export default function CreateTransport() {
     checkProfile();
   }, [user]);
 
+  useEffect(() => {
+    if (!isEditMode || !editId || !user?.id) return;
+
+    let isMounted = true;
+    const fetchVehicleForEdit = async () => {
+      setIsEditLoading(true);
+      const { data, error } = await supabase
+        .from("transport_vehicles")
+        .select("*")
+        .eq("id", editId)
+        .eq("created_by", user.id)
+        .maybeSingle();
+
+      if (!isMounted) return;
+
+      if (error || !data) {
+        toast({
+          title: "Vehicle not found",
+          description: "We couldn't load this vehicle for editing.",
+          variant: "destructive",
+        });
+        navigate("/host-dashboard");
+        setIsEditLoading(false);
+        return;
+      }
+
+      const exterior = ((data as any).exterior_images as string[] | null) || [];
+      const interior = ((data as any).interior_images as string[] | null) || [];
+
+      setFormData({
+        title: data.title || "",
+        provider_name: data.provider_name || "",
+        description: (data as any).description || "",
+        car_brand: (data as any).car_brand || "",
+        car_model: (data as any).car_model || "",
+        car_year: Number((data as any).car_year || currentYear),
+        car_type: (data as any).car_type || data.vehicle_type || "",
+        seats: Number(data.seats || 5),
+        transmission: (data as any).transmission || "",
+        fuel_type: (data as any).fuel_type || "",
+        drive_train: (data as any).drive_train || "",
+        daily_price: Number(data.price_per_day || (data as any).daily_price || 0),
+        weekly_price: Number((data as any).weekly_price || 0),
+        monthly_price: Number((data as any).monthly_price || 0),
+        currency: data.currency || "RWF",
+        driver_included: Boolean(data.driver_included),
+        key_features: ((data as any).key_features as string[] | null) || [],
+      });
+
+      setExistingExteriorUrls(exterior);
+      setExistingInteriorUrls(interior);
+      setExteriorPreviews(exterior);
+      setInteriorPreviews(interior);
+
+      setExistingInsuranceUrl((data as any).insurance_document_url || "");
+      setExistingRegistrationUrl((data as any).registration_document_url || "");
+      setExistingRoadworthinessUrl((data as any).roadworthiness_certificate_url || "");
+      setExistingOwnerIdUrl((data as any).owner_identification_url || "");
+
+      setDraftLoaded(true);
+      setIsEditLoading(false);
+    };
+
+    void fetchVehicleForEdit();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [editId, isEditMode, navigate, toast, user?.id]);
+
   // Load saved progress from localStorage on mount
   useEffect(() => {
+    if (isEditMode) {
+      setDraftLoaded(true);
+      return;
+    }
     if (draftLoaded) return;
     
     const savedData = localStorage.getItem(STORAGE_KEY);
@@ -205,10 +289,11 @@ export default function CreateTransport() {
     }
     setDraftLoaded(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftLoaded]);
+  }, [draftLoaded, isEditMode]);
 
   // Auto-save progress
   useEffect(() => {
+    if (isEditMode) return;
     if (!draftLoaded) return;
     if (!formData.title && !formData.car_brand) return;
     
@@ -222,7 +307,7 @@ export default function CreateTransport() {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [formData, draftLoaded]);
+  }, [formData, draftLoaded, isEditMode]);
 
   const handleSaveDraft = () => {
     setIsSaving(true);
@@ -254,7 +339,12 @@ export default function CreateTransport() {
   };
 
   const removeExteriorImage = (index: number) => {
-    setExteriorImages((prev) => prev.filter((_, i) => i !== index));
+    if (index < existingExteriorUrls.length) {
+      setExistingExteriorUrls((prev) => prev.filter((_, i) => i !== index));
+    } else {
+      const newFileIndex = index - existingExteriorUrls.length;
+      setExteriorImages((prev) => prev.filter((_, i) => i !== newFileIndex));
+    }
     setExteriorPreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
@@ -272,7 +362,12 @@ export default function CreateTransport() {
   };
 
   const removeInteriorImage = (index: number) => {
-    setInteriorImages((prev) => prev.filter((_, i) => i !== index));
+    if (index < existingInteriorUrls.length) {
+      setExistingInteriorUrls((prev) => prev.filter((_, i) => i !== index));
+    } else {
+      const newFileIndex = index - existingInteriorUrls.length;
+      setInteriorImages((prev) => prev.filter((_, i) => i !== newFileIndex));
+    }
     setInteriorPreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
@@ -317,7 +412,7 @@ export default function CreateTransport() {
       return;
     }
 
-    if (exteriorImages.length === 0) {
+    if (exteriorImages.length === 0 && existingExteriorUrls.length === 0) {
       toast({
         title: "Missing Images",
         description: "Please upload at least one exterior image of your vehicle.",
@@ -330,32 +425,34 @@ export default function CreateTransport() {
 
     try {
       // Upload exterior images
-      const exteriorUrls: string[] = [];
+      const uploadedExteriorUrls: string[] = [];
       for (const image of exteriorImages) {
         try {
           const result = await uploadFile(image, { folder: "transport/exterior" });
-          exteriorUrls.push(result.url);
+          uploadedExteriorUrls.push(result.url);
         } catch (err) {
           console.error("Exterior image upload failed:", err);
         }
       }
+      const exteriorUrls = [...existingExteriorUrls, ...uploadedExteriorUrls];
 
       // Upload interior images
-      const interiorUrls: string[] = [];
+      const uploadedInteriorUrls: string[] = [];
       for (const image of interiorImages) {
         try {
           const result = await uploadFile(image, { folder: "transport/interior" });
-          interiorUrls.push(result.url);
+          uploadedInteriorUrls.push(result.url);
         } catch (err) {
           console.error("Interior image upload failed:", err);
         }
       }
+      const interiorUrls = [...existingInteriorUrls, ...uploadedInteriorUrls];
 
       // Upload documents
-      let insuranceUrl = null;
-      let registrationUrl = null;
-      let roadworthinessUrl = null;
-      let ownerIdUrl = null;
+      let insuranceUrl: string | null = existingInsuranceUrl || null;
+      let registrationUrl: string | null = existingRegistrationUrl || null;
+      let roadworthinessUrl: string | null = existingRoadworthinessUrl || null;
+      let ownerIdUrl: string | null = existingOwnerIdUrl || null;
 
       if (insuranceDoc) {
         try {
@@ -396,10 +493,7 @@ export default function CreateTransport() {
       // Generate title if not provided
       const title = formData.title || `${formData.car_brand} ${formData.car_model} ${formData.car_year}`;
 
-      // Create vehicle listing
-      const { data, error } = await supabase
-        .from("transport_vehicles")
-        .insert({
+      const vehiclePayload = {
           title,
           vehicle_type: formData.car_type,
           provider_name: formData.provider_name || null,
@@ -429,15 +523,29 @@ export default function CreateTransport() {
           service_type: "car_rental",
           created_by: user.id,
           is_published: true, // Published by default
-        } as any)
-        .select()
-        .single();
+        } as any;
 
-      if (error) throw error;
+      if (isEditMode && editId) {
+        const { error } = await supabase
+          .from("transport_vehicles")
+          .update(vehiclePayload)
+          .eq("id", editId)
+          .eq("created_by", user.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("transport_vehicles")
+          .insert(vehiclePayload)
+          .select()
+          .single();
+        if (error) throw error;
+      }
 
       toast({
-        title: "Car Listed Successfully!",
-        description: "Your vehicle is now live and available for rental.",
+        title: isEditMode ? "Vehicle Updated!" : "Car Listed Successfully!",
+        description: isEditMode
+          ? "Your vehicle changes have been saved."
+          : "Your vehicle is now live and available for rental.",
       });
 
       clearDraft();
@@ -446,7 +554,7 @@ export default function CreateTransport() {
       console.error("Failed to create car listing:", error);
       toast({
         title: "Error",
-        description: "Failed to create listing. Please try again.",
+        description: isEditMode ? "Failed to update listing. Please try again." : "Failed to create listing. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -470,14 +578,29 @@ export default function CreateTransport() {
     );
   }
 
+  if (!isLoading && isEditMode && isEditLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-20 text-center">
+          <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Loading vehicle for editing...</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">List Your Car for Rental</h1>
+          <h1 className="text-3xl font-bold mb-2">{isEditMode ? "Edit Car Rental Listing" : "List Your Car for Rental"}</h1>
           <p className="text-muted-foreground">
-            Fill in the details below to list your vehicle. Provide accurate information to help renters make informed decisions.
+            {isEditMode
+              ? "Update your listing details below."
+              : "Fill in the details below to list your vehicle. Provide accurate information to help renters make informed decisions."}
           </p>
         </div>
 

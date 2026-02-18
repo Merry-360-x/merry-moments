@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,9 @@ export default function CreateAirportTransfer() {
   const { user, isHost, isLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get("editId");
+  const isEditMode = Boolean(editId);
 
   const [routes, setRoutes] = useState<Route[]>([]);
   const [selectedRoutes, setSelectedRoutes] = useState<Record<string, number>>({});
@@ -78,6 +81,7 @@ export default function CreateAirportTransfer() {
   const [isSaving, setIsSaving] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [hostProfileComplete, setHostProfileComplete] = useState(false);
+  const [isEditLoading, setIsEditLoading] = useState(false);
 
   // Fetch host profile completion status
   useEffect(() => {
@@ -98,8 +102,86 @@ export default function CreateAirportTransfer() {
   // Use a stable storage key per user
   const getStorageKey = useCallback(() => user?.id ? `airport-transfer-draft-${user.id}` : 'airport-transfer-draft-anonymous', [user?.id]);
 
+  useEffect(() => {
+    if (!isEditMode || !editId || !user?.id) return;
+
+    let isMounted = true;
+    const fetchTransferForEdit = async () => {
+      setIsEditLoading(true);
+
+      const [{ data: vehicle, error: vehicleError }, { data: pricing, error: pricingError }] = await Promise.all([
+        supabase
+          .from("transport_vehicles")
+          .select("*")
+          .eq("id", editId)
+          .eq("created_by", user.id)
+          .maybeSingle(),
+        supabase
+          .from("airport_transfer_pricing")
+          .select("route_id, price")
+          .eq("vehicle_id", editId),
+      ]);
+
+      if (!isMounted) return;
+
+      if (vehicleError || pricingError || !vehicle) {
+        toast({
+          title: "Airport transfer not found",
+          description: "We couldn't load this listing for editing.",
+          variant: "destructive",
+        });
+        navigate("/host-dashboard");
+        setIsEditLoading(false);
+        return;
+      }
+
+      setFormData({
+        title: vehicle.title || "",
+        provider_name: (vehicle as any).provider_name || "",
+        car_brand: (vehicle as any).car_brand || "",
+        car_model: (vehicle as any).car_model || "",
+        car_year: Number((vehicle as any).car_year || new Date().getFullYear()),
+        car_type: (vehicle as any).car_type || vehicle.vehicle_type || "Sedan",
+        seats: Number(vehicle.seats || 4),
+        transmission: (vehicle as any).transmission || "Automatic",
+        fuel_type: (vehicle as any).fuel_type || "Petrol",
+        drive_train: (vehicle as any).drive_train || "FWD",
+        currency: vehicle.currency || "RWF",
+        key_features: ((vehicle as any).key_features as string[] | null) || [],
+      });
+
+      setExteriorImages((((vehicle as any).exterior_images as string[] | null) || []));
+      setInteriorImages((((vehicle as any).interior_images as string[] | null) || []));
+      setInsuranceDoc((vehicle as any).insurance_document_url || "");
+      setRegistrationDoc((vehicle as any).registration_document_url || "");
+      setRoadworthinessDoc((vehicle as any).roadworthiness_certificate_url || "");
+      setOwnerIdDoc((vehicle as any).owner_identification_url || "");
+
+      const selected: Record<string, number> = {};
+      (pricing || []).forEach((item: any) => {
+        if (item?.route_id) {
+          selected[item.route_id] = Number(item.price || 0);
+        }
+      });
+      setSelectedRoutes(selected);
+
+      setDraftLoaded(true);
+      setIsEditLoading(false);
+    };
+
+    void fetchTransferForEdit();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [editId, isEditMode, navigate, toast, user?.id]);
+
   // Load draft on mount (only once)
   useEffect(() => {
+    if (isEditMode) {
+      setDraftLoaded(true);
+      return;
+    }
     if (draftLoaded) return;
     
     const draftKey = getStorageKey();
@@ -123,10 +205,11 @@ export default function CreateAirportTransfer() {
       }
     }
     setDraftLoaded(true);
-  }, [user?.id, draftLoaded, getStorageKey, toast]);
+  }, [user?.id, draftLoaded, getStorageKey, toast, isEditMode]);
 
   // Auto-save on form changes (only after load)
   useEffect(() => {
+    if (isEditMode) return;
     if (!draftLoaded) return;
     
     const draftKey = getStorageKey();
@@ -151,10 +234,11 @@ export default function CreateAirportTransfer() {
     }, 1000); // Debounce 1 second
 
     return () => clearTimeout(timer);
-  }, [formData, selectedRoutes, exteriorImages, interiorImages, insuranceDoc, registrationDoc, roadworthinessDoc, ownerIdDoc, user?.id, draftLoaded, getStorageKey]);
+  }, [formData, selectedRoutes, exteriorImages, interiorImages, insuranceDoc, registrationDoc, roadworthinessDoc, ownerIdDoc, user?.id, draftLoaded, getStorageKey, isEditMode]);
 
   // Save on page unload
   useEffect(() => {
+    if (isEditMode) return;
     const handleBeforeUnload = () => {
       if (!formData.title && !formData.car_brand) return;
       
@@ -175,7 +259,7 @@ export default function CreateAirportTransfer() {
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [formData, selectedRoutes, exteriorImages, interiorImages, insuranceDoc, registrationDoc, roadworthinessDoc, ownerIdDoc, user?.id, getStorageKey]);
+  }, [formData, selectedRoutes, exteriorImages, interiorImages, insuranceDoc, registrationDoc, roadworthinessDoc, ownerIdDoc, user?.id, getStorageKey, isEditMode]);
 
   const clearDraft = () => {
     const draftKey = getStorageKey();
@@ -262,10 +346,8 @@ export default function CreateAirportTransfer() {
     setSubmitting(true);
 
     try {
-      // Create vehicle
-      const { data: vehicle, error: vehicleError } = await supabase
-        .from("transport_vehicles")
-        .insert({
+      let vehicleId = editId;
+      const vehiclePayload = {
           created_by: user.id,
           service_type: "airport_transfer",
           title: formData.title,
@@ -291,19 +373,40 @@ export default function CreateAirportTransfer() {
           roadworthiness_certificate_url: roadworthinessDoc,
           owner_identification_url: ownerIdDoc,
           is_published: true, // Published by default
-        })
-        .select()
-        .single();
+        };
 
-      if (vehicleError) throw vehicleError;
+      if (isEditMode && editId) {
+        const { error: vehicleError } = await supabase
+          .from("transport_vehicles")
+          .update(vehiclePayload)
+          .eq("id", editId)
+          .eq("created_by", user.id);
+        if (vehicleError) throw vehicleError;
+      } else {
+        const { data: vehicle, error: vehicleError } = await supabase
+          .from("transport_vehicles")
+          .insert(vehiclePayload)
+          .select()
+          .single();
+        if (vehicleError) throw vehicleError;
+        vehicleId = vehicle.id;
+      }
 
       // Create pricing for selected routes
       const pricingData = Object.entries(selectedRoutes).map(([routeId, price]) => ({
-        vehicle_id: vehicle.id,
+        vehicle_id: vehicleId,
         route_id: routeId,
         price: price,
         currency: formData.currency,
       }));
+
+      if (isEditMode && editId) {
+        const { error: deletePricingError } = await supabase
+          .from("airport_transfer_pricing")
+          .delete()
+          .eq("vehicle_id", editId);
+        if (deletePricingError) throw deletePricingError;
+      }
 
       const { error: pricingError } = await supabase
         .from("airport_transfer_pricing")
@@ -313,7 +416,9 @@ export default function CreateAirportTransfer() {
 
       toast({
         title: "Success!",
-        description: "Your airport transfer service is now live!",
+        description: isEditMode
+          ? "Your airport transfer service has been updated."
+          : "Your airport transfer service is now live!",
       });
 
       clearDraft();
@@ -323,7 +428,7 @@ export default function CreateAirportTransfer() {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to create airport transfer listing",
+        description: isEditMode ? "Failed to update airport transfer listing" : "Failed to create airport transfer listing",
       });
     } finally {
       setSubmitting(false);
@@ -346,14 +451,29 @@ export default function CreateAirportTransfer() {
     );
   }
 
+  if (!isLoading && isEditMode && isEditLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-20 text-center">
+          <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Loading airport transfer for editing...</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-3xl mx-auto">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2">Add Airport Transfer Service</h1>
-            <p className="text-muted-foreground">Offer airport pickup and dropoff services on fixed routes</p>
+            <h1 className="text-3xl font-bold mb-2">{isEditMode ? "Edit Airport Transfer Service" : "Add Airport Transfer Service"}</h1>
+            <p className="text-muted-foreground">
+              {isEditMode ? "Update your airport transfer details and route pricing" : "Offer airport pickup and dropoff services on fixed routes"}
+            </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-8">

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -37,8 +37,12 @@ export default function CreateTour() {
   const { user, isHost, isLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const [hostProfileComplete, setHostProfileComplete] = useState(false);
+  const editId = searchParams.get("editId");
+  const isEditMode = Boolean(editId);
+  const [isEditLoading, setIsEditLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -73,6 +77,61 @@ export default function CreateTour() {
   // Use a stable storage key
   const getStorageKey = () => user?.id ? `tour-draft-${user.id}` : 'tour-draft-anonymous';
 
+  useEffect(() => {
+    if (!isEditMode || !editId || !user?.id) return;
+
+    let isMounted = true;
+    const fetchTourForEdit = async () => {
+      setIsEditLoading(true);
+      const { data, error } = await supabase
+        .from("tours")
+        .select("*")
+        .eq("id", editId)
+        .eq("created_by", user.id)
+        .maybeSingle();
+
+      if (!isMounted) return;
+
+      if (error || !data) {
+        toast({
+          title: "Tour not found",
+          description: "We couldn't load this tour for editing.",
+          variant: "destructive",
+        });
+        navigate("/host-dashboard");
+        setIsEditLoading(false);
+        return;
+      }
+
+      const mergedCategories = [data.category, ...((data.categories as string[] | null) || [])].filter(Boolean) as string[];
+      setFormData({
+        title: data.title || "",
+        description: data.description || "",
+        location: data.location || "",
+        categories: mergedCategories,
+        duration_days: Number(data.duration_days || 1),
+        max_participants: Number(data.max_group_size || 10),
+        price_per_person: Number(data.price_per_person || 0),
+        currency: data.currency || "RWF",
+        has_differential_pricing: Boolean((data as any).has_differential_pricing),
+        price_for_citizens: (data as any).price_for_citizens != null ? String((data as any).price_for_citizens) : "",
+        price_for_east_african: (data as any).price_for_east_african != null ? String((data as any).price_for_east_african) : "",
+        price_for_foreigners: (data as any).price_for_foreigners != null ? String((data as any).price_for_foreigners) : "",
+      });
+      setImages((data.images as string[] | null) || []);
+      setPdfUrl((data as any).itinerary_pdf_url || "");
+      setLicenseUrl((data as any).tour_guide_license_url || (data as any).tour_license_url || "");
+      setDraftLoaded(true);
+      setIsEditLoading(false);
+    };
+
+    void fetchTourForEdit();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [editId, isEditMode, navigate, toast, user?.id]);
+
   // Fetch host profile completion status
   useEffect(() => {
     if (!user) return;
@@ -90,6 +149,10 @@ export default function CreateTour() {
 
   // Load draft on mount (only once)
   useEffect(() => {
+    if (isEditMode) {
+      setDraftLoaded(true);
+      return;
+    }
     if (draftLoaded) return;
     
     const draftKey = getStorageKey();
@@ -108,10 +171,11 @@ export default function CreateTour() {
       }
     }
     setDraftLoaded(true);
-  }, [user?.id, draftLoaded]);
+  }, [user?.id, draftLoaded, isEditMode]);
 
   // Auto-save on form changes (only after load)
   useEffect(() => {
+    if (isEditMode) return;
     if (!draftLoaded) return;
     
     const draftKey = getStorageKey();
@@ -131,10 +195,11 @@ export default function CreateTour() {
     }, 1000); // Debounce 1 second
 
     return () => clearTimeout(timer);
-  }, [formData, images, user?.id, draftLoaded]);
+  }, [formData, images, user?.id, draftLoaded, isEditMode]);
 
   // Save on page unload
   useEffect(() => {
+    if (isEditMode) return;
     const handleBeforeUnload = () => {
       if (!formData.title && !formData.description) return;
       
@@ -150,7 +215,7 @@ export default function CreateTour() {
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [formData, images, user?.id]);
+  }, [formData, images, user?.id, isEditMode]);
 
   const saveDraft = () => {
     const draftKey = getStorageKey();
@@ -266,21 +331,55 @@ export default function CreateTour() {
         price_for_foreigners: formData.has_differential_pricing && formData.price_for_foreigners ? parseFloat(formData.price_for_foreigners) : null,
       };
 
-      const { error } = await supabase.from("tours").insert(tourData as any).select().single();
-      if (error) throw error;
+      (tourData as any).tour_guide_license_url = licenseUrl || null;
+      (tourData as any).tour_license_url = licenseUrl || null;
+
+      if (isEditMode && editId) {
+        const { error } = await supabase
+          .from("tours")
+          .update(tourData as any)
+          .eq("id", editId)
+          .eq("created_by", user.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("tours").insert(tourData as any).select().single();
+        if (error) throw error;
+      }
 
       await queryClient.invalidateQueries({ queryKey: ["tours"] });
       await queryClient.invalidateQueries({ queryKey: ["featured-tours"] });
 
-      toast({ title: "Tour Published!", description: "Your tour is now live and visible to guests." });
+      toast({
+        title: isEditMode ? "Tour Updated!" : "Tour Published!",
+        description: isEditMode
+          ? "Your tour changes have been saved."
+          : "Your tour is now live and visible to guests.",
+      });
       clearDraft();
       navigate("/host-dashboard");
     } catch (error: any) {
-      toast({ title: "Error", description: error.message || "Failed to create tour", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: error.message || (isEditMode ? "Failed to update tour" : "Failed to create tour"),
+        variant: "destructive",
+      });
     } finally {
       setUploading(false);
     }
   };
+
+  if (!isLoading && isEditMode && isEditLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-20 text-center">
+          <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Loading tour for editing...</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   if (!isLoading && !user) {
     return (
@@ -317,8 +416,10 @@ export default function CreateTour() {
       <Navbar />
       <div className="container mx-auto px-4 py-12 max-w-2xl">
         <div className="mb-12">
-          <h1 className="text-2xl font-medium mb-2">Create Tour</h1>
-          <p className="text-sm text-muted-foreground">Fill in the details to create your tour</p>
+          <h1 className="text-2xl font-medium mb-2">{isEditMode ? "Edit Tour" : "Create Tour"}</h1>
+          <p className="text-sm text-muted-foreground">
+            {isEditMode ? "Update your tour details" : "Fill in the details to create your tour"}
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-10">

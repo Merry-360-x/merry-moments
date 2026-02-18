@@ -30,6 +30,8 @@ export default function CreateTourPackage() {
   const queryClient = useQueryClient();
 
   const redirectTo = searchParams.get("redirect") || "/host-dashboard";
+  const editId = searchParams.get("editId");
+  const isEditMode = Boolean(editId);
 
   const defaultCancellationPolicy = `STANDARD EXPERIENCES (Day Tours & Activities)
 • More than 72 hours before start time: Full refund (excluding platform service fees and payment processing fees)
@@ -115,12 +117,114 @@ Some components are non-refundable once booked, including but not limited to:
   const [isSaving, setIsSaving] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [includeRoomType, setIncludeRoomType] = useState(false);
+  const [isEditLoading, setIsEditLoading] = useState(false);
 
   // Use a stable storage key - always use user ID if available, otherwise anonymous
   const getStorageKey = () => user?.id ? `tour-package-draft-${user.id}` : 'tour-package-draft-anonymous';
 
+  useEffect(() => {
+    if (!isEditMode || !editId || !user?.id) return;
+
+    let isMounted = true;
+    const toText = (value: unknown) => {
+      if (Array.isArray(value)) return value.filter(Boolean).join("\n");
+      return typeof value === "string" ? value : "";
+    };
+
+    const fetchPackageForEdit = async () => {
+      setIsEditLoading(true);
+      const { data, error } = await supabase
+        .from("tour_packages")
+        .select("*")
+        .eq("id", editId)
+        .eq("host_id", user.id)
+        .maybeSingle();
+
+      if (!isMounted) return;
+
+      if (error || !data) {
+        toast({
+          title: "Tour package not found",
+          description: "We couldn't load this package for editing.",
+          variant: "destructive",
+        });
+        navigate("/host-dashboard");
+        setIsEditLoading(false);
+        return;
+      }
+
+      const categoriesFromDb = ((data as any).categories as string[] | null) || [];
+      const tourTypesFromDb = ((data as any).tour_types as string[] | null) || [];
+      const mergedCategories = categoriesFromDb.length > 0
+        ? categoriesFromDb
+        : [data.category].filter(Boolean) as string[];
+      const mergedTourTypes = tourTypesFromDb.length > 0
+        ? tourTypesFromDb
+        : [data.tour_type].filter(Boolean) as string[];
+
+      setFormData({
+        title: data.title || "",
+        categories: mergedCategories,
+        tour_types: mergedTourTypes,
+        description: data.description || "",
+        city: data.city || "",
+        duration: data.duration || "",
+        daily_itinerary: data.daily_itinerary || "",
+        included_services: toText((data as any).included_services),
+        excluded_services: toText((data as any).excluded_services),
+        meeting_point: data.meeting_point || "",
+        what_to_bring: toText((data as any).what_to_bring),
+        cancellation_policy: data.cancellation_policy || defaultCancellationPolicy,
+        price_per_adult: data.price_per_adult != null ? String(data.price_per_adult) : "",
+        currency: data.currency || "RWF",
+        min_guests: Number(data.min_guests || 1),
+        max_guests: Number(data.max_guests || 10),
+        has_differential_pricing: Boolean((data as any).has_differential_pricing),
+        price_for_citizens: (data as any).price_for_citizens != null ? String((data as any).price_for_citizens) : "",
+        price_for_east_african: (data as any).price_for_east_african != null ? String((data as any).price_for_east_african) : "",
+        price_for_foreigners: (data as any).price_for_foreigners != null ? String((data as any).price_for_foreigners) : "",
+      });
+
+      setCoverImage((data as any).cover_image || "");
+      setGalleryImages(((data as any).gallery_images as string[] | null) || []);
+      setPdfUrl((data as any).itinerary_pdf_url || "");
+      setLicenseUrl((data as any).tour_guide_license_url || (data as any).tour_license_url || "existing");
+
+      const dbGroupDiscounts = ((data as any).group_discounts as Array<{min_people: number, max_people: number | null, discount_percentage: number}> | null) || [];
+      setGroupDiscounts(dbGroupDiscounts);
+
+      const dbPricingTiers = (((data as any).pricing_tiers as any[] | null) || []).map((tier) => ({
+        group_size: Math.max(1, Number(tier?.group_size || 1)),
+        room_type: tier?.room_type === "single" ? "single" : "double_twin",
+        price_per_person: Number(tier?.price_per_person || 0),
+      }));
+      setPricingTiers(dbPricingTiers);
+      setIncludeRoomType(dbPricingTiers.some((tier) => tier.room_type === "single"));
+
+      setSelectedNonRefundable((((data as any).non_refundable_items as string[] | null) || []));
+
+      const policyType = typeof (data as any).cancellation_policy_type === "string"
+        ? (data as any).cancellation_policy_type
+        : "";
+      setSelectedPolicies(policyType ? policyType.split(",").map((v: string) => v.trim()).filter(Boolean) : []);
+
+      setDraftLoaded(true);
+      setIsEditLoading(false);
+    };
+
+    void fetchPackageForEdit();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [defaultCancellationPolicy, editId, isEditMode, navigate, toast, user?.id]);
+
   // Load draft on mount (only once)
   useEffect(() => {
+    if (isEditMode) {
+      setDraftLoaded(true);
+      return;
+    }
     if (draftLoaded) return; // Already loaded
     
     const draftKey = getStorageKey();
@@ -156,10 +260,11 @@ Some components are non-refundable once booked, including but not limited to:
       }
     }
     setDraftLoaded(true);
-  }, [user?.id, draftLoaded]);
+  }, [user?.id, draftLoaded, isEditMode]);
 
   // Auto-save on form changes (debounced) - only after initial load
   useEffect(() => {
+    if (isEditMode) return;
     if (!draftLoaded) return; // Don't save until we've tried to load
     
     const draftKey = getStorageKey();
@@ -188,10 +293,11 @@ Some components are non-refundable once booked, including but not limited to:
     }, 1000); // Debounce 1 second (faster)
 
     return () => clearTimeout(timer);
-  }, [formData, groupDiscounts, pricingTiers, selectedNonRefundable, customNonRefundable1, customNonRefundable2, coverImage, galleryImages, selectedPolicies, customPolicyText, user?.id, draftLoaded]);
+  }, [formData, groupDiscounts, pricingTiers, selectedNonRefundable, customNonRefundable1, customNonRefundable2, coverImage, galleryImages, selectedPolicies, customPolicyText, user?.id, draftLoaded, isEditMode]);
 
   // Also save immediately when leaving the page
   useEffect(() => {
+    if (isEditMode) return;
     const handleBeforeUnload = () => {
       if (!formData.title && !formData.description) return;
       
@@ -216,7 +322,7 @@ Some components are non-refundable once booked, including but not limited to:
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [formData, groupDiscounts, pricingTiers, selectedNonRefundable, customNonRefundable1, customNonRefundable2, coverImage, galleryImages, selectedPolicies, customPolicyText, user?.id]);
+  }, [formData, groupDiscounts, pricingTiers, selectedNonRefundable, customNonRefundable1, customNonRefundable2, coverImage, galleryImages, selectedPolicies, customPolicyText, user?.id, isEditMode]);
 
   const saveDraft = () => {
     const draftKey = getStorageKey();
@@ -398,26 +504,58 @@ Some components are non-refundable once booked, including but not limited to:
         (packageData as any).price_per_adult = singleTier.price_per_person;
       }
 
-      const { data: newPackage, error } = await supabase.from("tour_packages").insert(packageData as any).select("id").single();
-      if (error) throw error;
+      if (isEditMode && editId) {
+        const { error } = await supabase
+          .from("tour_packages")
+          .update({
+            ...(packageData as any),
+            categories: formData.categories,
+            tour_types: formData.tour_types,
+          })
+          .eq("id", editId)
+          .eq("host_id", user.id);
+        if (error) throw error;
+      } else {
+        const { data: newPackage, error } = await supabase.from("tour_packages").insert(packageData as any).select("id").single();
+        if (error) throw error;
 
-      // Update categories array separately (after migration is applied)
-      if (newPackage && formData.categories.length > 0) {
-        await supabase.from("tour_packages").update({ 
-          categories: formData.categories,
-          tour_types: formData.tour_types, // Store all selected tour types
-        } as any).eq("id", (newPackage as any).id);
+        if (newPackage && formData.categories.length > 0) {
+          await supabase.from("tour_packages").update({ 
+            categories: formData.categories,
+            tour_types: formData.tour_types,
+          } as any).eq("id", (newPackage as any).id);
+        }
       }
 
-      toast({ title: "Success!", description: "Tour package created successfully" });
+      toast({
+        title: "Success!",
+        description: isEditMode ? "Tour package updated successfully" : "Tour package created successfully",
+      });
       clearDraft(); // Clear the draft after successful submission
       navigate(redirectTo);
     } catch (error: any) {
-      toast({ title: "Error", description: error.message || "Failed to create tour package", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: error.message || (isEditMode ? "Failed to update tour package" : "Failed to create tour package"),
+        variant: "destructive",
+      });
     } finally {
       setUploading(false);
     }
   };
+
+  if (!isLoading && isEditMode && isEditLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-20 text-center">
+          <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Loading tour package for editing...</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   if (!isLoading && !user) {
     return (
@@ -439,8 +577,10 @@ Some components are non-refundable once booked, including but not limited to:
       <Navbar />
       <div className="container mx-auto px-4 py-12 max-w-2xl">
         <div className="mb-12">
-          <h1 className="text-2xl font-medium mb-2">Create Tour Package</h1>
-          <p className="text-sm text-muted-foreground">Fill in the details to create your tour package</p>
+          <h1 className="text-2xl font-medium mb-2">{isEditMode ? "Edit Tour Package" : "Create Tour Package"}</h1>
+          <p className="text-sm text-muted-foreground">
+            {isEditMode ? "Update your tour package details" : "Fill in the details to create your tour package"}
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-10">

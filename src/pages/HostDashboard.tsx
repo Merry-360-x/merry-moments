@@ -211,6 +211,7 @@ interface Tour {
 interface Vehicle {
   id: string;
   title: string;
+  service_type?: string | null;
   provider_name: string | null;
   vehicle_type: string;
   seats: number;
@@ -4160,7 +4161,17 @@ export default function HostDashboard() {
                   <Button size="sm" variant="ghost" onClick={() => navigate(`/tours/${tour.id}`)} title="View details">
                     <Eye className="w-3 h-3" />
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setEditingTourId(tour.id)}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      if (tour.source === "tour_packages") {
+                        navigate(`/create-tour-package?editId=${tour.id}`);
+                        return;
+                      }
+                      navigate(`/create-tour?editId=${tour.id}`);
+                    }}
+                  >
                     <Edit className="w-3 h-3" />
                   </Button>
                   <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteTour(tour.id, tour.source)}>
@@ -4350,7 +4361,19 @@ export default function HostDashboard() {
               <div className="flex items-center justify-between mt-3">
                 <span className="text-primary font-bold">{formatMoney(vehicle.price_per_day, vehicle.currency || "RWF")}/day</span>
                 <div className="flex gap-1">
-                  <Button size="sm" variant="ghost" onClick={() => setEditingVehicleId(vehicle.id)}><Edit className="w-3 h-3" /></Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      if ((vehicle as any).service_type === "airport_transfer") {
+                        navigate(`/create-airport-transfer?editId=${vehicle.id}`);
+                        return;
+                      }
+                      navigate(`/create-transport?editId=${vehicle.id}`);
+                    }}
+                  >
+                    <Edit className="w-3 h-3" />
+                  </Button>
                   <Button 
                     size="sm" 
                     variant="ghost" 
