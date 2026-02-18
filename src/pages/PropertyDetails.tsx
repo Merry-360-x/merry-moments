@@ -17,6 +17,7 @@ import PropertyCard from "@/components/PropertyCard";
 import { formatMoney } from "@/lib/money";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { isVideoUrl } from "@/lib/media";
+import { optimizeCloudinaryImage } from "@/lib/cloudinary";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { extractNeighborhood } from "@/lib/location";
 import { useTripCart } from "@/hooks/useTripCart";
@@ -605,6 +606,17 @@ export default function PropertyDetails() {
     const values = [data?.main_image, ...(data?.images ?? [])].filter(Boolean) as string[];
     return Array.from(new Set(values));
   }, [data?.main_image, data?.images]);
+  const optimizedImageUrl = useCallback(
+    (src: string, width: number, height?: number) =>
+      optimizeCloudinaryImage(src, {
+        width,
+        height,
+        quality: "auto",
+        format: "auto",
+        crop: height ? "fill" : "fit",
+      }),
+    []
+  );
   const hasConferenceRoom = useMemo(
     () =>
       Boolean(
@@ -946,10 +958,11 @@ export default function PropertyDetails() {
                     />
                   ) : (
                     <img
-                      src={media[0]}
+                      src={optimizedImageUrl(media[0], 1400, 900)}
                       alt={t("propertyDetails.photoAlt")}
                       className="w-full h-[320px] object-cover"
                       loading="lazy"
+                      decoding="async"
                     />
                   )}
                 </button>
@@ -971,10 +984,11 @@ export default function PropertyDetails() {
                         <video src={src} className="h-28 w-full object-cover" muted playsInline preload="metadata" />
                       ) : (
                         <img
-                          src={src}
+                          src={optimizedImageUrl(src, 520, 360)}
                           alt={t("propertyDetails.photoAlt")}
                           className="h-28 w-full object-cover"
                           loading="lazy"
+                          decoding="async"
                         />
                       )}
                     </button>
@@ -996,9 +1010,10 @@ export default function PropertyDetails() {
                       />
                     ) : (
                       <img
-                        src={media[viewerIdx]}
+                        src={optimizedImageUrl(media[viewerIdx], 1800)}
                         alt={data?.title ?? "Image"}
                         className="w-full h-[80vh] object-contain"
+                        decoding="async"
                       />
                     )
                   ) : null}
@@ -1044,7 +1059,7 @@ export default function PropertyDetails() {
                               {isVideoUrl(src) ? (
                                 <video src={src} className="h-full w-full object-cover" muted playsInline preload="metadata" />
                               ) : (
-                                <img src={src} className="h-full w-full object-cover" alt="thumb" loading="lazy" />
+                                <img src={optimizedImageUrl(src, 160, 120)} className="h-full w-full object-cover" alt="thumb" loading="lazy" decoding="async" />
                               )}
                             </button>
                           ))}
@@ -1075,7 +1090,7 @@ export default function PropertyDetails() {
                               {isVideoUrl(src) ? (
                                 <video src={src} className="h-full w-full object-cover" muted playsInline preload="metadata" />
                               ) : (
-                                <img src={src} alt={t("propertyDetails.photoAlt")} className="h-full w-full object-cover" loading="lazy" />
+                                <img src={optimizedImageUrl(src, 500, 375)} alt={t("propertyDetails.photoAlt")} className="h-full w-full object-cover" loading="lazy" decoding="async" />
                               )}
                             </button>
                           );

@@ -70,8 +70,9 @@ export default function ListingImageCarousel({
               src={optimizeCloudinaryImage(src, { width: 800, height: 600, quality: 'auto', format: 'auto' })}
               alt={alt}
               className="w-full h-full object-cover shrink-0"
-              loading={i === 0 ? "eager" : "lazy"}
+              loading="lazy"
               decoding="async"
+              fetchPriority="low"
             />
           )
         ))}
