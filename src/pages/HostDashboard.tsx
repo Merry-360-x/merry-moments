@@ -4673,7 +4673,7 @@ export default function HostDashboard() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-sm font-medium">Price per Night</Label>
                   <Input
@@ -4681,38 +4681,6 @@ export default function HostDashboard() {
                     value={propertyForm.price_per_night}
                     onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_night: Number(e.target.value) }))}
                     min="0"
-                    className="mt-1.5"
-                  />
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Price per Person</Label>
-                  <Input
-                    type="number"
-                    value={propertyForm.price_per_person || ''}
-                    onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_person: e.target.value ? Number(e.target.value) : null }))}
-                    min="0"
-                    placeholder="Optional"
-                    className="mt-1.5"
-                  />
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Group Size (people)</Label>
-                  <Input
-                    type="number"
-                    value={propertyForm.price_per_group_size || 2}
-                    onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_group_size: Math.max(1, Number(e.target.value) || 1) }))}
-                    min="1"
-                    className="mt-1.5"
-                  />
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Group Amount</Label>
-                  <Input
-                    type="number"
-                    value={propertyForm.price_per_group || ''}
-                    onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_group: e.target.value ? Number(e.target.value) : null }))}
-                    min="0"
-                    placeholder="Optional"
                     className="mt-1.5"
                   />
                 </div>
@@ -4733,6 +4701,43 @@ export default function HostDashboard() {
                   </Select>
                 </div>
               </div>
+              <details className="rounded-lg border border-border p-3 bg-muted/20">
+                <summary className="text-sm font-medium cursor-pointer">Optional pricing (per person or group)</summary>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
+                  <div>
+                    <Label className="text-sm font-medium">Price per Person</Label>
+                    <Input
+                      type="number"
+                      value={propertyForm.price_per_person || ''}
+                      onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_person: e.target.value ? Number(e.target.value) : null }))}
+                      min="0"
+                      placeholder="Optional"
+                      className="mt-1.5"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Group Amount</Label>
+                    <Input
+                      type="number"
+                      value={propertyForm.price_per_group || ''}
+                      onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_group: e.target.value ? Number(e.target.value) : null }))}
+                      min="0"
+                      placeholder="Optional"
+                      className="mt-1.5"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Group Size (people)</Label>
+                    <Input
+                      type="number"
+                      value={propertyForm.price_per_group_size || 2}
+                      onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_group_size: Math.max(1, Number(e.target.value) || 1) }))}
+                      min="1"
+                      className="mt-1.5"
+                    />
+                  </div>
+                </div>
+              </details>
               {propertyForm.price_per_group ? (
                 <p className="text-xs text-muted-foreground">
                   Group price set: {propertyForm.price_per_group_size || 2} {(propertyForm.price_per_group_size || 2) === 1 ? "person" : "people"} for {propertyForm.currency} {propertyForm.price_per_group.toLocaleString()}.
@@ -5094,50 +5099,18 @@ export default function HostDashboard() {
                 </div>
 
                 <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label className="text-sm font-medium">Price per Night</Label>
-                  <Input
-                        type="number"
-                        min={1}
-                        value={propertyForm.price_per_night}
-                        onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_night: Number(e.target.value) }))}
-                        className="mt-2 text-lg py-6"
-                  />
-                </div>
-                <div>
-                      <Label className="text-sm font-medium">Price per Person</Label>
-                  <Input
-                        type="number"
-                        min={0}
-                        value={propertyForm.price_per_person || ''}
-                        onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_person: e.target.value ? Number(e.target.value) : null }))}
-                        placeholder="Optional"
-                        className="mt-2 text-lg py-6"
-                  />
-                </div>
-                <div>
-                      <Label className="text-base font-medium">Group Size (people)</Label>
                       <Input
                         type="number"
-                        min={1}
-                        value={propertyForm.price_per_group_size || 2}
-                        onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_group_size: Math.max(1, Number(e.target.value) || 1) }))}
+                        min={0}
+                        value={propertyForm.price_per_night}
+                        onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_night: Number(e.target.value) }))}
                         className="mt-2 text-lg py-6"
                       />
                     </div>
                     <div>
-                      <Label className="text-base font-medium">Group Amount</Label>
-                  <Input
-                        type="number"
-                        min={0}
-                        value={propertyForm.price_per_group || ''}
-                        onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_group: e.target.value ? Number(e.target.value) : null }))}
-                        placeholder="Optional"
-                        className="mt-2 text-lg py-6"
-                  />
-                </div>
-                <div>
                       <Label className="text-base font-medium">Currency</Label>
                       <Select value={propertyForm.currency} onValueChange={(v) => setPropertyForm((f) => ({ ...f, currency: v }))}>
                         <SelectTrigger className="mt-2 h-14 text-lg"><SelectValue /></SelectTrigger>
@@ -5147,6 +5120,43 @@ export default function HostDashboard() {
                       </Select>
                     </div>
                   </div>
+                  <details className="rounded-xl border border-border p-4 bg-muted/20">
+                    <summary className="text-sm font-medium cursor-pointer">Optional pricing (per person or group)</summary>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
+                      <div>
+                        <Label className="text-sm font-medium">Price per Person</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={propertyForm.price_per_person || ''}
+                          onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_person: e.target.value ? Number(e.target.value) : null }))}
+                          placeholder="Optional"
+                          className="mt-2"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-base font-medium">Group Amount</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={propertyForm.price_per_group || ''}
+                          onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_group: e.target.value ? Number(e.target.value) : null }))}
+                          placeholder="Optional"
+                          className="mt-2"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-base font-medium">Group Size (people)</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={propertyForm.price_per_group_size || 2}
+                          onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_group_size: Math.max(1, Number(e.target.value) || 1) }))}
+                          className="mt-2"
+                        />
+                      </div>
+                    </div>
+                  </details>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div>
                       <Label className="text-base font-medium flex items-center gap-2"><Users className="w-4 h-4" />Max Guests</Label>
