@@ -1764,22 +1764,6 @@ export default function CheckoutNew() {
                 )}
               </div>
               
-              {/* Host Earnings Preview - only show for property bookings */}
-              {cartItems.some(i => i.item_type === 'property') && (
-                <div className="bg-muted/50 rounded-lg p-3 mt-2">
-                  <p className="text-xs text-muted-foreground mb-1">Host will earn (after fees)</p>
-                  <p className="text-sm font-medium text-green-600">
-                    {formatMoney(
-                      (() => {
-                        const baseAfterFees = subtotal - stayDiscount - discount;
-                        const calc = calculateHostEarningsFromGuestTotal(baseAfterFees + serviceFees, 'accommodation');
-                        return calc.hostNetEarnings;
-                      })(),
-                      displayCurrency
-                    )}
-                  </p>
-                </div>
-              )}
               </>
               )}
 
