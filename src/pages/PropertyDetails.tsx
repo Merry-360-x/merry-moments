@@ -38,6 +38,7 @@ type PropertyRow = {
   rating: number | null;
   review_count: number | null;
   images: string[] | null;
+  main_image?: string | null;
   description: string | null;
   is_published: boolean | null;
   host_id: string;
@@ -600,7 +601,10 @@ export default function PropertyDetails() {
     return Number.isFinite(n) && n > 0 ? n : 0;
   }, [checkIn, checkOut]);
 
-  const media = useMemo(() => (data?.images ?? []).filter(Boolean), [data?.images]);
+  const media = useMemo(() => {
+    const values = [data?.main_image, ...(data?.images ?? [])].filter(Boolean) as string[];
+    return Array.from(new Set(values));
+  }, [data?.main_image, data?.images]);
   const hasConferenceRoom = useMemo(
     () =>
       Boolean(
