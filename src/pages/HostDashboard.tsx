@@ -515,6 +515,7 @@ export default function HostDashboard() {
 
   // Editing states
   const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null);
+  const [propertyWizardEditId, setPropertyWizardEditId] = useState<string | null>(null);
   const [editingTourId, setEditingTourId] = useState<string | null>(null);
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
   const [discounts, setDiscounts] = useState<any[]>([]);
@@ -2325,6 +2326,7 @@ export default function HostDashboard() {
 
   // Helper functions to open wizards and notify about drafts
   const openPropertyWizard = () => {
+    setPropertyWizardEditId(null);
     const hasDraft = localStorage.getItem(PROPERTY_FORM_KEY);
     setShowPropertyWizard(true);
     if (hasDraft) {
@@ -2333,6 +2335,91 @@ export default function HostDashboard() {
         description: "Your previous property listing progress has been restored.",
       });
     }
+  };
+
+  const openPropertyWizardForEdit = (property: Property) => {
+    setPropertyWizardEditId(property.id);
+    setWizardStep(1);
+    setPropertyForm((prev) => ({
+      ...prev,
+      title: property.title || "",
+      location: property.location || "",
+      address: property.address || "",
+      property_type: property.property_type || "Apartment",
+      description: property.description || "",
+      price_per_night: Number(property.price_per_night || 50000),
+      price_per_person: Number((property as any).price_per_person || 0) || null,
+      price_per_group: Number(property.price_per_group || 0) || null,
+      price_per_group_size: Math.max(1, Number(property.price_per_group_size || 2)),
+      currency: property.currency || "RWF",
+      max_guests: Math.max(1, Number(property.max_guests || 2)),
+      bedrooms: Math.max(0, Number(property.bedrooms || 1)),
+      bathrooms: Math.max(0, Number(property.bathrooms || 1)),
+      beds: Math.max(0, Number(property.beds || 1)),
+      amenities: property.amenities || [],
+      cancellation_policy: property.cancellation_policy || "fair",
+      images: property.images || [],
+      weekly_discount: Number(property.weekly_discount || 0),
+      monthly_discount: Number(property.monthly_discount || 0),
+      available_for_monthly_rental: Boolean((property as any).available_for_monthly_rental),
+      price_per_month: Number((property as any).price_per_month || 0) || null,
+      check_in_time: property.check_in_time || "14:00",
+      check_out_time: property.check_out_time || "11:00",
+      smoking_allowed: Boolean(property.smoking_allowed),
+      events_allowed: Boolean(property.events_allowed),
+      pets_allowed: Boolean(property.pets_allowed),
+      conference_room_price: Number(property.conference_room_price || 0) || null,
+      conference_room_capacity: Math.max(1, Number(property.conference_room_capacity || 1)),
+      conference_room_duration_hours: Math.max(1, Number(property.conference_room_duration_hours || 1)),
+      conference_room_min_rooms_required: property.conference_room_min_rooms_required ?? null,
+      conference_room_equipment: property.conference_room_equipment || [],
+    }));
+    setShowPropertyWizard(true);
+  };
+
+  const submitPropertyWizard = async () => {
+    if (propertyWizardEditId) {
+      const success = await updateProperty(propertyWizardEditId, {
+        title: propertyForm.title,
+        description: propertyForm.description,
+        location: propertyForm.location,
+        address: propertyForm.address,
+        property_type: propertyForm.property_type,
+        price_per_night: Number(propertyForm.price_per_night || 0),
+        price_per_group: propertyForm.price_per_group,
+        price_per_group_size: propertyForm.price_per_group_size,
+        currency: propertyForm.currency,
+        max_guests: propertyForm.max_guests,
+        bedrooms: propertyForm.bedrooms,
+        bathrooms: propertyForm.bathrooms,
+        beds: propertyForm.beds,
+        amenities: propertyForm.amenities,
+        cancellation_policy: propertyForm.cancellation_policy,
+        images: propertyForm.images,
+        weekly_discount: Number(propertyForm.weekly_discount || 0),
+        monthly_discount: Number(propertyForm.monthly_discount || 0),
+        check_in_time: propertyForm.check_in_time,
+        check_out_time: propertyForm.check_out_time,
+        smoking_allowed: Boolean(propertyForm.smoking_allowed),
+        events_allowed: Boolean(propertyForm.events_allowed),
+        pets_allowed: Boolean(propertyForm.pets_allowed),
+        conference_room_price: propertyForm.conference_room_price,
+        conference_room_capacity: propertyForm.conference_room_capacity,
+        conference_room_duration_hours: propertyForm.conference_room_duration_hours,
+        conference_room_min_rooms_required: propertyForm.conference_room_min_rooms_required,
+        conference_room_equipment: propertyForm.conference_room_equipment,
+      } as Partial<Property>);
+
+      if (success) {
+        setShowPropertyWizard(false);
+        setWizardStep(1);
+        setPropertyWizardEditId(null);
+        resetPropertyForm();
+      }
+      return;
+    }
+
+    await createProperty();
   };
 
 
@@ -3123,7 +3210,7 @@ export default function HostDashboard() {
                   <ExternalLink className="w-3 h-3" /> View
                 </Link>
                 <div className="flex gap-1">
-                  <Button size="sm" variant="ghost" onClick={() => setEditingPropertyId(property.id)}><Edit className="w-3 h-3" /></Button>
+                  <Button size="sm" variant="ghost" onClick={() => openPropertyWizardForEdit(property)}><Edit className="w-3 h-3" /></Button>
                   <Button size="sm" variant="ghost" onClick={() => updateProperty(property.id, { is_published: !property.is_published })}>
                     {property.is_published ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
                   </Button>
@@ -4827,6 +4914,7 @@ export default function HostDashboard() {
                   setWizardStep(wizardStep - 1);
                 } else {
                   setShowPropertyWizard(false);
+                  setPropertyWizardEditId(null);
                   resetPropertyForm();
                 }
               }}
@@ -5624,9 +5712,9 @@ export default function HostDashboard() {
                 Next <ChevronRight className="w-4 h-4 ml-2" />
               </Button>
             ) : (
-              <Button onClick={createProperty} disabled={!canProceed()}>
+              <Button onClick={submitPropertyWizard} disabled={!canProceed()}>
                 <>
-                  <CheckCircle className="w-4 h-4 mr-2" /> Create Property
+                  <CheckCircle className="w-4 h-4 mr-2" /> {propertyWizardEditId ? "Update Property" : "Create Property"}
                 </>
               </Button>
             )}
