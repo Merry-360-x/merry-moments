@@ -4745,40 +4745,38 @@ export default function HostDashboard() {
               ) : null}
 
               {/* Monthly rental option for rooms */}
-              <div className="mt-4 p-4 rounded-xl border border-border bg-blue-50 dark:bg-blue-950/20">
-                <div className="flex items-center gap-3 mb-3">
+              <div className="mt-4 rounded-xl border border-border p-4 space-y-3">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <Label htmlFor="room-monthly-rental" className="text-sm font-medium cursor-pointer">
+                      Monthly rentals (30+ days)
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Enable long-stay bookings and optionally set a custom monthly price.
+                    </p>
+                  </div>
                   <input
                     type="checkbox"
                     id="room-monthly-rental"
                     checked={propertyForm.available_for_monthly_rental}
                     onChange={(e) => setPropertyForm((f) => ({ ...f, available_for_monthly_rental: e.target.checked }))}
-                    className="w-4 h-4 rounded border-gray-300"
+                    className="w-4 h-4 rounded border-gray-300 mt-1"
                   />
-                  <Label htmlFor="room-monthly-rental" className="text-sm font-medium cursor-pointer">
-                    Available for monthly stays (30+ days)
-                  </Label>
                 </div>
 
                 {propertyForm.available_for_monthly_rental && (
-                  <div className="ml-7 mt-3">
-                    <Label className="text-sm">Monthly price (optional)</Label>
-                    <p className="text-xs text-muted-foreground mb-2">
-                      Leave empty to use your nightly rate and any monthly discount
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        min={0}
-                        value={propertyForm.price_per_month || ''}
-                        onChange={(e) => setPropertyForm((f) => ({
-                          ...f,
-                          price_per_month: e.target.value ? Number(e.target.value) : null,
-                        }))}
-                        placeholder="Custom monthly price"
-                        className="flex-1"
-                      />
-                      <span className="text-sm text-muted-foreground">{propertyForm.currency}</span>
-                    </div>
+                  <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-center">
+                    <Input
+                      type="number"
+                      min={0}
+                      value={propertyForm.price_per_month || ''}
+                      onChange={(e) => setPropertyForm((f) => ({
+                        ...f,
+                        price_per_month: e.target.value ? Number(e.target.value) : null,
+                      }))}
+                      placeholder="Monthly price (optional)"
+                    />
+                    <span className="text-sm text-muted-foreground">{propertyForm.currency}</span>
                   </div>
                 )}
               </div>
@@ -5157,6 +5155,45 @@ export default function HostDashboard() {
                       </div>
                     </div>
                   </details>
+
+                  {/* Monthly Rental Availability */}
+                  <div className="rounded-xl border border-border p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <Label htmlFor="monthly-rental" className="text-sm font-medium cursor-pointer">
+                          Monthly rentals (30+ days)
+                        </Label>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Enable long-stay bookings and optionally set a custom monthly price.
+                        </p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        id="monthly-rental"
+                        checked={propertyForm.available_for_monthly_rental}
+                        onChange={(e) => setPropertyForm((f) => ({ ...f, available_for_monthly_rental: e.target.checked }))}
+                        className="w-4 h-4 rounded border-gray-300 mt-1"
+                      />
+                    </div>
+
+                    {propertyForm.available_for_monthly_rental && (
+                      <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-center">
+                        <Input
+                          type="number"
+                          min={0}
+                          value={propertyForm.price_per_month || ''}
+                          onChange={(e) => setPropertyForm((f) => ({
+                            ...f,
+                            price_per_month: e.target.value ? Number(e.target.value) : null,
+                          }))}
+                          placeholder="Monthly price (optional)"
+                          className="flex-1"
+                        />
+                        <span className="text-sm text-muted-foreground">{propertyForm.currency}</span>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div>
                       <Label className="text-base font-medium flex items-center gap-2"><Users className="w-4 h-4" />Max Guests</Label>
@@ -5441,44 +5478,6 @@ export default function HostDashboard() {
                       </div>
                     </div>
 
-                    {/* Monthly Rental Availability */}
-                    <div className="p-4 rounded-xl border border-border bg-blue-50 dark:bg-blue-950/20">
-                      <div className="flex items-center gap-3 mb-3">
-                        <input
-                          type="checkbox"
-                          id="monthly-rental"
-                          checked={propertyForm.available_for_monthly_rental}
-                          onChange={(e) => setPropertyForm((f) => ({ ...f, available_for_monthly_rental: e.target.checked }))}
-                          className="w-4 h-4 rounded border-gray-300"
-                        />
-                        <Label htmlFor="monthly-rental" className="text-sm font-medium cursor-pointer">
-                          Available for monthly rentals (30+ days)
-                        </Label>
-                      </div>
-                      
-                      {propertyForm.available_for_monthly_rental && (
-                        <div className="ml-7 mt-3">
-                          <Label className="text-sm">Custom monthly price (optional)</Label>
-                          <p className="text-xs text-muted-foreground mb-2">
-                            Leave empty to auto-calculate based on nightly rate and discount
-                          </p>
-                          <div className="flex items-center gap-2">
-                            <Input
-                              type="number"
-                              min={0}
-                              value={propertyForm.price_per_month || ''}
-                              onChange={(e) => setPropertyForm((f) => ({ 
-                                ...f, 
-                                price_per_month: e.target.value ? Number(e.target.value) : null 
-                              }))}
-                              placeholder="Custom monthly price"
-                              className="flex-1"
-                            />
-                            <span className="text-sm text-muted-foreground">{propertyForm.currency}</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
                   </div>
 
                   {/* Accommodation Rules */}
