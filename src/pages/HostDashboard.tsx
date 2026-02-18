@@ -6369,13 +6369,21 @@ export default function HostDashboard() {
 
           {/* Properties */}
           <TabsContent value="properties">
-            <div className="flex justify-end gap-2 mb-4">
+            <div className="flex justify-between items-center gap-2 mb-4">
+              <div className="text-sm text-muted-foreground">
+                Need to send a direct review link? Use <span className="font-medium text-foreground">Bookings → Manual Review Requests</span>.
+              </div>
+              <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setTab("bookings")}>
+                <Send className="w-4 h-4 mr-2" /> Send Review Request
+              </Button>
               <Button variant="outline" onClick={() => setShowRoomWizard(true)}>
                 <Plus className="w-4 h-4 mr-2" /> Create Room
               </Button>
               <Button onClick={openPropertyWizard}>
                 <Plus className="w-4 h-4 mr-2" /> Add Property
               </Button>
+              </div>
           </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {(properties || []).map((p) => <PropertyCard key={p.id} property={p} />)}
