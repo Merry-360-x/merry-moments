@@ -1101,8 +1101,8 @@ export default function PropertyDetails() {
                   {data.description ? (
                     <div className={media.length > 1 ? "mt-4" : ""}>
                       <div className="text-sm font-semibold text-foreground mb-2">{t("propertyDetails.description")}</div>
-                      <div className="max-h-48 overflow-y-auto rounded-lg border border-border bg-muted/30 p-3 pr-2">
-                        <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                      <div className="max-h-56 overflow-y-auto rounded-lg border border-border bg-card p-4 pr-3 shadow-sm">
+                        <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-line">
                           {data.description}
                         </p>
                       </div>
@@ -1228,7 +1228,7 @@ export default function PropertyDetails() {
             </div>
 
             {/* Right column */}
-            <div className="lg:col-span-5">
+            <div className="lg:col-span-5 lg:self-start">
               <div className="flex items-start justify-between gap-6">
                 <div>
                   <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">{data.title}</h1>
@@ -1530,7 +1530,7 @@ export default function PropertyDetails() {
               </div>
 
               {/* Booking */}
-              <div className="mt-8 bg-card rounded-xl shadow-card p-5 lg:sticky lg:top-24">
+              <div className="booking-sticky-card mt-8 bg-card rounded-xl shadow-card p-5 lg:sticky lg:top-24 lg:z-20 border border-border/60 transition-all duration-300 hover:shadow-xl">
                 <h2 className="text-lg font-semibold text-foreground mb-4">{t("propertyDetails.bookThisStay")}</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
