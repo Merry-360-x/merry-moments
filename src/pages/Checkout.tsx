@@ -1951,8 +1951,8 @@ export default function CheckoutNew() {
         </div>
       </div>
 
-      {/* Contact Modal for Card/Bank Transfer */}
-      {showContactModal && (
+      {/* Contact Modal for Bank Transfer only */}
+      {showContactModal && paymentMethod === 'bank' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-card rounded-2xl shadow-2xl max-w-md w-full p-6 relative animate-in fade-in zoom-in duration-200">
             <button
@@ -1967,7 +1967,7 @@ export default function CheckoutNew() {
                 <Clock className="w-8 h-8 text-primary" />
               </div>
               <h3 className="text-xl font-semibold mb-2">
-                {paymentMethod === 'card' ? 'Credit Card Payment' : 'Bank Transfer'}
+                Bank Transfer
               </h3>
               <p className="text-muted-foreground text-sm">
                 Our team will contact you within <span className="font-semibold text-foreground">5 minutes</span> to complete your payment securely.
