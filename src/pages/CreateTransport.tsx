@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Upload, X, Save, Loader2, Car, Camera, FileText, Shield, Fuel, Settings, DollarSign } from "lucide-react";
 import { uploadFile } from "@/lib/uploads";
 import { Checkbox } from "@/components/ui/checkbox";
+import { CURRENCY_OPTIONS } from "@/lib/currencies";
 
 // Car types
 const carTypes = [
@@ -111,6 +112,7 @@ const carBrands = [
 // Generate year options (current year down to 2000)
 const currentYear = new Date().getFullYear();
 const yearOptions = Array.from({ length: currentYear - 1999 }, (_, i) => currentYear - i);
+const currencies = CURRENCY_OPTIONS;
 
 export default function CreateTransport() {
   const { user, isHost, isLoading } = useAuth();
@@ -849,10 +851,11 @@ export default function CreateTransport() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="max-h-[300px]">
-                      <SelectItem value="RWF">(FRw) RWF</SelectItem>
-                      <SelectItem value="USD">($) USD</SelectItem>
-                      <SelectItem value="EUR">(€) EUR</SelectItem>
-                      <SelectItem value="GBP">(£) GBP</SelectItem>
+                      {currencies.map((currency) => (
+                        <SelectItem key={currency.value} value={currency.value}>
+                          {currency.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
