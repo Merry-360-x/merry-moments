@@ -155,7 +155,9 @@ interface Property {
   smoking_allowed?: boolean | null;
   events_allowed?: boolean | null;
   pets_allowed?: boolean | null;
+  conference_room_price?: number | null;
   conference_room_capacity?: number | null;
+  conference_room_duration_hours?: number | null;
   conference_room_min_rooms_required?: number | null;
   conference_room_equipment?: string[] | null;
 }
@@ -281,7 +283,7 @@ interface PropertyCalendarIntegration {
 
 import { CURRENCY_OPTIONS } from "@/lib/currencies";
 
-const propertyTypes = ["Hotel", "Apartment", "Room in Apartment", "Conference Room", "Villa", "Guesthouse", "Resort", "Lodge", "Motel", "House", "Cabin"];
+const propertyTypes = ["Hotel", "Apartment", "Room in Apartment", "Villa", "Guesthouse", "Resort", "Lodge", "Motel", "House", "Cabin"];
 const roomPropertyTypeOptions = propertyTypes.map((type) => ({
   value: type,
   label: type === "Hotel" ? "Hotel Room" : type,
@@ -564,8 +566,10 @@ export default function HostDashboard() {
     smoking_allowed: false,
     events_allowed: false,
     pets_allowed: false,
-    conference_room_capacity: 0,
-    conference_room_min_rooms_required: 0,
+    conference_room_price: null as number | null,
+    conference_room_capacity: 1,
+    conference_room_duration_hours: 1,
+    conference_room_min_rooms_required: null as number | null,
     conference_room_equipment: [] as string[],
   });
   const [creatingProperty, setCreatingProperty] = useState(false);
@@ -1193,8 +1197,8 @@ export default function HostDashboard() {
   // Property CRUD
   const updateProperty = async (id: string, updates: Partial<Property>) => {
     let { error } = await supabase.from("properties").update(updates).eq("id", id);
-    if (error && String(error.code || "") === "42703" && String(error.message || "").includes("price_per_group_size")) {
-      const { price_per_group_size, ...fallbackUpdates } = updates as any;
+    if (error && String(error.code || "") === "42703") {
+      const { price_per_group_size, conference_room_price, conference_room_duration_hours, ...fallbackUpdates } = updates as any;
       const retry = await supabase.from("properties").update(fallbackUpdates).eq("id", id);
       error = retry.error;
     }
@@ -1223,13 +1227,8 @@ export default function HostDashboard() {
     // Use only columns guaranteed to exist in the database schema
     // NOTE: Database has both 'name' (required NOT NULL) and 'title' columns
     const propertyName = propertyForm.title.trim();
-    const isConferenceRoom = propertyForm.property_type === "Conference Room";
-    const conferenceAmount = Number(propertyForm.price_per_group || 0);
     const baseNightlyPrice = Number(propertyForm.price_per_night || 0);
-    const normalizedNightlyPrice =
-      isConferenceRoom && conferenceAmount > 0
-        ? conferenceAmount
-        : (baseNightlyPrice > 0 ? baseNightlyPrice : 50000);
+    const normalizedNightlyPrice = baseNightlyPrice > 0 ? baseNightlyPrice : 50000;
     const payload: Record<string, unknown> = {
       name: propertyName,  // Required column (NOT NULL)
       title: propertyName,
@@ -1250,9 +1249,7 @@ export default function HostDashboard() {
       is_published: true, // Published by default
     };
 
-    const hasConferenceRoom =
-      propertyForm.property_type === "Conference Room" ||
-      propertyForm.amenities.includes("conference_room");
+    const hasConferenceRoom = propertyForm.amenities.includes("conference_room");
 
     // Add optional columns only if they have values
     if (propertyForm.beds) payload.beds = propertyForm.beds;
@@ -1274,11 +1271,17 @@ export default function HostDashboard() {
     payload.smoking_allowed = Boolean(propertyForm.smoking_allowed);
     payload.events_allowed = Boolean(propertyForm.events_allowed);
     payload.pets_allowed = Boolean(propertyForm.pets_allowed);
+    payload.conference_room_price = hasConferenceRoom
+      ? (propertyForm.conference_room_price ? Number(propertyForm.conference_room_price) : null)
+      : null;
     payload.conference_room_capacity = hasConferenceRoom
       ? Math.max(1, Number(propertyForm.conference_room_capacity || 1))
       : null;
+    payload.conference_room_duration_hours = hasConferenceRoom
+      ? Math.max(1, Number(propertyForm.conference_room_duration_hours || 1))
+      : null;
     payload.conference_room_min_rooms_required = hasConferenceRoom
-      ? Math.max(0, Number(propertyForm.conference_room_min_rooms_required || 0))
+      ? (propertyForm.conference_room_min_rooms_required ?? null)
       : null;
     payload.conference_room_equipment = hasConferenceRoom
       ? (propertyForm.conference_room_equipment || [])
@@ -1293,8 +1296,8 @@ export default function HostDashboard() {
         .select()
         .single();
 
-      if (error && String(error.code || "") === "42703" && String(error.message || "").includes("price_per_group_size")) {
-        const { price_per_group_size, ...fallbackPayload } = payload as any;
+      if (error && String(error.code || "") === "42703") {
+        const { price_per_group_size, conference_room_price, conference_room_duration_hours, ...fallbackPayload } = payload as any;
         const retry = await supabase
           .from("properties")
           .insert(fallbackPayload as never)
@@ -1364,8 +1367,10 @@ export default function HostDashboard() {
       smoking_allowed: false,
       events_allowed: false,
       pets_allowed: false,
-      conference_room_capacity: 0,
-      conference_room_min_rooms_required: 0,
+      conference_room_price: null,
+      conference_room_capacity: 1,
+      conference_room_duration_hours: 1,
+      conference_room_min_rooms_required: null,
       conference_room_equipment: [],
     });
   };
@@ -2338,8 +2343,13 @@ export default function HostDashboard() {
       case 1:
         return propertyForm.title.trim() && propertyForm.location.trim();
       case 2:
-        if (propertyForm.property_type === "Conference Room") {
-          return Number(propertyForm.price_per_group || 0) > 0;
+        if (propertyForm.amenities.includes("conference_room")) {
+          return (
+            propertyForm.price_per_night > 0 &&
+            Number(propertyForm.conference_room_price || 0) > 0 &&
+            Number(propertyForm.conference_room_capacity || 0) > 0 &&
+            Number(propertyForm.conference_room_duration_hours || 0) > 0
+          );
         }
         return propertyForm.price_per_night > 0;
       case 3:
@@ -2877,6 +2887,8 @@ export default function HostDashboard() {
         images: form.images,
         is_published: form.is_published,
         conference_room_capacity: form.conference_room_capacity ?? null,
+        conference_room_price: form.conference_room_price ?? null,
+        conference_room_duration_hours: form.conference_room_duration_hours ?? null,
         conference_room_min_rooms_required: form.conference_room_min_rooms_required ?? null,
         conference_room_equipment: form.conference_room_equipment ?? [],
       });
@@ -3092,7 +3104,7 @@ export default function HostDashboard() {
                 <span className="flex items-center gap-1"><Users className="w-3 h-3" />{property.max_guests}</span>
                 <span className="flex items-center gap-1"><Bed className="w-3 h-3" />{property.bedrooms}</span>
                 <span className="flex items-center gap-1"><Bath className="w-3 h-3" />{property.bathrooms}</span>
-                {(property.property_type === "Conference Room" || property.amenities?.includes("conference_room")) && (
+                {property.amenities?.includes("conference_room") && (
                   <span className="flex items-center gap-1"><Presentation className="w-3 h-3" />Conference</span>
                 )}
               </div>
@@ -4315,9 +4327,7 @@ export default function HostDashboard() {
 
   // Room Creation Form - Minimalistic
   if (showRoomWizard) {
-    const isConferenceRoomSelected =
-      propertyForm.property_type === "Conference Room" ||
-      propertyForm.amenities.includes("conference_room");
+    const isConferenceRoomSelected = propertyForm.amenities.includes("conference_room");
 
     return (
       <div className="min-h-[100dvh] bg-background">
@@ -4358,14 +4368,18 @@ export default function HostDashboard() {
                     conference_room_capacity: hasConferenceRoom
                       ? Math.max(1, Number(propertyForm.conference_room_capacity || 1))
                       : null,
+                    conference_room_price: hasConferenceRoom
+                      ? (propertyForm.conference_room_price ? Number(propertyForm.conference_room_price) : null)
+                      : null,
+                    conference_room_duration_hours: hasConferenceRoom
+                      ? Math.max(1, Number(propertyForm.conference_room_duration_hours || 1))
+                      : null,
                     conference_room_min_rooms_required: hasConferenceRoom
-                      ? Math.max(0, Number(propertyForm.conference_room_min_rooms_required || 0))
+                      ? (propertyForm.conference_room_min_rooms_required ?? null)
                       : null,
                     conference_room_equipment: hasConferenceRoom
                       ? (propertyForm.conference_room_equipment || [])
                       : null,
-                    bedrooms: hasConferenceRoom ? 0 : propertyForm.bedrooms,
-                    beds: hasConferenceRoom ? null : propertyForm.beds,
                     host_id: user!.id,
                     is_published: true, // Published by default
                     images: propertyForm.images.length > 0 ? propertyForm.images : null,
@@ -4373,8 +4387,8 @@ export default function HostDashboard() {
                   };
 
                   let { error } = await supabase.from("properties").insert(payload);
-                  if (error && String(error.code || "") === "42703" && String(error.message || "").includes("price_per_group_size")) {
-                    const { price_per_group_size, ...fallbackPayload } = payload as any;
+                  if (error && String(error.code || "") === "42703") {
+                    const { price_per_group_size, conference_room_price, conference_room_duration_hours, ...fallbackPayload } = payload as any;
                     const retry = await supabase.from("properties").insert(fallbackPayload);
                     error = retry.error;
                   }
@@ -4409,19 +4423,7 @@ export default function HostDashboard() {
                     <button
                       key={typeOption.value}
                       type="button"
-                      onClick={() =>
-                        setPropertyForm((f) => {
-                          const nextAmenities =
-                            typeOption.value === "Conference Room"
-                              ? Array.from(new Set([...(f.amenities || []), "conference_room"]))
-                              : (f.amenities || []).filter((amenity) => amenity !== "conference_room");
-                          return {
-                            ...f,
-                            property_type: typeOption.value,
-                            amenities: nextAmenities,
-                          };
-                        })
-                      }
+                      onClick={() => setPropertyForm((f) => ({ ...f, property_type: typeOption.value }))}
                       className={`px-3 py-2 rounded-lg border text-sm text-center transition-all ${
                         propertyForm.property_type === typeOption.value
                           ? "border-primary bg-primary/10 text-primary"
@@ -4499,9 +4501,7 @@ export default function HostDashboard() {
 
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div>
-                  <Label className="text-sm font-medium">
-                    {propertyForm.property_type === "Conference Room" ? "Conference Base Price" : "Price per Night"}
-                  </Label>
+                  <Label className="text-sm font-medium">Price per Night</Label>
                   <Input
                     type="number"
                     value={propertyForm.price_per_night}
@@ -4511,9 +4511,7 @@ export default function HostDashboard() {
                   />
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">
-                    {propertyForm.property_type === "Conference Room" ? "Attendee Price" : "Price per Person"}
-                  </Label>
+                  <Label className="text-sm font-medium">Price per Person</Label>
                   <Input
                     type="number"
                     value={propertyForm.price_per_person || ''}
@@ -4524,9 +4522,7 @@ export default function HostDashboard() {
                   />
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">
-                    {propertyForm.property_type === "Conference Room" ? "Included Attendees" : "Group Size (people)"}
-                  </Label>
+                  <Label className="text-sm font-medium">Group Size (people)</Label>
                   <Input
                     type="number"
                     value={propertyForm.price_per_group_size || 2}
@@ -4536,9 +4532,7 @@ export default function HostDashboard() {
                   />
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">
-                    {propertyForm.property_type === "Conference Room" ? "Conference Room Amount *" : "Group Amount"}
-                  </Label>
+                  <Label className="text-sm font-medium">Group Amount</Label>
                   <Input
                     type="number"
                     value={propertyForm.price_per_group || ''}
@@ -4565,11 +4559,6 @@ export default function HostDashboard() {
                   </Select>
                 </div>
               </div>
-              {propertyForm.property_type === "Conference Room" && (
-                <p className="text-xs text-muted-foreground">
-                  Set a conference room amount for the included attendee count.
-                </p>
-              )}
               {propertyForm.price_per_group ? (
                 <p className="text-xs text-muted-foreground">
                   Group price set: {propertyForm.price_per_group_size || 2} {(propertyForm.price_per_group_size || 2) === 1 ? "person" : "people"} for {propertyForm.currency} {propertyForm.price_per_group.toLocaleString()}.
@@ -4615,52 +4604,44 @@ export default function HostDashboard() {
                 )}
               </div>
 
-              {!isConferenceRoomSelected && (
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Label className="text-sm font-medium">Beds</Label>
-                    <Input
-                      type="number"
-                      value={propertyForm.beds}
-                      onChange={(e) => setPropertyForm((f) => ({ ...f, beds: Number(e.target.value) }))}
-                      min="1"
-                      className="mt-1.5"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Max Guests</Label>
-                    <Input
-                      type="number"
-                      value={propertyForm.max_guests}
-                      onChange={(e) => setPropertyForm((f) => ({ ...f, max_guests: Number(e.target.value) }))}
-                      min="1"
-                      className="mt-1.5"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Bathrooms</Label>
-                    <Input
-                      type="number"
-                      value={propertyForm.bathrooms}
-                      onChange={(e) => setPropertyForm((f) => ({ ...f, bathrooms: Number(e.target.value) }))}
-                      min="0"
-                      step="0.5"
-                      className="mt-1.5"
-                    />
-                  </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-sm font-medium">Beds</Label>
+                  <Input
+                    type="number"
+                    value={propertyForm.beds}
+                    onChange={(e) => setPropertyForm((f) => ({ ...f, beds: Number(e.target.value) }))}
+                    min="1"
+                    className="mt-1.5"
+                  />
                 </div>
-              )}
-
-              {isConferenceRoomSelected && (
-                <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
-                  <p className="text-sm text-primary font-medium">Conference room mode: showing conference-specific details only.</p>
+                <div>
+                  <Label className="text-sm font-medium">Max Guests</Label>
+                  <Input
+                    type="number"
+                    value={propertyForm.max_guests}
+                    onChange={(e) => setPropertyForm((f) => ({ ...f, max_guests: Number(e.target.value) }))}
+                    min="1"
+                    className="mt-1.5"
+                  />
                 </div>
-              )}
+                <div>
+                  <Label className="text-sm font-medium">Bathrooms</Label>
+                  <Input
+                    type="number"
+                    value={propertyForm.bathrooms}
+                    onChange={(e) => setPropertyForm((f) => ({ ...f, bathrooms: Number(e.target.value) }))}
+                    min="0"
+                    step="0.5"
+                    className="mt-1.5"
+                  />
+                </div>
+              </div>
 
               <div className="rounded-xl border p-4 space-y-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <Label className="text-sm font-medium">Conference room available</Label>
+                    <Label className="text-sm font-medium">Conference room amenity</Label>
                     <p className="text-xs text-muted-foreground">Show conference room as an amenity for this listing.</p>
                   </div>
                   <Switch
@@ -4680,6 +4661,21 @@ export default function HostDashboard() {
                   <>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
+                        <Label className="text-sm font-medium">Conference room price</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={propertyForm.conference_room_price || ''}
+                          onChange={(e) =>
+                            setPropertyForm((f) => ({
+                              ...f,
+                              conference_room_price: e.target.value ? Number(e.target.value) : null,
+                            }))
+                          }
+                          className="mt-1.5"
+                        />
+                      </div>
+                      <div>
                         <Label className="text-sm font-medium">Conference capacity (people)</Label>
                         <Input
                           type="number"
@@ -4695,15 +4691,15 @@ export default function HostDashboard() {
                         />
                       </div>
                       <div>
-                        <Label className="text-sm font-medium">Minimum hotel rooms to book</Label>
+                        <Label className="text-sm font-medium">Conference duration (hours)</Label>
                         <Input
                           type="number"
-                          min={0}
-                          value={propertyForm.conference_room_min_rooms_required || 0}
+                          min={1}
+                          value={propertyForm.conference_room_duration_hours || 1}
                           onChange={(e) =>
                             setPropertyForm((f) => ({
                               ...f,
-                              conference_room_min_rooms_required: Math.max(0, Number(e.target.value) || 0),
+                              conference_room_duration_hours: Math.max(1, Number(e.target.value) || 1),
                             }))
                           }
                           className="mt-1.5"
@@ -4891,19 +4887,7 @@ export default function HostDashboard() {
                         <button
                           key={type}
                           type="button"
-                          onClick={() =>
-                            setPropertyForm((f) => {
-                              const nextAmenities =
-                                type === "Conference Room"
-                                  ? Array.from(new Set([...(f.amenities || []), "conference_room"]))
-                                  : (f.amenities || []).filter((amenity) => amenity !== "conference_room");
-                              return {
-                                ...f,
-                                property_type: type,
-                                amenities: nextAmenities,
-                              };
-                            })
-                          }
+                          onClick={() => setPropertyForm((f) => ({ ...f, property_type: type }))}
                           className={`p-4 rounded-xl border-2 text-center transition-all ${
                             propertyForm.property_type === type
                               ? "border-primary bg-primary/10 text-primary"
@@ -4931,9 +4915,7 @@ export default function HostDashboard() {
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                     <div>
-                      <Label className="text-sm font-medium">
-                        {propertyForm.property_type === "Conference Room" ? "Conference Base Price" : "Price per Night"}
-                      </Label>
+                      <Label className="text-sm font-medium">Price per Night</Label>
                   <Input
                         type="number"
                         min={1}
@@ -4943,9 +4925,7 @@ export default function HostDashboard() {
                   />
                 </div>
                 <div>
-                      <Label className="text-sm font-medium">
-                        {propertyForm.property_type === "Conference Room" ? "Attendee Price" : "Price per Person"}
-                      </Label>
+                      <Label className="text-sm font-medium">Price per Person</Label>
                   <Input
                         type="number"
                         min={0}
@@ -4956,9 +4936,7 @@ export default function HostDashboard() {
                   />
                 </div>
                 <div>
-                      <Label className="text-base font-medium">
-                        {propertyForm.property_type === "Conference Room" ? "Included Attendees" : "Group Size (people)"}
-                      </Label>
+                      <Label className="text-base font-medium">Group Size (people)</Label>
                       <Input
                         type="number"
                         min={1}
@@ -4968,9 +4946,7 @@ export default function HostDashboard() {
                       />
                     </div>
                     <div>
-                      <Label className="text-base font-medium">
-                        {propertyForm.property_type === "Conference Room" ? "Conference Room Amount *" : "Group Amount"}
-                      </Label>
+                      <Label className="text-base font-medium">Group Amount</Label>
                   <Input
                         type="number"
                         min={0}
@@ -4990,12 +4966,6 @@ export default function HostDashboard() {
                       </Select>
                     </div>
                   </div>
-                  {propertyForm.property_type === "Conference Room" && (
-                    <p className="text-xs text-muted-foreground">
-                      Set a conference room amount for the included attendee count.
-                    </p>
-                  )}
-
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div>
                       <Label className="text-base font-medium flex items-center gap-2"><Users className="w-4 h-4" />Max Guests</Label>
@@ -5046,10 +5016,7 @@ export default function HostDashboard() {
                         <p className="text-sm text-muted-foreground">Enable if guests can access a conference room with room bookings.</p>
                       </div>
                       <Switch
-                        checked={
-                          propertyForm.property_type === "Conference Room" ||
-                          propertyForm.amenities.includes("conference_room")
-                        }
+                        checked={propertyForm.amenities.includes("conference_room")}
                         onCheckedChange={(checked) => {
                           setPropertyForm((f) => {
                             const nextAmenities = checked
@@ -5061,10 +5028,24 @@ export default function HostDashboard() {
                       />
                     </div>
 
-                    {(propertyForm.property_type === "Conference Room" ||
-                      propertyForm.amenities.includes("conference_room")) && (
+                    {propertyForm.amenities.includes("conference_room") && (
                       <>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-base font-medium">Conference room price</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={propertyForm.conference_room_price || ''}
+                              onChange={(e) =>
+                                setPropertyForm((f) => ({
+                                  ...f,
+                                  conference_room_price: e.target.value ? Number(e.target.value) : null,
+                                }))
+                              }
+                              className="mt-2"
+                            />
+                          </div>
                           <div>
                             <Label className="text-base font-medium">Conference capacity (people)</Label>
                             <Input
@@ -5081,15 +5062,15 @@ export default function HostDashboard() {
                             />
                           </div>
                           <div>
-                            <Label className="text-base font-medium">Minimum rooms to book for access</Label>
+                            <Label className="text-base font-medium">Conference duration (hours)</Label>
                             <Input
                               type="number"
-                              min={0}
-                              value={propertyForm.conference_room_min_rooms_required || 0}
+                              min={1}
+                              value={propertyForm.conference_room_duration_hours || 1}
                               onChange={(e) =>
                                 setPropertyForm((f) => ({
                                   ...f,
-                                  conference_room_min_rooms_required: Math.max(0, Number(e.target.value) || 0),
+                                  conference_room_duration_hours: Math.max(1, Number(e.target.value) || 1),
                                 }))
                               }
                               className="mt-2"
@@ -5577,15 +5558,17 @@ export default function HostDashboard() {
                       ))}
                     </div>
 
-                    {(propertyForm.property_type === "Conference Room" ||
-                      propertyForm.amenities.includes("conference_room")) && (
+                    {propertyForm.amenities.includes("conference_room") && (
                       <div className="pt-3 border-t border-border">
                         <div className="text-sm font-medium mb-1">Conference room details</div>
                         <div className="text-sm text-muted-foreground space-y-1">
+                          {propertyForm.conference_room_price ? (
+                            <p>
+                              Price: {formatMoney(Number(propertyForm.conference_room_price), propertyForm.currency)}
+                            </p>
+                          ) : null}
                           <p>Capacity: {Math.max(1, Number(propertyForm.conference_room_capacity || 1))} people</p>
-                          <p>
-                            Minimum rooms to book for access: {Math.max(0, Number(propertyForm.conference_room_min_rooms_required || 0))}
-                          </p>
+                          <p>Duration: {Math.max(1, Number(propertyForm.conference_room_duration_hours || 1))} hour(s)</p>
                           {!!propertyForm.conference_room_equipment?.length && (
                             <p>
                               Equipment: {propertyForm.conference_room_equipment.map((item) => item.replace(/_/g, " ")).join(", ")}

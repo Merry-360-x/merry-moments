@@ -56,7 +56,9 @@ type PropertyRow = {
   smoking_allowed?: boolean | null;
   events_allowed?: boolean | null;
   pets_allowed?: boolean | null;
+  conference_room_price?: number | null;
   conference_room_capacity?: number | null;
+  conference_room_duration_hours?: number | null;
   conference_room_min_rooms_required?: number | null;
   conference_room_equipment?: string[] | null;
 };
@@ -602,10 +604,9 @@ export default function PropertyDetails() {
   const hasConferenceRoom = useMemo(
     () =>
       Boolean(
-        data?.property_type === "Conference Room" ||
-          (data?.amenities || []).includes("conference_room")
+        (data?.amenities || []).includes("conference_room")
       ),
-    [data?.property_type, data?.amenities]
+    [data?.amenities]
   );
   const conferenceEquipmentLabels = useMemo(
     () => (data?.conference_room_equipment || []).map((item) => item.replace(/_/g, " ")),
@@ -1274,13 +1275,14 @@ export default function PropertyDetails() {
                   <div className="mt-4 rounded-lg border border-border p-3">
                     <div className="text-sm font-semibold text-foreground">Conference room available</div>
                     <div className="mt-1 text-xs text-muted-foreground space-y-1">
+                      {data.conference_room_price ? (
+                        <p>Price: {displayMoney(Number(data.conference_room_price), String(data.currency ?? "RWF"))}</p>
+                      ) : null}
                       {data.conference_room_capacity ? (
                         <p>Capacity: {data.conference_room_capacity} people</p>
                       ) : null}
-                      {typeof data.conference_room_min_rooms_required === "number" ? (
-                        <p>
-                          Minimum rooms to book for access: {Math.max(0, data.conference_room_min_rooms_required)}
-                        </p>
+                      {data.conference_room_duration_hours ? (
+                        <p>Duration: {Math.max(1, Number(data.conference_room_duration_hours || 1))} hour(s)</p>
                       ) : null}
                       {conferenceEquipmentLabels.length > 0 ? (
                         <p>Equipment: {conferenceEquipmentLabels.join(", ")}</p>
@@ -1661,15 +1663,20 @@ export default function PropertyDetails() {
 
                 {hasConferenceRoom ? (
                   <div className="mt-3 rounded-md border border-border p-3 text-xs text-muted-foreground">
-                    <p className="font-medium text-foreground mb-1">Conference room policy</p>
-                    {typeof data.conference_room_min_rooms_required === "number" ? (
-                      <p>
-                        Book at least {Math.max(0, data.conference_room_min_rooms_required)} room
-                        {Math.max(0, data.conference_room_min_rooms_required) === 1 ? "" : "s"} to access the conference room.
-                      </p>
-                    ) : (
-                      <p>Conference room access is available with qualifying hotel bookings.</p>
-                    )}
+                    <p className="font-medium text-foreground mb-1">Conference room details</p>
+                    <p>
+                      {data.conference_room_price
+                        ? `Price: ${displayMoney(Number(data.conference_room_price), String(data.currency ?? "RWF"))}`
+                        : "Price available on request"}
+                      {" · "}
+                      {data.conference_room_capacity
+                        ? `Capacity: ${data.conference_room_capacity} people`
+                        : "Capacity available on request"}
+                      {" · "}
+                      {data.conference_room_duration_hours
+                        ? `Duration: ${Math.max(1, Number(data.conference_room_duration_hours || 1))} hour(s)`
+                        : "Duration available on request"}
+                    </p>
                   </div>
                 ) : null}
 
