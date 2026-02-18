@@ -940,6 +940,16 @@ export default function HostDashboard() {
   // Track if we've already checked the profile on this page load
   const [profileChecked, setProfileChecked] = useState(false);
 
+  const shouldFallbackConferenceColumns = (error: any) => {
+    const code = String(error?.code || "");
+    const message = String(error?.message || "");
+    return (
+      code === "42703" ||
+      (code === "PGRST204" &&
+        (message.includes("conference_room_price") || message.includes("conference_room_duration_hours") || message.includes("price_per_group_size")))
+    );
+  };
+
   // Auto-show profile completion dialog if profile is incomplete
   // Only show once per page load after data is actually fetched from database
   useEffect(() => {
@@ -1197,7 +1207,7 @@ export default function HostDashboard() {
   // Property CRUD
   const updateProperty = async (id: string, updates: Partial<Property>) => {
     let { error } = await supabase.from("properties").update(updates).eq("id", id);
-    if (error && String(error.code || "") === "42703") {
+    if (error && shouldFallbackConferenceColumns(error)) {
       const { price_per_group_size, conference_room_price, conference_room_duration_hours, ...fallbackUpdates } = updates as any;
       const retry = await supabase.from("properties").update(fallbackUpdates).eq("id", id);
       error = retry.error;
@@ -1296,7 +1306,7 @@ export default function HostDashboard() {
         .select()
         .single();
 
-      if (error && String(error.code || "") === "42703") {
+      if (error && shouldFallbackConferenceColumns(error)) {
         const { price_per_group_size, conference_room_price, conference_room_duration_hours, ...fallbackPayload } = payload as any;
         const retry = await supabase
           .from("properties")
@@ -4387,7 +4397,7 @@ export default function HostDashboard() {
                   };
 
                   let { error } = await supabase.from("properties").insert(payload);
-                  if (error && String(error.code || "") === "42703") {
+                  if (error && shouldFallbackConferenceColumns(error)) {
                     const { price_per_group_size, conference_room_price, conference_room_duration_hours, ...fallbackPayload } = payload as any;
                     const retry = await supabase.from("properties").insert(fallbackPayload);
                     error = retry.error;
