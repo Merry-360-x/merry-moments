@@ -49,7 +49,7 @@ const fetchProperties = async (args: {
     let query = supabase
       .from("properties")
       .select(
-        "id, title, location, price_per_night, currency, property_type, rating, review_count, images, created_at, bedrooms, bathrooms, beds, lat, lng, host_id, max_guests, check_in_time, check_out_time, smoking_allowed, events_allowed, pets_allowed"
+        "id, title, location, price_per_night, price_per_month, available_for_monthly_rental, monthly_only_listing, currency, property_type, rating, review_count, images, created_at, bedrooms, bathrooms, beds, lat, lng, host_id, max_guests, check_in_time, check_out_time, smoking_allowed, events_allowed, pets_allowed"
       )
       .eq("is_published", true)
       .order("created_at", { ascending: false });
@@ -96,7 +96,13 @@ const fetchProperties = async (args: {
       return [];
     }
     const rows = (data ?? []).filter((r) => {
-      const rawAmount = Number((r as { price_per_night?: number | null }).price_per_night ?? 0);
+      const rowData = r as {
+        price_per_night?: number | null;
+        price_per_month?: number | null;
+        monthly_only_listing?: boolean | null;
+      };
+      const isMonthlyOnly = Boolean(rowData.monthly_only_listing);
+      const rawAmount = Number(isMonthlyOnly ? rowData.price_per_month ?? 0 : rowData.price_per_night ?? 0);
       if (!Number.isFinite(rawAmount)) return false;
       const fromCurrency = String((r as { currency?: string | null }).currency ?? "RWF");
       const displayCurrency = String(args.displayCurrency || "RWF");
@@ -323,7 +329,7 @@ const Accommodations = () => {
           .from("favorites")
           .select(`
             properties!inner (
-              location, property_type, price_per_night
+              location, property_type, price_per_night, price_per_month, monthly_only_listing
             )
           `)
           .eq("user_id", user.id)
@@ -332,14 +338,18 @@ const Accommodations = () => {
         if (favs && favs.length > 0) {
           userPreferences.locations = [...new Set(favs.map((f: any) => f.properties.location).filter(Boolean))];
           userPreferences.types = [...new Set(favs.map((f: any) => f.properties.property_type).filter(Boolean))];
-          userPreferences.maxPrice = Math.max(...favs.map((f: any) => f.properties.price_per_night || 0));
+          userPreferences.maxPrice = Math.max(
+            ...favs.map((f: any) =>
+              f?.properties?.monthly_only_listing ? (f.properties.price_per_month || 0) : (f.properties.price_per_night || 0)
+            )
+          );
         }
       }
       
       // Get popular/highly-rated properties
       const { data: popular, error } = await supabase
         .from("properties")
-        .select("id, title, location, price_per_night, currency, property_type, rating, review_count, images, bedrooms, bathrooms, max_guests")
+        .select("id, title, location, price_per_night, price_per_month, monthly_only_listing, currency, property_type, rating, review_count, images, bedrooms, bathrooms, max_guests")
         .eq("is_published", true)
         .gte("rating", 4.0)
         .gte("review_count", 3)
@@ -364,7 +374,8 @@ const Accommodations = () => {
         }
         
         // Boost score for properties within price range
-        if (prop.price_per_night <= userPreferences.maxPrice) {
+        const recommendationPrice = prop.monthly_only_listing ? (prop.price_per_month || 0) : (prop.price_per_night || 0);
+        if (recommendationPrice <= userPreferences.maxPrice) {
           score += 1;
         }
         
@@ -986,7 +997,8 @@ const Accommodations = () => {
                           location={property.location}
                           rating={Number(property.rating) || 0}
                           reviews={property.review_count || 0}
-                          price={Number(property.price_per_night)}
+                          price={Number((property as any).monthly_only_listing ? ((property as any).price_per_month ?? 0) : (property.price_per_night ?? 0))}
+                          pricePeriod={(property as any).monthly_only_listing ? "month" : "night"}
                           currency={property.currency}
                           type={property.property_type}
                           bedrooms={(property as any).bedrooms ?? null}
@@ -1024,7 +1036,8 @@ const Accommodations = () => {
                       location={property.location}
                       rating={Number(property.rating) || 0}
                       reviews={property.review_count || 0}
-                      price={Number(property.price_per_night)}
+                      price={Number((property as any).monthly_only_listing ? ((property as any).price_per_month ?? 0) : (property.price_per_night ?? 0))}
+                      pricePeriod={(property as any).monthly_only_listing ? "month" : "night"}
                       currency={property.currency}
                       type={property.property_type}
                       bedrooms={(property as any).bedrooms ?? null}
@@ -1089,7 +1102,8 @@ const Accommodations = () => {
                       location={property.location}
                       rating={Number(property.rating) || 0}
                       reviews={property.review_count || 0}
-                      price={Number(property.price_per_night)}
+                      price={Number((property as any).monthly_only_listing ? ((property as any).price_per_month ?? 0) : (property.price_per_night ?? 0))}
+                      pricePeriod={(property as any).monthly_only_listing ? "month" : "night"}
                       currency={property.currency}
                       type={property.property_type}
                       bedrooms={(property as { bedrooms?: number | null }).bedrooms ?? null}

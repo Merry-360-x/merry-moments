@@ -22,6 +22,7 @@ export interface PropertyCardProps {
   rating: number;
   reviews: number;
   price: number;
+  pricePeriod?: "night" | "month";
   pricePerPerson?: number | null;
   currency?: string;
   type: string;
@@ -47,6 +48,7 @@ const PropertyCard = ({
   rating,
   reviews,
   price,
+  pricePeriod = "night",
   pricePerPerson,
   currency = "RWF",
   type,
@@ -263,7 +265,9 @@ const PropertyCard = ({
             <span className="text-[10px] md:text-lg font-bold text-foreground">
               {displayMoney(price, originalCurrency || "RWF")}
             </span>
-            <span className="text-[8px] md:text-sm text-muted-foreground">{t("common.perNight")}</span>
+            <span className="text-[8px] md:text-sm text-muted-foreground">
+              {pricePeriod === "month" ? t("common.perMonth", "per month") : t("common.perNight")}
+            </span>
           </div>
           {pricePerPerson && pricePerPerson > 0 ? (
             <div className="hidden md:flex items-baseline gap-1">

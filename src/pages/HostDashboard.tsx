@@ -151,6 +151,7 @@ interface Property {
   monthly_discount?: number | null;
   available_for_monthly_rental?: boolean | null;
   price_per_month?: number | null;
+  monthly_only_listing?: boolean | null;
   // Rules (optional until DB migration is applied)
   check_in_time?: string | null;
   check_out_time?: string | null;
@@ -1328,6 +1329,7 @@ export default function HostDashboard() {
     payload.weekly_discount = Number(propertyForm.weekly_discount || 0);
     payload.monthly_discount = Number(propertyForm.monthly_discount || 0);
     payload.available_for_monthly_rental = isMonthlyOnly ? true : Boolean(propertyForm.available_for_monthly_rental);
+    payload.monthly_only_listing = isMonthlyOnly;
     if (propertyForm.price_per_month) {
       payload.price_per_month = Number(propertyForm.price_per_month);
     }
@@ -2485,7 +2487,9 @@ export default function HostDashboard() {
       title: property.title || "",
       location: property.location || "",
       address: property.address || "",
-      listing_mode: Boolean((property as any).available_for_monthly_rental) && Number((property as any).price_per_month || 0) > 0
+      listing_mode: Boolean((property as any).monthly_only_listing)
+        ? "monthly_only"
+        : Boolean((property as any).available_for_monthly_rental) && Number((property as any).price_per_month || 0) > 0
         ? "monthly_only"
         : "standard",
       property_type: property.property_type || "Apartment",
@@ -2549,6 +2553,7 @@ export default function HostDashboard() {
         monthly_discount: Number(propertyForm.monthly_discount || 0),
         available_for_monthly_rental: propertyForm.listing_mode === "monthly_only" ? true : Boolean(propertyForm.available_for_monthly_rental),
         price_per_month: propertyForm.listing_mode === "monthly_only" ? monthlyPrice : propertyForm.price_per_month,
+        monthly_only_listing: propertyForm.listing_mode === "monthly_only",
         check_in_time: propertyForm.check_in_time,
         check_out_time: propertyForm.check_out_time,
         smoking_allowed: Boolean(propertyForm.smoking_allowed),
@@ -4675,6 +4680,7 @@ export default function HostDashboard() {
                     price_per_night: normalizedNightlyPrice,
                     available_for_monthly_rental: isMonthlyOnly ? true : Boolean(propertyForm.available_for_monthly_rental),
                     price_per_month: propertyForm.price_per_month ? Number(propertyForm.price_per_month) : null,
+                                        monthly_only_listing: isMonthlyOnly,
                     price_per_person: isMonthlyOnly ? null : (propertyForm.price_per_person || null),
                     price_per_group: isMonthlyOnly ? null : (propertyForm.price_per_group || null),
                     price_per_group_size: isMonthlyOnly ? null : (propertyForm.price_per_group_size || null),
