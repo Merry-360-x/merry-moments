@@ -34,6 +34,9 @@ type PropertyRow = {
   title: string;
   location: string;
   price_per_night: number;
+  price_per_month?: number | null;
+  available_for_monthly_rental?: boolean | null;
+  monthly_only_listing?: boolean | null;
   currency: string | null;
   property_type: string | null;
   rating: number | null;
@@ -602,6 +605,27 @@ export default function PropertyDetails() {
     return Number.isFinite(n) && n > 0 ? n : 0;
   }, [checkIn, checkOut]);
 
+  const isMonthlyOnlyListing = useMemo(
+    () => Boolean(data?.monthly_only_listing) || (Boolean(data?.available_for_monthly_rental) && Number(data?.price_per_month || 0) > 0 && Number(data?.price_per_night || 0) <= 0),
+    [data?.monthly_only_listing, data?.available_for_monthly_rental, data?.price_per_month, data?.price_per_night]
+  );
+
+  const stayUnits = useMemo(() => {
+    const months = Math.max(1, Math.ceil(nights / 30));
+    return { months };
+  }, [nights]);
+
+  useEffect(() => {
+    if (!isMonthlyOnlyListing || !checkIn) return;
+    const start = new Date(checkIn);
+    const minCheckout = new Date(start);
+    minCheckout.setDate(minCheckout.getDate() + 30);
+
+    if (!checkOut || checkOut <= start || checkOut < minCheckout) {
+      setCheckOut(minCheckout);
+    }
+  }, [isMonthlyOnlyListing, checkIn, checkOut]);
+
   const media = useMemo(() => {
     const values = [data?.main_image, ...(data?.images ?? [])].filter(Boolean) as string[];
     return Array.from(new Set(values));
@@ -645,6 +669,13 @@ export default function PropertyDetails() {
 
   const baseTotal = useMemo(() => {
     if (!data || !checkIn || !checkOut || nights <= 0) return 0;
+
+    if (isMonthlyOnlyListing) {
+      const monthlyPrice = Number(data.price_per_month ?? 0);
+      if (monthlyPrice > 0) {
+        return monthlyPrice * stayUnits.months;
+      }
+    }
     
     // Calculate total considering custom prices for each night
     let total = 0;
@@ -658,7 +689,7 @@ export default function PropertyDetails() {
     }
     
     return total;
-  }, [data, nights, checkIn, checkOut, getCustomPriceForDate]);
+  }, [data, nights, checkIn, checkOut, getCustomPriceForDate, isMonthlyOnlyListing, stayUnits.months]);
 
   // Stay discounts (weekly/monthly) based on selected nights
   const stayDiscount = useMemo(() => {
@@ -707,6 +738,14 @@ export default function PropertyDetails() {
     }
     if (nights <= 0) {
       toast({ variant: "destructive", title: t("propertyDetails.toast.invalidDatesTitle"), description: t("propertyDetails.toast.invalidDatesOrder"), });
+      return;
+    }
+    if (isMonthlyOnlyListing && nights < 30) {
+      toast({
+        variant: "destructive",
+        title: "Minimum stay not met",
+        description: "Monthly-only listings require at least 30 nights.",
+      });
       return;
     }
     if (guests < 1) {
@@ -1236,8 +1275,12 @@ export default function PropertyDetails() {
                 </div>
                 <div className="text-right">
                   <div className="text-lg font-bold text-primary">
-                    {displayMoney(Number(data.price_per_night), String(data.currency ?? "RWF"))}
-                    <span className="text-sm text-muted-foreground"> {t("common.perNight")}</span>
+                    {isMonthlyOnlyListing
+                      ? displayMoney(Number(data.price_per_month ?? 0), String(data.currency ?? "RWF"))
+                      : displayMoney(Number(data.price_per_night), String(data.currency ?? "RWF"))}
+                    <span className="text-sm text-muted-foreground">
+                      {isMonthlyOnlyListing ? ` ${t("common.perMonth", "per month")}` : ` ${t("common.perNight")}`}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1531,7 +1574,9 @@ export default function PropertyDetails() {
 
               {/* Booking */}
               <div className="booking-sticky-card mt-8 bg-card rounded-xl shadow-card p-5 lg:sticky lg:top-24 lg:z-20 border border-border/60 transition-all duration-300 hover:shadow-xl">
-                <h2 className="text-lg font-semibold text-foreground mb-4">{t("propertyDetails.bookThisStay")}</h2>
+                <h2 className="text-lg font-semibold text-foreground mb-4">
+                  {isMonthlyOnlyListing ? "Book this monthly stay" : t("propertyDetails.bookThisStay")}
+                </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <Label>{t("propertyDetails.checkIn")}</Label>
@@ -1670,6 +1715,12 @@ export default function PropertyDetails() {
                   </div>
                 )}
 
+                {isMonthlyOnlyListing && (
+                  <div className="mt-3 rounded-md border border-border p-3 text-xs text-muted-foreground">
+                    Minimum stay: 30 nights. Pricing is billed monthly.
+                  </div>
+                )}
+
                 {hasConferenceRoom ? (
                   <div className="mt-3 rounded-md border border-border p-3 text-xs text-muted-foreground">
                     <p className="font-medium text-foreground mb-1">Conference room details</p>
@@ -1693,7 +1744,9 @@ export default function PropertyDetails() {
                   <div className="text-sm text-muted-foreground">
                     {nights > 0 ? (
                       <>
-                        {nights} night{nights === 1 ? "" : "s"} • Total:{" "}
+                        {isMonthlyOnlyListing
+                          ? `${stayUnits.months} month${stayUnits.months === 1 ? "" : "s"} • Total: `
+                          : `${nights} night${nights === 1 ? "" : "s"} • Total: `}
                         <span className="font-semibold text-foreground">
                           {displayMoney(Number(finalTotal), String(data.currency ?? "RWF"))}
                         </span>
@@ -1718,7 +1771,7 @@ export default function PropertyDetails() {
                     </Button>
                     <Button
                       onClick={submitBooking}
-                      disabled={booking || nights <= 0 || (addedAddOn && !isInTripCart)}
+                      disabled={booking || nights <= 0 || (isMonthlyOnlyListing && nights < 30) || (addedAddOn && !isInTripCart)}
                       type="button"
                     >
                       {booking
