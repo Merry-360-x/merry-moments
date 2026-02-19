@@ -271,7 +271,7 @@ function buildFeedCalendar(events) {
   return [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Merry Moments//Hotel Calendar Feed//EN",
+    "PRODID:-//Merry 360 Experiences//Hotel Calendar Feed//EN",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     ...events,

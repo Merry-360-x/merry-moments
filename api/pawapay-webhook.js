@@ -206,7 +206,7 @@ async function sendConfirmationEmail(checkout, items, bookingIds, reviewTokens) 
       },
       body: JSON.stringify(
         buildBrevoSmtpPayload({
-          senderName: "Merry Moments",
+          senderName: "Merry 360 Experiences",
           senderEmail: "support@merry360x.com",
           to: [
             {
@@ -378,7 +378,7 @@ async function sendHostNotification(supabase, booking, item) {
       },
       body: JSON.stringify(
         buildBrevoSmtpPayload({
-          senderName: "Merry Moments",
+          senderName: "Merry 360 Experiences",
           senderEmail: "support@merry360x.com",
           to: [
             {

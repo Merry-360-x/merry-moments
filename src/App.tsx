@@ -213,7 +213,7 @@ type RouteSeoConfig = {
 const ROUTE_SEO_CONFIGS: RouteSeoConfig[] = [
   {
     path: "/",
-    title: "Merry Moments — Stays, Tours & Transport",
+    title: "Merry 360 Experiences — Stays, Tours & Transport",
     description: "Book accommodations, tours, transport, and travel experiences in one place.",
     pageType: "WebPage",
   },

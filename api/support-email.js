@@ -160,7 +160,7 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify(
           buildBrevoSmtpPayload({
-            senderName: "Merry Moments",
+            senderName: "Merry 360 Experiences",
             senderEmail: "support@merry360x.com",
             to: [{ email }],
             subject: "Reset your Merry360X password",
@@ -204,7 +204,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify(
         buildBrevoSmtpPayload({
-          senderName: "Merry Moments",
+          senderName: "Merry 360 Experiences",
           senderEmail: "support@merry360x.com",
           to: [
             {

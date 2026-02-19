@@ -141,7 +141,7 @@ export default function ReviewPage() {
         <div className="text-center mb-6">
           <img
             src="/brand/logo.png"
-            alt="Merry Moments"
+            alt="Merry 360 Experiences"
             className="w-14 h-14 mx-auto rounded-xl shadow-sm"
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = "none";
@@ -304,7 +304,7 @@ export default function ReviewPage() {
                       Rate Our Service
                     </label>
                     <p className="text-xs text-gray-400 text-center mb-3">
-                      How was the booking experience with Merry Moments? You can also leave a public Google service review after submit.
+                      How was the booking experience with Merry 360 Experiences? You can also leave a public Google service review after submit.
                     </p>
                     <StarRating
                       value={svcRating}
@@ -363,7 +363,7 @@ export default function ReviewPage() {
 
         {/* Branding footer */}
         <p className="text-center text-xs text-gray-400 mt-6">
-          Merry Moments · Book local. Travel better.
+          Merry 360 Experiences · Book local. Travel better.
         </p>
       </div>
     </div>

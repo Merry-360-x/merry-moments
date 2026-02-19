@@ -102,7 +102,7 @@ const AffiliateSignup = () => {
           <div className="text-center mb-12">
             <h1 className="text-4xl font-bold mb-4">Refer an Operator & Earn</h1>
             <p className="text-lg text-muted-foreground">
-              Earn 10% commission by referring new operators to Merry Moments
+              Earn 10% commission by referring new operators to Merry 360 Experiences
             </p>
           </div>
 

@@ -436,7 +436,7 @@ async function handleSendManualEmail(req, res) {
       },
       body: JSON.stringify(
         buildBrevoSmtpPayload({
-          senderName: "Merry Moments",
+          senderName: "Merry 360 Experiences",
           senderEmail: "support@merry360x.com",
           to: [{ email: normalizedEmail, name: String(reviewerName || "").trim() || "Guest" }],
           subject: `Share your feedback on ${property.title || "your stay"}`,
@@ -498,7 +498,7 @@ async function handleSendEmail(req, res) {
       },
       body: JSON.stringify(
         buildBrevoSmtpPayload({
-          senderName: "Merry Moments",
+          senderName: "Merry 360 Experiences",
           senderEmail: "support@merry360x.com",
           to: [{ email: guestEmail, name: guestName || "Guest" }],
           subject: `How was your stay at ${propertyTitle || "your accommodation"}?`,
@@ -627,7 +627,7 @@ async function handleSendEmails(req, res) {
           },
           body: JSON.stringify(
             buildBrevoSmtpPayload({
-              senderName: "Merry Moments",
+              senderName: "Merry 360 Experiences",
               senderEmail: "support@merry360x.com",
               to: [{ email, name: name || "Guest" }],
               subject: `How was your stay at ${itemTitle}?`,

@@ -189,7 +189,7 @@ function generateBookingConfirmationHtml(booking) {
   return renderMinimalEmail({
     eyebrow: "Booking Confirmation",
     title: "Your booking is confirmed",
-    subtitle: "Thank you for booking with Merry Moments.",
+    subtitle: "Thank you for booking with Merry 360 Experiences.",
     bodyHtml: `${itemsHtml}${details}<div style="margin-top:14px;"><p style="margin:0 0 8px;color:#6b7280;font-size:12px;">Rate your experience:</p>${stars}</div>`,
     ctaText: "View My Bookings",
     ctaUrl: "https://merry360x.com/my-bookings",
@@ -355,7 +355,7 @@ function generatePendingOrderGuestHtml(payload) {
     title: "Your order is being processed",
     subtitle: "We received your order and our team is processing payment confirmation.",
     bodyHtml: `
-      <p style="margin:0 0 12px;color:#374151;font-size:14px;">Hi ${escapeHtml(payload.guestName || "Guest")}, thanks for booking with Merry Moments.</p>
+      <p style="margin:0 0 12px;color:#374151;font-size:14px;">Hi ${escapeHtml(payload.guestName || "Guest")}, thanks for booking with Merry 360 Experiences.</p>
       ${details}
       <p style="margin:12px 0 0;color:#4b5563;font-size:13px;">You will receive another email/SMS once payment is confirmed.</p>
     `,
@@ -420,7 +420,7 @@ async function sendBrevoEmail({ to, subject, htmlContent, tags = [] }) {
     },
     body: JSON.stringify(
       buildBrevoSmtpPayload({
-        senderName: "Merry Moments",
+        senderName: "Merry 360 Experiences",
         senderEmail: "support@merry360x.com",
         to,
         subject,
@@ -632,7 +632,7 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify(
           buildBrevoSmtpPayload({
-            senderName: "Merry Moments",
+            senderName: "Merry 360 Experiences",
             senderEmail: "support@merry360x.com",
             to: [{ email: previewTo || resolved.hostEmail, name: previewTo ? "Template Preview" : resolved.hostName }],
             subject: `${previewTo ? "[Preview] " : ""}Payment Update: ${paymentLabel(effectivePaymentStatus)} • ${resolved.itemTitle}`,
@@ -754,7 +754,7 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify(
           buildBrevoSmtpPayload({
-            senderName: "Merry Moments",
+            senderName: "Merry 360 Experiences",
             senderEmail: "support@merry360x.com",
             to: [{ email: targetEmail, name: previewTo ? "Template Preview" : (resolvedGuestName || "Guest") }],
             subject: `${previewTo ? "[Preview] " : ""}Refund Update: ${normalized.label}${resolvedBookingId ? ` • ${resolvedBookingId.slice(0, 8).toUpperCase()}` : ""}`,
@@ -807,7 +807,7 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify(
           buildBrevoSmtpPayload({
-            senderName: "Merry Moments",
+            senderName: "Merry 360 Experiences",
             senderEmail: "support@merry360x.com",
             to: [
               {
@@ -883,7 +883,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify(
         buildBrevoSmtpPayload({
-          senderName: "Merry Moments",
+          senderName: "Merry 360 Experiences",
           senderEmail: "support@merry360x.com",
           to: [
             {

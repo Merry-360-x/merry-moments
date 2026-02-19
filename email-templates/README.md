@@ -111,7 +111,7 @@ The templates use a purple gradient (`#667eea` to `#764ba2`). To customize:
 ### Branding
 
 Update these elements:
-- Company name: "Merry Moments"
+- Company name: "Merry 360 Experiences"
 - Support email: support@merrymoments.com
 - Copyright year and text
 - Logo (add `<img>` tag in header)
@@ -123,7 +123,7 @@ Replace the header text with:
 ```html
 <tr>
     <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
-        <img src="https://your-domain.com/logo.png" alt="Merry Moments" style="max-width: 200px; height: auto;">
+        <img src="https://your-domain.com/logo.png" alt="Merry 360 Experiences" style="max-width: 200px; height: auto;">
         <h1 style="color: #ffffff; margin: 20px 0 0 0; font-size: 28px;">
             Welcome! 🎉
         </h1>

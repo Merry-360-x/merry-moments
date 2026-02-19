@@ -146,7 +146,7 @@ You can track updates in your host dashboard: https://merry360x.com/host-dashboa
   const sendTasks = [
     sendBrevoEmail({
       toEmail: ADMIN_EMAIL,
-      toName: "Merry Moments Support",
+      toName: "Merry 360 Experiences Support",
       subject: `Payout Request: ${payout.currency} ${Number(payout.amount).toLocaleString()} - ${payout.hostName || 'Host'}`,
       htmlContent: supportHtml,
       textContent: supportText,
@@ -189,7 +189,7 @@ async function sendBrevoEmail({ toEmail, toName, subject, htmlContent, textConte
       },
       body: JSON.stringify(
         buildBrevoSmtpPayload({
-          senderName: "Merry Moments",
+          senderName: "Merry 360 Experiences",
           senderEmail: "support@merry360x.com",
           to: [{ email: toEmail, name: toName }],
           subject,
