@@ -4639,8 +4639,16 @@ export default function HostDashboard() {
 
                 const nightlyPrice = Number(propertyForm.price_per_night || 0);
                 const monthlyPrice = Number(propertyForm.price_per_month || 0);
-                const isMonthlyOnly = Boolean(propertyForm.available_for_monthly_rental) && nightlyPrice <= 0 && monthlyPrice > 0;
-                if (nightlyPrice <= 0 && !isMonthlyOnly) {
+                const isMonthlyOnly = propertyForm.listing_mode === "monthly_only";
+                if (isMonthlyOnly && monthlyPrice <= 0) {
+                  toast({
+                    variant: "destructive",
+                    title: "Monthly price required",
+                    description: "Set a monthly price for monthly-only rooms.",
+                  });
+                  return;
+                }
+                if (!isMonthlyOnly && nightlyPrice <= 0) {
                   toast({
                     variant: "destructive",
                     title: "Price required",
@@ -4655,9 +4663,9 @@ export default function HostDashboard() {
                   const hasConferenceRoom = isConferenceRoomSelected;
                   const propertyName = propertyForm.title.trim();
                   const monthlyOnlyDerivedNightlyPrice = Math.max(1, Math.round(monthlyPrice / 30));
-                  const normalizedNightlyPrice = nightlyPrice > 0
-                    ? nightlyPrice
-                    : monthlyOnlyDerivedNightlyPrice;
+                  const normalizedNightlyPrice = isMonthlyOnly
+                    ? monthlyOnlyDerivedNightlyPrice
+                    : nightlyPrice;
 
                   const payload = {
                     ...propertyForm,
@@ -4665,9 +4673,12 @@ export default function HostDashboard() {
                     title: propertyName,
                     property_type: propertyForm.property_type || "Room in Apartment",
                     price_per_night: normalizedNightlyPrice,
-                    available_for_monthly_rental: Boolean(propertyForm.available_for_monthly_rental),
+                    available_for_monthly_rental: isMonthlyOnly ? true : Boolean(propertyForm.available_for_monthly_rental),
                     price_per_month: propertyForm.price_per_month ? Number(propertyForm.price_per_month) : null,
-                    price_per_group_size: propertyForm.price_per_group_size || null,
+                    price_per_person: isMonthlyOnly ? null : (propertyForm.price_per_person || null),
+                    price_per_group: isMonthlyOnly ? null : (propertyForm.price_per_group || null),
+                    price_per_group_size: isMonthlyOnly ? null : (propertyForm.price_per_group_size || null),
+                    weekly_discount: isMonthlyOnly ? 0 : Number(propertyForm.weekly_discount || 0),
                     amenities: hasConferenceRoom
                       ? Array.from(new Set([...(propertyForm.amenities || []), "conference_room"]))
                       : propertyForm.amenities,
@@ -4745,6 +4756,53 @@ export default function HostDashboard() {
               </div>
 
               <div>
+                <Label className="text-sm font-medium">Listing Mode</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-1.5">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPropertyForm((f) => ({
+                        ...f,
+                        listing_mode: "standard",
+                        price_per_night: Number(f.price_per_night || 50000) > 0 ? Number(f.price_per_night || 50000) : 50000,
+                      }))
+                    }
+                    className={`p-3 rounded-lg border text-left transition-all ${
+                      propertyForm.listing_mode === "standard"
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                  >
+                    <div className="font-medium">Standard stay</div>
+                    <div className="text-xs mt-1 text-muted-foreground">Per-night pricing with optional monthly rental.</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPropertyForm((f) => ({
+                        ...f,
+                        listing_mode: "monthly_only",
+                        available_for_monthly_rental: true,
+                        price_per_night: 0,
+                        price_per_person: null,
+                        price_per_group: null,
+                        price_per_group_size: 2,
+                        weekly_discount: 0,
+                      }))
+                    }
+                    className={`p-3 rounded-lg border text-left transition-all ${
+                      propertyForm.listing_mode === "monthly_only"
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                  >
+                    <div className="font-medium">Monthly stays only</div>
+                    <div className="text-xs mt-1 text-muted-foreground">No per-night or per-person/group pricing. Monthly price only.</div>
+                  </button>
+                </div>
+              </div>
+
+              <div>
                 <Label className="text-sm font-medium">Location *</Label>
                 <Input
                   value={propertyForm.location}
@@ -4808,16 +4866,30 @@ export default function HostDashboard() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium">Price per Night</Label>
-                  <Input
-                    type="number"
-                    value={propertyForm.price_per_night}
-                    onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_night: Number(e.target.value) }))}
-                    min="0"
-                    className="mt-1.5"
-                  />
-                </div>
+                {propertyForm.listing_mode === "monthly_only" ? (
+                  <div>
+                    <Label className="text-sm font-medium">Price per Month</Label>
+                    <Input
+                      type="number"
+                      value={propertyForm.price_per_month || ""}
+                      onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_month: e.target.value ? Number(e.target.value) : null }))}
+                      min="0"
+                      placeholder="Required"
+                      className="mt-1.5"
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <Label className="text-sm font-medium">Price per Night</Label>
+                    <Input
+                      type="number"
+                      value={propertyForm.price_per_night}
+                      onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_night: Number(e.target.value) }))}
+                      min="0"
+                      className="mt-1.5"
+                    />
+                  </div>
+                )}
                 <div>
                   <Label className="text-sm font-medium">Currency</Label>
                   <Select
@@ -4835,85 +4907,94 @@ export default function HostDashboard() {
                   </Select>
                 </div>
               </div>
-              <details className="rounded-lg border border-border p-3 bg-muted/20">
-                <summary className="text-sm font-medium cursor-pointer">Optional pricing (per person or group)</summary>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
-                  <div>
-                    <Label className="text-sm font-medium">Price per Person</Label>
-                    <Input
-                      type="number"
-                      value={propertyForm.price_per_person || ''}
-                      onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_person: e.target.value ? Number(e.target.value) : null }))}
-                      min="0"
-                      placeholder="Optional"
-                      className="mt-1.5"
-                    />
+              {propertyForm.listing_mode === "standard" && (
+                <details className="rounded-lg border border-border p-3 bg-muted/20">
+                  <summary className="text-sm font-medium cursor-pointer">Optional pricing (per person or group)</summary>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
+                    <div>
+                      <Label className="text-sm font-medium">Price per Person</Label>
+                      <Input
+                        type="number"
+                        value={propertyForm.price_per_person || ''}
+                        onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_person: e.target.value ? Number(e.target.value) : null }))}
+                        min="0"
+                        placeholder="Optional"
+                        className="mt-1.5"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">Group Amount</Label>
+                      <Input
+                        type="number"
+                        value={propertyForm.price_per_group || ''}
+                        onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_group: e.target.value ? Number(e.target.value) : null }))}
+                        min="0"
+                        placeholder="Optional"
+                        className="mt-1.5"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">Group Size (people)</Label>
+                      <Input
+                        type="number"
+                        value={propertyForm.price_per_group_size || 2}
+                        onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_group_size: Math.max(1, Number(e.target.value) || 1) }))}
+                        min="1"
+                        className="mt-1.5"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <Label className="text-sm font-medium">Group Amount</Label>
-                    <Input
-                      type="number"
-                      value={propertyForm.price_per_group || ''}
-                      onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_group: e.target.value ? Number(e.target.value) : null }))}
-                      min="0"
-                      placeholder="Optional"
-                      className="mt-1.5"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Group Size (people)</Label>
-                    <Input
-                      type="number"
-                      value={propertyForm.price_per_group_size || 2}
-                      onChange={(e) => setPropertyForm((f) => ({ ...f, price_per_group_size: Math.max(1, Number(e.target.value) || 1) }))}
-                      min="1"
-                      className="mt-1.5"
-                    />
-                  </div>
-                </div>
-              </details>
-              {propertyForm.price_per_group ? (
+                </details>
+              )}
+              {propertyForm.listing_mode === "standard" && propertyForm.price_per_group ? (
                 <p className="text-xs text-muted-foreground">
                   Group price set: {propertyForm.price_per_group_size || 2} {(propertyForm.price_per_group_size || 2) === 1 ? "person" : "people"} for {propertyForm.currency} {propertyForm.price_per_group.toLocaleString()}.
                 </p>
               ) : null}
 
               {/* Monthly rental option for rooms */}
-              <div className="mt-4 rounded-xl border border-border p-4 space-y-3">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <Label htmlFor="room-monthly-rental" className="text-sm font-medium cursor-pointer">
-                      Monthly rentals (30+ days)
-                    </Label>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Enable long-stay bookings and optionally set a custom monthly price.
-                    </p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    id="room-monthly-rental"
-                    checked={propertyForm.available_for_monthly_rental}
-                    onChange={(e) => setPropertyForm((f) => ({ ...f, available_for_monthly_rental: e.target.checked }))}
-                    className="w-4 h-4 rounded border-gray-300 mt-1"
-                  />
-                </div>
-
-                {propertyForm.available_for_monthly_rental && (
-                  <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-center">
-                    <Input
-                      type="number"
-                      min={0}
-                      value={propertyForm.price_per_month || ''}
-                      onChange={(e) => setPropertyForm((f) => ({
-                        ...f,
-                        price_per_month: e.target.value ? Number(e.target.value) : null,
-                      }))}
-                      placeholder="Monthly price (optional)"
+              {propertyForm.listing_mode === "standard" ? (
+                <div className="mt-4 rounded-xl border border-border p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <Label htmlFor="room-monthly-rental" className="text-sm font-medium cursor-pointer">
+                        Monthly rentals (30+ days)
+                      </Label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Enable long-stay bookings and optionally set a custom monthly price.
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      id="room-monthly-rental"
+                      checked={propertyForm.available_for_monthly_rental}
+                      onChange={(e) => setPropertyForm((f) => ({ ...f, available_for_monthly_rental: e.target.checked }))}
+                      className="w-4 h-4 rounded border-gray-300 mt-1"
                     />
-                    <span className="text-sm text-muted-foreground">{propertyForm.currency}</span>
                   </div>
-                )}
-              </div>
+
+                  {propertyForm.available_for_monthly_rental && (
+                    <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-center">
+                      <Input
+                        type="number"
+                        min={0}
+                        value={propertyForm.price_per_month || ''}
+                        onChange={(e) => setPropertyForm((f) => ({
+                          ...f,
+                          price_per_month: e.target.value ? Number(e.target.value) : null,
+                        }))}
+                        placeholder="Monthly price (optional)"
+                      />
+                      <span className="text-sm text-muted-foreground">{propertyForm.currency}</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="mt-4 rounded-xl border border-border p-4 space-y-2 bg-muted/20">
+                  <p className="text-sm font-medium">Monthly stays only</p>
+                  <p className="text-xs text-muted-foreground">This room will only accept long stays with monthly pricing.</p>
+                </div>
+              )}
 
               <div className="grid grid-cols-3 gap-4">
                 <div>
@@ -6488,7 +6569,13 @@ export default function HostDashboard() {
               <Button variant="outline" onClick={() => setTab("manual-reviews")}>
                 <Send className="w-4 h-4 mr-2" /> Send Review Request
               </Button>
-              <Button variant="outline" onClick={() => setShowRoomWizard(true)}>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setPropertyForm((f) => ({ ...f, listing_mode: "standard" }));
+                  setShowRoomWizard(true);
+                }}
+              >
                 <Plus className="w-4 h-4 mr-2" /> Create Room
               </Button>
               <Button
