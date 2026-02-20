@@ -7575,13 +7575,56 @@ export default function HostDashboard() {
                       <SelectValue placeholder={properties.length === 0 ? "No properties available" : "Select property"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {properties.map((property) => (
-                        <SelectItem key={property.id} value={property.id}>
-                          {property.title}
-                        </SelectItem>
-                      ))}
+                      {properties.map((property) => {
+                        const previewImage = Array.isArray(property.images)
+                          ? property.images.find((img) => typeof img === "string" && img.trim().length > 0)
+                          : null;
+
+                        return (
+                          <SelectItem key={property.id} value={property.id}>
+                            <div className="flex items-center gap-2">
+                              {previewImage ? (
+                                <img
+                                  src={previewImage}
+                                  alt={property.title}
+                                  className="h-6 w-6 rounded object-cover"
+                                />
+                              ) : (
+                                <div className="h-6 w-6 rounded bg-muted" />
+                              )}
+                              <span className="truncate">{property.title}</span>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
+                  {manualReviewForm.propertyId ? (() => {
+                    const selectedProperty = properties.find((property) => property.id === manualReviewForm.propertyId);
+                    if (!selectedProperty) return null;
+
+                    const selectedPreviewImage = Array.isArray(selectedProperty.images)
+                      ? selectedProperty.images.find((img) => typeof img === "string" && img.trim().length > 0)
+                      : null;
+
+                    return (
+                      <div className="mt-2 flex items-center gap-2 rounded-md border px-2 py-1.5">
+                        {selectedPreviewImage ? (
+                          <img
+                            src={selectedPreviewImage}
+                            alt={selectedProperty.title}
+                            className="h-8 w-8 rounded object-cover"
+                          />
+                        ) : (
+                          <div className="h-8 w-8 rounded bg-muted" />
+                        )}
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{selectedProperty.title}</p>
+                          <p className="text-xs text-muted-foreground">Selected property</p>
+                        </div>
+                      </div>
+                    );
+                  })() : null}
                 </div>
 
                 <div>
