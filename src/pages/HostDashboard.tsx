@@ -9453,7 +9453,11 @@ END OF REPORT
                             try {
                               const formData = new FormData();
                               formData.append('file', blob, 'selfie.jpg');
-                              formData.append('upload_preset', 'default');
+                              const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+                              if (!uploadPreset) {
+                                throw new Error('Cloudinary upload preset is not configured');
+                              }
+                              formData.append('upload_preset', uploadPreset);
                               formData.append('folder', 'host_selfies');
                               
                               const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;

@@ -10,13 +10,11 @@ import { Button } from "@/components/ui/button";
 import { TrendingUp } from "lucide-react";
 import heroPoster from "@/assets/hero-resort.jpg";
 
-const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || "dxdblhmbm";
+const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || "";
 const HERO_VIDEO_TRANSFORM = "video/upload/f_auto,q_auto:eco,vc_auto,w_1280";
 const HERO_VIDEO_PUBLIC_ID = "merry360x/merry-hero-banner.mp4";
 
-// Prefer old cloud first (known existing asset), then env cloud, then local fallback.
-const HERO_VIDEO_URL = `https://res.cloudinary.com/dxdblhmbm/${HERO_VIDEO_TRANSFORM}/${HERO_VIDEO_PUBLIC_ID}`;
-const HERO_VIDEO_FALLBACK_URL = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/${HERO_VIDEO_TRANSFORM}/${HERO_VIDEO_PUBLIC_ID}`;
+const HERO_VIDEO_URL = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/${HERO_VIDEO_TRANSFORM}/${HERO_VIDEO_PUBLIC_ID}`;
 
 const Index = () => {
   const { user } = useAuth();
@@ -42,8 +40,7 @@ const Index = () => {
           className="absolute inset-0 w-full h-full object-cover z-[1]"
           style={{ objectPosition: 'center center' }}
         >
-          <source src={HERO_VIDEO_URL} type="video/mp4" />
-          <source src={HERO_VIDEO_FALLBACK_URL} type="video/mp4" />
+          {CLOUDINARY_CLOUD_NAME ? <source src={HERO_VIDEO_URL} type="video/mp4" /> : null}
         </video>
 
         {/* Overlay */}
