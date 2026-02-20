@@ -1593,6 +1593,32 @@ export default function HostDashboard() {
     toast({ title: "Deleted" });
   };
 
+  const navigateToVehicleEdit = async (vehicle: Vehicle) => {
+    if ((vehicle as any).service_type === "airport_transfer") {
+      navigate(`/create-airport-transfer?editId=${vehicle.id}`);
+      return;
+    }
+
+    if ((vehicle as any).service_type === "car_rental") {
+      navigate(`/create-transport?editId=${vehicle.id}`);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("airport_transfer_pricing")
+      .select("vehicle_id")
+      .eq("vehicle_id", vehicle.id)
+      .limit(1)
+      .maybeSingle();
+
+    if (!error && data) {
+      navigate(`/create-airport-transfer?editId=${vehicle.id}`);
+      return;
+    }
+
+    navigate(`/create-transport?editId=${vehicle.id}`);
+  };
+
   // Route CRUD (From → To)
   const updateRoute = async (id: string, updates: Partial<TransportRoute>) => {
     const { error } = await supabase.from("transport_routes").update(updates as never).eq("id", id);
@@ -4531,13 +4557,7 @@ export default function HostDashboard() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => {
-                      if ((vehicle as any).service_type === "airport_transfer") {
-                        navigate(`/create-airport-transfer?editId=${vehicle.id}`);
-                        return;
-                      }
-                      navigate(`/create-transport?editId=${vehicle.id}`);
-                    }}
+                    onClick={() => void navigateToVehicleEdit(vehicle)}
                   >
                     <Edit className="w-3 h-3" />
                   </Button>
