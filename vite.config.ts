@@ -18,16 +18,7 @@ export default defineConfig(({ mode }) => ({
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
-        manualChunks(id) {
-          if (id.includes("node_modules")) {
-            if (id.includes("react") || id.includes("scheduler")) return "vendor-react";
-            if (id.includes("react-router")) return "vendor-router";
-            if (id.includes("@supabase")) return "vendor-supabase";
-            if (id.includes("@radix-ui")) return "vendor-radix";
-            if (id.includes("framer-motion")) return "vendor-motion";
-            return "vendor";
-          }
-        },
+        manualChunks: undefined,
       },
     },
     modulePreload: {
