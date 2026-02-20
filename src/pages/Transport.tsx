@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import type { Tables } from "@/integrations/supabase/types";
 import ListingImageCarousel from "@/components/ListingImageCarousel";
 import { formatMoney } from "@/lib/money";
+import { optimizeCloudinaryImage } from "@/lib/cloudinary";
 import { useTripCart } from "@/hooks/useTripCart";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useFxRates } from "@/hooks/useFxRates";
@@ -491,7 +492,13 @@ const Transport = () => {
                                         <div key={pricing.id} className="border rounded-lg overflow-hidden hover:shadow-md transition-shadow">
                                           {allImages.length > 0 && (
                                             <div className="aspect-video relative">
-                                              <img src={allImages[0]} alt={v.title || ""} className="w-full h-full object-cover" />
+                                              <img
+                                                src={optimizeCloudinaryImage(allImages[0], { width: 640, height: 360, quality: "auto", format: "auto" })}
+                                                alt={v.title || ""}
+                                                className="w-full h-full object-cover"
+                                                loading="lazy"
+                                                decoding="async"
+                                              />
                                             </div>
                                           )}
                                           <div className="p-3">
@@ -576,7 +583,13 @@ const Transport = () => {
                                         <div key={pricing.id} className="border rounded-lg overflow-hidden hover:shadow-md transition-shadow">
                                           {allImages.length > 0 && (
                                             <div className="aspect-video relative">
-                                              <img src={allImages[0]} alt={v.title || ""} className="w-full h-full object-cover" />
+                                              <img
+                                                src={optimizeCloudinaryImage(allImages[0], { width: 640, height: 360, quality: "auto", format: "auto" })}
+                                                alt={v.title || ""}
+                                                className="w-full h-full object-cover"
+                                                loading="lazy"
+                                                decoding="async"
+                                              />
                                             </div>
                                           )}
                                           <div className="p-3">

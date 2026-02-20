@@ -8,7 +8,6 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { TrendingUp } from "lucide-react";
-import localHeroVideo from "@/assets/merry.mp4";
 import heroPoster from "@/assets/hero-resort.jpg";
 
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || "dxdblhmbm";
@@ -45,7 +44,6 @@ const Index = () => {
         >
           <source src={HERO_VIDEO_URL} type="video/mp4" />
           <source src={HERO_VIDEO_FALLBACK_URL} type="video/mp4" />
-          <source src={localHeroVideo} type="video/mp4" />
         </video>
 
         {/* Overlay */}

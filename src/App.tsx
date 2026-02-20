@@ -145,15 +145,23 @@ const PREFETCH_ROUTE_MODULES = [
   () => import("./pages/Accommodations"),
   () => import("./pages/Tours"),
   () => import("./pages/Transport"),
-  () => import("./pages/TripCart"),
-  () => import("./pages/Checkout"),
-  () => import("./pages/MyBookings"),
   () => import("./pages/PropertyDetails"),
   () => import("./pages/TourDetails"),
 ];
 
 function RoutePrefetch() {
   useEffect(() => {
+    const connection = (navigator as Navigator & {
+      connection?: {
+        saveData?: boolean;
+        effectiveType?: string;
+      };
+    }).connection;
+
+    if (connection?.saveData) return;
+    if (connection?.effectiveType && ["slow-2g", "2g", "3g"].includes(connection.effectiveType)) return;
+    if (window.matchMedia("(max-width: 768px)").matches) return;
+
     let cancelled = false;
 
     const prefetch = () => {
@@ -174,7 +182,7 @@ function RoutePrefetch() {
       };
     }
 
-    const timer = window.setTimeout(prefetch, 450);
+    const timer = window.setTimeout(prefetch, 900);
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
