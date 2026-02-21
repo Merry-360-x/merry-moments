@@ -19,6 +19,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { extractNeighborhood } from "@/lib/location";
 import { useTripCart } from "@/hooks/useTripCart";
+import { getTourPriceSuffix, getTourPricingModel } from "@/lib/tour-pricing";
 
 const ALL_CATEGORY_VALUE = "All";
 const ANY_DURATION_VALUE = "Any Duration";
@@ -47,6 +48,7 @@ type TourRow = Pick<
   | "review_count"
   | "location"
 > & {
+  pricing_tiers?: unknown;
   source?: "tours" | "tour_packages"; // Track which table this item came from
   host_id?: string;
   business_name?: string | null;
@@ -72,7 +74,7 @@ const fetchTours = async ({
   let toursQuery = supabase
     .from("tours")
     .select(
-      "id, title, description, category, difficulty, duration_days, price_per_person, currency, images, rating, review_count, location, created_by"
+      "id, title, description, category, difficulty, duration_days, price_per_person, currency, images, rating, review_count, location, created_by, pricing_tiers"
     )
     .or("is_published.eq.true,is_published.is.null")
     .order("created_at", { ascending: false });
@@ -131,6 +133,7 @@ const fetchTours = async ({
       rating: null,
       review_count: null,
       location: `${pkg.city}, ${pkg.country}`,
+      pricing_tiers: pkg.pricing_tiers,
       source: "tour_packages" as const,
       host_id: pkg.host_id,
     }));
@@ -441,7 +444,7 @@ const Tours = () => {
                           return formatMoney(converted ?? amt, converted !== null ? preferredCurrency : from);
                         })()}
                       </span>
-                      <span className="text-[10px] md:text-sm text-muted-foreground"> {t("common.perPerson")}</span>
+                      <span className="text-[10px] md:text-sm text-muted-foreground"> {getTourPriceSuffix(getTourPricingModel(tour.pricing_tiers))}</span>
                     </div>
                     <Button 
                       variant="outline" 

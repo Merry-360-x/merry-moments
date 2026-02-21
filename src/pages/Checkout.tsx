@@ -42,6 +42,7 @@ import {
   Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getTourBillingQuantity, getTourPriceSuffix, getTourPricingModel } from "@/lib/tour-pricing";
 
 interface CartItem {
   id: string;
@@ -353,7 +354,8 @@ export default function CheckoutNew() {
       // Direct tour booking
       if (mode === "tour" && tourId) {
         const participants = parseInt(searchParams.get("participants") || "1", 10);
-        const directTour = await fetchDirectTour(tourId, participants);
+        const quantity = parseInt(searchParams.get("quantity") || "0", 10);
+        const directTour = await fetchDirectTour(tourId, participants, quantity > 0 ? quantity : undefined);
         return directTour;
       }
       
@@ -364,11 +366,11 @@ export default function CheckoutNew() {
     enabled: !authLoading,
   });
 
-  async function fetchDirectTour(tourId: string, participants: number): Promise<CartItem[]> {
+  async function fetchDirectTour(tourId: string, participants: number, explicitQuantity?: number): Promise<CartItem[]> {
     // Fetch the tour details directly
     const { data: tour, error } = await ((supabase
       .from('tours')
-      .select('id, title, price_per_person, currency, images, duration_days') as any)
+      .select('id, title, price_per_person, currency, images, duration_days, pricing_tiers') as any)
       .eq('id', tourId)
       .single());
     
@@ -377,17 +379,26 @@ export default function CheckoutNew() {
       return [];
     }
     
+    const pricingModel = getTourPricingModel((tour as any)?.pricing_tiers);
+    const quantity = explicitQuantity && explicitQuantity > 0
+      ? explicitQuantity
+      : getTourBillingQuantity(pricingModel, participants);
+
     // Return as a cart item
     return [{
       id: `direct-tour-${tour.id}`,
       item_type: 'tour',
       reference_id: tour.id,
-      quantity: participants,
+      quantity,
       title: tour.title,
       price: tour.price_per_person,
       currency: tour.currency || 'RWF',
       image: tour.images?.[0],
-      meta: `${tour.duration_days} days`,
+      meta: `${tour.duration_days} days • ${getTourPriceSuffix(pricingModel)}`,
+      metadata: {
+        participants,
+        pricing_model: pricingModel,
+      } as CartItemMetadata,
     }];
   }
 
@@ -466,7 +477,7 @@ export default function CheckoutNew() {
     const vehicleIds = items.filter(i => i.item_type === 'transport_vehicle').map(i => String(i.reference_id));
 
     const [tours, packages, properties, vehicles] = await Promise.all([
-      tourIds.length ? ((supabase.from('tours').select('id, title, price_per_person, currency, images, duration_days') as any).in('id', tourIds).then((r: any) => r.data || [])) : [],
+      tourIds.length ? ((supabase.from('tours').select('id, title, price_per_person, currency, images, duration_days, pricing_tiers') as any).in('id', tourIds).then((r: any) => r.data || [])) : [],
       packageIds.length ? ((supabase.from('tour_packages').select('id, title, price_per_adult, currency, cover_image, gallery_images, duration') as any).in('id', packageIds).then((r: any) => r.data || [])) : [],
       propertyIds.length ? ((supabase.from('properties').select('id, title, price_per_night, currency, images, location, weekly_discount, monthly_discount') as any).in('id', propertyIds).then((r: any) => r.data || [])) : [],
       vehicleIds.length ? ((supabase.from('transport_vehicles').select('id, title, price_per_day, currency, image_url, vehicle_type, seats') as any).in('id', vehicleIds).then((r: any) => r.data || [])) : [],
@@ -493,7 +504,13 @@ export default function CheckoutNew() {
       const getDetails = () => {
         switch (item.item_type) {
           case 'tour':
-            return { title: data.title, price: data.price_per_person, currency: data.currency || 'RWF', image: data.images?.[0], meta: `${data.duration_days} days` };
+            return {
+              title: data.title,
+              price: data.price_per_person,
+              currency: data.currency || 'RWF',
+              image: data.images?.[0],
+              meta: `${data.duration_days} days • ${getTourPriceSuffix(getTourPricingModel(data.pricing_tiers))}`,
+            };
           case 'tour_package':
             return { title: data.title, price: data.price_per_adult, currency: data.currency || 'RWF', image: data.cover_image || data.gallery_images?.[0], meta: `${parseInt(data.duration) || 1} days` };
           case 'property':
@@ -948,7 +965,7 @@ export default function CheckoutNew() {
             check_out: isProperty ? propertyCheckOut : defaultDates.checkOut,
             guests: isProperty
               ? Number(item.metadata?.guests || bookingDetails?.guests || 1)
-              : Number(item.quantity || 1),
+              : Number((item.metadata as any)?.participants || item.quantity || 1),
             total_price: Math.round(itemAmount),
             currency: item.calculated_price_currency || item.currency || 'RWF',
             status: 'pending',

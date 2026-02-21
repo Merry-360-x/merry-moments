@@ -1,5 +1,6 @@
 import { useMemo, useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { getTourPriceSuffix, getTourPricingModel } from "@/lib/tour-pricing";
 import { useTranslation } from "react-i18next";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";

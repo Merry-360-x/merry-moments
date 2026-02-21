@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, TrendingUp, Heart } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getTourPricingModel } from "@/lib/tour-pricing";
 
 interface RecommendationsProps {
   type: 'properties' | 'tours' | 'all';
@@ -100,6 +101,7 @@ export function PersonalizedRecommendations({
     reviewCount: item.review_count || null,
     category: item.category || null,
     durationDays: item.duration_days || null,
+    pricingModel: getTourPricingModel(item.pricing_tiers),
     source: item.source as 'tours' | 'tour_packages' | undefined,
     hostId: item.created_by || item.host_id || null,
   });
@@ -319,6 +321,7 @@ export function SimilarItems({ itemId, itemType, limit = 4 }: SimilarItemsProps)
     reviewCount: item.review_count || null,
     category: item.category || null,
     durationDays: item.duration_days || null,
+    pricingModel: getTourPricingModel(item.pricing_tiers),
     hostId: item.created_by || item.host_id || null,
   });
 

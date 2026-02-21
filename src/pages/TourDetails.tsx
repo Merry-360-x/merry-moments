@@ -23,6 +23,7 @@ import ListingImageCarousel from "@/components/ListingImageCarousel";
 import ImageGallery from "@/components/ImageGallery";
 import { formatMoney } from "@/lib/money";
 import { convertAmount } from "@/lib/fx";
+import { getTourBillingQuantity, getTourPriceSuffix, getTourPricingModel } from "@/lib/tour-pricing";
 import { useFxRates } from "@/hooks/useFxRates";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useTripCart } from "@/hooks/useTripCart";
@@ -212,6 +213,7 @@ export default function TourDetails() {
   const nonRefundableItems = Array.isArray(tour?.non_refundable_items)
     ? tour?.non_refundable_items
     : [];
+  const pricingModel = getTourPricingModel((tour as any)?.pricing_tiers);
 
   // Support pricing tiers for both regular tours and tour packages
   const pricingTiers = ((): Array<{ group_size: number; price_per_person: number }> => {
@@ -581,7 +583,7 @@ export default function TourDetails() {
                 <div className="text-3xl font-bold text-primary">
                   {displayMoney(Number(normalizedPrice ?? 0), String(normalizedCurrency ?? "RWF"))}
                 </div>
-                <div className="text-sm text-muted-foreground">{t("tourDetails.perPerson")}</div>
+                <div className="text-sm text-muted-foreground">{getTourPriceSuffix(pricingModel)}</div>
               </div>
 
               {/* Residency-based pricing */}
@@ -661,12 +663,12 @@ export default function TourDetails() {
                     <Plus className="w-4 h-4" />
                   </Button>
                 </div>
-                {participants > 1 && (
+                {participants > 1 && pricingModel === "per_person" && (
                   <div className="mt-3 p-3 bg-muted/50 rounded-lg">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">{t("tourDetails.totalForGroup", "Total for group")}</span>
                       <span className="font-semibold text-primary">
-                        {displayMoney(Number(normalizedPrice ?? 0) * participants, String(normalizedCurrency ?? "RWF"))}
+                        {displayMoney(Number(normalizedPrice ?? 0) * getTourBillingQuantity(pricingModel, participants), String(normalizedCurrency ?? "RWF"))}
                       </span>
                     </div>
                   </div>
@@ -683,6 +685,7 @@ export default function TourDetails() {
                       mode: "tour",
                       tourId: String(tour.id),
                       participants: String(participants),
+                      quantity: String(getTourBillingQuantity(pricingModel, participants)),
                     });
                     navigate(`/checkout?${params.toString()}`);
                   }}
@@ -694,7 +697,7 @@ export default function TourDetails() {
                   className="w-full"
                   variant="outline"
                   size="lg"
-                  onClick={async () => await addToCart("tour", String(tour.id), participants)}
+                  onClick={async () => await addToCart("tour", String(tour.id), getTourBillingQuantity(pricingModel, participants))}
                 >
                   {t("common.addToTripCart")}
                 </Button>

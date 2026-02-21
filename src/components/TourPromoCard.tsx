@@ -10,6 +10,7 @@ import { useTripCart } from "@/hooks/useTripCart";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useFxRates } from "@/hooks/useFxRates";
 import { convertAmount } from "@/lib/fx";
+import { TourPricingModel, getTourPriceSuffix } from "@/lib/tour-pricing";
 
 export type TourPromoCardProps = {
   id: string;
@@ -24,6 +25,7 @@ export type TourPromoCardProps = {
   durationDays?: number | null;
   source?: 'tours' | 'tour_packages';
   hostId?: string | null;
+  pricingModel?: TourPricingModel;
 };
 
 export default function TourPromoCard(props: TourPromoCardProps) {
@@ -137,7 +139,7 @@ export default function TourPromoCard(props: TourPromoCardProps) {
           </p>
           <div className="flex items-baseline gap-0.5 md:gap-1">
             <span className="text-[10px] md:text-lg font-bold text-foreground">{displayPrice}</span>
-            <span className="text-[8px] md:text-sm text-muted-foreground">/ person</span>
+            <span className="text-[8px] md:text-sm text-muted-foreground">{getTourPriceSuffix(props.pricingModel ?? "per_person")}</span>
             {props.durationDays ? (
               <span className="ml-auto text-[8px] md:text-xs text-muted-foreground">{props.durationDays}d</span>
             ) : null}

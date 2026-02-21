@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { SlidersHorizontal, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { AMENITIES } from "@/lib/amenities";
+import { getTourPricingModel } from "@/lib/tour-pricing";
 
 export default function SearchResults() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -152,6 +153,7 @@ export default function SearchResults() {
     reviewCount: item.review_count || null,
     category: item.category || null,
     durationDays: item.duration_days || null,
+    pricingModel: getTourPricingModel(item.pricing_tiers),
     source: item.searchType === 'tour_package' ? 'tour_packages' as const : 'tours' as const,
     hostId: item.created_by || item.host_id || null,
   });

@@ -21,6 +21,12 @@ import { cn } from "@/lib/utils";
 import { DISPLAY_CURRENCIES } from "@/lib/currencies";
 
 const categories = ["Nature", "Adventure", "Cultural", "Wildlife", "Historical", "City Tours", "Eco-Tourism", "Photography"];
+const tourPricingModels = [
+  { value: "per_person", label: "Per person" },
+  { value: "per_group", label: "Per group" },
+  { value: "per_hour", label: "Per hour" },
+  { value: "per_minute", label: "Per minute" },
+] as const;
 
 interface FormErrors {
   title?: string;
@@ -52,6 +58,8 @@ export default function CreateTour() {
     duration_days: 1,
     max_participants: 10,
     price_per_person: 0,
+    pricing_model: "per_person" as "per_person" | "per_group" | "per_hour" | "per_minute",
+    price_per_group_size: 2,
     currency: "RWF",
     has_differential_pricing: false,
     price_for_citizens: "",
@@ -104,6 +112,20 @@ export default function CreateTour() {
       }
 
       const mergedCategories = [data.category, ...((data.categories as string[] | null) || [])].filter(Boolean) as string[];
+      const pricingModel = (() => {
+        const raw = (data as any)?.pricing_tiers;
+        if (!raw || Array.isArray(raw) || typeof raw !== "object") return "per_person";
+        const candidate = String((raw as { pricing_model?: string }).pricing_model || "").toLowerCase();
+        return ["per_person", "per_group", "per_hour", "per_minute"].includes(candidate)
+          ? (candidate as "per_person" | "per_group" | "per_hour" | "per_minute")
+          : "per_person";
+      })();
+      const groupSize = (() => {
+        const raw = (data as any)?.pricing_tiers;
+        if (!raw || Array.isArray(raw) || typeof raw !== "object") return 2;
+        const next = Number((raw as { price_per_group_size?: number }).price_per_group_size || 2);
+        return Number.isFinite(next) && next >= 1 ? Math.floor(next) : 2;
+      })();
       setFormData({
         title: data.title || "",
         description: data.description || "",
@@ -112,6 +134,8 @@ export default function CreateTour() {
         duration_days: Number(data.duration_days || 1),
         max_participants: Number(data.max_group_size || 10),
         price_per_person: Number(data.price_per_person || 0),
+        pricing_model: pricingModel,
+        price_per_group_size: groupSize,
         currency: data.currency || "RWF",
         has_differential_pricing: Boolean((data as any).has_differential_pricing),
         price_for_citizens: (data as any).price_for_citizens != null ? String((data as any).price_for_citizens) : "",
@@ -331,6 +355,13 @@ export default function CreateTour() {
         price_for_foreigners: formData.has_differential_pricing && formData.price_for_foreigners ? parseFloat(formData.price_for_foreigners) : null,
       };
 
+      (tourData as any).pricing_tiers = {
+        pricing_model: formData.pricing_model,
+        ...(formData.pricing_model === "per_group"
+          ? { price_per_group_size: Math.max(1, Number(formData.price_per_group_size || 1)) }
+          : {}),
+      };
+
       (tourData as any).tour_guide_license_url = licenseUrl || null;
       (tourData as any).tour_license_url = licenseUrl || null;
 
@@ -534,7 +565,32 @@ export default function CreateTour() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label className="text-sm font-normal mb-1.5 block">Price *</Label>
+                <Label className="text-sm font-normal mb-1.5 block">Pricing Model *</Label>
+                <Select
+                  value={formData.pricing_model}
+                  onValueChange={(v: "per_person" | "per_group" | "per_hour" | "per_minute") =>
+                    setFormData({ ...formData, pricing_model: v })
+                  }
+                >
+                  <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {tourPricingModels.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-sm font-normal mb-1.5 block">
+                  {formData.pricing_model === "per_group"
+                    ? "Price per Group *"
+                    : formData.pricing_model === "per_hour"
+                      ? "Price per Hour *"
+                      : formData.pricing_model === "per_minute"
+                        ? "Price per Minute *"
+                        : "Price per Person *"}
+                </Label>
                 <Input
                   type="number"
                   value={formData.price_per_person}
@@ -546,6 +602,25 @@ export default function CreateTour() {
                 />
                 {errors.price_per_person && <p className="text-xs text-destructive mt-1">{errors.price_per_person}</p>}
               </div>
+
+              {formData.pricing_model === "per_group" ? (
+                <div>
+                  <Label className="text-sm font-normal mb-1.5 block">Group Size (included in group rate) *</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={formData.price_per_group_size}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        price_per_group_size: Math.max(1, parseInt(e.target.value, 10) || 1),
+                      })
+                    }
+                    className="h-10"
+                  />
+                </div>
+              ) : null}
 
               <div>
                 <Label className="text-sm font-normal mb-1.5 block">Currency</Label>
