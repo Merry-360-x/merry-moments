@@ -20,6 +20,7 @@ import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { formatMoney } from "@/lib/money";
 import { AMENITIES, AMENITIES_BY_CATEGORY } from "@/lib/amenities";
 import { calculateHostEarningsFromGuestTotal, PLATFORM_FEES } from "@/lib/fees";
+import { getTourPricingModel } from "@/lib/tour-pricing";
 import { useFxRates } from "@/hooks/useFxRates";
 import { usePreferences } from "@/hooks/usePreferences";
 import { convertAmount } from "@/lib/fx";
@@ -194,7 +195,7 @@ interface Tour {
   min_guests?: number | null;
   max_guests?: number | null;
   max_participants?: number | null;
-  pricing_tiers?: Array<{ group_size: number; price_per_person: number; room_type?: "double_twin" | "single" }> | null;
+  pricing_tiers?: Array<{ group_size: number; price_per_person: number; room_type?: "double_twin" | "single" }> | { pricing_model?: string; price_per_group_size?: number } | null;
   group_discount_6_10?: number | null;
   group_discount_11_15?: number | null;
   group_discount_16_plus?: number | null;
@@ -3430,6 +3431,13 @@ export default function HostDashboard() {
     const [removedImages, setRemovedImages] = useState<string[]>([]);
     const [groupDiscounts, setGroupDiscounts] = useState<Array<{min_people: number, max_people: number | null, discount_percentage: number}>>([]);
     const [pricingTiers, setPricingTiers] = useState<Array<{ group_size: number; price_per_person: number }>>([]);
+    const tourPricingModel = getTourPricingModel((form as any)?.pricing_tiers);
+    const tourGroupSize = (() => {
+      const raw = (form as any)?.pricing_tiers;
+      if (!raw || Array.isArray(raw) || typeof raw !== "object") return 2;
+      const value = Number((raw as { price_per_group_size?: number }).price_per_group_size || 2);
+      return Number.isFinite(value) && value >= 1 ? Math.floor(value) : 2;
+    })();
 
     // Sync form state when tour prop changes or when exiting edit mode
     useEffect(() => {
@@ -3437,8 +3445,8 @@ export default function HostDashboard() {
       setNewImages([]);
       setRemovedImages([]);
       
-      // Initialize pricingTiers from tour data
-      if (tour.pricing_tiers && Array.isArray(tour.pricing_tiers)) {
+      // Initialize pricingTiers from tour package data
+      if (tour.source === "tour_packages" && tour.pricing_tiers && Array.isArray(tour.pricing_tiers)) {
         setPricingTiers(tour.pricing_tiers.map(t => ({
           group_size: t.group_size || 1,
           price_per_person: t.price_per_person || 0,
@@ -3506,8 +3514,13 @@ export default function HostDashboard() {
         // National/International pricing for tours table
         updates.national_discount_percent = (form as any).national_discount_percent || 0;
         updates.international_price_per_person = (form as any).international_price_per_person || null;
-        // Save pricing tiers for regular tours
-        updates.pricing_tiers = pricingTiers.filter(t => t.group_size >= 1 && t.price_per_person > 0);
+        // Save pricing model metadata for regular tours
+        updates.pricing_tiers = {
+          pricing_model: tourPricingModel,
+          ...(tourPricingModel === "per_group"
+            ? { price_per_group_size: Math.max(1, Number(tourGroupSize || 1)) }
+            : {}),
+        };
       } else {
         // Tour package specific fields - use price_per_adult for tour_packages table
         updates.price_per_adult = form.price_per_person;
@@ -3726,62 +3739,73 @@ export default function HostDashboard() {
                     </div>
                   </div>
                   
-                  {/* Group Pricing for Tours */}
                   <div className="space-y-2 mt-3 pt-3 border-t">
-                    <Label className="text-xs font-medium">Group Pricing (Optional)</Label>
-                    <p className="text-[10px] text-muted-foreground">Set per-person prices for different group sizes</p>
-                    
-                    {pricingTiers.map((tier, index) => (
-                      <div key={index} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+                    <Label className="text-xs font-medium">Pricing</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-[10px]">Pricing Model</Label>
+                        <Select
+                          value={tourPricingModel}
+                          onValueChange={(value: "per_person" | "per_group" | "per_hour" | "per_minute") =>
+                            setForm((prev) => ({
+                              ...prev,
+                              pricing_tiers: {
+                                pricing_model: value,
+                                ...(value === "per_group" ? { price_per_group_size: tourGroupSize } : {}),
+                              },
+                            }))
+                          }
+                        >
+                          <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="per_person">Per person</SelectItem>
+                            <SelectItem value="per_group">Per group</SelectItem>
+                            <SelectItem value="per_hour">Per hour</SelectItem>
+                            <SelectItem value="per_minute">Per minute</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-[10px]">
+                          {tourPricingModel === "per_group"
+                            ? "Price/Group"
+                            : tourPricingModel === "per_hour"
+                              ? "Price/Hour"
+                              : tourPricingModel === "per_minute"
+                                ? "Price/Minute"
+                                : "Price/Person"}
+                        </Label>
+                        <Input
+                          type="number"
+                          value={form.price_per_person || 0}
+                          onChange={(e) => setForm({ ...form, price_per_person: parseFloat(e.target.value) || 0 })}
+                          min="0"
+                          step="0.01"
+                          className="mt-1 h-8 text-sm"
+                        />
+                      </div>
+                      {tourPricingModel === "per_group" ? (
                         <div>
-                          <Label className="text-[10px]">People</Label>
+                          <Label className="text-[10px]">Group Size</Label>
                           <Input
                             type="number"
-                            value={tier.group_size}
+                            value={tourGroupSize}
                             onChange={(e) => {
-                              const next = [...pricingTiers];
-                              next[index].group_size = Math.max(1, parseInt(e.target.value) || 1);
-                              setPricingTiers(next);
+                              const value = Math.max(1, parseInt(e.target.value, 10) || 1);
+                              setForm((prev) => ({
+                                ...prev,
+                                pricing_tiers: {
+                                  pricing_model: "per_group",
+                                  price_per_group_size: value,
+                                },
+                              }));
                             }}
                             min="1"
-                            className="h-8 text-sm"
+                            className="mt-1 h-8 text-sm"
                           />
                         </div>
-                        <div>
-                          <Label className="text-[10px]">Price/Person</Label>
-                          <Input
-                            type="number"
-                            value={tier.price_per_person}
-                            onChange={(e) => {
-                              const next = [...pricingTiers];
-                              next[index].price_per_person = Math.max(0, parseFloat(e.target.value) || 0);
-                              setPricingTiers(next);
-                            }}
-                            min="0"
-                            className="h-8 text-sm"
-                          />
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setPricingTiers(pricingTiers.filter((_, i) => i !== index))}
-                          className="h-8"
-                        >
-                          <X className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    ))}
-                    
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPricingTiers([...pricingTiers, { group_size: pricingTiers.length > 0 ? Math.max(...pricingTiers.map(t => t.group_size)) + 1 : 2, price_per_person: 0 }])}
-                      className="w-full h-8 text-xs"
-                    >
-                      + Add Pricing Tier
-                    </Button>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               ) : (
