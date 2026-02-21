@@ -1,5 +1,11 @@
 // API endpoint to send confirmation email to customer when they submit a support ticket
-import { buildBrevoSmtpPayload, escapeHtml, keyValueRows, renderMinimalEmail } from "../lib/email-template-kit.js";
+import {
+  buildBrevoSmtpPayload,
+  escapeHtml,
+  getSafeRecipientEmail,
+  keyValueRows,
+  renderMinimalEmail,
+} from "../lib/email-template-kit.js";
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 
@@ -70,6 +76,12 @@ export default async function handler(req, res) {
       return json(res, 400, { error: "Missing required fields" });
     }
 
+    const recipient = getSafeRecipientEmail({ primaryEmail: userEmail, previewEmail: previewTo });
+    if (!recipient) {
+      console.log("⚠️ Skipping ticket confirmation email: invalid recipient", { userEmail, previewTo: Boolean(previewTo) });
+      return json(res, 200, { ok: true, skipped: true, reason: "invalid_recipient" });
+    }
+
     const ticket = { ticketId, category, subject, message, userName };
     const html = generateCustomerTicketEmailHtml(ticket);
 
@@ -86,8 +98,8 @@ export default async function handler(req, res) {
           senderEmail: "support@merry360x.com",
           to: [
             {
-              email: previewTo || userEmail,
-              name: previewTo ? "Template Preview" : (userName || "Customer"),
+              email: recipient.email,
+              name: recipient.source === "preview" ? "Template Preview" : (userName || "Customer"),
             },
           ],
           subject: `${previewTo ? "[Preview] " : ""}We received your message – ${subject}`,

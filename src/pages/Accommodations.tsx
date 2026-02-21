@@ -28,6 +28,26 @@ const propertyTypes = ["Hotel", "Motel", "Resort", "Lodge", "Apartment", "Room i
 const amenities = AMENITIES;
 const PRICE_SLIDER_MAX_USD = 50000;
 const PRICE_SLIDER_STEP_USD = 50;
+type MonthlyFilterMode = "all" | "monthly_only" | "monthly_available" | "nightly_only";
+
+const monthlyModeFromParams = (params: URLSearchParams): MonthlyFilterMode => {
+  const stay = (params.get("stay") || "").toLowerCase();
+  const duration = (params.get("duration") || "").toLowerCase();
+  const monthly = (params.get("monthly") || "").toLowerCase();
+
+  if (stay === "monthly" || duration === "monthly" || monthly === "1" || monthly === "true") {
+    return "monthly_available";
+  }
+
+  return "all";
+};
+
+const monthlyFilterLabel: Record<MonthlyFilterMode, string> = {
+  all: "All rentals",
+  monthly_only: "Monthly only",
+  monthly_available: "Monthly available",
+  nightly_only: "Nightly only",
+};
 
 const fetchProperties = async (args: {
   maxPriceInDisplayCurrency: number;
@@ -43,7 +63,7 @@ const fetchProperties = async (args: {
   guests?: number; // Add guest filter
   startDate?: string; // Add start date filter
   endDate?: string; // Add end date filter
-  monthlyRentalOnly?: boolean; // Add monthly rental filter
+  monthlyFilterMode?: MonthlyFilterMode; // Add monthly rental filter mode
 }) => {
   try {
     let query = supabase
@@ -55,6 +75,10 @@ const fetchProperties = async (args: {
       .order("created_at", { ascending: false });
 
     const trimmed = args.search.trim();
+    const searchTerms = trimmed
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean);
     if (trimmed) {
       query = query.or(`title.ilike.%${trimmed}%,location.ilike.%${trimmed}%`);
     }
@@ -86,8 +110,12 @@ const fetchProperties = async (args: {
     }
 
     // Monthly rental filtering
-    if (args.monthlyRentalOnly) {
-      query = query.eq("available_for_monthly_rental", true);
+    if (args.monthlyFilterMode === "monthly_only") {
+      query = query.eq("monthly_only_listing", true);
+    } else if (args.monthlyFilterMode === "monthly_available") {
+      query = query.or("monthly_only_listing.eq.true,available_for_monthly_rental.eq.true");
+    } else if (args.monthlyFilterMode === "nightly_only") {
+      query = query.or("monthly_only_listing.is.null,monthly_only_listing.eq.false");
     }
 
     const { data, error } = await query;
@@ -97,10 +125,39 @@ const fetchProperties = async (args: {
     }
     const rows = (data ?? []).filter((r) => {
       const rowData = r as {
+        title?: string | null;
+        location?: string | null;
         price_per_night?: number | null;
         price_per_month?: number | null;
+        available_for_monthly_rental?: boolean | null;
         monthly_only_listing?: boolean | null;
       };
+      if (searchTerms.length > 0) {
+        const searchableText = `${rowData.title ?? ""} ${rowData.location ?? ""}`.toLowerCase();
+        const matchesAllTerms = searchTerms.every((term) => searchableText.includes(term));
+        if (!matchesAllTerms) return false;
+      }
+
+      if (args.location?.trim()) {
+        const locationTerms = args.location
+          .toLowerCase()
+          .split(/\s+/)
+          .filter(Boolean);
+        const locationText = String(rowData.location ?? "").toLowerCase();
+        const locationMatches = locationTerms.every((term) => locationText.includes(term));
+        if (!locationMatches) return false;
+      }
+
+      if (args.monthlyFilterMode === "monthly_only" && !Boolean(rowData.monthly_only_listing)) return false;
+      if (
+        args.monthlyFilterMode === "monthly_available" &&
+        !Boolean(rowData.monthly_only_listing) &&
+        !Boolean(rowData.available_for_monthly_rental)
+      ) {
+        return false;
+      }
+      if (args.monthlyFilterMode === "nightly_only" && Boolean(rowData.monthly_only_listing)) return false;
+
       const isMonthlyOnly = Boolean(rowData.monthly_only_listing);
       const rawAmount = Number(isMonthlyOnly ? rowData.price_per_month ?? 0 : rowData.price_per_night ?? 0);
       if (!Number.isFinite(rawAmount)) return false;
@@ -168,7 +225,7 @@ const Accommodations = () => {
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
   const [autoLocationRequested, setAutoLocationRequested] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [monthlyRentalOnly, setMonthlyRentalOnly] = useState(false);
+  const [monthlyFilterMode, setMonthlyFilterMode] = useState<MonthlyFilterMode>(() => monthlyModeFromParams(searchParams));
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 12; // 3 columns x 4 rows
   const hostId = searchParams.get("host");
@@ -193,7 +250,7 @@ const Accommodations = () => {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [maxPriceUsd, selectedTypes.length, selectedAmenities.length, minRating, locationFilter, guestCount, monthlyRentalOnly, hostId]);
+  }, [maxPriceUsd, selectedTypes.length, selectedAmenities.length, minRating, locationFilter, guestCount, monthlyFilterMode, hostId]);
 
   useEffect(() => {
     setQuery(searchParams.get("q") ?? "");
@@ -210,6 +267,9 @@ const Accommodations = () => {
     // Update dates from URL parameters
     setStartDate(searchParams.get("start") ?? "");
     setEndDate(searchParams.get("end") ?? "");
+
+    // Auto-apply monthly filter when coming from month-based smart search
+    setMonthlyFilterMode(monthlyModeFromParams(searchParams));
   }, [searchParams]);
 
   const runSearch = () => {
@@ -292,7 +352,7 @@ const Accommodations = () => {
       guestCount,
       startDate,
       endDate,
-      monthlyRentalOnly,
+      monthlyFilterMode,
     ],
     queryFn: () =>
       fetchProperties({
@@ -309,7 +369,7 @@ const Accommodations = () => {
         guests: guestCount,
         startDate,
         endDate,
-        monthlyRentalOnly,
+        monthlyFilterMode,
       }),
     staleTime: 1000 * 60 * 2, // 2 minutes for search results
     gcTime: 1000 * 60 * 10, // 10 minutes cache
@@ -449,7 +509,8 @@ const Accommodations = () => {
     (selectedAmenities.length > 0 ? 1 : 0) +
     (minRating > 0 ? 1 : 0) +
     (locationFilter.trim() ? 1 : 0) +
-    (guestCount > 0 ? 1 : 0);
+    (guestCount > 0 ? 1 : 0) +
+    (monthlyFilterMode !== "all" ? 1 : 0);
 
   return (
     <div className="min-h-screen bg-background">
@@ -522,7 +583,19 @@ const Accommodations = () => {
       <div className="container mx-auto px-4 lg:px-8 py-12">
         <div className="mb-8">
           <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">{t("accommodations.title")}</h1>
-          <p className="text-muted-foreground">{t("accommodations.subtitle")}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-muted-foreground">{t("accommodations.subtitle")}</p>
+            {monthlyFilterMode !== "all" ? (
+              <button
+                type="button"
+                onClick={() => setMonthlyFilterMode("all")}
+                className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary hover:bg-primary/15"
+                title="Clear monthly filter"
+              >
+                Monthly stays active: {monthlyFilterLabel[monthlyFilterMode]} ×
+              </button>
+            ) : null}
+          </div>
         </div>
 
         {hostId && hostPreview ? (
@@ -698,15 +771,27 @@ const Accommodations = () => {
                 <AccordionItem value="rental-type">
                   <AccordionTrigger>Rental Duration</AccordionTrigger>
                   <AccordionContent>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={monthlyRentalOnly}
-                        onChange={(e) => setMonthlyRentalOnly(e.target.checked)}
-                        className="w-4 h-4 rounded border-gray-300"
-                      />
-                      <span className="text-sm">Monthly rentals only (30+ days)</span>
-                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { value: "all", label: "All rentals" },
+                        { value: "monthly_only", label: "Monthly only" },
+                        { value: "monthly_available", label: "Monthly available" },
+                        { value: "nightly_only", label: "Nightly only" },
+                      ].map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setMonthlyFilterMode(opt.value as MonthlyFilterMode)}
+                          className={`px-3 py-2 rounded-full text-sm border transition-colors ${
+                            monthlyFilterMode === opt.value
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-background text-foreground border-border hover:border-primary"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
                   </AccordionContent>
                 </AccordionItem>
                 <AccordionItem value="amenities">
@@ -755,6 +840,7 @@ const Accommodations = () => {
                   setMinRating(0);
                   setLocationFilter("");
                   setGuestCount(0);
+                  setMonthlyFilterMode("all");
                 }}
               >
                 Clear
@@ -783,6 +869,7 @@ const Accommodations = () => {
                     setMinRating(0);
                     setLocationFilter("");
                     setGuestCount(0);
+                    setMonthlyFilterMode("all");
                   }}
                 >
                   Clear
@@ -920,15 +1007,27 @@ const Accommodations = () => {
                 <AccordionItem value="rental-type-mobile">
                   <AccordionTrigger>Rental Duration</AccordionTrigger>
                   <AccordionContent>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={monthlyRentalOnly}
-                        onChange={(e) => setMonthlyRentalOnly(e.target.checked)}
-                        className="w-4 h-4 rounded border-gray-300"
-                      />
-                      <span className="text-sm">Monthly rentals only (30+ days)</span>
-                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { value: "all", label: "All rentals" },
+                        { value: "monthly_only", label: "Monthly only" },
+                        { value: "monthly_available", label: "Monthly available" },
+                        { value: "nightly_only", label: "Nightly only" },
+                      ].map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setMonthlyFilterMode(opt.value as MonthlyFilterMode)}
+                          className={`px-3 py-2 rounded-full text-sm border transition-colors ${
+                            monthlyFilterMode === opt.value
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-background text-foreground border-border hover:border-primary"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
                   </AccordionContent>
                 </AccordionItem>
 

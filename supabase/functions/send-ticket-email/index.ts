@@ -20,6 +20,35 @@ interface TicketEmailData {
   userName?: string;
 }
 
+function normalizeEmail(value: string | null | undefined): string {
+  return String(value || "").trim().toLowerCase().replace(/^<|>$/g, "");
+}
+
+function isValidRecipientEmail(value: string | null | undefined): boolean {
+  const email = normalizeEmail(value);
+  if (!email || email.length > 254 || /\s/.test(email)) return false;
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)) return false;
+  if (email.endsWith(".local") || email.endsWith(".localhost")) return false;
+
+  const [localPart = "", domain = ""] = email.split("@");
+  if (!localPart || !domain || localPart.includes("..") || domain.includes("..")) return false;
+
+  const blockedDomains = new Set([
+    "example.com",
+    "example.org",
+    "example.net",
+    "mailinator.com",
+    "guerrillamail.com",
+    "10minutemail.com",
+    "temp-mail.org",
+    "yopmail.com",
+    "localhost",
+    "localdomain",
+  ]);
+
+  return !blockedDomains.has(domain);
+}
+
 function generateTicketEmailHtml(ticket: TicketEmailData): string {
   const categoryColors: Record<string, string> = {
     general: "#3b82f6",
@@ -148,6 +177,16 @@ serve(async (req) => {
     }
 
     const html = generateTicketEmailHtml(data);
+    const supportRecipient = normalizeEmail(SUPPORT_EMAIL);
+    if (!isValidRecipientEmail(supportRecipient)) {
+      return new Response(
+        JSON.stringify({ ok: true, skipped: true, reason: "invalid_support_recipient" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const replyToEmail = normalizeEmail(data.userEmail);
+    const canUseReplyTo = isValidRecipientEmail(replyToEmail);
 
     // Send email via Brevo
     const response = await fetch("https://api.brevo.com/v3/smtp/email", {
@@ -164,14 +203,18 @@ serve(async (req) => {
         },
         to: [
           {
-            email: SUPPORT_EMAIL,
+            email: supportRecipient,
             name: "Merry360X Support Team",
           },
         ],
-        replyTo: {
-          email: data.userEmail,
-          name: data.userName || "Customer",
-        },
+        ...(canUseReplyTo
+          ? {
+              replyTo: {
+                email: replyToEmail,
+                name: data.userName || "Customer",
+              },
+            }
+          : {}),
         subject: `🎫 [${data.category.toUpperCase()}] ${data.subject}`,
         htmlContent: html,
       }),

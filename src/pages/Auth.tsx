@@ -341,10 +341,15 @@ const Auth = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    const normalizedEmail = email
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "")
+      .normalize("NFKC");
 
     try {
       if (isLogin) {
-        const { error } = await signIn(email, password);
+        const { error } = await signIn(normalizedEmail, password);
         if (error) throw error;
         
         // Show toast
@@ -386,7 +391,7 @@ const Auth = () => {
           throw new Error("Phone number is required");
         }
         const fullName = `${firstName.trim()} ${lastName.trim()}`;
-        const { error } = await signUp(email, password, fullName, {
+        const { error } = await signUp(normalizedEmail, password, fullName, {
           firstName: firstName.trim(),
           lastName: lastName.trim(),
           phoneNumber: phoneNumber.trim(),

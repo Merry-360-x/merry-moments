@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { SlidersHorizontal, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { AMENITIES } from "@/lib/amenities";
 
 export default function SearchResults() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -28,6 +29,8 @@ export default function SearchResults() {
   const [priceRange, setPriceRange] = useState([0, 1000]);
   const [category, setCategory] = useState('');
   const [rating, setRating] = useState(0);
+  const [monthlyMode, setMonthlyMode] = useState<'all' | 'monthly_available' | 'monthly_only' | 'nightly_only'>('all');
+  const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState('relevance');
 
   const query = searchParams.get('q') || '';
@@ -40,6 +43,8 @@ export default function SearchResults() {
         type: activeTab === 'all' ? undefined : activeTab,
         priceMin: priceRange[0],
         priceMax: priceRange[1],
+        monthlyMode,
+        amenities: selectedAmenities,
       };
 
       if (category) filters.category = category;
@@ -47,18 +52,24 @@ export default function SearchResults() {
       if (location) filters.location = location;
 
       let searchResults = await SmartSearch.search(query, filters);
+      const getComparablePrice = (item: any) => {
+        if (item.searchType === 'property' && item.monthly_only_listing) {
+          return item.price_per_month || 0;
+        }
+        return item.price_per_night || item.price_per_person || item.price_per_adult || item.price_per_day || 0;
+      };
 
       // Apply sorting
       if (sortBy === 'price-low') {
         searchResults = searchResults.sort((a, b) => {
-          const priceA = a.price_per_night || a.price_per_person || a.price_per_adult || a.price_per_day || 0;
-          const priceB = b.price_per_night || b.price_per_person || b.price_per_adult || b.price_per_day || 0;
+          const priceA = getComparablePrice(a);
+          const priceB = getComparablePrice(b);
           return priceA - priceB;
         });
       } else if (sortBy === 'price-high') {
         searchResults = searchResults.sort((a, b) => {
-          const priceA = a.price_per_night || a.price_per_person || a.price_per_adult || a.price_per_day || 0;
-          const priceB = b.price_per_night || b.price_per_person || b.price_per_adult || b.price_per_day || 0;
+          const priceA = getComparablePrice(a);
+          const priceB = getComparablePrice(b);
           return priceB - priceA;
         });
       } else if (sortBy === 'rating') {
@@ -71,7 +82,7 @@ export default function SearchResults() {
     } finally {
       setIsLoading(false);
     }
-  }, [query, location, activeTab, category, rating, sortBy, priceRange]);
+  }, [query, location, activeTab, category, rating, monthlyMode, selectedAmenities, sortBy, priceRange]);
 
   useEffect(() => {
     if (query) {
@@ -89,6 +100,8 @@ export default function SearchResults() {
   const clearFilters = () => {
     setCategory('');
     setRating(0);
+    setMonthlyMode('all');
+    setSelectedAmenities([]);
     setPriceRange([0, 1000]);
     setSortBy('relevance');
   };
@@ -98,30 +111,35 @@ export default function SearchResults() {
   const transport = results.filter(r => r.searchType === 'transport');
 
   // Map results to component props
-  const mapToPropertyProps = (item: any) => ({
-    id: item.id,
-    image: item.images?.[0] || null,
-    images: item.images || null,
-    title: item.title || item.name || '',
-    location: item.location || item.city || '',
-    rating: item.rating || 0,
-    reviews: item.review_count || 0,
-    price: item.price_per_night || 0,
-    pricePerPerson: item.price_per_person,
-    currency: item.currency,
-    type: item.property_type || 'Property',
-    bedrooms: item.bedrooms,
-    beds: item.beds,
-    bathrooms: item.bathrooms,
-    maxGuests: item.max_guests,
-    checkInTime: item.check_in_time,
-    checkOutTime: item.check_out_time,
-    smokingAllowed: item.smoking_allowed,
-    eventsAllowed: item.events_allowed,
-    petsAllowed: item.pets_allowed,
-    isFavorited: false,
-    hostId: item.host_id || null,
-  });
+  const mapToPropertyProps = (item: any) => {
+    const isMonthlyOnly = Boolean(item.monthly_only_listing);
+
+    return {
+      id: item.id,
+      image: item.images?.[0] || null,
+      images: item.images || null,
+      title: item.title || item.name || '',
+      location: item.location || item.city || '',
+      rating: item.rating || 0,
+      reviews: item.review_count || 0,
+      price: isMonthlyOnly ? (item.price_per_month || 0) : (item.price_per_night || 0),
+      pricePeriod: isMonthlyOnly ? "month" : "night",
+      pricePerPerson: item.price_per_person,
+      currency: item.currency,
+      type: item.property_type || 'Property',
+      bedrooms: item.bedrooms,
+      beds: item.beds,
+      bathrooms: item.bathrooms,
+      maxGuests: item.max_guests,
+      checkInTime: item.check_in_time,
+      checkOutTime: item.check_out_time,
+      smokingAllowed: item.smoking_allowed,
+      eventsAllowed: item.events_allowed,
+      petsAllowed: item.pets_allowed,
+      isFavorited: false,
+      hostId: item.host_id || null,
+    };
+  };
 
   const mapToTourProps = (item: any) => ({
     id: item.id,
@@ -262,6 +280,52 @@ export default function SearchResults() {
                     <SelectItem value="Wildlife">Wildlife</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Rental Duration */}
+              <div>
+                <Label className="mb-3 block">Rental duration</Label>
+                <Select value={monthlyMode} onValueChange={(v) => setMonthlyMode(v as typeof monthlyMode)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All rentals" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All rentals</SelectItem>
+                    <SelectItem value="monthly_available">Monthly available</SelectItem>
+                    <SelectItem value="monthly_only">Monthly only</SelectItem>
+                    <SelectItem value="nightly_only">Nightly only</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <Label className="mb-3 block">Amenities</Label>
+              <div className="flex flex-wrap gap-2">
+                {AMENITIES.slice(0, 20).map((amenity) => {
+                  const active = selectedAmenities.includes(amenity.value);
+                  return (
+                    <button
+                      key={amenity.value}
+                      type="button"
+                      onClick={() =>
+                        setSelectedAmenities((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(amenity.value)) next.delete(amenity.value);
+                          else next.add(amenity.value);
+                          return Array.from(next);
+                        })
+                      }
+                      className={`px-3 py-1.5 rounded-full text-xs border transition-colors ${
+                        active
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background border-border hover:border-primary"
+                      }`}
+                    >
+                      {amenity.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

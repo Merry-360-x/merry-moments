@@ -1291,10 +1291,9 @@ export default function HostDashboard() {
     // NOTE: Database has both 'name' (required NOT NULL) and 'title' columns
     const propertyName = propertyForm.title.trim();
     const baseNightlyPrice = Number(propertyForm.price_per_night || 0);
-    const monthlyOnlyDerivedNightlyPrice = Math.max(1, Math.round(monthlyPrice / 30));
-    const normalizedNightlyPrice = baseNightlyPrice > 0
-      ? baseNightlyPrice
-      : (isMonthlyOnly ? monthlyOnlyDerivedNightlyPrice : 50000);
+    const normalizedNightlyPrice = isMonthlyOnly
+      ? 0
+      : (baseNightlyPrice > 0 ? baseNightlyPrice : 50000);
     const payload: Record<string, unknown> = {
       name: propertyName,  // Required column (NOT NULL)
       title: propertyName,
@@ -2552,9 +2551,8 @@ export default function HostDashboard() {
 
   const submitPropertyWizard = async () => {
     const monthlyPrice = Number(propertyForm.price_per_month || 0);
-    const monthlyOnlyDerivedNightlyPrice = Math.max(1, Math.round(monthlyPrice / 30));
     const normalizedNightlyPrice = propertyForm.listing_mode === "monthly_only"
-      ? monthlyOnlyDerivedNightlyPrice
+      ? 0
       : Number(propertyForm.price_per_night || 0);
 
     if (propertyWizardEditId) {
@@ -3158,6 +3156,10 @@ export default function HostDashboard() {
     const [editUploadOpen, setEditUploadOpen] = useState(false);
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
     const integrationSummary = propertyCalendarSummaries[property.id] || null;
+    const isMonthlyOnly =
+      Boolean(property.monthly_only_listing) ||
+      (Boolean(property.available_for_monthly_rental) && Number(property.price_per_month || 0) > 0 && Number(property.price_per_night || 0) <= 0);
+    const cardPrice = isMonthlyOnly ? Number(property.price_per_month || 0) : Number(property.price_per_night || 0);
 
     const handleSave = async () => {
       const success = await updateProperty(property.id, {
@@ -3388,7 +3390,7 @@ export default function HostDashboard() {
                   ) : null}
                 </div>
                 <span className="text-primary font-bold text-sm">
-                  {formatMoney(property.price_per_night, property.currency || "RWF")}
+                  {formatMoney(cardPrice, property.currency || "RWF")} {isMonthlyOnly ? "per month" : "per night"}
                 </span>
               </div>
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -4687,9 +4689,8 @@ export default function HostDashboard() {
                 try {
                   const hasConferenceRoom = isConferenceRoomSelected;
                   const propertyName = propertyForm.title.trim();
-                  const monthlyOnlyDerivedNightlyPrice = Math.max(1, Math.round(monthlyPrice / 30));
                   const normalizedNightlyPrice = isMonthlyOnly
-                    ? monthlyOnlyDerivedNightlyPrice
+                    ? 0
                     : nightlyPrice;
 
                   const payload = {

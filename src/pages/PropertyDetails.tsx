@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
@@ -133,6 +133,7 @@ export default function PropertyDetails() {
   const { t } = useTranslation();
   const params = useParams();
   const propertyId = params.id;
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -142,18 +143,36 @@ export default function PropertyDetails() {
   const { currency: preferredCurrency } = usePreferences();
   const { usdRates } = useFxRates();
 
-  const [checkIn, setCheckIn] = useState<Date | undefined>(new Date());
+  const [checkIn, setCheckIn] = useState<Date | undefined>(() => {
+    const param = searchParams.get("start") || searchParams.get("checkIn");
+    if (!param) return new Date();
+    const parsed = new Date(param);
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  });
   const [checkOut, setCheckOut] = useState<Date | undefined>(() => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow;
+    const startParam = searchParams.get("start") || searchParams.get("checkIn");
+    const endParam = searchParams.get("end") || searchParams.get("checkOut");
+    const start = startParam ? new Date(startParam) : new Date();
+    const end = endParam ? new Date(endParam) : null;
+
+    if (end && !Number.isNaN(end.getTime()) && end > start) return end;
+
+    const fallback = new Date(start);
+    fallback.setDate(fallback.getDate() + 1);
+    return fallback;
   });
   const [usePoints, setUsePoints] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIdx, setViewerIdx] = useState(0);
   const [addedAddOn, setAddedAddOn] = useState(false);
   const [isFavorited, setIsFavorited] = useState(false);
-  const [guests, setGuests] = useState(1);
+  const [guests, setGuests] = useState(() => {
+    const direct = Number(searchParams.get("guests") || 0);
+    const adults = Number(searchParams.get("adults") || 0);
+    const children = Number(searchParams.get("children") || 0);
+    const inferred = direct > 0 ? direct : adults + children;
+    return inferred > 0 ? inferred : 1;
+  });
   const [booking, setBooking] = useState(false);
 
   const { data: myPoints = 0 } = useQuery({
@@ -838,15 +857,22 @@ export default function PropertyDetails() {
     [data?.id, propertyId]
   );
 
-  const tourRecommendationPhrase = useMemo(
-    () => TOUR_RECOMMENDATION_PHRASES[recommendationSeed % TOUR_RECOMMENDATION_PHRASES.length],
-    [recommendationSeed]
-  );
+  const locationHints = useMemo(() => {
+    const propertyLocation = String(data?.location ?? "").trim();
+    const fromSearch = String(searchParams.get("location") || searchParams.get("q") || "").trim();
+    const primary = propertyLocation || fromSearch;
+    if (!primary) return [] as string[];
 
-  const transportRecommendationPhrase = useMemo(
-    () => TRANSPORT_RECOMMENDATION_PHRASES[recommendationSeed % TRANSPORT_RECOMMENDATION_PHRASES.length],
-    [recommendationSeed]
-  );
+    return primary
+      .split(/[,\-]/)
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .slice(0, 2);
+  }, [data?.location, searchParams]);
+
+  const tourRecommendationPhrase = "Experiences that fit your stay.";
+
+  const transportRecommendationPhrase = "Transport ready for your stay.";
 
   const bundleRecommendationPhrase = useMemo(
     () => BUNDLE_RECOMMENDATION_PHRASES[recommendationSeed % BUNDLE_RECOMMENDATION_PHRASES.length],
@@ -854,25 +880,41 @@ export default function PropertyDetails() {
   );
 
   const { data: relatedTours = [] } = useQuery({
-    queryKey: ["related-tours"],
+    queryKey: ["related-tours", propertyId, nights, guests, checkIn?.toISOString().slice(0, 10), checkOut?.toISOString().slice(0, 10), locationHints.join("|")],
+    enabled: Boolean(propertyId),
     queryFn: async () => {
+      const stayDays = Math.max(1, nights || 1);
+      const locationHint = locationHints[0] || "";
+
       // Get tours from tours table
-      const { data: toursData, error: toursError } = await supabase
+      let toursQuery = supabase
         .from("tours")
-        .select("id, title, location, price_per_person, currency, images")
+        .select("id, title, location, duration_days, max_guests, price_per_person, currency, images")
         .eq("is_published", true)
         .order("created_at", { ascending: false })
-        .limit(6);
+        .limit(24);
+
+      if (locationHint) {
+        toursQuery = toursQuery.ilike("location", `%${locationHint}%`);
+      }
+
+      const { data: toursData, error: toursError } = await toursQuery;
       
       if (toursError) console.error("Tours error:", toursError);
       
       // Also get tour_packages - uses different column names
-      const { data: packagesData, error: packagesError } = await supabase
+      let packagesQuery = supabase
         .from("tour_packages")
-        .select("id, title, city, price_per_adult, currency, cover_image")
+        .select("id, title, city, max_guests, duration, price_per_adult, currency, cover_image")
         .eq("status", "approved")
         .order("created_at", { ascending: false })
-        .limit(6);
+        .limit(24);
+
+      if (locationHint) {
+        packagesQuery = packagesQuery.ilike("city", `%${locationHint}%`);
+      }
+
+      const { data: packagesData, error: packagesError } = await packagesQuery;
       
       if (packagesError) console.error("Tour packages error:", packagesError);
       
@@ -881,6 +923,8 @@ export default function PropertyDetails() {
         id: t.id,
         title: t.title,
         location: t.location,
+        duration_days: Number((t as { duration_days?: number | null }).duration_days || 0) || null,
+        max_guests: Number((t as { max_guests?: number | null }).max_guests || 0) || null,
         price_per_person: t.price_per_person,
         currency: t.currency,
         images: t.images,
@@ -891,17 +935,27 @@ export default function PropertyDetails() {
         id: p.id,
         title: p.title,
         location: p.city,
+        duration_days: Number.parseInt(String((p as { duration?: string | null }).duration || ""), 10) || null,
+        max_guests: Number((p as { max_guests?: number | null }).max_guests || 0) || null,
         price_per_person: p.price_per_adult,
         currency: p.currency,
         images: p.cover_image ? [p.cover_image] : [],
         source: "tour_packages" as const
       }));
+
+      const filteredByStay = [...packages, ...tours].filter((tour) => {
+        if (tour.duration_days && tour.duration_days > stayDays) return false;
+        if (tour.max_guests && guests > 0 && tour.max_guests < guests) return false;
+        return true;
+      });
       
       // Return combined list, prioritize packages
-      return [...packages, ...tours].slice(0, 6) as Array<{
+      return filteredByStay.slice(0, 6) as Array<{
         id: string;
         title: string;
         location: string | null;
+        duration_days?: number | null;
+        max_guests?: number | null;
         price_per_person: number;
         currency: string | null;
         images: string[] | null;
@@ -911,16 +965,25 @@ export default function PropertyDetails() {
   });
 
   const { data: relatedTransportVehicles = [] } = useQuery({
-    queryKey: ["related-transport-vehicles"],
+    queryKey: ["related-transport-vehicles", propertyId, checkIn?.toISOString().slice(0, 10), checkOut?.toISOString().slice(0, 10), guests, locationHints.join("|")],
+    enabled: Boolean(propertyId),
     queryFn: async () => {
-      const { data: rows, error } = await supabase
+      const locationHint = locationHints[0] || "";
+
+      let transportQuery = supabase
         .from("transport_vehicles")
         .select("id, title, provider_name, vehicle_type, seats, price_per_day, currency, image_url")
         .eq("is_published", true)
         .order("created_at", { ascending: false })
-        .limit(6);
+        .limit(40);
+
+      if (locationHint) {
+        transportQuery = transportQuery.or(`title.ilike.%${locationHint}%,provider_name.ilike.%${locationHint}%`);
+      }
+
+      const { data: rows, error } = await transportQuery;
       if (error) throw error;
-      return (rows ?? []) as Array<{
+      const vehicles = (rows ?? []) as Array<{
         id: string;
         title: string;
         provider_name: string | null;
@@ -930,6 +993,47 @@ export default function PropertyDetails() {
         currency: string | null;
         image_url: string | null;
       }>;
+
+      const guestsFiltered = vehicles.filter((vehicle) => {
+        if (!guests || guests <= 0) return true;
+        return Number(vehicle.seats || 0) >= guests;
+      });
+
+      if (!checkIn || !checkOut) {
+        return guestsFiltered.slice(0, 6);
+      }
+
+      const { data: bookedRows, error: bookedError } = await supabase
+        .from("bookings")
+        .select("transport_id, check_in, check_out, status, payment_status")
+        .in("status", ["pending", "confirmed", "completed"])
+        .in("payment_status", ["pending", "paid"])
+        .not("transport_id", "is", null);
+
+      if (bookedError || !bookedRows) {
+        return guestsFiltered.slice(0, 6);
+      }
+
+      const selectedStart = new Date(checkIn);
+      const selectedEnd = new Date(checkOut);
+      selectedStart.setHours(0, 0, 0, 0);
+      selectedEnd.setHours(0, 0, 0, 0);
+
+      const conflictingIds = new Set(
+        bookedRows
+          .filter((booking) => {
+            const bookingStart = new Date(String((booking as { check_in?: string | null }).check_in || ""));
+            const bookingEnd = new Date(String((booking as { check_out?: string | null }).check_out || ""));
+            if (Number.isNaN(bookingStart.getTime()) || Number.isNaN(bookingEnd.getTime())) return false;
+            bookingStart.setHours(0, 0, 0, 0);
+            bookingEnd.setHours(0, 0, 0, 0);
+            return selectedStart < bookingEnd && selectedEnd > bookingStart;
+          })
+          .map((booking) => String((booking as { transport_id?: string | null }).transport_id || ""))
+          .filter(Boolean)
+      );
+
+      return guestsFiltered.filter((vehicle) => !conflictingIds.has(String(vehicle.id))).slice(0, 6);
     },
   });
 

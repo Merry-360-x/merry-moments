@@ -58,7 +58,10 @@ export function PersonalizedRecommendations({
 
   // Map recommendation data to card props
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mapToPropertyProps = (item: any) => ({
+  const mapToPropertyProps = (item: any) => {
+    const isMonthlyOnly = Boolean(item.monthly_only_listing);
+
+    return {
     id: item.id,
     image: item.images?.[0] || null,
     images: item.images || null,
@@ -66,7 +69,8 @@ export function PersonalizedRecommendations({
     location: item.location || item.city || '',
     rating: item.rating || 0,
     reviews: item.review_count || 0,
-    price: item.price_per_night || 0,
+    price: isMonthlyOnly ? (item.price_per_month || 0) : (item.price_per_night || 0),
+    pricePeriod: isMonthlyOnly ? "month" : "night",
     pricePerPerson: item.price_per_person,
     currency: item.currency,
     type: item.property_type || 'Property',
@@ -81,7 +85,8 @@ export function PersonalizedRecommendations({
     petsAllowed: item.pets_allowed,
     isFavorited: false,
     hostId: item.host_id || null,
-  });
+    };
+  };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapToTourProps = (item: any) => ({

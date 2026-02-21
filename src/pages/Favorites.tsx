@@ -18,6 +18,8 @@ interface FavoriteProperty {
     title: string;
     location: string;
     price_per_night: number;
+    price_per_month: number | null;
+    monthly_only_listing: boolean | null;
     currency: string | null;
     property_type: string;
     rating: number;
@@ -46,7 +48,7 @@ const Favorites = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("favorites")
-        .select("id, properties(id, title, location, price_per_night, currency, property_type, rating, review_count, images, host_id)")
+        .select("id, properties(id, title, location, price_per_night, price_per_month, monthly_only_listing, currency, property_type, rating, review_count, images, host_id)")
         .eq("user_id", user!.id);
       if (error) throw error;
       return (data as FavoriteProperty[]) ?? [];
@@ -86,6 +88,7 @@ const Favorites = () => {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {favorites.map((fav) => (
+              
               <PropertyCard
                 key={fav.id}
                 id={fav.properties.id}
@@ -95,7 +98,10 @@ const Favorites = () => {
                 location={fav.properties.location}
                 rating={Number(fav.properties.rating) || 0}
                 reviews={fav.properties.review_count || 0}
-                price={Number(fav.properties.price_per_night)}
+                price={Boolean(fav.properties.monthly_only_listing)
+                  ? Number(fav.properties.price_per_month || 0)
+                  : Number(fav.properties.price_per_night || 0)}
+                pricePeriod={Boolean(fav.properties.monthly_only_listing) ? "month" : "night"}
                 currency={fav.properties.currency || "RWF"}
                 type={fav.properties.property_type}
                 hostId={fav.properties.host_id || null}
@@ -103,7 +109,7 @@ const Favorites = () => {
                 onToggleFavorite={async () => {
                   const changed = await toggleFavorite(String(fav.properties.id), true);
                   if (!changed) return;
-                  setFavorites((prev) => prev.filter((x) => x.id !== fav.id));
+                  await qc.invalidateQueries({ queryKey: ["favorites-full", user?.id] });
                   if (user?.id) {
                     await qc.invalidateQueries({ queryKey: ["favorites", "ids", user.id] });
                   }

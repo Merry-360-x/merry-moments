@@ -94,6 +94,17 @@ const queryClient = new QueryClient({
         )) {
           return false;
         }
+        // Don't retry on network/DNS/connectivity failures (prevents noisy request floods)
+        if (error instanceof Error && (
+          error.message?.includes("Failed to fetch") ||
+          error.message?.includes("ERR_NETWORK") ||
+          error.message?.includes("ERR_INTERNET_DISCONNECTED") ||
+          error.message?.includes("ERR_ADDRESS_UNREACHABLE") ||
+          error.message?.includes("ERR_NAME_NOT_RESOLVED") ||
+          error.message?.includes("ERR_CONNECTION_CLOSED")
+        )) {
+          return false;
+        }
         // Retry up to 3 times for better reliability
         return failureCount < 3;
       },

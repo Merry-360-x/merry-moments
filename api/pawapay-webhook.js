@@ -1,5 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
-import { buildBrevoSmtpPayload, escapeHtml, keyValueRows, renderMinimalEmail } from "../lib/email-template-kit.js";
+import {
+  buildBrevoSmtpPayload,
+  escapeHtml,
+  keyValueRows,
+  renderMinimalEmail,
+  validateRecipientEmail,
+} from "../lib/email-template-kit.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -191,6 +197,12 @@ async function sendConfirmationEmail(checkout, items, bookingIds, reviewTokens) 
     return false;
   }
 
+  const guestEmailValidation = validateRecipientEmail(checkout.email);
+  if (!guestEmailValidation.ok) {
+    console.log("⚠️ Skipping guest confirmation email: invalid recipient", { reason: guestEmailValidation.reason });
+    return false;
+  }
+
   const html = generateConfirmationEmail(checkout, items, bookingIds, reviewTokens);
   const receiptBase64 = generateReceiptPDF(checkout, items, bookingIds);
   const guestName = checkout.name || "Guest";
@@ -210,7 +222,7 @@ async function sendConfirmationEmail(checkout, items, bookingIds, reviewTokens) 
           senderEmail: "support@merry360x.com",
           to: [
             {
-              email: checkout.email,
+              email: guestEmailValidation.email,
               name: guestName,
             },
           ],
@@ -230,7 +242,7 @@ async function sendConfirmationEmail(checkout, items, bookingIds, reviewTokens) 
     const result = await response.json();
     
     if (response.ok) {
-      console.log(`📧 Confirmation email sent to ${checkout.email}: ${result.messageId}`);
+      console.log(`📧 Confirmation email sent to ${guestEmailValidation.email}: ${result.messageId}`);
       return true;
     } else {
       console.error("❌ Brevo API error:", result);
@@ -335,10 +347,13 @@ async function sendHostNotification(supabase, booking, item) {
     hostEmail = profile.email;
     hostName = profile.full_name;
 
-    if (!hostEmail) {
-      console.log("⚠️ No host email found for host ID:", hostId);
+    const hostEmailValidation = validateRecipientEmail(hostEmail);
+    if (!hostEmailValidation.ok) {
+      console.log("⚠️ Skipping host notification email: invalid host recipient", { hostId, reason: hostEmailValidation.reason });
       return false;
     }
+
+    hostEmail = hostEmailValidation.email;
 
     console.log(`✅ Found host email: ${hostEmail} for ${itemType}: ${itemTitle}`);
 

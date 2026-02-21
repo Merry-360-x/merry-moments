@@ -298,6 +298,7 @@ const HeroSearch = () => {
     if (dateRange?.from) params.set("start", dateRange.from.toISOString().slice(0, 10));
     if (dateRange?.to) params.set("end", dateRange.to.toISOString().slice(0, 10));
     if (dateFlexDays > 0) params.set("flex", String(dateFlexDays));
+    if (whenTab === "months") params.set("stay", "monthly");
     params.set("adults", String(adults));
     if (children) params.set("children", String(children));
     if (infants) params.set("infants", String(infants));
@@ -333,6 +334,7 @@ const HeroSearch = () => {
     if (dateRange?.from) params.set("start", dateRange.from.toISOString().slice(0, 10));
     if (dateRange?.to) params.set("end", dateRange.to.toISOString().slice(0, 10));
     if (dateFlexDays > 0) params.set("flex", String(dateFlexDays));
+    if (whenTab === "months") params.set("stay", "monthly");
     params.set("adults", String(adults));
     if (children) params.set("children", String(children));
     if (infants) params.set("infants", String(infants));

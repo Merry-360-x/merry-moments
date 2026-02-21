@@ -12,9 +12,10 @@ import heroPoster from "@/assets/hero-resort.jpg";
 
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || "";
 const HERO_VIDEO_TRANSFORM = "video/upload/f_auto,q_auto:eco,vc_auto,w_1280";
-const HERO_VIDEO_PUBLIC_ID = "merry360x/merry-hero-banner.mp4";
+const HERO_VIDEO_PUBLIC_ID = "merry360x/merry-hero-banner";
 
 const HERO_VIDEO_URL = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/${HERO_VIDEO_TRANSFORM}/${HERO_VIDEO_PUBLIC_ID}`;
+const HERO_VIDEO_URL_WITH_EXT = `${HERO_VIDEO_URL}.mp4`;
 
 const Index = () => {
   const { user } = useAuth();
@@ -40,7 +41,12 @@ const Index = () => {
           className="absolute inset-0 w-full h-full object-cover z-[1]"
           style={{ objectPosition: 'center center' }}
         >
-          {CLOUDINARY_CLOUD_NAME ? <source src={HERO_VIDEO_URL} type="video/mp4" /> : null}
+          {CLOUDINARY_CLOUD_NAME ? (
+            <>
+              <source src={HERO_VIDEO_URL} type="video/mp4" />
+              <source src={HERO_VIDEO_URL_WITH_EXT} type="video/mp4" />
+            </>
+          ) : null}
         </video>
 
         {/* Overlay */}

@@ -1,5 +1,12 @@
 // API endpoint to send email notification when a payout is requested
-import { buildBrevoSmtpPayload, escapeHtml, keyValueRows, renderMinimalEmail } from "../lib/email-template-kit.js";
+import {
+  buildBrevoSmtpPayload,
+  escapeHtml,
+  getSafeRecipientEmail,
+  keyValueRows,
+  renderMinimalEmail,
+  validateRecipientEmail,
+} from "../lib/email-template-kit.js";
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const ADMIN_EMAIL = "support@merry360x.com";
@@ -108,8 +115,14 @@ async function sendPayoutEmails(payout, previewTo) {
   }
 
   if (previewTo) {
+    const previewRecipient = getSafeRecipientEmail({ primaryEmail: null, previewEmail: previewTo });
+    if (!previewRecipient) {
+      console.log("⚠️ Skipping payout preview email: invalid preview recipient");
+      return;
+    }
+
     await sendBrevoEmail({
-      toEmail: previewTo,
+      toEmail: previewRecipient.email,
       toName: "Template Preview",
       subject: `[Preview] Payout Request: ${payout.currency} ${Number(payout.amount).toLocaleString()} - ${payout.hostName || 'Host'}`,
       htmlContent: generatePayoutEmailHtml(payout),
@@ -153,16 +166,19 @@ You can track updates in your host dashboard: https://merry360x.com/host-dashboa
     }),
   ];
 
-  if (payout.hostEmail) {
+  const hostEmailValidation = validateRecipientEmail(payout.hostEmail);
+  if (hostEmailValidation.ok) {
     sendTasks.push(
       sendBrevoEmail({
-        toEmail: payout.hostEmail,
+        toEmail: hostEmailValidation.email,
         toName: payout.hostName || "Host",
         subject: `Payout Request Received: ${payout.currency} ${Number(payout.amount).toLocaleString()}`,
         htmlContent: hostHtml,
         textContent: hostText,
       })
     );
+  } else if (payout.hostEmail) {
+    console.log("⚠️ Skipping host payout confirmation email: invalid recipient");
   }
 
   const results = await Promise.allSettled(sendTasks);
@@ -179,6 +195,11 @@ You can track updates in your host dashboard: https://merry360x.com/host-dashboa
 }
 
 async function sendBrevoEmail({ toEmail, toName, subject, htmlContent, textContent }) {
+  const recipient = getSafeRecipientEmail({ primaryEmail: toEmail });
+  if (!recipient) {
+    throw new Error("Invalid recipient email");
+  }
+
   try {
     const response = await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST",
@@ -191,7 +212,7 @@ async function sendBrevoEmail({ toEmail, toName, subject, htmlContent, textConte
         buildBrevoSmtpPayload({
           senderName: "Merry 360 Experiences",
           senderEmail: "support@merry360x.com",
-          to: [{ email: toEmail, name: toName }],
+          to: [{ email: recipient.email, name: toName }],
           subject,
           htmlContent,
           textContent,
@@ -206,7 +227,7 @@ async function sendBrevoEmail({ toEmail, toName, subject, htmlContent, textConte
       throw new Error(result.message || "Failed to send email");
     }
 
-    console.log("✅ Payout notification email sent successfully:", toEmail);
+    console.log("✅ Payout notification email sent successfully:", recipient.email);
     return result;
   } catch (error) {
     console.error("❌ Error sending payout email:", toEmail, error);

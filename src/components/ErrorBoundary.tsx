@@ -18,10 +18,32 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   static getDerivedStateFromError(error: Error): State {
+    const message = String(error?.message || "").toLowerCase();
+    const name = String(error?.name || "").toLowerCase();
+    const isAbortLike =
+      name === "aborterror" ||
+      message.includes("aborterror") ||
+      message.includes("aborted") ||
+      message.includes("signal is abort");
+
+    if (isAbortLike) {
+      return { hasError: false };
+    }
+
     return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    const message = String(error?.message || "").toLowerCase();
+    const name = String(error?.name || "").toLowerCase();
+    if (
+      name === "aborterror" ||
+      message.includes("aborterror") ||
+      message.includes("aborted") ||
+      message.includes("signal is abort")
+    ) {
+      return;
+    }
     console.error('ErrorBoundary caught:', error, errorInfo);
   }
 

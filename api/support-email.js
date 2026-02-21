@@ -1,6 +1,13 @@
 // API endpoint to send email notification when support ticket is created
 import { createClient } from "@supabase/supabase-js";
-import { buildBrevoSmtpPayload, escapeHtml, keyValueRows, renderMinimalEmail } from "../lib/email-template-kit.js";
+import {
+  buildBrevoSmtpPayload,
+  escapeHtml,
+  getSafeRecipientEmail,
+  keyValueRows,
+  renderMinimalEmail,
+  validateRecipientEmail,
+} from "../lib/email-template-kit.js";
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || "support@merry360x.com";
@@ -122,6 +129,12 @@ export default async function handler(req, res) {
       return json(res, 400, { error: "Email is required" });
     }
 
+    const emailValidation = validateRecipientEmail(email);
+    if (!emailValidation.ok) {
+      console.log("⚠️ Skipping password reset email: invalid recipient", { reason: emailValidation.reason });
+      return json(res, 200, { ok: true, skipped: true, reason: "invalid_recipient" });
+    }
+
     if (!BREVO_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       return json(res, 200, { ok: true, skipped: true });
     }
@@ -162,9 +175,9 @@ export default async function handler(req, res) {
           buildBrevoSmtpPayload({
             senderName: "Merry 360 Experiences",
             senderEmail: "support@merry360x.com",
-            to: [{ email }],
+            to: [{ email: emailValidation.email }],
             subject: "Reset your Merry360X password",
-            htmlContent: generatePasswordResetHtml(resetUrl, email),
+            htmlContent: generatePasswordResetHtml(resetUrl, emailValidation.email),
             tags: ["security", "password-reset"],
           })
         ),
@@ -195,6 +208,23 @@ export default async function handler(req, res) {
     const ticket = { category, subject, message, userId, userEmail, userName };
     const html = generateTicketEmailHtml(ticket);
 
+    const recipient = getSafeRecipientEmail({
+      primaryEmail: SUPPORT_EMAIL,
+      previewEmail: previewTo,
+    });
+    if (!recipient) {
+      console.log("⚠️ Skipping support notification email: invalid recipient", { previewTo: Boolean(previewTo) });
+      return json(res, 200, { ok: true, skipped: true, reason: "invalid_recipient" });
+    }
+
+    const replyToValidation = validateRecipientEmail(userEmail);
+    const replyTo = replyToValidation.ok
+      ? {
+          email: replyToValidation.email,
+          name: userName || "Customer",
+        }
+      : undefined;
+
     const response = await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST",
       headers: {
@@ -208,14 +238,11 @@ export default async function handler(req, res) {
           senderEmail: "support@merry360x.com",
           to: [
             {
-              email: previewTo || "support@merry360x.com",
-              name: previewTo ? "Template Preview" : "Merry360X Support",
+              email: recipient.email,
+              name: recipient.source === "preview" ? "Template Preview" : "Merry360X Support",
             },
           ],
-          replyTo: {
-            email: userEmail,
-            name: userName || "Customer",
-          },
+          replyTo,
           subject: `${previewTo ? "[Preview] " : ""}[${(category || "other").toUpperCase()}] ${subject}`,
           htmlContent: html,
           tags: ["support", "ticket"],

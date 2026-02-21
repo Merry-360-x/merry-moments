@@ -1,6 +1,13 @@
 // API endpoint to send booking confirmation email to guests
 import { createClient } from "@supabase/supabase-js";
-import { buildBrevoSmtpPayload, escapeHtml, keyValueRows, renderMinimalEmail } from "../lib/email-template-kit.js";
+import {
+  buildBrevoSmtpPayload,
+  escapeHtml,
+  filterValidRecipients,
+  getSafeRecipientEmail,
+  keyValueRows,
+  renderMinimalEmail,
+} from "../lib/email-template-kit.js";
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
@@ -411,6 +418,11 @@ function generatePendingOrderHostHtml({ hostName, checkoutId, paymentMethod, tot
 }
 
 async function sendBrevoEmail({ to, subject, htmlContent, tags = [] }) {
+  const validRecipients = filterValidRecipients(to);
+  if (!validRecipients.length) {
+    return { ok: true, skipped: true, status: 200, result: { reason: "No valid recipients" } };
+  }
+
   const response = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: {
@@ -422,7 +434,7 @@ async function sendBrevoEmail({ to, subject, htmlContent, tags = [] }) {
       buildBrevoSmtpPayload({
         senderName: "Merry 360 Experiences",
         senderEmail: "support@merry360x.com",
-        to,
+        to: validRecipients,
         subject,
         htmlContent,
         tags,
@@ -581,8 +593,10 @@ export default async function handler(req, res) {
 
       return json(res, 200, {
         ok: true,
-        guestEmailSent: true,
-        financeEmailSent: true,
+        guestEmailSent: !guestEmailSend.skipped,
+        guestEmailSkipped: Boolean(guestEmailSend.skipped),
+        financeEmailSent: !financeEmailSend.skipped,
+        financeEmailSkipped: Boolean(financeEmailSend.skipped),
         hostEmailsSent,
         hostRecipientsCount,
       });
@@ -623,6 +637,11 @@ export default async function handler(req, res) {
         effectivePaymentStatus,
       });
 
+      const hostRecipient = getSafeRecipientEmail({ primaryEmail: resolved.hostEmail, previewEmail: previewTo });
+      if (!hostRecipient) {
+        return json(res, 200, { ok: true, skipped: true, reason: "invalid_recipient" });
+      }
+
       const emailRes = await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
         headers: {
@@ -634,7 +653,7 @@ export default async function handler(req, res) {
           buildBrevoSmtpPayload({
             senderName: "Merry 360 Experiences",
             senderEmail: "support@merry360x.com",
-            to: [{ email: previewTo || resolved.hostEmail, name: previewTo ? "Template Preview" : resolved.hostName }],
+            to: [{ email: hostRecipient.email, name: hostRecipient.source === "preview" ? "Template Preview" : resolved.hostName }],
             subject: `${previewTo ? "[Preview] " : ""}Payment Update: ${paymentLabel(effectivePaymentStatus)} • ${resolved.itemTitle}`,
             htmlContent,
             tags: ["payments", "host-update"],
@@ -727,8 +746,8 @@ export default async function handler(req, res) {
         }
       }
 
-      const targetEmail = previewTo || resolvedGuestEmail;
-      if (!targetEmail) {
+      const recipient = getSafeRecipientEmail({ primaryEmail: resolvedGuestEmail, previewEmail: previewTo });
+      if (!recipient) {
         return json(res, 400, { error: "Missing recipient email for refund status update" });
       }
 
@@ -756,7 +775,7 @@ export default async function handler(req, res) {
           buildBrevoSmtpPayload({
             senderName: "Merry 360 Experiences",
             senderEmail: "support@merry360x.com",
-            to: [{ email: targetEmail, name: previewTo ? "Template Preview" : (resolvedGuestName || "Guest") }],
+            to: [{ email: recipient.email, name: recipient.source === "preview" ? "Template Preview" : (resolvedGuestName || "Guest") }],
             subject: `${previewTo ? "[Preview] " : ""}Refund Update: ${normalized.label}${resolvedBookingId ? ` • ${resolvedBookingId.slice(0, 8).toUpperCase()}` : ""}`,
             htmlContent,
             tags: ["refund", "guest-update"],
@@ -787,6 +806,11 @@ export default async function handler(req, res) {
         return json(res, 400, { error: "Missing required fields" });
       }
 
+      const decisionRecipient = getSafeRecipientEmail({ primaryEmail: guestEmail, previewEmail: previewTo });
+      if (!decisionRecipient) {
+        return json(res, 200, { ok: true, skipped: true, reason: "invalid_recipient" });
+      }
+
       const htmlContent = generateBookingDecisionHtml({
         action,
         bookingId,
@@ -811,8 +835,8 @@ export default async function handler(req, res) {
             senderEmail: "support@merry360x.com",
             to: [
               {
-                email: previewTo || guestEmail,
-                name: previewTo ? "Template Preview" : (guestName || "Guest"),
+                email: decisionRecipient.email,
+                name: decisionRecipient.source === "preview" ? "Template Preview" : (guestName || "Guest"),
               },
             ],
             subject: action === "approved"
@@ -855,6 +879,11 @@ export default async function handler(req, res) {
       return json(res, 400, { error: "Missing required fields" });
     }
 
+    const confirmationRecipient = getSafeRecipientEmail({ primaryEmail: guestEmail, previewEmail: previewTo });
+    if (!confirmationRecipient) {
+      return json(res, 200, { ok: true, skipped: true, reason: "invalid_recipient" });
+    }
+
     const booking = {
       bookingId,
       guestName,
@@ -887,8 +916,8 @@ export default async function handler(req, res) {
           senderEmail: "support@merry360x.com",
           to: [
             {
-              email: previewTo || guestEmail,
-              name: previewTo ? "Template Preview" : (guestName || "Guest"),
+              email: confirmationRecipient.email,
+              name: confirmationRecipient.source === "preview" ? "Template Preview" : (guestName || "Guest"),
             },
           ],
           subject: `${previewTo ? "[Preview] " : ""}Booking Confirmed – ${propertyTitle || "Your Stay"}`,

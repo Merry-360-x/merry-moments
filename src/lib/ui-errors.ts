@@ -1,4 +1,14 @@
 export function uiErrorMessage(err: unknown, fallback = "Something went wrong. Please try again.") {
+  const isAbortLike = (message: string) => {
+    const normalized = String(message || "").toLowerCase();
+    return (
+      normalized.includes("aborterror") ||
+      normalized.includes("signal is abort") ||
+      normalized.includes("aborted") ||
+      normalized.includes("the operation was aborted")
+    );
+  };
+
   // Extract user-friendly messages from common error types
   if (err && typeof err === "object") {
     const error = err as { message?: unknown; details?: unknown };
@@ -6,6 +16,10 @@ export function uiErrorMessage(err: unknown, fallback = "Something went wrong. P
     // Supabase/PostgREST errors
     if (error.message) {
       const msg = String(error.message);
+
+      if (isAbortLike(msg)) {
+        return fallback;
+      }
       
       // Handle specific error patterns
       if (msg.includes("relation") && msg.includes("does not exist")) {
@@ -37,6 +51,20 @@ export function uiErrorMessage(err: unknown, fallback = "Something went wrong. P
 }
 
 export function logError(context: string, err: unknown) {
+  if (err && typeof err === "object") {
+    const error = err as { message?: unknown; name?: unknown };
+    const message = String(error.message || "").toLowerCase();
+    const name = String(error.name || "").toLowerCase();
+    if (
+      name === "aborterror" ||
+      message.includes("aborterror") ||
+      message.includes("signal is abort") ||
+      message.includes("aborted")
+    ) {
+      return;
+    }
+  }
+
   // Log comprehensive error details for debugging
   console.error(`[${context}]`, err);
   

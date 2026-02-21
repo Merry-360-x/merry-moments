@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Star, Heart, Users, BadgeCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import ListingImageCarousel from "@/components/ListingImageCarousel";
@@ -68,6 +68,7 @@ const PropertyCard = ({
 }: PropertyCardProps) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const routerLocation = useLocation();
   const { currency: preferredCurrency } = usePreferences();
   const { usdRates } = useFxRates();
   const { toggleFavorite, checkFavorite } = useFavorites();
@@ -101,6 +102,16 @@ const PropertyCard = ({
   });
 
   const gallery = images?.length ? images : image ? [image] : [];
+  const forwardedQuery = useMemo(() => {
+    const params = new URLSearchParams(routerLocation.search);
+    const keepKeys = ["q", "location", "start", "end", "adults", "children", "infants", "pets", "stay", "monthly", "duration", "guests"];
+    const next = new URLSearchParams();
+    for (const key of keepKeys) {
+      const value = params.get(key);
+      if (value) next.set(key, value);
+    }
+    return next.toString();
+  }, [routerLocation.search]);
   const originalCurrency = currency ?? "RWF"; // The currency the property price is stored in
   const hasRules =
     typeof smokingAllowed === "boolean" ||
@@ -285,7 +296,7 @@ const PropertyCard = ({
   if (!id) return content;
 
   return (
-    <Link to={`/properties/${id}`} className="block" aria-label={title}>
+    <Link to={`/properties/${id}${forwardedQuery ? `?${forwardedQuery}` : ""}`} className="block" aria-label={title}>
       {content}
     </Link>
   );

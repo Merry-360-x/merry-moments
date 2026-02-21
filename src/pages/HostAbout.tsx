@@ -33,7 +33,7 @@ export default function HostAbout() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("properties")
-        .select("id, title, location, price_per_night, currency, property_type, rating, review_count, images, bedrooms, bathrooms, beds")
+        .select("id, title, location, price_per_night, price_per_month, monthly_only_listing, currency, property_type, rating, review_count, images, bedrooms, bathrooms, beds")
         .eq("host_id", hostId)
         .eq("is_published", true)
         .order("created_at", { ascending: false });
@@ -43,6 +43,8 @@ export default function HostAbout() {
         title: string;
         location: string;
         price_per_night: number;
+        price_per_month: number | null;
+        monthly_only_listing: boolean | null;
         currency: string | null;
         property_type: string | null;
         rating: number | null;
@@ -127,7 +129,10 @@ export default function HostAbout() {
                   location={p.location}
                   rating={Number(p.rating) || 0}
                   reviews={p.review_count || 0}
-                  price={Number(p.price_per_night)}
+                  price={Boolean(p.monthly_only_listing)
+                    ? Number(p.price_per_month || 0)
+                    : Number(p.price_per_night || 0)}
+                  pricePeriod={Boolean(p.monthly_only_listing) ? "month" : "night"}
                   currency={p.currency}
                   type={p.property_type}
                   bedrooms={p.bedrooms ?? null}
