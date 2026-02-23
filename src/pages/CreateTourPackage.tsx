@@ -29,6 +29,31 @@ const tourPricingModels = [
   { value: "per_minute", label: "Per minute" },
 ] as const;
 type TourPricingModel = (typeof tourPricingModels)[number]["value"];
+type TimePricingTier = { duration_value: number; duration_unit: "minute" | "hour"; price: number };
+type GroupPricingTier = { min_group_size: number; max_group_size: number; price: number };
+
+function normalizeTimePricingTiers(raw: unknown, fallbackPricingModel: TourPricingModel): TimePricingTier[] {
+  if (!Array.isArray(raw)) return [];
+  const defaultUnit: "minute" | "hour" = fallbackPricingModel === "per_hour" ? "hour" : "minute";
+  return raw
+    .map((tier: any) => ({
+      duration_value: Number(tier?.duration_value || 0),
+      duration_unit: tier?.duration_unit === "hour" ? "hour" : tier?.duration_unit === "minute" ? "minute" : defaultUnit,
+      price: Number(tier?.price || 0),
+    }))
+    .filter((tier) => tier.duration_value > 0 && tier.price > 0);
+}
+
+function normalizeGroupPricingTiers(raw: unknown): GroupPricingTier[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((tier: any) => ({
+      min_group_size: Math.max(1, Math.floor(Number(tier?.min_group_size || 1))),
+      max_group_size: Math.max(1, Math.floor(Number(tier?.max_group_size || 1))),
+      price: Number(tier?.price || 0),
+    }))
+    .filter((tier) => tier.min_group_size >= 1 && tier.max_group_size >= tier.min_group_size && tier.price > 0);
+}
 
 export default function CreateTourPackage() {
   const { user, isHost, isLoading } = useAuth();
@@ -77,6 +102,8 @@ Some components are non-refundable once booked, including but not limited to:
     pricing_model: "per_person" as TourPricingModel,
     pricing_models: ["per_person"] as TourPricingModel[],
     pricing_duration_value: 1,
+    time_pricing_tiers: [] as TimePricingTier[],
+    group_pricing_tiers: [] as GroupPricingTier[],
     currency: "RWF",
     min_guests: 1,
     max_guests: 10,
@@ -198,6 +225,17 @@ Some components are non-refundable once booked, including but not limited to:
           const next = Number((raw as { pricing_duration_value?: number }).pricing_duration_value || 1);
           return Number.isFinite(next) && next > 0 ? next : 1;
         })(),
+        time_pricing_tiers: (() => {
+          const raw = (data as any)?.pricing_tiers;
+          if (!raw || Array.isArray(raw) || typeof raw !== "object") return [] as TimePricingTier[];
+          const pricingModel = getTourPricingModels(raw)[0] || "per_person";
+          return normalizeTimePricingTiers((raw as any).time_pricing_tiers, pricingModel);
+        })(),
+        group_pricing_tiers: (() => {
+          const raw = (data as any)?.pricing_tiers;
+          if (!raw || Array.isArray(raw) || typeof raw !== "object") return [] as GroupPricingTier[];
+          return normalizeGroupPricingTiers((raw as any).group_pricing_tiers);
+        })(),
         currency: data.currency || "RWF",
         min_guests: Number(data.min_guests || 1),
         max_guests: Number(data.max_guests || 10),
@@ -272,6 +310,8 @@ Some components are non-refundable once booked, including but not limited to:
             pricing_models: loadedPricingModels,
             pricing_model: loadedPricingModels[0] || "per_person",
             pricing_duration_value: Number(draft.formData.pricing_duration_value || 1),
+            time_pricing_tiers: normalizeTimePricingTiers(draft.formData.time_pricing_tiers, loadedPricingModels[0] || "per_person"),
+            group_pricing_tiers: normalizeGroupPricingTiers(draft.formData.group_pricing_tiers),
           }));
         }
         if (draft.groupDiscounts) setGroupDiscounts(draft.groupDiscounts);
@@ -399,6 +439,11 @@ Some components are non-refundable once booked, including but not limited to:
   };
 
   const isFormValid = () => {
+    const hasValidTimeTier = normalizeTimePricingTiers(formData.time_pricing_tiers, formData.pricing_model).length > 0;
+    const hasValidGroupTier = normalizeGroupPricingTiers(formData.group_pricing_tiers).length > 0;
+    const needsTimeTier = formData.pricing_models.includes("per_hour") || formData.pricing_models.includes("per_minute");
+    const needsGroupTier = formData.pricing_models.includes("per_group");
+
     // Cancellation policy is now optional - can use default or add later
     const policyValid = selectedPolicies.length === 0 || 
       (!selectedPolicies.includes('custom') || (customPolicyText.trim().length >= 20 || customPolicyFile !== null));
@@ -407,7 +452,10 @@ Some components are non-refundable once booked, including but not limited to:
       formData.description.trim().length >= 50 && formData.city.trim() &&
       formData.duration.trim() && formData.daily_itinerary.trim().length >= 100 &&
       formData.meeting_point.trim() && policyValid &&
-      parseFloat(formData.price_per_adult) > 0 && licenseUrl.trim();
+      (parseFloat(formData.price_per_adult) > 0 || hasValidTimeTier || hasValidGroupTier) &&
+      (!needsTimeTier || hasValidTimeTier) &&
+      (!needsGroupTier || hasValidGroupTier) &&
+      licenseUrl.trim();
       // Note: coverImage, pdfFile, and cancellation_policy are now optional - can be uploaded later
   };
 
@@ -546,6 +594,12 @@ Some components are non-refundable once booked, including but not limited to:
         pricing_models: selectedPricingModels,
         ...(selectedPricingModels.includes("per_hour") || selectedPricingModels.includes("per_minute")
           ? { pricing_duration_value: Math.max(0.25, Number(formData.pricing_duration_value || 1)) }
+          : {}),
+        ...(selectedPricingModels.includes("per_hour") || selectedPricingModels.includes("per_minute")
+          ? { time_pricing_tiers: normalizeTimePricingTiers(formData.time_pricing_tiers, primaryPricingModel) }
+          : {}),
+        ...(selectedPricingModels.includes("per_group")
+          ? { group_pricing_tiers: normalizeGroupPricingTiers(formData.group_pricing_tiers) }
           : {}),
       };
 
@@ -1092,6 +1146,96 @@ Some components are non-refundable once booked, including but not limited to:
                 )}
               </div>
 
+              {(formData.pricing_models.includes("per_hour") || formData.pricing_models.includes("per_minute")) ? (
+                <div className="col-span-2 space-y-2 rounded-lg border p-3 bg-muted/20">
+                  <Label className="text-sm font-medium">Time Pricing Tiers</Label>
+                  <p className="text-xs text-muted-foreground">Add multiple durations and prices (example: 3 min = $40, 15 min = $150).</p>
+                  <div className="space-y-2">
+                    {formData.time_pricing_tiers.map((tier, index) => (
+                      <div key={`pkg-time-tier-${index}`} className="grid grid-cols-[1fr_140px_1fr_auto] gap-2 items-end">
+                        <div>
+                          <Label className="text-xs">Duration</Label>
+                          <Input
+                            type="number"
+                            min="1"
+                            step="0.25"
+                            value={tier.duration_value}
+                            onChange={(e) => {
+                              const next = [...formData.time_pricing_tiers];
+                              next[index] = {
+                                ...next[index],
+                                duration_value: Math.max(0.25, Number(e.target.value) || 0.25),
+                              };
+                              setFormData({ ...formData, time_pricing_tiers: next });
+                            }}
+                            className="h-9"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Unit</Label>
+                          <Select
+                            value={tier.duration_unit}
+                            onValueChange={(unit: "minute" | "hour") => {
+                              const next = [...formData.time_pricing_tiers];
+                              next[index] = { ...next[index], duration_unit: unit };
+                              setFormData({ ...formData, time_pricing_tiers: next });
+                            }}
+                          >
+                            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {formData.pricing_models.includes("per_minute") && <SelectItem value="minute">Minute</SelectItem>}
+                              {formData.pricing_models.includes("per_hour") && <SelectItem value="hour">Hour</SelectItem>}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className="text-xs">Price ({formData.currency})</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={tier.price}
+                            onChange={(e) => {
+                              const next = [...formData.time_pricing_tiers];
+                              next[index] = { ...next[index], price: Math.max(0, Number(e.target.value) || 0) };
+                              setFormData({ ...formData, time_pricing_tiers: next });
+                            }}
+                            className="h-9"
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-9"
+                          onClick={() => setFormData({ ...formData, time_pricing_tiers: formData.time_pricing_tiers.filter((_, i) => i !== index) })}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setFormData({
+                      ...formData,
+                      time_pricing_tiers: [
+                        ...formData.time_pricing_tiers,
+                        {
+                          duration_value: formData.pricing_model === "per_hour" ? 1 : 3,
+                          duration_unit: formData.pricing_model === "per_hour" ? "hour" : "minute",
+                          price: 0,
+                        },
+                      ],
+                    })}
+                  >
+                    + Add Time Tier
+                  </Button>
+                </div>
+              ) : null}
+
               <div>
                 <Label className="text-sm font-normal mb-1.5 block">
                   {formData.pricing_model === "per_group"
@@ -1130,6 +1274,101 @@ Some components are non-refundable once booked, including but not limited to:
                   </SelectContent>
                 </Select>
               </div>
+
+              {formData.pricing_models.includes("per_group") ? (
+                <div className="col-span-2 space-y-2 rounded-lg border p-3 bg-muted/20">
+                  <Label className="text-sm font-medium">Group Range Pricing Tiers</Label>
+                  <p className="text-xs text-muted-foreground">Set group ranges and fixed group prices (example: 2–10 = $1000, 11–15 = $1500).</p>
+                  <div className="space-y-2">
+                    {formData.group_pricing_tiers.map((tier, index) => (
+                      <div key={`pkg-group-tier-${index}`} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end">
+                        <div>
+                          <Label className="text-xs">Min People</Label>
+                          <Input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={tier.min_group_size}
+                            onChange={(e) => {
+                              const next = [...formData.group_pricing_tiers];
+                              const min = Math.max(1, parseInt(e.target.value, 10) || 1);
+                              next[index] = {
+                                ...next[index],
+                                min_group_size: min,
+                                max_group_size: Math.max(min, next[index].max_group_size),
+                              };
+                              setFormData({ ...formData, group_pricing_tiers: next });
+                            }}
+                            className="h-9"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Max People</Label>
+                          <Input
+                            type="number"
+                            min={tier.min_group_size}
+                            step="1"
+                            value={tier.max_group_size}
+                            onChange={(e) => {
+                              const next = [...formData.group_pricing_tiers];
+                              const max = Math.max(next[index].min_group_size, parseInt(e.target.value, 10) || next[index].min_group_size);
+                              next[index] = { ...next[index], max_group_size: max };
+                              setFormData({ ...formData, group_pricing_tiers: next });
+                            }}
+                            className="h-9"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Group Price ({formData.currency})</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={tier.price}
+                            onChange={(e) => {
+                              const next = [...formData.group_pricing_tiers];
+                              next[index] = { ...next[index], price: Math.max(0, Number(e.target.value) || 0) };
+                              setFormData({ ...formData, group_pricing_tiers: next });
+                            }}
+                            className="h-9"
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-9"
+                          onClick={() => setFormData({ ...formData, group_pricing_tiers: formData.group_pricing_tiers.filter((_, i) => i !== index) })}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setFormData({
+                      ...formData,
+                      group_pricing_tiers: [
+                        ...formData.group_pricing_tiers,
+                        {
+                          min_group_size: formData.group_pricing_tiers.length > 0
+                            ? formData.group_pricing_tiers[formData.group_pricing_tiers.length - 1].max_group_size + 1
+                            : 2,
+                          max_group_size: formData.group_pricing_tiers.length > 0
+                            ? formData.group_pricing_tiers[formData.group_pricing_tiers.length - 1].max_group_size + 5
+                            : 10,
+                          price: 0,
+                        },
+                      ],
+                    })}
+                  >
+                    + Add Group Range Tier
+                  </Button>
+                </div>
+              ) : null}
             </div>
 
             {/* Differential Pricing Section */}

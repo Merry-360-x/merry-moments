@@ -3495,6 +3495,11 @@ export default function HostDashboard() {
     };
 
     const handleSave = async () => {
+      const existingPricingMetadata = (() => {
+        const rawPricing = (form as any)?.pricing_tiers;
+        if (!rawPricing || Array.isArray(rawPricing) || typeof rawPricing !== "object") return {} as Record<string, any>;
+        return rawPricing as Record<string, any>;
+      })();
       let updates: any = {
         title: form.title,
         description: form.description,
@@ -3515,6 +3520,12 @@ export default function HostDashboard() {
         updates.pricing_tiers = {
           pricing_model: tourPricingModel,
           pricing_models: selectedTourPricingModels,
+          ...(Array.isArray(existingPricingMetadata.time_pricing_tiers)
+            ? { time_pricing_tiers: existingPricingMetadata.time_pricing_tiers }
+            : {}),
+          ...(Array.isArray(existingPricingMetadata.group_pricing_tiers)
+            ? { group_pricing_tiers: existingPricingMetadata.group_pricing_tiers }
+            : {}),
           ...(selectedTourPricingModels.includes("per_hour") || selectedTourPricingModels.includes("per_minute")
             ? { pricing_duration_value: Math.max(0.25, Number(tourPricingDurationValue || 1)) }
             : {}),
@@ -3567,6 +3578,12 @@ export default function HostDashboard() {
           tiers: filteredPricingTiers,
           pricing_model: tourPricingModel,
           pricing_models: selectedTourPricingModels,
+          ...(Array.isArray(existingPricingMetadata.time_pricing_tiers)
+            ? { time_pricing_tiers: existingPricingMetadata.time_pricing_tiers }
+            : {}),
+          ...(Array.isArray(existingPricingMetadata.group_pricing_tiers)
+            ? { group_pricing_tiers: existingPricingMetadata.group_pricing_tiers }
+            : {}),
           ...(selectedTourPricingModels.includes("per_hour") || selectedTourPricingModels.includes("per_minute")
             ? { pricing_duration_value: Math.max(0.25, Number(tourPricingDurationValue || 1)) }
             : {}),
