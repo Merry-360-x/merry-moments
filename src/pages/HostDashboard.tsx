@@ -2293,19 +2293,13 @@ export default function HostDashboard() {
 
   const getBookingAmountAndCurrency = useCallback((booking: Booking) => {
     const checkout = booking.order_id ? checkoutByOrderId[booking.order_id] : null;
-    const checkoutItem = getCheckoutItemForBooking(booking);
-
-    const checkoutItemPaid = Number(checkoutItem?.calculated_price || 0);
-    const amountToUse = Number.isFinite(checkoutItemPaid) && checkoutItemPaid > 0
-      ? checkoutItemPaid
-      : getBookingGuestPaidAmount(booking);
-
-    const currencyToUse = checkoutItem?.calculated_price_currency || checkout?.currency || booking.currency || 'RWF';
+    const amountToUse = getBookingGuestPaidAmount(booking);
+    const currencyToUse = checkout?.currency || booking.currency || 'RWF';
     return {
       amount: Number.isFinite(amountToUse) ? amountToUse : 0,
       currency: String(currencyToUse || 'RWF').toUpperCase(),
     };
-  }, [checkoutByOrderId, getBookingGuestPaidAmount, getCheckoutItemForBooking]);
+  }, [checkoutByOrderId, getBookingGuestPaidAmount]);
 
   const getOriginalListingSubtotal = useCallback((booking: {
     order_id?: string | null;
@@ -7214,7 +7208,7 @@ export default function HostDashboard() {
                             ? listingTotal / guests
                             : listingTotal;
                       const feePercent = HOST_EARNING_FEE_PERCENT;
-                      const hostNetEarnings = listingTotal * (1 - feePercent / 100);
+                      const hostNetEarnings = guestPaidAmount * (1 - feePercent / 100);
                       
                       return (
                         <Card key={b.id} className="overflow-hidden border border-border shadow-sm">
@@ -7283,11 +7277,11 @@ export default function HostDashboard() {
                                   </div>
                                   <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
                                     <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Platform fee deducted ({feePercent}%)</span>
-                                    <span className="text-sm font-semibold text-destructive">-{formatMoney(listingTotal * (feePercent / 100), listingCurrency)}</span>
+                                    <span className="text-sm font-semibold text-destructive">-{formatMoney(guestPaidAmount * (feePercent / 100), guestPaidCurrency)}</span>
                                   </div>
                                   <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
                                     <span className="text-[11px] text-muted-foreground uppercase tracking-wide">You will earn</span>
-                                    <span className="text-sm font-semibold text-emerald-600">{formatMoney(hostNetEarnings, listingCurrency)}</span>
+                                    <span className="text-sm font-semibold text-emerald-600">{formatMoney(hostNetEarnings, guestPaidCurrency)}</span>
                                   </div>
                                 </div>
                               </div>
@@ -7450,7 +7444,7 @@ export default function HostDashboard() {
                         ? listingTotal / guests
                         : listingTotal;
                   const feePercent = HOST_EARNING_FEE_PERCENT;
-                  const hostNetEarnings = listingTotal * (1 - feePercent / 100);
+                  const hostNetEarnings = guestPaidAmount * (1 - feePercent / 100);
                   
                   return (
                   <Card key={b.id} className="overflow-hidden border shadow-sm hover:shadow-md transition-shadow">
@@ -7545,11 +7539,11 @@ export default function HostDashboard() {
                             </div>
                             <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
                               <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Platform fee deducted ({feePercent}%)</span>
-                              <span className="text-sm font-semibold text-destructive">-{formatMoney(listingTotal * (feePercent / 100), listingCurrency)}</span>
+                              <span className="text-sm font-semibold text-destructive">-{formatMoney(guestPaidAmount * (feePercent / 100), guestPaidCurrency)}</span>
                             </div>
                             <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
                               <span className="text-[11px] text-muted-foreground uppercase tracking-wide">You will earn</span>
-                              <span className="text-sm font-semibold text-emerald-600">{formatMoney(hostNetEarnings, listingCurrency)}</span>
+                              <span className="text-sm font-semibold text-emerald-600">{formatMoney(hostNetEarnings, guestPaidCurrency)}</span>
                             </div>
                           </div>
                         </div>
@@ -8024,8 +8018,11 @@ export default function HostDashboard() {
                   </div>
                   <p className="text-2xl font-bold">
                     {formatMoney(
-                      filteredReportBookings.reduce((sum, b) => sum + Number(b.total_price), 0),
-                      bookings[0]?.currency || "USD"
+                      filteredReportBookings.reduce((sum, b) => {
+                        const { amount, currency } = getBookingAmountAndCurrency(b);
+                        return sum + toRwfAmount(amount, currency);
+                      }, 0),
+                      "RWF"
                     )}
                   </p>
                 </Card>
@@ -8039,11 +8036,11 @@ export default function HostDashboard() {
                     {formatMoney(
                       filteredReportBookings
                         .reduce((sum, b) => {
-                          const itemType = b.property_id ? 'accommodation' : b.tour_id ? 'tour' : 'transport';
-                          const { hostNetEarnings } = calculateHostEarningsFromGuestTotal(Number(b.total_price), itemType as 'accommodation' | 'tour' | 'transport');
-                          return sum + hostNetEarnings;
+                          const { amount, currency } = getBookingAmountAndCurrency(b);
+                          const hostNet = amount * (1 - HOST_EARNING_FEE_PERCENT / 100);
+                          return sum + toRwfAmount(hostNet, currency);
                         }, 0),
-                      bookings[0]?.currency || "USD"
+                      "RWF"
                     )}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">After platform fees</p>
@@ -8080,21 +8077,34 @@ export default function HostDashboard() {
                     }
 
                     const filteredBookings = filteredReportBookings;
+                    const bookingAmountRows = filteredBookings.map((b) => {
+                      const { amount, currency } = getBookingAmountAndCurrency(b);
+                      const amountRwf = toRwfAmount(amount, currency);
+                      return {
+                        booking: b,
+                        amount,
+                        currency,
+                        amountRwf,
+                        hostNetRwf: amountRwf * (1 - HOST_EARNING_FEE_PERCENT / 100),
+                      };
+                    });
                     
                     // CSV Export
-                    const csvData = filteredBookings.map(b => ({
-                      'Booking ID': b.id.slice(0, 8),
-                      'Property': properties.find(p => p.id === b.property_id)?.title || 'N/A',
-                      'Guest': b.guest_name || 'Guest',
-                      'Check In': b.check_in,
-                      'Check Out': b.check_out,
-                      'Guests': b.guests,
-                      'Total Price': b.total_price,
-                      'Currency': b.currency,
-                      'Status': b.status,
-                      'Payment Status': b.payment_status || 'N/A',
-                      'Payment Method': b.payment_method || 'N/A',
-                      'Created': new Date(b.created_at).toLocaleDateString(),
+                    const csvData = bookingAmountRows.map(({ booking, amount, currency, amountRwf, hostNetRwf }) => ({
+                      'Booking ID': booking.id.slice(0, 8),
+                      'Property': properties.find(p => p.id === booking.property_id)?.title || 'N/A',
+                      'Guest': booking.guest_name || 'Guest',
+                      'Check In': booking.check_in,
+                      'Check Out': booking.check_out,
+                      'Guests': booking.guests,
+                      'Amount Paid': amount,
+                      'Currency': currency,
+                      'Amount Paid (RWF)': Math.round(amountRwf),
+                      'Host Earnings (RWF, -3%)': Math.round(hostNetRwf),
+                      'Status': booking.status,
+                      'Payment Status': booking.payment_status || 'N/A',
+                      'Payment Method': booking.payment_method || 'N/A',
+                      'Created': new Date(booking.created_at).toLocaleDateString(),
                     }));
 
                     const headers = [
@@ -8104,8 +8114,10 @@ export default function HostDashboard() {
                       'Check In',
                       'Check Out',
                       'Guests',
-                      'Total Price',
+                      'Amount Paid',
                       'Currency',
+                      'Amount Paid (RWF)',
+                      'Host Earnings (RWF, -3%)',
                       'Status',
                       'Payment Status',
                       'Payment Method',
@@ -8135,8 +8147,15 @@ export default function HostDashboard() {
 
                     const filteredBookings = filteredReportBookings;
 
-                    const totalRevenue = filteredBookings.reduce((sum, b) => sum + Number(b.total_price), 0);
-                    const currency = filteredBookings[0]?.currency || 'USD';
+                    const bookingAmountRows = filteredBookings.map((b) => {
+                      const { amount, currency } = getBookingAmountAndCurrency(b);
+                      const amountRwf = toRwfAmount(amount, currency);
+                      const hostNetRwf = amountRwf * (1 - HOST_EARNING_FEE_PERCENT / 100);
+                      return { booking: b, amount, currency, amountRwf, hostNetRwf };
+                    });
+
+                    const totalRevenueRwf = bookingAmountRows.reduce((sum, row) => sum + row.amountRwf, 0);
+                    const totalHostNetRwf = bookingAmountRows.reduce((sum, row) => sum + row.hostNetRwf, 0);
                     
                     const pdfContent = `
 FINANCIAL REPORT
@@ -8148,7 +8167,8 @@ Generated: ${new Date().toLocaleString()}
 SUMMARY
 -------
 Total Bookings: ${filteredBookings.length}
-Total Revenue: ${formatMoney(totalRevenue, currency)}
+Total Revenue (Amount Paid): ${formatMoney(totalRevenueRwf, 'RWF')}
+Host Net Earnings (3% deduction): ${formatMoney(totalHostNetRwf, 'RWF')}
 Completed Bookings: ${filteredBookings.filter(b => b.status === 'completed').length}
 Pending Bookings: ${filteredBookings.filter(b => isPendingBookingStatus(b.status)).length}
 Cancelled Bookings: ${filteredBookings.filter(b => b.status === 'cancelled').length}
@@ -8157,22 +8177,24 @@ PAYMENT METHODS BREAKDOWN
 -------------------------
 ${[...new Set(filteredBookings.map(b => b.payment_method || 'Not specified'))].map(method => {
   const count = filteredBookings.filter(b => (b.payment_method || 'Not specified') === method).length;
-  const amount = filteredBookings
-    .filter(b => (b.payment_method || 'Not specified') === method)
-    .reduce((sum, b) => sum + Number(b.total_price), 0);
-  return `${method}: ${count} bookings, ${formatMoney(amount, currency)}`;
+  const amountRwf = bookingAmountRows
+    .filter(row => ((row.booking.payment_method || 'Not specified') === method))
+    .reduce((sum, row) => sum + row.amountRwf, 0);
+  return `${method}: ${count} bookings, ${formatMoney(amountRwf, 'RWF')}`;
 }).join('\\n')}
 
 DETAILED BOOKINGS
 -----------------
-${filteredBookings.map(b => `
+${bookingAmountRows.map(({ booking: b, amount, currency, amountRwf, hostNetRwf }) => `
 Booking ID: ${b.id.slice(0, 8)}
 Property: ${properties.find(p => p.id === b.property_id)?.title || 'N/A'}
 Guest: ${b.guest_name || 'Guest'}
 Check-in: ${b.check_in}
 Check-out: ${b.check_out}
 Guests: ${b.guests}
-Amount: ${formatMoney(Number(b.total_price), b.currency || 'RWF')}
+Amount Paid: ${formatMoney(amount, currency)}
+Amount Paid (RWF): ${formatMoney(amountRwf, 'RWF')}
+Host Earnings (-3%): ${formatMoney(hostNetRwf, 'RWF')}
 Status: ${b.status}
 Payment: ${b.payment_method || 'N/A'} (${b.payment_status || 'N/A'})
 Created: ${new Date(b.created_at).toLocaleString()}
@@ -8696,12 +8718,12 @@ END OF REPORT
                           ? 'tour'
                           : 'transport';
                     const feePercent = HOST_EARNING_FEE_PERCENT;
-                    const hostNetEarnings = listingTotal * (1 - feePercent / 100);
+                    const hostNetEarnings = guestPaidAmount * (1 - feePercent / 100);
                     const convertedListingTotal = convertAmount(listingTotal, listingCurrency, displayCurrency, usdRates) ?? listingTotal;
                     const convertedUnitValue = convertAmount(unitValue, listingCurrency, displayCurrency, usdRates) ?? unitValue;
-                    const convertedHostNetEarnings = convertAmount(hostNetEarnings, listingCurrency, displayCurrency, usdRates) ?? hostNetEarnings;
-                    const convertedFeeDeduction = convertAmount(listingTotal * (feePercent / 100), listingCurrency, displayCurrency, usdRates) ?? (listingTotal * (feePercent / 100));
                     const convertedGuestPaidAmount = convertAmount(guestPaidAmount, guestPaidCurrency, displayCurrency, usdRates) ?? guestPaidAmount;
+                    const convertedHostNetEarnings = convertAmount(hostNetEarnings, guestPaidCurrency, displayCurrency, usdRates) ?? hostNetEarnings;
+                    const convertedFeeDeduction = convertAmount(guestPaidAmount * (feePercent / 100), guestPaidCurrency, displayCurrency, usdRates) ?? (guestPaidAmount * (feePercent / 100));
                     const effectivePaymentStatus = String(
                       bookingFullDetails.checkout_requests?.payment_status || bookingFullDetails.payment_status || "unknown"
                     )
