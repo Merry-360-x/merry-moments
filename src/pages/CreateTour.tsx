@@ -62,6 +62,7 @@ export default function CreateTour() {
     price_per_person: 0,
     pricing_model: "per_person" as TourPricingModel,
     pricing_models: ["per_person"] as TourPricingModel[],
+    pricing_duration_value: 1,
     price_per_group_size: 2,
     currency: "RWF",
     has_differential_pricing: false,
@@ -123,6 +124,12 @@ export default function CreateTour() {
         const next = Number((raw as { price_per_group_size?: number }).price_per_group_size || 2);
         return Number.isFinite(next) && next >= 1 ? Math.floor(next) : 2;
       })();
+      const pricingDurationValue = (() => {
+        const raw = (data as any)?.pricing_tiers;
+        if (!raw || Array.isArray(raw) || typeof raw !== "object") return 1;
+        const next = Number((raw as { pricing_duration_value?: number }).pricing_duration_value || 1);
+        return Number.isFinite(next) && next > 0 ? next : 1;
+      })();
       setFormData({
         title: data.title || "",
         description: data.description || "",
@@ -133,6 +140,7 @@ export default function CreateTour() {
         price_per_person: Number(data.price_per_person || 0),
         pricing_model: pricingModel,
         pricing_models: pricingModels,
+        pricing_duration_value: pricingDurationValue,
         price_per_group_size: groupSize,
         currency: data.currency || "RWF",
         has_differential_pricing: Boolean((data as any).has_differential_pricing),
@@ -193,6 +201,7 @@ export default function CreateTour() {
             ...draft.formData,
             pricing_models: loadedPricingModels,
             pricing_model: loadedPricingModels[0] || "per_person",
+            pricing_duration_value: Number(draft.formData.pricing_duration_value || 1),
           }));
         }
         if (draft.images) setImages(draft.images);
@@ -312,6 +321,16 @@ export default function CreateTour() {
       formData.categories.length > 0 && images.length > 0 && licenseUrl.trim() && formData.pricing_models.length > 0;
   };
 
+  const hasDraftContent = () => {
+    return Boolean(
+      formData.title.trim() ||
+      formData.description.trim() ||
+      formData.location.trim() ||
+      images.length > 0 ||
+      licenseUrl.trim()
+    );
+  };
+
   const handlePdfChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -339,7 +358,14 @@ export default function CreateTour() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !isFormValid()) return;
+    if (!user) return;
+    if (!isFormValid()) {
+      if (hasDraftContent()) {
+        saveDraft();
+        toast({ title: "Saved as draft", description: "Your unfinished tour has been saved as a draft." });
+      }
+      return;
+    }
     setUploading(true);
 
     try {
@@ -367,6 +393,9 @@ export default function CreateTour() {
       (tourData as any).pricing_tiers = {
         pricing_model: formData.pricing_model,
         pricing_models: formData.pricing_models,
+        ...(formData.pricing_models.includes("per_hour") || formData.pricing_models.includes("per_minute")
+          ? { pricing_duration_value: Math.max(0.25, Number(formData.pricing_duration_value || 1)) }
+          : {}),
         ...(formData.pricing_models.includes("per_group")
           ? { price_per_group_size: Math.max(1, Number(formData.price_per_group_size || 1)) }
           : {}),
@@ -612,6 +641,26 @@ export default function CreateTour() {
 
               <div>
                 <Label className="text-sm font-normal mb-1.5 block">
+                  {(formData.pricing_model === "per_hour" || formData.pricing_model === "per_minute")
+                    ? `Duration (${formData.pricing_model === "per_hour" ? "hours" : "minutes"}) *`
+                    : "Price Input"}
+                </Label>
+                {(formData.pricing_model === "per_hour" || formData.pricing_model === "per_minute") ? (
+                  <Input
+                    type="number"
+                    value={formData.pricing_duration_value}
+                    onChange={(e) => setFormData({ ...formData, pricing_duration_value: Math.max(0.25, parseFloat(e.target.value) || 1) })}
+                    min={formData.pricing_model === "per_hour" ? "0.25" : "1"}
+                    step={formData.pricing_model === "per_hour" ? "0.25" : "1"}
+                    className="h-10"
+                  />
+                ) : (
+                  <p className="text-xs text-muted-foreground">Select per-hour or per-minute to define duration.</p>
+                )}
+              </div>
+
+              <div>
+                <Label className="text-sm font-normal mb-1.5 block">
                   {formData.pricing_model === "per_group"
                     ? "Price per Group *"
                     : formData.pricing_model === "per_hour"
@@ -630,6 +679,11 @@ export default function CreateTour() {
                   className={cn("h-10", errors.price_per_person && "border-destructive")}
                 />
                 {errors.price_per_person && <p className="text-xs text-destructive mt-1">{errors.price_per_person}</p>}
+                {(formData.pricing_model === "per_hour" || formData.pricing_model === "per_minute") && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Total for selected duration: {formData.currency} {(Number(formData.pricing_duration_value || 1) * Number(formData.price_per_person || 0)).toFixed(2)}
+                  </p>
+                )}
               </div>
 
               {formData.pricing_models.includes("per_group") ? (
@@ -819,7 +873,19 @@ export default function CreateTour() {
               </p>
             )}
             <div className="flex gap-3">
-              <Button type="button" variant="outline" onClick={() => navigate("/host-dashboard")} disabled={uploading} className="flex-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  if (hasDraftContent()) {
+                    saveDraft();
+                    toast({ title: "Saved as draft", description: "Your unfinished tour has been saved as a draft." });
+                  }
+                  navigate("/host-dashboard");
+                }}
+                disabled={uploading}
+                className="flex-1"
+              >
                 Cancel
               </Button>
               <Button 
@@ -829,7 +895,7 @@ export default function CreateTour() {
                 disabled={uploading || isSaving}
                 className="flex-1"
               >
-                {isSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</> : <><Save className="w-4 h-4 mr-2" />Save Draft</>}
+                {isSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</> : <><Save className="w-4 h-4 mr-2" />Save as Draft</>}
               </Button>
               <Button type="submit" disabled={uploading || !isFormValid()} className="flex-1">
                 {uploading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creating...</> : "Create Tour"}

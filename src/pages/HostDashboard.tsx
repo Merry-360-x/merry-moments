@@ -195,7 +195,7 @@ interface Tour {
   min_guests?: number | null;
   max_guests?: number | null;
   max_participants?: number | null;
-  pricing_tiers?: Array<{ group_size: number; price_per_person: number; room_type?: "double_twin" | "single" }> | { pricing_model?: string; pricing_models?: string[]; price_per_group_size?: number } | null;
+  pricing_tiers?: Array<{ group_size: number; price_per_person: number; room_type?: "double_twin" | "single" }> | { pricing_model?: string; pricing_models?: string[]; price_per_group_size?: number; pricing_duration_value?: number } | null;
   group_discount_6_10?: number | null;
   group_discount_11_15?: number | null;
   group_discount_16_plus?: number | null;
@@ -3429,6 +3429,12 @@ export default function HostDashboard() {
       const value = Number((raw as { price_per_group_size?: number }).price_per_group_size || 2);
       return Number.isFinite(value) && value >= 1 ? Math.floor(value) : 2;
     })();
+    const tourPricingDurationValue = (() => {
+      const raw = (form as any)?.pricing_tiers;
+      if (!raw || Array.isArray(raw) || typeof raw !== "object") return 1;
+      const value = Number((raw as { pricing_duration_value?: number }).pricing_duration_value || 1);
+      return Number.isFinite(value) && value > 0 ? value : 1;
+    })();
 
     // Sync form state when tour prop changes or when exiting edit mode
     useEffect(() => {
@@ -3509,6 +3515,9 @@ export default function HostDashboard() {
         updates.pricing_tiers = {
           pricing_model: tourPricingModel,
           pricing_models: selectedTourPricingModels,
+          ...(selectedTourPricingModels.includes("per_hour") || selectedTourPricingModels.includes("per_minute")
+            ? { pricing_duration_value: Math.max(0.25, Number(tourPricingDurationValue || 1)) }
+            : {}),
           ...(tourPricingModel === "per_group"
             ? { price_per_group_size: Math.max(1, Number(tourGroupSize || 1)) }
             : {}),
@@ -3766,6 +3775,9 @@ export default function HostDashboard() {
                                     pricing_tiers: {
                                       pricing_model: primary,
                                       pricing_models: ordered,
+                                      ...(ordered.includes("per_hour") || ordered.includes("per_minute")
+                                        ? { pricing_duration_value: Math.max(0.25, Number(tourPricingDurationValue || 1)) }
+                                        : {}),
                                       ...(ordered.includes("per_group")
                                         ? { price_per_group_size: Math.max(1, Number(tourGroupSize || 1)) }
                                         : {}),
@@ -3778,6 +3790,41 @@ export default function HostDashboard() {
                             </label>
                           ))}
                         </div>
+                      </div>
+                      <div>
+                        <Label className="text-[10px]">
+                          {(tourPricingModel === "per_hour" || tourPricingModel === "per_minute")
+                            ? `Duration (${tourPricingModel === "per_hour" ? "hours" : "minutes"})`
+                            : "Duration"}
+                        </Label>
+                        {(tourPricingModel === "per_hour" || tourPricingModel === "per_minute") ? (
+                          <Input
+                            type="number"
+                            value={tourPricingDurationValue}
+                            onChange={(e) => {
+                              const value = Math.max(
+                                tourPricingModel === "per_hour" ? 0.25 : 1,
+                                parseFloat(e.target.value) || 1
+                              );
+                              setForm((prev) => ({
+                                ...prev,
+                                pricing_tiers: {
+                                  pricing_model: tourPricingModel,
+                                  pricing_models: selectedTourPricingModels,
+                                  pricing_duration_value: value,
+                                  ...(selectedTourPricingModels.includes("per_group")
+                                    ? { price_per_group_size: Math.max(1, Number(tourGroupSize || 1)) }
+                                    : {}),
+                                },
+                              }));
+                            }}
+                            min={tourPricingModel === "per_hour" ? "0.25" : "1"}
+                            step={tourPricingModel === "per_hour" ? "0.25" : "1"}
+                            className="mt-1 h-8 text-sm"
+                          />
+                        ) : (
+                          <p className="mt-1 text-[10px] text-muted-foreground">Select per-hour or per-minute pricing</p>
+                        )}
                       </div>
                       <div>
                         <Label className="text-[10px]">
@@ -3811,6 +3858,9 @@ export default function HostDashboard() {
                                 pricing_tiers: {
                                   pricing_model: tourPricingModel,
                                   pricing_models: selectedTourPricingModels,
+                                  ...(selectedTourPricingModels.includes("per_hour") || selectedTourPricingModels.includes("per_minute")
+                                    ? { pricing_duration_value: Math.max(0.25, Number(tourPricingDurationValue || 1)) }
+                                    : {}),
                                   price_per_group_size: value,
                                 },
                               }));
