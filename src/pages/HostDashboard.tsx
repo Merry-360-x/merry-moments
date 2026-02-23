@@ -19,7 +19,7 @@ import { isVideoUrl } from "@/lib/media";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { formatMoney } from "@/lib/money";
 import { AMENITIES, AMENITIES_BY_CATEGORY } from "@/lib/amenities";
-import { calculateHostEarningsFromGuestTotal, PLATFORM_FEES } from "@/lib/fees";
+import { calculateHostEarningsFromGuestTotal } from "@/lib/fees";
 import { getTourPricingModel, getTourPricingModels } from "@/lib/tour-pricing";
 import { useFxRates } from "@/hooks/useFxRates";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -377,6 +377,7 @@ const monthlyCancellationPolicyDetails: Record<"strict" | "fair", { title: strin
 const vehicleTypes = ["Sedan", "SUV", "Van", "Bus", "Minibus", "Motorcycle"];
 const tourCategories = ["Nature", "Adventure", "Cultural", "Wildlife", "Historical"];
 const tourDifficulties = ["Easy", "Moderate", "Hard"];
+const HOST_EARNING_FEE_PERCENT = 3;
 
 export default function HostDashboard() {
   const { user, isHost, isLoading: authLoading, rolesLoading } = useAuth();
@@ -2435,24 +2436,10 @@ export default function HostDashboard() {
     return sum + toRwfAmount(amount, currency);
   }, 0);
   
-  // Net earnings after platform fees
-  // For accommodation: base_price = guest_paid / 1.07, host gets base_price - 3%
-  // For tours: base_price = guest_paid (0% guest fee), host gets base_price - 10%
+  // Net earnings after host fee deduction (flat 3% across all booking types)
   const totalNetEarnings = confirmedBookings.reduce((sum, b) => {
     const { amount: guestPaid, currency: bookingCurrency } = getBookingAmountAndCurrency(b);
-    let hostNetInBookingCurrency = guestPaid;
-
-    if (b.booking_type === 'property' || b.property_id) {
-      // Property: guest paid 107%, host pays 3% of base price
-      const { hostNetEarnings } = calculateHostEarningsFromGuestTotal(guestPaid, 'accommodation');
-      hostNetInBookingCurrency = hostNetEarnings;
-    } else if (b.booking_type === 'tour' || b.tour_id) {
-      // Tour: guest paid 100%, provider pays 10% of base price
-      const { hostNetEarnings } = calculateHostEarningsFromGuestTotal(guestPaid, 'tour');
-      hostNetInBookingCurrency = hostNetEarnings;
-    } else {
-      hostNetInBookingCurrency = guestPaid; // Transport or other - no fee for now
-    }
+    const hostNetInBookingCurrency = guestPaid * (1 - HOST_EARNING_FEE_PERCENT / 100);
 
     return sum + toRwfAmount(hostNetInBookingCurrency, bookingCurrency);
   }, 0);
@@ -7159,12 +7146,7 @@ export default function HostDashboard() {
                           : serviceType === 'tour'
                             ? listingTotal / guests
                             : listingTotal;
-                      const feePercent =
-                        serviceType === 'accommodation'
-                          ? PLATFORM_FEES.accommodation.hostFeePercent
-                          : serviceType === 'tour'
-                            ? PLATFORM_FEES.tour.providerFeePercent
-                            : PLATFORM_FEES.transport.providerFeePercent;
+                      const feePercent = HOST_EARNING_FEE_PERCENT;
                       const hostNetEarnings = listingTotal * (1 - feePercent / 100);
                       
                       return (
@@ -7400,12 +7382,7 @@ export default function HostDashboard() {
                       : serviceType === 'tour'
                         ? listingTotal / guests
                         : listingTotal;
-                  const feePercent =
-                    serviceType === 'accommodation'
-                      ? PLATFORM_FEES.accommodation.hostFeePercent
-                      : serviceType === 'tour'
-                        ? PLATFORM_FEES.tour.providerFeePercent
-                        : PLATFORM_FEES.transport.providerFeePercent;
+                  const feePercent = HOST_EARNING_FEE_PERCENT;
                   const hostNetEarnings = listingTotal * (1 - feePercent / 100);
                   
                   return (
@@ -8651,12 +8628,7 @@ END OF REPORT
                         : bookingFullDetails.booking_type === 'tour'
                           ? 'tour'
                           : 'transport';
-                    const feePercent =
-                      modalServiceType === 'accommodation'
-                        ? PLATFORM_FEES.accommodation.hostFeePercent
-                        : modalServiceType === 'tour'
-                          ? PLATFORM_FEES.tour.providerFeePercent
-                          : PLATFORM_FEES.transport.providerFeePercent;
+                    const feePercent = HOST_EARNING_FEE_PERCENT;
                     const hostNetEarnings = listingTotal * (1 - feePercent / 100);
                     const convertedListingTotal = convertAmount(listingTotal, listingCurrency, displayCurrency, usdRates) ?? listingTotal;
                     const convertedUnitValue = convertAmount(unitValue, listingCurrency, displayCurrency, usdRates) ?? unitValue;
