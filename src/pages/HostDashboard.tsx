@@ -195,7 +195,7 @@ interface Tour {
   min_guests?: number | null;
   max_guests?: number | null;
   max_participants?: number | null;
-  pricing_tiers?: Array<{ group_size: number; price_per_person: number; room_type?: "double_twin" | "single" }> | { pricing_model?: string; pricing_models?: string[]; price_per_group_size?: number; pricing_duration_value?: number } | null;
+  pricing_tiers?: Array<{ group_size: number; price_per_person: number; room_type?: "double_twin" | "single" }> | { tiers?: Array<{ group_size: number; price_per_person: number; room_type?: "double_twin" | "single" }>; pricing_model?: string; pricing_models?: string[]; price_per_group_size?: number; pricing_duration_value?: number } | null;
   group_discount_6_10?: number | null;
   group_discount_11_15?: number | null;
   group_discount_16_plus?: number | null;
@@ -3443,8 +3443,14 @@ export default function HostDashboard() {
       setRemovedImages([]);
       
       // Initialize pricingTiers from tour package data
-      if (tour.source === "tour_packages" && tour.pricing_tiers && Array.isArray(tour.pricing_tiers)) {
-        setPricingTiers(tour.pricing_tiers.map(t => ({
+      if (tour.source === "tour_packages") {
+        const rawPricing = (tour as any).pricing_tiers;
+        const packagePricingTiers = Array.isArray(rawPricing)
+          ? rawPricing
+          : (rawPricing && typeof rawPricing === "object" && Array.isArray((rawPricing as any).tiers)
+              ? (rawPricing as any).tiers
+              : []);
+        setPricingTiers(packagePricingTiers.map((t: any) => ({
           group_size: t.group_size || 1,
           price_per_person: t.price_per_person || 0,
         })));
@@ -3561,8 +3567,19 @@ export default function HostDashboard() {
           }
         });
         
-        // Save pricing tiers
-        updates.pricing_tiers = pricingTiers.filter(t => t.group_size >= 1 && t.price_per_person > 0);
+        // Save pricing tiers and pricing metadata
+        const filteredPricingTiers = pricingTiers.filter(t => t.group_size >= 1 && t.price_per_person > 0);
+        updates.pricing_tiers = {
+          tiers: filteredPricingTiers,
+          pricing_model: tourPricingModel,
+          pricing_models: selectedTourPricingModels,
+          ...(selectedTourPricingModels.includes("per_hour") || selectedTourPricingModels.includes("per_minute")
+            ? { pricing_duration_value: Math.max(0.25, Number(tourPricingDurationValue || 1)) }
+            : {}),
+          ...(tourPricingModel === "per_group"
+            ? { price_per_group_size: Math.max(1, Number(tourGroupSize || 1)) }
+            : {}),
+        };
       }
 
       // Update images - tour_packages uses gallery_images and cover_image, tours uses images

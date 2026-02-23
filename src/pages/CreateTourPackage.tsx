@@ -18,9 +18,17 @@ import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DISPLAY_CURRENCIES } from "@/lib/currencies";
+import { getTourPricingModels } from "@/lib/tour-pricing";
 
 const categories = ["Cultural", "Adventure", "Wildlife", "City Tours", "Hiking", "Photography", "Historical", "Eco-Tourism"];
 const tourTypes = ["Private", "Group"];
+const tourPricingModels = [
+  { value: "per_person", label: "Per person" },
+  { value: "per_group", label: "Per group" },
+  { value: "per_hour", label: "Per hour" },
+  { value: "per_minute", label: "Per minute" },
+] as const;
+type TourPricingModel = (typeof tourPricingModels)[number]["value"];
 
 export default function CreateTourPackage() {
   const { user, isHost, isLoading } = useAuth();
@@ -66,6 +74,9 @@ Some components are non-refundable once booked, including but not limited to:
     what_to_bring: "",
     cancellation_policy: defaultCancellationPolicy,
     price_per_adult: "",
+    pricing_model: "per_person" as TourPricingModel,
+    pricing_models: ["per_person"] as TourPricingModel[],
+    pricing_duration_value: 1,
     currency: "RWF",
     min_guests: 1,
     max_guests: 10,
@@ -176,6 +187,17 @@ Some components are non-refundable once booked, including but not limited to:
         what_to_bring: toText((data as any).what_to_bring),
         cancellation_policy: data.cancellation_policy || defaultCancellationPolicy,
         price_per_adult: data.price_per_adult != null ? String(data.price_per_adult) : "",
+        pricing_model: (() => {
+          const parsed = getTourPricingModels((data as any)?.pricing_tiers);
+          return parsed[0] || "per_person";
+        })(),
+        pricing_models: getTourPricingModels((data as any)?.pricing_tiers),
+        pricing_duration_value: (() => {
+          const raw = (data as any)?.pricing_tiers;
+          if (!raw || Array.isArray(raw) || typeof raw !== "object") return 1;
+          const next = Number((raw as { pricing_duration_value?: number }).pricing_duration_value || 1);
+          return Number.isFinite(next) && next > 0 ? next : 1;
+        })(),
         currency: data.currency || "RWF",
         min_guests: Number(data.min_guests || 1),
         max_guests: Number(data.max_guests || 10),
@@ -193,7 +215,13 @@ Some components are non-refundable once booked, including but not limited to:
       const dbGroupDiscounts = ((data as any).group_discounts as Array<{min_people: number, max_people: number | null, discount_percentage: number}> | null) || [];
       setGroupDiscounts(dbGroupDiscounts);
 
-      const dbPricingTiers = (((data as any).pricing_tiers as any[] | null) || []).map((tier) => ({
+      const rawPricingTiers = (data as any).pricing_tiers;
+      const parsedPricingTiers = Array.isArray(rawPricingTiers)
+        ? rawPricingTiers
+        : (rawPricingTiers && typeof rawPricingTiers === "object" && Array.isArray((rawPricingTiers as any).tiers)
+            ? (rawPricingTiers as any).tiers
+            : []);
+      const dbPricingTiers = (parsedPricingTiers as any[]).map((tier) => ({
         group_size: Math.max(1, Number(tier?.group_size || 1)),
         room_type: tier?.room_type === "single" ? "single" : "double_twin",
         price_per_person: Number(tier?.price_per_person || 0),
@@ -233,7 +261,19 @@ Some components are non-refundable once booked, including but not limited to:
     if (savedDraft) {
       try {
         const draft = JSON.parse(savedDraft);
-        if (draft.formData) setFormData(draft.formData);
+        if (draft.formData) {
+          const loadedPricingModels = getTourPricingModels({
+            pricing_model: draft.formData.pricing_model,
+            pricing_models: draft.formData.pricing_models,
+          });
+          setFormData((prev) => ({
+            ...prev,
+            ...draft.formData,
+            pricing_models: loadedPricingModels,
+            pricing_model: loadedPricingModels[0] || "per_person",
+            pricing_duration_value: Number(draft.formData.pricing_duration_value || 1),
+          }));
+        }
         if (draft.groupDiscounts) setGroupDiscounts(draft.groupDiscounts);
         // Migrate old pricing tiers to include room_type
         if (draft.pricingTiers) {
@@ -495,7 +535,19 @@ Some components are non-refundable once booked, including but not limited to:
       // Add fields not in type definition yet
       (packageData as any).group_discounts = groupDiscounts.length > 0 ? groupDiscounts : null;
       (packageData as any).non_refundable_items = nonRefundableItems.length > 0 ? nonRefundableItems : null;
-      (packageData as any).pricing_tiers = normalizedPricingTiers.length > 0 ? normalizedPricingTiers : null;
+      const selectedPricingModels = (formData.pricing_models?.length > 0
+        ? formData.pricing_models
+        : [formData.pricing_model || "per_person"]) as TourPricingModel[];
+      const primaryPricingModel = selectedPricingModels[0] || "per_person";
+
+      (packageData as any).pricing_tiers = {
+        tiers: normalizedPricingTiers,
+        pricing_model: primaryPricingModel,
+        pricing_models: selectedPricingModels,
+        ...(selectedPricingModels.includes("per_hour") || selectedPricingModels.includes("per_minute")
+          ? { pricing_duration_value: Math.max(0.25, Number(formData.pricing_duration_value || 1)) }
+          : {}),
+      };
 
       // Keep backwards compatibility: if the host provided a "single person" tier,
       // use it as the base price shown across the app.
@@ -985,7 +1037,71 @@ Some components are non-refundable once booked, including but not limited to:
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label className="text-sm font-normal mb-1.5 block">Price per Adult *</Label>
+                <Label className="text-sm font-normal mb-1.5 block">Pricing Models *</Label>
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  {tourPricingModels.map((item) => (
+                    <label key={item.value} className="flex items-center space-x-2 text-sm cursor-pointer">
+                      <Checkbox
+                        checked={formData.pricing_models.includes(item.value)}
+                        onCheckedChange={(checked) => {
+                          const current = new Set(formData.pricing_models);
+                          if (checked) {
+                            current.add(item.value);
+                          } else {
+                            if (current.size <= 1) return;
+                            current.delete(item.value);
+                          }
+
+                          const ordered = tourPricingModels
+                            .map((model) => model.value)
+                            .filter((model) => current.has(model)) as TourPricingModel[];
+
+                          setFormData({
+                            ...formData,
+                            pricing_models: ordered,
+                            pricing_model: ordered[0] || "per_person",
+                          });
+                        }}
+                      />
+                      <span>{item.label}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Primary pricing is set automatically from the first selected option.
+                </p>
+              </div>
+
+              <div>
+                <Label className="text-sm font-normal mb-1.5 block">
+                  {(formData.pricing_model === "per_hour" || formData.pricing_model === "per_minute")
+                    ? `Duration (${formData.pricing_model === "per_hour" ? "hours" : "minutes"}) *`
+                    : "Price Input"}
+                </Label>
+                {(formData.pricing_model === "per_hour" || formData.pricing_model === "per_minute") ? (
+                  <Input
+                    type="number"
+                    value={formData.pricing_duration_value}
+                    onChange={(e) => setFormData({ ...formData, pricing_duration_value: Math.max(0.25, parseFloat(e.target.value) || 1) })}
+                    min={formData.pricing_model === "per_hour" ? "0.25" : "1"}
+                    step={formData.pricing_model === "per_hour" ? "0.25" : "1"}
+                    className="h-10"
+                  />
+                ) : (
+                  <p className="text-xs text-muted-foreground">Select per-hour or per-minute to define duration.</p>
+                )}
+              </div>
+
+              <div>
+                <Label className="text-sm font-normal mb-1.5 block">
+                  {formData.pricing_model === "per_group"
+                    ? "Price per Group *"
+                    : formData.pricing_model === "per_hour"
+                      ? "Price per Hour *"
+                      : formData.pricing_model === "per_minute"
+                        ? "Price per Minute *"
+                        : "Price per Adult *"}
+                </Label>
                 <Input
                   type="number"
                   value={formData.price_per_adult}
@@ -994,6 +1110,11 @@ Some components are non-refundable once booked, including but not limited to:
                   step="0.01"
                   className="h-10"
                 />
+                {(formData.pricing_model === "per_hour" || formData.pricing_model === "per_minute") && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Total for selected duration: {formData.currency} {(Number(formData.pricing_duration_value || 1) * Number(formData.price_per_adult || 0)).toFixed(2)}
+                  </p>
+                )}
               </div>
 
               <div>
