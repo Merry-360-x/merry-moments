@@ -2224,7 +2224,10 @@ export default function HostDashboard() {
     order_id?: string | null;
     total_price?: number | null;
   }) => {
-    if (!booking.order_id) return 0;
+    if (!booking.order_id) {
+      const listedAmount = Number(booking.total_price || 0);
+      return Number.isFinite(listedAmount) && listedAmount > 0 ? listedAmount : 0;
+    }
 
     const checkout = checkoutByOrderId[booking.order_id];
     const checkoutTotal = Number(checkout?.total_amount || 0);
