@@ -20,7 +20,7 @@ import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { formatMoney } from "@/lib/money";
 import { AMENITIES, AMENITIES_BY_CATEGORY } from "@/lib/amenities";
 import { calculateHostEarningsFromGuestTotal, PLATFORM_FEES } from "@/lib/fees";
-import { getTourPricingModel } from "@/lib/tour-pricing";
+import { getTourPricingModel, getTourPricingModels } from "@/lib/tour-pricing";
 import { useFxRates } from "@/hooks/useFxRates";
 import { usePreferences } from "@/hooks/usePreferences";
 import { convertAmount } from "@/lib/fx";
@@ -195,7 +195,7 @@ interface Tour {
   min_guests?: number | null;
   max_guests?: number | null;
   max_participants?: number | null;
-  pricing_tiers?: Array<{ group_size: number; price_per_person: number; room_type?: "double_twin" | "single" }> | { pricing_model?: string; price_per_group_size?: number } | null;
+  pricing_tiers?: Array<{ group_size: number; price_per_person: number; room_type?: "double_twin" | "single" }> | { pricing_model?: string; pricing_models?: string[]; price_per_group_size?: number } | null;
   group_discount_6_10?: number | null;
   group_discount_11_15?: number | null;
   group_discount_16_plus?: number | null;
@@ -3435,6 +3435,7 @@ export default function HostDashboard() {
     const [groupDiscounts, setGroupDiscounts] = useState<Array<{min_people: number, max_people: number | null, discount_percentage: number}>>([]);
     const [pricingTiers, setPricingTiers] = useState<Array<{ group_size: number; price_per_person: number }>>([]);
     const tourPricingModel = getTourPricingModel((form as any)?.pricing_tiers);
+    const selectedTourPricingModels = getTourPricingModels((form as any)?.pricing_tiers);
     const tourGroupSize = (() => {
       const raw = (form as any)?.pricing_tiers;
       if (!raw || Array.isArray(raw) || typeof raw !== "object") return 2;
@@ -3520,6 +3521,7 @@ export default function HostDashboard() {
         // Save pricing model metadata for regular tours
         updates.pricing_tiers = {
           pricing_model: tourPricingModel,
+          pricing_models: selectedTourPricingModels,
           ...(tourPricingModel === "per_group"
             ? { price_per_group_size: Math.max(1, Number(tourGroupSize || 1)) }
             : {}),
@@ -3746,27 +3748,49 @@ export default function HostDashboard() {
                     <Label className="text-xs font-medium">Pricing</Label>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <Label className="text-[10px]">Pricing Model</Label>
-                        <Select
-                          value={tourPricingModel}
-                          onValueChange={(value: "per_person" | "per_group" | "per_hour" | "per_minute") =>
-                            setForm((prev) => ({
-                              ...prev,
-                              pricing_tiers: {
-                                pricing_model: value,
-                                ...(value === "per_group" ? { price_per_group_size: tourGroupSize } : {}),
-                              },
-                            }))
-                          }
-                        >
-                          <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="per_person">Per person</SelectItem>
-                            <SelectItem value="per_group">Per group</SelectItem>
-                            <SelectItem value="per_hour">Per hour</SelectItem>
-                            <SelectItem value="per_minute">Per minute</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <Label className="text-[10px]">Pricing Models</Label>
+                        <div className="mt-1 grid grid-cols-2 gap-1">
+                          {[
+                            { value: "per_person", label: "Per person" },
+                            { value: "per_group", label: "Per group" },
+                            { value: "per_hour", label: "Per hour" },
+                            { value: "per_minute", label: "Per minute" },
+                          ].map((option) => (
+                            <label key={option.value} className="flex items-center gap-1 text-[10px] bg-muted px-1.5 py-1 rounded cursor-pointer hover:bg-muted/80">
+                              <input
+                                type="checkbox"
+                                checked={selectedTourPricingModels.includes(option.value as any)}
+                                onChange={(e) => {
+                                  const current = new Set(selectedTourPricingModels);
+                                  if (e.target.checked) {
+                                    current.add(option.value as any);
+                                  } else {
+                                    if (current.size <= 1) return;
+                                    current.delete(option.value as any);
+                                  }
+
+                                  const ordered = ["per_person", "per_group", "per_hour", "per_minute"].filter((model) =>
+                                    current.has(model as any)
+                                  );
+                                  const primary = (ordered[0] || "per_person") as "per_person" | "per_group" | "per_hour" | "per_minute";
+
+                                  setForm((prev) => ({
+                                    ...prev,
+                                    pricing_tiers: {
+                                      pricing_model: primary,
+                                      pricing_models: ordered,
+                                      ...(ordered.includes("per_group")
+                                        ? { price_per_group_size: Math.max(1, Number(tourGroupSize || 1)) }
+                                        : {}),
+                                    },
+                                  }));
+                                }}
+                                className="w-3 h-3"
+                              />
+                              {option.label}
+                            </label>
+                          ))}
+                        </div>
                       </div>
                       <div>
                         <Label className="text-[10px]">
@@ -3787,7 +3811,7 @@ export default function HostDashboard() {
                           className="mt-1 h-8 text-sm"
                         />
                       </div>
-                      {tourPricingModel === "per_group" ? (
+                      {selectedTourPricingModels.includes("per_group") ? (
                         <div>
                           <Label className="text-[10px]">Group Size</Label>
                           <Input
@@ -3798,7 +3822,8 @@ export default function HostDashboard() {
                               setForm((prev) => ({
                                 ...prev,
                                 pricing_tiers: {
-                                  pricing_model: "per_group",
+                                  pricing_model: tourPricingModel,
+                                  pricing_models: selectedTourPricingModels,
                                   price_per_group_size: value,
                                 },
                               }));

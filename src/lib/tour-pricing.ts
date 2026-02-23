@@ -2,18 +2,37 @@ export type TourPricingModel = "per_person" | "per_group" | "per_hour" | "per_mi
 
 const VALID_MODELS: TourPricingModel[] = ["per_person", "per_group", "per_hour", "per_minute"];
 
-export function getTourPricingModel(pricingTiers: unknown): TourPricingModel {
-  if (!pricingTiers || Array.isArray(pricingTiers) || typeof pricingTiers !== "object") {
-    return "per_person";
-  }
-
-  const raw = (pricingTiers as { pricing_model?: unknown }).pricing_model;
-  if (typeof raw !== "string") return "per_person";
-
-  const normalized = raw.trim().toLowerCase();
+const normalizeTourPricingModel = (value: unknown): TourPricingModel | null => {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
   return (VALID_MODELS as string[]).includes(normalized)
     ? (normalized as TourPricingModel)
-    : "per_person";
+    : null;
+};
+
+export function getTourPricingModels(pricingTiers: unknown): TourPricingModel[] {
+  if (!pricingTiers || Array.isArray(pricingTiers) || typeof pricingTiers !== "object") {
+    return ["per_person"];
+  }
+
+  const rawArray = (pricingTiers as { pricing_models?: unknown }).pricing_models;
+  if (Array.isArray(rawArray)) {
+    const asSet = new Set(
+      rawArray
+        .map((item) => normalizeTourPricingModel(item))
+        .filter((item): item is TourPricingModel => Boolean(item))
+    );
+
+    const ordered = VALID_MODELS.filter((model) => asSet.has(model));
+    if (ordered.length > 0) return ordered;
+  }
+
+  const single = normalizeTourPricingModel((pricingTiers as { pricing_model?: unknown }).pricing_model);
+  return [single || "per_person"];
+}
+
+export function getTourPricingModel(pricingTiers: unknown): TourPricingModel {
+  return getTourPricingModels(pricingTiers)[0] || "per_person";
 }
 
 export function getTourPriceSuffix(model: TourPricingModel): string {

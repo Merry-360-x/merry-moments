@@ -19,6 +19,7 @@ import { uploadFile } from "@/lib/uploads";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { DISPLAY_CURRENCIES } from "@/lib/currencies";
+import { getTourPricingModels } from "@/lib/tour-pricing";
 
 const categories = ["Nature", "Adventure", "Cultural", "Wildlife", "Historical", "City Tours", "Eco-Tourism", "Photography"];
 const tourPricingModels = [
@@ -27,6 +28,7 @@ const tourPricingModels = [
   { value: "per_hour", label: "Per hour" },
   { value: "per_minute", label: "Per minute" },
 ] as const;
+type TourPricingModel = (typeof tourPricingModels)[number]["value"];
 
 interface FormErrors {
   title?: string;
@@ -58,7 +60,8 @@ export default function CreateTour() {
     duration_days: 1,
     max_participants: 10,
     price_per_person: 0,
-    pricing_model: "per_person" as "per_person" | "per_group" | "per_hour" | "per_minute",
+    pricing_model: "per_person" as TourPricingModel,
+    pricing_models: ["per_person"] as TourPricingModel[],
     price_per_group_size: 2,
     currency: "RWF",
     has_differential_pricing: false,
@@ -112,14 +115,8 @@ export default function CreateTour() {
       }
 
       const mergedCategories = [data.category, ...((data.categories as string[] | null) || [])].filter(Boolean) as string[];
-      const pricingModel = (() => {
-        const raw = (data as any)?.pricing_tiers;
-        if (!raw || Array.isArray(raw) || typeof raw !== "object") return "per_person";
-        const candidate = String((raw as { pricing_model?: string }).pricing_model || "").toLowerCase();
-        return ["per_person", "per_group", "per_hour", "per_minute"].includes(candidate)
-          ? (candidate as "per_person" | "per_group" | "per_hour" | "per_minute")
-          : "per_person";
-      })();
+      const pricingModels = getTourPricingModels((data as any)?.pricing_tiers);
+      const pricingModel = pricingModels[0] || "per_person";
       const groupSize = (() => {
         const raw = (data as any)?.pricing_tiers;
         if (!raw || Array.isArray(raw) || typeof raw !== "object") return 2;
@@ -135,6 +132,7 @@ export default function CreateTour() {
         max_participants: Number(data.max_group_size || 10),
         price_per_person: Number(data.price_per_person || 0),
         pricing_model: pricingModel,
+        pricing_models: pricingModels,
         price_per_group_size: groupSize,
         currency: data.currency || "RWF",
         has_differential_pricing: Boolean((data as any).has_differential_pricing),
@@ -185,7 +183,18 @@ export default function CreateTour() {
     if (savedDraft) {
       try {
         const draft = JSON.parse(savedDraft);
-        if (draft.formData) setFormData(draft.formData);
+        if (draft.formData) {
+          const loadedPricingModels = getTourPricingModels({
+            pricing_model: draft.formData.pricing_model,
+            pricing_models: draft.formData.pricing_models,
+          });
+          setFormData((prev) => ({
+            ...prev,
+            ...draft.formData,
+            pricing_models: loadedPricingModels,
+            pricing_model: loadedPricingModels[0] || "per_person",
+          }));
+        }
         if (draft.images) setImages(draft.images);
         setLastSaved(new Date(draft.timestamp));
         toast({ title: "Draft restored", description: "Your previous work has been restored" });
@@ -300,7 +309,7 @@ export default function CreateTour() {
     return formData.title.trim() && formData.description.trim().length >= 20 &&
       formData.location.trim() && formData.price_per_person > 0 &&
       formData.duration_days >= 1 && formData.max_participants >= 1 &&
-      formData.categories.length > 0 && images.length > 0 && licenseUrl.trim();
+      formData.categories.length > 0 && images.length > 0 && licenseUrl.trim() && formData.pricing_models.length > 0;
   };
 
   const handlePdfChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -357,7 +366,8 @@ export default function CreateTour() {
 
       (tourData as any).pricing_tiers = {
         pricing_model: formData.pricing_model,
-        ...(formData.pricing_model === "per_group"
+        pricing_models: formData.pricing_models,
+        ...(formData.pricing_models.includes("per_group")
           ? { price_per_group_size: Math.max(1, Number(formData.price_per_group_size || 1)) }
           : {}),
       };
@@ -565,20 +575,39 @@ export default function CreateTour() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label className="text-sm font-normal mb-1.5 block">Pricing Model *</Label>
-                <Select
-                  value={formData.pricing_model}
-                  onValueChange={(v: "per_person" | "per_group" | "per_hour" | "per_minute") =>
-                    setFormData({ ...formData, pricing_model: v })
-                  }
-                >
-                  <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {tourPricingModels.map((item) => (
-                      <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label className="text-sm font-normal mb-1.5 block">Pricing Models *</Label>
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  {tourPricingModels.map((item) => (
+                    <label key={item.value} className="flex items-center space-x-2 text-sm cursor-pointer">
+                      <Checkbox
+                        checked={formData.pricing_models.includes(item.value)}
+                        onCheckedChange={(checked) => {
+                          const current = new Set(formData.pricing_models);
+                          if (checked) {
+                            current.add(item.value);
+                          } else {
+                            if (current.size <= 1) return;
+                            current.delete(item.value);
+                          }
+
+                          const ordered = tourPricingModels
+                            .map((model) => model.value)
+                            .filter((model) => current.has(model)) as TourPricingModel[];
+
+                          setFormData({
+                            ...formData,
+                            pricing_models: ordered,
+                            pricing_model: ordered[0] || "per_person",
+                          });
+                        }}
+                      />
+                      <span>{item.label}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Primary pricing is set automatically from the first selected option.
+                </p>
               </div>
 
               <div>
@@ -603,7 +632,7 @@ export default function CreateTour() {
                 {errors.price_per_person && <p className="text-xs text-destructive mt-1">{errors.price_per_person}</p>}
               </div>
 
-              {formData.pricing_model === "per_group" ? (
+              {formData.pricing_models.includes("per_group") ? (
                 <div>
                   <Label className="text-sm font-normal mb-1.5 block">Group Size (included in group rate) *</Label>
                   <Input
