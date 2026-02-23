@@ -151,15 +151,6 @@ export class RecommendationEngine {
       reasons.push('You favorited this');
     }
 
-    // Recency penalty (prefer newer items)
-    if (item.created_at) {
-      const daysOld = (Date.now() - new Date(item.created_at).getTime()) / (1000 * 60 * 60 * 24);
-      if (daysOld < 30) {
-        score += 10;
-        reasons.push('Recently added');
-      }
-    }
-
     return { itemId: item.id, score, reasons };
   }
 
@@ -172,7 +163,7 @@ export class RecommendationEngine {
         .from('properties')
         .select('*')
         .eq('is_published', true)
-        .order('created_at', { ascending: false })
+        .order('created_at', { ascending: true })
         .limit(50); // Fetch more to score and filter
 
       if (!properties) return [];
@@ -453,12 +444,6 @@ export class SmartSearch {
     score += Number(item.rating || 0) * 8;
     score += Math.min(Number(item.review_count || 0), 30);
 
-    if (item.created_at) {
-      const daysOld = (Date.now() - new Date(item.created_at).getTime()) / (1000 * 60 * 60 * 24);
-      if (daysOld <= 30) score += 10;
-      else if (daysOld <= 90) score += 6;
-    }
-
     return score;
   }
 
@@ -498,7 +483,7 @@ export class SmartSearch {
           .from('properties')
           .select('*')
           .eq('is_published', true)
-          .order('created_at', { ascending: false })
+          .order('created_at', { ascending: true })
           .limit(500);
 
         if (tokenClauses.length > 0) {

@@ -72,7 +72,9 @@ const fetchProperties = async (args: {
         "id, title, location, price_per_night, price_per_month, available_for_monthly_rental, monthly_only_listing, currency, property_type, rating, review_count, images, created_at, bedrooms, bathrooms, beds, lat, lng, host_id, max_guests, check_in_time, check_out_time, smoking_allowed, events_allowed, pets_allowed"
       )
       .eq("is_published", true)
-      .order("created_at", { ascending: false });
+      .order("rating", { ascending: false })
+      .order("review_count", { ascending: false })
+      .order("created_at", { ascending: true });
 
     const trimmed = args.search.trim();
     const searchTerms = trimmed
