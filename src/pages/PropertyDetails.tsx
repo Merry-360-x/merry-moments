@@ -879,7 +879,7 @@ export default function PropertyDetails() {
     [recommendationSeed]
   );
 
-  const { data: relatedTours = [] } = useQuery({
+  const { data: relatedTours = [], isLoading: isLoadingRelatedTours } = useQuery({
     queryKey: ["related-tours", propertyId, nights, guests, checkIn?.toISOString().slice(0, 10), checkOut?.toISOString().slice(0, 10), locationHints.join("|")],
     enabled: Boolean(propertyId),
     queryFn: async () => {
@@ -964,7 +964,7 @@ export default function PropertyDetails() {
     },
   });
 
-  const { data: relatedTransportVehicles = [] } = useQuery({
+  const { data: relatedTransportVehicles = [], isLoading: isLoadingRelatedTransportVehicles } = useQuery({
     queryKey: ["related-transport-vehicles", propertyId, checkIn?.toISOString().slice(0, 10), checkOut?.toISOString().slice(0, 10), guests, locationHints.join("|")],
     enabled: Boolean(propertyId),
     queryFn: async () => {
@@ -1036,6 +1036,9 @@ export default function PropertyDetails() {
       return guestsFiltered.filter((vehicle) => !conflictingIds.has(String(vehicle.id))).slice(0, 6);
     },
   });
+
+  const isLoadingRelatedAddOns = isLoadingRelatedTours || isLoadingRelatedTransportVehicles;
+  const hasRelatedRecommendations = relatedTours.length > 0 || relatedTransportVehicles.length > 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -1268,104 +1271,108 @@ export default function PropertyDetails() {
                   </div>
                 </div>
                 <div className="space-y-6">
-                  <div>
-                    <div className="text-sm font-semibold text-foreground mb-3">{tourRecommendationPhrase}</div>
-                    {relatedTours.length === 0 ? (
-                      <div className="text-sm text-muted-foreground">{t("propertyDetails.noToursFound")}</div>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {relatedTours.slice(0, 4).map((tour) => (
-                          <Link key={tour.id} to={tour.source === "tour_packages" ? `/tours/${tour.id}` : "/tours"} className="block">
-                            <div className="rounded-xl border border-border overflow-hidden hover:shadow-md transition">
-                              {tour.images?.[0] ? (
-                                <img
-                                  src={tour.images[0]}
-                                  alt={tour.title}
-                                  className="h-36 w-full object-cover"
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <div className="h-36 w-full bg-muted" />
-                              )}
-                              <div className="p-3">
-                                <div className="font-medium text-foreground line-clamp-1">{tour.title}</div>
-                                <div className="text-xs text-muted-foreground line-clamp-1">{tour.location ?? ""}</div>
-                                <div className="mt-2 text-sm font-semibold text-primary">
-                                  {displayMoney(Number(tour.price_per_person ?? 0), String(tour.currency ?? "RWF"))}
-                                  <span className="text-xs text-muted-foreground"> {t("common.perPerson")}</span>
+                  {isLoadingRelatedAddOns ? (
+                    <div className="text-sm text-muted-foreground">Finding tours and transport for this stay...</div>
+                  ) : hasRelatedRecommendations ? (
+                    <>
+                      {relatedTours.length > 0 ? (
+                        <div>
+                          <div className="text-sm font-semibold text-foreground mb-3">{tourRecommendationPhrase}</div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {relatedTours.slice(0, 4).map((tour) => (
+                              <Link key={tour.id} to={tour.source === "tour_packages" ? `/tours/${tour.id}` : "/tours"} className="block">
+                                <div className="rounded-xl border border-border overflow-hidden hover:shadow-md transition">
+                                  {tour.images?.[0] ? (
+                                    <img
+                                      src={tour.images[0]}
+                                      alt={tour.title}
+                                      className="h-36 w-full object-cover"
+                                      loading="lazy"
+                                    />
+                                  ) : (
+                                    <div className="h-36 w-full bg-muted" />
+                                  )}
+                                  <div className="p-3">
+                                    <div className="font-medium text-foreground line-clamp-1">{tour.title}</div>
+                                    <div className="text-xs text-muted-foreground line-clamp-1">{tour.location ?? ""}</div>
+                                    <div className="mt-2 text-sm font-semibold text-primary">
+                                      {displayMoney(Number(tour.price_per_person ?? 0), String(tour.currency ?? "RWF"))}
+                                      <span className="text-xs text-muted-foreground"> {t("common.perPerson")}</span>
+                                    </div>
+                                    <div className="mt-3">
+                                      <Button
+                                        variant="outline"
+                                        className="w-full"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          setAddedAddOn(true);
+                                          void addToCart(tour.source === "tour_packages" ? "tour_package" : "tour", tour.id, 1);
+                                        }}
+                                      >
+                                        {t("common.addToTripCart")}
+                                      </Button>
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="mt-3">
-                                  <Button
-                                    variant="outline"
-                                    className="w-full"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setAddedAddOn(true);
-                                      void addToCart(tour.source === "tour_packages" ? "tour_package" : "tour", tour.id, 1);
-                                    }}
-                                  >
-                                    {t("common.addToTripCart")}
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-            </div>
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
 
-                <div>
-                  <div className="text-sm font-semibold text-foreground mb-3">{transportRecommendationPhrase}</div>
-                    {relatedTransportVehicles.length === 0 ? (
-                      <div className="text-sm text-muted-foreground">{t("propertyDetails.noTransportFound")}</div>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {relatedTransportVehicles.slice(0, 4).map((v) => (
-                          <Link key={v.id} to="/transport" className="block">
-                            <div className="rounded-xl border border-border overflow-hidden hover:shadow-md transition">
-                              {v.image_url ? (
-                                <img
-                                  src={v.image_url}
-                                  alt={v.title}
-                                  className="h-36 w-full object-cover"
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <div className="h-36 w-full bg-muted" />
-                              )}
-                              <div className="p-3">
-                                <div className="font-medium text-foreground line-clamp-1">{v.title}</div>
-                                <div className="text-xs text-muted-foreground line-clamp-1">
-                                  {v.provider_name ?? ""} {v.vehicle_type ? `· ${v.vehicle_type}` : ""}{" "}
-                                  {v.seats ? `· ${v.seats} ${t("common.seats")}` : ""}
+                      {relatedTransportVehicles.length > 0 ? (
+                        <div>
+                          <div className="text-sm font-semibold text-foreground mb-3">{transportRecommendationPhrase}</div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {relatedTransportVehicles.slice(0, 4).map((v) => (
+                              <Link key={v.id} to="/transport" className="block">
+                                <div className="rounded-xl border border-border overflow-hidden hover:shadow-md transition">
+                                  {v.image_url ? (
+                                    <img
+                                      src={v.image_url}
+                                      alt={v.title}
+                                      className="h-36 w-full object-cover"
+                                      loading="lazy"
+                                    />
+                                  ) : (
+                                    <div className="h-36 w-full bg-muted" />
+                                  )}
+                                  <div className="p-3">
+                                    <div className="font-medium text-foreground line-clamp-1">{v.title}</div>
+                                    <div className="text-xs text-muted-foreground line-clamp-1">
+                                      {v.provider_name ?? ""} {v.vehicle_type ? `· ${v.vehicle_type}` : ""}{" "}
+                                      {v.seats ? `· ${v.seats} ${t("common.seats")}` : ""}
+                                    </div>
+                                    <div className="mt-2 text-sm font-semibold text-primary">
+                                      {displayMoney(Number(v.price_per_day ?? 0), String(v.currency ?? "RWF"))}
+                                      <span className="text-xs text-muted-foreground"> {t("common.perDay")}</span>
+                                    </div>
+                                    <div className="mt-3">
+                                      <Button
+                                        variant="outline"
+                                        className="w-full"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          setAddedAddOn(true);
+                                          void addToCart("transport_vehicle", v.id, 1);
+                                        }}
+                                      >
+                                        {t("common.addToTripCart")}
+                                      </Button>
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="mt-2 text-sm font-semibold text-primary">
-                                  {displayMoney(Number(v.price_per_day ?? 0), String(v.currency ?? "RWF"))}
-                                  <span className="text-xs text-muted-foreground"> {t("common.perDay")}</span>
-                                </div>
-                                <div className="mt-3">
-                                  <Button
-                                    variant="outline"
-                                    className="w-full"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setAddedAddOn(true);
-                                      void addToCart("transport_vehicle", v.id, 1);
-                                    }}
-                                  >
-                                    {t("common.addToTripCart")}
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                    </>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">No add-ons are available yet for this stay. Use the links above to browse all tours and transport.</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1981,102 +1988,106 @@ export default function PropertyDetails() {
                   </div>
                 </div>
                 <div className="space-y-6">
-                  <div>
-                    <div className="text-sm font-semibold text-foreground mb-3">{tourRecommendationPhrase}</div>
-                    {relatedTours.length === 0 ? (
-                      <div className="text-sm text-muted-foreground">{t("propertyDetails.noToursFound")}</div>
-                    ) : (
-                      <div className="grid grid-cols-1 gap-4">
-                        {relatedTours.slice(0, 6).map((tour) => (
-                          <Link key={tour.id} to={tour.source === "tour_packages" ? `/tours/${tour.id}` : "/tours"} className="block">
-                            <div className="rounded-xl border border-border overflow-hidden hover:shadow-md transition flex">
-                              {tour.images?.[0] ? (
-                                <img
-                                  src={tour.images[0]}
-                                  alt={tour.title}
-                                  className="h-24 w-24 object-cover flex-shrink-0"
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <div className="h-24 w-24 bg-muted flex-shrink-0" />
-                              )}
-                              <div className="p-3 flex-1 min-w-0">
-                                <div className="font-medium text-foreground text-sm line-clamp-1">{tour.title}</div>
-                                <div className="text-xs text-muted-foreground line-clamp-1">{tour.location ?? ""}</div>
-                                <div className="mt-1 text-sm font-semibold text-primary">
-                                  {displayMoney(Number(tour.price_per_person ?? 0), String(tour.currency ?? "RWF"))}
-                                  <span className="text-xs text-muted-foreground"> {t("common.perPerson")}</span>
+                  {isLoadingRelatedAddOns ? (
+                    <div className="text-sm text-muted-foreground">Finding tours and transport for this stay...</div>
+                  ) : hasRelatedRecommendations ? (
+                    <>
+                      {relatedTours.length > 0 ? (
+                        <div>
+                          <div className="text-sm font-semibold text-foreground mb-3">{tourRecommendationPhrase}</div>
+                          <div className="grid grid-cols-1 gap-4">
+                            {relatedTours.slice(0, 6).map((tour) => (
+                              <Link key={tour.id} to={tour.source === "tour_packages" ? `/tours/${tour.id}` : "/tours"} className="block">
+                                <div className="rounded-xl border border-border overflow-hidden hover:shadow-md transition flex">
+                                  {tour.images?.[0] ? (
+                                    <img
+                                      src={tour.images[0]}
+                                      alt={tour.title}
+                                      className="h-24 w-24 object-cover flex-shrink-0"
+                                      loading="lazy"
+                                    />
+                                  ) : (
+                                    <div className="h-24 w-24 bg-muted flex-shrink-0" />
+                                  )}
+                                  <div className="p-3 flex-1 min-w-0">
+                                    <div className="font-medium text-foreground text-sm line-clamp-1">{tour.title}</div>
+                                    <div className="text-xs text-muted-foreground line-clamp-1">{tour.location ?? ""}</div>
+                                    <div className="mt-1 text-sm font-semibold text-primary">
+                                      {displayMoney(Number(tour.price_per_person ?? 0), String(tour.currency ?? "RWF"))}
+                                      <span className="text-xs text-muted-foreground"> {t("common.perPerson")}</span>
+                                    </div>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="mt-2 h-8 text-xs"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setAddedAddOn(true);
+                                        void addToCart(tour.source === "tour_packages" ? "tour_package" : "tour", tour.id, 1);
+                                      }}
+                                    >
+                                      {t("common.addToTripCart")}
+                                    </Button>
+                                  </div>
                                 </div>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="mt-2 h-8 text-xs"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setAddedAddOn(true);
-                                    void addToCart(tour.source === "tour_packages" ? "tour_package" : "tour", tour.id, 1);
-                                  }}
-                                >
-                                  {t("common.addToTripCart")}
-                                </Button>
-                              </div>
-                            </div>
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
 
-                  <div>
-                    <div className="text-sm font-semibold text-foreground mb-3">{transportRecommendationPhrase}</div>
-                    {relatedTransportVehicles.length === 0 ? (
-                      <div className="text-sm text-muted-foreground">{t("propertyDetails.noTransportFound")}</div>
-                    ) : (
-                      <div className="grid grid-cols-1 gap-4">
-                        {relatedTransportVehicles.slice(0, 4).map((v) => (
-                          <Link key={v.id} to="/transport" className="block">
-                            <div className="rounded-xl border border-border overflow-hidden hover:shadow-md transition flex">
-                              {v.image_url ? (
-                                <img
-                                  src={v.image_url}
-                                  alt={v.title}
-                                  className="h-24 w-24 object-cover flex-shrink-0"
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <div className="h-24 w-24 bg-muted flex-shrink-0" />
-                              )}
-                              <div className="p-3 flex-1 min-w-0">
-                                <div className="font-medium text-foreground text-sm line-clamp-1">{v.title}</div>
-                                <div className="text-xs text-muted-foreground line-clamp-1">
-                                  {v.provider_name ?? ""} {v.vehicle_type ? `· ${v.vehicle_type}` : ""}{" "}
-                                  {v.seats ? `· ${v.seats} ${t("common.seats")}` : ""}
+                      {relatedTransportVehicles.length > 0 ? (
+                        <div>
+                          <div className="text-sm font-semibold text-foreground mb-3">{transportRecommendationPhrase}</div>
+                          <div className="grid grid-cols-1 gap-4">
+                            {relatedTransportVehicles.slice(0, 4).map((v) => (
+                              <Link key={v.id} to="/transport" className="block">
+                                <div className="rounded-xl border border-border overflow-hidden hover:shadow-md transition flex">
+                                  {v.image_url ? (
+                                    <img
+                                      src={v.image_url}
+                                      alt={v.title}
+                                      className="h-24 w-24 object-cover flex-shrink-0"
+                                      loading="lazy"
+                                    />
+                                  ) : (
+                                    <div className="h-24 w-24 bg-muted flex-shrink-0" />
+                                  )}
+                                  <div className="p-3 flex-1 min-w-0">
+                                    <div className="font-medium text-foreground text-sm line-clamp-1">{v.title}</div>
+                                    <div className="text-xs text-muted-foreground line-clamp-1">
+                                      {v.provider_name ?? ""} {v.vehicle_type ? `· ${v.vehicle_type}` : ""}{" "}
+                                      {v.seats ? `· ${v.seats} ${t("common.seats")}` : ""}
+                                    </div>
+                                    <div className="mt-1 text-sm font-semibold text-primary">
+                                      {displayMoney(Number(v.price_per_day ?? 0), String(v.currency ?? "RWF"))}
+                                      <span className="text-xs text-muted-foreground"> {t("common.perDay")}</span>
+                                    </div>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="mt-2 h-8 text-xs"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setAddedAddOn(true);
+                                        void addToCart("transport_vehicle", v.id, 1);
+                                      }}
+                                    >
+                                      {t("common.addToTripCart")}
+                                    </Button>
+                                  </div>
                                 </div>
-                                <div className="mt-1 text-sm font-semibold text-primary">
-                                  {displayMoney(Number(v.price_per_day ?? 0), String(v.currency ?? "RWF"))}
-                                  <span className="text-xs text-muted-foreground"> {t("common.perDay")}</span>
-                                </div>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="mt-2 h-8 text-xs"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setAddedAddOn(true);
-                                    void addToCart("transport_vehicle", v.id, 1);
-                                  }}
-                                >
-                                  {t("common.addToTripCart")}
-                                </Button>
-                              </div>
-                            </div>
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                    </>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">No add-ons are available yet for this stay. Use the links above to browse all tours and transport.</div>
+                  )}
                 </div>
               </div>
             </div>
