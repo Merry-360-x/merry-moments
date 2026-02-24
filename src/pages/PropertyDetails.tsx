@@ -883,7 +883,6 @@ export default function PropertyDetails() {
     queryKey: ["related-tours", propertyId, nights, guests, checkIn?.toISOString().slice(0, 10), checkOut?.toISOString().slice(0, 10), locationHints.join("|")],
     enabled: Boolean(propertyId),
     queryFn: async () => {
-      const stayDays = Math.max(1, nights || 1);
       const locationHint = locationHints[0] || "";
 
       // Get tours from tours table
@@ -893,10 +892,6 @@ export default function PropertyDetails() {
         .eq("is_published", true)
         .order("created_at", { ascending: false })
         .limit(24);
-
-      if (locationHint) {
-        toursQuery = toursQuery.ilike("location", `%${locationHint}%`);
-      }
 
       const { data: toursData, error: toursError } = await toursQuery;
       
@@ -909,10 +904,6 @@ export default function PropertyDetails() {
         .eq("status", "approved")
         .order("created_at", { ascending: false })
         .limit(24);
-
-      if (locationHint) {
-        packagesQuery = packagesQuery.ilike("city", `%${locationHint}%`);
-      }
 
       const { data: packagesData, error: packagesError } = await packagesQuery;
       
@@ -944,7 +935,6 @@ export default function PropertyDetails() {
       }));
 
       const filteredByStay = [...packages, ...tours].filter((tour) => {
-        if (tour.duration_days && tour.duration_days > stayDays) return false;
         if (tour.max_guests && guests > 0 && tour.max_guests < guests) return false;
         return true;
       });
