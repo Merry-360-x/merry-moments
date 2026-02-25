@@ -484,7 +484,6 @@ export default function CreateTour() {
           : {}),
       };
 
-      (tourData as any).tour_guide_license_url = licenseUrl || null;
       (tourData as any).tour_license_url = licenseUrl || null;
 
       if (isEditMode && editId) {
