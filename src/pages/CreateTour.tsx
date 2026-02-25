@@ -67,7 +67,7 @@ interface FormErrors {
 }
 
 export default function CreateTour() {
-  const { user, isHost, isLoading, roles } = useAuth();
+  const { user, isHost, isLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -112,7 +112,6 @@ export default function CreateTour() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
-  const canPublishWithoutCertificate = roles.includes("admin") || roles.includes("certificate_override");
 
   // Use a stable storage key
   const getStorageKey = () => user?.id ? `tour-draft-${user.id}` : 'tour-draft-anonymous';
@@ -365,7 +364,6 @@ export default function CreateTour() {
       formData.location.trim() && (formData.price_per_person > 0 || hasValidTimeTier || hasValidGroupTier) &&
       formData.duration_days >= 1 && formData.max_participants >= 1 &&
       formData.categories.length > 0 && images.length > 0 && formData.pricing_models.length > 0 &&
-      (canPublishWithoutCertificate || licenseUrl.trim()) &&
       (!needsTimeTier || hasValidTimeTier) &&
       (!needsGroupTier || hasValidGroupTier);
   };
@@ -1055,14 +1053,8 @@ export default function CreateTour() {
             </div>
 
             <div>
-              <Label className="text-sm font-normal mb-2 block">
-                Tour Guide License / Certificate {canPublishWithoutCertificate ? "(Optional)" : "*"}
-              </Label>
-              <p className="text-xs text-muted-foreground mb-2">
-                {canPublishWithoutCertificate
-                  ? "You can upload your official tour guide license or certification (PDF or image), but publishing is allowed without it for your account."
-                  : "Upload your official tour guide license or certification (PDF or image) to publish this tour."}
-              </p>
+              <Label className="text-sm font-normal mb-2 block">Tour Guide License / Certificate (Optional)</Label>
+              <p className="text-xs text-muted-foreground mb-2">You can upload your official tour guide license or certification (PDF or image), but publishing is allowed without it.</p>
               {licenseUrl ? (
                 <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
                   <span className="text-sm flex-1 text-green-700 dark:text-green-300">✓ License uploaded</span>

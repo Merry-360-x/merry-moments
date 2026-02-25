@@ -56,7 +56,7 @@ function normalizeGroupPricingTiers(raw: unknown): GroupPricingTier[] {
 }
 
 export default function CreateTourPackage() {
-  const { user, isHost, isLoading, roles } = useAuth();
+  const { user, isHost, isLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -156,7 +156,6 @@ Some components are non-refundable once booked, including but not limited to:
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [includeRoomType, setIncludeRoomType] = useState(false);
   const [isEditLoading, setIsEditLoading] = useState(false);
-  const canPublishWithoutCertificate = roles.includes("admin") || roles.includes("certificate_override");
 
   // Use a stable storage key - always use user ID if available, otherwise anonymous
   const getStorageKey = () => user?.id ? `tour-package-draft-${user.id}` : 'tour-package-draft-anonymous';
@@ -455,8 +454,7 @@ Some components are non-refundable once booked, including but not limited to:
       formData.meeting_point.trim() && policyValid &&
       (parseFloat(formData.price_per_adult) > 0 || hasValidTimeTier || hasValidGroupTier) &&
       (!needsTimeTier || hasValidTimeTier) &&
-      (!needsGroupTier || hasValidGroupTier) &&
-      (canPublishWithoutCertificate || licenseUrl.trim());
+      (!needsGroupTier || hasValidGroupTier);
       // Note: coverImage, pdfFile, and cancellation_policy are now optional - can be uploaded later
   };
 
@@ -1719,14 +1717,8 @@ Some components are non-refundable once booked, including but not limited to:
             </div>
 
             <div>
-              <Label className="text-sm font-normal mb-2 block">
-                Tour Guide License / Certificate {canPublishWithoutCertificate ? "(Optional)" : "*"}
-              </Label>
-              <p className="text-xs text-muted-foreground mb-2">
-                {canPublishWithoutCertificate
-                  ? "You can upload your official tour guide license or certification (PDF or image), but publishing is allowed without it for your account."
-                  : "Upload your official tour guide license or certification (PDF or image) to publish this tour package."}
-              </p>
+              <Label className="text-sm font-normal mb-2 block">Tour Guide License / Certificate (Optional)</Label>
+              <p className="text-xs text-muted-foreground mb-2">You can upload your official tour guide license or certification (PDF or image), but publishing is allowed without it.</p>
               {licenseUrl ? (
                 <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
                   <span className="text-sm flex-1 text-green-700 dark:text-green-300">✓ License uploaded</span>
