@@ -1,0 +1,13 @@
+from_table,from_column,to_table,to_column,relation
+profiles,user_id,host_applications,user_id,one_to_many
+profiles,user_id,properties,host_id,one_to_many
+profiles,user_id,tours,created_by,one_to_many
+profiles,user_id,tour_packages,host_id,one_to_many
+profiles,user_id,transport_vehicles,created_by,one_to_many
+profiles,user_id,bookings,guest_id,one_to_many
+properties,id,bookings,property_id,one_to_many
+tours,id,bookings,tour_id,one_to_many
+tour_packages,id,bookings,tour_id,one_to_many
+transport_vehicles,id,bookings,transport_id,one_to_many
+profiles,user_id,favorites,user_id,one_to_many
+properties,id,favorites,property_id,one_to_many

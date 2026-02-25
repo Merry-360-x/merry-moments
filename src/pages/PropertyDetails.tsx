@@ -1691,7 +1691,7 @@ export default function PropertyDetails() {
               </div>
 
               {/* Booking */}
-              <div className="booking-sticky-card mt-8 bg-card rounded-xl shadow-card p-5 lg:sticky lg:top-24 lg:z-20 border border-border/60 transition-all duration-300 hover:shadow-xl">
+              <div className="booking-sticky-card mt-8 bg-card rounded-xl shadow-card p-5 lg:sticky lg:top-36 lg:z-20 border border-border/60 transition-all duration-300 hover:shadow-xl">
                 <h2 className="text-lg font-semibold text-foreground mb-4">
                   {isMonthlyOnlyListing ? "Book this monthly stay" : t("propertyDetails.bookThisStay")}
                 </h2>

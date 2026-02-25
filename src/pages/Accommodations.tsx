@@ -72,9 +72,10 @@ const fetchProperties = async (args: {
         "id, title, location, price_per_night, price_per_month, available_for_monthly_rental, monthly_only_listing, currency, property_type, rating, review_count, images, created_at, bedrooms, bathrooms, beds, lat, lng, host_id, max_guests, check_in_time, check_out_time, smoking_allowed, events_allowed, pets_allowed"
       )
       .eq("is_published", true)
+      .order("created_at", { ascending: false })
       .order("rating", { ascending: false })
       .order("review_count", { ascending: false })
-      .order("created_at", { ascending: true });
+      ;
 
     const trimmed = args.search.trim();
     const searchTerms = trimmed
@@ -190,19 +191,26 @@ const fetchProperties = async (args: {
     };
 
     const origin = args.nearby;
-    const withDistance = rows
-      .map((r) => {
-        const lat = Number((r as { lat: number | null }).lat);
-        const lng = Number((r as { lng: number | null }).lng);
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-        return { row: r, d: haversineKm(origin, { lat, lng }) };
-      })
-      .filter(Boolean) as Array<{ row: (typeof rows)[number]; d: number }>;
-    withDistance.sort((a, b) => a.d - b.d);
+    const rowsWithDistance = rows.map((r) => {
+      const lat = Number((r as { lat: number | null }).lat);
+      const lng = Number((r as { lng: number | null }).lng);
+      const distanceKm = Number.isFinite(lat) && Number.isFinite(lng)
+        ? haversineKm(origin, { lat, lng })
+        : Number.POSITIVE_INFINITY;
+      const createdAtMs = new Date(String((r as { created_at?: string | null }).created_at ?? 0)).getTime();
+      return {
+        row: r,
+        distanceKm,
+        createdAtMs: Number.isFinite(createdAtMs) ? createdAtMs : 0,
+      };
+    });
 
-    const withDistanceIds = new Set(withDistance.map((x) => x.row.id));
-    const withoutCoords = rows.filter((r) => !withDistanceIds.has(r.id));
-    return [...withDistance.map((x) => x.row), ...withoutCoords];
+    rowsWithDistance.sort((a, b) => {
+      if (b.createdAtMs !== a.createdAtMs) return b.createdAtMs - a.createdAtMs;
+      return a.distanceKm - b.distanceKm;
+    });
+
+    return rowsWithDistance.map((x) => x.row);
   } catch (err) {
     console.warn("[Accommodations] fetchProperties exception:", err);
     return [];

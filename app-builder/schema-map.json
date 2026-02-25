@@ -1,0 +1,68 @@
+{
+  "project": "merry-moments",
+  "backend": "supabase",
+  "entities": [
+    {
+      "name": "profiles",
+      "primaryKey": "user_id",
+      "purpose": "User profile data after auth",
+      "keyFields": ["user_id", "full_name", "phone", "avatar_url", "created_at"]
+    },
+    {
+      "name": "host_applications",
+      "primaryKey": "id",
+      "purpose": "Host onboarding and approval workflow",
+      "keyFields": ["id", "user_id", "status", "service_types", "created_at"]
+    },
+    {
+      "name": "properties",
+      "primaryKey": "id",
+      "purpose": "Accommodation listings",
+      "keyFields": ["id", "host_id", "title", "location", "price_per_night", "currency", "is_published", "created_at"]
+    },
+    {
+      "name": "tours",
+      "primaryKey": "id",
+      "purpose": "Tour listings",
+      "keyFields": ["id", "created_by", "title", "location", "price_per_person", "currency", "is_published", "created_at"]
+    },
+    {
+      "name": "tour_packages",
+      "primaryKey": "id",
+      "purpose": "Package-based tour listings",
+      "keyFields": ["id", "host_id", "title", "city", "price_per_adult", "currency", "status", "created_at"]
+    },
+    {
+      "name": "transport_vehicles",
+      "primaryKey": "id",
+      "purpose": "Transport listings",
+      "keyFields": ["id", "created_by", "title", "vehicle_type", "price_per_day", "currency", "is_published", "created_at"]
+    },
+    {
+      "name": "bookings",
+      "primaryKey": "id",
+      "purpose": "Bookings for properties, tours, and transport",
+      "keyFields": ["id", "guest_id", "property_id", "tour_id", "transport_id", "booking_type", "status", "total_price", "currency", "created_at"]
+    },
+    {
+      "name": "favorites",
+      "primaryKey": "id",
+      "purpose": "Saved listings",
+      "keyFields": ["id", "user_id", "property_id", "created_at"]
+    }
+  ],
+  "relationships": [
+    { "from": "profiles.user_id", "to": "host_applications.user_id", "type": "one_to_many" },
+    { "from": "profiles.user_id", "to": "properties.host_id", "type": "one_to_many" },
+    { "from": "profiles.user_id", "to": "tours.created_by", "type": "one_to_many" },
+    { "from": "profiles.user_id", "to": "tour_packages.host_id", "type": "one_to_many" },
+    { "from": "profiles.user_id", "to": "transport_vehicles.created_by", "type": "one_to_many" },
+    { "from": "profiles.user_id", "to": "bookings.guest_id", "type": "one_to_many" },
+    { "from": "properties.id", "to": "bookings.property_id", "type": "one_to_many" },
+    { "from": "tours.id", "to": "bookings.tour_id", "type": "one_to_many" },
+    { "from": "tour_packages.id", "to": "bookings.tour_id", "type": "one_to_many", "note": "Used by package flow in app" },
+    { "from": "transport_vehicles.id", "to": "bookings.transport_id", "type": "one_to_many" },
+    { "from": "profiles.user_id", "to": "favorites.user_id", "type": "one_to_many" },
+    { "from": "properties.id", "to": "favorites.property_id", "type": "one_to_many" }
+  ]
+}

@@ -1,0 +1,14 @@
+erDiagram
+    PROFILES ||--o{ HOST_APPLICATIONS : user_id
+    PROFILES ||--o{ PROPERTIES : host_id
+    PROFILES ||--o{ TOURS : created_by
+    PROFILES ||--o{ TOUR_PACKAGES : host_id
+    PROFILES ||--o{ TRANSPORT_VEHICLES : created_by
+    PROFILES ||--o{ BOOKINGS : guest_id
+    PROFILES ||--o{ FAVORITES : user_id
+
+    PROPERTIES ||--o{ BOOKINGS : property_id
+    TOURS ||--o{ BOOKINGS : tour_id
+    TOUR_PACKAGES ||--o{ BOOKINGS : tour_id
+    TRANSPORT_VEHICLES ||--o{ BOOKINGS : transport_id
+    PROPERTIES ||--o{ FAVORITES : property_id
