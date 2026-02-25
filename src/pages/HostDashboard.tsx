@@ -3631,10 +3631,10 @@ export default function HostDashboard() {
     const displayImages = isEditing ? getCurrentImages() : (form.images || []);
     const isPublished = Boolean(form.is_published ?? tour.is_published);
 
-    const handleUnpublish = async () => {
+    const handleTogglePublished = async () => {
       const updates = isTourPackage
-        ? { status: "draft" }
-        : { is_published: false };
+        ? { status: isPublished ? "draft" : "approved" }
+        : { is_published: !isPublished };
       await updateTour(tour.id, updates, tour.source);
     };
 
@@ -4481,11 +4481,9 @@ export default function HostDashboard() {
                   <Button size="sm" variant="outline" onClick={() => navigate(`/tours/${tour.id}`)}>
                     View
                   </Button>
-                  {isPublished && (
-                    <Button size="sm" variant="outline" onClick={handleUnpublish}>
-                      Unpublish
-                    </Button>
-                  )}
+                  <Button size="sm" variant="outline" onClick={handleTogglePublished}>
+                    {isPublished ? "Unpublish" : "Publish"}
+                  </Button>
                   <Button
                     size="sm"
                     variant="ghost"
