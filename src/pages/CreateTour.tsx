@@ -368,6 +368,36 @@ export default function CreateTour() {
       (!needsGroupTier || hasValidGroupTier);
   };
 
+  const getMissingRequirements = () => {
+    const missing: string[] = [];
+    const hasValidTimeTier = normalizeTimePricingTiers(formData.time_pricing_tiers, formData.pricing_model).length > 0;
+    const hasValidGroupTier = normalizeGroupPricingTiers(formData.group_pricing_tiers).length > 0;
+    const needsTimeTier = formData.pricing_models.includes("per_hour") || formData.pricing_models.includes("per_minute");
+    const needsGroupTier = formData.pricing_models.includes("per_group");
+
+    if (!formData.title.trim()) missing.push("Tour name");
+    if (formData.description.trim().length < 20) missing.push("Description (minimum 20 characters)");
+    if (!formData.location.trim()) missing.push("Location");
+    if (formData.duration_days < 1) missing.push("Duration (at least 1 day)");
+    if (formData.max_participants < 1) missing.push("Max guests (at least 1)");
+    if (formData.categories.length === 0) missing.push("At least one category");
+    if (images.length === 0) missing.push("At least one image");
+    if (formData.pricing_models.length === 0) missing.push("At least one pricing model");
+    if (!(formData.price_per_person > 0 || hasValidTimeTier || hasValidGroupTier)) {
+      missing.push("Price (or valid pricing tier)");
+    }
+    if (needsTimeTier && !hasValidTimeTier) {
+      missing.push("Valid time pricing tier(s)");
+    }
+    if (needsGroupTier && !hasValidGroupTier) {
+      missing.push("Valid group pricing tier(s)");
+    }
+
+    return missing;
+  };
+
+  const missingRequirements = getMissingRequirements();
+
   const hasDraftContent = () => {
     return Boolean(
       formData.title.trim() ||
@@ -1094,6 +1124,12 @@ export default function CreateTour() {
               <p className="text-xs text-muted-foreground text-center">
                 Last saved: {lastSaved.toLocaleTimeString()}
               </p>
+            )}
+            {!isFormValid() && missingRequirements.length > 0 && (
+              <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 px-3 py-2">
+                <p className="text-xs font-medium text-amber-800 dark:text-amber-200 mb-1">Complete these to create:</p>
+                <p className="text-xs text-amber-700 dark:text-amber-300">{missingRequirements.join(" • ")}</p>
+              </div>
             )}
             <div className="flex gap-3">
               <Button

@@ -458,6 +458,39 @@ Some components are non-refundable once booked, including but not limited to:
       // Note: coverImage, pdfFile, and cancellation_policy are now optional - can be uploaded later
   };
 
+  const getMissingRequirements = () => {
+    const missing: string[] = [];
+    const hasValidTimeTier = normalizeTimePricingTiers(formData.time_pricing_tiers, formData.pricing_model).length > 0;
+    const hasValidGroupTier = normalizeGroupPricingTiers(formData.group_pricing_tiers).length > 0;
+    const needsTimeTier = formData.pricing_models.includes("per_hour") || formData.pricing_models.includes("per_minute");
+    const needsGroupTier = formData.pricing_models.includes("per_group");
+    const policyValid = selectedPolicies.length === 0 ||
+      (!selectedPolicies.includes('custom') || (customPolicyText.trim().length >= 20 || customPolicyFile !== null));
+
+    if (!formData.title.trim()) missing.push("Package title");
+    if (formData.categories.length === 0) missing.push("At least one category");
+    if (formData.tour_types.length === 0) missing.push("At least one tour type");
+    if (formData.description.trim().length < 50) missing.push("Description (minimum 50 characters)");
+    if (!formData.city.trim()) missing.push("City");
+    if (!formData.duration.trim()) missing.push("Duration");
+    if (formData.daily_itinerary.trim().length < 100) missing.push("Daily itinerary (minimum 100 characters)");
+    if (!formData.meeting_point.trim()) missing.push("Meeting point");
+    if (!policyValid) missing.push("Custom cancellation policy text (min 20) or PDF");
+    if (!(parseFloat(formData.price_per_adult) > 0 || hasValidTimeTier || hasValidGroupTier)) {
+      missing.push("Price (or valid pricing tier)");
+    }
+    if (needsTimeTier && !hasValidTimeTier) {
+      missing.push("Valid time pricing tier(s)");
+    }
+    if (needsGroupTier && !hasValidGroupTier) {
+      missing.push("Valid group pricing tier(s)");
+    }
+
+    return missing;
+  };
+
+  const missingRequirements = getMissingRequirements();
+
   const handlePdfChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -1758,6 +1791,12 @@ Some components are non-refundable once booked, including but not limited to:
               <p className="text-xs text-muted-foreground text-center">
                 Last saved: {lastSaved.toLocaleTimeString()}
               </p>
+            )}
+            {!isFormValid() && missingRequirements.length > 0 && (
+              <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 px-3 py-2">
+                <p className="text-xs font-medium text-amber-800 dark:text-amber-200 mb-1">Complete these to create:</p>
+                <p className="text-xs text-amber-700 dark:text-amber-300">{missingRequirements.join(" • ")}</p>
+              </div>
             )}
             <div className="flex gap-3">
               <Button type="button" variant="outline" onClick={() => navigate("/host-dashboard")} disabled={uploading} className="flex-1">
