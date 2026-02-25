@@ -3629,6 +3629,14 @@ export default function HostDashboard() {
 
     const isTourPackage = tour.source === "tour_packages";
     const displayImages = isEditing ? getCurrentImages() : (form.images || []);
+    const isPublished = Boolean(form.is_published ?? tour.is_published);
+
+    const handleUnpublish = async () => {
+      const updates = isTourPackage
+        ? { status: "draft" }
+        : { is_published: false };
+      await updateTour(tour.id, updates, tour.source);
+    };
 
     return (
       <Card className="overflow-hidden">
@@ -4469,10 +4477,15 @@ export default function HostDashboard() {
               </p>
               <div className="flex items-center justify-between mt-3">
                 <span className="text-primary font-bold">{formatMoney(form.price_per_person, form.currency || "RWF")}</span>
-                <div className="flex gap-1">
-                  <Button size="sm" variant="ghost" onClick={() => navigate(`/tours/${tour.id}`)} title="View details">
-                    <Eye className="w-3 h-3" />
+                <div className="flex gap-1 flex-wrap justify-end">
+                  <Button size="sm" variant="outline" onClick={() => navigate(`/tours/${tour.id}`)}>
+                    View
                   </Button>
+                  {isPublished && (
+                    <Button size="sm" variant="outline" onClick={handleUnpublish}>
+                      Unpublish
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     variant="ghost"
