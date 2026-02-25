@@ -1536,7 +1536,7 @@ export default function PropertyDetails() {
                       <div className="space-y-4">
                         <div className="pb-3 border-b border-border/70">
                           <div className="text-2xl md:text-3xl font-semibold text-foreground leading-none">{hostStats?.reviewCount ?? 0}</div>
-                          <div className="mt-1 text-base md:text-lg font-medium text-foreground">Reviews</div>
+                          <div className="mt-1 text-sm md:text-base font-medium text-foreground whitespace-nowrap">Reviews</div>
                         </div>
 
                         <div className="pb-3 border-b border-border/70">
@@ -1544,7 +1544,7 @@ export default function PropertyDetails() {
                             {hostStats?.rating ? hostStats.rating.toFixed(1) : "0.0"}
                             <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
                           </div>
-                          <div className="mt-1 text-base md:text-lg font-medium text-foreground">Rating</div>
+                          <div className="mt-1 text-sm md:text-base font-medium text-foreground whitespace-nowrap">Rating</div>
                         </div>
 
                         <div>
@@ -1559,7 +1559,7 @@ export default function PropertyDetails() {
                               return String(Math.max(0, months));
                             })()}
                           </div>
-                          <div className="mt-1 text-base md:text-lg font-medium text-foreground">Months hosting</div>
+                          <div className="mt-1 text-sm md:text-base font-medium text-foreground whitespace-nowrap">Months hosting</div>
                         </div>
                       </div>
                     </div>
