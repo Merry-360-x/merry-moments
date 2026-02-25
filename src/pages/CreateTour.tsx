@@ -363,7 +363,7 @@ export default function CreateTour() {
     return formData.title.trim() && formData.description.trim().length >= 20 &&
       formData.location.trim() && (formData.price_per_person > 0 || hasValidTimeTier || hasValidGroupTier) &&
       formData.duration_days >= 1 && formData.max_participants >= 1 &&
-      formData.categories.length > 0 && images.length > 0 && licenseUrl.trim() && formData.pricing_models.length > 0 &&
+      formData.categories.length > 0 && images.length > 0 && formData.pricing_models.length > 0 &&
       (!needsTimeTier || hasValidTimeTier) &&
       (!needsGroupTier || hasValidGroupTier);
   };
@@ -1053,8 +1053,8 @@ export default function CreateTour() {
             </div>
 
             <div>
-              <Label className="text-sm font-normal mb-2 block">Tour Guide License / Certificate *</Label>
-              <p className="text-xs text-muted-foreground mb-2">Upload your official tour guide license or certification (PDF or image)</p>
+              <Label className="text-sm font-normal mb-2 block">Tour Guide License / Certificate (Optional)</Label>
+              <p className="text-xs text-muted-foreground mb-2">You can upload your official tour guide license or certification (PDF or image), but publishing is allowed without it.</p>
               {licenseUrl ? (
                 <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
                   <span className="text-sm flex-1 text-green-700 dark:text-green-300">✓ License uploaded</span>

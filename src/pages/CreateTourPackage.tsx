@@ -454,8 +454,7 @@ Some components are non-refundable once booked, including but not limited to:
       formData.meeting_point.trim() && policyValid &&
       (parseFloat(formData.price_per_adult) > 0 || hasValidTimeTier || hasValidGroupTier) &&
       (!needsTimeTier || hasValidTimeTier) &&
-      (!needsGroupTier || hasValidGroupTier) &&
-      licenseUrl.trim();
+      (!needsGroupTier || hasValidGroupTier);
       // Note: coverImage, pdfFile, and cancellation_policy are now optional - can be uploaded later
   };
 
@@ -1720,8 +1719,8 @@ Some components are non-refundable once booked, including but not limited to:
             </div>
 
             <div>
-              <Label className="text-sm font-normal mb-2 block">Tour Guide License / Certificate *</Label>
-              <p className="text-xs text-muted-foreground mb-2">Upload your official tour guide license or certification (PDF or image)</p>
+              <Label className="text-sm font-normal mb-2 block">Tour Guide License / Certificate (Optional)</Label>
+              <p className="text-xs text-muted-foreground mb-2">You can upload your official tour guide license or certification (PDF or image), but publishing is allowed without it.</p>
               {licenseUrl ? (
                 <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
                   <span className="text-sm flex-1 text-green-700 dark:text-green-300">✓ License uploaded</span>
