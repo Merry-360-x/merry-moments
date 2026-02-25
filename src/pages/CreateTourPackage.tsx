@@ -617,7 +617,6 @@ Some components are non-refundable once booked, including but not limited to:
           .update({
             ...(packageData as any),
             categories: formData.categories,
-            tour_types: formData.tour_types,
           })
           .eq("id", editId)
           .eq("host_id", user.id);
@@ -629,7 +628,6 @@ Some components are non-refundable once booked, including but not limited to:
         if (newPackage && formData.categories.length > 0) {
           await supabase.from("tour_packages").update({ 
             categories: formData.categories,
-            tour_types: formData.tour_types,
           } as any).eq("id", (newPackage as any).id);
         }
       }
