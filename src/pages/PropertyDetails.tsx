@@ -1485,88 +1485,92 @@ export default function PropertyDetails() {
                   className="block mt-4"
                   aria-label={t("propertyDetails.viewHostProfile")}
                 >
-                  <div className="bg-card rounded-xl border border-border/60 p-3 md:p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 items-center">
-                      <div className="flex flex-col items-center text-center">
-                        <div className="relative">
-                          {hostProfile?.avatar_url ? (
-                            <img
-                              src={hostProfile.avatar_url}
-                              alt={hostProfile.full_name ?? t("propertyDetails.hostAlt")}
-                              className="w-20 h-20 md:w-24 md:h-24 rounded-full object-cover border border-border"
-                              loading="lazy"
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                                const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                                if (fallback) fallback.style.display = 'flex';
-                              }}
-                            />
-                          ) : null}
-                          <div
-                            className={`w-20 h-20 md:w-24 md:h-24 rounded-full border border-border items-center justify-center ${
-                              hostProfile?.avatar_url ? 'hidden' : 'flex'
-                            } ${hostProfile?.full_name ? 'bg-primary/10' : 'bg-muted'}`}
-                          >
-                            {hostProfile?.full_name ? (
-                              <span className="text-primary font-semibold text-xl">
-                                {hostProfile.full_name
-                                  .split(' ')
-                                  .map((name) => name[0])
-                                  .join('')
-                                  .toUpperCase()
-                                  .slice(0, 2)}
+                  <div className="bg-card rounded-xl border border-border/60 p-4 md:p-5">
+                    <div className="flex flex-col gap-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="relative shrink-0">
+                            {hostProfile?.avatar_url ? (
+                              <img
+                                src={hostProfile.avatar_url}
+                                alt={hostProfile.full_name ?? t("propertyDetails.hostAlt")}
+                                className="w-16 h-16 md:w-20 md:h-20 rounded-full object-cover border border-border"
+                                loading="lazy"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                  const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                                  if (fallback) fallback.style.display = 'flex';
+                                }}
+                              />
+                            ) : null}
+                            <div
+                              className={`w-16 h-16 md:w-20 md:h-20 rounded-full border border-border items-center justify-center ${
+                                hostProfile?.avatar_url ? 'hidden' : 'flex'
+                              } ${hostProfile?.full_name ? 'bg-primary/10' : 'bg-muted'}`}
+                            >
+                              {hostProfile?.full_name ? (
+                                <span className="text-primary font-semibold text-lg">
+                                  {hostProfile.full_name
+                                    .split(' ')
+                                    .map((name) => name[0])
+                                    .join('')
+                                    .toUpperCase()
+                                    .slice(0, 2)}
+                                </span>
+                              ) : (
+                                <User className="w-8 h-8 text-muted-foreground" />
+                              )}
+                            </div>
+                            {hostVerified ? (
+                              <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center border-2 border-background">
+                                <BadgeCheck className="w-3.5 h-3.5" />
                               </span>
-                            ) : (
-                              <User className="w-12 h-12 text-muted-foreground" />
-                            )}
+                            ) : null}
                           </div>
-                          {hostVerified ? (
-                            <span className="absolute -bottom-1 -right-1 w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center border-2 border-background">
-                              <BadgeCheck className="w-5 h-5" />
-                            </span>
-                          ) : null}
+
+                          <div className="min-w-0">
+                            <div className="text-base md:text-lg font-medium text-foreground leading-tight truncate">
+                              {(hostProfile?.nickname || hostProfile?.full_name)?.trim() || "Host Profile Unavailable"}
+                            </div>
+                            <div className="mt-1 text-xs text-muted-foreground">Host</div>
+                          </div>
                         </div>
 
-                        <div className="mt-2 text-lg md:text-xl font-medium text-foreground leading-tight">
-                          {(hostProfile?.nickname || hostProfile?.full_name)?.trim() || "Host Profile Unavailable"}
+                        <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full sm:w-auto sm:min-w-[330px]">
+                          <div className="rounded-lg border border-border/70 px-2 py-2 text-center">
+                            <div className="text-lg md:text-xl font-semibold text-foreground leading-none">{hostStats?.reviewCount ?? 0}</div>
+                            <div className="mt-1 text-[11px] md:text-xs font-medium text-muted-foreground whitespace-nowrap">Reviews</div>
+                          </div>
+
+                          <div className="rounded-lg border border-border/70 px-2 py-2 text-center">
+                            <div className="text-lg md:text-xl font-semibold text-foreground leading-none inline-flex items-center gap-1">
+                              {hostStats?.rating ? hostStats.rating.toFixed(1) : "0.0"}
+                              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                            </div>
+                            <div className="mt-1 text-[11px] md:text-xs font-medium text-muted-foreground whitespace-nowrap">Rating</div>
+                          </div>
+
+                          <div className="rounded-lg border border-border/70 px-2 py-2 text-center">
+                            <div className="text-lg md:text-xl font-semibold text-foreground leading-none">
+                              {(() => {
+                                const since = hostStats?.hostingSince || hostProfile?.created_at;
+                                if (!since) return "0";
+                                const startedAt = new Date(since).getTime();
+                                if (!Number.isFinite(startedAt)) return "0";
+                                const elapsedMs = Date.now() - startedAt;
+                                const months = Math.floor(elapsedMs / (1000 * 60 * 60 * 24 * 30));
+                                return String(Math.max(0, months));
+                              })()}
+                            </div>
+                            <div className="mt-1 text-[11px] md:text-xs font-medium text-muted-foreground whitespace-nowrap">Hosting</div>
+                          </div>
                         </div>
-                        <div className="mt-1 text-xs text-muted-foreground">Host</div>
                       </div>
 
-                      <div className="space-y-4">
-                        <div className="pb-3 border-b border-border/70">
-                          <div className="text-2xl md:text-3xl font-semibold text-foreground leading-none">{hostStats?.reviewCount ?? 0}</div>
-                          <div className="mt-1 text-sm md:text-base font-medium text-foreground whitespace-nowrap">Reviews</div>
-                        </div>
-
-                        <div className="pb-3 border-b border-border/70">
-                          <div className="text-2xl md:text-3xl font-semibold text-foreground leading-none flex items-center gap-1">
-                            {hostStats?.rating ? hostStats.rating.toFixed(1) : "0.0"}
-                            <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
-                          </div>
-                          <div className="mt-1 text-sm md:text-base font-medium text-foreground whitespace-nowrap">Rating</div>
-                        </div>
-
-                        <div>
-                          <div className="text-2xl md:text-3xl font-semibold text-foreground leading-none">
-                            {(() => {
-                              const since = hostStats?.hostingSince || hostProfile?.created_at;
-                              if (!since) return "0";
-                              const startedAt = new Date(since).getTime();
-                              if (!Number.isFinite(startedAt)) return "0";
-                              const elapsedMs = Date.now() - startedAt;
-                              const months = Math.floor(elapsedMs / (1000 * 60 * 60 * 24 * 30));
-                              return String(Math.max(0, months));
-                            })()}
-                          </div>
-                          <div className="mt-1 text-sm md:text-base font-medium text-foreground whitespace-nowrap">Months hosting</div>
-                        </div>
-                      </div>
+                      {hostProfile?.bio ? (
+                        <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-line">{hostProfile.bio}</p>
+                      ) : null}
                     </div>
-
-                    {hostProfile?.bio ? (
-                      <p className="mt-8 text-base text-foreground/90 leading-relaxed whitespace-pre-line">{hostProfile.bio}</p>
-                    ) : null}
                   </div>
                 </Link>
               </div>
