@@ -564,6 +564,31 @@ export default function CreateTransport() {
     }
   };
 
+  const missingRequirements = (() => {
+    const missing: string[] = [];
+
+    if (!formData.title.trim()) missing.push("Listing title");
+    if (!formData.car_brand.trim()) missing.push("Car brand");
+    if (!formData.car_model.trim()) missing.push("Car model");
+    if (!formData.car_type) missing.push("Car type");
+    if (!formData.transmission) missing.push("Transmission");
+    if (!formData.fuel_type) missing.push("Fuel type");
+    if (!formData.drive_train) missing.push("Drive train");
+    if (!(formData.daily_price > 0)) missing.push("Daily price");
+
+    if (exteriorImages.length === 0 && existingExteriorUrls.length === 0) {
+      missing.push("At least one exterior image");
+    }
+
+    if (!insuranceDoc && !existingInsuranceUrl) missing.push("Insurance document");
+    if (!registrationDoc && !existingRegistrationUrl) missing.push("Registration document");
+    if (!roadworthinessDoc && !existingRoadworthinessUrl) missing.push("Roadworthiness certificate");
+    if (!ownerIdDoc && !existingOwnerIdUrl) missing.push("Owner identification");
+
+    return missing;
+  })();
+  const canCreateListing = missingRequirements.length === 0;
+
   if (!isLoading && (!user || !isHost)) {
     return (
       <div className="min-h-screen bg-background">
@@ -1156,6 +1181,12 @@ export default function CreateTransport() {
                 Last saved: {lastSaved.toLocaleTimeString()}
               </p>
             )}
+            {!canCreateListing && (
+              <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 px-3 py-2">
+                <p className="text-xs font-medium text-amber-800 dark:text-amber-200 mb-1">Complete these to create:</p>
+                <p className="text-xs text-amber-700 dark:text-amber-300">{missingRequirements.join(" • ")}</p>
+              </div>
+            )}
             <div className="flex flex-wrap gap-4">
               <Button type="button" variant="outline" onClick={() => navigate(-1)}>
                 Cancel
@@ -1168,7 +1199,7 @@ export default function CreateTransport() {
               >
                 {isSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</> : <><Save className="w-4 h-4 mr-2" />Save Draft</>}
               </Button>
-              <Button type="submit" disabled={uploading} className="flex-1 md:flex-none">
+              <Button type="submit" disabled={uploading || !canCreateListing} className="flex-1 md:flex-none">
                 {uploading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creating Listing...</> : "List My Car"}
               </Button>
             </div>

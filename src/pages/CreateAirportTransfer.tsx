@@ -435,6 +435,31 @@ export default function CreateAirportTransfer() {
     }
   };
 
+  const missingRequirements = (() => {
+    const missing: string[] = [];
+
+    if (!formData.title.trim()) missing.push("Service title");
+    if (!formData.provider_name.trim()) missing.push("Provider/company name");
+    if (!formData.car_brand.trim()) missing.push("Car brand");
+    if (!formData.car_model.trim()) missing.push("Car model");
+    if (!formData.car_type) missing.push("Car type");
+    if (!(formData.seats >= 2)) missing.push("Passenger capacity");
+    if (!formData.transmission) missing.push("Transmission");
+    if (!formData.fuel_type) missing.push("Fuel type");
+    if (!formData.drive_train) missing.push("Drive train");
+
+    if (exteriorImages.length === 0) missing.push("At least one exterior photo");
+    if (Object.keys(selectedRoutes).length === 0) missing.push("At least one route with pricing");
+
+    if (!insuranceDoc) missing.push("Insurance document");
+    if (!registrationDoc) missing.push("Registration document");
+    if (!roadworthinessDoc) missing.push("Roadworthiness certificate");
+    if (!ownerIdDoc) missing.push("Owner identification");
+
+    return missing;
+  })();
+  const canCreateService = missingRequirements.length === 0;
+
   if (!isLoading && (!user || !isHost)) {
     return (
       <div className="min-h-screen bg-background">
@@ -823,7 +848,7 @@ export default function CreateAirportTransfer() {
                   )}
                   Save Draft
                 </Button>
-                <Button type="submit" disabled={submitting}>
+                <Button type="submit" disabled={submitting || !canCreateService}>
                   {submitting ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -838,6 +863,12 @@ export default function CreateAirportTransfer() {
                 </Button>
               </div>
             </div>
+            {!canCreateService && (
+              <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 px-3 py-2">
+                <p className="text-xs font-medium text-amber-800 dark:text-amber-200 mb-1">Complete these to create:</p>
+                <p className="text-xs text-amber-700 dark:text-amber-300">{missingRequirements.join(" • ")}</p>
+              </div>
+            )}
           </form>
         </div>
       </div>

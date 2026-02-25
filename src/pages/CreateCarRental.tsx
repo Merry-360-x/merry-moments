@@ -275,6 +275,29 @@ export default function CreateCarRental() {
     }
   };
 
+  const missingRequirements = (() => {
+    const missing: string[] = [];
+
+    if (!formData.title.trim()) missing.push("Listing title");
+    if (!formData.car_brand.trim()) missing.push("Car brand");
+    if (!formData.car_model.trim()) missing.push("Car model");
+    if (!formData.car_type) missing.push("Car type");
+    if (!(formData.car_year >= 1990)) missing.push("Car year");
+    if (!formData.transmission) missing.push("Transmission");
+    if (!formData.fuel_type) missing.push("Fuel type");
+    if (!(formData.seats >= 1)) missing.push("Seats");
+    if (!(formData.daily_price > 0)) missing.push("Daily price");
+
+    if (exteriorImages.length === 0) missing.push("At least one exterior photo");
+    if (!insuranceDoc) missing.push("Insurance document");
+    if (!registrationDoc) missing.push("Registration document");
+    if (!roadworthinessDoc) missing.push("Roadworthiness certificate");
+    if (!ownerIdDoc) missing.push("Owner identification");
+
+    return missing;
+  })();
+  const canCreateListing = missingRequirements.length === 0;
+
   if (!isLoading && (!user || !isHost)) {
     return (
       <div className="min-h-screen bg-background">
@@ -636,7 +659,7 @@ export default function CreateCarRental() {
                   )}
                   Save Draft
                 </Button>
-                <Button type="submit" disabled={submitting}>
+                <Button type="submit" disabled={submitting || !canCreateListing}>
                   {submitting ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -651,6 +674,12 @@ export default function CreateCarRental() {
                 </Button>
               </div>
             </div>
+            {!canCreateListing && (
+              <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 px-3 py-2">
+                <p className="text-xs font-medium text-amber-800 dark:text-amber-200 mb-1">Complete these to create:</p>
+                <p className="text-xs text-amber-700 dark:text-amber-300">{missingRequirements.join(" • ")}</p>
+              </div>
+            )}
           </form>
         </div>
       </div>
