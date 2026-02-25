@@ -853,8 +853,8 @@ Some components are non-refundable once booked, including but not limited to:
 
             <div className="space-y-4">
               <div>
-                <Label className="text-sm font-medium mb-3 block">Cancellation Policies *</Label>
-                <p className="text-xs text-muted-foreground mb-3">Select one or more policies that apply to your tour package</p>
+                <Label className="text-sm font-medium mb-3 block">Cancellation Policies (Optional)</Label>
+                <p className="text-xs text-muted-foreground mb-3">Select one or more policies that apply to your tour package, or leave empty to use your default policy later.</p>
                 
                 <div className="space-y-3">
                   <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
@@ -1646,7 +1646,7 @@ Some components are non-refundable once booked, including but not limited to:
             <h2 className="text-base font-medium pb-2 border-b">Images & Files</h2>
 
             <div>
-              <Label className="text-sm font-normal mb-2 block">Cover Image *</Label>
+              <Label className="text-sm font-normal mb-2 block">Cover Image (Optional)</Label>
               {coverImage ? (
                 <div className="relative inline-block">
                   <img src={coverImage} alt="Cover" className="w-full max-w-sm h-40 object-cover rounded border" />
@@ -1711,7 +1711,7 @@ Some components are non-refundable once booked, including but not limited to:
             </div>
 
             <div>
-              <Label className="text-sm font-normal mb-2 block">Itinerary PDF *</Label>
+              <Label className="text-sm font-normal mb-2 block">Itinerary PDF (Optional)</Label>
               <Input type="file" accept=".pdf" onChange={handlePdfChange} className="h-10 cursor-pointer" />
               {pdfFile && <p className="text-xs text-muted-foreground mt-1">{pdfFile.name}</p>}
             </div>
