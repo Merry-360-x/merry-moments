@@ -1453,21 +1453,21 @@ export default function PropertyDetails() {
 
               {/* Host */}
               <div className="mt-8">
-                <h2 className="text-xl font-semibold text-foreground">Meet your host</h2>
+                <h2 className="text-lg font-semibold text-foreground">Meet your host</h2>
                 <Link
                   to={`/hosts/${encodeURIComponent(String(data.host_id))}`}
                   className="block mt-4"
                   aria-label={t("propertyDetails.viewHostProfile")}
                 >
-                  <div className="bg-card rounded-xl border border-border/60 p-5 md:p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                  <div className="bg-card rounded-xl border border-border/60 p-4 md:p-5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 items-center">
                       <div className="flex flex-col items-center text-center">
                         <div className="relative">
                           {hostProfile?.avatar_url ? (
                             <img
                               src={hostProfile.avatar_url}
                               alt={hostProfile.full_name ?? t("propertyDetails.hostAlt")}
-                              className="w-32 h-32 rounded-full object-cover border border-border"
+                              className="w-24 h-24 md:w-28 md:h-28 rounded-full object-cover border border-border"
                               loading="lazy"
                               onError={(e) => {
                                 e.currentTarget.style.display = 'none';
@@ -1477,12 +1477,12 @@ export default function PropertyDetails() {
                             />
                           ) : null}
                           <div
-                            className={`w-32 h-32 rounded-full border border-border items-center justify-center ${
+                            className={`w-24 h-24 md:w-28 md:h-28 rounded-full border border-border items-center justify-center ${
                               hostProfile?.avatar_url ? 'hidden' : 'flex'
                             } ${hostProfile?.full_name ? 'bg-primary/10' : 'bg-muted'}`}
                           >
                             {hostProfile?.full_name ? (
-                              <span className="text-primary font-semibold text-3xl">
+                              <span className="text-primary font-semibold text-2xl">
                                 {hostProfile.full_name
                                   .split(' ')
                                   .map((name) => name[0])
@@ -1501,28 +1501,28 @@ export default function PropertyDetails() {
                           ) : null}
                         </div>
 
-                        <div className="mt-4 text-2xl md:text-3xl font-semibold text-foreground leading-tight">
+                        <div className="mt-3 text-xl md:text-2xl font-medium text-foreground leading-tight">
                           {(hostProfile?.nickname || hostProfile?.full_name)?.trim() || "Host Profile Unavailable"}
                         </div>
-                        <div className="mt-1 text-base text-muted-foreground">Host</div>
+                        <div className="mt-1 text-sm text-muted-foreground">Host</div>
                       </div>
 
                       <div className="space-y-4">
                         <div className="pb-3 border-b border-border/70">
-                          <div className="text-4xl font-semibold text-foreground leading-none">{hostStats?.reviewCount ?? 0}</div>
-                          <div className="mt-1 text-2xl font-medium text-foreground">Reviews</div>
+                          <div className="text-3xl md:text-4xl font-semibold text-foreground leading-none">{hostStats?.reviewCount ?? 0}</div>
+                          <div className="mt-1 text-lg md:text-xl font-medium text-foreground">Reviews</div>
                         </div>
 
                         <div className="pb-3 border-b border-border/70">
-                          <div className="text-4xl font-semibold text-foreground leading-none flex items-center gap-1">
+                          <div className="text-3xl md:text-4xl font-semibold text-foreground leading-none flex items-center gap-1">
                             {hostStats?.rating ? hostStats.rating.toFixed(1) : "0.0"}
-                            <Star className="w-7 h-7 fill-yellow-400 text-yellow-400" />
+                            <Star className="w-6 h-6 fill-yellow-400 text-yellow-400" />
                           </div>
-                          <div className="mt-1 text-2xl font-medium text-foreground">Rating</div>
+                          <div className="mt-1 text-lg md:text-xl font-medium text-foreground">Rating</div>
                         </div>
 
                         <div>
-                          <div className="text-4xl font-semibold text-foreground leading-none">
+                          <div className="text-3xl md:text-4xl font-semibold text-foreground leading-none">
                             {(() => {
                               const since = hostStats?.hostingSince || hostProfile?.created_at;
                               if (!since) return "0";
@@ -1533,7 +1533,7 @@ export default function PropertyDetails() {
                               return String(Math.max(0, months));
                             })()}
                           </div>
-                          <div className="mt-1 text-2xl font-medium text-foreground">Months hosting</div>
+                          <div className="mt-1 text-lg md:text-xl font-medium text-foreground">Months hosting</div>
                         </div>
                       </div>
                     </div>
