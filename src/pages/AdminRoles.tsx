@@ -257,7 +257,7 @@ export default function AdminRoles() {
                         disabled={p.roles.includes("certificate_override")}
                         title={!isAdmin ? "Only admins can grant certificate override" : undefined}
                       >
-                        Add cert override
+                        Add certificate override
                       </Button>
 
                       <Button
@@ -286,7 +286,7 @@ export default function AdminRoles() {
                         onClick={() => removeRole(p.user_id, "certificate_override")}
                         disabled={!p.roles.includes("certificate_override")}
                       >
-                        Remove cert override
+                        Remove certificate override
                       </Button>
                     </div>
                   </div>
