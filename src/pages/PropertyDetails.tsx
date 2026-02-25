@@ -1488,7 +1488,7 @@ export default function PropertyDetails() {
                   <div className="bg-card rounded-xl border border-border/60 p-4 md:p-5">
                     <div className="flex flex-col gap-4">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex flex-col items-center sm:items-start gap-2 min-w-[110px]">
                           <div className="relative shrink-0">
                             {hostProfile?.avatar_url ? (
                               <img
@@ -1528,8 +1528,8 @@ export default function PropertyDetails() {
                             ) : null}
                           </div>
 
-                          <div className="min-w-0">
-                            <div className="text-base md:text-lg font-medium text-foreground leading-tight truncate">
+                          <div className="min-w-0 text-center sm:text-left">
+                            <div className="text-base md:text-lg font-medium text-foreground leading-tight">
                               {(hostProfile?.nickname || hostProfile?.full_name)?.trim() || "Host Profile Unavailable"}
                             </div>
                             <div className="mt-1 text-xs text-muted-foreground">Host</div>
