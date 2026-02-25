@@ -259,8 +259,9 @@ export default function PropertyDetails() {
       const hostId = String(data?.host_id ?? "");
       const { data: hostProps, error: propsErr } = await supabase
         .from("properties")
-        .select("id, created_at, is_published")
-        .eq("host_id", hostId);
+        .select("id, created_at, is_published, review_count, rating")
+        .eq("host_id", hostId)
+        .eq("is_published", true);
       if (propsErr) throw propsErr;
       const propIds = (hostProps ?? []).map((p) => String((p as { id: string }).id));
       const hostingSince = (hostProps ?? [])
@@ -272,17 +273,42 @@ export default function PropertyDetails() {
         return { listings: 0, hostingSince: null as string | null, reviewCount: 0, rating: null as number | null };
       }
 
-      const { data: reviews, error: reviewsErr } = await supabase
-        .from("property_reviews")
-        .select("rating, property_id")
-        .in("property_id", propIds)
-        .eq("is_hidden", false);
-      if (reviewsErr) throw reviewsErr;
-      const ratings = (reviews ?? [])
-        .map((r) => Number((r as { rating: number }).rating))
-        .filter((n) => Number.isFinite(n) && n > 0);
-      const reviewCount = ratings.length;
-      const avg = reviewCount > 0 ? ratings.reduce((a, b) => a + b, 0) / reviewCount : null;
+      const propertyAggregates = (hostProps ?? []).map((property) => {
+        const reviewCount = Number((property as { review_count?: number | null }).review_count ?? 0);
+        const rating = Number((property as { rating?: number | null }).rating ?? 0);
+        return {
+          reviewCount: Number.isFinite(reviewCount) && reviewCount > 0 ? reviewCount : 0,
+          rating: Number.isFinite(rating) && rating > 0 ? rating : 0,
+        };
+      });
+
+      const reviewCountFromProperties = propertyAggregates.reduce((sum, property) => sum + property.reviewCount, 0);
+      const weightedRatingNumerator = propertyAggregates.reduce(
+        (sum, property) => sum + property.rating * property.reviewCount,
+        0
+      );
+      const avgFromProperties =
+        reviewCountFromProperties > 0 ? weightedRatingNumerator / reviewCountFromProperties : null;
+
+      let reviewCount = reviewCountFromProperties;
+      let avg = avgFromProperties;
+
+      if (!reviewCount || !avg) {
+        const { data: reviews, error: reviewsErr } = await supabase
+          .from("property_reviews")
+          .select("rating, property_id")
+          .in("property_id", propIds)
+          .eq("is_hidden", false);
+        if (reviewsErr) throw reviewsErr;
+        const ratings = (reviews ?? [])
+          .map((r) => Number((r as { rating: number }).rating))
+          .filter((n) => Number.isFinite(n) && n > 0);
+        const reviewsCountFromRows = ratings.length;
+        const avgFromRows = reviewsCountFromRows > 0 ? ratings.reduce((a, b) => a + b, 0) / reviewsCountFromRows : null;
+
+        reviewCount = reviewCount || reviewsCountFromRows;
+        avg = avg || avgFromRows;
+      }
 
       return {
         listings: propIds.length,
@@ -1453,13 +1479,13 @@ export default function PropertyDetails() {
 
               {/* Host */}
               <div className="mt-8">
-                <h2 className="text-lg font-semibold text-foreground">Meet your host</h2>
+                <h2 className="text-base font-semibold text-foreground">Meet your host</h2>
                 <Link
                   to={`/hosts/${encodeURIComponent(String(data.host_id))}`}
                   className="block mt-4"
                   aria-label={t("propertyDetails.viewHostProfile")}
                 >
-                  <div className="bg-card rounded-xl border border-border/60 p-4 md:p-5">
+                  <div className="bg-card rounded-xl border border-border/60 p-3 md:p-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 items-center">
                       <div className="flex flex-col items-center text-center">
                         <div className="relative">
@@ -1467,7 +1493,7 @@ export default function PropertyDetails() {
                             <img
                               src={hostProfile.avatar_url}
                               alt={hostProfile.full_name ?? t("propertyDetails.hostAlt")}
-                              className="w-24 h-24 md:w-28 md:h-28 rounded-full object-cover border border-border"
+                              className="w-20 h-20 md:w-24 md:h-24 rounded-full object-cover border border-border"
                               loading="lazy"
                               onError={(e) => {
                                 e.currentTarget.style.display = 'none';
@@ -1477,12 +1503,12 @@ export default function PropertyDetails() {
                             />
                           ) : null}
                           <div
-                            className={`w-24 h-24 md:w-28 md:h-28 rounded-full border border-border items-center justify-center ${
+                            className={`w-20 h-20 md:w-24 md:h-24 rounded-full border border-border items-center justify-center ${
                               hostProfile?.avatar_url ? 'hidden' : 'flex'
                             } ${hostProfile?.full_name ? 'bg-primary/10' : 'bg-muted'}`}
                           >
                             {hostProfile?.full_name ? (
-                              <span className="text-primary font-semibold text-2xl">
+                              <span className="text-primary font-semibold text-xl">
                                 {hostProfile.full_name
                                   .split(' ')
                                   .map((name) => name[0])
@@ -1501,28 +1527,28 @@ export default function PropertyDetails() {
                           ) : null}
                         </div>
 
-                        <div className="mt-3 text-xl md:text-2xl font-medium text-foreground leading-tight">
+                        <div className="mt-2 text-lg md:text-xl font-medium text-foreground leading-tight">
                           {(hostProfile?.nickname || hostProfile?.full_name)?.trim() || "Host Profile Unavailable"}
                         </div>
-                        <div className="mt-1 text-sm text-muted-foreground">Host</div>
+                        <div className="mt-1 text-xs text-muted-foreground">Host</div>
                       </div>
 
                       <div className="space-y-4">
                         <div className="pb-3 border-b border-border/70">
-                          <div className="text-3xl md:text-4xl font-semibold text-foreground leading-none">{hostStats?.reviewCount ?? 0}</div>
-                          <div className="mt-1 text-lg md:text-xl font-medium text-foreground">Reviews</div>
+                          <div className="text-2xl md:text-3xl font-semibold text-foreground leading-none">{hostStats?.reviewCount ?? 0}</div>
+                          <div className="mt-1 text-base md:text-lg font-medium text-foreground">Reviews</div>
                         </div>
 
                         <div className="pb-3 border-b border-border/70">
-                          <div className="text-3xl md:text-4xl font-semibold text-foreground leading-none flex items-center gap-1">
+                          <div className="text-2xl md:text-3xl font-semibold text-foreground leading-none flex items-center gap-1">
                             {hostStats?.rating ? hostStats.rating.toFixed(1) : "0.0"}
-                            <Star className="w-6 h-6 fill-yellow-400 text-yellow-400" />
+                            <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
                           </div>
-                          <div className="mt-1 text-lg md:text-xl font-medium text-foreground">Rating</div>
+                          <div className="mt-1 text-base md:text-lg font-medium text-foreground">Rating</div>
                         </div>
 
                         <div>
-                          <div className="text-3xl md:text-4xl font-semibold text-foreground leading-none">
+                          <div className="text-2xl md:text-3xl font-semibold text-foreground leading-none">
                             {(() => {
                               const since = hostStats?.hostingSince || hostProfile?.created_at;
                               if (!since) return "0";
@@ -1533,7 +1559,7 @@ export default function PropertyDetails() {
                               return String(Math.max(0, months));
                             })()}
                           </div>
-                          <div className="mt-1 text-lg md:text-xl font-medium text-foreground">Months hosting</div>
+                          <div className="mt-1 text-base md:text-lg font-medium text-foreground">Months hosting</div>
                         </div>
                       </div>
                     </div>
