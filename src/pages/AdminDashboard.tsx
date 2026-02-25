@@ -3624,6 +3624,7 @@ For support, contact: support@merry360x.com
                                   <SelectItem value="financial_staff">Financial Staff</SelectItem>
                                   <SelectItem value="operations_staff">Operations Staff</SelectItem>
                                   <SelectItem value="customer_support">Customer Support</SelectItem>
+                                  <SelectItem value="certificate_override">Certificate Override</SelectItem>
                                   <SelectItem value="admin">Admin</SelectItem>
                                 </SelectContent>
                               </Select>

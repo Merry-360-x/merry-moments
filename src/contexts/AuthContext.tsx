@@ -89,7 +89,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Note: 'staff' is deprecated, use specific roles instead
       // Accept both 'user' and 'guest' for backward compatibility
       const uniq = Array.from(new Set(normalized)).filter((r) =>
-        ["user", "guest", "host", "admin", "financial_staff", "operations_staff", "customer_support"].includes(r)
+        ["user", "guest", "host", "admin", "financial_staff", "operations_staff", "customer_support", "certificate_override"].includes(r)
       );
 
       // If auth epoch changed (e.g., user signed out) while fetching, ignore results.
