@@ -1453,14 +1453,14 @@ export default function PropertyDetails() {
 
               {/* Host */}
               <div className="mt-8">
-                <h2 className="text-2xl font-semibold text-foreground">Meet your host</h2>
+                <h2 className="text-xl font-semibold text-foreground">Meet your host</h2>
                 <Link
                   to={`/hosts/${encodeURIComponent(String(data.host_id))}`}
                   className="block mt-4"
                   aria-label={t("propertyDetails.viewHostProfile")}
                 >
-                  <div className="bg-card rounded-2xl shadow-card border border-border/60 p-6 md:p-8 hover:bg-muted/30 transition-colors">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                  <div className="bg-card rounded-xl border border-border/60 p-5 md:p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                       <div className="flex flex-col items-center text-center">
                         <div className="relative">
                           {hostProfile?.avatar_url ? (
@@ -1501,28 +1501,28 @@ export default function PropertyDetails() {
                           ) : null}
                         </div>
 
-                        <div className="mt-5 text-4xl font-semibold text-foreground leading-tight">
+                        <div className="mt-4 text-2xl md:text-3xl font-semibold text-foreground leading-tight">
                           {(hostProfile?.nickname || hostProfile?.full_name)?.trim() || "Host Profile Unavailable"}
                         </div>
-                        <div className="mt-1 text-xl text-muted-foreground">Host</div>
+                        <div className="mt-1 text-base text-muted-foreground">Host</div>
                       </div>
 
-                      <div className="space-y-5">
-                        <div className="pb-4 border-b border-border/70">
-                          <div className="text-5xl font-semibold text-foreground leading-none">{hostStats?.reviewCount ?? 0}</div>
-                          <div className="mt-1 text-3xl font-medium text-foreground">Reviews</div>
+                      <div className="space-y-4">
+                        <div className="pb-3 border-b border-border/70">
+                          <div className="text-4xl font-semibold text-foreground leading-none">{hostStats?.reviewCount ?? 0}</div>
+                          <div className="mt-1 text-2xl font-medium text-foreground">Reviews</div>
                         </div>
 
-                        <div className="pb-4 border-b border-border/70">
-                          <div className="text-5xl font-semibold text-foreground leading-none flex items-center gap-1">
+                        <div className="pb-3 border-b border-border/70">
+                          <div className="text-4xl font-semibold text-foreground leading-none flex items-center gap-1">
                             {hostStats?.rating ? hostStats.rating.toFixed(1) : "0.0"}
-                            <Star className="w-8 h-8 fill-foreground text-foreground" />
+                            <Star className="w-7 h-7 fill-yellow-400 text-yellow-400" />
                           </div>
-                          <div className="mt-1 text-3xl font-medium text-foreground">Rating</div>
+                          <div className="mt-1 text-2xl font-medium text-foreground">Rating</div>
                         </div>
 
                         <div>
-                          <div className="text-5xl font-semibold text-foreground leading-none">
+                          <div className="text-4xl font-semibold text-foreground leading-none">
                             {(() => {
                               const since = hostStats?.hostingSince || hostProfile?.created_at;
                               if (!since) return "0";
@@ -1533,7 +1533,7 @@ export default function PropertyDetails() {
                               return String(Math.max(0, months));
                             })()}
                           </div>
-                          <div className="mt-1 text-3xl font-medium text-foreground">Months hosting</div>
+                          <div className="mt-1 text-2xl font-medium text-foreground">Months hosting</div>
                         </div>
                       </div>
                     </div>
