@@ -4358,29 +4358,37 @@ For support, contact: support@merry360x.com
                           </div>
                         </TableCell>
                         <TableCell className="text-sm align-top">
-                          {b.is_guest_booking ? (
-                            <div className="min-w-0 max-w-[280px]">
-                              <div className="font-medium truncate">{b.guest_name || "Guest"}</div>
-                              <div className="text-xs text-muted-foreground truncate">{b.guest_email || "—"}</div>
-                              {b.guest_phone && (
-                                <div className="text-xs text-muted-foreground truncate">{b.guest_phone}</div>
-                              )}
-                            </div>
-                          ) : b.profiles ? (
-                            <div className="min-w-0 max-w-[280px]">
-                              <div className="font-medium truncate">
-                                {b.profiles.nickname || b.profiles.full_name || b.guest_name || "User"}
+                          {(() => {
+                            const guestName = String(
+                              b.is_guest_booking
+                                ? (b.guest_name || "")
+                                : (b.profiles?.nickname || b.profiles?.full_name || b.guest_name || "")
+                            ).trim();
+                            const guestEmail = String(
+                              b.is_guest_booking
+                                ? (b.guest_email || "")
+                                : (b.profiles?.email || b.guest_email || "")
+                            ).trim();
+                            const guestPhone = String(
+                              b.is_guest_booking
+                                ? (b.guest_phone || "")
+                                : (b.profiles?.phone || b.guest_phone || "")
+                            ).trim();
+
+                            const hasGuestContact = Boolean(guestName || guestEmail || guestPhone);
+
+                            if (!hasGuestContact) {
+                              return <span className="text-xs text-muted-foreground">No guest contact</span>;
+                            }
+
+                            return (
+                              <div className="min-w-0 max-w-[280px]">
+                                {guestName && <div className="font-medium truncate">{guestName}</div>}
+                                {guestEmail && <div className="text-xs text-muted-foreground truncate">{guestEmail}</div>}
+                                {guestPhone && <div className="text-xs text-muted-foreground truncate">{guestPhone}</div>}
                               </div>
-                              <div className="text-xs text-muted-foreground truncate">{b.profiles.email || b.guest_email || "—"}</div>
-                              {(b.profiles.phone || b.guest_phone) && (
-                                <div className="text-xs text-muted-foreground truncate">{b.profiles.phone || b.guest_phone}</div>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="min-w-0">
-                              <span className="font-mono text-xs text-muted-foreground">{(b.guest_id ?? "").slice(0, 8)}...</span>
-                            </div>
-                          )}
+                            );
+                          })()}
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1 text-sm whitespace-nowrap">
