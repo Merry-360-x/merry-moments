@@ -7972,7 +7972,7 @@ export default function HostDashboard() {
               </div>
 
               <div className="space-y-2">
-                {manualReviewRequests.slice(0, 6).map((request) => {
+                {manualReviewRequests.map((request) => {
                   const isCollected = request.status === "collected" || !!request.reviewId;
                   return (
                     <div key={request.id} className="flex items-center justify-between border rounded-lg px-3 py-2">
