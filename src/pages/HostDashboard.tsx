@@ -1684,7 +1684,10 @@ export default function HostDashboard() {
     if (!user?.id) return;
     setLoadingManualReviewRequests(true);
     try {
-      const response = await fetch(`/api/review?action=list-manual-requests&hostId=${encodeURIComponent(user.id)}`);
+      const response = await fetch(
+        `/api/review?action=list-manual-requests&hostId=${encodeURIComponent(user.id)}&_ts=${Date.now()}`,
+        { cache: "no-store" }
+      );
       const result = await response.json();
       if (!response.ok) {
         throw new Error(result?.error || "Failed to fetch manual review requests");
@@ -1727,6 +1730,25 @@ export default function HostDashboard() {
       if (!response.ok || !result.ok) {
         throw new Error(result?.error || "Failed to send manual review request");
       }
+
+      const selectedProperty = properties.find((property) => property.id === propertyId);
+      const optimisticRequest: ManualReviewRequest = {
+        id: String(result?.requestId || `local-${Date.now()}`),
+        propertyId,
+        propertyTitle: selectedProperty?.title || "Property",
+        reviewerEmail,
+        reviewerName: reviewerName || null,
+        status: "sent",
+        reviewId: null,
+        sentAt: new Date().toISOString(),
+        collectedAt: null,
+        createdAt: new Date().toISOString(),
+      };
+
+      setManualReviewRequests((prev) => {
+        const deduped = prev.filter((row) => row.id !== optimisticRequest.id);
+        return [optimisticRequest, ...deduped].slice(0, 50);
+      });
 
       toast({ title: "Request sent", description: `Review request sent to ${reviewerEmail}` });
       setManualReviewForm((prev) => ({ ...prev, reviewerEmail: "", reviewerName: "" }));
