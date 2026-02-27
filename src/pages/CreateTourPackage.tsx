@@ -21,6 +21,7 @@ import { DISPLAY_CURRENCIES } from "@/lib/currencies";
 import { getTourPricingModels } from "@/lib/tour-pricing";
 import { HostCreationSubpage } from "@/components/HostCreationSubpage";
 import { Progress } from "@/components/ui/progress";
+import { roundToCurrency } from "@/lib/fx";
 
 const categories = ["Cultural", "Adventure", "Wildlife", "City Tours", "Hiking", "Photography", "Historical", "Eco-Tourism"];
 const tourTypes = ["Private", "Group"];
@@ -218,7 +219,9 @@ Some components are non-refundable once booked, including but not limited to:
         meeting_point: data.meeting_point || "",
         what_to_bring: toText((data as any).what_to_bring),
         cancellation_policy: data.cancellation_policy || defaultCancellationPolicy,
-        price_per_adult: data.price_per_adult != null ? String(data.price_per_adult) : "",
+        price_per_adult: data.price_per_adult != null
+          ? String(roundToCurrency(Number(data.price_per_adult), String(data.currency || "RWF")))
+          : "",
         pricing_model: (() => {
           const parsed = getTourPricingModels((data as any)?.pricing_tiers);
           return parsed[0] || "per_person";
@@ -591,7 +594,7 @@ Some components are non-refundable once booked, including but not limited to:
         what_to_bring: formData.what_to_bring.trim() || null,
         cancellation_policy: combinedPolicy.trim() || null,
         cancellation_policy_type: selectedPolicies.length > 0 ? selectedPolicies.join(',') : null,
-        price_per_adult: parseFloat(formData.price_per_adult),
+        price_per_adult: roundToCurrency(parseFloat(formData.price_per_adult), String(formData.currency || "RWF")),
         currency: formData.currency,
         min_guests: formData.min_guests,
         max_guests: formData.max_guests,
@@ -600,9 +603,15 @@ Some components are non-refundable once booked, including but not limited to:
         itinerary_pdf_url: pdfUrl,
         status: (isHost ? "approved" : "draft"),
         has_differential_pricing: formData.has_differential_pricing,
-        price_for_citizens: formData.has_differential_pricing && formData.price_for_citizens ? parseFloat(formData.price_for_citizens) : null,
-        price_for_east_african: formData.has_differential_pricing && formData.price_for_east_african ? parseFloat(formData.price_for_east_african) : null,
-        price_for_foreigners: formData.has_differential_pricing && formData.price_for_foreigners ? parseFloat(formData.price_for_foreigners) : null,
+        price_for_citizens: formData.has_differential_pricing && formData.price_for_citizens
+          ? roundToCurrency(parseFloat(formData.price_for_citizens), String(formData.currency || "RWF"))
+          : null,
+        price_for_east_african: formData.has_differential_pricing && formData.price_for_east_african
+          ? roundToCurrency(parseFloat(formData.price_for_east_african), String(formData.currency || "RWF"))
+          : null,
+        price_for_foreigners: formData.has_differential_pricing && formData.price_for_foreigners
+          ? roundToCurrency(parseFloat(formData.price_for_foreigners), String(formData.currency || "RWF"))
+          : null,
       };
 
       const normalizedPricingTiers = Array.from(
@@ -644,7 +653,7 @@ Some components are non-refundable once booked, including but not limited to:
       // use it as the base price shown across the app.
       const singleTier = normalizedPricingTiers.find((t) => t.group_size === 1);
       if (singleTier) {
-        (packageData as any).price_per_adult = singleTier.price_per_person;
+        (packageData as any).price_per_adult = roundToCurrency(singleTier.price_per_person, String(formData.currency || "RWF"));
       }
 
       if (isEditMode && editId) {
@@ -1296,6 +1305,12 @@ Some components are non-refundable once booked, including but not limited to:
                   type="number"
                   value={formData.price_per_adult}
                   onChange={(e) => setFormData({ ...formData, price_per_adult: e.target.value })}
+                  onBlur={() => setFormData((prev) => ({
+                    ...prev,
+                    price_per_adult: prev.price_per_adult
+                      ? String(roundToCurrency(Number(prev.price_per_adult), String(prev.currency || "RWF")))
+                      : prev.price_per_adult,
+                  }))}
                   min="0"
                   step="0.01"
                   className="h-10"

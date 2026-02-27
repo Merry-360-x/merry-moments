@@ -22,6 +22,7 @@ import { DISPLAY_CURRENCIES } from "@/lib/currencies";
 import { getTourPricingModels } from "@/lib/tour-pricing";
 import { HostCreationSubpage } from "@/components/HostCreationSubpage";
 import { Progress } from "@/components/ui/progress";
+import { roundToCurrency } from "@/lib/fx";
 
 const categories = ["Nature", "Adventure", "Cultural", "Wildlife", "Historical", "City Tours", "Eco-Tourism", "Photography"];
 const tourPricingModels = [
@@ -178,7 +179,7 @@ export default function CreateTour() {
         categories: mergedCategories,
         duration_days: Number(data.duration_days || 1),
         max_participants: Number(data.max_group_size || 10),
-        price_per_person: Number(data.price_per_person || 0),
+        price_per_person: roundToCurrency(Number(data.price_per_person || 0), String(data.currency || "RWF")),
         pricing_model: pricingModel,
         pricing_models: pricingModels,
         pricing_duration_value: pricingDurationValue,
@@ -460,16 +461,22 @@ export default function CreateTour() {
         categories: formData.categories.length > 1 ? formData.categories.slice(1) : null,
         duration_days: formData.duration_days || null,
         max_group_size: formData.max_participants || null,
-        price_per_person: formData.price_per_person,
+        price_per_person: roundToCurrency(Number(formData.price_per_person || 0), String(formData.currency || "RWF")),
         currency: formData.currency || null,
         images: images.length > 0 ? images : null,
         itinerary_pdf_url: pdfUrl || null,
         created_by: user.id || null,
         is_published: true, // Published by default
         has_differential_pricing: formData.has_differential_pricing,
-        price_for_citizens: formData.has_differential_pricing && formData.price_for_citizens ? parseFloat(formData.price_for_citizens) : null,
-        price_for_east_african: formData.has_differential_pricing && formData.price_for_east_african ? parseFloat(formData.price_for_east_african) : null,
-        price_for_foreigners: formData.has_differential_pricing && formData.price_for_foreigners ? parseFloat(formData.price_for_foreigners) : null,
+        price_for_citizens: formData.has_differential_pricing && formData.price_for_citizens
+          ? roundToCurrency(parseFloat(formData.price_for_citizens), String(formData.currency || "RWF"))
+          : null,
+        price_for_east_african: formData.has_differential_pricing && formData.price_for_east_african
+          ? roundToCurrency(parseFloat(formData.price_for_east_african), String(formData.currency || "RWF"))
+          : null,
+        price_for_foreigners: formData.has_differential_pricing && formData.price_for_foreigners
+          ? roundToCurrency(parseFloat(formData.price_for_foreigners), String(formData.currency || "RWF"))
+          : null,
       };
 
       (tourData as any).pricing_tiers = {
@@ -882,7 +889,13 @@ export default function CreateTour() {
                   type="number"
                   value={formData.price_per_person}
                   onChange={(e) => setFormData({ ...formData, price_per_person: parseFloat(e.target.value) || 0 })}
-                  onBlur={() => handleBlur('price_per_person')}
+                  onBlur={() => {
+                    handleBlur('price_per_person');
+                    setFormData((prev) => ({
+                      ...prev,
+                      price_per_person: roundToCurrency(Number(prev.price_per_person || 0), String(prev.currency || "RWF")),
+                    }));
+                  }}
                   min="0"
                   step="0.01"
                   className={cn("h-10", errors.price_per_person && "border-destructive")}
