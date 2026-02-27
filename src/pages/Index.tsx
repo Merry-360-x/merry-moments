@@ -8,14 +8,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { TrendingUp } from "lucide-react";
-import heroPoster from "@/assets/hero-resort.jpg";
-
-const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || "";
-const HERO_VIDEO_TRANSFORM = "video/upload/f_auto,q_auto:eco,vc_auto,w_1280";
-const HERO_VIDEO_PUBLIC_ID = "merry360x/merry-hero-banner";
-
-const HERO_VIDEO_URL = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/${HERO_VIDEO_TRANSFORM}/${HERO_VIDEO_PUBLIC_ID}`;
-const HERO_VIDEO_URL_WITH_EXT = `${HERO_VIDEO_URL}.mp4`;
+import heroVideo from "@/assets/merry.mp4";
 
 const Index = () => {
   const { user } = useAuth();
@@ -30,23 +23,17 @@ const Index = () => {
       <section
         className="relative min-h-[40vh] md:min-h-[70vh] flex items-center justify-center overflow-hidden"
       >
-        {/* Video Background - Cloudinary optimized */}
+        {/* Video Background */}
         <video
           autoPlay
           muted
           loop
           playsInline
-          preload="metadata"
-          poster={heroPoster}
+          preload="auto"
           className="absolute inset-0 w-full h-full object-cover z-[1]"
           style={{ objectPosition: 'center center' }}
         >
-          {CLOUDINARY_CLOUD_NAME ? (
-            <>
-              <source src={HERO_VIDEO_URL} type="video/mp4" />
-              <source src={HERO_VIDEO_URL_WITH_EXT} type="video/mp4" />
-            </>
-          ) : null}
+          <source src={heroVideo} type="video/mp4" />
         </video>
 
         {/* Overlay */}
