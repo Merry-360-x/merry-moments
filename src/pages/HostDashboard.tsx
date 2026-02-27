@@ -2221,6 +2221,14 @@ export default function HostDashboard() {
 
   // Stats - use safe defaults
   // Calculate earnings after platform fees
+  const isCheckoutAmountReasonable = useCallback((checkoutAmount: number, listedAmount: number) => {
+    if (!Number.isFinite(checkoutAmount) || checkoutAmount <= 0) return false;
+    if (!Number.isFinite(listedAmount) || listedAmount <= 0) return true;
+
+    const ratio = checkoutAmount / listedAmount;
+    return ratio >= 0.4 && ratio <= 3.5;
+  }, []);
+
   const getBookingGuestPaidAmount = useCallback((booking: {
     id?: string | null;
     order_id?: string | null;
@@ -2239,7 +2247,17 @@ export default function HostDashboard() {
     }
 
     const orderBookings = (bookings || []).filter((row) => row.order_id === booking.order_id);
-    if (orderBookings.length <= 1) return checkoutTotal;
+    if (orderBookings.length <= 1) {
+      const listedAmount = Number(booking.total_price || 0);
+      if (
+        Number.isFinite(listedAmount) &&
+        listedAmount > 0 &&
+        !isCheckoutAmountReasonable(checkoutTotal, listedAmount)
+      ) {
+        return listedAmount;
+      }
+      return checkoutTotal;
+    }
 
     const listedAmount = Number(booking.total_price || 0);
     if (Number.isFinite(listedAmount) && listedAmount > 0) return listedAmount;
@@ -2256,7 +2274,7 @@ export default function HostDashboard() {
 
     const remaining = Math.max(0, checkoutTotal - positiveTotal);
     return remaining / missingCount;
-  }, [bookings, checkoutByOrderId]);
+  }, [bookings, checkoutByOrderId, isCheckoutAmountReasonable]);
 
   const getCheckoutItemForBooking = useCallback((booking: {
     order_id?: string | null;
@@ -2312,6 +2330,10 @@ export default function HostDashboard() {
     const checkoutCurrency = String(checkout?.currency || '').toUpperCase();
     let resolvedCurrency = checkoutCurrency || listingCurrency || 'RWF';
 
+    if (hasCheckoutTotal && hasListedAmount && !isCheckoutAmountReasonable(checkoutTotal, listedAmount)) {
+      resolvedCurrency = listingCurrency;
+    }
+
     if (hasCheckoutTotal && hasListedAmount && checkoutCurrency && listingCurrency && checkoutCurrency !== listingCurrency) {
       const amountCloseToListing =
         Math.abs(checkoutTotal - listedAmount) / Math.max(1, listedAmount) <= 0.2;
@@ -2346,7 +2368,7 @@ export default function HostDashboard() {
       amount: Number.isFinite(allocatedOrCheckoutAmount) ? allocatedOrCheckoutAmount : 0,
       currency: resolvedCurrency,
     };
-  }, [checkoutByOrderId, getBookingGuestPaidAmount, usdRates]);
+  }, [checkoutByOrderId, getBookingGuestPaidAmount, isCheckoutAmountReasonable, usdRates]);
 
   const getOriginalListingSubtotal = useCallback((booking: {
     order_id?: string | null;
