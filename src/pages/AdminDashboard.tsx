@@ -2792,7 +2792,24 @@ For support, contact: support@merry360x.com
                             {b.is_guest_booking ? b.guest_name || "Guest" : b.profiles?.full_name || b.guest_id?.slice(0, 8)}
                           </TableCell>
                           <TableCell className="text-sm">{b.properties?.title || "—"}</TableCell>
-                          <TableCell className="font-medium">{formatMoney(b.total_price, b.currency || 'RWF')}</TableCell>
+                          <TableCell className="font-medium">
+                            {formatMoney(
+                              toRwfAmount(
+                                Number(b.checkout_requests?.total_amount || b.total_price || 0),
+                                String(
+                                  b.checkout_requests?.currency ||
+                                    (b.booking_type === "property" && b.properties?.currency
+                                      ? b.properties.currency
+                                      : b.booking_type === "tour" && b.tour_packages?.currency
+                                        ? b.tour_packages.currency
+                                        : b.booking_type === "transport" && b.transport_vehicles?.currency
+                                          ? b.transport_vehicles.currency
+                                          : b.currency || "RWF")
+                                )
+                              ),
+                              "RWF"
+                            )}
+                          </TableCell>
                           <TableCell>
                             <div className="flex gap-1">
                               <StatusBadge status={b.status} />
@@ -4263,6 +4280,20 @@ For support, contact: support@merry360x.com
                         else if (b.transport_id) itemName = `Deleted Transport`;
                       }
 
+                      const listingCurrency =
+                        b.booking_type === "property" && b.properties?.currency
+                          ? b.properties.currency
+                          : b.booking_type === "tour" && b.tour_packages?.currency
+                            ? b.tour_packages.currency
+                            : b.booking_type === "transport" && b.transport_vehicles?.currency
+                              ? b.transport_vehicles.currency
+                              : b.currency || "RWF";
+
+                      const paymentAmountSource = Number(b.checkout_requests?.total_amount || b.total_price || 0);
+                      const paymentCurrencySource = String(b.checkout_requests?.currency || listingCurrency || "RWF");
+                      const paymentAmountRwf = toRwfAmount(paymentAmountSource, paymentCurrencySource);
+                      const paymentMethod = b.checkout_requests?.payment_method || b.payment_method || "—";
+
                       return (
                       <TableRow key={b.id}>
                         <TableCell>
@@ -4367,18 +4398,9 @@ For support, contact: support@merry360x.com
                         <TableCell className="align-top">
                           <div className="space-y-1">
                             <div className="font-medium whitespace-nowrap">
-                              {formatMoney(
-                                b.total_price,
-                                b.booking_type === "property" && b.properties?.currency
-                                  ? b.properties.currency
-                                  : b.booking_type === "tour" && b.tour_packages?.currency
-                                    ? b.tour_packages.currency
-                                    : b.booking_type === "transport" && b.transport_vehicles?.currency
-                                      ? b.transport_vehicles.currency
-                                      : b.currency || "RWF"
-                              )}
+                              {formatMoney(paymentAmountRwf, "RWF")}
                             </div>
-                            <div className="text-xs text-muted-foreground">Method: {b.payment_method || "—"}</div>
+                            <div className="text-xs text-muted-foreground">Method: {paymentMethod}</div>
                             <PaymentStatusBadge status={b.payment_status} />
                             {(refundRequestRefs.has(String(b.id || "").toLowerCase()) || (b.order_id && refundRequestRefs.has(String(b.order_id).toLowerCase()))) && (
                               <Badge className="bg-amber-100 text-amber-800">Refund Requested</Badge>
@@ -5398,8 +5420,14 @@ For support, contact: support@merry360x.com
                       </div>
                       <p className="text-base font-bold text-green-600">
                         {formatMoney(
-                          orderBookings.reduce((sum, b) => sum + (b.total_price || 0), 0),
-                          selectedBooking.currency
+                          toRwfAmount(
+                            Number(
+                              selectedBooking.checkout_requests?.total_amount ||
+                                orderBookings.reduce((sum, b) => sum + Number(b.total_price || 0), 0)
+                            ),
+                            String(selectedBooking.checkout_requests?.currency || selectedBooking.currency || "RWF")
+                          ),
+                          "RWF"
                         )}
                       </p>
                     </div>
@@ -5455,7 +5483,23 @@ For support, contact: support@merry360x.com
                                 </div>
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
-                                <span className="font-semibold text-sm whitespace-nowrap">{formatMoney(item.total_price, item.currency || 'RWF')}</span>
+                                <span className="font-semibold text-sm whitespace-nowrap">
+                                  {formatMoney(
+                                    toRwfAmount(
+                                      Number(item.total_price || 0),
+                                      String(
+                                        item.booking_type === "property" && item.properties?.currency
+                                          ? item.properties.currency
+                                          : item.booking_type === "tour" && item.tour_packages?.currency
+                                            ? item.tour_packages.currency
+                                            : item.booking_type === "transport" && item.transport_vehicles?.currency
+                                              ? item.transport_vehicles.currency
+                                              : item.currency || "RWF"
+                                      )
+                                    ),
+                                    "RWF"
+                                  )}
+                                </span>
                                 {isCurrentItem && (
                                   <Badge variant="outline" className="text-xs h-4 px-1.5 bg-primary/10">Current</Badge>
                                 )}
