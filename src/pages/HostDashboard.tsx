@@ -2485,6 +2485,34 @@ export default function HostDashboard() {
     };
   }, [bookings, checkoutByOrderId, getBookingGuestPaidAmount, getCheckoutItemForBooking, vehicles]);
 
+  const getResolvedBookingAmountForHost = useCallback((booking: Booking) => {
+    const bookingAmount = getBookingAmountAndCurrency(booking);
+    const listing = getOriginalListingSubtotal(booking);
+    const listingSubtotal = Number(listing.listingSubtotal || 0);
+
+    if (Number.isFinite(listingSubtotal) && listingSubtotal > 0) {
+      const bookingCurrency = String(bookingAmount.currency || 'RWF').toUpperCase();
+      const listingCurrency = String(listing.currency || 'RWF').toUpperCase();
+
+      let comparableBookingAmount = Number(bookingAmount.amount || 0);
+      if (bookingCurrency && listingCurrency && bookingCurrency !== listingCurrency) {
+        const converted = convertAmount(comparableBookingAmount, bookingCurrency, listingCurrency, usdRates);
+        if (Number.isFinite(Number(converted))) {
+          comparableBookingAmount = Number(converted);
+        }
+      }
+
+      if (!isCheckoutAmountReasonable(comparableBookingAmount, listingSubtotal)) {
+        return {
+          amount: listingSubtotal,
+          currency: listing.currency,
+        };
+      }
+    }
+
+    return bookingAmount;
+  }, [getBookingAmountAndCurrency, getOriginalListingSubtotal, isCheckoutAmountReasonable, usdRates]);
+
   const confirmedBookings = (bookings || []).filter((b) => {
     const status = String(b.status || "").toLowerCase();
     const payment = normalizePaymentStatus(b);
@@ -2495,13 +2523,13 @@ export default function HostDashboard() {
   
   // Gross earnings (what guests paid)
   const totalGrossEarnings = confirmedBookings.reduce((sum, b) => {
-    const { amount, currency } = getBookingAmountAndCurrency(b);
+    const { amount, currency } = getResolvedBookingAmountForHost(b);
     return sum + toRwfAmount(amount, currency);
   }, 0);
   
   // Net earnings after host fee deduction (flat 3% across all booking types)
   const totalNetEarnings = confirmedBookings.reduce((sum, b) => {
-    const { amount: guestPaid, currency: bookingCurrency } = getBookingAmountAndCurrency(b);
+    const { amount: guestPaid, currency: bookingCurrency } = getResolvedBookingAmountForHost(b);
     const hostNetInBookingCurrency = guestPaid * (1 - HOST_EARNING_FEE_PERCENT / 100);
 
     return sum + toRwfAmount(hostNetInBookingCurrency, bookingCurrency);
@@ -7336,7 +7364,7 @@ export default function HostDashboard() {
                       }
 
                       const { listingSubtotal, currency: listingCurrency } = getOriginalListingSubtotal(b);
-                      const { amount: guestPaidAmount, currency: guestPaidCurrency } = getBookingAmountAndCurrency(b);
+                      const { amount: guestPaidAmount, currency: guestPaidCurrency } = getResolvedBookingAmountForHost(b);
                       const listingTotal = listingSubtotal;
                       const nights = Math.max(
                         1,
@@ -7360,7 +7388,17 @@ export default function HostDashboard() {
                             ? listingTotal / guests
                             : listingTotal;
                       const feePercent = HOST_EARNING_FEE_PERCENT;
-                      const hostNetEarnings = guestPaidAmount * (1 - feePercent / 100);
+                      const safeGuestPaidAmount = Math.max(0, Number(guestPaidAmount || 0));
+                      const safeListingTotal = Math.max(0, Number(listingTotal || 0));
+                      const listingTotalRwf = toRwfAmount(safeListingTotal, listingCurrency);
+                      const effectiveGuestPaidRwf = safeListingTotal > 0
+                        ? Math.min(toRwfAmount(safeGuestPaidAmount, guestPaidCurrency), listingTotalRwf)
+                        : toRwfAmount(safeGuestPaidAmount, guestPaidCurrency);
+                      const displayFeeDeductionRwf = Math.max(
+                        0,
+                        Math.min(effectiveGuestPaidRwf * (feePercent / 100), listingTotalRwf)
+                      );
+                      const displayHostNetEarningsRwf = Math.max(0, effectiveGuestPaidRwf - displayFeeDeductionRwf);
                       
                       return (
                         <Card key={b.id} className="overflow-hidden border border-border shadow-sm">
@@ -7429,11 +7467,11 @@ export default function HostDashboard() {
                                   </div>
                                   <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
                                     <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Platform fee deducted ({feePercent}%)</span>
-                                    <span className="text-sm font-semibold text-destructive">-{formatMoney(toRwfAmount(guestPaidAmount * (feePercent / 100), guestPaidCurrency), 'RWF')}</span>
+                                    <span className="text-sm font-semibold text-destructive">-{formatMoney(displayFeeDeductionRwf, 'RWF')}</span>
                                   </div>
                                   <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
                                     <span className="text-[11px] text-muted-foreground uppercase tracking-wide">You will earn</span>
-                                    <span className="text-sm font-semibold text-emerald-600">{formatMoney(toRwfAmount(hostNetEarnings, guestPaidCurrency), 'RWF')}</span>
+                                    <span className="text-sm font-semibold text-emerald-600">{formatMoney(displayHostNetEarningsRwf, 'RWF')}</span>
                                   </div>
                                 </div>
                               </div>
@@ -7572,7 +7610,7 @@ export default function HostDashboard() {
                   // Calculate original listing price breakdown
                   const serviceType = itemType === 'property' ? 'accommodation' : itemType === 'tour' ? 'tour' : 'transport';
                   const { listingSubtotal, currency: listingCurrency } = getOriginalListingSubtotal(b);
-                  const { amount: guestPaidAmount, currency: guestPaidCurrency } = getBookingAmountAndCurrency(b);
+                  const { amount: guestPaidAmount, currency: guestPaidCurrency } = getResolvedBookingAmountForHost(b);
                   const listingTotal = listingSubtotal;
                   const nights = Math.max(
                     1,
@@ -7596,7 +7634,17 @@ export default function HostDashboard() {
                         ? listingTotal / guests
                         : listingTotal;
                   const feePercent = HOST_EARNING_FEE_PERCENT;
-                  const hostNetEarnings = guestPaidAmount * (1 - feePercent / 100);
+                  const safeGuestPaidAmount = Math.max(0, Number(guestPaidAmount || 0));
+                  const safeListingTotal = Math.max(0, Number(listingTotal || 0));
+                  const listingTotalRwf = toRwfAmount(safeListingTotal, listingCurrency);
+                  const effectiveGuestPaidRwf = safeListingTotal > 0
+                    ? Math.min(toRwfAmount(safeGuestPaidAmount, guestPaidCurrency), listingTotalRwf)
+                    : toRwfAmount(safeGuestPaidAmount, guestPaidCurrency);
+                  const displayFeeDeductionRwf = Math.max(
+                    0,
+                    Math.min(effectiveGuestPaidRwf * (feePercent / 100), listingTotalRwf)
+                  );
+                  const displayHostNetEarningsRwf = Math.max(0, effectiveGuestPaidRwf - displayFeeDeductionRwf);
                   
                   return (
                   <Card key={b.id} className="overflow-hidden border shadow-sm hover:shadow-md transition-shadow">
@@ -7691,11 +7739,11 @@ export default function HostDashboard() {
                             </div>
                             <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
                               <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Platform fee deducted ({feePercent}%)</span>
-                              <span className="text-sm font-semibold text-destructive">-{formatMoney(toRwfAmount(guestPaidAmount * (feePercent / 100), guestPaidCurrency), 'RWF')}</span>
+                              <span className="text-sm font-semibold text-destructive">-{formatMoney(displayFeeDeductionRwf, 'RWF')}</span>
                             </div>
                             <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
                               <span className="text-[11px] text-muted-foreground uppercase tracking-wide">You will earn</span>
-                              <span className="text-sm font-semibold text-emerald-600">{formatMoney(toRwfAmount(hostNetEarnings, guestPaidCurrency), 'RWF')}</span>
+                              <span className="text-sm font-semibold text-emerald-600">{formatMoney(displayHostNetEarningsRwf, 'RWF')}</span>
                             </div>
                           </div>
                         </div>
@@ -8171,7 +8219,7 @@ export default function HostDashboard() {
                   <p className="text-2xl font-bold">
                     {formatMoney(
                       filteredReportBookings.reduce((sum, b) => {
-                        const { amount, currency } = getBookingAmountAndCurrency(b);
+                        const { amount, currency } = getResolvedBookingAmountForHost(b);
                         return sum + toRwfAmount(amount, currency);
                       }, 0),
                       "RWF"
@@ -8188,7 +8236,7 @@ export default function HostDashboard() {
                     {formatMoney(
                       filteredReportBookings
                         .reduce((sum, b) => {
-                          const { amount, currency } = getBookingAmountAndCurrency(b);
+                          const { amount, currency } = getResolvedBookingAmountForHost(b);
                           const hostNet = amount * (1 - HOST_EARNING_FEE_PERCENT / 100);
                           return sum + toRwfAmount(hostNet, currency);
                         }, 0),
@@ -8230,7 +8278,7 @@ export default function HostDashboard() {
 
                     const filteredBookings = filteredReportBookings;
                     const bookingAmountRows = filteredBookings.map((b) => {
-                      const { amount, currency } = getBookingAmountAndCurrency(b);
+                      const { amount, currency } = getResolvedBookingAmountForHost(b);
                       const amountRwf = toRwfAmount(amount, currency);
                       return {
                         booking: b,
@@ -8300,7 +8348,7 @@ export default function HostDashboard() {
                     const filteredBookings = filteredReportBookings;
 
                     const bookingAmountRows = filteredBookings.map((b) => {
-                      const { amount, currency } = getBookingAmountAndCurrency(b);
+                      const { amount, currency } = getResolvedBookingAmountForHost(b);
                       const amountRwf = toRwfAmount(amount, currency);
                       const hostNetRwf = amountRwf * (1 - HOST_EARNING_FEE_PERCENT / 100);
                       return { booking: b, amount, currency, amountRwf, hostNetRwf };
@@ -8838,7 +8886,7 @@ END OF REPORT
                       listingSubtotal: listingTotal,
                       currency: listingCurrency,
                     } = getOriginalListingSubtotal(bookingFullDetails);
-                    const { amount: guestPaidAmount, currency: guestPaidCurrency } = getBookingAmountAndCurrency(bookingFullDetails as Booking);
+                    const { amount: guestPaidAmount, currency: guestPaidCurrency } = getResolvedBookingAmountForHost(bookingFullDetails as Booking);
                     const displayCurrency = 'RWF';
                     const nights = Math.max(
                       1,
@@ -8870,12 +8918,18 @@ END OF REPORT
                           ? 'tour'
                           : 'transport';
                     const feePercent = HOST_EARNING_FEE_PERCENT;
-                    const hostNetEarnings = guestPaidAmount * (1 - feePercent / 100);
+                    const safeGuestPaidAmount = Math.max(0, Number(guestPaidAmount || 0));
+                    const safeListingTotal = Math.max(0, Number(listingTotal || 0));
                     const convertedListingTotal = toRwfAmount(listingTotal, listingCurrency);
                     const convertedUnitValue = toRwfAmount(unitValue, listingCurrency);
-                    const convertedGuestPaidAmount = toRwfAmount(guestPaidAmount, guestPaidCurrency);
-                    const convertedHostNetEarnings = toRwfAmount(hostNetEarnings, guestPaidCurrency);
-                    const convertedFeeDeduction = toRwfAmount(guestPaidAmount * (feePercent / 100), guestPaidCurrency);
+                    const convertedGuestPaidAmount = safeListingTotal > 0
+                      ? Math.min(toRwfAmount(safeGuestPaidAmount, guestPaidCurrency), convertedListingTotal)
+                      : toRwfAmount(safeGuestPaidAmount, guestPaidCurrency);
+                    const convertedFeeDeduction = Math.max(
+                      0,
+                      Math.min(convertedGuestPaidAmount * (feePercent / 100), convertedListingTotal)
+                    );
+                    const convertedHostNetEarnings = Math.max(0, convertedGuestPaidAmount - convertedFeeDeduction);
                     const effectivePaymentStatus = String(
                       bookingFullDetails.checkout_requests?.payment_status || bookingFullDetails.payment_status || "unknown"
                     )
