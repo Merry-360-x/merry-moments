@@ -249,7 +249,7 @@ export function CloudinaryUploadDialog(props: {
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="p-0 max-w-3xl overflow-hidden" aria-describedby={undefined}>
+      <DialogContent className="p-0 max-w-3xl overflow-hidden [&>button]:hidden" aria-describedby={undefined}>
         <VisuallyHidden>
           <DialogTitle>{props.title}</DialogTitle>
         </VisuallyHidden>

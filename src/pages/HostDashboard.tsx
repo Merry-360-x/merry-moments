@@ -7293,7 +7293,7 @@ export default function HostDashboard() {
                                 <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Original Listing Price (No coupon, No fees)</p>
                                 <div className="rounded-lg border border-border bg-background px-2.5 py-2">
                                   <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{unitLabel}</p>
-                                  <p className="text-base font-semibold leading-tight mt-1">{formatMoney(unitValue, listingCurrency)}</p>
+                                  <p className="text-base font-semibold leading-tight mt-1">{formatMoney(toRwfAmount(unitValue, listingCurrency), 'RWF')}</p>
                                   <p className="text-[11px] text-muted-foreground mt-1">
                                     {serviceType === 'accommodation'
                                       ? `${nights} night${nights !== 1 ? 's' : ''}`
@@ -7301,15 +7301,15 @@ export default function HostDashboard() {
                                   </p>
                                   <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
                                     <span className="text-[11px] text-muted-foreground uppercase tracking-wide">{listingAmountLabel}</span>
-                                    <span className="text-sm font-semibold">{formatMoney(listingTotal, listingCurrency)}</span>
+                                    <span className="text-sm font-semibold">{formatMoney(toRwfAmount(listingTotal, listingCurrency), 'RWF')}</span>
                                   </div>
                                   <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
                                     <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Platform fee deducted ({feePercent}%)</span>
-                                    <span className="text-sm font-semibold text-destructive">-{formatMoney(guestPaidAmount * (feePercent / 100), guestPaidCurrency)}</span>
+                                    <span className="text-sm font-semibold text-destructive">-{formatMoney(toRwfAmount(guestPaidAmount * (feePercent / 100), guestPaidCurrency), 'RWF')}</span>
                                   </div>
                                   <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
                                     <span className="text-[11px] text-muted-foreground uppercase tracking-wide">You will earn</span>
-                                    <span className="text-sm font-semibold text-emerald-600">{formatMoney(hostNetEarnings, guestPaidCurrency)}</span>
+                                    <span className="text-sm font-semibold text-emerald-600">{formatMoney(toRwfAmount(hostNetEarnings, guestPaidCurrency), 'RWF')}</span>
                                   </div>
                                 </div>
                               </div>
@@ -7555,7 +7555,7 @@ export default function HostDashboard() {
                           <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Original Listing Price (No coupon, No fees)</p>
                           <div className="rounded-lg border border-border bg-background px-2.5 py-2">
                             <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{unitLabel}</p>
-                            <p className="text-base font-semibold leading-tight mt-1">{formatMoney(unitValue, listingCurrency)}</p>
+                            <p className="text-base font-semibold leading-tight mt-1">{formatMoney(toRwfAmount(unitValue, listingCurrency), 'RWF')}</p>
                             <p className="text-[11px] text-muted-foreground mt-1">
                               {serviceType === 'accommodation'
                                 ? `${nights} night${nights !== 1 ? 's' : ''}`
@@ -7563,15 +7563,15 @@ export default function HostDashboard() {
                             </p>
                             <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
                               <span className="text-[11px] text-muted-foreground uppercase tracking-wide">{listingAmountLabel}</span>
-                              <span className="text-sm font-semibold">{formatMoney(listingTotal, listingCurrency)}</span>
+                              <span className="text-sm font-semibold">{formatMoney(toRwfAmount(listingTotal, listingCurrency), 'RWF')}</span>
                             </div>
                             <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
                               <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Platform fee deducted ({feePercent}%)</span>
-                              <span className="text-sm font-semibold text-destructive">-{formatMoney(guestPaidAmount * (feePercent / 100), guestPaidCurrency)}</span>
+                              <span className="text-sm font-semibold text-destructive">-{formatMoney(toRwfAmount(guestPaidAmount * (feePercent / 100), guestPaidCurrency), 'RWF')}</span>
                             </div>
                             <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
                               <span className="text-[11px] text-muted-foreground uppercase tracking-wide">You will earn</span>
-                              <span className="text-sm font-semibold text-emerald-600">{formatMoney(hostNetEarnings, guestPaidCurrency)}</span>
+                              <span className="text-sm font-semibold text-emerald-600">{formatMoney(toRwfAmount(hostNetEarnings, guestPaidCurrency), 'RWF')}</span>
                             </div>
                           </div>
                         </div>
@@ -8715,7 +8715,7 @@ END OF REPORT
                       currency: listingCurrency,
                     } = getOriginalListingSubtotal(bookingFullDetails);
                     const { amount: guestPaidAmount, currency: guestPaidCurrency } = getBookingAmountAndCurrency(bookingFullDetails as Booking);
-                    const displayCurrency = preferredCurrency || listingCurrency;
+                    const displayCurrency = 'RWF';
                     const nights = Math.max(
                       1,
                       Math.ceil(
@@ -8747,11 +8747,11 @@ END OF REPORT
                           : 'transport';
                     const feePercent = HOST_EARNING_FEE_PERCENT;
                     const hostNetEarnings = guestPaidAmount * (1 - feePercent / 100);
-                    const convertedListingTotal = convertAmount(listingTotal, listingCurrency, displayCurrency, usdRates) ?? listingTotal;
-                    const convertedUnitValue = convertAmount(unitValue, listingCurrency, displayCurrency, usdRates) ?? unitValue;
-                    const convertedGuestPaidAmount = convertAmount(guestPaidAmount, guestPaidCurrency, displayCurrency, usdRates) ?? guestPaidAmount;
-                    const convertedHostNetEarnings = convertAmount(hostNetEarnings, guestPaidCurrency, displayCurrency, usdRates) ?? hostNetEarnings;
-                    const convertedFeeDeduction = convertAmount(guestPaidAmount * (feePercent / 100), guestPaidCurrency, displayCurrency, usdRates) ?? (guestPaidAmount * (feePercent / 100));
+                    const convertedListingTotal = toRwfAmount(listingTotal, listingCurrency);
+                    const convertedUnitValue = toRwfAmount(unitValue, listingCurrency);
+                    const convertedGuestPaidAmount = toRwfAmount(guestPaidAmount, guestPaidCurrency);
+                    const convertedHostNetEarnings = toRwfAmount(hostNetEarnings, guestPaidCurrency);
+                    const convertedFeeDeduction = toRwfAmount(guestPaidAmount * (feePercent / 100), guestPaidCurrency);
                     const effectivePaymentStatus = String(
                       bookingFullDetails.checkout_requests?.payment_status || bookingFullDetails.payment_status || "unknown"
                     )
