@@ -69,6 +69,8 @@ import { useDataPersistence } from "@/hooks/useDataPersistence";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { RealtimeProvider } from "@/components/RealtimeProvider";
 import { DatabaseConnectivityTest } from "@/components/DatabaseConnectivityTest";
+import GlobalLoadingIndicator from "@/components/GlobalLoadingIndicator";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -219,6 +221,14 @@ function RouteTransitionWrapper({ children }: { children: ReactNode }) {
         {children}
       </motion.div>
     </AnimatePresence>
+  );
+}
+
+function RouteLoadingFallback() {
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <LoadingSpinner message="Preparing page..." className="py-0" />
+    </div>
   );
 }
 
@@ -416,17 +426,18 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <GlobalLoadingIndicator />
             <ScrollToTop />
             <SupportCenterLauncher />
             <RouteSeoManager />
             <RoutePrefetch />
-            <Suspense fallback={null}>
+            <Suspense fallback={<RouteLoadingFallback />}>
             <RouteTransitionWrapper>
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
-              <Route path="/complete-profile" element={<Suspense fallback={null}><CompleteProfile /></Suspense>} />
+              <Route path="/complete-profile" element={<Suspense fallback={<RouteLoadingFallback />}><CompleteProfile /></Suspense>} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/login" element={<AuthModeRedirect mode="login" />} />
@@ -514,7 +525,7 @@ const App = () => (
                 element={
                   <RequireRole allowed={["admin"]}>
                     <ErrorBoundary>
-                      <Suspense fallback={null}>
+                      <Suspense fallback={<RouteLoadingFallback />}>
                         <AdminDashboard />
                       </Suspense>
                     </ErrorBoundary>
@@ -541,7 +552,7 @@ const App = () => (
                 path="/financial-dashboard"
                 element={
                   <RequireRole allowed={["financial_staff", "admin"]}>
-                    <Suspense fallback={null}>
+                    <Suspense fallback={<RouteLoadingFallback />}>
                       <FinancialStaffDashboard />
                     </Suspense>
                   </RequireRole>
@@ -551,7 +562,7 @@ const App = () => (
                 path="/operations-dashboard"
                 element={
                   <RequireRole allowed={["operations_staff", "admin"]}>
-                    <Suspense fallback={null}>
+                    <Suspense fallback={<RouteLoadingFallback />}>
                       <OperationsStaffDashboard />
                     </Suspense>
                   </RequireRole>
@@ -561,7 +572,7 @@ const App = () => (
                 path="/customer-support-dashboard"
                 element={
                   <RequireRole allowed={["customer_support", "admin"]}>
-                    <Suspense fallback={null}>
+                    <Suspense fallback={<RouteLoadingFallback />}>
                       <CustomerSupportDashboard />
                     </Suspense>
                   </RequireRole>

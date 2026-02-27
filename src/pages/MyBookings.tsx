@@ -21,6 +21,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { BookingDateChangeDialog } from "@/components/BookingDateChangeDialog";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 const BOOKING_DECISION_SEEN_KEY = "guest_booking_decision_seen_at";
 
@@ -819,6 +820,14 @@ const MyBookings = () => {
     }
   };
 
+  if (authLoading || !user || isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <LoadingSpinner message="Loading bookings..." className="py-0" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-[100dvh] bg-background">
       <Navbar />
@@ -854,11 +863,7 @@ const MyBookings = () => {
           </Alert>
         )}
 
-        {/* {isLoading ? (
-          <div className="py-20 text-center">
-            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-          </div>
-        ) : */ bookings.length === 0 ? (
+        {bookings.length === 0 ? (
           <div className="py-20 text-center">
             <Calendar className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
             <h2 className="text-xl font-semibold text-foreground mb-2">{t("bookings.emptyTitle")}</h2>

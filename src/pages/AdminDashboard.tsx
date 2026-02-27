@@ -63,6 +63,7 @@ import {
   Phone,
   Wallet,
 } from "lucide-react";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 type HostApplicationStatus = "draft" | "pending" | "approved" | "rejected";
 type HostApplicationRow = {
@@ -576,7 +577,7 @@ export default function AdminDashboard() {
   }, [user, queryClient]);
 
   // Metrics query - always enabled for overview data
-  const { data: metrics, refetch: refetchMetrics } = useQuery({
+  const { data: metrics, refetch: refetchMetrics, isLoading: isMetricsLoading } = useQuery({
     queryKey: ["admin_dashboard_metrics"],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("admin_dashboard_metrics");
@@ -592,7 +593,7 @@ export default function AdminDashboard() {
     placeholderData: (previousData) => previousData, // Keep showing old data while refetching
   });
 
-  const { data: adBanners = [], refetch: refetchAdBanners } = useQuery({
+  const { data: adBanners = [], refetch: refetchAdBanners, isLoading: isAdsLoading } = useQuery({
     queryKey: ["admin_ad_banners"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -702,7 +703,7 @@ export default function AdminDashboard() {
   };
 
   // Host applications - always enabled for overview metrics
-  const { data: applications = [], refetch: refetchApplications } = useQuery({
+  const { data: applications = [], refetch: refetchApplications, isLoading: isApplicationsLoading } = useQuery({
     queryKey: ["host_applications", "admin"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -809,7 +810,7 @@ export default function AdminDashboard() {
   };
 
   // Users - always enabled for better performance
-  const { data: adminUsers = [], refetch: refetchUsers } = useQuery({
+  const { data: adminUsers = [], refetch: refetchUsers, isLoading: isUsersLoading } = useQuery({
     queryKey: ["admin_list_users", userSearch],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("admin_list_users", { _search: userSearch });
@@ -847,7 +848,7 @@ export default function AdminDashboard() {
   });
 
   // Properties with images - enhanced loading
-  const { data: properties = [], refetch: refetchProperties } = useQuery({
+  const { data: properties = [], refetch: refetchProperties, isLoading: isPropertiesLoading } = useQuery({
     queryKey: ["admin-properties"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -866,7 +867,7 @@ export default function AdminDashboard() {
   });
 
   // Tours with images - enhanced loading - includes tour_packages
-  const { data: tours = [], refetch: refetchTours } = useQuery({
+  const { data: tours = [], refetch: refetchTours, isLoading: isToursLoading } = useQuery({
     queryKey: ["admin-tours"], // Remove timestamp to enable proper caching
     queryFn: async () => {
       // Fetch both tours and tour_packages
@@ -914,7 +915,7 @@ export default function AdminDashboard() {
   });
 
   // Transport vehicles with images - enhanced loading
-  const { data: vehicles = [], refetch: refetchVehicles } = useQuery({
+  const { data: vehicles = [], refetch: refetchVehicles, isLoading: isTransportLoading } = useQuery({
     queryKey: ["admin-transport-vehicles"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -933,7 +934,7 @@ export default function AdminDashboard() {
   });
 
   // Bookings - direct query with enhanced loading
-  const { data: bookings = [], refetch: refetchBookings, isFetched: bookingsFetched } = useQuery({
+  const { data: bookings = [], refetch: refetchBookings, isFetched: bookingsFetched, isLoading: isBookingsLoading } = useQuery({
     queryKey: ["admin-bookings-direct", bookingStatus],
     queryFn: async () => {
       let q = supabase
@@ -1009,7 +1010,7 @@ export default function AdminDashboard() {
   });
 
   // Host Payouts query
-  const { data: payouts = [], refetch: refetchPayouts } = useQuery({
+  const { data: payouts = [], refetch: refetchPayouts, isLoading: isPayoutsLoading } = useQuery({
     queryKey: ["admin-host_payouts", payoutFilter],
     queryFn: async () => {
       let query = supabase
@@ -1148,7 +1149,7 @@ export default function AdminDashboard() {
   };
 
   // Reviews - direct query with enhanced loading
-  const { data: reviews = [], refetch: refetchReviews } = useQuery({
+  const { data: reviews = [], refetch: refetchReviews, isLoading: isReviewsLoading } = useQuery({
     queryKey: ["admin-reviews-direct"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -1174,7 +1175,7 @@ export default function AdminDashboard() {
   });
 
   // Support tickets - enhanced loading
-  const { data: tickets = [], refetch: refetchTickets } = useQuery({
+  const { data: tickets = [], refetch: refetchTickets, isLoading: isTicketsLoading } = useQuery({
     queryKey: ["admin-tickets", ticketStatus],
     queryFn: async () => {
       let q = supabase
@@ -1342,7 +1343,7 @@ export default function AdminDashboard() {
   };
 
   // Incidents
-  const { data: incidents = [], refetch: refetchIncidents } = useQuery({
+  const { data: incidents = [], refetch: refetchIncidents, isLoading: isIncidentsLoading } = useQuery({
     queryKey: ["admin-incidents"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -1357,7 +1358,7 @@ export default function AdminDashboard() {
   });
 
   // Blacklist
-  const { data: blacklist = [], refetch: refetchBlacklist } = useQuery({
+  const { data: blacklist = [], refetch: refetchBlacklist, isLoading: isBlacklistLoading } = useQuery({
     queryKey: ["admin-blacklist"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -2529,6 +2530,49 @@ For support, contact: support@merry360x.com
   const displayedRevenueGross = bookingsFetched
     ? correctedRevenueGross
     : (metrics?.revenue_gross ?? 0);
+
+  const tabLoadingMessage: Record<TabValue, string> = {
+    overview: "Loading overview...",
+    ads: "Loading ads...",
+    "host-applications": "Loading host applications...",
+    users: "Loading users...",
+    "user-data": "Loading user data...",
+    accommodations: "Loading accommodations...",
+    tours: "Loading tours...",
+    transport: "Loading transport...",
+    bookings: "Loading bookings...",
+    payments: "Loading payments...",
+    payouts: "Loading payouts...",
+    reviews: "Loading reviews...",
+    support: "Loading support...",
+    safety: "Loading safety...",
+    reports: "Loading reports...",
+    "legal-content": "Loading legal content...",
+    affiliates: "Loading referrals...",
+  };
+
+  const isActiveTabLoading =
+    (tab === "overview" && (isMetricsLoading || isApplicationsLoading || isBookingsLoading || isTicketsLoading)) ||
+    (tab === "ads" && isAdsLoading) ||
+    (tab === "host-applications" && isApplicationsLoading) ||
+    (tab === "users" && isUsersLoading) ||
+    (tab === "accommodations" && isPropertiesLoading) ||
+    (tab === "tours" && isToursLoading) ||
+    (tab === "transport" && isTransportLoading) ||
+    (tab === "bookings" && isBookingsLoading) ||
+    (tab === "payments" && isBookingsLoading) ||
+    (tab === "payouts" && isPayoutsLoading) ||
+    (tab === "reviews" && isReviewsLoading) ||
+    (tab === "support" && isTicketsLoading) ||
+    (tab === "safety" && (isIncidentsLoading || isBlacklistLoading));
+
+  if (isActiveTabLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <LoadingSpinner message={tabLoadingMessage[tab]} className="py-0" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">

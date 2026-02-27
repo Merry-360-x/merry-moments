@@ -5,6 +5,7 @@ import Footer from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Star } from "lucide-react";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 type HostProfile = {
   user_id: string;
@@ -25,7 +26,7 @@ export default function HostReviews() {
   const params = useParams();
   const hostId = params.id ? String(params.id) : "";
 
-  const { data: host } = useQuery({
+  const { data: host, isLoading: isHostLoading } = useQuery({
     queryKey: ["host-profile", hostId],
     enabled: Boolean(hostId),
     queryFn: async () => {
@@ -63,6 +64,14 @@ export default function HostReviews() {
     },
   });
 
+  if (isHostLoading || isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <LoadingSpinner message="Loading reviews..." className="py-0" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -92,12 +101,7 @@ export default function HostReviews() {
           </Link>
         </div>
 
-        {/* {isLoading ? (
-          <div className="py-16 text-center">
-            <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-muted-foreground">Loading reviews…</p>
-          </div>
-        ) : */ reviews.length === 0 ? (
+        {reviews.length === 0 ? (
           <div className="py-16 text-center">
             <p className="text-muted-foreground">No reviews yet.</p>
           </div>

@@ -22,6 +22,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { useFxRates } from "@/hooks/useFxRates";
 import { useToast } from "@/hooks/use-toast";
 import { convertAmount } from "@/lib/fx";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 type User = {
   id: string;
@@ -140,7 +141,7 @@ export default function CustomerSupportDashboard() {
     };
   }, [user, queryClient]);
 
-  const { data: users = [] } = useQuery({
+  const { data: users = [], isLoading: isUsersLoading } = useQuery({
     queryKey: ["support_users"],
     queryFn: async () => {
       console.log('[CustomerSupport] Fetching profiles...');
@@ -161,7 +162,7 @@ export default function CustomerSupportDashboard() {
     staleTime: 0,
   });
 
-  const { data: bookings = [] } = useQuery({
+  const { data: bookings = [], isLoading: isBookingsLoading } = useQuery({
     queryKey: ["support_bookings"],
     queryFn: async () => {
       console.log('[CustomerSupport] Fetching bookings...');
@@ -183,7 +184,7 @@ export default function CustomerSupportDashboard() {
   });
 
   // Support tickets - fetch from database
-  const { data: tickets = [], refetch: refetchTickets } = useQuery({
+  const { data: tickets = [], refetch: refetchTickets, isLoading: isTicketsLoading } = useQuery({
     queryKey: ["support_tickets"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -426,6 +427,27 @@ export default function CustomerSupportDashboard() {
   const highPriorityTickets = tickets.filter(t => t.priority === 'high');
   const pendingBookings = bookings.filter(b => b.status === 'pending_confirmation');
   const recentBookings = bookings.slice(0, 10);
+
+  const tabLoadingMessage: Record<typeof tab, string> = {
+    overview: "Loading overview...",
+    users: "Loading users...",
+    bookings: "Loading bookings...",
+    tickets: "Loading tickets...",
+  };
+
+  const isActiveTabLoading =
+    (tab === "overview" && (isUsersLoading || isBookingsLoading || isTicketsLoading)) ||
+    (tab === "users" && isUsersLoading) ||
+    (tab === "bookings" && isBookingsLoading) ||
+    (tab === "tickets" && isTicketsLoading);
+
+  if (isActiveTabLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <LoadingSpinner message={tabLoadingMessage[tab]} className="py-0" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex flex-col">

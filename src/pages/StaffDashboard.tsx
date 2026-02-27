@@ -18,6 +18,7 @@ import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { usePreferences } from "@/hooks/usePreferences";
 import { Eye, Download, FileText, DollarSign, AlertCircle } from "lucide-react";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 type HostApplicationStatus = "draft" | "pending" | "approved" | "rejected";
 
@@ -224,7 +225,7 @@ export default function StaffDashboard() {
 
   const {
     data: applications = [],
-    isLoading,
+    isLoading: isApplicationsLoading,
     isError,
     refetch,
   } = useQuery({
@@ -235,7 +236,7 @@ export default function StaffDashboard() {
     staleTime: 0,
   });
 
-  const { data: metrics, refetch: refetchMetrics } = useQuery({
+  const { data: metrics, refetch: refetchMetrics, isLoading: isMetricsLoading } = useQuery({
     queryKey: ["staff_dashboard_metrics"],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("admin_dashboard_metrics");
@@ -351,7 +352,7 @@ export default function StaffDashboard() {
     staleTime: 0,
   });
 
-  const { data: recentBookings = [] } = useQuery({
+  const { data: recentBookings = [], isLoading: isOverviewBookingsLoading } = useQuery({
     queryKey: ["staff-recent-bookings"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -399,6 +400,16 @@ export default function StaffDashboard() {
       return bookingId.includes(query) || orderId.includes(query);
     });
   }, [recentBookings, bookingIdSearch]);
+
+  const isInitialDashboardLoading = tab === "overview" && (isApplicationsLoading || isMetricsLoading || isOverviewBookingsLoading);
+
+  if (isInitialDashboardLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <LoadingSpinner message="Loading dashboard..." className="py-0" />
+      </div>
+    );
+  }
 
   const togglePublished = async (table: string, id: string, next: boolean) => {
     try {
@@ -881,11 +892,11 @@ For support, contact: support@merry360x.com
           <TabsContent value="applications" className="mt-6">
             <Card className="p-6">
               <h2 className="text-lg font-semibold text-foreground mb-4">Pending host applications</h2>
-              {/* {isLoading ? (
+              {isApplicationsLoading ? (
                 <div className="py-10 text-center">
                   <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
                 </div>
-              ) : */ isError ? (
+              ) : isError ? (
                 <p className="text-muted-foreground">Couldn’t load applications.</p>
               ) : applications.length === 0 ? (
                 <p className="text-muted-foreground">No pending applications.</p>
