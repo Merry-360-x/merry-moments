@@ -510,27 +510,27 @@ export default function CreateTour() {
       };
 
       const licenseValue = licenseUrl || null;
-      const payloadGuideField = { ...baseTourData, tour_guide_license_url: licenseValue };
-      const payloadLegacyField = { ...baseTourData, tour_license_url: licenseValue };
+      const payloadCandidates = licenseValue
+        ? [
+            { ...baseTourData, tour_guide_license_url: licenseValue },
+            { ...baseTourData, tour_license_url: licenseValue },
+            { ...baseTourData },
+          ]
+        : [{ ...baseTourData }];
 
-      let writeResult = await writeTour(payloadGuideField);
-      const firstErrorMessage = String((writeResult as any)?.error?.message || "").toLowerCase();
+      let lastError: any = null;
+      let writeSucceeded = false;
 
-      if (
-        (writeResult as any)?.error &&
-        firstErrorMessage.includes("tour_guide_license_url") &&
-        firstErrorMessage.includes("column")
-      ) {
-        writeResult = await writeTour(payloadLegacyField);
-      } else if (
-        (writeResult as any)?.error &&
-        firstErrorMessage.includes("tour_license_url") &&
-        firstErrorMessage.includes("column")
-      ) {
-        writeResult = await writeTour(payloadGuideField);
+      for (const payload of payloadCandidates) {
+        const writeResult = await writeTour(payload);
+        if (!(writeResult as any)?.error) {
+          writeSucceeded = true;
+          break;
+        }
+        lastError = (writeResult as any).error;
       }
 
-      if ((writeResult as any)?.error) throw (writeResult as any).error;
+      if (!writeSucceeded && lastError) throw lastError;
 
       await queryClient.invalidateQueries({ queryKey: ["tours"] });
       await queryClient.invalidateQueries({ queryKey: ["featured-tours"] });
