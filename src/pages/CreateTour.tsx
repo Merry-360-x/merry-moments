@@ -489,19 +489,41 @@ export default function CreateTour() {
           : {}),
       };
 
-      (tourData as any).tour_guide_license_url = licenseUrl || null;
+      const baseTourData = { ...(tourData as any) };
 
-      if (isEditMode && editId) {
-        const { error } = await supabase
-          .from("tours")
-          .update(tourData as any)
-          .eq("id", editId)
-          .eq("created_by", user.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("tours").insert(tourData as any).select().single();
-        if (error) throw error;
+      const writeTour = async (payload: any) => {
+        if (isEditMode && editId) {
+          return await supabase
+            .from("tours")
+            .update(payload)
+            .eq("id", editId)
+            .eq("created_by", user.id);
+        }
+        return await supabase.from("tours").insert(payload).select().single();
+      };
+
+      const licenseValue = licenseUrl || null;
+      const payloadGuideField = { ...baseTourData, tour_guide_license_url: licenseValue };
+      const payloadLegacyField = { ...baseTourData, tour_license_url: licenseValue };
+
+      let writeResult = await writeTour(payloadGuideField);
+      const firstErrorMessage = String((writeResult as any)?.error?.message || "").toLowerCase();
+
+      if (
+        (writeResult as any)?.error &&
+        firstErrorMessage.includes("tour_guide_license_url") &&
+        firstErrorMessage.includes("column")
+      ) {
+        writeResult = await writeTour(payloadLegacyField);
+      } else if (
+        (writeResult as any)?.error &&
+        firstErrorMessage.includes("tour_license_url") &&
+        firstErrorMessage.includes("column")
+      ) {
+        writeResult = await writeTour(payloadGuideField);
       }
+
+      if ((writeResult as any)?.error) throw (writeResult as any).error;
 
       await queryClient.invalidateQueries({ queryKey: ["tours"] });
       await queryClient.invalidateQueries({ queryKey: ["featured-tours"] });
