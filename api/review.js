@@ -254,6 +254,7 @@ async function handleSubmitReview(req, res) {
         comment: accommodationComment?.trim() || null,
         service_rating: serviceRating || null,
         service_comment: serviceComment?.trim() || null,
+        is_hidden: false,
       };
 
       const { data: insertedReview, error: insertErr } = await supabase
@@ -301,6 +302,7 @@ async function handleSubmitReview(req, res) {
       comment: accommodationComment?.trim() || null,
       service_rating: serviceRating || null,
       service_comment: serviceComment?.trim() || null,
+      is_hidden: false,
     };
 
     const { error: insertErr } = await supabase.from("property_reviews").insert(reviewData);

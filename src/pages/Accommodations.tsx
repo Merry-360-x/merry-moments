@@ -483,7 +483,11 @@ const Accommodations = () => {
         .sort((a, b) => a - b)[0];
 
       const { data: reviews } = propIds.length
-        ? await supabase.from("property_reviews").select("rating, property_id").in("property_id", propIds).eq("is_hidden", false)
+        ? await supabase
+            .from("property_reviews")
+            .select("rating, property_id")
+            .in("property_id", propIds)
+            .or("is_hidden.eq.false,is_hidden.is.null")
         : { data: [] as Array<{ rating: number; property_id: string }>, error: null };
       const ratings = (reviews ?? []).map((r) => Number(r.rating)).filter((n) => Number.isFinite(n) && n > 0);
       const reviewCount = ratings.length;

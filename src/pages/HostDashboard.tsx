@@ -1782,12 +1782,21 @@ export default function HostDashboard() {
       const savedManualReview = localStorage.getItem(MANUAL_REVIEW_FORM_KEY);
       if (savedManualReview) {
         const parsed = JSON.parse(savedManualReview);
+        const restoredPropertyId = String(parsed?.propertyId || "");
+        const restoredReviewerEmail = String(parsed?.reviewerEmail || "");
+        const restoredReviewerName = String(parsed?.reviewerName || "");
         setManualReviewForm((prev) => ({
           ...prev,
-          propertyId: String(parsed?.propertyId || prev.propertyId || ""),
-          reviewerEmail: String(parsed?.reviewerEmail || ""),
-          reviewerName: String(parsed?.reviewerName || ""),
+          propertyId: restoredPropertyId || prev.propertyId || "",
+          reviewerEmail: restoredReviewerEmail,
+          reviewerName: restoredReviewerName,
         }));
+        if (restoredPropertyId || restoredReviewerEmail || restoredReviewerName) {
+          toast({
+            title: "Draft Restored",
+            description: "Your manual review form draft has been restored.",
+          });
+        }
       }
     } catch (e) {
       console.error('Failed to load manual review draft:', e);

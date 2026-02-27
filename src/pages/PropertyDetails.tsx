@@ -298,7 +298,7 @@ export default function PropertyDetails() {
           .from("property_reviews")
           .select("rating, property_id")
           .in("property_id", propIds)
-          .eq("is_hidden", false);
+          .or("is_hidden.eq.false,is_hidden.is.null");
         if (reviewsErr) throw reviewsErr;
         const ratings = (reviews ?? [])
           .map((r) => Number((r as { rating: number }).rating))
@@ -328,7 +328,7 @@ export default function PropertyDetails() {
         .from("property_reviews")
         .select("id, rating, comment, created_at")
         .eq("property_id", property)
-        .eq("is_hidden", false)
+        .or("is_hidden.eq.false,is_hidden.is.null")
         .order("created_at", { ascending: false })
         .limit(3);
       if (error) throw error;
