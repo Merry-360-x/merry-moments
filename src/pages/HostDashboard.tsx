@@ -2310,7 +2310,22 @@ export default function HostDashboard() {
     ).toUpperCase();
 
     const checkoutCurrency = String(checkout?.currency || '').toUpperCase();
-    const resolvedCurrency = checkoutCurrency || listingCurrency || 'RWF';
+    let resolvedCurrency = checkoutCurrency || listingCurrency || 'RWF';
+
+    if (hasCheckoutTotal && hasListedAmount && checkoutCurrency && listingCurrency && checkoutCurrency !== listingCurrency) {
+      const amountCloseToListing =
+        Math.abs(checkoutTotal - listedAmount) / Math.max(1, listedAmount) <= 0.2;
+
+      const expectedCheckoutFromListing = convertAmount(listedAmount, listingCurrency, checkoutCurrency, usdRates);
+      const checkoutMatchesConvertedExpectation =
+        expectedCheckoutFromListing !== null &&
+        Math.abs(checkoutTotal - Number(expectedCheckoutFromListing || 0)) /
+          Math.max(1, Number(expectedCheckoutFromListing || 0)) <= 0.35;
+
+      if (amountCloseToListing && !checkoutMatchesConvertedExpectation) {
+        resolvedCurrency = listingCurrency;
+      }
+    }
 
     if (hasCheckoutTotal) {
       return {
@@ -2331,7 +2346,7 @@ export default function HostDashboard() {
       amount: Number.isFinite(allocatedOrCheckoutAmount) ? allocatedOrCheckoutAmount : 0,
       currency: resolvedCurrency,
     };
-  }, [checkoutByOrderId, getBookingGuestPaidAmount]);
+  }, [checkoutByOrderId, getBookingGuestPaidAmount, usdRates]);
 
   const getOriginalListingSubtotal = useCallback((booking: {
     order_id?: string | null;
