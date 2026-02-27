@@ -13,6 +13,8 @@ import { Loader2, Upload, X, Plane, Save } from "lucide-react";
 import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
+import { HostCreationSubpage } from "@/components/HostCreationSubpage";
+import { Progress } from "@/components/ui/progress";
 
 const carTypes = ["SUV", "Sedan", "Hatchback", "Coupe", "Wagon", "Van", "Minibus"];
 const transmissionTypes = ["Automatic", "Manual", "Hybrid"];
@@ -82,6 +84,9 @@ export default function CreateAirportTransfer() {
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [hostProfileComplete, setHostProfileComplete] = useState(false);
   const [isEditLoading, setIsEditLoading] = useState(false);
+  const [wizardStep, setWizardStep] = useState(1);
+  const totalSteps = 5;
+  const stepTitles = ["Basic Info", "Vehicle", "Routes & Pricing", "Documents", "Review"];
 
   // Fetch host profile completion status
   useEffect(() => {
@@ -490,19 +495,24 @@ export default function CreateAirportTransfer() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-3xl mx-auto">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2">{isEditMode ? "Edit Airport Transfer Service" : "Add Airport Transfer Service"}</h1>
-            <p className="text-muted-foreground">
-              {isEditMode ? "Update your airport transfer details and route pricing" : "Offer airport pickup and dropoff services on fixed routes"}
-            </p>
-          </div>
+    <HostCreationSubpage
+      title={isEditMode ? "Edit Airport Transfer Service" : "Add Airport Transfer Service"}
+      subtitle={
+        isEditMode
+          ? "Update your airport transfer details and route pricing"
+          : "Offer airport pickup and dropoff services on fixed routes"
+      }
+      onBack={() => navigate("/host-dashboard")}
+      maxWidthClassName="max-w-3xl"
+    >
+      <form onSubmit={handleSubmit} className="space-y-8">
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">Step {wizardStep} of {totalSteps}: {stepTitles[wizardStep - 1]}</p>
+              <Progress value={(wizardStep / totalSteps) * 100} className="h-2" />
+            </div>
 
-          <form onSubmit={handleSubmit} className="space-y-8">
-            {/* Basic Information */}
+            {wizardStep === 1 && (
+              <>
             <div className="space-y-4">
               <h2 className="text-xl font-semibold border-b pb-2">Basic Information</h2>
               
@@ -529,8 +539,11 @@ export default function CreateAirportTransfer() {
                 </p>
               </div>
             </div>
+              </>
+            )}
 
-            {/* Vehicle Details */}
+            {wizardStep === 2 && (
+              <>
             <div className="space-y-4">
               <h2 className="text-xl font-semibold border-b pb-2">Vehicle Details</h2>
               
@@ -636,7 +649,11 @@ export default function CreateAirportTransfer() {
                 </Select>
               </div>
             </div>
+              </>
+            )}
 
+            {wizardStep === 3 && (
+              <>
             {/* Routes & Pricing */}
             <div className="space-y-4">
               <h2 className="text-xl font-semibold border-b pb-2">Routes & Pricing</h2>
@@ -718,7 +735,11 @@ export default function CreateAirportTransfer() {
                 ))}
               </div>
             </div>
+              </>
+            )}
 
+            {wizardStep === 4 && (
+              <>
             {/* Photos */}
             <div className="space-y-4">
               <h2 className="text-xl font-semibold border-b pb-2">Vehicle Photos</h2>
@@ -828,8 +849,11 @@ export default function CreateAirportTransfer() {
                 </div>
               </div>
             </div>
+              </>
+            )}
 
-            {/* Submit */}
+            {wizardStep === 5 && (
+              <>
             <div className="flex justify-between items-center">
               <div className="text-sm text-muted-foreground">
                 {lastSaved && (
@@ -869,9 +893,27 @@ export default function CreateAirportTransfer() {
                 <p className="text-xs text-amber-700 dark:text-amber-300">{missingRequirements.join(" • ")}</p>
               </div>
             )}
+              </>
+            )}
+
+            <div className="flex items-center justify-between pt-2 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setWizardStep((s) => Math.max(1, s - 1))}
+                disabled={wizardStep === 1}
+              >
+                Back
+              </Button>
+              {wizardStep < totalSteps ? (
+                <Button type="button" onClick={() => setWizardStep((s) => Math.min(totalSteps, s + 1))}>
+                  Next
+                </Button>
+              ) : (
+                <span className="text-xs text-muted-foreground">Ready to publish</span>
+              )}
+            </div>
           </form>
-        </div>
-      </div>
 
       {/* Upload Dialogs */}
       <CloudinaryUploadDialog
@@ -946,7 +988,6 @@ export default function CreateAirportTransfer() {
         maxFiles={1}
       />
 
-      <Footer />
-    </div>
+    </HostCreationSubpage>
   );
 }

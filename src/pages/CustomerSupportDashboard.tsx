@@ -18,7 +18,6 @@ import { Users, MessageSquare, Mail, AlertCircle, Eye, Bell, Headset, Send, Cloc
 import { formatMoney } from "@/lib/money";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNotificationBadge, NotificationBadge } from "@/hooks/useNotificationBadge";
-import { usePreferences } from "@/hooks/usePreferences";
 import { useFxRates } from "@/hooks/useFxRates";
 import { useToast } from "@/hooks/use-toast";
 import { convertAmount } from "@/lib/fx";
@@ -72,7 +71,6 @@ type Booking = {
 
 export default function CustomerSupportDashboard() {
   const { user } = useAuth();
-  const { currency: preferredCurrency } = usePreferences();
   const { usdRates } = useFxRates();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -1044,11 +1042,11 @@ export default function CustomerSupportDashboard() {
                             convertAmount(
                               Number(selectedBooking.total_price || 0),
                               String(selectedBooking.currency || "RWF"),
-                              preferredCurrency,
+                              "RWF",
                               usdRates
                             ) ?? Number(selectedBooking.total_price || 0)
                           ),
-                          preferredCurrency
+                          "RWF"
                         )}
                       </p>
                     </div>

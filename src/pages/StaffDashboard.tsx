@@ -16,7 +16,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
-import { usePreferences } from "@/hooks/usePreferences";
 import { Eye, Download, FileText, DollarSign, AlertCircle } from "lucide-react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
@@ -199,7 +198,6 @@ const statusColors: Record<string, string> = {
 export default function StaffDashboard() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const { currency: preferredCurrency } = usePreferences();
   const [tab, setTab] = useState<
     "overview" | "applications" | "users" | "accommodations" | "tours" | "transport"
   >("overview");
@@ -387,8 +385,10 @@ export default function StaffDashboard() {
   const revenueLabel = useMemo(() => {
     const list = metrics?.revenue_by_currency ?? [];
     if (!list.length) return "—";
-    if (list.length === 1) return formatMoney(Number(list[0].amount), String(list[0].currency ?? "USD"));
-    return `${formatMoney(Number(list[0].amount), String(list[0].currency ?? "USD"))} (+${list.length - 1} more)`;
+    const totalRwf = list.reduce((sum, item) => {
+      return sum + toRwfAmount(Number(item.amount || 0), String(item.currency || "RWF"));
+    }, 0);
+    return formatMoney(totalRwf, "RWF");
   }, [metrics?.revenue_by_currency]);
 
   const filteredRecentBookings = useMemo(() => {
@@ -754,7 +754,7 @@ For support, contact: support@merry360x.com
                   </TableCell>
                   <TableCell className="font-medium">{b.status}</TableCell>
                   <TableCell className="font-medium">
-                    {formatMoney(Number(b.total_price), String(b.currency ?? "USD"))}
+                    {formatMoney(Number(b.total_price), String(b.currency ?? "RWF"))}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
@@ -858,7 +858,7 @@ For support, contact: support@merry360x.com
                           </TableCell>
                           <TableCell className="text-sm">{b.properties?.title || "—"}</TableCell>
                           <TableCell className="font-medium">
-                            {formatMoney(b.total_price, b.currency || 'USD')}
+                            {formatMoney(b.total_price, b.currency || 'RWF')}
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-1">
@@ -1269,7 +1269,7 @@ For support, contact: support@merry360x.com
                             ? selectedBooking.transport_vehicles.currency
                             : selectedBooking.currency || "RWF";
 
-                    const displayCurrency = preferredCurrency || "RWF";
+                    const displayCurrency = "RWF";
 
                     const listingAmount = convertStaffCurrency(
                       Number(selectedBooking.total_price || 0),
@@ -1334,7 +1334,7 @@ For support, contact: support@merry360x.com
                           <div className="flex items-center justify-between">
                             <span className="text-sm font-medium">Refund Amount:</span>
                             <span className="text-lg font-bold text-yellow-700">
-                              {formatMoney(refundInfo.refundAmount, refundInfo.currency || 'USD')}
+                              {formatMoney(refundInfo.refundAmount, refundInfo.currency || 'RWF')}
                             </span>
                           </div>
                           <div className="flex items-center justify-between">
@@ -1459,7 +1459,7 @@ For support, contact: support@merry360x.com
                   <div>
                     <p className="text-sm text-muted-foreground">Price per Night</p>
                     <p className="font-medium">
-                      {formatMoney(selectedProperty.price_per_night || 0, selectedProperty.currency || 'USD')}
+                      {formatMoney(selectedProperty.price_per_night || 0, selectedProperty.currency || 'RWF')}
                     </p>
                   </div>
                   <div>
@@ -1505,7 +1505,7 @@ For support, contact: support@merry360x.com
                   <div>
                     <p className="text-sm text-muted-foreground">Price per Person</p>
                     <p className="font-medium">
-                      {formatMoney(selectedTour.price_per_person || 0, selectedTour.currency || 'USD')}
+                      {formatMoney(selectedTour.price_per_person || 0, selectedTour.currency || 'RWF')}
                     </p>
                   </div>
                   <div>
@@ -1553,7 +1553,7 @@ For support, contact: support@merry360x.com
                   <div>
                     <p className="text-sm text-muted-foreground">Price per Day</p>
                     <p className="font-medium">
-                      {formatMoney(selectedVehicle.price_per_day || 0, selectedVehicle.currency || 'USD')}
+                      {formatMoney(selectedVehicle.price_per_day || 0, selectedVehicle.currency || 'RWF')}
                     </p>
                   </div>
                   <div>

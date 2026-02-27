@@ -20,6 +20,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { DISPLAY_CURRENCIES } from "@/lib/currencies";
 import { getTourPricingModels } from "@/lib/tour-pricing";
+import { HostCreationSubpage } from "@/components/HostCreationSubpage";
+import { Progress } from "@/components/ui/progress";
 
 const categories = ["Nature", "Adventure", "Cultural", "Wildlife", "Historical", "City Tours", "Eco-Tourism", "Photography"];
 const tourPricingModels = [
@@ -112,6 +114,9 @@ export default function CreateTour() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
+  const [wizardStep, setWizardStep] = useState(1);
+  const totalSteps = 4;
+  const stepTitles = ["Basic Info", "Pricing", "Media", "Review"];
 
   // Use a stable storage key
   const getStorageKey = () => user?.id ? `tour-draft-${user.id}` : 'tour-draft-anonymous';
@@ -564,17 +569,20 @@ export default function CreateTour() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      <div className="container mx-auto px-4 py-12 max-w-2xl">
-        <div className="mb-12">
-          <h1 className="text-2xl font-medium mb-2">{isEditMode ? "Edit Tour" : "Create Tour"}</h1>
-          <p className="text-sm text-muted-foreground">
-            {isEditMode ? "Update your tour details" : "Fill in the details to create your tour"}
-          </p>
-        </div>
+    <HostCreationSubpage
+      title={isEditMode ? "Edit Tour" : "Create Tour"}
+      subtitle={isEditMode ? "Update your tour details" : "Fill in the details to create your tour"}
+      onBack={() => navigate("/host-dashboard")}
+      maxWidthClassName="max-w-2xl"
+    >
+      <form onSubmit={handleSubmit} className="space-y-10">
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">Step {wizardStep} of {totalSteps}: {stepTitles[wizardStep - 1]}</p>
+            <Progress value={(wizardStep / totalSteps) * 100} className="h-2" />
+          </div>
 
-        <form onSubmit={handleSubmit} className="space-y-10">
+          {wizardStep === 1 && (
+            <>
           {/* Basic */}
           <div className="space-y-5">
             <h2 className="text-base font-medium pb-2 border-b">Basic Information</h2>
@@ -679,7 +687,11 @@ export default function CreateTour() {
               {errors.categories && <p className="text-xs text-destructive mt-1">{errors.categories}</p>}
             </div>
           </div>
+            </>
+          )}
 
+          {wizardStep === 2 && (
+            <>
           {/* Pricing */}
           <div className="space-y-5">
             <h2 className="text-base font-medium pb-2 border-b">Pricing</h2>
@@ -1033,7 +1045,11 @@ export default function CreateTour() {
               )}
             </div>
           </div>
+            </>
+          )}
 
+          {wizardStep === 3 && (
+            <>
           {/* Media */}
           <div className="space-y-5">
             <h2 className="text-base font-medium pb-2 border-b">Images & Files</h2>
@@ -1116,9 +1132,11 @@ export default function CreateTour() {
               />
             </div>
           </div>
+            </>
+          )}
 
-          {/* Actions */}
-          <div className="space-y-3 pt-6 border-t">
+          {wizardStep === 4 && (
+          <div className="space-y-3">
             {lastSaved && (
               <p className="text-xs text-muted-foreground text-center">
                 Last saved: {lastSaved.toLocaleTimeString()}
@@ -1160,9 +1178,26 @@ export default function CreateTour() {
               </Button>
             </div>
           </div>
-        </form>
-      </div>
-      <Footer />
-    </div>
+          )}
+
+          <div className="flex items-center justify-between pt-2 border-t">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setWizardStep((s) => Math.max(1, s - 1))}
+              disabled={wizardStep === 1}
+            >
+              Back
+            </Button>
+            {wizardStep < totalSteps ? (
+              <Button type="button" onClick={() => setWizardStep((s) => Math.min(totalSteps, s + 1))}>
+                Next
+              </Button>
+            ) : (
+              <span className="text-xs text-muted-foreground">Ready to publish</span>
+            )}
+          </div>
+      </form>
+    </HostCreationSubpage>
   );
 }

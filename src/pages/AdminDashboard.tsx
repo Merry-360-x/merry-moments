@@ -22,7 +22,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatMoney } from "@/lib/money";
 import { normalizeAdminMetrics } from "@/lib/admin-metrics";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
-import { usePreferences } from "@/hooks/usePreferences";
 import {
   Users,
   Home,
@@ -408,7 +407,6 @@ const isPendingBookingStatus = (status: string | null | undefined) =>
 export default function AdminDashboard() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const { currency: preferredCurrency } = usePreferences();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<TabValue>("overview");
   const [userSearch, setUserSearch] = useState("");
@@ -5650,7 +5648,7 @@ For support, contact: support@merry360x.com
                               ? selectedBooking.transport_vehicles.currency
                               : selectedBooking.currency || "RWF";
 
-                      const displayCurrency = preferredCurrency || "RWF";
+                      const displayCurrency = "RWF";
 
                       const listingAmount = convertAdminCurrency(
                         Number(selectedBooking.total_price || 0),
@@ -5917,7 +5915,7 @@ For support, contact: support@merry360x.com
                           <div>
                             <p className="text-sm text-muted-foreground">Price per Night</p>
                             <p className="text-sm font-medium">
-                              {formatMoney(selectedApplication.listing_price_per_night || 0, selectedApplication.listing_currency || 'USD')}
+                              {formatMoney(selectedApplication.listing_price_per_night || 0, selectedApplication.listing_currency || 'RWF')}
                             </p>
                           </div>
                           <div>

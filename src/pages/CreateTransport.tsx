@@ -15,6 +15,8 @@ import { Upload, X, Save, Loader2, Car, Camera, FileText, Shield, Fuel, Settings
 import { uploadFile } from "@/lib/uploads";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CURRENCY_OPTIONS } from "@/lib/currencies";
+import { HostCreationSubpage } from "@/components/HostCreationSubpage";
+import { Progress } from "@/components/ui/progress";
 
 // Car types
 const carTypes = [
@@ -177,6 +179,9 @@ export default function CreateTransport() {
   const [isSaving, setIsSaving] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [isEditLoading, setIsEditLoading] = useState(false);
+  const [wizardStep, setWizardStep] = useState(1);
+  const totalSteps = 5;
+  const stepTitles = ["Vehicle", "Pricing", "Photos", "Documents", "Review"];
 
   const STORAGE_KEY = 'create_transport_progress';
 
@@ -619,19 +624,24 @@ export default function CreateTransport() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">{isEditMode ? "Edit Car Rental Listing" : "List Your Car for Rental"}</h1>
-          <p className="text-muted-foreground">
-            {isEditMode
-              ? "Update your listing details below."
-              : "Fill in the details below to list your vehicle. Provide accurate information to help renters make informed decisions."}
-          </p>
-        </div>
+    <HostCreationSubpage
+      title={isEditMode ? "Edit Car Rental Listing" : "List Your Car for Rental"}
+      subtitle={
+        isEditMode
+          ? "Update your listing details below."
+          : "Fill in the details below to list your vehicle. Provide accurate information to help renters make informed decisions."
+      }
+      onBack={() => navigate("/host-dashboard")}
+      maxWidthClassName="max-w-4xl"
+    >
+      <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">Step {wizardStep} of {totalSteps}: {stepTitles[wizardStep - 1]}</p>
+            <Progress value={(wizardStep / totalSteps) * 100} className="h-2" />
+          </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+          {wizardStep === 1 && (
+            <>
           {/* Car Details */}
           <Card>
             <CardHeader>
@@ -817,7 +827,11 @@ export default function CreateTransport() {
               </div>
             </CardContent>
           </Card>
+            </>
+          )}
 
+          {wizardStep === 2 && (
+            <>
           {/* Pricing */}
           <Card>
             <CardHeader>
@@ -939,7 +953,11 @@ export default function CreateTransport() {
               </div>
             </CardContent>
           </Card>
+            </>
+          )}
 
+          {wizardStep === 3 && (
+            <>
           {/* Exterior Images */}
           <Card>
             <CardHeader>
@@ -1023,7 +1041,11 @@ export default function CreateTransport() {
               </div>
             </CardContent>
           </Card>
+            </>
+          )}
 
+          {wizardStep === 4 && (
+            <>
           {/* Legal & Safety Documents */}
           <Card>
             <CardHeader>
@@ -1173,8 +1195,11 @@ export default function CreateTransport() {
               </div>
             </CardContent>
           </Card>
+            </>
+          )}
 
-          {/* Submit */}
+          {wizardStep === 5 && (
+            <>
           <div className="space-y-3">
             {lastSaved && (
               <p className="text-xs text-muted-foreground text-center">
@@ -1204,9 +1229,27 @@ export default function CreateTransport() {
               </Button>
             </div>
           </div>
-        </form>
-      </div>
-      <Footer />
-    </div>
+            </>
+          )}
+
+          <div className="flex items-center justify-between pt-2 border-t">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setWizardStep((s) => Math.max(1, s - 1))}
+              disabled={wizardStep === 1}
+            >
+              Back
+            </Button>
+            {wizardStep < totalSteps ? (
+              <Button type="button" onClick={() => setWizardStep((s) => Math.min(totalSteps, s + 1))}>
+                Next
+              </Button>
+            ) : (
+              <span className="text-xs text-muted-foreground">Ready to publish</span>
+            )}
+          </div>
+      </form>
+    </HostCreationSubpage>
   );
 }

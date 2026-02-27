@@ -13,6 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Upload, X, Car, Save } from "lucide-react";
 import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { HostCreationSubpage } from "@/components/HostCreationSubpage";
+import { Progress } from "@/components/ui/progress";
 
 const carTypes = ["SUV", "Sedan", "Hatchback", "Coupe", "Wagon", "Van", "Minibus", "Truck", "Luxury"];
 const transmissionTypes = ["Automatic", "Manual", "Hybrid"];
@@ -71,6 +73,9 @@ export default function CreateCarRental() {
   const [isSaving, setIsSaving] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [hostProfileComplete, setHostProfileComplete] = useState(false);
+  const [wizardStep, setWizardStep] = useState(1);
+  const totalSteps = 5;
+  const stepTitles = ["Basic Info", "Vehicle", "Pricing", "Photos", "Review"];
 
   // Fetch host profile completion status
   useEffect(() => {
@@ -315,20 +320,22 @@ export default function CreateCarRental() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-3xl mx-auto">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2">Add Car Rental</h1>
-            <p className="text-muted-foreground">List your vehicle for daily, weekly, or monthly rental</p>
-          </div>
+    <HostCreationSubpage
+      title="Add Car Rental"
+      subtitle="List your vehicle for daily, weekly, or monthly rental"
+      onBack={() => navigate("/host-dashboard")}
+      maxWidthClassName="max-w-3xl"
+    >
+      <form onSubmit={handleSubmit} className="space-y-8">
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">Step {wizardStep} of {totalSteps}: {stepTitles[wizardStep - 1]}</p>
+          <Progress value={(wizardStep / totalSteps) * 100} className="h-2" />
+        </div>
 
-          <form onSubmit={handleSubmit} className="space-y-8">
-            {/* Basic Information */}
+        {wizardStep === 1 && (
+          <>
             <div className="space-y-4">
               <h2 className="text-xl font-semibold border-b pb-2">Basic Information</h2>
-              
               <div>
                 <Label>Listing Title *</Label>
                 <Input
@@ -338,7 +345,6 @@ export default function CreateCarRental() {
                   required
                 />
               </div>
-
               <div>
                 <Label>Provider/Company Name</Label>
                 <Input
@@ -349,10 +355,8 @@ export default function CreateCarRental() {
               </div>
             </div>
 
-            {/* Vehicle Details */}
             <div className="space-y-4">
               <h2 className="text-xl font-semibold border-b pb-2">Vehicle Details</h2>
-              
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <Label>Brand *</Label>
@@ -384,7 +388,6 @@ export default function CreateCarRental() {
                   />
                 </div>
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Car Type *</Label>
@@ -411,7 +414,6 @@ export default function CreateCarRental() {
                   />
                 </div>
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Transmission *</Label>
@@ -440,7 +442,6 @@ export default function CreateCarRental() {
                   </Select>
                 </div>
               </div>
-
               <div>
                 <Label>Drive Train *</Label>
                 <Select value={formData.drive_train} onValueChange={(v) => setFormData({ ...formData, drive_train: v })}>
@@ -455,11 +456,13 @@ export default function CreateCarRental() {
                 </Select>
               </div>
             </div>
+          </>
+        )}
 
-            {/* Pricing */}
+        {wizardStep === 2 && (
+          <>
             <div className="space-y-4">
               <h2 className="text-xl font-semibold border-b pb-2">Pricing</h2>
-              
               <div className="grid grid-cols-4 gap-4">
                 <div>
                   <Label>Currency *</Label>
@@ -476,39 +479,18 @@ export default function CreateCarRental() {
                 </div>
                 <div>
                   <Label>Daily Price *</Label>
-                  <Input
-                    type="number"
-                    value={formData.daily_price}
-                    onChange={(e) => setFormData({ ...formData, daily_price: parseFloat(e.target.value) })}
-                    min="0"
-                    step="0.01"
-                    required
-                  />
+                  <Input type="number" value={formData.daily_price} onChange={(e) => setFormData({ ...formData, daily_price: parseFloat(e.target.value) })} min="0" step="0.01" required />
                 </div>
                 <div>
                   <Label>Weekly Price</Label>
-                  <Input
-                    type="number"
-                    value={formData.weekly_price}
-                    onChange={(e) => setFormData({ ...formData, weekly_price: parseFloat(e.target.value) })}
-                    min="0"
-                    step="0.01"
-                  />
+                  <Input type="number" value={formData.weekly_price} onChange={(e) => setFormData({ ...formData, weekly_price: parseFloat(e.target.value) })} min="0" step="0.01" />
                 </div>
                 <div>
                   <Label>Monthly Price</Label>
-                  <Input
-                    type="number"
-                    value={formData.monthly_price}
-                    onChange={(e) => setFormData({ ...formData, monthly_price: parseFloat(e.target.value) })}
-                    min="0"
-                    step="0.01"
-                  />
+                  <Input type="number" value={formData.monthly_price} onChange={(e) => setFormData({ ...formData, monthly_price: parseFloat(e.target.value) })} min="0" step="0.01" />
                 </div>
               </div>
             </div>
-
-            {/* Key Features */}
             <div className="space-y-4">
               <h2 className="text-xl font-semibold border-b pb-2">Key Features</h2>
               <div className="grid grid-cols-2 gap-3">
@@ -517,11 +499,8 @@ export default function CreateCarRental() {
                     <Checkbox
                       checked={formData.key_features.includes(feature)}
                       onCheckedChange={(checked) => {
-                        if (checked) {
-                          setFormData({ ...formData, key_features: [...formData.key_features, feature] });
-                        } else {
-                          setFormData({ ...formData, key_features: formData.key_features.filter(f => f !== feature) });
-                        }
+                        if (checked) setFormData({ ...formData, key_features: [...formData.key_features, feature] });
+                        else setFormData({ ...formData, key_features: formData.key_features.filter(f => f !== feature) });
                       }}
                     />
                     <span className="text-sm">{feature}</span>
@@ -529,118 +508,69 @@ export default function CreateCarRental() {
                 ))}
               </div>
             </div>
+          </>
+        )}
 
-            {/* Photos */}
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold border-b pb-2">Photos</h2>
-              
-              <div>
-                <Label>Exterior Photos * (at least 1)</Label>
-                <div className="mt-2">
-                  {exteriorImages.length > 0 && (
-                    <div className="grid grid-cols-4 gap-2 mb-2">
-                      {exteriorImages.map((url, idx) => (
-                        <div key={idx} className="relative group">
-                          <img src={url} alt="" className="w-full h-24 object-cover rounded border" />
-                          <button
-                            type="button"
-                            onClick={() => setExteriorImages(exteriorImages.filter((_, i) => i !== idx))}
-                            className="absolute top-1 right-1 bg-destructive text-white p-1 rounded-full opacity-0 group-hover:opacity-100"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <Button type="button" variant="outline" onClick={() => setExteriorDialogOpen(true)}>
-                    <Upload className="w-4 h-4 mr-2" /> Upload Exterior Photos
-                  </Button>
-                </div>
-              </div>
-
-              <div>
-                <Label>Interior Photos</Label>
-                <div className="mt-2">
-                  {interiorImages.length > 0 && (
-                    <div className="grid grid-cols-4 gap-2 mb-2">
-                      {interiorImages.map((url, idx) => (
-                        <div key={idx} className="relative group">
-                          <img src={url} alt="" className="w-full h-24 object-cover rounded border" />
-                          <button
-                            type="button"
-                            onClick={() => setInteriorImages(interiorImages.filter((_, i) => i !== idx))}
-                            className="absolute top-1 right-1 bg-destructive text-white p-1 rounded-full opacity-0 group-hover:opacity-100"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <Button type="button" variant="outline" onClick={() => setInteriorDialogOpen(true)}>
-                    <Upload className="w-4 h-4 mr-2" /> Upload Interior Photos
-                  </Button>
-                </div>
+        {wizardStep === 3 && (
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold border-b pb-2">Photos</h2>
+            <div>
+              <Label>Exterior Photos * (at least 1)</Label>
+              <div className="mt-2">
+                {exteriorImages.length > 0 && (
+                  <div className="grid grid-cols-4 gap-2 mb-2">
+                    {exteriorImages.map((url, idx) => (
+                      <div key={idx} className="relative group">
+                        <img src={url} alt="" className="w-full h-24 object-cover rounded border" />
+                        <button type="button" onClick={() => setExteriorImages(exteriorImages.filter((_, i) => i !== idx))} className="absolute top-1 right-1 bg-destructive text-white p-1 rounded-full opacity-0 group-hover:opacity-100">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <Button type="button" variant="outline" onClick={() => setExteriorDialogOpen(true)}>
+                  <Upload className="w-4 h-4 mr-2" /> Upload Exterior Photos
+                </Button>
               </div>
             </div>
-
-            {/* Legal Documents */}
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold border-b pb-2">Legal & Safety Documents *</h2>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Insurance Document *</Label>
-                  <div className="mt-2">
-                    {insuranceDoc && (
-                      <p className="text-sm text-green-600 mb-2">✓ Document uploaded</p>
-                    )}
-                    <Button type="button" variant="outline" onClick={() => setInsuranceDialogOpen(true)}>
-                      <Upload className="w-4 h-4 mr-2" /> Upload Insurance
-                    </Button>
+            <div>
+              <Label>Interior Photos</Label>
+              <div className="mt-2">
+                {interiorImages.length > 0 && (
+                  <div className="grid grid-cols-4 gap-2 mb-2">
+                    {interiorImages.map((url, idx) => (
+                      <div key={idx} className="relative group">
+                        <img src={url} alt="" className="w-full h-24 object-cover rounded border" />
+                        <button type="button" onClick={() => setInteriorImages(interiorImages.filter((_, i) => i !== idx))} className="absolute top-1 right-1 bg-destructive text-white p-1 rounded-full opacity-0 group-hover:opacity-100">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                </div>
-
-                <div>
-                  <Label>Registration Document *</Label>
-                  <div className="mt-2">
-                    {registrationDoc && (
-                      <p className="text-sm text-green-600 mb-2">✓ Document uploaded</p>
-                    )}
-                    <Button type="button" variant="outline" onClick={() => setRegistrationDialogOpen(true)}>
-                      <Upload className="w-4 h-4 mr-2" /> Upload Registration
-                    </Button>
-                  </div>
-                </div>
-
-                <div>
-                  <Label>Roadworthiness Certificate *</Label>
-                  <div className="mt-2">
-                    {roadworthinessDoc && (
-                      <p className="text-sm text-green-600 mb-2">✓ Document uploaded</p>
-                    )}
-                    <Button type="button" variant="outline" onClick={() => setRoadworthinessDialogOpen(true)}>
-                      <Upload className="w-4 h-4 mr-2" /> Upload Certificate
-                    </Button>
-                  </div>
-                </div>
-
-                <div>
-                  <Label>Owner Identification *</Label>
-                  <div className="mt-2">
-                    {ownerIdDoc && (
-                      <p className="text-sm text-green-600 mb-2">✓ Document uploaded</p>
-                    )}
-                    <Button type="button" variant="outline" onClick={() => setOwnerIdDialogOpen(true)}>
-                      <Upload className="w-4 h-4 mr-2" /> Upload ID
-                    </Button>
-                  </div>
-                </div>
+                )}
+                <Button type="button" variant="outline" onClick={() => setInteriorDialogOpen(true)}>
+                  <Upload className="w-4 h-4 mr-2" /> Upload Interior Photos
+                </Button>
               </div>
             </div>
+          </div>
+        )}
 
-            {/* Submit */}
+        {wizardStep === 4 && (
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold border-b pb-2">Legal & Safety Documents *</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <div><Label>Insurance Document *</Label><div className="mt-2">{insuranceDoc && <p className="text-sm text-green-600 mb-2">✓ Document uploaded</p>}<Button type="button" variant="outline" onClick={() => setInsuranceDialogOpen(true)}><Upload className="w-4 h-4 mr-2" /> Upload Insurance</Button></div></div>
+              <div><Label>Registration Document *</Label><div className="mt-2">{registrationDoc && <p className="text-sm text-green-600 mb-2">✓ Document uploaded</p>}<Button type="button" variant="outline" onClick={() => setRegistrationDialogOpen(true)}><Upload className="w-4 h-4 mr-2" /> Upload Registration</Button></div></div>
+              <div><Label>Roadworthiness Certificate *</Label><div className="mt-2">{roadworthinessDoc && <p className="text-sm text-green-600 mb-2">✓ Document uploaded</p>}<Button type="button" variant="outline" onClick={() => setRoadworthinessDialogOpen(true)}><Upload className="w-4 h-4 mr-2" /> Upload Certificate</Button></div></div>
+              <div><Label>Owner Identification *</Label><div className="mt-2">{ownerIdDoc && <p className="text-sm text-green-600 mb-2">✓ Document uploaded</p>}<Button type="button" variant="outline" onClick={() => setOwnerIdDialogOpen(true)}><Upload className="w-4 h-4 mr-2" /> Upload ID</Button></div></div>
+            </div>
+          </div>
+        )}
+
+        {wizardStep === 5 && (
+          <>
             <div className="flex justify-between items-center">
               <div className="text-sm text-muted-foreground">
                 {lastSaved && (
@@ -680,9 +610,27 @@ export default function CreateCarRental() {
                 <p className="text-xs text-amber-700 dark:text-amber-300">{missingRequirements.join(" • ")}</p>
               </div>
             )}
-          </form>
+          </>
+        )}
+
+        <div className="flex items-center justify-between pt-2 border-t">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setWizardStep((s) => Math.max(1, s - 1))}
+            disabled={wizardStep === 1}
+          >
+            Back
+          </Button>
+          {wizardStep < totalSteps ? (
+            <Button type="button" onClick={() => setWizardStep((s) => Math.min(totalSteps, s + 1))}>
+              Next
+            </Button>
+          ) : (
+            <span className="text-xs text-muted-foreground">Ready to publish</span>
+          )}
         </div>
-      </div>
+      </form>
 
       {/* Upload Dialogs */}
       <CloudinaryUploadDialog
@@ -757,7 +705,6 @@ export default function CreateCarRental() {
         maxFiles={1}
       />
 
-      <Footer />
-    </div>
+    </HostCreationSubpage>
   );
 }

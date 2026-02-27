@@ -19,6 +19,8 @@ import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DISPLAY_CURRENCIES } from "@/lib/currencies";
 import { getTourPricingModels } from "@/lib/tour-pricing";
+import { HostCreationSubpage } from "@/components/HostCreationSubpage";
+import { Progress } from "@/components/ui/progress";
 
 const categories = ["Cultural", "Adventure", "Wildlife", "City Tours", "Hiking", "Photography", "Historical", "Eco-Tourism"];
 const tourTypes = ["Private", "Group"];
@@ -156,6 +158,9 @@ Some components are non-refundable once booked, including but not limited to:
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [includeRoomType, setIncludeRoomType] = useState(false);
   const [isEditLoading, setIsEditLoading] = useState(false);
+  const [wizardStep, setWizardStep] = useState(1);
+  const totalSteps = 4;
+  const stepTitles = ["Basic Info", "Itinerary", "Pricing", "Media & Review"];
 
   // Use a stable storage key - always use user ID if available, otherwise anonymous
   const getStorageKey = () => user?.id ? `tour-package-draft-${user.id}` : 'tour-package-draft-anonymous';
@@ -709,17 +714,20 @@ Some components are non-refundable once booked, including but not limited to:
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      <div className="container mx-auto px-4 py-12 max-w-2xl">
-        <div className="mb-12">
-          <h1 className="text-2xl font-medium mb-2">{isEditMode ? "Edit Tour Package" : "Create Tour Package"}</h1>
-          <p className="text-sm text-muted-foreground">
-            {isEditMode ? "Update your tour package details" : "Fill in the details to create your tour package"}
-          </p>
-        </div>
+    <HostCreationSubpage
+      title={isEditMode ? "Edit Tour Package" : "Create Tour Package"}
+      subtitle={isEditMode ? "Update your tour package details" : "Fill in the details to create your tour package"}
+      onBack={() => navigate("/host-dashboard")}
+      maxWidthClassName="max-w-2xl"
+    >
+      <form onSubmit={handleSubmit} className="space-y-10">
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">Step {wizardStep} of {totalSteps}: {stepTitles[wizardStep - 1]}</p>
+            <Progress value={(wizardStep / totalSteps) * 100} className="h-2" />
+          </div>
 
-        <form onSubmit={handleSubmit} className="space-y-10">
+          {wizardStep === 1 && (
+            <>
           {/* Basic */}
           <div className="space-y-5">
             <h2 className="text-base font-medium pb-2 border-b">Basic Information</h2>
@@ -823,7 +831,11 @@ Some components are non-refundable once booked, including but not limited to:
               </div>
             </div>
           </div>
+            </>
+          )}
 
+          {wizardStep === 2 && (
+            <>
           {/* Itinerary */}
           <div className="space-y-5">
             <h2 className="text-base font-medium pb-2 border-b">Itinerary</h2>
@@ -1114,7 +1126,11 @@ Some components are non-refundable once booked, including but not limited to:
               <p className="text-xs text-muted-foreground">Selected policies and non-refundable items will be shown to guests at booking.</p>
             </div>
           </div>
+            </>
+          )}
 
+          {wizardStep === 3 && (
+            <>
           {/* Pricing */}
           <div className="space-y-5">
             <h2 className="text-base font-medium pb-2 border-b">Pricing & Group Size</h2>
@@ -1673,7 +1689,11 @@ Some components are non-refundable once booked, including but not limited to:
               </div>
             </div>
           </div>
+            </>
+          )}
 
+          {wizardStep === 4 && (
+            <>
           {/* Media */}
           <div className="space-y-5">
             <h2 className="text-base font-medium pb-2 border-b">Images & Files</h2>
@@ -1816,9 +1836,27 @@ Some components are non-refundable once booked, including but not limited to:
               </Button>
             </div>
           </div>
-        </form>
-      </div>
-      <Footer />
-    </div>
+            </>
+          )}
+
+          <div className="flex items-center justify-between pt-2 border-t">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setWizardStep((s) => Math.max(1, s - 1))}
+              disabled={wizardStep === 1}
+            >
+              Back
+            </Button>
+            {wizardStep < totalSteps ? (
+              <Button type="button" onClick={() => setWizardStep((s) => Math.min(totalSteps, s + 1))}>
+                Next
+              </Button>
+            ) : (
+              <span className="text-xs text-muted-foreground">Ready to publish</span>
+            )}
+          </div>
+      </form>
+    </HostCreationSubpage>
   );
 }

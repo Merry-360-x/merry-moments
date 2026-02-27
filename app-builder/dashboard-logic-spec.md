@@ -25,6 +25,72 @@ Source: src/App.tsx
 - Action layer: mutation handlers for publish/unpublish, approve/reject, refund decisions, payouts, and deletions.
 - State model: tab-driven UI, filters/search state, selected record dialogs, and optimistic refresh via query invalidation.
 
+## Always-In-Sync Blueprint (Web <-> App)
+
+### Where dashboards connect to the database
+- Supabase client is imported from `src/integrations/supabase/client` in each dashboard page.
+- Read queries use `supabase.from("table")` and `supabase.rpc("function")` inside React Query `queryFn` blocks.
+- Write operations (approve/reject/publish/refund/payout/status changes) use `insert`, `update`, `upsert`, or `delete` directly against Supabase.
+
+### How live sync is implemented
+1. Each dashboard subscribes to relevant tables using `supabase.channel(...).on('postgres_changes', ...)`.
+2. On realtime event, it invalidates one or more React Query keys with `queryClient.invalidateQueries(...)`.
+3. Invalidated query keys refetch current state from Supabase and redraw the affected tab/list/cards.
+4. Critical dashboards also use interval refresh (`refetchInterval`) as fallback.
+
+### Exact dashboard connection map
+
+#### Admin (`/admin`)
+- RPC: `admin_dashboard_metrics`, `admin_list_users`
+- Main tables: `host_applications`, `user_roles`, `profiles`, `properties`, `tours`, `tour_packages`, `transport_vehicles`, `bookings`, `checkout_requests`, `host_payouts`, `property_reviews`, `support_tickets`, `incident_reports`, `blacklist`, `ad_banners`, `legal_content`
+- Realtime watched tables: `properties`, `tours`, `transport_vehicles`, `bookings`, `host_payouts`, `host_applications`, `user_roles`, `profiles`, `property_reviews`, `ad_banners`
+- Core query keys: `admin_dashboard_metrics`, `admin-properties`, `admin-tours`, `admin-transport-vehicles`, `admin-bookings-direct`, `admin-host_payouts`, `admin-reviews-direct`, `admin-tickets`, `admin_ad_banners`
+
+#### Host (`/host-dashboard`)
+- Main tables: `host_applications`, `properties`, `tours`, `tour_packages`, `transport_vehicles`, `transport_routes`, `bookings`, `checkout_requests`, `discount_codes`, `airport_transfer_pricing`
+- Realtime watched tables: `bookings`, `property_reviews`, `properties`, `tour_packages`, `transport_vehicles`
+- Pattern: host inventory + host bookings + checkout enrichment by `order_id`, then host financial rollups and payout flows
+
+#### Financial Staff (`/financial-dashboard`)
+- RPC: `get_staff_dashboard_metrics`
+- Main tables: `bookings`, `checkout_requests`, `host_payouts`, `support_tickets`
+- Realtime watched tables: `bookings`, `checkout_requests`, `host_payouts`
+- Core query keys: `financial_metrics`, `financial_bookings`, `financial-support-tickets-refunds`, `host_payouts`
+
+#### Operations Staff (`/operations-dashboard`)
+- Main tables: `host_applications`, `profiles`, `properties`, `tour_packages`, `transport_vehicles`, `bookings`
+- Realtime watched tables: `host_applications`, `properties`, `tour_packages`, `transport_vehicles`, `bookings`
+- Core query keys: `operations_applications`, `operations_properties`, `operations_profile_users`, `operations_tours`, `operations_transport`, `operations_bookings`, `operations_cart_checkouts`
+
+#### Customer Support (`/customer-support-dashboard`)
+- Main tables: `profiles`, `bookings`, `support_tickets`, `property_reviews`
+- Realtime watched tables: `profiles`, `bookings`, `support_tickets`, `property_reviews`
+- Core query keys: `support_users`, `support_bookings`, `support_tickets`, `support_reviews`
+
+#### User (`/dashboard`)
+- Main tables: `profiles`, `favorites`, `trip_cart_items`, `bookings`
+- Realtime watched tables with row filters:
+  - `bookings` filtered by `guest_id`
+  - `favorites` filtered by `user_id`
+  - `trip_cart_items` filtered by `user_id`
+- Core query keys: `profile`, `favorites`, `trip_cart_items`, `bookings`
+
+#### Affiliate (`/affiliate-dashboard`)
+- Main tables: `affiliates`, `affiliate_referrals`, `affiliate_commissions`
+- Realtime watched tables: `affiliate_referrals`, `affiliate_commissions`
+- Core query keys: `affiliate`, `affiliate-referrals`, `affiliate-commissions`
+
+#### Staff (file exists, currently not route-wired)
+- RPC: `admin_dashboard_metrics`
+- Main tables: `host_applications`, `properties`, `tours`, `tour_packages`, `transport_vehicles`, `transport_routes`, `bookings`, `checkout_requests`
+- Core query keys: `staff_dashboard_metrics`, `staff_list_users`, `staff-properties`, `staff-tours`, `staff-transport-vehicles`, `staff-transport-routes`, `staff-recent-bookings`
+
+### App sync contract (recommended)
+- Keep query key names identical in mobile/web where possible for easier observability.
+- Subscribe only to each role’s table set above; invalidate only affected query keys.
+- For finance fields, keep amount and currency from the same source record (booking vs checkout) to avoid mismatch.
+- Enforce authorization in both route guards and Supabase policies/RPC checks.
+
 ---
 
 ## Host Dashboard (src/pages/HostDashboard.tsx)

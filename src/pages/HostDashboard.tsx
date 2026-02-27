@@ -565,6 +565,7 @@ export default function HostDashboard() {
   // New property wizard
   const [showPropertyWizard, setShowPropertyWizard] = useState(false);
   const [showRoomWizard, setShowRoomWizard] = useState(false);
+  const [roomWizardStep, setRoomWizardStep] = useState(1);
   const [wizardStep, setWizardStep] = useState(1);
   const [propertyForm, setPropertyForm] = useState({
     title: "",
@@ -2293,11 +2294,42 @@ export default function HostDashboard() {
 
   const getBookingAmountAndCurrency = useCallback((booking: Booking) => {
     const checkout = booking.order_id ? checkoutByOrderId[booking.order_id] : null;
-    const amountToUse = getBookingGuestPaidAmount(booking);
-    const currencyToUse = checkout?.currency || booking.currency || 'RWF';
+    const checkoutTotal = Number(checkout?.total_amount || 0);
+    const hasCheckoutTotal = Number.isFinite(checkoutTotal) && checkoutTotal > 0;
+    const listedAmount = Number(booking.total_price || 0);
+    const hasListedAmount = Number.isFinite(listedAmount) && listedAmount > 0;
+
+    const listingCurrency = String(
+      (booking.booking_type === 'property' && booking.properties?.currency)
+        ? booking.properties.currency
+        : (booking.booking_type === 'tour' && booking.tour_packages?.currency)
+          ? booking.tour_packages.currency
+          : (booking.booking_type === 'transport' && booking.transport_vehicles?.currency)
+            ? booking.transport_vehicles.currency
+            : booking.currency || checkout?.currency || 'RWF'
+    ).toUpperCase();
+
+    const checkoutCurrency = String(checkout?.currency || '').toUpperCase();
+    const resolvedCurrency = checkoutCurrency || listingCurrency || 'RWF';
+
+    if (hasCheckoutTotal) {
+      return {
+        amount: getBookingGuestPaidAmount(booking),
+        currency: resolvedCurrency,
+      };
+    }
+
+    if (hasListedAmount) {
+      return {
+        amount: listedAmount,
+        currency: resolvedCurrency,
+      };
+    }
+
+    const allocatedOrCheckoutAmount = getBookingGuestPaidAmount(booking);
     return {
-      amount: Number.isFinite(amountToUse) ? amountToUse : 0,
-      currency: String(currencyToUse || 'RWF').toUpperCase(),
+      amount: Number.isFinite(allocatedOrCheckoutAmount) ? allocatedOrCheckoutAmount : 0,
+      currency: resolvedCurrency,
     };
   }, [checkoutByOrderId, getBookingGuestPaidAmount]);
 
@@ -4765,25 +4797,38 @@ export default function HostDashboard() {
   // Room Creation Form - Minimalistic
   if (showRoomWizard) {
     const isConferenceRoomSelected = propertyForm.amenities.includes("conference_room");
+    const roomTotalSteps = 4;
+    const roomStepTitles = ["Basic Info", "Photos & Pricing", "Details & Amenities", "Review"];
 
     return (
       <div className="min-h-[100dvh] bg-background">
         <Navbar />
         <div className="container mx-auto px-4 py-8 max-w-2xl">
-          <div className="mb-6">
-            <Button
-              variant="ghost"
-              onClick={() => setShowRoomWizard(false)}
-              className="mb-4"
+          <div className="flex items-center justify-between mb-8">
+            <button
+              onClick={() => {
+                if (roomWizardStep > 1) {
+                  setRoomWizardStep((s) => Math.max(1, s - 1));
+                } else {
+                  setShowRoomWizard(false);
+                  setRoomWizardStep(1);
+                }
+              }}
+              className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
             >
-              <ChevronLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
-            </Button>
-            <h1 className="text-3xl font-bold">Create a Room</h1>
-            <p className="text-muted-foreground mt-2">List a room in your apartment or house</p>
+              <ChevronLeft className="w-5 h-5" />
+              {roomWizardStep > 1 ? "Back" : "Back to Dashboard"}
+            </button>
+            <div className="text-center">
+              <h1 className="text-xl font-bold text-foreground">Create a Room</h1>
+              <p className="text-sm text-muted-foreground">Step {roomWizardStep} of {roomTotalSteps}: {roomStepTitles[roomWizardStep - 1]}</p>
+            </div>
+            <div className="w-32" />
           </div>
 
-          <Card className="p-8">
+          <Progress value={(roomWizardStep / roomTotalSteps) * 100} className="mb-6 h-2" />
+
+          <Card className="p-6 md:p-8">
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
@@ -4868,6 +4913,7 @@ export default function HostDashboard() {
                   
                   toast({ title: "Success!", description: "Your room has been listed." });
                   setShowRoomWizard(false);
+                  setRoomWizardStep(1);
                   resetPropertyForm();
                   fetchData();
                 } catch (e) {
@@ -4879,6 +4925,8 @@ export default function HostDashboard() {
               }}
               className="space-y-6"
             >
+              {roomWizardStep === 1 && (
+                <>
               <div>
                 <Label className="text-sm font-medium">Room Title *</Label>
                 <Input
@@ -4978,7 +5026,11 @@ export default function HostDashboard() {
                   className="w-full mt-1.5 px-3 py-2 border border-input rounded-md bg-background"
                 />
               </div>
+                </>
+              )}
 
+              {roomWizardStep === 2 && (
+                <>
               {/* Room Photos */}
               <div className="space-y-4">
                 <Label className="text-sm font-medium">Room Photos</Label>
@@ -5150,7 +5202,11 @@ export default function HostDashboard() {
                   <p className="text-xs text-muted-foreground">This room will only accept long stays with monthly pricing.</p>
                 </div>
               )}
+                </>
+              )}
 
+              {roomWizardStep === 3 && (
+                <>
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <Label className="text-sm font-medium">Beds</Label>
@@ -5328,25 +5384,55 @@ export default function HostDashboard() {
                   ))}
                 </div>
               </div>
+                </>
+              )}
 
-              <div className="flex gap-3 pt-4">
+              {roomWizardStep === 4 && (
+                <div className="space-y-3 pt-2 border-t">
+                  <p className="text-xs text-muted-foreground">
+                    Review your room details, then publish when ready.
+                  </p>
+                  <div className="flex gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setShowRoomWizard(false);
+                        setRoomWizardStep(1);
+                      }}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit" className="flex-1" disabled={creatingProperty}>
+                      {creatingProperty ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Creating...
+                        </>
+                      ) : (
+                        "Create Room"
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between pt-2 border-t">
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setShowRoomWizard(false)}
-                  className="flex-1"
+                  onClick={() => setRoomWizardStep((s) => Math.max(1, s - 1))}
+                  disabled={roomWizardStep === 1}
                 >
-                  Cancel
+                  Back
                 </Button>
-                <Button type="submit" className="flex-1" disabled={creatingProperty}>
-                  {creatingProperty ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Creating...
-                    </>
-                  ) : (
-                    "Create Room"
-                  )}
-                </Button>
+                {roomWizardStep < roomTotalSteps ? (
+                  <Button type="button" onClick={() => setRoomWizardStep((s) => Math.min(roomTotalSteps, s + 1))}>
+                    Next
+                  </Button>
+                ) : (
+                  <span className="text-xs text-muted-foreground">Ready to publish</span>
+                )}
               </div>
             </form>
           </Card>
@@ -6728,6 +6814,7 @@ export default function HostDashboard() {
                 variant="outline"
                 onClick={() => {
                   setPropertyForm((f) => ({ ...f, listing_mode: "standard" }));
+                  setRoomWizardStep(1);
                   setShowRoomWizard(true);
                 }}
               >

@@ -14,7 +14,6 @@ import { FileText, Home, Plane, MapPin, CheckCircle, XCircle, Clock, CalendarChe
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNotificationBadge, NotificationBadge } from "@/hooks/useNotificationBadge";
-import { usePreferences } from "@/hooks/usePreferences";
 import { useFxRates } from "@/hooks/useFxRates";
 import { convertAmount } from "@/lib/fx";
 import { formatMoney } from "@/lib/money";
@@ -130,7 +129,6 @@ type Booking = {
 export default function OperationsStaffDashboard() {
   const { toast } = useToast();
   const { isAdmin, user } = useAuth();
-  const { currency: preferredCurrency } = usePreferences();
   const { usdRates } = useFxRates();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<"overview" | "applications" | "user-data" | "accommodations" | "tours" | "transport" | "bookings">("overview");
@@ -1916,11 +1914,11 @@ export default function OperationsStaffDashboard() {
                           convertAmount(
                             orderBookings.reduce((sum, b) => sum + Number(b.total_price || 0), 0),
                             selectedBooking.currency || "RWF",
-                            preferredCurrency,
+                            "RWF",
                             usdRates
                           ) ?? orderBookings.reduce((sum, b) => sum + Number(b.total_price || 0), 0)
                         ),
-                        preferredCurrency
+                        "RWF"
                       )}
                     </span>
                   </div>
@@ -1969,11 +1967,11 @@ export default function OperationsStaffDashboard() {
                                   convertAmount(
                                     Number(orderBooking.total_price || 0),
                                     orderBooking.currency || "RWF",
-                                    preferredCurrency,
+                                    "RWF",
                                     usdRates
                                   ) ?? Number(orderBooking.total_price || 0)
                                 ),
-                                preferredCurrency
+                                "RWF"
                               )}
                             </span>
                           </div>
@@ -2030,11 +2028,11 @@ export default function OperationsStaffDashboard() {
                           convertAmount(
                             Number(selectedBooking.total_price || 0),
                             selectedBooking.currency || "RWF",
-                            preferredCurrency,
+                            "RWF",
                             usdRates
                           ) ?? Number(selectedBooking.total_price || 0)
                         ),
-                        preferredCurrency
+                        "RWF"
                       )}
                     </p>
                   </div>
@@ -2236,7 +2234,7 @@ export default function OperationsStaffDashboard() {
                   {selectedProperty.price_per_night && (
                     <div>
                       <p className="text-sm text-muted-foreground">Price per Night</p>
-                      <p className="font-mono">{selectedProperty.currency || 'USD'} {selectedProperty.price_per_night.toLocaleString()}</p>
+                      <p className="font-mono">{selectedProperty.currency || 'RWF'} {selectedProperty.price_per_night.toLocaleString()}</p>
                     </div>
                   )}
                   {selectedProperty.max_guests && (
