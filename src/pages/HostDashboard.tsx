@@ -610,6 +610,7 @@ export default function HostDashboard() {
   // Auto-save keys for localStorage
   const PROPERTY_FORM_KEY = 'host_property_draft';
   const VEHICLE_FORM_KEY = 'host_vehicle_draft';
+  const MANUAL_REVIEW_FORM_KEY = user?.id ? `host_manual_review_draft_${user.id}` : null;
 
   // Load saved drafts on mount
   useEffect(() => {
@@ -663,6 +664,7 @@ export default function HostDashboard() {
     media: [] as string[],
     is_published: true, // Default form state, actual value set on submit
   });
+  const [manualReviewDraftLoaded, setManualReviewDraftLoaded] = useState(false);
 
   // Load saved vehicle draft on mount
   useEffect(() => {
@@ -1767,11 +1769,48 @@ export default function HostDashboard() {
 
   useEffect(() => {
     if (!properties.length) return;
+    const propertyIds = new Set(properties.map((property) => property.id));
     setManualReviewForm((prev) => {
-      if (prev.propertyId) return prev;
+      if (prev.propertyId && propertyIds.has(prev.propertyId)) return prev;
       return { ...prev, propertyId: properties[0].id };
     });
   }, [properties]);
+
+  useEffect(() => {
+    if (!MANUAL_REVIEW_FORM_KEY || manualReviewDraftLoaded) return;
+    try {
+      const savedManualReview = localStorage.getItem(MANUAL_REVIEW_FORM_KEY);
+      if (savedManualReview) {
+        const parsed = JSON.parse(savedManualReview);
+        setManualReviewForm((prev) => ({
+          ...prev,
+          propertyId: String(parsed?.propertyId || prev.propertyId || ""),
+          reviewerEmail: String(parsed?.reviewerEmail || ""),
+          reviewerName: String(parsed?.reviewerName || ""),
+        }));
+      }
+    } catch (e) {
+      console.error('Failed to load manual review draft:', e);
+    } finally {
+      setManualReviewDraftLoaded(true);
+    }
+  }, [MANUAL_REVIEW_FORM_KEY, manualReviewDraftLoaded]);
+
+  useEffect(() => {
+    if (!MANUAL_REVIEW_FORM_KEY || !manualReviewDraftLoaded) return;
+    try {
+      localStorage.setItem(
+        MANUAL_REVIEW_FORM_KEY,
+        JSON.stringify({
+          propertyId: manualReviewForm.propertyId || "",
+          reviewerEmail: manualReviewForm.reviewerEmail || "",
+          reviewerName: manualReviewForm.reviewerName || "",
+        })
+      );
+    } catch (e) {
+      console.error('Failed to save manual review draft:', e);
+    }
+  }, [MANUAL_REVIEW_FORM_KEY, manualReviewDraftLoaded, manualReviewForm]);
 
   useEffect(() => {
     if (!isHost || !user?.id) return;
