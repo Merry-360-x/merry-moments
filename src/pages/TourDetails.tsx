@@ -301,7 +301,7 @@ export default function TourDetails() {
                 )}
               </div>
 
-              <h1 className="text-3xl lg:text-4xl font-bold text-foreground mb-3">{tour.title}</h1>
+              <h1 className="text-3xl lg:text-4xl font-bold text-foreground mb-3 break-words [overflow-wrap:anywhere]">{tour.title}</h1>
               
               <div className="flex items-center gap-2 text-muted-foreground mb-4">
                 <MapPin className="w-4 h-4" />
@@ -336,7 +336,7 @@ export default function TourDetails() {
               <h2 className="text-2xl font-bold text-foreground mb-4">{t("tourDetails.aboutTour")}</h2>
               {tour.description ? (
                 <div className="bg-card rounded-lg border p-5">
-                  <p className="text-foreground leading-relaxed whitespace-pre-line text-base">
+                  <p className="text-foreground leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-base">
                     {tour.description}
                   </p>
                 </div>
@@ -350,7 +350,7 @@ export default function TourDetails() {
               <div className="border-t pt-6">
                 <h2 className="text-xl font-semibold text-foreground mb-3">{t("tourDetails.dailyItinerary")}</h2>
                 <div className="bg-muted/30 rounded-lg p-5">
-                  <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                  <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
                     {tour.daily_itinerary}
                   </p>
                 </div>
@@ -365,7 +365,7 @@ export default function TourDetails() {
                   {tour?.included_services && (
                     <div className="bg-green-50 dark:bg-green-950/20 rounded-lg p-5">
                       <h3 className="text-sm font-semibold text-foreground mb-3">{t("tourDetails.whatsIncluded")}</h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                      <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
                         {tour.included_services}
                       </p>
                     </div>
@@ -373,7 +373,7 @@ export default function TourDetails() {
                   {tour?.excluded_services && (
                     <div className="bg-orange-50 dark:bg-orange-950/20 rounded-lg p-5">
                       <h3 className="text-sm font-semibold text-foreground mb-3">{t("tourDetails.whatsNotIncluded")}</h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                      <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
                         {tour.excluded_services}
                       </p>
                     </div>
@@ -393,7 +393,7 @@ export default function TourDetails() {
                         <MapPin className="w-4 h-4 text-primary" />
                         {t("tourDetails.meetingPoint")}
                       </h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                      <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
                         {tour.meeting_point}
                       </p>
                     </div>
@@ -404,7 +404,7 @@ export default function TourDetails() {
                         <Info className="w-4 h-4 text-primary" />
                         {t("tourDetails.whatToBring")}
                       </h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                      <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
                         {tour.what_to_bring}
                       </p>
                     </div>
@@ -535,7 +535,7 @@ export default function TourDetails() {
                   {tour?.cancellation_policy_type === 'custom' && tour?.cancellation_policy && (
                     <div>
                       <div className="text-sm font-medium text-foreground mb-1.5">{t("tourDetails.cancellation.customTitle")}</div>
-                      <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                      <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
                         {tour.cancellation_policy}
                       </p>
                     </div>

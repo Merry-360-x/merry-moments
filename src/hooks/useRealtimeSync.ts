@@ -7,6 +7,31 @@ export const useRealtimeSync = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
+  const recordUserMatchesCurrentUser = useCallback((payload?: any) => {
+    const currentUserId = user?.id;
+    if (!currentUserId) return false;
+    const nextUserId = payload?.new?.user_id;
+    const prevUserId = payload?.old?.user_id;
+    return nextUserId === currentUserId || prevUserId === currentUserId;
+  }, [user?.id]);
+
+  const invalidateListingDetailQueries = useCallback((table: string, payload?: any) => {
+    const recordId = payload?.new?.id || payload?.old?.id;
+    if (!recordId) return;
+
+    if (table === 'properties') {
+      queryClient.invalidateQueries({ queryKey: ['property', recordId] });
+      queryClient.invalidateQueries({ queryKey: ['property-blocked-dates', recordId] });
+      queryClient.invalidateQueries({ queryKey: ['property-custom-prices', recordId] });
+      queryClient.invalidateQueries({ queryKey: ['related-tours', recordId] });
+      queryClient.invalidateQueries({ queryKey: ['related-transport-vehicles', recordId] });
+    }
+
+    if (table === 'tours' || table === 'tour_packages') {
+      queryClient.invalidateQueries({ queryKey: ['tour-with-host', recordId] });
+    }
+  }, [queryClient]);
+
   const invalidateQueries = useCallback((table: string, payload?: any) => {
     switch (table) {
       case 'properties':
@@ -16,6 +41,9 @@ export const useRealtimeSync = () => {
         queryClient.invalidateQueries({ queryKey: ['properties', 'top-rated-home'] });
         queryClient.invalidateQueries({ queryKey: ['staff-properties'] });
         queryClient.invalidateQueries({ queryKey: ['admin-properties'] });
+        queryClient.invalidateQueries({ queryKey: ['host-preview'] });
+        queryClient.invalidateQueries({ queryKey: ['smart-recommendations'] });
+        invalidateListingDetailQueries(table, payload);
         break;
         
       case 'tours':
@@ -24,14 +52,45 @@ export const useRealtimeSync = () => {
         queryClient.invalidateQueries({ queryKey: ['staff-tours'] });
         queryClient.invalidateQueries({ queryKey: ['admin-tours'] });
         queryClient.invalidateQueries({ queryKey: ['related-tours'] });
+        queryClient.invalidateQueries({ queryKey: ['checkout_cart'] });
+        queryClient.invalidateQueries({ queryKey: ['smart-recommendations'] });
+        invalidateListingDetailQueries(table, payload);
+        break;
+
+      case 'tour_packages':
+        queryClient.invalidateQueries({ queryKey: ['tours'] });
+        queryClient.invalidateQueries({ queryKey: ['tours', 'featured-home'] });
+        queryClient.invalidateQueries({ queryKey: ['staff-tours'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-tours'] });
+        queryClient.invalidateQueries({ queryKey: ['related-tours'] });
+        queryClient.invalidateQueries({ queryKey: ['checkout_cart'] });
+        queryClient.invalidateQueries({ queryKey: ['smart-recommendations'] });
+        invalidateListingDetailQueries(table, payload);
         break;
         
       case 'transport_vehicles':
+        queryClient.invalidateQueries({ queryKey: ['transport_vehicles'] });
         queryClient.invalidateQueries({ queryKey: ['transport-vehicles'] });
         queryClient.invalidateQueries({ queryKey: ['vehicles', 'featured-home'] });
         queryClient.invalidateQueries({ queryKey: ['staff-transport-vehicles'] });
         queryClient.invalidateQueries({ queryKey: ['admin-transport-vehicles'] });
         queryClient.invalidateQueries({ queryKey: ['related-transport-vehicles'] });
+        queryClient.invalidateQueries({ queryKey: ['transport_services'] });
+        queryClient.invalidateQueries({ queryKey: ['checkout_cart'] });
+        queryClient.invalidateQueries({ queryKey: ['smart-recommendations'] });
+        break;
+
+      case 'transport_routes':
+        queryClient.invalidateQueries({ queryKey: ['transport_routes'] });
+        queryClient.invalidateQueries({ queryKey: ['transport_services'] });
+        break;
+
+      case 'airport_transfer_routes':
+        queryClient.invalidateQueries({ queryKey: ['airport_transfer_routes'] });
+        break;
+
+      case 'airport_transfer_pricing':
+        queryClient.invalidateQueries({ queryKey: ['airport_transfer_pricing'] });
         break;
         
       case 'bookings':
@@ -44,17 +103,22 @@ export const useRealtimeSync = () => {
       case 'host_applications':
         queryClient.invalidateQueries({ queryKey: ['host_applications'] });
         queryClient.invalidateQueries({ queryKey: ['staff_dashboard_metrics'] });
+        queryClient.invalidateQueries({ queryKey: ['host-app-data'] });
         break;
         
       case 'favorites':
-        if (payload?.user_id === user?.id || payload?.old_record?.user_id === user?.id) {
+        if (recordUserMatchesCurrentUser(payload)) {
+          queryClient.invalidateQueries({ queryKey: ['favorites', 'ids', user?.id] });
           queryClient.invalidateQueries({ queryKey: ['favorites', 'list', user?.id] });
+          queryClient.invalidateQueries({ queryKey: ['favorites-full', user?.id] });
         }
         break;
         
       case 'trip_cart_items':
-        if (payload?.user_id === user?.id || payload?.old_record?.user_id === user?.id) {
+        if (recordUserMatchesCurrentUser(payload)) {
+          queryClient.invalidateQueries({ queryKey: ['trip_cart', user?.id] });
           queryClient.invalidateQueries({ queryKey: ['tripCart', user?.id] });
+          queryClient.invalidateQueries({ queryKey: ['checkout_cart', user?.id] });
         }
         queryClient.invalidateQueries({ queryKey: ['staff_dashboard_metrics'] });
         break;
@@ -69,7 +133,7 @@ export const useRealtimeSync = () => {
         break;
         
       case 'user_roles':
-        if (payload?.user_id === user?.id || payload?.old_record?.user_id === user?.id) {
+        if (recordUserMatchesCurrentUser(payload)) {
           queryClient.invalidateQueries({ queryKey: ['user_roles', user?.id] });
         }
         queryClient.invalidateQueries({ queryKey: ['admin_list_users'] });
@@ -77,16 +141,15 @@ export const useRealtimeSync = () => {
         break;
 
       case 'profiles':
-        if (payload?.user_id === user?.id || payload?.old_record?.user_id === user?.id) {
+        if (recordUserMatchesCurrentUser(payload)) {
           queryClient.invalidateQueries({ queryKey: ['profiles', user?.id] });
         }
+        queryClient.invalidateQueries({ queryKey: ['host-profile'] });
         break;
     }
-  }, [queryClient, user?.id]);
+  }, [invalidateListingDetailQueries, queryClient, recordUserMatchesCurrentUser, user?.id]);
 
   useEffect(() => {
-    if (!user) return;
-
     const channels = [
       // Properties real-time
       supabase
@@ -104,12 +167,44 @@ export const useRealtimeSync = () => {
           (payload) => invalidateQueries('tours', payload)
         ),
 
+      // Tour packages real-time
+      supabase
+        .channel('tour-packages-changes')
+        .on('postgres_changes',
+          { event: '*', schema: 'public', table: 'tour_packages' },
+          (payload) => invalidateQueries('tour_packages', payload)
+        ),
+
       // Transport vehicles real-time
       supabase
         .channel('transport-vehicles-changes')
         .on('postgres_changes', 
           { event: '*', schema: 'public', table: 'transport_vehicles' }, 
           (payload) => invalidateQueries('transport_vehicles', payload)
+        ),
+
+      // Transport routes real-time
+      supabase
+        .channel('transport-routes-changes')
+        .on('postgres_changes',
+          { event: '*', schema: 'public', table: 'transport_routes' },
+          (payload) => invalidateQueries('transport_routes', payload)
+        ),
+
+      // Airport transfer routes real-time
+      supabase
+        .channel('airport-transfer-routes-changes')
+        .on('postgres_changes',
+          { event: '*', schema: 'public', table: 'airport_transfer_routes' },
+          (payload) => invalidateQueries('airport_transfer_routes', payload)
+        ),
+
+      // Airport transfer pricing real-time
+      supabase
+        .channel('airport-transfer-pricing-changes')
+        .on('postgres_changes',
+          { event: '*', schema: 'public', table: 'airport_transfer_pricing' },
+          (payload) => invalidateQueries('airport_transfer_pricing', payload)
         ),
 
       // Bookings real-time
@@ -176,7 +271,7 @@ export const useRealtimeSync = () => {
     return () => {
       channels.forEach(channel => channel.unsubscribe());
     };
-  }, [user, invalidateQueries]);
+  }, [invalidateQueries]);
 
   // Background data refresh every 30 seconds for critical data
   useEffect(() => {

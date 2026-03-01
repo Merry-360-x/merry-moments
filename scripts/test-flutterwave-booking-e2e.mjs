@@ -11,7 +11,9 @@ function loadEnv(filePath) {
     const idx = line.indexOf("=");
     const key = line.slice(0, idx).trim();
     const value = line.slice(idx + 1).trim();
-    process.env[key] = value;
+    if (process.env[key] === undefined) {
+      process.env[key] = value;
+    }
   }
 }
 

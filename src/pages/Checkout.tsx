@@ -367,34 +367,66 @@ export default function CheckoutNew() {
   });
 
   async function fetchDirectTour(tourId: string, participants: number, explicitQuantity?: number): Promise<CartItem[]> {
-    // Fetch the tour details directly
-    const { data: tour, error } = await ((supabase
+    // Try regular tours first
+    const { data: tour } = await ((supabase
       .from('tours')
       .select('id, title, price_per_person, currency, images, duration_days, pricing_tiers') as any)
       .eq('id', tourId)
-      .single());
-    
-    if (error || !tour) {
-      console.error("Failed to load tour for direct booking:", error);
+      .maybeSingle());
+
+    if (tour) {
+      const pricingModel = getTourPricingModel((tour as any)?.pricing_tiers);
+      const quantity = explicitQuantity && explicitQuantity > 0
+        ? explicitQuantity
+        : getTourBillingQuantity(pricingModel, participants);
+
+      return [{
+        id: `direct-tour-${tour.id}`,
+        item_type: 'tour',
+        reference_id: tour.id,
+        quantity,
+        title: tour.title,
+        price: tour.price_per_person,
+        currency: tour.currency || 'RWF',
+        image: tour.images?.[0],
+        meta: `${tour.duration_days} days • ${getTourPriceSuffix(pricingModel)}`,
+        metadata: {
+          participants,
+          pricing_model: pricingModel,
+        } as CartItemMetadata,
+      }];
+    }
+
+    // Fallback to tour_packages (TourDetails also renders these under /tours/:id)
+    const { data: tourPackage, error: packageError } = await ((supabase
+      .from('tour_packages')
+      .select('id, title, price_per_adult, currency, cover_image, gallery_images, duration, pricing_tiers') as any)
+      .eq('id', tourId)
+      .maybeSingle());
+
+    if (packageError || !tourPackage) {
+      console.error("Failed to load tour/tour package for direct booking:", packageError);
       return [];
     }
-    
-    const pricingModel = getTourPricingModel((tour as any)?.pricing_tiers);
+
+    const pricingModel = getTourPricingModel((tourPackage as any)?.pricing_tiers);
     const quantity = explicitQuantity && explicitQuantity > 0
       ? explicitQuantity
       : getTourBillingQuantity(pricingModel, participants);
 
-    // Return as a cart item
+    const packageImages = [tourPackage.cover_image, ...(Array.isArray(tourPackage.gallery_images) ? tourPackage.gallery_images : [])]
+      .filter(Boolean);
+
     return [{
-      id: `direct-tour-${tour.id}`,
-      item_type: 'tour',
-      reference_id: tour.id,
+      id: `direct-tour-package-${tourPackage.id}`,
+      item_type: 'tour_package',
+      reference_id: tourPackage.id,
       quantity,
-      title: tour.title,
-      price: tour.price_per_person,
-      currency: tour.currency || 'RWF',
-      image: tour.images?.[0],
-      meta: `${tour.duration_days} days • ${getTourPriceSuffix(pricingModel)}`,
+      title: tourPackage.title,
+      price: Number(tourPackage.price_per_adult || 0),
+      currency: tourPackage.currency || 'RWF',
+      image: packageImages[0],
+      meta: `${tourPackage.duration || 1} days • ${getTourPriceSuffix(pricingModel)}`,
       metadata: {
         participants,
         pricing_model: pricingModel,
@@ -960,7 +992,7 @@ export default function CheckoutNew() {
             order_id: checkoutId,
             guest_id: user?.id || null,
             property_id: item.item_type === 'property' ? item.reference_id : null,
-            tour_id: item.item_type === 'tour_package' ? item.reference_id : null,
+            tour_id: (item.item_type === 'tour' || item.item_type === 'tour_package') ? item.reference_id : null,
             transport_id: item.item_type === 'transport_vehicle' ? item.reference_id : null,
             booking_type: mappedBookingType,
             check_in: isProperty ? propertyCheckIn : defaultDates.checkIn,
