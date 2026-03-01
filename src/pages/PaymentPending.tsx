@@ -37,6 +37,9 @@ export default function PaymentPending() {
   
   const checkoutId = params.get("checkoutId") || params.get("bookingId");
   const depositId = params.get("depositId");
+  const provider = (params.get("provider") || "pawapay").toLowerCase();
+  const txRef = params.get("tx_ref") || params.get("txRef");
+  const transactionId = params.get("transaction_id") || params.get("transactionId");
   
   const [status, setStatus] = useState<"pending" | "completed" | "failed">("pending");
   const [pollCount, setPollCount] = useState(0);
@@ -59,8 +62,32 @@ export default function PaymentPending() {
         let failureMsg = null;
         let pawapayStatus = null;
 
+        if (provider === "flutterwave" && (transactionId || txRef)) {
+          try {
+            const verifyParams = new URLSearchParams({
+              checkoutId: checkoutId || "",
+            });
+            if (transactionId) verifyParams.set("transaction_id", transactionId);
+            if (txRef) verifyParams.set("tx_ref", txRef);
+
+            const response = await fetch(`/api/flutterwave-verify-payment?${verifyParams.toString()}`);
+            const data = await response.json();
+
+            if (data.success) {
+              paymentStatus = data.paymentStatus;
+              if (data.paymentStatus === "failed") {
+                failureMsg = data.flutterwaveStatus
+                  ? `Card payment ${String(data.flutterwaveStatus).toLowerCase()}`
+                  : "Card payment was not completed";
+              }
+            }
+          } catch (err) {
+            console.warn("Flutterwave verify error:", err);
+          }
+        }
+
         // Check PawaPay API directly for real-time status
-        if (depositId) {
+        if (provider !== "flutterwave" && depositId) {
           try {
             const response = await fetch(`/api/pawapay-check-status?depositId=${depositId}&checkoutId=${checkoutId}`);
             const data = await response.json();
@@ -118,6 +145,7 @@ export default function PaymentPending() {
             const params = new URLSearchParams({
               checkoutId: checkoutId || "",
               reason: failureMsg || paymentStatus || "Payment was not completed",
+              provider,
             });
             if (amount) params.set("amount", String(amount));
             if (currency) params.set("currency", currency);
@@ -150,7 +178,7 @@ export default function PaymentPending() {
     }, getInterval());
 
     return () => clearInterval(interval);
-  }, [checkoutId, depositId, status, pollCount, checkingStatus, navigate, toast]);
+  }, [checkoutId, depositId, provider, txRef, transactionId, status, pollCount, checkingStatus, amount, currency, navigate, toast]);
 
   // Countdown timer with timeout handling
   useEffect(() => {
@@ -165,6 +193,7 @@ export default function PaymentPending() {
           const params = new URLSearchParams({
             checkoutId: checkoutId || "",
             reason: "Payment took too long to complete. Please try again.",
+            provider,
           });
           if (amount) params.set("amount", String(amount));
           if (currency) params.set("currency", currency);
@@ -176,7 +205,7 @@ export default function PaymentPending() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [status, timeLeft, checkoutId, amount, currency, navigate]);
+  }, [status, timeLeft, checkoutId, amount, currency, provider, navigate]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -254,7 +283,9 @@ export default function PaymentPending() {
             <>
               <h1 className="text-2xl font-light mb-2">Waiting for Payment</h1>
               <p className="text-muted-foreground mb-6">
-                Check your phone and enter your PIN to approve the payment
+                {provider === "flutterwave"
+                  ? "Complete your card payment on the secure checkout page"
+                  : "Check your phone and enter your PIN to approve the payment"}
               </p>
               
               {/* Timer */}
@@ -274,12 +305,22 @@ export default function PaymentPending() {
                 <div className="flex items-start gap-3">
                   <Smartphone className="w-5 h-5 text-primary mt-0.5" />
                   <div className="text-left">
-                    <p className="font-medium mb-2">Complete payment on your phone:</p>
-                    <ol className="space-y-1 text-muted-foreground">
-                      <li>1. Check for USSD prompt or SMS</li>
-                      <li>2. Enter your mobile money PIN</li>
-                      <li>3. Confirm the payment</li>
-                    </ol>
+                    <p className="font-medium mb-2">
+                      {provider === "flutterwave" ? "Complete your card payment:" : "Complete payment on your phone:"}
+                    </p>
+                    {provider === "flutterwave" ? (
+                      <ol className="space-y-1 text-muted-foreground">
+                        <li>1. Enter your card details securely</li>
+                        <li>2. Complete any required OTP/3DS step</li>
+                        <li>3. Return here for confirmation</li>
+                      </ol>
+                    ) : (
+                      <ol className="space-y-1 text-muted-foreground">
+                        <li>1. Check for USSD prompt or SMS</li>
+                        <li>2. Enter your mobile money PIN</li>
+                        <li>3. Confirm the payment</li>
+                      </ol>
+                    )}
                   </div>
                 </div>
               </div>

@@ -23,6 +23,7 @@ export default function PaymentFailed() {
   const checkoutId = params.get("checkoutId");
   const amount = params.get("amount");
   const currency = params.get("currency") || "RWF";
+  const providerParam = (params.get("provider") || "").toLowerCase();
   
   const [isRetrying, setIsRetrying] = useState(false);
 
@@ -150,6 +151,47 @@ export default function PaymentFailed() {
       const paymentProvider = metadata.payment_provider || 'MTN';
       const phoneNumber = checkout.phone;
       const totalAmount = checkout.total_amount;
+
+      const isFlutterwave = providerParam === "flutterwave" || String(paymentProvider).toUpperCase() === "FLUTTERWAVE";
+
+      if (isFlutterwave) {
+        const redirectUrl = `${window.location.origin}/payment-pending?checkoutId=${encodeURIComponent(checkoutId)}&provider=flutterwave`;
+
+        const cardInitResponse = await fetch("/api/flutterwave-create-payment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            checkoutId,
+            amount: Math.round(totalAmount),
+            currency,
+            payerName: checkout.name,
+            payerEmail: checkout.email,
+            phoneNumber: phoneNumber || undefined,
+            description: `Merry360x Booking Retry - ${checkoutId.slice(0, 8)}`,
+            redirectUrl,
+          }),
+        });
+
+        const cardInitData = await cardInitResponse.json().catch(() => ({}));
+        if (!cardInitResponse.ok || !cardInitData?.link) {
+          const friendlyError = getFriendlyPaymentErrorMessage(cardInitData?.message);
+          toast({
+            title: "Payment Failed",
+            description: friendlyError || "Could not retry card payment. Please try again.",
+            variant: "destructive",
+          });
+          setIsRetrying(false);
+          return;
+        }
+
+        toast({
+          title: "Redirecting to card checkout",
+          description: "Complete your card payment on Flutterwave.",
+        });
+
+        window.location.href = cardInitData.link;
+        return;
+      }
 
       if (!phoneNumber) {
         toast({

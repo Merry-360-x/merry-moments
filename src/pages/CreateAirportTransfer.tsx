@@ -872,6 +872,19 @@ export default function CreateAirportTransfer() {
                   )}
                   Save Draft
                 </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    if (!window.confirm("Discard saved draft? This cannot be undone.")) return;
+                    clearDraft();
+                    setLastSaved(null);
+                    toast({ title: "Draft discarded", description: "Saved draft has been removed." });
+                  }}
+                  disabled={isSaving || submitting}
+                >
+                  Discard Draft
+                </Button>
                 <Button type="submit" disabled={submitting || !canCreateService}>
                   {submitting ? (
                     <>

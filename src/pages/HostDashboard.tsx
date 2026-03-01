@@ -1447,6 +1447,11 @@ export default function HostDashboard() {
     });
   };
 
+  const discardPropertyDraft = () => {
+    localStorage.removeItem(PROPERTY_FORM_KEY);
+    toast({ title: "Draft discarded", description: "Saved property/room draft has been removed." });
+  };
+
   const deleteProperty = async (id: string) => {
     if (!confirm("Delete this property permanently?")) return;
     const { error } = await supabase.from("properties").delete().eq("id", id);
@@ -5539,6 +5544,17 @@ export default function HostDashboard() {
                     >
                       Cancel
                     </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        if (!window.confirm("Discard saved draft? This cannot be undone.")) return;
+                        discardPropertyDraft();
+                      }}
+                      className="flex-1"
+                    >
+                      Discard Draft
+                    </Button>
                     <Button type="submit" className="flex-1" disabled={creatingProperty}>
                       {creatingProperty ? (
                         <>
@@ -5604,7 +5620,18 @@ export default function HostDashboard() {
               <h1 className="text-xl font-bold text-foreground">List Your Property</h1>
               <p className="text-sm text-muted-foreground">Step {wizardStep} of {totalSteps}: {stepTitles[wizardStep - 1]}</p>
             </div>
-            <div className="w-20" /> {/* Spacer */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (!window.confirm("Discard saved draft? This cannot be undone.")) return;
+                discardPropertyDraft();
+              }}
+              className="text-destructive border-destructive/30 hover:bg-destructive/10"
+            >
+              Discard Draft
+            </Button>
           </div>
 
           {/* Progress Bar */}

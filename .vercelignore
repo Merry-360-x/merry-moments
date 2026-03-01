@@ -1,0 +1,16 @@
+# Large/non-production folders
+merry360x_mobile/
+archive/
+playwright-report/
+test-results/
+tmp/
+
+# Dev artifacts
+node_modules/
+.vscode/
+.DS_Store
+
+# Local environment
+.env
+.env.*
+!.env.example

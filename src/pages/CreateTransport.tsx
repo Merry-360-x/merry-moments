@@ -1224,6 +1224,19 @@ export default function CreateTransport() {
               >
                 {isSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</> : <><Save className="w-4 h-4 mr-2" />Save Draft</>}
               </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  if (!window.confirm("Discard saved draft? This cannot be undone.")) return;
+                  clearDraft();
+                  setLastSaved(null);
+                  toast({ title: "Draft discarded", description: "Saved draft has been removed." });
+                }}
+                disabled={uploading || isSaving}
+              >
+                Discard Draft
+              </Button>
               <Button type="submit" disabled={uploading || !canCreateListing} className="flex-1 md:flex-none">
                 {uploading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creating Listing...</> : "List My Car"}
               </Button>

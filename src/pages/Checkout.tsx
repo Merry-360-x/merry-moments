@@ -904,6 +904,8 @@ export default function CheckoutNew() {
           total_participants: hasGroupBooking ? tourParticipants : 1,
           group_total: hasGroupBooking ? total : null,
           payment_provider: (() => {
+            if (paymentMethod === 'card') return 'FLUTTERWAVE';
+            if (paymentMethod === 'bank') return 'BANK_TRANSFER';
             const methodInfo = PAWAPAY_METHODS.find(m => m.id === paymentMethod);
             return methodInfo?.provider || paymentMethod.toUpperCase();
           })(),
@@ -937,8 +939,8 @@ export default function CheckoutNew() {
       }
       const checkoutId = checkout.id;
 
-      // For card/bank transfer, just create checkout and show confirmation
-      if (paymentMethod === 'card' || paymentMethod === 'bank') {
+      // For bank transfer, create pending bookings and show confirmation
+      if (paymentMethod === 'bank') {
         const defaultDates = getDefaultBookingDates();
         const bookingRows = cartItemsWithPrices.map((item) => {
           const mappedBookingType: 'property' | 'tour' | 'transport' =
@@ -970,7 +972,7 @@ export default function CheckoutNew() {
             currency: item.calculated_price_currency || item.currency || 'RWF',
             status: 'pending',
             payment_status: 'pending',
-            payment_method: paymentMethod === 'bank' ? 'bank_transfer' : 'card',
+            payment_method: 'bank_transfer',
             special_requests: formData.notes || null,
             guest_name: formData.fullName || null,
             guest_email: formData.email || null,
@@ -1000,7 +1002,7 @@ export default function CheckoutNew() {
               guestPhone: fullPhone || formData.phone || null,
               totalAmount: Math.round(amountInRwf),
               currency: 'RWF',
-              paymentMethod: paymentMethod === 'bank' ? 'bank_transfer' : 'card',
+              paymentMethod: 'bank_transfer',
               items: cartItemsWithPrices.map((item) => ({
                 item_type: item.item_type,
                 reference_id: item.reference_id,
@@ -1021,15 +1023,47 @@ export default function CheckoutNew() {
         await clearCart();
         localStorage.removeItem("applied_discount");
 
-        if (paymentMethod === 'card') {
-          toast({
-            title: "Payment is being processed",
-            description: "You will get an SMS or email once your payment is confirmed.",
-          });
-        }
-        
         // Redirect to booking success with a message about expecting a call
         navigate(`/booking-success?checkoutId=${checkoutId}&method=${paymentMethod}`);
+        return;
+      }
+
+      if (paymentMethod === 'card') {
+        const redirectUrl = `${window.location.origin}/payment-pending?checkoutId=${encodeURIComponent(checkoutId)}&provider=flutterwave`;
+
+        const cardInitResponse = await fetch("/api/flutterwave-create-payment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            checkoutId,
+            amount: Math.round(amountInRwf),
+            currency: 'RWF',
+            payerName: formData.fullName,
+            payerEmail: formData.email,
+            phoneNumber: fullPhone || formData.phone || null,
+            description: `Merry360x Booking - ${cartItems.length} item(s)`,
+            redirectUrl,
+            metadata: {
+              item_count: cartItems.length,
+              payment_type: paymentType,
+            },
+          }),
+        });
+
+        const cardInitData = await cardInitResponse.json().catch(() => ({}));
+        if (!cardInitResponse.ok || !cardInitData?.link) {
+          throw new Error(cardInitData?.error || cardInitData?.message || 'Unable to initialize card payment');
+        }
+
+        await clearCart();
+        localStorage.removeItem("applied_discount");
+
+        toast({
+          title: "Redirecting to secure card checkout",
+          description: "Complete your payment on Flutterwave to confirm your booking.",
+        });
+
+        window.location.href = cardInitData.link;
         return;
       }
 
