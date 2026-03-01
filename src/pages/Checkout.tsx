@@ -485,17 +485,27 @@ export default function CheckoutNew() {
 
     return items.map(item => {
       const refId = String(item.reference_id);
-      const data: any = maps[item.item_type]?.get(refId);
+      let resolvedType = item.item_type;
+      let data: any = maps[resolvedType]?.get(refId);
+
+      if (!data && resolvedType === 'tour') {
+        const packageFallback = maps.tour_package.get(refId);
+        if (packageFallback) {
+          resolvedType = 'tour_package';
+          data = packageFallback;
+        }
+      }
+
       if (!data) {
         console.warn(`Checkout item not found: ${item.item_type} ${refId}`);
         return null;
       }
 
       // Get metadata from localStorage for properties
-      const metadata = item.item_type === 'property' ? getCartItemMetadata(refId) : undefined;
+      const metadata = resolvedType === 'property' ? getCartItemMetadata(refId) : undefined;
 
       const getDetails = () => {
-        switch (item.item_type) {
+        switch (resolvedType) {
           case 'tour':
             return {
               title: data.title,
@@ -518,7 +528,7 @@ export default function CheckoutNew() {
       const details = getDetails();
       if (!details) return null;
 
-      return { id: item.id, item_type: item.item_type, reference_id: item.reference_id, quantity: item.quantity, metadata, ...details } as CartItem;
+      return { id: item.id, item_type: resolvedType, reference_id: item.reference_id, quantity: item.quantity, metadata, ...details } as CartItem;
     }).filter(Boolean) as CartItem[];
   }
 

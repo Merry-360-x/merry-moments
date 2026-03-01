@@ -153,7 +153,17 @@ export default function TripCart() {
     
     const validItems = items.map(item => {
       const refId = String(item.reference_id);
-      const data: any = maps[item.item_type]?.get(refId);
+      let resolvedType = item.item_type;
+      let data: any = maps[resolvedType]?.get(refId);
+
+      if (!data && resolvedType === 'tour') {
+        const packageFallback = maps.tour_package.get(refId);
+        if (packageFallback) {
+          resolvedType = 'tour_package';
+          data = packageFallback;
+        }
+      }
+
       if (!data) {
         console.warn(`Cart item not found: ${item.item_type} ${refId}`);
         unavailableIds.push(item.id);
@@ -161,7 +171,7 @@ export default function TripCart() {
       }
 
       const getDetails = () => {
-        switch (item.item_type) {
+        switch (resolvedType) {
           case 'tour':
             return { title: data.title, price: data.price_per_person, currency: data.currency || 'RWF', image: data.images?.[0], meta: `${data.duration_days} days` };
           case 'tour_package':
@@ -191,7 +201,7 @@ export default function TripCart() {
 
       return { 
         id: item.id, 
-        item_type: item.item_type, 
+        item_type: resolvedType,
         reference_id: item.reference_id, 
         quantity: item.quantity, 
         metadata,

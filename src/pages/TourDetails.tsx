@@ -697,7 +697,7 @@ export default function TourDetails() {
                   className="w-full"
                   variant="outline"
                   size="lg"
-                  onClick={async () => await addToCart("tour", String(tour.id), getTourBillingQuantity(pricingModel, participants))}
+                  onClick={async () => await addToCart(isPackage ? "tour_package" : "tour", String(tour.id), getTourBillingQuantity(pricingModel, participants))}
                 >
                   {t("common.addToTripCart")}
                 </Button>
