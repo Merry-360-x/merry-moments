@@ -77,38 +77,6 @@ interface PaymentMethodInfo {
   textColor: string;
 }
 
-type CardBrand = "visa" | "mastercard" | "amex" | "discover" | "unknown";
-
-function detectCardBrand(cardDigits: string): CardBrand {
-  if (/^4\d*/.test(cardDigits)) return "visa";
-  if (/^(5[1-5]|2(2[2-9]|[3-7]\d))\d*/.test(cardDigits)) return "mastercard";
-  if (/^3[47]\d*/.test(cardDigits)) return "amex";
-  if (/^6(?:011|5)\d*/.test(cardDigits)) return "discover";
-  return "unknown";
-}
-
-function formatCardNumberByBrand(cardDigits: string, brand: CardBrand): string {
-  if (brand === "amex") {
-    const trimmed = cardDigits.slice(0, 15);
-    if (trimmed.length <= 4) return trimmed;
-    if (trimmed.length <= 10) return `${trimmed.slice(0, 4)} ${trimmed.slice(4)}`;
-    return `${trimmed.slice(0, 4)} ${trimmed.slice(4, 10)} ${trimmed.slice(10)}`;
-  }
-
-  return cardDigits
-    .slice(0, 16)
-    .replace(/(\d{4})(?=\d)/g, "$1 ")
-    .trim();
-}
-
-function getCardBrandIcon(brand: CardBrand): string | null {
-  if (brand === "visa") return "/payment-icons/visa.svg";
-  if (brand === "mastercard") return "/payment-icons/mastercard.svg";
-  if (brand === "amex") return "/payment-icons/amex.svg";
-  if (brand === "discover") return "/payment-icons/discover.svg";
-  return null;
-}
-
 const PAWAPAY_METHODS: PaymentMethodInfo[] = [
   // Rwanda (+250) - RWF — MTN_MOMO_RWA, AIRTEL_RWA
   { id: 'mtn_rwa', name: 'MTN Mobile Money', shortName: 'MTN', provider: 'MTN', countryCode: '+250', country: 'Rwanda', flag: '🇷🇼', currency: 'RWF', color: 'bg-yellow-400', textColor: 'text-black' },
@@ -201,13 +169,6 @@ export default function CheckoutNew() {
   const [showContactModal, setShowContactModal] = useState(false);
   const [showPriceBreakdown, setShowPriceBreakdown] = useState(false);
   const [lastMobileMethod, setLastMobileMethod] = useState<string>(geoDefaults.method);
-  const [cardForm, setCardForm] = useState({
-    cardholderName: "",
-    cardNumber: "",
-    expiry: "",
-    cvv: "",
-  });
-
   const mode = searchParams.get("mode");
   const isDirectPropertyCheckout = mode === "booking" && Boolean(searchParams.get("propertyId"));
   const checkInParam = searchParams.get("checkIn") || "";
@@ -706,25 +667,6 @@ export default function CheckoutNew() {
   // Check if payment method is a mobile money method (not card or bank)
   const isMobileMoneyMethod = paymentMethod !== 'card' && paymentMethod !== 'bank';
 
-  const normalizedCardNumber = cardForm.cardNumber.replace(/\s/g, "");
-  const cardBrand = detectCardBrand(normalizedCardNumber);
-  const cardBrandLabel =
-    cardBrand === "visa"
-      ? "VISA"
-      : cardBrand === "mastercard"
-        ? "Mastercard"
-        : cardBrand === "amex"
-          ? "AmEx"
-          : cardBrand === "discover"
-            ? "Discover"
-            : "Card";
-  const cardBrandIcon = getCardBrandIcon(cardBrand);
-  const isCardValid =
-    cardForm.cardholderName.trim().length >= 2 &&
-    /^(\d{16}|\d{15})$/.test(normalizedCardNumber) &&
-    /^(0[1-9]|1[0-2])\/[0-9]{2}$/.test(cardForm.expiry) &&
-    /^\d{3,4}$/.test(cardForm.cvv);
-
   const isBankValid = true;
   
   // Step validation
@@ -732,7 +674,7 @@ export default function CheckoutNew() {
   const isPaymentValid = isMobileMoneyMethod
     ? phoneNumber.length >= 9
     : paymentMethod === 'card'
-      ? isCardValid
+      ? true
       : isBankValid;
 
   const goToStep = (step: Step) => {
@@ -744,7 +686,7 @@ export default function CheckoutNew() {
       const message = isMobileMoneyMethod
         ? "Please enter your phone number"
         : paymentMethod === 'card'
-          ? "Please complete your card details"
+          ? "Please choose a payment method"
           : "Please select a payment method";
       toast({ variant: "destructive", title: message });
       return;
@@ -941,16 +883,6 @@ export default function CheckoutNew() {
             const methodInfo = PAWAPAY_METHODS.find(m => m.id === paymentMethod);
             return methodInfo?.provider || paymentMethod.toUpperCase();
           })(),
-          ...(paymentMethod === 'card'
-            ? {
-                card_payment_details: {
-                  cardholder_name: cardForm.cardholderName.trim(),
-                  card_last4: normalizedCardNumber.slice(-4),
-                  card_brand: cardBrand,
-                  expiry: cardForm.expiry,
-                },
-              }
-            : {}),
         },
       };
 
@@ -1588,120 +1520,12 @@ export default function CheckoutNew() {
                     })}
                   </div>}
 
-                  {/* Credit Card Form */}
+                  {/* Card checkout redirect info */}
                   {paymentMethod === 'card' && (
                     <div className="rounded-xl border border-border bg-card p-4 md:p-5 space-y-4">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-foreground">Enter card details</p>
-                        <div className="text-xs px-2 py-1 rounded-full border border-border bg-background text-foreground/80 flex items-center gap-2">
-                          {cardBrandIcon ? (
-                            <img
-                              src={cardBrandIcon}
-                              alt={cardBrandLabel}
-                              className="h-4 w-auto"
-                              loading="lazy"
-                            />
-                          ) : null}
-                          <span>{cardBrandLabel}</span>
-                        </div>
-                      </div>
-
-                      <div className="rounded-xl border border-border bg-background p-4">
-                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
-                          <span>Card preview</span>
-                          <span className="flex items-center gap-2">
-                            {cardBrandIcon ? (
-                              <img
-                                src={cardBrandIcon}
-                                alt={cardBrandLabel}
-                                className="h-5 w-auto"
-                                loading="lazy"
-                              />
-                            ) : null}
-                            {cardBrandLabel}
-                          </span>
-                        </div>
-                        <div className="text-base md:text-lg font-semibold tracking-[0.12em] text-foreground">
-                          {normalizedCardNumber
-                            ? formatCardNumberByBrand(normalizedCardNumber, cardBrand)
-                            : "•••• •••• •••• ••••"}
-                        </div>
-                        <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-                          <span>{cardForm.cardholderName || "CARDHOLDER NAME"}</span>
-                          <span>{cardForm.expiry || "MM/YY"}</span>
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="cardholderName">Cardholder Name</Label>
-                        <Input
-                          id="cardholderName"
-                          value={cardForm.cardholderName}
-                          onChange={(e) =>
-                            setCardForm((prev) => ({ ...prev, cardholderName: e.target.value }))
-                          }
-                          placeholder="Name on card"
-                          className="mt-1.5"
-                          autoComplete="cc-name"
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="cardNumber">Card Number</Label>
-                        <Input
-                          id="cardNumber"
-                          value={cardForm.cardNumber}
-                          onChange={(e) => {
-                            const digits = e.target.value.replace(/\D/g, '').slice(0, 19);
-                            const nextBrand = detectCardBrand(digits);
-                            const formatted = formatCardNumberByBrand(digits, nextBrand);
-                            setCardForm((prev) => ({ ...prev, cardNumber: formatted }));
-                          }}
-                          placeholder="1234 5678 9012 3456"
-                          className="mt-1.5"
-                          inputMode="numeric"
-                          autoComplete="cc-number"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label htmlFor="cardExpiry">Expiry (MM/YY)</Label>
-                          <Input
-                            id="cardExpiry"
-                            value={cardForm.expiry}
-                            onChange={(e) => {
-                              const digits = e.target.value.replace(/\D/g, '').slice(0, 4);
-                              const formatted = digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits;
-                              setCardForm((prev) => ({ ...prev, expiry: formatted }));
-                            }}
-                            placeholder="MM/YY"
-                            className="mt-1.5"
-                            inputMode="numeric"
-                            autoComplete="cc-exp"
-                          />
-                        </div>
-
-                        <div>
-                          <Label htmlFor="cardCvv">CVV</Label>
-                          <Input
-                            id="cardCvv"
-                            type="password"
-                            value={cardForm.cvv}
-                            onChange={(e) => {
-                              const digits = e.target.value.replace(/\D/g, '').slice(0, 4);
-                              setCardForm((prev) => ({ ...prev, cvv: digits }));
-                            }}
-                            placeholder="123"
-                            className="mt-1.5"
-                            inputMode="numeric"
-                            autoComplete="cc-csc"
-                          />
-                        </div>
-                      </div>
-
-                      <p className="text-xs text-muted-foreground">
-                        Your card payment will be processed securely and you will receive confirmation by SMS or email.
+                      <p className="text-sm font-semibold text-foreground">Pay with card on Flutterwave</p>
+                      <p className="text-sm text-muted-foreground">
+                        Click <span className="font-medium">Review Booking</span> and then <span className="font-medium">Confirm Booking</span>. You will be redirected to Flutterwave to securely enter your card details and complete payment.
                       </p>
                     </div>
                   )}
@@ -1849,7 +1673,7 @@ export default function CheckoutNew() {
                             {(paymentMethod === 'card' || paymentMethod === 'bank') && (
                               <p className="text-sm text-muted-foreground">
                                 {paymentMethod === 'card'
-                                  ? `${cardBrandLabel} • ending ${normalizedCardNumber.slice(-4) || '••••'} • Processing update via SMS/email`
+                                  ? 'Redirect to Flutterwave secure card checkout'
                                   : 'Agent will call you'}
                               </p>
                             )}
@@ -1870,7 +1694,7 @@ export default function CheckoutNew() {
                           </p>
                           <p className="text-amber-600 dark:text-amber-400">
                             {paymentMethod === 'card'
-                              ? <>After clicking "Confirm Booking", your card payment will be marked as processing and you will receive confirmation by <span className="font-medium">SMS or email</span>.</>
+                              ? <>After clicking "Confirm Booking", you will be redirected to <span className="font-medium">Flutterwave</span> to enter card details and pay securely.</>
                               : <>After clicking "Confirm Booking", our payment team will call you at <span className="font-medium">{formData.email}</span> to complete your bank transfer payment securely.</>}
                           </p>
                           <div className="mt-2 pt-2 border-t border-amber-200 dark:border-amber-800/50 space-y-1">
