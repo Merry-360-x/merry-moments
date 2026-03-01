@@ -5,14 +5,14 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Phone, Home, Mail, MessageCircle, Clock, CreditCard, Building2 } from "lucide-react";
+import { CheckCircle, Phone, Home, Mail, MessageCircle, Clock, Building2 } from "lucide-react";
 
 export default function BookingSuccess() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const mode = params.get("mode") || "booking";
-  const method = params.get("method"); // 'card' or 'bank' or null
+  const method = params.get("method"); // 'bank' or null
   const bookingId = params.get("bookingId") || params.get("checkoutId");
 
   useEffect(() => {
@@ -21,7 +21,7 @@ export default function BookingSuccess() {
   }, []);
 
   // Determine content based on payment method
-  const isManualPayment = method === 'card' || method === 'bank';
+  const isManualPayment = method === 'bank';
 
   return (
     <div className="min-h-screen bg-background">
@@ -59,13 +59,9 @@ export default function BookingSuccess() {
                 {/* Manual Payment Instructions */}
                 <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 md:p-4 mb-4 md:mb-6">
                   <div className="flex items-center justify-center gap-2 mb-2">
-                    {method === 'card' ? (
-                      <CreditCard className="h-4 w-4 md:h-5 md:w-5 text-amber-600 dark:text-amber-400" />
-                    ) : (
-                      <Building2 className="h-4 w-4 md:h-5 md:w-5 text-amber-600 dark:text-amber-400" />
-                    )}
+                    <Building2 className="h-4 w-4 md:h-5 md:w-5 text-amber-600 dark:text-amber-400" />
                     <p className="text-xs md:text-sm font-semibold text-amber-900 dark:text-amber-100">
-                      {method === 'card' ? t("bookingSuccess.cardPayment") : t("bookingSuccess.bankTransfer")}
+                      {t("bookingSuccess.bankTransfer")}
                     </p>
                   </div>
                   <div className="bg-amber-100 dark:bg-amber-900/40 rounded-lg p-2.5 md:p-3 mb-2 md:mb-3">

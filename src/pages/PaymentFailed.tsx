@@ -34,16 +34,19 @@ export default function PaymentFailed() {
   // Map failure reasons to user-friendly messages
   const getFailureInfo = () => {
     const reasonLower = reason.toLowerCase();
+    const isCardFlow = providerParam === "flutterwave";
     
     if (reasonLower.includes("insufficient") || reasonLower.includes("funds") || reasonLower.includes("balance")) {
       return {
         icon: <AlertCircle className="h-12 w-12 text-amber-600 dark:text-amber-400" />,
         iconBg: "bg-amber-100 dark:bg-amber-900/30",
         title: "Insufficient Funds",
-        message: "You don't have enough balance in your mobile money account to complete this payment.",
+        message: isCardFlow
+          ? "Your card account doesn't have enough available funds to complete this payment."
+          : "You don't have enough balance in your mobile money account to complete this payment.",
         suggestions: [
-          "Top up your mobile money account",
-          "Try a different mobile money account",
+          isCardFlow ? "Use a different card" : "Top up your mobile money account",
+          isCardFlow ? "Check your card account balance" : "Try a different mobile money account",
           "Use a different payment method",
         ],
         canRetry: true,
@@ -57,9 +60,9 @@ export default function PaymentFailed() {
         title: "Payment Cancelled",
         message: "The payment was cancelled or declined.",
         suggestions: [
-          "Make sure you entered the correct PIN",
-          "Check your mobile money app for any restrictions",
-          "Contact your mobile money provider if the issue persists",
+          isCardFlow ? "Make sure your card details are correct on Flutterwave" : "Make sure you entered the correct PIN",
+          isCardFlow ? "Check with your bank for any card restrictions" : "Check your mobile money app for any restrictions",
+          isCardFlow ? "Try another card or payment method" : "Contact your mobile money provider if the issue persists",
         ],
         canRetry: true,
       };
@@ -72,8 +75,8 @@ export default function PaymentFailed() {
         title: "Payment Timeout",
         message: "The payment took too long to complete.",
         suggestions: [
-          "Make sure to approve the payment promptly when you receive the prompt",
-          "Check if you received the mobile money prompt on your phone",
+          isCardFlow ? "Complete the payment on Flutterwave without leaving the page for too long" : "Make sure to approve the payment promptly when you receive the prompt",
+          isCardFlow ? "Retry and complete any OTP/3DS prompt quickly" : "Check if you received the mobile money prompt on your phone",
           "Ensure you have good network connection",
         ],
         canRetry: true,
@@ -85,9 +88,11 @@ export default function PaymentFailed() {
         icon: <AlertCircle className="h-12 w-12 text-amber-600 dark:text-amber-400" />,
         iconBg: "bg-amber-100 dark:bg-amber-900/30",
         title: "Transaction Limit Exceeded",
-        message: "This transaction exceeds your mobile money limit.",
+        message: isCardFlow
+          ? "This transaction exceeds your card or bank limit."
+          : "This transaction exceeds your mobile money limit.",
         suggestions: [
-          "Contact your mobile money provider to increase your limit",
+          isCardFlow ? "Contact your bank to increase your card limit" : "Contact your mobile money provider to increase your limit",
           "Split the payment into smaller amounts (contact support)",
           "Try a different payment method",
         ],
@@ -104,7 +109,7 @@ export default function PaymentFailed() {
         ? getFriendlyPaymentErrorMessage(reason, "We couldn't process your payment. Please try again.")
         : "We couldn't process your payment. Please try again.",
       suggestions: [
-        "Check your mobile money account balance",
+        isCardFlow ? "Try again and complete payment on Flutterwave" : "Check your mobile money account balance",
         "Ensure you have good network connection",
         "Try again in a few moments",
       ],

@@ -349,7 +349,9 @@ export default function PaymentPending() {
                 }
               </p>
               <p className="text-sm text-muted-foreground mb-8">
-                Please return to checkout to try again with a different payment method or ensure sufficient balance.
+                {provider === "flutterwave"
+                  ? "Please return to checkout and try card payment again on Flutterwave."
+                  : "Please return to checkout to try again with a different payment method or ensure sufficient balance."}
               </p>
               
               <div className="flex flex-col gap-3">
