@@ -1,4 +1,4 @@
-import { Car, Search, MapPin, Frown, ArrowLeftRight, Plane, Building2, Map, Key, Users, Fuel, Settings, Calendar, Shield, ChevronRight } from "lucide-react";
+import { Car, Search, MapPin, Frown, ArrowLeftRight, Plane, Building2, Map as MapIcon, Key, Users, Fuel, Settings, Calendar, Shield, ChevronRight } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,7 @@ import { Badge } from "@/components/ui/badge";
 const transportCategories = [
   { id: "airport_transfer", labelKey: "transport.categories.airportTransfer", descKey: "transport.categories.airportDesc", icon: Plane },
   { id: "intracity", labelKey: "transport.categories.intracity", descKey: "transport.categories.intracityDesc", icon: Building2 },
-  { id: "intercity", labelKey: "transport.categories.intercity", descKey: "transport.categories.intercityDesc", icon: Map },
+  { id: "intercity", labelKey: "transport.categories.intercity", descKey: "transport.categories.intercityDesc", icon: MapIcon },
   { id: "car_rental", labelKey: "transport.categories.carRental", descKey: "transport.categories.carRentalDesc", icon: Key },
 ];
 
@@ -655,12 +655,12 @@ const Transport = () => {
           {(activeCategory === "all" || activeCategory === "intercity") && (
             <div className="container mx-auto px-4 lg:px-8 pb-12">
               <h2 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-3">
-                <Map className="w-6 h-6 text-primary" />
+                <MapIcon className="w-6 h-6 text-primary" />
                 Intercity Rides
               </h2>
               {intercityRoutes.length === 0 ? (
                 <div className="bg-card rounded-xl p-8 shadow-card text-center">
-                  <Map className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                  <MapIcon className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
                   <p className="text-muted-foreground">No intercity routes available yet</p>
                 </div>
               ) : (
