@@ -2532,6 +2532,43 @@ For support, contact: support@merry360x.com
     ? correctedRevenueGross
     : (metrics?.revenue_gross ?? 0);
 
+  const adminFinancialOverview = useMemo(() => {
+    return bookings.reduce(
+      (totals, booking) => {
+        const status = String(booking.status || "").toLowerCase();
+        if (status !== "confirmed" && status !== "completed") return totals;
+
+        const bookingType = String(booking.booking_type || "").toLowerCase();
+        const isAccommodation = bookingType === "property";
+
+        const listingSourceCurrency =
+          isAccommodation && booking.properties?.currency
+            ? booking.properties.currency
+            : bookingType === "tour" && booking.tour_packages?.currency
+              ? booking.tour_packages.currency
+              : bookingType === "transport" && booking.transport_vehicles?.currency
+                ? booking.transport_vehicles.currency
+                : booking.currency || "RWF";
+
+        const listingPriceRwf = toRwfAmount(Number(booking.total_price || 0), listingSourceCurrency);
+        const guestServiceFeeRwf = isAccommodation ? listingPriceRwf * 0.07 : 0;
+        const hostServiceFeeRwf = isAccommodation ? listingPriceRwf * 0.03 : 0;
+        const bookingAmountRwf = listingPriceRwf + guestServiceFeeRwf;
+
+        totals.totalAmountBooked += bookingAmountRwf;
+        totals.totalAmountAfterPawapay += bookingAmountRwf * (1 - 0.031);
+        totals.totalAmountAfterServiceFees += bookingAmountRwf - guestServiceFeeRwf - hostServiceFeeRwf;
+
+        return totals;
+      },
+      {
+        totalAmountBooked: 0,
+        totalAmountAfterPawapay: 0,
+        totalAmountAfterServiceFees: 0,
+      }
+    );
+  }, [bookings]);
+
   const tabLoadingMessage: Record<TabValue, string> = {
     overview: "Loading overview...",
     ads: "Loading ads...",
@@ -2706,6 +2743,30 @@ For support, contact: support@merry360x.com
                 <p className="text-2xl font-bold text-foreground">{metrics?.properties_total ?? 0}</p>
                 <p className="text-xs text-muted-foreground">{metrics?.properties_published ?? 0} live</p>
           </Card>
+                  <Card className="p-4">
+                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                  <Wallet className="w-4 h-4" />
+                  <span className="text-sm">Total Amount Booked</span>
+                    </div>
+                    <p className="text-2xl font-bold text-foreground">{formatMoney(adminFinancialOverview.totalAmountBooked, "RWF")}</p>
+                    <p className="text-xs text-muted-foreground">Listing + 7% service fee</p>
+                  </Card>
+                  <Card className="p-4">
+                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                  <Percent className="w-4 h-4" />
+                  <span className="text-sm">After PawaPay Fee</span>
+                    </div>
+                    <p className="text-2xl font-bold text-foreground">{formatMoney(adminFinancialOverview.totalAmountAfterPawapay, "RWF")}</p>
+                    <p className="text-xs text-muted-foreground">Total booked - 3.1% processing</p>
+                  </Card>
+                  <Card className="p-4">
+                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                  <Wallet className="w-4 h-4" />
+                  <span className="text-sm">After Service Fees</span>
+                    </div>
+                    <p className="text-2xl font-bold text-foreground">{formatMoney(adminFinancialOverview.totalAmountAfterServiceFees, "RWF")}</p>
+                    <p className="text-xs text-muted-foreground">Total booked - 3% - 7%</p>
+                  </Card>
         </div>
 
             <div className="grid md:grid-cols-2 gap-6 mb-6">

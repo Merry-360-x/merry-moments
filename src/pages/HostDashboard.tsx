@@ -7508,17 +7508,10 @@ export default function HostDashboard() {
                             ? listingTotal / guests
                             : listingTotal;
                       const feePercent = HOST_EARNING_FEE_PERCENT;
-                      const safeGuestPaidAmount = Math.max(0, Number(guestPaidAmount || 0));
                       const safeListingTotal = Math.max(0, Number(listingTotal || 0));
                       const listingTotalRwf = toRwfAmount(safeListingTotal, listingCurrency);
-                      const effectiveGuestPaidRwf = safeListingTotal > 0
-                        ? Math.min(toRwfAmount(safeGuestPaidAmount, guestPaidCurrency), listingTotalRwf)
-                        : toRwfAmount(safeGuestPaidAmount, guestPaidCurrency);
-                      const displayFeeDeductionRwf = Math.max(
-                        0,
-                        Math.min(effectiveGuestPaidRwf * (feePercent / 100), listingTotalRwf)
-                      );
-                      const displayHostNetEarningsRwf = Math.max(0, effectiveGuestPaidRwf - displayFeeDeductionRwf);
+                      const displayFeeDeductionRwf = Math.max(0, listingTotalRwf * (feePercent / 100));
+                      const displayHostNetEarningsRwf = Math.max(0, listingTotalRwf - displayFeeDeductionRwf);
                       
                       return (
                         <Card key={b.id} className="overflow-hidden border border-border shadow-sm">
@@ -7754,17 +7747,10 @@ export default function HostDashboard() {
                         ? listingTotal / guests
                         : listingTotal;
                   const feePercent = HOST_EARNING_FEE_PERCENT;
-                  const safeGuestPaidAmount = Math.max(0, Number(guestPaidAmount || 0));
                   const safeListingTotal = Math.max(0, Number(listingTotal || 0));
                   const listingTotalRwf = toRwfAmount(safeListingTotal, listingCurrency);
-                  const effectiveGuestPaidRwf = safeListingTotal > 0
-                    ? Math.min(toRwfAmount(safeGuestPaidAmount, guestPaidCurrency), listingTotalRwf)
-                    : toRwfAmount(safeGuestPaidAmount, guestPaidCurrency);
-                  const displayFeeDeductionRwf = Math.max(
-                    0,
-                    Math.min(effectiveGuestPaidRwf * (feePercent / 100), listingTotalRwf)
-                  );
-                  const displayHostNetEarningsRwf = Math.max(0, effectiveGuestPaidRwf - displayFeeDeductionRwf);
+                  const displayFeeDeductionRwf = Math.max(0, listingTotalRwf * (feePercent / 100));
+                  const displayHostNetEarningsRwf = Math.max(0, listingTotalRwf - displayFeeDeductionRwf);
                   
                   return (
                   <Card key={b.id} className="overflow-hidden border shadow-sm hover:shadow-md transition-shadow">
@@ -9038,18 +9024,14 @@ END OF REPORT
                           ? 'tour'
                           : 'transport';
                     const feePercent = HOST_EARNING_FEE_PERCENT;
-                    const safeGuestPaidAmount = Math.max(0, Number(guestPaidAmount || 0));
                     const safeListingTotal = Math.max(0, Number(listingTotal || 0));
                     const convertedListingTotal = toRwfAmount(listingTotal, listingCurrency);
                     const convertedUnitValue = toRwfAmount(unitValue, listingCurrency);
-                    const convertedGuestPaidAmount = safeListingTotal > 0
-                      ? Math.min(toRwfAmount(safeGuestPaidAmount, guestPaidCurrency), convertedListingTotal)
-                      : toRwfAmount(safeGuestPaidAmount, guestPaidCurrency);
-                    const convertedFeeDeduction = Math.max(
-                      0,
-                      Math.min(convertedGuestPaidAmount * (feePercent / 100), convertedListingTotal)
-                    );
-                    const convertedHostNetEarnings = Math.max(0, convertedGuestPaidAmount - convertedFeeDeduction);
+                    const guestServiceFeePercent = bookingFullDetails.booking_type === 'property' ? 7 : 0;
+                    const convertedServiceFee = Math.max(0, convertedListingTotal * (guestServiceFeePercent / 100));
+                    const convertedBookingAmount = convertedListingTotal + convertedServiceFee;
+                    const convertedFeeDeduction = Math.max(0, convertedListingTotal * (feePercent / 100));
+                    const convertedHostNetEarnings = Math.max(0, convertedListingTotal - convertedFeeDeduction);
                     const effectivePaymentStatus = String(
                       bookingFullDetails.checkout_requests?.payment_status || bookingFullDetails.payment_status || "unknown"
                     )
@@ -9105,8 +9087,8 @@ END OF REPORT
                         </div>
 
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Amount Paid ({String(displayCurrency).toUpperCase()}):</span>
-                          <span className="font-semibold text-emerald-600">{formatMoney(convertedGuestPaidAmount, displayCurrency)}</span>
+                          <span className="text-muted-foreground">Booking Amount ({String(displayCurrency).toUpperCase()}):</span>
+                          <span className="font-semibold text-emerald-600">{formatMoney(convertedBookingAmount, displayCurrency)}</span>
                         </div>
 
                         <div className="flex justify-between text-sm">
