@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 
-export type CartItemType = "tour" | "tour_package" | "property" | "transport_vehicle" | "transport_route" | "transport_service";
+export type CartItemType = "tour" | "tour_package" | "property" | "transport_vehicle" | "transport_route" | "transport_service" | "airport_transfer_pricing";
 
 export interface CartItemMetadata {
   check_in?: string;

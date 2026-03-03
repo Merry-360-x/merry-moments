@@ -57,6 +57,7 @@ interface CartItem {
   metadata?: CartItemMetadata;
   weekly_discount?: number | null;
   monthly_discount?: number | null;
+  transport_vehicle_id?: string | null;
 }
 
 type Step = 'details' | 'payment' | 'confirm';
@@ -468,12 +469,28 @@ export default function CheckoutNew() {
     const packageIds = items.filter(i => i.item_type === 'tour_package').map(i => String(i.reference_id));
     const propertyIds = items.filter(i => i.item_type === 'property').map(i => String(i.reference_id));
     const vehicleIds = items.filter(i => i.item_type === 'transport_vehicle').map(i => String(i.reference_id));
+    const airportPricingIds = items.filter(i => i.item_type === 'airport_transfer_pricing').map(i => String(i.reference_id));
+    const routeIds = items.filter(i => i.item_type === 'transport_route').map(i => String(i.reference_id));
+    const serviceIds = items.filter(i => i.item_type === 'transport_service').map(i => String(i.reference_id));
 
-    const [tours, packages, properties, vehicles] = await Promise.all([
+    const [tours, packages, properties, vehicles, airportPricing, routes, services] = await Promise.all([
       tourIds.length ? ((supabase.from('tours').select('id, title, price_per_person, currency, images, duration_days, pricing_tiers') as any).in('id', tourIds).then((r: any) => r.data || [])) : [],
       packageIds.length ? ((supabase.from('tour_packages').select('id, title, price_per_adult, currency, cover_image, gallery_images, duration') as any).in('id', packageIds).then((r: any) => r.data || [])) : [],
       propertyIds.length ? ((supabase.from('properties').select('id, title, price_per_night, currency, images, location, weekly_discount, monthly_discount') as any).in('id', propertyIds).then((r: any) => r.data || [])) : [],
       vehicleIds.length ? ((supabase.from('transport_vehicles').select('id, title, price_per_day, currency, image_url, vehicle_type, seats') as any).in('id', vehicleIds).then((r: any) => r.data || [])) : [],
+      airportPricingIds.length
+        ? ((supabase as any)
+            .from('airport_transfer_pricing')
+            .select(`
+              id, route_id, vehicle_id, price, currency,
+              route:airport_transfer_routes(from_location, to_location, distance_km, currency),
+              vehicle:transport_vehicles(title, image_url, vehicle_type, seats)
+            `)
+            .in('id', airportPricingIds)
+            .then((r: any) => r.data || []))
+        : [],
+      routeIds.length ? ((supabase.from('transport_routes').select('id, from_location, to_location, base_price, currency') as any).in('id', routeIds).then((r: any) => r.data || [])) : [],
+      serviceIds.length ? ((supabase.from('transport_services').select('id, title, description') as any).in('id', serviceIds).then((r: any) => r.data || [])) : [],
     ]) as any[];
 
     const maps: Record<string, Map<string, any>> = {
@@ -481,6 +498,9 @@ export default function CheckoutNew() {
       tour_package: new Map(packages.map((p: any) => [String(p.id), p] as [string, any])),
       property: new Map(properties.map((p: any) => [String(p.id), p] as [string, any])),
       transport_vehicle: new Map(vehicles.map((v: any) => [String(v.id), v] as [string, any])),
+      airport_transfer_pricing: new Map(airportPricing.map((p: any) => [String(p.id), p] as [string, any])),
+      transport_route: new Map(routes.map((r: any) => [String(r.id), r] as [string, any])),
+      transport_service: new Map(services.map((s: any) => [String(s.id), s] as [string, any])),
     };
 
     return items.map(item => {
@@ -520,6 +540,33 @@ export default function CheckoutNew() {
             return { title: data.title, price: data.price_per_night, currency: data.currency || 'RWF', image: data.images?.[0], meta: data.location, weekly_discount: data.weekly_discount, monthly_discount: data.monthly_discount };
           case 'transport_vehicle':
             return { title: data.title, price: data.price_per_day, currency: data.currency || 'RWF', image: data.image_url, meta: `${data.vehicle_type} • ${data.seats} seats` };
+          case 'airport_transfer_pricing': {
+            const route = data.route || null;
+            const vehicle = data.vehicle || null;
+            const routeLabel = route ? `${route.from_location} → ${route.to_location}` : 'Airport transfer';
+            return {
+              title: routeLabel,
+              price: Number(data.price || 0),
+              currency: data.currency || route?.currency || 'RWF',
+              image: vehicle?.image_url,
+              meta: vehicle?.title ? `Airport transfer • ${vehicle.title}` : 'Airport transfer',
+              transport_vehicle_id: data.vehicle_id || null,
+            };
+          }
+          case 'transport_route':
+            return {
+              title: `${data.from_location} → ${data.to_location}`,
+              price: Number(data.base_price || 0),
+              currency: data.currency || 'RWF',
+              meta: 'Intercity ride',
+            };
+          case 'transport_service':
+            return {
+              title: data.title,
+              price: 0,
+              currency: 'RWF',
+              meta: data.description || 'Transport service',
+            };
           default:
             return null;
         }
@@ -920,7 +967,7 @@ export default function CheckoutNew() {
           const mappedBookingType: 'property' | 'tour' | 'transport' =
             item.item_type === 'property'
               ? 'property'
-              : item.item_type === 'transport_vehicle'
+              : (item.item_type === 'transport_vehicle' || item.item_type === 'airport_transfer_pricing' || item.item_type === 'transport_route' || item.item_type === 'transport_service')
                 ? 'transport'
                 : 'tour';
 
@@ -935,7 +982,11 @@ export default function CheckoutNew() {
             guest_id: user?.id || null,
             property_id: item.item_type === 'property' ? item.reference_id : null,
             tour_id: (item.item_type === 'tour' || item.item_type === 'tour_package') ? item.reference_id : null,
-            transport_id: item.item_type === 'transport_vehicle' ? item.reference_id : null,
+            transport_id: item.item_type === 'transport_vehicle'
+              ? item.reference_id
+              : item.item_type === 'airport_transfer_pricing'
+                ? item.transport_vehicle_id || null
+                : null,
             booking_type: mappedBookingType,
             check_in: isProperty ? propertyCheckIn : defaultDates.checkIn,
             check_out: isProperty ? propertyCheckOut : defaultDates.checkOut,
