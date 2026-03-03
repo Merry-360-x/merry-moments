@@ -1,0 +1,23 @@
+{
+  "/Users/davy/merry-moments/merry360x_mobile/ios-app/Merry360xMobile/Services/SupabaseService.swift" : {
+    "const-values" : "/Users/davy/merry-moments/merry360x_mobile/ios-app/build/Build/Intermediates.noindex/Merry360xMobile.build/Debug-iphonesimulator/Merry360xMobile.build/Objects-normal/arm64/SupabaseService.swiftconstvalues",
+    "dependencies" : "/Users/davy/merry-moments/merry360x_mobile/ios-app/build/Build/Intermediates.noindex/Merry360xMobile.build/Debug-iphonesimulator/Merry360xMobile.build/Objects-normal/arm64/SupabaseService.d",
+    "diagnostics" : "/Users/davy/merry-moments/merry360x_mobile/ios-app/build/Build/Intermediates.noindex/Merry360xMobile.build/Debug-iphonesimulator/Merry360xMobile.build/Objects-normal/arm64/SupabaseService.dia",
+    "object" : "/Users/davy/merry-moments/merry360x_mobile/ios-app/build/Build/Intermediates.noindex/Merry360xMobile.build/Debug-iphonesimulator/Merry360xMobile.build/Objects-normal/arm64/SupabaseService.o",
+    "swift-dependencies" : "/Users/davy/merry-moments/merry360x_mobile/ios-app/build/Build/Intermediates.noindex/Merry360xMobile.build/Debug-iphonesimulator/Merry360xMobile.build/Objects-normal/arm64/SupabaseService.swiftdeps"
+  },
+  "/Users/davy/merry-moments/merry360x_mobile/ios-app/Merry360xMobile/Views/TripCartView.swift" : {
+    "const-values" : "/Users/davy/merry-moments/merry360x_mobile/ios-app/build/Build/Intermediates.noindex/Merry360xMobile.build/Debug-iphonesimulator/Merry360xMobile.build/Objects-normal/arm64/TripCartView.swiftconstvalues",
+    "dependencies" : "/Users/davy/merry-moments/merry360x_mobile/ios-app/build/Build/Intermediates.noindex/Merry360xMobile.build/Debug-iphonesimulator/Merry360xMobile.build/Objects-normal/arm64/TripCartView.d",
+    "diagnostics" : "/Users/davy/merry-moments/merry360x_mobile/ios-app/build/Build/Intermediates.noindex/Merry360xMobile.build/Debug-iphonesimulator/Merry360xMobile.build/Objects-normal/arm64/TripCartView.dia",
+    "object" : "/Users/davy/merry-moments/merry360x_mobile/ios-app/build/Build/Intermediates.noindex/Merry360xMobile.build/Debug-iphonesimulator/Merry360xMobile.build/Objects-normal/arm64/TripCartView.o",
+    "swift-dependencies" : "/Users/davy/merry-moments/merry360x_mobile/ios-app/build/Build/Intermediates.noindex/Merry360xMobile.build/Debug-iphonesimulator/Merry360xMobile.build/Objects-normal/arm64/TripCartView.swiftdeps"
+  },
+  "/Users/davy/merry-moments/merry360x_mobile/ios-app/Merry360xMobile/Views/WishlistsView.swift" : {
+    "const-values" : "/Users/davy/merry-moments/merry360x_mobile/ios-app/build/Build/Intermediates.noindex/Merry360xMobile.build/Debug-iphonesimulator/Merry360xMobile.build/Objects-normal/arm64/WishlistsView.swiftconstvalues",
+    "dependencies" : "/Users/davy/merry-moments/merry360x_mobile/ios-app/build/Build/Intermediates.noindex/Merry360xMobile.build/Debug-iphonesimulator/Merry360xMobile.build/Objects-normal/arm64/WishlistsView.d",
+    "diagnostics" : "/Users/davy/merry-moments/merry360x_mobile/ios-app/build/Build/Intermediates.noindex/Merry360xMobile.build/Debug-iphonesimulator/Merry360xMobile.build/Objects-normal/arm64/WishlistsView.dia",
+    "object" : "/Users/davy/merry-moments/merry360x_mobile/ios-app/build/Build/Intermediates.noindex/Merry360xMobile.build/Debug-iphonesimulator/Merry360xMobile.build/Objects-normal/arm64/WishlistsView.o",
+    "swift-dependencies" : "/Users/davy/merry-moments/merry360x_mobile/ios-app/build/Build/Intermediates.noindex/Merry360xMobile.build/Debug-iphonesimulator/Merry360xMobile.build/Objects-normal/arm64/WishlistsView.swiftdeps"
+  }
+}

@@ -1,0 +1,441 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+        0A3C6D629E1B4F58A4E20F91 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 71F76D93E5A84B77A3AA8B1D /* Assets.xcassets */; };
+		08FBBAD1C80ACA3C8D65F5B3 /* HostToolsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E5F583559BA36F65444B359 /* HostToolsView.swift */; };
+		1BBA957812AC4C3AAF19D2BB /* ListingDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8BE84942DEEB748961FA0A7 /* ListingDetailView.swift */; };
+		26141A3BC466FF978547B9BD /* InboxViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77636B02989465BD7663874E /* InboxViewModel.swift */; };
+		3295A0E2FC59873DF5E80523 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 258800E4FC2A58627E17C861 /* AppTheme.swift */; };
+		343DA4B68585E4BBD0F8AA45 /* SearchSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7AE6D019CE9CE549A72953A /* SearchSheet.swift */; };
+		422414FB0856104EC576119A /* BookingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAE9262697C5E30B41AE35BE /* BookingViewModel.swift */; };
+		422AAB082AF537995B732FCB /* Listing.swift in Sources */ = {isa = PBXBuildFile; fileRef = A51ED40924509F83D26F699F /* Listing.swift */; };
+		4647ED51BB1AD9A61FC23A3C /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7075AC90E693191791B3A5BE /* ProfileView.swift */; };
+		4C35B4FC73B7C321FEDD9536 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CCFE6E86C04E2FF10CCB19F /* HomeView.swift */; };
+		5689EF06DB23EFB89B126664 /* BookingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F0B28FA6C9DF3A3EA2827A5 /* BookingView.swift */; };
+		68618D35722E93986F42E910 /* AuthViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9F4D0EAC6D902A804927861 /* AuthViewModel.swift */; };
+		6DFE81E18CEFBFC5B77A9570 /* WishlistsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27D02C0E370F56AC3962439B /* WishlistsView.swift */; };
+		6F0C21133C8B6AC71E521053 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BF323595977588076F0C5D7 /* LoginView.swift */; };
+		75A4B0AAE71C1884AE09EA4E /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DD18EF3045B726AD6A6D975 /* HomeViewModel.swift */; };
+		79E34F5E611F2B22AB186340 /* ProfileViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA614F0B66243FFD253411A1 /* ProfileViewModel.swift */; };
+		8661137F6CFEA7BBB8CA569D /* InboxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B492409A5CD8CC0106276323 /* InboxView.swift */; };
+		8F976848687AD181576D8377 /* MobileConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9AC6BCA375032140C11B079 /* MobileConfig.swift */; };
+		BA0D7686C9419056D0BF840B /* MerryAIView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0C75F0F1E584758300DA768 /* MerryAIView.swift */; };
+		C73E16CFAE66FC1E5CE8C7B2 /* SupabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EE17F493C949C9C7737B6B8 /* SupabaseService.swift */; };
+		D809C0A54C3972DE2C33BB3F /* AuthBottomSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCEF2BF4AF96DA396812DA0A /* AuthBottomSheet.swift */; };
+		DAD35C172E57680A55FEC815 /* AppSessionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D359D4564538296F3AB3F12A /* AppSessionViewModel.swift */; };
+		EA6E06132CB8669D2D0A16E3 /* TripCartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 630293C49C7D65693BB534AE /* TripCartView.swift */; };
+		EEC489351B1489A769D984FA /* Merry360xMobileApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E47837FC68F6D4572DED53 /* Merry360xMobileApp.swift */; };
+		F9E6A5BB5B74BA3D627C1C38 /* BookingDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C31B1A4DAFE23AC3503064A /* BookingDraft.swift */; };
+		FD88A0FB4003C44239AA4EEB /* HostToolsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 599AE31AD23EFEECD1843F3E /* HostToolsViewModel.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0CCFE6E86C04E2FF10CCB19F /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+        71F76D93E5A84B77A3AA8B1D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		258800E4FC2A58627E17C861 /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
+		27D02C0E370F56AC3962439B /* WishlistsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistsView.swift; sourceTree = "<group>"; };
+		4DD18EF3045B726AD6A6D975 /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
+		4E5F583559BA36F65444B359 /* HostToolsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostToolsView.swift; sourceTree = "<group>"; };
+		599AE31AD23EFEECD1843F3E /* HostToolsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostToolsViewModel.swift; sourceTree = "<group>"; };
+		5BF323595977588076F0C5D7 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
+		5EE17F493C949C9C7737B6B8 /* SupabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseService.swift; sourceTree = "<group>"; };
+		5F0B28FA6C9DF3A3EA2827A5 /* BookingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookingView.swift; sourceTree = "<group>"; };
+		630293C49C7D65693BB534AE /* TripCartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripCartView.swift; sourceTree = "<group>"; };
+		7075AC90E693191791B3A5BE /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		77636B02989465BD7663874E /* InboxViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxViewModel.swift; sourceTree = "<group>"; };
+		7C31B1A4DAFE23AC3503064A /* BookingDraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookingDraft.swift; sourceTree = "<group>"; };
+		A51ED40924509F83D26F699F /* Listing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Listing.swift; sourceTree = "<group>"; };
+		A7AE6D019CE9CE549A72953A /* SearchSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchSheet.swift; sourceTree = "<group>"; };
+		B492409A5CD8CC0106276323 /* InboxView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxView.swift; sourceTree = "<group>"; };
+		B9F4D0EAC6D902A804927861 /* AuthViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewModel.swift; sourceTree = "<group>"; };
+		CAE9262697C5E30B41AE35BE /* BookingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookingViewModel.swift; sourceTree = "<group>"; };
+		CCEF2BF4AF96DA396812DA0A /* AuthBottomSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthBottomSheet.swift; sourceTree = "<group>"; };
+		D0C75F0F1E584758300DA768 /* MerryAIView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MerryAIView.swift; sourceTree = "<group>"; };
+		D359D4564538296F3AB3F12A /* AppSessionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSessionViewModel.swift; sourceTree = "<group>"; };
+		D4E47837FC68F6D4572DED53 /* Merry360xMobileApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Merry360xMobileApp.swift; sourceTree = "<group>"; };
+		D8BE84942DEEB748961FA0A7 /* ListingDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListingDetailView.swift; sourceTree = "<group>"; };
+		E809988FC41F1B3657048F39 /* Merry360xMobile.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Merry360xMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E9AC6BCA375032140C11B079 /* MobileConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileConfig.swift; sourceTree = "<group>"; };
+		FA614F0B66243FFD253411A1 /* ProfileViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileViewModel.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		04704092F9F5828683ED4094 = {
+			isa = PBXGroup;
+			children = (
+				8BC52F69CC5FC50CEB55B1E1 /* Merry360xMobile */,
+				C57BA78944AFA1FCE2FD32D6 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		09B811C317BB244C6C949056 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				CCEF2BF4AF96DA396812DA0A /* AuthBottomSheet.swift */,
+				5F0B28FA6C9DF3A3EA2827A5 /* BookingView.swift */,
+				0CCFE6E86C04E2FF10CCB19F /* HomeView.swift */,
+				4E5F583559BA36F65444B359 /* HostToolsView.swift */,
+				B492409A5CD8CC0106276323 /* InboxView.swift */,
+				D8BE84942DEEB748961FA0A7 /* ListingDetailView.swift */,
+				5BF323595977588076F0C5D7 /* LoginView.swift */,
+				D0C75F0F1E584758300DA768 /* MerryAIView.swift */,
+				7075AC90E693191791B3A5BE /* ProfileView.swift */,
+				A7AE6D019CE9CE549A72953A /* SearchSheet.swift */,
+				630293C49C7D65693BB534AE /* TripCartView.swift */,
+				27D02C0E370F56AC3962439B /* WishlistsView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		34C0FA92938631140B59D6F0 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				7C31B1A4DAFE23AC3503064A /* BookingDraft.swift */,
+				A51ED40924509F83D26F699F /* Listing.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		4DCF1B2877C29A0C9EB21E0F /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				258800E4FC2A58627E17C861 /* AppTheme.swift */,
+			);
+			path = Theme;
+			sourceTree = "<group>";
+		};
+		7840A4D36286506EDDBB63A1 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				E9AC6BCA375032140C11B079 /* MobileConfig.swift */,
+				5EE17F493C949C9C7737B6B8 /* SupabaseService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		8BC52F69CC5FC50CEB55B1E1 /* Merry360xMobile */ = {
+			isa = PBXGroup;
+			children = (
+				D4E47837FC68F6D4572DED53 /* Merry360xMobileApp.swift */,
+                71F76D93E5A84B77A3AA8B1D /* Assets.xcassets */,
+				34C0FA92938631140B59D6F0 /* Models */,
+				7840A4D36286506EDDBB63A1 /* Services */,
+				4DCF1B2877C29A0C9EB21E0F /* Theme */,
+				C93DB0899B2156B52CECB90C /* ViewModels */,
+				09B811C317BB244C6C949056 /* Views */,
+			);
+			path = Merry360xMobile;
+			sourceTree = "<group>";
+		};
+		C57BA78944AFA1FCE2FD32D6 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				E809988FC41F1B3657048F39 /* Merry360xMobile.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C93DB0899B2156B52CECB90C /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				D359D4564538296F3AB3F12A /* AppSessionViewModel.swift */,
+				B9F4D0EAC6D902A804927861 /* AuthViewModel.swift */,
+				CAE9262697C5E30B41AE35BE /* BookingViewModel.swift */,
+				4DD18EF3045B726AD6A6D975 /* HomeViewModel.swift */,
+				599AE31AD23EFEECD1843F3E /* HostToolsViewModel.swift */,
+				77636B02989465BD7663874E /* InboxViewModel.swift */,
+				FA614F0B66243FFD253411A1 /* ProfileViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		361EE950A359E91BA700752B /* Merry360xMobile */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 521AF3D6F4E4143C1CF9B0CD /* Build configuration list for PBXNativeTarget "Merry360xMobile" */;
+			buildPhases = (
+				A534A91E559A83BD5861D252 /* Sources */,
+                C07A6E8A57C94A5E93BB48E3 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Merry360xMobile;
+			packageProductDependencies = (
+			);
+			productName = Merry360xMobile;
+			productReference = E809988FC41F1B3657048F39 /* Merry360xMobile.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		3FCE7520ECD3713A75489FE3 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+			};
+			buildConfigurationList = 5C2067BAD3BDF79CB094A44F /* Build configuration list for PBXProject "Merry360xMobile" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 04704092F9F5828683ED4094;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				361EE950A359E91BA700752B /* Merry360xMobile */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C07A6E8A57C94A5E93BB48E3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0A3C6D629E1B4F58A4E20F91 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A534A91E559A83BD5861D252 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DAD35C172E57680A55FEC815 /* AppSessionViewModel.swift in Sources */,
+				3295A0E2FC59873DF5E80523 /* AppTheme.swift in Sources */,
+				D809C0A54C3972DE2C33BB3F /* AuthBottomSheet.swift in Sources */,
+				68618D35722E93986F42E910 /* AuthViewModel.swift in Sources */,
+				F9E6A5BB5B74BA3D627C1C38 /* BookingDraft.swift in Sources */,
+				5689EF06DB23EFB89B126664 /* BookingView.swift in Sources */,
+				422414FB0856104EC576119A /* BookingViewModel.swift in Sources */,
+				4C35B4FC73B7C321FEDD9536 /* HomeView.swift in Sources */,
+				75A4B0AAE71C1884AE09EA4E /* HomeViewModel.swift in Sources */,
+				08FBBAD1C80ACA3C8D65F5B3 /* HostToolsView.swift in Sources */,
+				FD88A0FB4003C44239AA4EEB /* HostToolsViewModel.swift in Sources */,
+				8661137F6CFEA7BBB8CA569D /* InboxView.swift in Sources */,
+				26141A3BC466FF978547B9BD /* InboxViewModel.swift in Sources */,
+				422AAB082AF537995B732FCB /* Listing.swift in Sources */,
+				1BBA957812AC4C3AAF19D2BB /* ListingDetailView.swift in Sources */,
+				6F0C21133C8B6AC71E521053 /* LoginView.swift in Sources */,
+				EEC489351B1489A769D984FA /* Merry360xMobileApp.swift in Sources */,
+				BA0D7686C9419056D0BF840B /* MerryAIView.swift in Sources */,
+				8F976848687AD181576D8377 /* MobileConfig.swift in Sources */,
+				4647ED51BB1AD9A61FC23A3C /* ProfileView.swift in Sources */,
+				79E34F5E611F2B22AB186340 /* ProfileViewModel.swift in Sources */,
+				343DA4B68585E4BBD0F8AA45 /* SearchSheet.swift in Sources */,
+				C73E16CFAE66FC1E5CE8C7B2 /* SupabaseService.swift in Sources */,
+				EA6E06132CB8669D2D0A16E3 /* TripCartView.swift in Sources */,
+				6DFE81E18CEFBFC5B77A9570 /* WishlistsView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		10AE5237D4674A975960AE54 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		5F37DB314120CE730AF978F1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Merry360x;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.merry360x.mobile;
+				PRODUCT_NAME = Merry360xMobile;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		76E8EF9EF331FCD015D9A1D6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Merry360x;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.merry360x.mobile;
+				PRODUCT_NAME = Merry360xMobile;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		AECD183C3F5E1C8051C5C165 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		521AF3D6F4E4143C1CF9B0CD /* Build configuration list for PBXNativeTarget "Merry360xMobile" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				76E8EF9EF331FCD015D9A1D6 /* Debug */,
+				5F37DB314120CE730AF978F1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		5C2067BAD3BDF79CB094A44F /* Build configuration list for PBXProject "Merry360xMobile" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AECD183C3F5E1C8051C5C165 /* Debug */,
+				10AE5237D4674A975960AE54 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 3FCE7520ECD3713A75489FE3 /* Project object */;
+}

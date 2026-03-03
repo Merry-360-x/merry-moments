@@ -142,7 +142,11 @@ export default function SearchResults() {
     };
   };
 
-  const mapToTourProps = (item: any) => ({
+  const mapToTourProps = (item: any) => {
+    const pricingMetadata = item.pricing_tiers;
+    const pricingModel = getTourPricingModel(pricingMetadata);
+
+    return {
     id: item.id,
     title: item.title || item.name || '',
     location: item.location || null,
@@ -152,11 +156,17 @@ export default function SearchResults() {
     rating: item.rating || null,
     reviewCount: item.review_count || null,
     category: item.category || null,
-    durationDays: item.duration_days || null,
-    pricingModel: getTourPricingModel(item.pricing_tiers),
+    durationDays: item.duration_days || Number.parseInt(String(item.duration || ""), 10) || null,
+    pricingDurationValue:
+      pricingModel === "per_hour" || pricingModel === "per_minute"
+        ? Number(pricingMetadata?.pricing_duration_value || 0) || null
+        : null,
+    pricingDurationUnit: pricingModel === "per_hour" ? "hour" : pricingModel === "per_minute" ? "minute" : null,
+    pricingModel,
     source: item.searchType === 'tour_package' ? 'tour_packages' as const : 'tours' as const,
     hostId: item.created_by || item.host_id || null,
-  });
+    };
+  };
 
   const mapToTransportProps = (item: any) => ({
     id: item.id,

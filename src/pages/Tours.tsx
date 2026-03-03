@@ -436,6 +436,13 @@ const Tours = () => {
 
                   <div className="flex items-center justify-between gap-2 md:gap-3">
                     <div className="text-foreground">
+                      {(() => {
+                        const pricingModel = getTourPricingModel(tour.pricing_tiers);
+                        const pricingDurationValue = Number((tour.pricing_tiers as any)?.pricing_duration_value || 0);
+                        const pricingDurationUnit = pricingModel === "per_hour" ? "hour" : pricingModel === "per_minute" ? "minute" : null;
+
+                        return (
+                          <>
                       <span className="font-bold text-sm md:text-base">
                         {(() => {
                           const amt = Number(tour.price_per_person);
@@ -444,7 +451,13 @@ const Tours = () => {
                           return formatMoney(converted ?? amt, converted !== null ? preferredCurrency : from);
                         })()}
                       </span>
-                      <span className="text-[10px] md:text-sm text-muted-foreground"> {getTourPriceSuffix(getTourPricingModel(tour.pricing_tiers))}</span>
+                      <span className="text-[10px] md:text-sm text-muted-foreground"> {getTourPriceSuffix(pricingModel)}</span>
+                      {pricingDurationValue > 0 && pricingDurationUnit && (
+                        <span className="text-[10px] md:text-sm text-muted-foreground"> · {pricingDurationValue} {pricingDurationValue === 1 ? pricingDurationUnit : `${pricingDurationUnit}s`}</span>
+                      )}
+                          </>
+                        );
+                      })()}
                     </div>
                     <Button 
                       variant="outline" 

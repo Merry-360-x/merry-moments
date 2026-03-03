@@ -90,21 +90,31 @@ export function PersonalizedRecommendations({
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mapToTourProps = (item: any) => ({
-    id: item.id,
-    title: item.title || item.name || '',
-    location: item.location || null,
-    price: item.price_per_person ?? item.price_per_adult ?? item.base_price ?? 0,
-    currency: item.currency ?? item.base_currency ?? null,
-    images: item.images ?? item.gallery_images ?? (item.cover_image ? [item.cover_image] : null),
-    rating: item.rating || null,
-    reviewCount: item.review_count || null,
-    category: item.category || null,
-    durationDays: item.duration_days || null,
-    pricingModel: getTourPricingModel(item.pricing_tiers),
-    source: item.source as 'tours' | 'tour_packages' | undefined,
-    hostId: item.created_by || item.host_id || null,
-  });
+  const mapToTourProps = (item: any) => {
+    const pricingMetadata = item.pricing_tiers;
+    const pricingModel = getTourPricingModel(pricingMetadata);
+
+    return {
+      id: item.id,
+      title: item.title || item.name || '',
+      location: item.location || null,
+      price: item.price_per_person ?? item.price_per_adult ?? item.base_price ?? 0,
+      currency: item.currency ?? item.base_currency ?? null,
+      images: item.images ?? item.gallery_images ?? (item.cover_image ? [item.cover_image] : null),
+      rating: item.rating || null,
+      reviewCount: item.review_count || null,
+      category: item.category || null,
+      durationDays: item.duration_days || Number.parseInt(String(item.duration || ""), 10) || null,
+      pricingDurationValue:
+        pricingModel === "per_hour" || pricingModel === "per_minute"
+          ? Number(pricingMetadata?.pricing_duration_value || 0) || null
+          : null,
+      pricingDurationUnit: pricingModel === "per_hour" ? "hour" : pricingModel === "per_minute" ? "minute" : null,
+      pricingModel,
+      source: item.source as 'tours' | 'tour_packages' | undefined,
+      hostId: item.created_by || item.host_id || null,
+    };
+  };
 
   if (isLoading) {
     return (
@@ -310,20 +320,30 @@ export function SimilarItems({ itemId, itemType, limit = 4 }: SimilarItemsProps)
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mapToTourProps = (item: any) => ({
-    id: item.id,
-    title: item.title || item.name || '',
-    location: item.location || null,
-    price: item.price_per_person || item.price_per_adult || 0,
-    currency: item.currency || null,
-    images: item.images || null,
-    rating: item.rating || null,
-    reviewCount: item.review_count || null,
-    category: item.category || null,
-    durationDays: item.duration_days || null,
-    pricingModel: getTourPricingModel(item.pricing_tiers),
-    hostId: item.created_by || item.host_id || null,
-  });
+  const mapToTourProps = (item: any) => {
+    const pricingMetadata = item.pricing_tiers;
+    const pricingModel = getTourPricingModel(pricingMetadata);
+
+    return {
+      id: item.id,
+      title: item.title || item.name || '',
+      location: item.location || null,
+      price: item.price_per_person || item.price_per_adult || 0,
+      currency: item.currency || null,
+      images: item.images || null,
+      rating: item.rating || null,
+      reviewCount: item.review_count || null,
+      category: item.category || null,
+      durationDays: item.duration_days || Number.parseInt(String(item.duration || ""), 10) || null,
+      pricingDurationValue:
+        pricingModel === "per_hour" || pricingModel === "per_minute"
+          ? Number(pricingMetadata?.pricing_duration_value || 0) || null
+          : null,
+      pricingDurationUnit: pricingModel === "per_hour" ? "hour" : pricingModel === "per_minute" ? "minute" : null,
+      pricingModel,
+      hostId: item.created_by || item.host_id || null,
+    };
+  };
 
   if (isLoading) {
     return (

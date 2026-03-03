@@ -15,6 +15,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { formatMoney } from "@/lib/money";
+import { getTourPriceSuffix, getTourPricingModel } from "@/lib/tour-pricing";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { Eye, Download, FileText, DollarSign, AlertCircle } from "lucide-react";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -61,6 +62,7 @@ type TourRow = {
   is_published: boolean | null;
   created_at: string;
   source?: "tours" | "tour_packages";
+  pricing_tiers?: unknown;
 };
 
 type TransportVehicleRow = {
@@ -280,12 +282,12 @@ export default function StaffDashboard() {
       const [toursRes, packagesRes] = await Promise.all([
         supabase
           .from("tours")
-          .select("id, title, location, price_per_person, currency, is_published, created_at")
+          .select("id, title, location, price_per_person, currency, is_published, created_at, pricing_tiers")
           .order("created_at", { ascending: false })
           .limit(200),
         supabase
           .from("tour_packages")
-          .select("id, title, city, country, price_per_adult, currency, status, created_at")
+          .select("id, title, city, country, price_per_adult, currency, status, created_at, pricing_tiers")
           .order("created_at", { ascending: false })
           .limit(200)
       ]);
@@ -305,6 +307,7 @@ export default function StaffDashboard() {
         currency: pkg.currency,
         is_published: pkg.status === 'approved',
         created_at: pkg.created_at,
+        pricing_tiers: pkg.pricing_tiers,
         source: "tour_packages" as const
       }));
       
@@ -1040,7 +1043,18 @@ For support, contact: support@merry360x.com
                         )}
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        {t.location ?? "(no location)"} · {formatMoney(t.price_per_person ?? 0, t.currency ?? "USD")}
+                        {(() => {
+                          const pricingModel = getTourPricingModel(t.pricing_tiers);
+                          const pricingDurationValue = Number((t.pricing_tiers as { pricing_duration_value?: number } | null)?.pricing_duration_value || 0);
+                          const pricingDurationUnit = pricingModel === "per_hour" ? "hour" : pricingModel === "per_minute" ? "minute" : null;
+
+                          return (
+                            <>
+                              {t.location ?? "(no location)"} · {formatMoney(t.price_per_person ?? 0, t.currency ?? "USD")} {getTourPriceSuffix(pricingModel)}
+                              {pricingDurationValue > 0 && pricingDurationUnit ? ` · ${pricingDurationValue} ${pricingDurationValue === 1 ? pricingDurationUnit : `${pricingDurationUnit}s`}` : ""}
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -1503,9 +1517,20 @@ For support, contact: support@merry360x.com
                     <p>{selectedTour.location || 'N/A'}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Price per Person</p>
+                    <p className="text-sm text-muted-foreground">Price</p>
                     <p className="font-medium">
-                      {formatMoney(selectedTour.price_per_person || 0, selectedTour.currency || 'RWF')}
+                      {(() => {
+                        const pricingModel = getTourPricingModel(selectedTour.pricing_tiers);
+                        const pricingDurationValue = Number((selectedTour.pricing_tiers as { pricing_duration_value?: number } | null)?.pricing_duration_value || 0);
+                        const pricingDurationUnit = pricingModel === "per_hour" ? "hour" : pricingModel === "per_minute" ? "minute" : null;
+
+                        return (
+                          <>
+                            {formatMoney(selectedTour.price_per_person || 0, selectedTour.currency || 'RWF')} {getTourPriceSuffix(pricingModel)}
+                            {pricingDurationValue > 0 && pricingDurationUnit ? ` · ${pricingDurationValue} ${pricingDurationValue === 1 ? pricingDurationUnit : `${pricingDurationUnit}s`}` : ""}
+                          </>
+                        );
+                      })()}
                     </p>
                   </div>
                   <div>

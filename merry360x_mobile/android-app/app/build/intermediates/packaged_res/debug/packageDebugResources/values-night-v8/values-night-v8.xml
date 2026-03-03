@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Merry360xMobile" parent="Theme.Material3.DayNight.NoActionBar"/>
+    <style name="Theme.Merry360xMobile.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/ic_launcher_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo</item>
+        <item name="windowSplashScreenAnimationDuration">180</item>
+        <item name="postSplashScreenTheme">@style/Theme.Merry360xMobile</item>
+    </style>
+</resources>

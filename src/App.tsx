@@ -453,9 +453,9 @@ const App = () => (
               <Route
                 path="/create-story"
                 element={
-                  <RequireAuth>
+                  <RequireRole allowed={["host", "admin"]}>
                     <CreateStory />
-                  </RequireAuth>
+                  </RequireRole>
                 }
               />
               <Route

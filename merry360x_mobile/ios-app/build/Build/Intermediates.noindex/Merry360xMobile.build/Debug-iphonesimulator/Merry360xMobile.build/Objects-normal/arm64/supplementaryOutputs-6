@@ -1,0 +1,23 @@
+{
+  "/Users/davy/merry-moments/merry360x_mobile/ios-app/Merry360xMobile/Merry360xMobileApp.swift" : {
+    "const-values" : "/Users/davy/merry-moments/merry360x_mobile/ios-app/build/Build/Intermediates.noindex/Merry360xMobile.build/Debug-iphonesimulator/Merry360xMobile.build/Objects-normal/arm64/Merry360xMobileApp.swiftconstvalues",
+    "dependencies" : "/Users/davy/merry-moments/merry360x_mobile/ios-app/build/Build/Intermediates.noindex/Merry360xMobile.build/Debug-iphonesimulator/Merry360xMobile.build/Objects-normal/arm64/Merry360xMobileApp.d",
+    "diagnostics" : "/Users/davy/merry-moments/merry360x_mobile/ios-app/build/Build/Intermediates.noindex/Merry360xMobile.build/Debug-iphonesimulator/Merry360xMobile.build/Objects-normal/arm64/Merry360xMobileApp.dia",
+    "object" : "/Users/davy/merry-moments/merry360x_mobile/ios-app/build/Build/Intermediates.noindex/Merry360xMobile.build/Debug-iphonesimulator/Merry360xMobile.build/Objects-normal/arm64/Merry360xMobileApp.o",
+    "swift-dependencies" : "/Users/davy/merry-moments/merry360x_mobile/ios-app/build/Build/Intermediates.noindex/Merry360xMobile.build/Debug-iphonesimulator/Merry360xMobile.build/Objects-normal/arm64/Merry360xMobileApp.swiftdeps"
+  },
+  "/Users/davy/merry-moments/merry360x_mobile/ios-app/Merry360xMobile/Views/LoginView.swift" : {
+    "const-values" : "/Users/davy/merry-moments/merry360x_mobile/ios-app/build/Build/Intermediates.noindex/Merry360xMobile.build/Debug-iphonesimulator/Merry360xMobile.build/Objects-normal/arm64/LoginView.swiftconstvalues",
+    "dependencies" : "/Users/davy/merry-moments/merry360x_mobile/ios-app/build/Build/Intermediates.noindex/Merry360xMobile.build/Debug-iphonesimulator/Merry360xMobile.build/Objects-normal/arm64/LoginView.d",
+    "diagnostics" : "/Users/davy/merry-moments/merry360x_mobile/ios-app/build/Build/Intermediates.noindex/Merry360xMobile.build/Debug-iphonesimulator/Merry360xMobile.build/Objects-normal/arm64/LoginView.dia",
+    "object" : "/Users/davy/merry-moments/merry360x_mobile/ios-app/build/Build/Intermediates.noindex/Merry360xMobile.build/Debug-iphonesimulator/Merry360xMobile.build/Objects-normal/arm64/LoginView.o",
+    "swift-dependencies" : "/Users/davy/merry-moments/merry360x_mobile/ios-app/build/Build/Intermediates.noindex/Merry360xMobile.build/Debug-iphonesimulator/Merry360xMobile.build/Objects-normal/arm64/LoginView.swiftdeps"
+  },
+  "/Users/davy/merry-moments/merry360x_mobile/ios-app/Merry360xMobile/Views/MerryAIView.swift" : {
+    "const-values" : "/Users/davy/merry-moments/merry360x_mobile/ios-app/build/Build/Intermediates.noindex/Merry360xMobile.build/Debug-iphonesimulator/Merry360xMobile.build/Objects-normal/arm64/MerryAIView.swiftconstvalues",
+    "dependencies" : "/Users/davy/merry-moments/merry360x_mobile/ios-app/build/Build/Intermediates.noindex/Merry360xMobile.build/Debug-iphonesimulator/Merry360xMobile.build/Objects-normal/arm64/MerryAIView.d",
+    "diagnostics" : "/Users/davy/merry-moments/merry360x_mobile/ios-app/build/Build/Intermediates.noindex/Merry360xMobile.build/Debug-iphonesimulator/Merry360xMobile.build/Objects-normal/arm64/MerryAIView.dia",
+    "object" : "/Users/davy/merry-moments/merry360x_mobile/ios-app/build/Build/Intermediates.noindex/Merry360xMobile.build/Debug-iphonesimulator/Merry360xMobile.build/Objects-normal/arm64/MerryAIView.o",
+    "swift-dependencies" : "/Users/davy/merry-moments/merry360x_mobile/ios-app/build/Build/Intermediates.noindex/Merry360xMobile.build/Debug-iphonesimulator/Merry360xMobile.build/Objects-normal/arm64/MerryAIView.swiftdeps"
+  }
+}

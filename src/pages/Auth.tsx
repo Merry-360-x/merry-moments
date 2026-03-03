@@ -11,6 +11,7 @@ import { Eye, EyeOff, Phone, Mail, Loader2, CheckCircle2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { LoyaltyPointsPopup } from "@/components/LoyaltyPointsPopup";
+import { getPreferredDashboardPath } from "@/lib/role-dashboard";
 
 const SIGNUP_STORAGE_KEY = 'signup_form_progress';
 
@@ -213,7 +214,7 @@ const Auth = () => {
   const [showPointsPopup, setShowPointsPopup] = useState(false);
   const [pendingRedirect, setPendingRedirect] = useState<string | null>(null);
 
-  const { signIn, signUp, user, isLoading: authLoading } = useAuth();
+  const { signIn, signUp, user, isLoading: authLoading, roles, rolesLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -320,12 +321,13 @@ const Auth = () => {
     return raw;
   })();
 
+  const defaultPostAuthPath = getPreferredDashboardPath(roles) ?? "/";
+
   // Redirect authenticated users away from auth page (but not during popup)
   useEffect(() => {
-    if (!authLoading && user && !showPointsPopup) {
-      navigate(redirectTo ?? "/", { replace: true });
-    }
-  }, [user, authLoading, navigate, redirectTo, showPointsPopup]);
+    if (authLoading || rolesLoading || !user || showPointsPopup) return;
+    navigate(redirectTo ?? defaultPostAuthPath, { replace: true });
+  }, [user, authLoading, rolesLoading, navigate, redirectTo, showPointsPopup, defaultPostAuthPath]);
 
   // Handle popup close - navigate after popup
   const handlePointsPopupClose = () => {
@@ -335,7 +337,7 @@ const Auth = () => {
       description: "Your account has been created successfully.",
       duration: 2000
     });
-    navigate(pendingRedirect ?? "/", { replace: true });
+    navigate(pendingRedirect ?? defaultPostAuthPath, { replace: true });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -417,7 +419,7 @@ const Auth = () => {
         } else {
           // Signed in immediately - show loyalty popup then navigate
           clearSignupProgress();
-          setPendingRedirect(redirectTo ?? "/");
+          setPendingRedirect(redirectTo ?? defaultPostAuthPath);
           setShowPointsPopup(true);
         }
       }

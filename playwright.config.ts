@@ -22,4 +22,10 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
+  webServer: {
+    command: "npm run dev -- --host 127.0.0.1 --port 8080",
+    url: "http://127.0.0.1:8080",
+    reuseExistingServer: true,
+    timeout: 120_000,
+  },
 });

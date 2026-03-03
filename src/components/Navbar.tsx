@@ -37,6 +37,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTripCart } from "@/hooks/useTripCart";
 import { useQuery } from "@tanstack/react-query";
 import { normalizeAdminMetrics } from "@/lib/admin-metrics";
+import { getPreferredDashboardPath } from "@/lib/role-dashboard";
 
 const navLinks = [
   { key: "nav.home", path: "/" },
@@ -67,7 +68,7 @@ const BOOKING_DECISION_SEEN_KEY = "guest_booking_decision_seen_at";
 const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, signOut, isHost, isAdmin, isStaff, isFinancialStaff, isOperationsStaff, isCustomerSupport } = useAuth();
+  const { user, signOut, roles, isHost, isAdmin, isStaff, isFinancialStaff, isOperationsStaff, isCustomerSupport } = useAuth();
   const { guestCart } = useTripCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [decisionSeenAt, setDecisionSeenAt] = useState<string>(() => {
@@ -236,6 +237,8 @@ const Navbar = () => {
       return Number.isFinite(dt.getTime()) && dt > seenDate;
     }).length;
   }, [bookingDecisions, decisionSeenAt]);
+
+  const primaryDashboardPath = useMemo(() => getPreferredDashboardPath(roles), [roles]);
 
   return (
     <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
@@ -464,9 +467,9 @@ const Navbar = () => {
                     {user.email}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate("/dashboard")}>
+                  <DropdownMenuItem onClick={() => navigate(primaryDashboardPath ?? "/dashboard")}>
                     <User className="w-4 h-4 mr-2" />
-                    My Profile
+                    {primaryDashboardPath ? "My Dashboard" : "My Profile"}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/my-bookings")} className="relative">
                     <User className="w-4 h-4 mr-2" />
@@ -680,10 +683,10 @@ const Navbar = () => {
                         className="justify-start gap-2"
                         onClick={() => {
                           setMobileMenuOpen(false);
-                          navigate("/dashboard");
+                          navigate(primaryDashboardPath ?? "/dashboard");
                         }}
                       >
-                        <User className="w-4 h-4" /> Profile
+                        <User className="w-4 h-4" /> {primaryDashboardPath ? "Dashboard" : "Profile"}
                       </Button>
                       <Button
                         variant="outline"

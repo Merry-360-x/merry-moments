@@ -59,7 +59,7 @@ type SavedRow = {
 const isoToday = () => new Date().toISOString().slice(0, 10);
 
 export default function Dashboard() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, roles } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -229,6 +229,10 @@ export default function Dashboard() {
     return `${cal} · ${pretty} ago`;
   }, [profile?.created_at]);
 
+  const canCreateStory = useMemo(() => {
+    return roles.includes("host") || roles.includes("admin");
+  }, [roles]);
+
   const upcomingBookings = useMemo(() => {
     const today = isoToday();
     return bookings.filter((b) => String(b.check_in) >= today);
@@ -297,12 +301,14 @@ export default function Dashboard() {
               <h1 className="text-2xl lg:text-3xl font-bold text-foreground">My Profile</h1>
               <p className="text-muted-foreground">Manage your account information and preferences</p>
             </div>
-            <Link to="/create-story">
-              <Button className="gap-2">
-                <PlusCircle className="w-4 h-4" />
-                Add Story
-              </Button>
-            </Link>
+            {canCreateStory ? (
+              <Link to="/create-story">
+                <Button className="gap-2">
+                  <PlusCircle className="w-4 h-4" />
+                  Add Story
+                </Button>
+              </Link>
+            ) : null}
           </div>
         </div>
 
@@ -397,6 +403,15 @@ export default function Dashboard() {
                 <span className="font-semibold text-foreground">{memberSince ?? "—"}</span>
           </div>
         </div>
+
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <Link to="/my-bookings">
+                <Button variant="outline" className="w-full">My Bookings</Button>
+              </Link>
+              <Link to="/favorites">
+                <Button variant="outline" className="w-full">Favorites</Button>
+              </Link>
+            </div>
 
             <Button
               variant="outline"
@@ -688,7 +703,7 @@ export default function Dashboard() {
                     <Shield className="w-5 h-5 text-muted-foreground mt-1" />
         </div>
 
-                  <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="mt-6 grid grid-cols-1 gap-4">
                     <Card className="p-5">
                       <div className="text-sm text-muted-foreground">Email</div>
                       <div className="font-semibold text-foreground mt-1 break-all">{user?.email}</div>
@@ -718,23 +733,6 @@ export default function Dashboard() {
                       >
                         <Mail className="w-4 h-4 mr-2" />
                         {resetting ? "Sending..." : "Send reset email"}
-                      </Button>
-                    </Card>
-                    <Card className="p-5">
-                      <div className="text-sm text-muted-foreground">Sign out</div>
-                      <div className="text-sm text-muted-foreground mt-1">
-                        If you suspect suspicious activity, sign out and sign back in.
-                      </div>
-                      <Button
-                        variant="outline"
-                        className="mt-4"
-                        onClick={async () => {
-                          await signOut();
-                          navigate("/");
-                        }}
-                      >
-                        <LogOut className="w-4 h-4 mr-2" />
-                        Sign out
                       </Button>
                     </Card>
                   </div>

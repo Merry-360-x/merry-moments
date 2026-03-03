@@ -1,0 +1,25 @@
+name: Merry360xMobile
+options:
+  minimumXcodeGenVersion: 2.38.0
+settings:
+  base:
+    SWIFT_VERSION: 5.0
+    IPHONEOS_DEPLOYMENT_TARGET: 16.0
+targets:
+  Merry360xMobile:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: Merry360xMobile
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.merry360x.mobile
+        PRODUCT_NAME: Merry360xMobile
+        INFOPLIST_KEY_CFBundleDisplayName: Merry360x
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        GENERATE_INFOPLIST_FILE: YES
+        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: 1.0
+    scheme:
+      testTargets: []

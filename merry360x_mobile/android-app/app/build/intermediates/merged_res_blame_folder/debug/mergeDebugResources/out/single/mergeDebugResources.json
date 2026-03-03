@@ -1,0 +1,82 @@
+[
+    {
+        "merged": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-debug-65:/mipmap-xxhdpi_ic_launcher.png.flat",
+        "source": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-main-67:/mipmap-xxhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-debug-65:/mipmap-hdpi_ic_launcher.png.flat",
+        "source": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-main-67:/mipmap-hdpi/ic_launcher.png"
+    },
+    {
+        "merged": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-debug-65:/mipmap-anydpi-v26_ic_launcher_round.xml.flat",
+        "source": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-main-67:/mipmap-anydpi-v26/ic_launcher_round.xml"
+    },
+    {
+        "merged": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-debug-65:/drawable_ic_launcher_background.xml.flat",
+        "source": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-main-67:/drawable/ic_launcher_background.xml"
+    },
+    {
+        "merged": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-debug-65:/mipmap-xxhdpi_ic_launcher_round.png.flat",
+        "source": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-main-67:/mipmap-xxhdpi/ic_launcher_round.png"
+    },
+    {
+        "merged": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-debug-65:/drawable_ic_nav_tripcart.xml.flat",
+        "source": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-main-67:/drawable/ic_nav_tripcart.xml"
+    },
+    {
+        "merged": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-debug-65:/mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-main-67:/mipmap-anydpi-v26/ic_launcher.xml"
+    },
+    {
+        "merged": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-debug-65:/mipmap-mdpi_ic_launcher.png.flat",
+        "source": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-main-67:/mipmap-mdpi/ic_launcher.png"
+    },
+    {
+        "merged": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-debug-65:/drawable_ic_nav_ai.xml.flat",
+        "source": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-main-67:/drawable/ic_nav_ai.xml"
+    },
+    {
+        "merged": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-debug-65:/mipmap-mdpi_ic_launcher_round.png.flat",
+        "source": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-main-67:/mipmap-mdpi/ic_launcher_round.png"
+    },
+    {
+        "merged": "com.merry360x.mobile.app-debug-65:/drawable_ic_nav_profile.xml.flat",
+        "source": "com.merry360x.mobile.app-main-67:/drawable/ic_nav_profile.xml"
+    },
+    {
+        "merged": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-debug-65:/drawable_ic_launcher_foreground.xml.flat",
+        "source": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-main-67:/drawable/ic_launcher_foreground.xml"
+    },
+    {
+        "merged": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-debug-65:/drawable_ic_nav_profile.xml.flat",
+        "source": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-main-67:/drawable/ic_nav_profile.xml"
+    },
+    {
+        "merged": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-debug-65:/mipmap-xxxhdpi_ic_launcher.png.flat",
+        "source": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-main-67:/mipmap-xxxhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-debug-65:/mipmap-xhdpi_ic_launcher.png.flat",
+        "source": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-main-67:/mipmap-xhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-debug-65:/drawable_ic_splash_logo.xml.flat",
+        "source": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-main-67:/drawable/ic_splash_logo.xml"
+    },
+    {
+        "merged": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-debug-65:/drawable_ic_nav_explore.xml.flat",
+        "source": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-main-67:/drawable/ic_nav_explore.xml"
+    },
+    {
+        "merged": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-debug-65:/mipmap-hdpi_ic_launcher_round.png.flat",
+        "source": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-main-67:/mipmap-hdpi/ic_launcher_round.png"
+    },
+    {
+        "merged": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-debug-65:/mipmap-xhdpi_ic_launcher_round.png.flat",
+        "source": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-main-67:/mipmap-xhdpi/ic_launcher_round.png"
+    },
+    {
+        "merged": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-debug-65:/mipmap-xxxhdpi_ic_launcher_round.png.flat",
+        "source": "/Users/davy/.gradle/daemon/9.0.0/com.merry360x.mobile.app-main-67:/mipmap-xxxhdpi/ic_launcher_round.png"
+    }
+]

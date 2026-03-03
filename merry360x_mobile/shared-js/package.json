@@ -1,0 +1,13 @@
+{
+  "name": "merry360x-mobile-shared",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "check": "node -e \"import('./src/index.js').then(()=>console.log('shared-js ok'))\""
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.90.1"
+  }
+}

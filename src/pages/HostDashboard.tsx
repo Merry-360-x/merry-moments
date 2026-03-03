@@ -4648,7 +4648,30 @@ export default function HostDashboard() {
                 {isTourPackage ? `${tour.city || ''} • ${tour.duration || ''}` : tour.location}
               </p>
               <div className="flex items-center justify-between mt-3">
-                <span className="text-primary font-bold">{formatMoney(form.price_per_person, form.currency || "RWF")}</span>
+                <span className="text-primary font-bold">
+                  {(() => {
+                    const pricingModel = getTourPricingModel((form as any)?.pricing_tiers);
+                    const pricingDurationValue = Number(((form as any)?.pricing_tiers as any)?.pricing_duration_value || 0);
+                    const pricingDurationUnit = pricingModel === "per_hour" ? "hour" : pricingModel === "per_minute" ? "minute" : null;
+                    const suffix = pricingModel === "per_group"
+                      ? "per group"
+                      : pricingModel === "per_hour"
+                        ? "per hour"
+                        : pricingModel === "per_minute"
+                          ? "per minute"
+                          : "per person";
+
+                    return (
+                      <>
+                        {formatMoney(form.price_per_person, form.currency || "RWF")}
+                        <span className="text-xs text-muted-foreground font-normal ml-1">{suffix}</span>
+                        {pricingDurationValue > 0 && pricingDurationUnit && (
+                          <span className="text-xs text-muted-foreground font-normal ml-1">· {pricingDurationValue} {pricingDurationValue === 1 ? pricingDurationUnit : `${pricingDurationUnit}s`}</span>
+                        )}
+                      </>
+                    );
+                  })()}
+                </span>
                 <div className="flex gap-1 flex-wrap justify-end">
                   <Button size="sm" variant="outline" onClick={() => navigate(`/tours/${tour.id}`)}>
                     View

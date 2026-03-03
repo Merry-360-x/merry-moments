@@ -214,10 +214,34 @@ export default function TourDetails() {
     ? tour?.non_refundable_items
     : [];
   const pricingModel = getTourPricingModel((tour as any)?.pricing_tiers);
+  const pricingMetadata = (tour as any)?.pricing_tiers;
+  const isTimeBasedPricing = pricingModel === "per_hour" || pricingModel === "per_minute";
+
+  const timePricingTiers = ((): Array<{ duration_value: number; duration_unit: "minute" | "hour"; price: number }> => {
+    const raw = pricingMetadata?.time_pricing_tiers;
+    if (!Array.isArray(raw)) return [];
+
+    return raw
+      .map((tier: any) => ({
+        duration_value: Math.max(0, Number(tier?.duration_value) || 0),
+        duration_unit: tier?.duration_unit === "hour" ? "hour" : "minute",
+        price: Number(tier?.price) || 0,
+      }))
+      .filter((tier) => tier.duration_value > 0 && tier.price > 0)
+      .sort((a, b) => {
+        const aMinutes = a.duration_unit === "hour" ? a.duration_value * 60 : a.duration_value;
+        const bMinutes = b.duration_unit === "hour" ? b.duration_value * 60 : b.duration_value;
+        return aMinutes - bMinutes;
+      });
+  })();
+
+  const configuredDurationValue = Number(pricingMetadata?.pricing_duration_value || 0);
+  const configuredDurationUnit: "minute" | "hour" | null =
+    pricingModel === "per_hour" ? "hour" : pricingModel === "per_minute" ? "minute" : null;
 
   // Support pricing tiers for both regular tours and tour packages
   const pricingTiers = ((): Array<{ group_size: number; price_per_person: number }> => {
-    const raw = (tour as any)?.pricing_tiers;
+    const raw = Array.isArray(pricingMetadata) ? pricingMetadata : pricingMetadata?.tiers;
     if (!Array.isArray(raw)) return [];
 
     return raw
@@ -584,7 +608,30 @@ export default function TourDetails() {
                   {displayMoney(Number(normalizedPrice ?? 0), String(normalizedCurrency ?? "RWF"))}
                 </div>
                 <div className="text-sm text-muted-foreground">{getTourPriceSuffix(pricingModel)}</div>
+                {isTimeBasedPricing && configuredDurationUnit && configuredDurationValue > 0 && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {t("tourDetails.forSelectedDuration", "for selected duration")}: {configuredDurationValue} {configuredDurationValue === 1 ? configuredDurationUnit : `${configuredDurationUnit}s`}
+                  </div>
+                )}
               </div>
+
+              {timePricingTiers.length > 0 && (
+                <div className="mb-6">
+                  <div className="text-sm font-semibold text-foreground">{t("tourDetails.pricingByDuration", "Pricing by Duration")}</div>
+                  <div className="mt-3 space-y-2">
+                    {timePricingTiers.map((tier, index) => (
+                      <div key={`${tier.duration_value}-${tier.duration_unit}-${index}`} className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">
+                          {tier.duration_value} {tier.duration_value === 1 ? tier.duration_unit : `${tier.duration_unit}s`}
+                        </span>
+                        <span className="font-semibold text-foreground">
+                          {displayMoney(Number(tier.price), String(normalizedCurrency ?? "RWF"))}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Residency-based pricing */}
               {(tour as any)?.has_differential_pricing && (

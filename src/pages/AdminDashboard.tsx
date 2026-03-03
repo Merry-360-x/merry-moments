@@ -20,6 +20,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatMoney } from "@/lib/money";
+import { getTourPriceSuffix, getTourPricingModel } from "@/lib/tour-pricing";
 import { normalizeAdminMetrics } from "@/lib/admin-metrics";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import {
@@ -165,6 +166,7 @@ type TourRow = {
   created_by: string | null;
   created_at: string;
   source?: "tours" | "tour_packages";
+  pricing_tiers?: unknown;
 };
 
 type TransportVehicleRow = {
@@ -872,12 +874,12 @@ export default function AdminDashboard() {
       const [toursRes, packagesRes] = await Promise.all([
         supabase
           .from("tours")
-          .select("id, title, location, price_per_person, currency, is_published, images, created_by, created_at")
+          .select("id, title, location, price_per_person, currency, is_published, images, created_by, created_at, pricing_tiers")
           .order("created_at", { ascending: false })
           .limit(300),
         supabase
           .from("tour_packages")
-          .select("id, title, city, country, price_per_adult, currency, status, cover_image, gallery_images, host_id, created_at")
+          .select("id, title, city, country, price_per_adult, currency, status, cover_image, gallery_images, host_id, created_at, pricing_tiers")
           .order("created_at", { ascending: false })
           .limit(300)
       ]);
@@ -899,6 +901,7 @@ export default function AdminDashboard() {
         images: [pkg.cover_image, ...(Array.isArray(pkg.gallery_images) ? pkg.gallery_images : [])].filter(Boolean) as string[],
         created_by: pkg.host_id,
         created_at: pkg.created_at,
+        pricing_tiers: pkg.pricing_tiers,
         source: "tour_packages" as const
       }));
       
@@ -4054,7 +4057,23 @@ For support, contact: support@merry360x.com
                           )}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{t.location || "—"}</TableCell>
-                        <TableCell>{formatMoney(t.price_per_person ?? 0, t.currency ?? "RWF")}</TableCell>
+                        <TableCell>
+                          {(() => {
+                            const pricingModel = getTourPricingModel(t.pricing_tiers);
+                            const pricingDurationValue = Number((t.pricing_tiers as { pricing_duration_value?: number } | null)?.pricing_duration_value || 0);
+                            const pricingDurationUnit = pricingModel === "per_hour" ? "hour" : pricingModel === "per_minute" ? "minute" : null;
+
+                            return (
+                              <>
+                                {formatMoney(t.price_per_person ?? 0, t.currency ?? "RWF")}
+                                <span className="text-xs text-muted-foreground ml-1">{getTourPriceSuffix(pricingModel)}</span>
+                                {pricingDurationValue > 0 && pricingDurationUnit && (
+                                  <span className="text-xs text-muted-foreground ml-1">· {pricingDurationValue} {pricingDurationValue === 1 ? pricingDurationUnit : `${pricingDurationUnit}s`}</span>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </TableCell>
                         <TableCell>
                           <div className="flex gap-1">
                             {t.is_published ? (

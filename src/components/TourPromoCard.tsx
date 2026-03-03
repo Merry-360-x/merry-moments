@@ -23,6 +23,8 @@ export type TourPromoCardProps = {
   reviewCount?: number | null;
   category?: string | null;
   durationDays?: number | null;
+  pricingDurationValue?: number | null;
+  pricingDurationUnit?: "minute" | "hour" | null;
   source?: 'tours' | 'tour_packages';
   hostId?: string | null;
   pricingModel?: TourPricingModel;
@@ -140,7 +142,11 @@ export default function TourPromoCard(props: TourPromoCardProps) {
           <div className="flex items-baseline gap-0.5 md:gap-1">
             <span className="text-[10px] md:text-lg font-bold text-foreground">{displayPrice}</span>
             <span className="text-[8px] md:text-sm text-muted-foreground">{getTourPriceSuffix(props.pricingModel ?? "per_person")}</span>
-            {props.durationDays ? (
+            {props.pricingDurationValue && props.pricingDurationUnit ? (
+              <span className="ml-auto text-[8px] md:text-xs text-muted-foreground">
+                {props.pricingDurationValue} {props.pricingDurationValue === 1 ? props.pricingDurationUnit : `${props.pricingDurationUnit}s`}
+              </span>
+            ) : props.durationDays ? (
               <span className="ml-auto text-[8px] md:text-xs text-muted-foreground">{props.durationDays}d</span>
             ) : null}
           </div>

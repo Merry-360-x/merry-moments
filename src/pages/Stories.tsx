@@ -66,7 +66,7 @@ const isVideo = (url?: string | null) => {
 };
 
 export default function Stories() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isHost } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -93,6 +93,7 @@ export default function Stories() {
   const holdStartRef = useRef<number | null>(null);
   const suppressTapUntilRef = useRef<number>(0);
   const touchStartRef = useRef<{ x: number; y: number; at: number } | null>(null);
+  const canCreateStory = isAdmin || isHost;
 
   const { data: stories = [], isLoading } = useQuery({
     queryKey: ["stories", "public-feed"],
@@ -547,9 +548,11 @@ export default function Stories() {
             <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Stories</h1>
             <p className="text-muted-foreground">Status-style stories from the community.</p>
           </div>
-          <Link to={user ? "/create-story" : "/auth?redirect=/create-story"}>
-            <Button>Add Story</Button>
-          </Link>
+          {canCreateStory ? (
+            <Link to={user ? "/create-story" : "/auth?redirect=/create-story"}>
+              <Button>Add Story</Button>
+            </Link>
+          ) : null}
         </div>
 
         {isLoading ? (
