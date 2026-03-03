@@ -19,7 +19,7 @@ import { isVideoUrl } from "@/lib/media";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { formatMoney } from "@/lib/money";
 import { AMENITIES, AMENITIES_BY_CATEGORY } from "@/lib/amenities";
-import { calculateHostEarningsFromGuestTotal } from "@/lib/fees";
+import { calculateHostEarningsFromGuestTotal, getGuestFeePercent } from "@/lib/fees";
 import { getTourPricingModel, getTourPricingModels } from "@/lib/tour-pricing";
 import { useFxRates } from "@/hooks/useFxRates";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -9027,7 +9027,7 @@ END OF REPORT
                     const safeListingTotal = Math.max(0, Number(listingTotal || 0));
                     const convertedListingTotal = toRwfAmount(listingTotal, listingCurrency);
                     const convertedUnitValue = toRwfAmount(unitValue, listingCurrency);
-                    const guestServiceFeePercent = bookingFullDetails.booking_type === 'property' ? 7 : 0;
+                    const guestServiceFeePercent = bookingFullDetails.booking_type === 'property' ? getGuestFeePercent('accommodation') : 0;
                     const convertedServiceFee = Math.max(0, convertedListingTotal * (guestServiceFeePercent / 100));
                     const convertedBookingAmount = convertedListingTotal + convertedServiceFee;
                     const convertedFeeDeduction = Math.max(0, convertedListingTotal * (feePercent / 100));

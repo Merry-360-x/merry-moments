@@ -2,7 +2,7 @@
  * Platform Fee Configuration
  * 
  * Accommodation:
- * - Guest/Booker: +7% added on top of the host's price
+ * - Guest/Booker: +10% added on top of the host's price
  * - Host: -3% deducted from what they receive (they get 97% of their listed price)
  * 
  * Tours (including tour packages):
@@ -16,7 +16,7 @@
 export const PLATFORM_FEES = {
   // Accommodation fees
   accommodation: {
-    guestFeePercent: 7,  // Added to guest's total
+    guestFeePercent: 10,  // Added to guest's total
     hostFeePercent: 3,   // Deducted from host's earnings
   },
   
@@ -120,7 +120,7 @@ export function extractBasePrice(
   serviceType: 'accommodation' | 'tour' | 'transport'
 ): number {
   const guestFeePercent = PLATFORM_FEES[serviceType].guestFeePercent;
-  // If guest paid 107% of base, then base = guestPaid / 1.07
+  // If guest paid 110% of base, then base = guestPaid / 1.10
   return guestPaidTotal / (1 + guestFeePercent / 100);
 }
 
@@ -130,8 +130,8 @@ export function extractBasePrice(
  * the total amount paid by the guest.
  * 
  * Example for Accommodation (base price 100):
- * - Guest paid: 107 (100 + 7% fee)
- * - Base price: 107 / 1.07 = 100
+ * - Guest paid: 110 (100 + 10% fee)
+ * - Base price: 110 / 1.10 = 100
  * - Host fee: 3% of 100 = 3
  * - Host receives: 100 - 3 = 97
  * - Platform earns: 7 (from guest) + 3 (from host) = 10

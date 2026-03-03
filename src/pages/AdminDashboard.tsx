@@ -20,6 +20,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatMoney } from "@/lib/money";
+import { getGuestFeePercent, getProviderFeePercent } from "@/lib/fees";
 import { getTourPriceSuffix, getTourPricingModel } from "@/lib/tour-pricing";
 import { normalizeAdminMetrics } from "@/lib/admin-metrics";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
@@ -2532,6 +2533,9 @@ For support, contact: support@merry360x.com
     ? correctedRevenueGross
     : (metrics?.revenue_gross ?? 0);
 
+  const accommodationGuestFeePercent = getGuestFeePercent("accommodation");
+  const accommodationHostFeePercent = getProviderFeePercent("accommodation");
+
   const adminFinancialOverview = useMemo(() => {
     return bookings.reduce(
       (totals, booking) => {
@@ -2551,8 +2555,8 @@ For support, contact: support@merry360x.com
                 : booking.currency || "RWF";
 
         const listingPriceRwf = toRwfAmount(Number(booking.total_price || 0), listingSourceCurrency);
-        const guestServiceFeeRwf = isAccommodation ? listingPriceRwf * 0.07 : 0;
-        const hostServiceFeeRwf = isAccommodation ? listingPriceRwf * 0.03 : 0;
+        const guestServiceFeeRwf = isAccommodation ? listingPriceRwf * (accommodationGuestFeePercent / 100) : 0;
+        const hostServiceFeeRwf = isAccommodation ? listingPriceRwf * (accommodationHostFeePercent / 100) : 0;
         const bookingAmountRwf = listingPriceRwf + guestServiceFeeRwf;
 
         totals.totalAmountBooked += bookingAmountRwf;
@@ -2567,7 +2571,7 @@ For support, contact: support@merry360x.com
         totalAmountAfterServiceFees: 0,
       }
     );
-  }, [bookings]);
+  }, [bookings, accommodationGuestFeePercent, accommodationHostFeePercent]);
 
   const tabLoadingMessage: Record<TabValue, string> = {
     overview: "Loading overview...",
@@ -2749,7 +2753,7 @@ For support, contact: support@merry360x.com
                   <span className="text-sm">Total Amount Booked</span>
                     </div>
                     <p className="text-2xl font-bold text-foreground">{formatMoney(adminFinancialOverview.totalAmountBooked, "RWF")}</p>
-                    <p className="text-xs text-muted-foreground">Listing + 7% service fee</p>
+                    <p className="text-xs text-muted-foreground">Listing + {accommodationGuestFeePercent}% service fee</p>
                   </Card>
                   <Card className="p-4">
                     <div className="flex items-center gap-2 text-muted-foreground mb-1">
@@ -2765,7 +2769,7 @@ For support, contact: support@merry360x.com
                   <span className="text-sm">After Service Fees</span>
                     </div>
                     <p className="text-2xl font-bold text-foreground">{formatMoney(adminFinancialOverview.totalAmountAfterServiceFees, "RWF")}</p>
-                    <p className="text-xs text-muted-foreground">Total booked - 3% - 7%</p>
+                    <p className="text-xs text-muted-foreground">Total booked - {accommodationHostFeePercent}% - {accommodationGuestFeePercent}%</p>
                   </Card>
         </div>
 
