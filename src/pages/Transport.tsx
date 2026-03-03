@@ -292,13 +292,19 @@ const Transport = () => {
   const rankedRoutes = useMemo(() => {
     const scored = airportRoutes
       .map((route) => ({ route, score: scoreRoute(route) }))
-      .filter((item) => !strictLocationMode || item.score > 0)
       .sort((a, b) => {
         const byScore = b.score - a.score;
         if (byScore !== 0) return byScore;
         return Number(a.route.base_price ?? 0) - Number(b.route.base_price ?? 0);
       });
-    return scored.map((item) => item.route);
+
+    if (!strictLocationMode) {
+      return scored.map((item) => item.route);
+    }
+
+    const matched = scored.filter((item) => item.score > 0);
+    const source = matched.length > 0 ? matched : scored;
+    return source.map((item) => item.route);
   }, [airportRoutes, scoreRoute, strictLocationMode]);
 
   const airportRouteById = useMemo(
@@ -346,14 +352,19 @@ const Transport = () => {
     const scored = [...routes]
       .filter(r => !(r.from_location?.toLowerCase().includes("airport") || r.to_location?.toLowerCase().includes("airport")))
       .map((route) => ({ route, score: scoreRoute(route) }))
-      .filter((item) => !strictLocationMode || item.score > 0)
       .sort((a, b) => {
         const byScore = b.score - a.score;
         if (byScore !== 0) return byScore;
         return Number(a.route.base_price ?? 0) - Number(b.route.base_price ?? 0);
       });
 
-    return scored.map((item) => item.route);
+    if (!strictLocationMode) {
+      return scored.map((item) => item.route);
+    }
+
+    const matched = scored.filter((item) => item.score > 0);
+    const source = matched.length > 0 ? matched : scored;
+    return source.map((item) => item.route);
   }, [routes, scoreRoute, strictLocationMode]);
 
   const filteredServices = useMemo(() => {
@@ -362,10 +373,15 @@ const Transport = () => {
         service,
         score: scoreText(`${service.title || ""} ${service.description || ""}`),
       }))
-      .filter((item) => !strictLocationMode || item.score > 0)
       .sort((a, b) => b.score - a.score);
 
-    return scored.map((item) => item.service);
+    if (!strictLocationMode) {
+      return scored.map((item) => item.service);
+    }
+
+    const matched = scored.filter((item) => item.score > 0);
+    const source = matched.length > 0 ? matched : scored;
+    return source.map((item) => item.service);
   }, [services, scoreText, strictLocationMode]);
 
   const filteredVehicles = useMemo(() => {
@@ -376,10 +392,15 @@ const Transport = () => {
           `${vehicleRow.provider_name || ""} ${vehicleRow.title || ""} ${vehicleRow.car_brand || ""} ${vehicleRow.car_model || ""}`
         ),
       }))
-      .filter((item) => !strictLocationMode || item.score > 0)
       .sort((a, b) => b.score - a.score);
 
-    return scored.map((item) => item.vehicleRow);
+    if (!strictLocationMode) {
+      return scored.map((item) => item.vehicleRow);
+    }
+
+    const matched = scored.filter((item) => item.score > 0);
+    const source = matched.length > 0 ? matched : scored;
+    return source.map((item) => item.vehicleRow);
   }, [vehicles, scoreText, strictLocationMode]);
 
   const addToCart = async (payload: { item_type: string; reference_id: string }) => {
