@@ -72,6 +72,7 @@ const Transport = () => {
   const [activeCategory, setActiveCategory] = useState("all");
   const [query, setQuery] = useState("");
   const [vehicle, setVehicle] = useState(ALL_VEHICLES_VALUE);
+  const [expandedAirportVehicleId, setExpandedAirportVehicleId] = useState<string | null>(null);
   const [autoLocationRequested, setAutoLocationRequested] = useState(false);
   const { addToCart: addCartItem } = useTripCart();
   const { currency: preferredCurrency } = usePreferences();
@@ -264,14 +265,7 @@ const Transport = () => {
     enabled: airportRoutes.length > 0,
   });
 
-  // Group pricing by route
-  const pricingByRoute = airportPricing.reduce((acc, p) => {
-    if (!acc[p.route_id]) acc[p.route_id] = [];
-    acc[p.route_id].push(p);
-    return acc;
-  }, {} as Record<string, AirportPricing[]>);
-
-  // Group and rank routes by direction
+  // Group and rank routes by relevance
   const regionTokens = useMemo(
     () => nearbyRegion
       .split(/[\s,]+/)
@@ -305,8 +299,48 @@ const Transport = () => {
       });
     return scored.map((item) => item.route);
   }, [airportRoutes, scoreRoute, strictLocationMode]);
-  const fromAirportRoutes = rankedRoutes.filter(r => r.from_location?.toLowerCase().includes("airport"));
-  const toAirportRoutes = rankedRoutes.filter(r => r.to_location?.toLowerCase().includes("airport"));
+
+  const airportRouteById = useMemo(
+    () => new Map(rankedRoutes.map((route) => [route.id, route] as const)),
+    [rankedRoutes]
+  );
+
+  const airportVehicles = useMemo(() => {
+    const grouped = new Map<
+      string,
+      {
+        vehicle: TransportVehicleRow;
+        options: Array<{ pricingId: string; route: AirportRoute; price: number; currency: string | null }>;
+      }
+    >();
+
+    for (const pricing of airportPricing) {
+      const vehicleRow = pricing.vehicle as TransportVehicleRow | null;
+      const route = airportRouteById.get(pricing.route_id);
+      if (!vehicleRow || !route) continue;
+
+      const current = grouped.get(vehicleRow.id);
+      if (!current) {
+        grouped.set(vehicleRow.id, {
+          vehicle: vehicleRow,
+          options: [{ pricingId: pricing.id, route, price: Number(pricing.price || 0), currency: pricing.currency }],
+        });
+      } else {
+        current.options.push({ pricingId: pricing.id, route, price: Number(pricing.price || 0), currency: pricing.currency });
+      }
+    }
+
+    return Array.from(grouped.values())
+      .map((entry) => ({
+        ...entry,
+        options: entry.options.sort((a, b) => a.price - b.price),
+      }))
+      .sort((a, b) => {
+        const aMin = a.options[0]?.price ?? Number.MAX_SAFE_INTEGER;
+        const bMin = b.options[0]?.price ?? Number.MAX_SAFE_INTEGER;
+        return aMin - bMin;
+      });
+  }, [airportPricing, airportRouteById]);
   const intercityRoutes = useMemo(() => {
     const scored = [...routes]
       .filter(r => !(r.from_location?.toLowerCase().includes("airport") || r.to_location?.toLowerCase().includes("airport")))
@@ -450,189 +484,101 @@ const Transport = () => {
                   <Plane className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
                   <p className="text-muted-foreground">{t("transport.noAirportRoutes")}</p>
                 </div>
+              ) : airportVehicles.length === 0 ? (
+                <div className="bg-card rounded-xl p-8 shadow-card text-center">
+                  <Plane className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-muted-foreground">No vehicles available for current airport routes</p>
+                </div>
               ) : (
-                <div className="space-y-8">
-                  {/* From Airport */}
-                  {fromAirportRoutes.length > 0 && (
-                    <div>
-                      <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                        <Plane className="w-5 h-5 text-primary" />
-                        {t("transport.fromAirport")}
-                      </h3>
-                      <div className="space-y-4">
-                        {fromAirportRoutes.map((route) => {
-                          const routeVehicles = pricingByRoute[route.id] || [];
-                          return (
-                            <div key={route.id} className="bg-card rounded-xl shadow-card overflow-hidden">
-                              <div className="p-4 bg-muted/50 border-b">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-3">
-                                    <MapPin className="w-5 h-5 text-primary" />
-                                    <span className="font-semibold">{route.from_location}</span>
-                                    <ArrowLeftRight className="w-4 h-4 text-muted-foreground" />
-                                    <span className="font-semibold">{route.to_location}</span>
-                                  </div>
-                                  {route.distance_km && (
-                                    <Badge variant="secondary">{route.distance_km} km</Badge>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="p-4">
-                                {routeVehicles.length === 0 ? (
-                                  <p className="text-sm text-muted-foreground text-center py-4">
-                                    No vehicles available for this route. Starting from {displayMoney(route.base_price, route.currency)}
-                                  </p>
-                                ) : (
-                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {routeVehicles.map((pricing) => {
-                                      const v = pricing.vehicle as TransportVehicleRow | null;
-                                      if (!v) return null;
-                                      const allImages = v.exterior_images?.length ? v.exterior_images : (v.media?.length ? v.media : (v.image_url ? [v.image_url] : []));
-                                      return (
-                                        <div key={pricing.id} className="border rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-                                          {allImages.length > 0 && (
-                                            <div className="aspect-video relative">
-                                              <img
-                                                src={optimizeCloudinaryImage(allImages[0], { width: 640, height: 360, quality: "auto", format: "auto" })}
-                                                alt={v.title || ""}
-                                                className="w-full h-full object-cover"
-                                                loading="lazy"
-                                                decoding="async"
-                                              />
-                                            </div>
-                                          )}
-                                          <div className="p-3">
-                                            <h4 className="font-medium text-sm mb-1">
-                                              {v.car_brand} {v.car_model} {v.car_year}
-                                            </h4>
-                                            {v.provider_name && (
-                                              <p className="text-xs text-muted-foreground mb-2">{v.provider_name}</p>
-                                            )}
-                                            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
-                                              <Users className="w-3 h-3" />
-                                              <span>{v.seats || 4} seats</span>
-                                              {v.transmission && (
-                                                <>
-                                                  <span>•</span>
-                                                  <span>{v.transmission}</span>
-                                                </>
-                                              )}
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                              <span className="font-bold text-primary">
-                                                {displayMoney(pricing.price, pricing.currency)}
-                                              </span>
-                                              <Button
-                                                size="sm"
-                                                onClick={() => addToCart({ item_type: "airport_transfer_pricing", reference_id: pricing.id })}
-                                              >
-                                                Book
-                                              </Button>
-                                            </div>
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {airportVehicles.map(({ vehicle, options }) => {
+                    const allImages = vehicle.exterior_images?.length
+                      ? vehicle.exterior_images
+                      : (vehicle.media?.length ? vehicle.media : (vehicle.image_url ? [vehicle.image_url] : []));
+                    const minOption = options[0];
+                    const isExpanded = expandedAirportVehicleId === vehicle.id;
 
-                  {/* To Airport */}
-                  {toAirportRoutes.length > 0 && (
-                    <div>
-                      <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                        <Plane className="w-5 h-5 text-primary rotate-180" />
-                        {t("transport.toAirport")}
-                      </h3>
-                      <div className="space-y-4">
-                        {toAirportRoutes.map((route) => {
-                          const routeVehicles = pricingByRoute[route.id] || [];
-                          return (
-                            <div key={route.id} className="bg-card rounded-xl shadow-card overflow-hidden">
-                              <div className="p-4 bg-muted/50 border-b">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-3">
-                                    <MapPin className="w-5 h-5 text-primary" />
-                                    <span className="font-semibold">{route.from_location}</span>
-                                    <ArrowLeftRight className="w-4 h-4 text-muted-foreground" />
-                                    <span className="font-semibold">{route.to_location}</span>
-                                  </div>
-                                  {route.distance_km && (
-                                    <Badge variant="secondary">{route.distance_km} km</Badge>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="p-4">
-                                {routeVehicles.length === 0 ? (
-                                  <p className="text-sm text-muted-foreground text-center py-4">
-                                    No vehicles available for this route. Starting from {displayMoney(route.base_price, route.currency)}
-                                  </p>
-                                ) : (
-                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {routeVehicles.map((pricing) => {
-                                      const v = pricing.vehicle as TransportVehicleRow | null;
-                                      if (!v) return null;
-                                      const allImages = v.exterior_images?.length ? v.exterior_images : (v.media?.length ? v.media : (v.image_url ? [v.image_url] : []));
-                                      return (
-                                        <div key={pricing.id} className="border rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-                                          {allImages.length > 0 && (
-                                            <div className="aspect-video relative">
-                                              <img
-                                                src={optimizeCloudinaryImage(allImages[0], { width: 640, height: 360, quality: "auto", format: "auto" })}
-                                                alt={v.title || ""}
-                                                className="w-full h-full object-cover"
-                                                loading="lazy"
-                                                decoding="async"
-                                              />
-                                            </div>
-                                          )}
-                                          <div className="p-3">
-                                            <h4 className="font-medium text-sm mb-1">
-                                              {v.car_brand} {v.car_model} {v.car_year}
-                                            </h4>
-                                            {v.provider_name && (
-                                              <p className="text-xs text-muted-foreground mb-2">{v.provider_name}</p>
-                                            )}
-                                            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
-                                              <Users className="w-3 h-3" />
-                                              <span>{v.seats || 4} seats</span>
-                                              {v.transmission && (
-                                                <>
-                                                  <span>•</span>
-                                                  <span>{v.transmission}</span>
-                                                </>
-                                              )}
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                              <span className="font-bold text-primary">
-                                                {displayMoney(pricing.price, pricing.currency)}
-                                              </span>
-                                              <Button
-                                                size="sm"
-                                                onClick={() => addToCart({ item_type: "airport_transfer_pricing", reference_id: pricing.id })}
-                                              >
-                                                Book
-                                              </Button>
-                                            </div>
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                )}
-                              </div>
+                    return (
+                      <div key={vehicle.id} className="bg-card rounded-xl shadow-card overflow-hidden border">
+                        {allImages.length > 0 && (
+                          <div className="aspect-video relative">
+                            <img
+                              src={optimizeCloudinaryImage(allImages[0], { width: 640, height: 360, quality: "auto", format: "auto" })}
+                              alt={vehicle.title || ""}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          </div>
+                        )}
+
+                        <div className="p-4">
+                          <h4 className="font-semibold text-base">
+                            {vehicle.car_brand} {vehicle.car_model} {vehicle.car_year}
+                          </h4>
+                          {vehicle.provider_name && (
+                            <p className="text-xs text-muted-foreground mt-1">{vehicle.provider_name}</p>
+                          )}
+
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
+                            <Users className="w-3 h-3" />
+                            <span>{vehicle.seats || 4} seats</span>
+                            {vehicle.transmission && (
+                              <>
+                                <span>•</span>
+                                <span>{vehicle.transmission}</span>
+                              </>
+                            )}
+                          </div>
+
+                          <div className="flex items-center justify-between mt-3">
+                            <div>
+                              <p className="text-xs text-muted-foreground">Starting from</p>
+                              <p className="font-bold text-primary">{displayMoney(minOption.price, minOption.currency)}</p>
                             </div>
-                          );
-                        })}
+                            <Badge variant="secondary">{options.length} routes</Badge>
+                          </div>
+
+                          <Button
+                            variant="outline"
+                            className="w-full mt-3 flex items-center justify-between"
+                            onClick={() => setExpandedAirportVehicleId(isExpanded ? null : vehicle.id)}
+                          >
+                            <span>{isExpanded ? "Hide routes" : "Select route"}</span>
+                            <ChevronRight className={`w-4 h-4 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
+                          </Button>
+
+                          {isExpanded && (
+                            <div className="mt-3 border rounded-lg divide-y">
+                              {options.map((option) => (
+                                <div key={option.pricingId} className="p-3 flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className="text-sm font-medium flex items-center gap-1">
+                                      <MapPin className="w-3 h-3 text-primary" />
+                                      {option.route.from_location} <ArrowLeftRight className="w-3 h-3 text-muted-foreground" /> {option.route.to_location}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      {option.route.distance_km ? `${option.route.distance_km} km` : "Distance not set"}
+                                    </p>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-sm font-semibold text-primary">{displayMoney(option.price, option.currency)}</p>
+                                    <Button
+                                      size="sm"
+                                      className="mt-1"
+                                      onClick={() => addToCart({ item_type: "airport_transfer_pricing", reference_id: option.pricingId })}
+                                    >
+                                      Book
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })}
                 </div>
               )}
             </div>
