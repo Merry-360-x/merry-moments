@@ -20,7 +20,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatMoney } from "@/lib/money";
-import { getGuestFeePercent, getProviderFeePercent } from "@/lib/fees";
+import { getGuestFeePercent, getProviderFeePercent, setAccommodationGuestFeePercent as persistAccommodationGuestFeePercent } from "@/lib/fees";
 import { getTourPriceSuffix, getTourPricingModel } from "@/lib/tour-pricing";
 import { normalizeAdminMetrics } from "@/lib/admin-metrics";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
@@ -63,6 +63,7 @@ import {
   Hash,
   Phone,
   Wallet,
+  Percent,
 } from "lucide-react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
@@ -465,6 +466,9 @@ export default function AdminDashboard() {
   // Payouts state
   const [payoutFilter, setPayoutFilter] = useState<"all" | "pending" | "processing" | "completed" | "rejected">("all");
   const [processingPayout, setProcessingPayout] = useState<string | null>(null);
+  const [accommodationGuestFeePercent, setAccommodationGuestFeePercent] = useState<number>(() => getGuestFeePercent("accommodation"));
+  const [accommodationGuestFeeInput, setAccommodationGuestFeeInput] = useState<string>(() => String(getGuestFeePercent("accommodation")));
+  const [savingAccommodationGuestFee, setSavingAccommodationGuestFee] = useState(false);
 
   // Set up real-time subscriptions for instant updates
   useEffect(() => {
@@ -2533,8 +2537,30 @@ For support, contact: support@merry360x.com
     ? correctedRevenueGross
     : (metrics?.revenue_gross ?? 0);
 
-  const accommodationGuestFeePercent = getGuestFeePercent("accommodation");
   const accommodationHostFeePercent = getProviderFeePercent("accommodation");
+
+  const saveAccommodationGuestFee = () => {
+    const parsed = Number(accommodationGuestFeeInput);
+    if (!Number.isFinite(parsed)) {
+      toast({
+        variant: "destructive",
+        title: "Invalid fee",
+        description: "Enter a valid percentage number.",
+      });
+      return;
+    }
+
+    setSavingAccommodationGuestFee(true);
+    const normalized = persistAccommodationGuestFeePercent(parsed);
+    setAccommodationGuestFeePercent(normalized);
+    setAccommodationGuestFeeInput(String(normalized));
+    setSavingAccommodationGuestFee(false);
+
+    toast({
+      title: "Fee updated",
+      description: `Accommodation guest service fee is now ${normalized}%.`,
+    });
+  };
 
   const adminFinancialOverview = useMemo(() => {
     return bookings.reduce(
@@ -2772,6 +2798,30 @@ For support, contact: support@merry360x.com
                     <p className="text-xs text-muted-foreground">Total booked - {accommodationHostFeePercent}% - {accommodationGuestFeePercent}%</p>
                   </Card>
         </div>
+
+            <Card className="p-4 mb-6">
+              <h3 className="font-semibold mb-3 flex items-center gap-2">
+                <Percent className="w-4 h-4" /> Accommodation Guest Fee
+              </h3>
+              <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Guest service fee percent</p>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="0.1"
+                    value={accommodationGuestFeeInput}
+                    onChange={(e) => setAccommodationGuestFeeInput(e.target.value)}
+                    className="w-40"
+                  />
+                </div>
+                <Button onClick={saveAccommodationGuestFee} disabled={savingAccommodationGuestFee}>
+                  {savingAccommodationGuestFee ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                  Save Fee
+                </Button>
+              </div>
+            </Card>
 
             <div className="grid md:grid-cols-2 gap-6 mb-6">
               <Card className="p-4">

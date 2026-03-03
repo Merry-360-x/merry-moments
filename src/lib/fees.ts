@@ -33,6 +33,42 @@ export const PLATFORM_FEES = {
   },
 } as const;
 
+const ACCOMMODATION_GUEST_FEE_STORAGE_KEY = "merry360x.accommodationGuestFeePercent";
+const MIN_GUEST_FEE_PERCENT = 0;
+const MAX_GUEST_FEE_PERCENT = 100;
+
+const clampGuestFeePercent = (value: number): number => {
+  if (!Number.isFinite(value)) return PLATFORM_FEES.accommodation.guestFeePercent;
+  return Math.min(MAX_GUEST_FEE_PERCENT, Math.max(MIN_GUEST_FEE_PERCENT, value));
+};
+
+const readAccommodationGuestFeeOverride = (): number | null => {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(ACCOMMODATION_GUEST_FEE_STORAGE_KEY);
+    if (raw == null) return null;
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) return null;
+    return clampGuestFeePercent(parsed);
+  } catch {
+    return null;
+  }
+};
+
+export function setAccommodationGuestFeePercent(percent: number): number {
+  const normalized = clampGuestFeePercent(percent);
+
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage.setItem(ACCOMMODATION_GUEST_FEE_STORAGE_KEY, String(normalized));
+    } catch {
+    }
+  }
+
+  return normalized;
+}
+
 // Helper to get provider fee percent for any service type
 export function getHostOrProviderFeePercent(serviceType: 'accommodation' | 'tour' | 'transport'): number {
   if (serviceType === 'accommodation') {
@@ -56,8 +92,7 @@ export function calculateGuestTotal(
   guestTotal: number;
   feePercent: number;
 } {
-  const feeConfig = PLATFORM_FEES[serviceType];
-  const feePercent = feeConfig.guestFeePercent;
+  const feePercent = getGuestFeePercent(serviceType);
   const platformFee = (basePrice * feePercent) / 100;
   const guestTotal = basePrice + platformFee;
   
@@ -100,6 +135,9 @@ export function calculateHostEarnings(
  * Get the fee percentage for display
  */
 export function getGuestFeePercent(serviceType: 'accommodation' | 'tour' | 'transport'): number {
+  if (serviceType === 'accommodation') {
+    return readAccommodationGuestFeeOverride() ?? PLATFORM_FEES.accommodation.guestFeePercent;
+  }
   return PLATFORM_FEES[serviceType].guestFeePercent;
 }
 
@@ -119,7 +157,7 @@ export function extractBasePrice(
   guestPaidTotal: number,
   serviceType: 'accommodation' | 'tour' | 'transport'
 ): number {
-  const guestFeePercent = PLATFORM_FEES[serviceType].guestFeePercent;
+  const guestFeePercent = getGuestFeePercent(serviceType);
   // If guest paid 110% of base, then base = guestPaid / 1.10
   return guestPaidTotal / (1 + guestFeePercent / 100);
 }
@@ -134,7 +172,7 @@ export function extractBasePrice(
  * - Base price: 110 / 1.10 = 100
  * - Host fee: 3% of 100 = 3
  * - Host receives: 100 - 3 = 97
- * - Platform earns: 7 (from guest) + 3 (from host) = 10
+ * - Platform earns: 10 (from guest) + 3 (from host) = 13
  * 
  * Example for Tour (base price 100):
  * - Guest paid: 100 (no guest fee)
@@ -157,7 +195,7 @@ export function calculateHostEarningsFromGuestTotal(
   hostNetEarnings: number;
   platformTotalEarnings: number;
 } {
-  const guestFeePercent = PLATFORM_FEES[serviceType].guestFeePercent;
+  const guestFeePercent = getGuestFeePercent(serviceType);
   const hostFeePercent = getHostOrProviderFeePercent(serviceType);
   
   // Extract base price from guest paid amount
