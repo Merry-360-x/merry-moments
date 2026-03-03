@@ -73,6 +73,7 @@ const Transport = () => {
   const [query, setQuery] = useState("");
   const [vehicle, setVehicle] = useState(ALL_VEHICLES_VALUE);
   const [expandedAirportVehicleId, setExpandedAirportVehicleId] = useState<string | null>(null);
+  const [airportDirectionFilter, setAirportDirectionFilter] = useState<"from" | "to">("from");
   const [autoLocationRequested, setAutoLocationRequested] = useState(false);
   const { addToCart: addCartItem } = useTripCart();
   const { currency: preferredCurrency } = usePreferences();
@@ -497,6 +498,12 @@ const Transport = () => {
                       : (vehicle.media?.length ? vehicle.media : (vehicle.image_url ? [vehicle.image_url] : []));
                     const minOption = options[0];
                     const isExpanded = expandedAirportVehicleId === vehicle.id;
+                    const filteredOptions = options.filter((option) => {
+                      const fromHasAirport = option.route.from_location?.toLowerCase().includes("airport");
+                      const toHasAirport = option.route.to_location?.toLowerCase().includes("airport");
+                      return airportDirectionFilter === "from" ? fromHasAirport : toHasAirport;
+                    });
+                    const visibleOptions = filteredOptions.length > 0 ? filteredOptions : options;
 
                     return (
                       <div key={vehicle.id} className="bg-card rounded-xl shadow-card overflow-hidden border">
@@ -549,8 +556,28 @@ const Transport = () => {
                           </Button>
 
                           {isExpanded && (
-                            <div className="mt-3 border rounded-lg divide-y">
-                              {options.map((option) => (
+                            <div className="mt-3">
+                              <div className="mb-2 inline-flex rounded-md border p-1 bg-muted/30">
+                                <Button
+                                  size="sm"
+                                  variant={airportDirectionFilter === "from" ? "default" : "ghost"}
+                                  className="h-7 px-3 text-xs"
+                                  onClick={() => setAirportDirectionFilter("from")}
+                                >
+                                  From Airport
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant={airportDirectionFilter === "to" ? "default" : "ghost"}
+                                  className="h-7 px-3 text-xs"
+                                  onClick={() => setAirportDirectionFilter("to")}
+                                >
+                                  To Airport
+                                </Button>
+                              </div>
+
+                              <div className="border rounded-lg divide-y">
+                              {visibleOptions.map((option) => (
                                 <div key={option.pricingId} className="p-3 flex items-start justify-between gap-3">
                                   <div>
                                     <p className="text-sm font-medium flex items-center gap-1">
@@ -573,6 +600,7 @@ const Transport = () => {
                                   </div>
                                 </div>
                               ))}
+                              </div>
                             </div>
                           )}
                         </div>
