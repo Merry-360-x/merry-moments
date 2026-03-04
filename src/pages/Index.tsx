@@ -84,7 +84,7 @@ const Index = () => {
 
       {/* Personalized Recommendations - Main Content */}
       <section className="container mx-auto px-4 py-16 min-h-[80vh]">
-        <PersonalizedRecommendations type="all" limit={8} />
+        <PersonalizedRecommendations type="all" limit={8} mode="popular" />
       </section>
 
       {/* Hosting CTA */}

@@ -14,6 +14,7 @@ interface RecommendationsProps {
   limit?: number;
   title?: string;
   className?: string;
+  mode?: 'personalized' | 'popular';
 }
 
 export function PersonalizedRecommendations({
@@ -21,6 +22,7 @@ export function PersonalizedRecommendations({
   limit = 6,
   title,
   className = '',
+  mode = 'personalized',
 }: RecommendationsProps) {
   const { user } = useAuth();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -33,7 +35,8 @@ export function PersonalizedRecommendations({
   const initializeEngine = useCallback(async () => {
     setIsLoading(true);
     try {
-      const recommendationEngine = new RecommendationEngine(user?.id || null);
+      const effectiveUserId = mode === 'popular' ? null : (user?.id || null);
+      const recommendationEngine = new RecommendationEngine(effectiveUserId);
       await recommendationEngine.initialize();
       setEngine(recommendationEngine);
 
@@ -52,7 +55,7 @@ export function PersonalizedRecommendations({
     } finally {
       setIsLoading(false);
     }
-  }, [user?.id, type, limit]);
+  }, [user?.id, type, limit, mode]);
 
   useEffect(() => {
     initializeEngine();
@@ -151,10 +154,10 @@ export function PersonalizedRecommendations({
             </div>
             <div className="flex items-center justify-between">
               <h2 className="text-xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent">
-                {title || (user ? 'Recommended For You' : 'Popular Stays')}
+                {title || (mode === 'popular' ? 'Popular Stays' : (user ? 'Recommended For You' : 'Popular Stays'))}
               </h2>
             </div>
-            {user && (
+            {user && mode !== 'popular' && (
               <p className="text-xs md:text-sm text-muted-foreground mt-1 md:mt-2">Handpicked based on your preferences</p>
             )}
           </div>
@@ -212,10 +215,10 @@ export function PersonalizedRecommendations({
             </div>
             <div className="flex items-center justify-between">
               <h2 className="text-xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent">
-                {user ? 'Tours You Might Love' : 'Popular Tours'}
+                {mode === 'popular' ? 'Popular Tours' : (user ? 'Tours You Might Love' : 'Popular Tours')}
               </h2>
             </div>
-            {user && (
+            {user && mode !== 'popular' && (
               <p className="text-xs md:text-sm text-muted-foreground mt-1 md:mt-2">Curated adventures just for you</p>
             )}
           </div>
