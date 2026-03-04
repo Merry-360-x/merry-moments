@@ -999,7 +999,7 @@ export default function PropertyDetails() {
 
       const { data: rows, error } = await transportQuery;
       if (error) throw error;
-      const vehicles = (rows ?? []) as Array<{
+      let vehicles = (rows ?? []) as Array<{
         id: string;
         title: string;
         provider_name: string | null;
@@ -1009,6 +1009,28 @@ export default function PropertyDetails() {
         currency: string | null;
         image_url: string | null;
       }>;
+
+      if (vehicles.length === 0) {
+        const { data: fallbackRows, error: fallbackError } = await supabase
+          .from("transport_vehicles")
+          .select("id, title, provider_name, vehicle_type, seats, price_per_day, currency, image_url")
+          .eq("is_published", true)
+          .order("created_at", { ascending: false })
+          .limit(40);
+
+        if (!fallbackError) {
+          vehicles = (fallbackRows ?? []) as Array<{
+            id: string;
+            title: string;
+            provider_name: string | null;
+            vehicle_type: string | null;
+            seats: number | null;
+            price_per_day: number;
+            currency: string | null;
+            image_url: string | null;
+          }>;
+        }
+      }
 
       const guestsFiltered = vehicles.filter((vehicle) => {
         if (!guests || guests <= 0) return true;
@@ -1397,7 +1419,7 @@ export default function PropertyDetails() {
             </div>
 
             {/* Right column */}
-            <div className="lg:col-span-5 lg:self-start lg:flex lg:flex-col">
+            <div className="lg:col-span-5 lg:self-start">
               <div className="flex items-start justify-between gap-6">
                 <div>
                   <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">{data.title}</h1>
@@ -1724,7 +1746,7 @@ export default function PropertyDetails() {
               </div>
 
               {/* Booking */}
-              <div className="booking-sticky-card mt-8 lg:mt-0 lg:order-first bg-card rounded-xl shadow-card p-5 lg:sticky lg:top-24 lg:z-20 border border-border/60 transition-all duration-300 hover:shadow-xl">
+              <div className="booking-sticky-card mt-8 bg-card rounded-xl shadow-card p-5 lg:sticky lg:top-24 lg:z-20 border border-border/60 transition-all duration-300 hover:shadow-xl">
                 <h2 className="text-lg font-semibold text-foreground mb-4">
                   {isMonthlyOnlyListing ? "Book this monthly stay" : t("propertyDetails.bookThisStay")}
                 </h2>
