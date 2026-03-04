@@ -13,12 +13,9 @@ import TourPromoCard from "@/components/TourPromoCard";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getTourPricingModel } from "@/lib/tour-pricing";
-import { Compass, Mountain, ShieldCheck, Sparkles, TrendingUp, Truck } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 import heroVideo from "@/assets/merry.mp4";
 import heroPoster from "@/assets/hero-resort.jpg";
-import stayImage from "@/assets/property-1.jpg";
-import tourImage from "@/assets/property-2.jpg";
-import transportImage from "@/assets/property-3.jpg";
 
 type HomeTour = {
   id: string;
@@ -230,56 +227,6 @@ const Index = () => {
 
       <section className="container mx-auto px-4 pb-16 min-h-[60vh]">
         <PersonalizedRecommendations type="properties" limit={8} mode="popular" title="Popular Stays" />
-      </section>
-
-      <section className="container mx-auto px-4 pb-16">
-        <div className="mb-6">
-          <h2 className="text-2xl md:text-3xl font-bold text-foreground">Explore by Category</h2>
-          <p className="text-sm text-muted-foreground mt-1">Choose your next experience in seconds</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[
-            { title: "Stays", subtitle: "Comfortable homes and hotels", image: stayImage, icon: Mountain, href: "/accommodations" },
-            { title: "Tours", subtitle: "Curated adventures around Rwanda", image: tourImage, icon: Compass, href: "/tours" },
-            { title: "Transport", subtitle: "Reliable airport and city rides", image: transportImage, icon: Truck, href: "/transport" },
-          ].map((item) => (
-            <button
-              key={item.title}
-              type="button"
-              onClick={() => navigate(item.href)}
-              className="relative overflow-hidden rounded-2xl text-left group"
-            >
-              <img src={item.image} alt={item.title} className="h-52 w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-black/10" />
-              <div className="absolute inset-x-0 bottom-0 p-4 text-white">
-                <div className="flex items-center gap-2 mb-1">
-                  <item.icon className="w-4 h-4" />
-                  <h3 className="text-lg font-semibold">{item.title}</h3>
-                </div>
-                <p className="text-sm text-white/90">{item.subtitle}</p>
-              </div>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="container mx-auto px-4 pb-16">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[
-            { icon: ShieldCheck, title: "Trusted Hosts", text: "Verified operators and transparent listing details." },
-            { icon: Sparkles, title: "Handpicked Quality", text: "Popular, highly rated stays and tours in one place." },
-            { icon: TrendingUp, title: "Fast Booking", text: "Search, compare, and reserve quickly from any device." },
-          ].map((item) => (
-            <Card key={item.title} className="border-primary/10">
-              <CardContent className="p-6">
-                <item.icon className="w-5 h-5 text-primary mb-3" />
-                <h3 className="font-semibold text-foreground mb-1">{item.title}</h3>
-                <p className="text-sm text-muted-foreground">{item.text}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
       </section>
 
       {/* Hosting CTA */}
