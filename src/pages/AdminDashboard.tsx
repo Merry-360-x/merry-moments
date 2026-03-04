@@ -848,6 +848,13 @@ export default function AdminDashboard() {
     return map;
   }, [adminUsers]);
 
+  const openHostInUsers = (hostId: string | null) => {
+    const host = hostId ? adminUserById.get(hostId) : undefined;
+    const searchTerm = host?.email || host?.full_name || hostId || "";
+    setUserSearch(searchTerm);
+    setTab("users");
+  };
+
   const { data: profileMedia = [] } = useQuery({
     queryKey: ["admin-profile-media", userIdsForDocs],
     queryFn: async () => {
@@ -4103,8 +4110,20 @@ For support, contact: support@merry360x.com
                             const name = host?.full_name || host?.email || "—";
                             return (
                               <div className="text-sm leading-tight">
-                                <p className="font-medium text-foreground truncate max-w-[180px]">{name}</p>
-                                <p className="text-muted-foreground truncate max-w-[180px]">{host?.email || p.host_id || "—"}</p>
+                                <button
+                                  type="button"
+                                  onClick={() => openHostInUsers(p.host_id)}
+                                  className="font-medium text-foreground truncate max-w-[180px] text-left hover:underline"
+                                >
+                                  {name}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => openHostInUsers(p.host_id)}
+                                  className="text-muted-foreground truncate max-w-[180px] text-left hover:underline"
+                                >
+                                  {host?.email || p.host_id || "—"}
+                                </button>
                               </div>
                             );
                           })()}
