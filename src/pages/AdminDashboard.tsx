@@ -2808,10 +2808,10 @@ For support, contact: support@merry360x.com
                   <Card className="p-4">
                     <div className="flex items-center gap-2 text-muted-foreground mb-1">
                   <Wallet className="w-4 h-4" />
-                  <span className="text-sm">After Service Fees</span>
+                  <span className="text-sm">Host Earnings</span>
                     </div>
                     <p className="text-2xl font-bold text-foreground">{formatMoney(adminFinancialOverview.totalAmountAfterServiceFees, "RWF")}</p>
-                    <p className="text-xs text-muted-foreground">Total booked - platform fees by booking type</p>
+                    <p className="text-xs text-muted-foreground">What hosts/providers receive after platform fees</p>
                   </Card>
                   <Card className="p-4">
                     <div className="flex items-center gap-2 text-muted-foreground mb-1">
