@@ -1015,8 +1015,10 @@ export default function PropertyDetails() {
         return Number(vehicle.seats || 0) >= guests;
       });
 
+      const fallbackPopular = guestsFiltered.slice(0, 6);
+
       if (!checkIn || !checkOut) {
-        return guestsFiltered.slice(0, 6);
+        return fallbackPopular;
       }
 
       const { data: bookedRows, error: bookedError } = await supabase
@@ -1027,7 +1029,7 @@ export default function PropertyDetails() {
         .not("transport_id", "is", null);
 
       if (bookedError || !bookedRows) {
-        return guestsFiltered.slice(0, 6);
+        return fallbackPopular;
       }
 
       const selectedStart = new Date(checkIn);
@@ -1049,7 +1051,8 @@ export default function PropertyDetails() {
           .filter(Boolean)
       );
 
-      return guestsFiltered.filter((vehicle) => !conflictingIds.has(String(vehicle.id))).slice(0, 6);
+      const available = guestsFiltered.filter((vehicle) => !conflictingIds.has(String(vehicle.id))).slice(0, 6);
+      return available.length > 0 ? available : fallbackPopular;
     },
   });
 
@@ -1394,7 +1397,7 @@ export default function PropertyDetails() {
             </div>
 
             {/* Right column */}
-            <div className="lg:col-span-5 lg:self-start">
+            <div className="lg:col-span-5 lg:self-start lg:flex lg:flex-col">
               <div className="flex items-start justify-between gap-6">
                 <div>
                   <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">{data.title}</h1>
@@ -1721,7 +1724,7 @@ export default function PropertyDetails() {
               </div>
 
               {/* Booking */}
-              <div className="booking-sticky-card mt-8 bg-card rounded-xl shadow-card p-5 lg:sticky lg:top-36 lg:z-20 border border-border/60 transition-all duration-300 hover:shadow-xl">
+              <div className="booking-sticky-card mt-8 lg:mt-0 lg:order-first bg-card rounded-xl shadow-card p-5 lg:sticky lg:top-24 lg:z-20 border border-border/60 transition-all duration-300 hover:shadow-xl">
                 <h2 className="text-lg font-semibold text-foreground mb-4">
                   {isMonthlyOnlyListing ? "Book this monthly stay" : t("propertyDetails.bookThisStay")}
                 </h2>
