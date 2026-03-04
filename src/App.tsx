@@ -9,9 +9,6 @@ import { lazy, Suspense, useEffect, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import AuthCallback from "./pages/AuthCallback";
-import ReviewPage from "./pages/ReviewPage";
 import RequireAuth from "@/components/RequireAuth";
 import RequireRole from "@/components/RequireRole";
 
@@ -62,14 +59,17 @@ const CreateStory = lazy(() => import("./pages/CreateStory"));
 const AffiliateSignup = lazy(() => import("./pages/AffiliateSignup"));
 const AffiliateDashboard = lazy(() => import("./pages/AffiliateDashboard"));
 const AffiliatePortal = lazy(() => import("./pages/AffiliatePortal"));
+const Auth = lazy(() => import("./pages/Auth"));
+const AuthCallback = lazy(() => import("./pages/AuthCallback"));
+const ReviewPage = lazy(() => import("./pages/ReviewPage"));
 import ScrollToTop from "@/components/ScrollToTop";
-import SupportCenterLauncher from "@/components/SupportCenterLauncher";
+const SupportCenterLauncher = lazy(() => import("@/components/SupportCenterLauncher"));
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { useDataPersistence } from "@/hooks/useDataPersistence";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { RealtimeProvider } from "@/components/RealtimeProvider";
-import { DatabaseConnectivityTest } from "@/components/DatabaseConnectivityTest";
-import GlobalLoadingIndicator from "@/components/GlobalLoadingIndicator";
+const DatabaseConnectivityTest = lazy(() => import("@/components/DatabaseConnectivityTest").then((m) => ({ default: m.DatabaseConnectivityTest })));
+const GlobalLoadingIndicator = lazy(() => import("@/components/GlobalLoadingIndicator"));
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 const queryClient = new QueryClient({
@@ -426,9 +426,13 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <GlobalLoadingIndicator />
+            <Suspense fallback={null}>
+              <GlobalLoadingIndicator />
+            </Suspense>
             <ScrollToTop />
-            <SupportCenterLauncher />
+            <Suspense fallback={null}>
+              <SupportCenterLauncher />
+            </Suspense>
             <RouteSeoManager />
             <RoutePrefetch />
             <Suspense fallback={<RouteLoadingFallback />}>
@@ -638,7 +642,9 @@ const App = () => (
             </Routes>
             </RouteTransitionWrapper>
             </Suspense>
-            <DatabaseConnectivityTest />
+            <Suspense fallback={null}>
+              <DatabaseConnectivityTest />
+            </Suspense>
           </BrowserRouter>
         </TooltipProvider>
       </RealtimeProvider>
