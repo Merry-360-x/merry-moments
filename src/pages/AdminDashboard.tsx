@@ -2602,6 +2602,7 @@ For support, contact: support@merry360x.com
         totals.totalAmountBooked += bookingAmountRwf;
         totals.totalAmountAfterPawapay += bookingAmountRwf * (1 - 0.031);
         totals.totalAmountAfterServiceFees += bookingAmountRwf - platformServiceFeesRwf;
+        totals.earnedFromCharges += platformServiceFeesRwf;
 
         return totals;
       },
@@ -2609,6 +2610,7 @@ For support, contact: support@merry360x.com
         totalAmountBooked: 0,
         totalAmountAfterPawapay: 0,
         totalAmountAfterServiceFees: 0,
+        earnedFromCharges: 0,
       }
     );
   }, [bookings]);
@@ -2810,6 +2812,14 @@ For support, contact: support@merry360x.com
                     </div>
                     <p className="text-2xl font-bold text-foreground">{formatMoney(adminFinancialOverview.totalAmountAfterServiceFees, "RWF")}</p>
                     <p className="text-xs text-muted-foreground">Total booked - platform fees by booking type</p>
+                  </Card>
+                  <Card className="p-4">
+                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                  <DollarSign className="w-4 h-4" />
+                  <span className="text-sm">Earned from Charges</span>
+                    </div>
+                    <p className="text-2xl font-bold text-primary">{formatMoney(adminFinancialOverview.earnedFromCharges, "RWF")}</p>
+                    <p className="text-xs text-muted-foreground">Total platform fee earnings from confirmed/completed bookings</p>
                   </Card>
         </div>
 
