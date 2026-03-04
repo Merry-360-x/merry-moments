@@ -816,7 +816,9 @@ export default function HostDashboard() {
 
       // Fetch bookings separately for properties, tours, and transport
       const propertyIds = (propsRes.data || []).map((p: { id: string }) => p.id);
+      const tourIds = (toursRes.data || []).map((t: { id: string }) => t.id);
       const tourPackageIds = (tourPackagesRes.data || []).map((t: { id: string }) => t.id);
+      const allTourIds = Array.from(new Set([...tourIds, ...tourPackageIds]));
       const vehicleIds = (vehiclesRes.data || []).map((v: { id: string }) => v.id);
       
       const bookingQueries = [];
@@ -834,13 +836,13 @@ export default function HostDashboard() {
       }
       
       // Tour bookings
-      if (tourPackageIds.length > 0) {
+      if (allTourIds.length > 0) {
         bookingQueries.push(
           supabase
             .from("bookings")
             .select("*, tour_packages(title, price_per_adult, currency)")
             .eq("booking_type", "tour")
-            .in("tour_id", tourPackageIds)
+            .in("tour_id", allTourIds)
             .order("created_at", { ascending: false })
         );
       }
@@ -2592,8 +2594,9 @@ export default function HostDashboard() {
     const status = String(b.status || "").toLowerCase();
     const payment = normalizePaymentStatus(b);
     const isConfirmed = status === "confirmed" || status === "completed";
+    const isUnpaidFlow = ["failed", "pending", "requested", "unpaid", "not_paid", "expired"].includes(payment);
     const isRefundFlow = payment === "requested" || payment === "refunded" || payment.includes("refund");
-    return isConfirmed && !isRefundFlow;
+    return isConfirmed && !isRefundFlow && !isUnpaidFlow;
   });
   
   // Gross earnings (what guests paid)
@@ -2614,7 +2617,14 @@ export default function HostDashboard() {
   const totalEarnings = totalNetEarnings;
   const isPendingBookingStatus = (status: string | null | undefined) =>
     status === "pending" || status === "pending_confirmation";
-  const pendingBookings = (bookings || []).filter((b) => isPendingBookingStatus(b.status)).length;
+  const bookingGroupKeys = new Set((bookings || []).map((b) => b.order_id || b.id));
+  const totalBookingsCount = bookingGroupKeys.size;
+  const pendingBookingGroupKeys = new Set(
+    (bookings || [])
+      .filter((b) => isPendingBookingStatus(b.status))
+      .map((b) => b.order_id || b.id)
+  );
+  const pendingBookings = pendingBookingGroupKeys.size;
   const publishedProperties = (properties || []).filter((p) => p.is_published).length;
 
   // Calculate available for payout (confirmed bookings - pending payouts)
@@ -6905,10 +6915,10 @@ export default function HostDashboard() {
               <TabsTrigger value="tours">Tours ({(tours || []).length})</TabsTrigger>
               <TabsTrigger value="transport">Transport ({(vehicles || []).length})</TabsTrigger>
               <TabsTrigger value="bookings">
-                Bookings ({(bookings || []).length})
-                {bookings.filter(b => isPendingBookingStatus(b.status)).length > 0 && (
+                Bookings ({totalBookingsCount})
+                {pendingBookings > 0 && (
                   <Badge variant="destructive" className="ml-1.5 px-1.5 py-0 text-xs h-5 min-w-[20px] rounded-full">
-                    {bookings.filter(b => isPendingBookingStatus(b.status)).length}
+                    {pendingBookings}
                   </Badge>
                 )}
               </TabsTrigger>
@@ -6978,7 +6988,7 @@ export default function HostDashboard() {
           </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Total Bookings</p>
-                    <p className="text-xl font-bold">{(bookings || []).length}</p>
+                    <p className="text-xl font-bold">{totalBookingsCount}</p>
               </div>
                 </div>
               </Card>

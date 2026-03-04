@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -72,6 +72,7 @@ export default function TourDetails() {
   const { usdRates } = useFxRates();
   const { t } = useTranslation();
   const [participants, setParticipants] = useState(1);
+  const [selectedDurationKey, setSelectedDurationKey] = useState<string | null>(null);
 
   const categoryLabel = (category: string) => {
     const key = String(category ?? "")
@@ -238,6 +239,30 @@ export default function TourDetails() {
   const configuredDurationValue = Number(pricingMetadata?.pricing_duration_value || 0);
   const configuredDurationUnit: "minute" | "hour" | null =
     pricingModel === "per_hour" ? "hour" : pricingModel === "per_minute" ? "minute" : null;
+
+  useEffect(() => {
+    if (timePricingTiers.length === 0) {
+      setSelectedDurationKey(null);
+      return;
+    }
+
+    const configuredMatch = timePricingTiers.find(
+      (tier) => tier.duration_value === configuredDurationValue && tier.duration_unit === configuredDurationUnit
+    );
+    const fallback = configuredMatch || timePricingTiers[0];
+    const key = `${fallback.duration_value}-${fallback.duration_unit}`;
+    setSelectedDurationKey((prev) => prev ?? key);
+  }, [configuredDurationUnit, configuredDurationValue, timePricingTiers]);
+
+  const selectedDurationTier = useMemo(() => {
+    if (!selectedDurationKey || timePricingTiers.length === 0) return null;
+    return (
+      timePricingTiers.find((tier) => `${tier.duration_value}-${tier.duration_unit}` === selectedDurationKey) ||
+      null
+    );
+  }, [selectedDurationKey, timePricingTiers]);
+
+  const effectiveTourPrice = selectedDurationTier?.price ?? Number(normalizedPrice ?? 0);
 
   // Support pricing tiers for both regular tours and tour packages
   const pricingTiers = ((): Array<{ group_size: number; price_per_person: number }> => {
@@ -605,12 +630,12 @@ export default function TourDetails() {
             <div className="bg-card rounded-xl shadow-lg border p-6">
               <div className="mb-6">
                 <div className="text-3xl font-bold text-primary">
-                  {displayMoney(Number(normalizedPrice ?? 0), String(normalizedCurrency ?? "RWF"))}
+                  {displayMoney(Number(effectiveTourPrice ?? 0), String(normalizedCurrency ?? "RWF"))}
                 </div>
                 <div className="text-sm text-muted-foreground">{getTourPriceSuffix(pricingModel)}</div>
-                {isTimeBasedPricing && configuredDurationUnit && configuredDurationValue > 0 && (
+                {isTimeBasedPricing && selectedDurationTier && (
                   <div className="text-xs text-muted-foreground mt-1">
-                    {t("tourDetails.forSelectedDuration", "for selected duration")}: {configuredDurationValue} {configuredDurationValue === 1 ? configuredDurationUnit : `${configuredDurationUnit}s`}
+                    {t("tourDetails.forSelectedDuration", "for selected duration")}: {selectedDurationTier.duration_value} {selectedDurationTier.duration_value === 1 ? selectedDurationTier.duration_unit : `${selectedDurationTier.duration_unit}s`}
                   </div>
                 )}
               </div>
@@ -620,14 +645,23 @@ export default function TourDetails() {
                   <div className="text-sm font-semibold text-foreground">{t("tourDetails.pricingByDuration", "Pricing by Duration")}</div>
                   <div className="mt-3 space-y-2">
                     {timePricingTiers.map((tier, index) => (
-                      <div key={`${tier.duration_value}-${tier.duration_unit}-${index}`} className="flex items-center justify-between text-sm">
+                      <button
+                        type="button"
+                        key={`${tier.duration_value}-${tier.duration_unit}-${index}`}
+                        className={`w-full flex items-center justify-between text-sm rounded-md border px-3 py-2 transition-colors ${
+                          `${tier.duration_value}-${tier.duration_unit}` === selectedDurationKey
+                            ? "border-primary bg-primary/10"
+                            : "border-border hover:bg-muted/50"
+                        }`}
+                        onClick={() => setSelectedDurationKey(`${tier.duration_value}-${tier.duration_unit}`)}
+                      >
                         <span className="text-muted-foreground">
                           {tier.duration_value} {tier.duration_value === 1 ? tier.duration_unit : `${tier.duration_unit}s`}
                         </span>
                         <span className="font-semibold text-foreground">
                           {displayMoney(Number(tier.price), String(normalizedCurrency ?? "RWF"))}
                         </span>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -715,7 +749,7 @@ export default function TourDetails() {
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">{t("tourDetails.totalForGroup", "Total for group")}</span>
                       <span className="font-semibold text-primary">
-                        {displayMoney(Number(normalizedPrice ?? 0) * getTourBillingQuantity(pricingModel, participants), String(normalizedCurrency ?? "RWF"))}
+                        {displayMoney(Number(effectiveTourPrice ?? 0) * getTourBillingQuantity(pricingModel, participants), String(normalizedCurrency ?? "RWF"))}
                       </span>
                     </div>
                   </div>
@@ -734,6 +768,11 @@ export default function TourDetails() {
                       participants: String(participants),
                       quantity: String(getTourBillingQuantity(pricingModel, participants)),
                     });
+                    if (selectedDurationTier) {
+                      params.set("durationValue", String(selectedDurationTier.duration_value));
+                      params.set("durationUnit", selectedDurationTier.duration_unit);
+                      params.set("durationPrice", String(selectedDurationTier.price));
+                    }
                     navigate(`/checkout?${params.toString()}`);
                   }}
                 >
@@ -744,7 +783,9 @@ export default function TourDetails() {
                   className="w-full"
                   variant="outline"
                   size="lg"
-                  onClick={async () => await addToCart(isPackage ? "tour_package" : "tour", String(tour.id), getTourBillingQuantity(pricingModel, participants))}
+                  onClick={async () =>
+                    await addToCart(isPackage ? "tour_package" : "tour", String(tour.id), getTourBillingQuantity(pricingModel, participants))
+                  }
                 >
                   {t("common.addToTripCart")}
                 </Button>

@@ -386,7 +386,17 @@ export default function CheckoutNew() {
       if (mode === "tour" && tourId) {
         const participants = parseInt(searchParams.get("participants") || "1", 10);
         const quantity = parseInt(searchParams.get("quantity") || "0", 10);
-        const directTour = await fetchDirectTour(tourId, participants, quantity > 0 ? quantity : undefined);
+        const durationValue = parseInt(searchParams.get("durationValue") || "0", 10);
+        const durationUnitRaw = searchParams.get("durationUnit");
+        const durationUnit = durationUnitRaw === "hour" || durationUnitRaw === "minute" ? durationUnitRaw : undefined;
+        const durationPrice = parseFloat(searchParams.get("durationPrice") || "0");
+        const safeDurationPrice = Number.isFinite(durationPrice) && durationPrice > 0 ? durationPrice : undefined;
+        const directTour = await fetchDirectTour(
+          tourId,
+          participants,
+          quantity > 0 ? quantity : undefined,
+          durationValue > 0 && durationUnit ? { durationValue, durationUnit, durationPrice: safeDurationPrice } : undefined
+        );
         return directTour;
       }
       
@@ -397,7 +407,17 @@ export default function CheckoutNew() {
     enabled: !authLoading,
   });
 
-  async function fetchDirectTour(tourId: string, participants: number, explicitQuantity?: number): Promise<CartItem[]> {
+  async function fetchDirectTour(
+    tourId: string,
+    participants: number,
+    explicitQuantity?: number,
+    selectedDuration?: { durationValue: number; durationUnit: "minute" | "hour"; durationPrice?: number }
+  ): Promise<CartItem[]> {
+    const safeSelectedDurationPrice =
+      selectedDuration && Number.isFinite(selectedDuration.durationPrice) && (selectedDuration.durationPrice ?? 0) > 0
+        ? selectedDuration.durationPrice
+        : undefined;
+
     // Try regular tours first
     const { data: tour } = await ((supabase
       .from('tours')
@@ -417,10 +437,12 @@ export default function CheckoutNew() {
         reference_id: tour.id,
         quantity,
         title: tour.title,
-        price: tour.price_per_person,
+        price: safeSelectedDurationPrice ?? tour.price_per_person,
         currency: tour.currency || 'RWF',
         image: tour.images?.[0],
-        meta: `${tour.duration_days} days • ${getTourPriceSuffix(pricingModel)}`,
+        meta: selectedDuration
+          ? `${selectedDuration.durationValue} ${selectedDuration.durationValue === 1 ? selectedDuration.durationUnit : `${selectedDuration.durationUnit}s`} • ${getTourPriceSuffix(pricingModel)}`
+          : `${tour.duration_days} days • ${getTourPriceSuffix(pricingModel)}`,
         metadata: {
           participants,
           pricing_model: pricingModel,
@@ -454,10 +476,12 @@ export default function CheckoutNew() {
       reference_id: tourPackage.id,
       quantity,
       title: tourPackage.title,
-      price: Number(tourPackage.price_per_adult || 0),
+      price: safeSelectedDurationPrice ?? Number(tourPackage.price_per_adult || 0),
       currency: tourPackage.currency || 'RWF',
       image: packageImages[0],
-      meta: `${tourPackage.duration || 1} days • ${getTourPriceSuffix(pricingModel)}`,
+      meta: selectedDuration
+        ? `${selectedDuration.durationValue} ${selectedDuration.durationValue === 1 ? selectedDuration.durationUnit : `${selectedDuration.durationUnit}s`} • ${getTourPriceSuffix(pricingModel)}`
+        : `${tourPackage.duration || 1} days • ${getTourPriceSuffix(pricingModel)}`,
       metadata: {
         participants,
         pricing_model: pricingModel,
