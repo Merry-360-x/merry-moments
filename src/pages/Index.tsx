@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import HeroSearch from "@/components/HeroSearch";
@@ -9,11 +10,18 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { TrendingUp } from "lucide-react";
 import heroVideo from "@/assets/merry.mp4";
+import heroPoster from "@/assets/hero-resort.jpg";
 
 const Index = () => {
   const { user } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [showHeroVideo, setShowHeroVideo] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShowHeroVideo(true), 1200);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -24,17 +32,28 @@ const Index = () => {
         className="relative min-h-[40vh] md:min-h-[70vh] flex items-center justify-center overflow-hidden"
       >
         {/* Video Background */}
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="auto"
-          className="absolute inset-0 w-full h-full object-cover z-[1]"
-          style={{ objectPosition: 'center center' }}
-        >
-          <source src={heroVideo} type="video/mp4" />
-        </video>
+        {showHeroVideo ? (
+          <video
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            poster={heroPoster}
+            className="absolute inset-0 w-full h-full object-cover z-[1]"
+            style={{ objectPosition: "center center" }}
+          >
+            <source src={heroVideo} type="video/mp4" />
+          </video>
+        ) : (
+          <img
+            src={heroPoster}
+            alt="Rwanda scenic hero"
+            className="absolute inset-0 w-full h-full object-cover z-[1]"
+            loading="eager"
+            decoding="async"
+          />
+        )}
 
         {/* Overlay */}
         <div className="absolute inset-0 bg-gradient-to-b from-foreground/10 via-foreground/20 to-foreground/50 z-[2]" />

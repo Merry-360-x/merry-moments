@@ -38,6 +38,7 @@ export interface PropertyCardProps {
   isFavorited?: boolean;
   onToggleFavorite?: () => void;
   hostId?: string | null;
+  showHostVerifiedBadge?: boolean;
 }
 
 const PropertyCard = ({
@@ -65,6 +66,7 @@ const PropertyCard = ({
   isFavorited,
   onToggleFavorite,
   hostId,
+  showHostVerifiedBadge = true,
 }: PropertyCardProps) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -82,7 +84,7 @@ const PropertyCard = ({
   // Check if host is verified (only when hostId is provided)
   const { data: hostVerified } = useQuery({
     queryKey: ["host-verified", hostId],
-    enabled: Boolean(hostId),
+    enabled: Boolean(hostId) && showHostVerifiedBadge,
     staleTime: 1000 * 60 * 10, // 10 minutes
     gcTime: 1000 * 60 * 30,
     queryFn: async () => {

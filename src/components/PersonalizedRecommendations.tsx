@@ -37,15 +37,16 @@ export function PersonalizedRecommendations({
       await recommendationEngine.initialize();
       setEngine(recommendationEngine);
 
-      if (type === 'properties' || type === 'all') {
-        const propertyRecs = await recommendationEngine.getPropertyRecommendations(limit);
-        setProperties(propertyRecs);
-      }
+      const shouldLoadProperties = type === 'properties' || type === 'all';
+      const shouldLoadTours = type === 'tours' || type === 'all';
 
-      if (type === 'tours' || type === 'all') {
-        const tourRecs = await recommendationEngine.getTourRecommendations(limit);
-        setTours(tourRecs);
-      }
+      const [propertyRecs, tourRecs] = await Promise.all([
+        shouldLoadProperties ? recommendationEngine.getPropertyRecommendations(limit) : Promise.resolve([]),
+        shouldLoadTours ? recommendationEngine.getTourRecommendations(limit) : Promise.resolve([]),
+      ]);
+
+      setProperties(propertyRecs);
+      setTours(tourRecs);
     } catch (err) {
       console.error('[PersonalizedRecommendations] Failed to initialize:', err);
     } finally {
@@ -86,6 +87,7 @@ export function PersonalizedRecommendations({
     petsAllowed: item.pets_allowed,
     isFavorited: false,
     hostId: item.host_id || null,
+    showHostVerifiedBadge: false,
     };
   };
 

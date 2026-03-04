@@ -161,7 +161,7 @@ export class RecommendationEngine {
     try {
       const { data: properties } = await supabase
         .from('properties')
-        .select('*')
+        .select('id, title, location, rating, review_count, price_per_night, price_per_month, monthly_only_listing, price_per_person, currency, property_type, bedrooms, beds, bathrooms, max_guests, check_in_time, check_out_time, smoking_allowed, events_allowed, pets_allowed, images, host_id, created_at')
         .eq('is_published', true)
         .order('created_at', { ascending: true })
         .limit(50); // Fetch more to score and filter
@@ -189,14 +189,14 @@ export class RecommendationEngine {
     try {
       const { data: tours } = await supabase
         .from('tours')
-        .select('*')
+        .select('id, title, location, category, duration, duration_days, rating, review_count, price_per_person, currency, images, pricing_tiers, created_by, created_at')
         .eq('is_published', true)
         .order('created_at', { ascending: false })
         .limit(50);
 
       const { data: packages } = await supabase
         .from('tour_packages')
-        .select('*')
+        .select('id, title, city, country, category, duration_days, rating, review_count, price_per_adult, currency, cover_image, gallery_images, pricing_tiers, host_id, created_at')
         .eq('status', 'approved')
         .order('created_at', { ascending: false })
         .limit(50);
