@@ -180,12 +180,7 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Personalized Recommendations - Main Content */}
-      <section className="container mx-auto px-4 py-16 min-h-[80vh]">
-        <PersonalizedRecommendations type="all" limit={8} mode="popular" />
-      </section>
-
-      <section className="container mx-auto px-4 pb-16">
+      <section className="container mx-auto px-4 py-16">
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h2 className="text-2xl md:text-3xl font-bold text-foreground">Popular Tours</h2>
@@ -231,6 +226,10 @@ const Index = () => {
             </CardContent>
           </Card>
         )}
+      </section>
+
+      <section className="container mx-auto px-4 pb-16 min-h-[60vh]">
+        <PersonalizedRecommendations type="properties" limit={8} mode="popular" title="Popular Stays" />
       </section>
 
       <section className="container mx-auto px-4 pb-16">
