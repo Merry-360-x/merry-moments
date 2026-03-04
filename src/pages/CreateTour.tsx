@@ -113,14 +113,27 @@ export default function CreateTour() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState<Set<string>>(new Set());
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [restoredDraftAt, setRestoredDraftAt] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
   const totalSteps = 4;
   const stepTitles = ["Basic Info", "Pricing", "Media", "Review"];
 
-  // Use a stable storage key
-  const getStorageKey = () => user?.id ? `tour-draft-${user.id}` : 'tour-draft-anonymous';
+  // Use stable storage keys (separate keys for create vs edit mode)
+  const getStorageKey = () => {
+    const userPart = user?.id || "anonymous";
+    if (isEditMode && editId) return `tour-draft-edit-${editId}-${userPart}`;
+    return user?.id ? `tour-draft-${user.id}` : "tour-draft-anonymous";
+  };
+  const getAnonymousStorageKey = () => {
+    if (isEditMode && editId) return `tour-draft-edit-${editId}-anonymous`;
+    return "tour-draft-anonymous";
+  };
+  const getDraftLookupKeys = () => {
+    const primaryKey = getStorageKey();
+    return user?.id ? [primaryKey, getAnonymousStorageKey()] : [primaryKey];
+  };
 
   useEffect(() => {
     if (!isEditMode || !editId || !user?.id) return;
@@ -195,6 +208,47 @@ export default function CreateTour() {
       setImages((data.images as string[] | null) || []);
       setPdfUrl((data as any).itinerary_pdf_url || "");
       setLicenseUrl((data as any).tour_guide_license_url || (data as any).tour_license_url || "");
+
+      const primaryDraftKey = getStorageKey();
+      const draftLookupKeys = user?.id
+        ? [primaryDraftKey, getAnonymousStorageKey()]
+        : [primaryDraftKey];
+      for (const key of draftLookupKeys) {
+        const savedDraft = localStorage.getItem(key);
+        if (!savedDraft) continue;
+        try {
+          const draft = JSON.parse(savedDraft);
+          if (draft.formData) {
+            const loadedPricingModels = getTourPricingModels({
+              pricing_model: draft.formData.pricing_model,
+              pricing_models: draft.formData.pricing_models,
+            });
+            setFormData((prev) => ({
+              ...prev,
+              ...draft.formData,
+              pricing_models: loadedPricingModels,
+              pricing_model: loadedPricingModels[0] || "per_person",
+              pricing_duration_value: Number(draft.formData.pricing_duration_value || 1),
+              time_pricing_tiers: normalizeTimePricingTiers(draft.formData.time_pricing_tiers, loadedPricingModels[0] || "per_person"),
+              group_pricing_tiers: normalizeGroupPricingTiers(draft.formData.group_pricing_tiers),
+            }));
+          }
+          if (draft.images) setImages(draft.images);
+          if (draft.licenseUrl) setLicenseUrl(draft.licenseUrl);
+          const restoredAt = new Date(draft.timestamp);
+          setLastSaved(restoredAt);
+          setRestoredDraftAt(restoredAt);
+          if (key !== primaryDraftKey) {
+            localStorage.setItem(primaryDraftKey, savedDraft);
+            localStorage.removeItem(key);
+          }
+          toast({ title: "Draft restored", description: "Your edit draft has been restored" });
+          break;
+        } catch (err) {
+          console.error("[CreateTour] Failed to load edit draft:", err);
+        }
+      }
+
       setDraftLoaded(true);
       setIsEditLoading(false);
     };
@@ -223,15 +277,23 @@ export default function CreateTour() {
 
   // Load draft on mount (only once)
   useEffect(() => {
-    if (isEditMode) {
-      setDraftLoaded(true);
-      return;
-    }
+    if (isLoading) return;
+    if (isEditMode) return;
     if (draftLoaded) return;
-    
-    const draftKey = getStorageKey();
-    const savedDraft = localStorage.getItem(draftKey);
-    
+
+    const primaryDraftKey = getStorageKey();
+    let restoredFromKey: string | null = null;
+    let savedDraft: string | null = null;
+
+    for (const key of getDraftLookupKeys()) {
+      const value = localStorage.getItem(key);
+      if (value) {
+        restoredFromKey = key;
+        savedDraft = value;
+        break;
+      }
+    }
+
     if (savedDraft) {
       try {
         const draft = JSON.parse(savedDraft);
@@ -251,15 +313,21 @@ export default function CreateTour() {
           }));
         }
         if (draft.images) setImages(draft.images);
-        setLastSaved(new Date(draft.timestamp));
+        const restoredAt = new Date(draft.timestamp);
+        setLastSaved(restoredAt);
+        setRestoredDraftAt(restoredAt);
+        if (restoredFromKey && restoredFromKey !== primaryDraftKey) {
+          localStorage.setItem(primaryDraftKey, savedDraft);
+          localStorage.removeItem(restoredFromKey);
+        }
         toast({ title: "Draft restored", description: "Your previous work has been restored" });
-        console.log('[CreateTour] Draft restored from', draftKey);
+        console.log('[CreateTour] Draft restored from', restoredFromKey || primaryDraftKey);
       } catch (err) {
         console.error('Failed to load draft:', err);
       }
     }
     setDraftLoaded(true);
-  }, [user?.id, draftLoaded, isEditMode]);
+  }, [user?.id, draftLoaded, isEditMode, isLoading]);
 
   function hasDraftContent() {
     return Boolean(
@@ -277,7 +345,6 @@ export default function CreateTour() {
 
   // Auto-save on form changes (only after load)
   useEffect(() => {
-    if (isEditMode) return;
     if (!draftLoaded) return;
     
     const draftKey = getStorageKey();
@@ -288,6 +355,7 @@ export default function CreateTour() {
       const draft = {
         formData,
         images,
+        licenseUrl,
         timestamp: new Date().toISOString(),
       };
       localStorage.setItem(draftKey, JSON.stringify(draft));
@@ -300,7 +368,6 @@ export default function CreateTour() {
 
   // Save on page unload
   useEffect(() => {
-    if (isEditMode) return;
     const handleBeforeUnload = () => {
       if (!hasDraftContent()) return;
       
@@ -308,6 +375,7 @@ export default function CreateTour() {
       const draft = {
         formData,
         images,
+        licenseUrl,
         timestamp: new Date().toISOString(),
       };
       localStorage.setItem(draftKey, JSON.stringify(draft));
@@ -323,6 +391,7 @@ export default function CreateTour() {
     const draft = {
       formData,
       images,
+      licenseUrl,
       timestamp: new Date().toISOString(),
     };
     
@@ -1175,6 +1244,11 @@ export default function CreateTour() {
 
           {wizardStep === 4 && (
           <div className="space-y-3">
+            {restoredDraftAt && (
+              <p className="text-xs text-primary text-center">
+                {isEditMode ? "Restored edit draft" : "Restored draft"}: {restoredDraftAt.toLocaleTimeString()}
+              </p>
+            )}
             {lastSaved && (
               <p className="text-xs text-muted-foreground text-center">
                 Last saved: {lastSaved.toLocaleTimeString()}
@@ -1218,6 +1292,7 @@ export default function CreateTour() {
                   if (!window.confirm("Discard saved draft? This cannot be undone.")) return;
                   clearDraft();
                   setLastSaved(null);
+                  setRestoredDraftAt(null);
                   toast({ title: "Draft discarded", description: "Saved draft has been removed." });
                 }}
                 disabled={uploading || isSaving}

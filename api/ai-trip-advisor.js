@@ -37,9 +37,12 @@ export default async function handler(req, res) {
       confidence: result.confidence,
       topIntents: result.topIntents,
       references: result.references,
+      extractedEntities: result.extractedEntities,
+      conversationContext: result.conversationContext,
       capabilities: {
         estimatedQuestionCapacity: result.estimatedQuestionCapacity || estimateQuestionSpace(),
-        strategy: "intent-classification + semantic-faq-retrieval + entity-aware-followup",
+        strategy: "intelligent-intent-classification + contextual-knowledge-retrieval + entity-aware-recommendations",
+        knowledgeBase: "East Africa destinations, activities, seasonal info, and travel planning",
       },
     });
   } catch (error) {

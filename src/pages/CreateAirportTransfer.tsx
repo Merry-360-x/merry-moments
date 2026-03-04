@@ -80,6 +80,7 @@ export default function CreateAirportTransfer() {
 
   const [submitting, setSubmitting] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [restoredDraftAt, setRestoredDraftAt] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [hostProfileComplete, setHostProfileComplete] = useState(false);
@@ -104,8 +105,20 @@ export default function CreateAirportTransfer() {
       });
   }, [user?.id]);
 
-  // Use a stable storage key per user
-  const getStorageKey = useCallback(() => user?.id ? `airport-transfer-draft-${user.id}` : 'airport-transfer-draft-anonymous', [user?.id]);
+  // Use stable storage keys per user (separate keys for create vs edit mode)
+  const getStorageKey = useCallback(() => {
+    const userPart = user?.id || "anonymous";
+    if (isEditMode && editId) return `airport-transfer-draft-edit-${editId}-${userPart}`;
+    return user?.id ? `airport-transfer-draft-${user.id}` : "airport-transfer-draft-anonymous";
+  }, [editId, isEditMode, user?.id]);
+  const getAnonymousStorageKey = useCallback(() => {
+    if (isEditMode && editId) return `airport-transfer-draft-edit-${editId}-anonymous`;
+    return "airport-transfer-draft-anonymous";
+  }, [editId, isEditMode]);
+  const getDraftLookupKeys = useCallback(() => {
+    const primaryKey = getStorageKey();
+    return user?.id ? [primaryKey, getAnonymousStorageKey()] : [primaryKey];
+  }, [getStorageKey, getAnonymousStorageKey, user?.id]);
 
   useEffect(() => {
     if (!isEditMode || !editId || !user?.id) return;
@@ -170,6 +183,37 @@ export default function CreateAirportTransfer() {
       });
       setSelectedRoutes(selected);
 
+      const primaryDraftKey = getStorageKey();
+      const draftLookupKeys = user?.id
+        ? [primaryDraftKey, getAnonymousStorageKey()]
+        : [primaryDraftKey];
+      for (const key of draftLookupKeys) {
+        const savedDraft = localStorage.getItem(key);
+        if (!savedDraft) continue;
+        try {
+          const draft = JSON.parse(savedDraft);
+          if (draft.formData) setFormData(draft.formData);
+          if (draft.selectedRoutes) setSelectedRoutes(draft.selectedRoutes);
+          if (draft.exteriorImages) setExteriorImages(draft.exteriorImages);
+          if (draft.interiorImages) setInteriorImages(draft.interiorImages);
+          if (draft.insuranceDoc) setInsuranceDoc(draft.insuranceDoc);
+          if (draft.registrationDoc) setRegistrationDoc(draft.registrationDoc);
+          if (draft.roadworthinessDoc) setRoadworthinessDoc(draft.roadworthinessDoc);
+          if (draft.ownerIdDoc) setOwnerIdDoc(draft.ownerIdDoc);
+          const restoredAt = new Date(draft.timestamp);
+          setLastSaved(restoredAt);
+          setRestoredDraftAt(restoredAt);
+          if (key !== primaryDraftKey) {
+            localStorage.setItem(primaryDraftKey, savedDraft);
+            localStorage.removeItem(key);
+          }
+          toast({ title: "Draft restored", description: "Your edit draft has been restored" });
+          break;
+        } catch (err) {
+          console.error("[CreateAirportTransfer] Failed to load edit draft:", err);
+        }
+      }
+
       setDraftLoaded(true);
       setIsEditLoading(false);
     };
@@ -183,15 +227,23 @@ export default function CreateAirportTransfer() {
 
   // Load draft on mount (only once)
   useEffect(() => {
-    if (isEditMode) {
-      setDraftLoaded(true);
-      return;
-    }
+    if (isLoading) return;
+    if (isEditMode) return;
     if (draftLoaded) return;
-    
-    const draftKey = getStorageKey();
-    const savedDraft = localStorage.getItem(draftKey);
-    
+
+    const primaryDraftKey = getStorageKey();
+    let restoredFromKey: string | null = null;
+    let savedDraft: string | null = null;
+
+    for (const key of getDraftLookupKeys()) {
+      const value = localStorage.getItem(key);
+      if (value) {
+        restoredFromKey = key;
+        savedDraft = value;
+        break;
+      }
+    }
+
     if (savedDraft) {
       try {
         const draft = JSON.parse(savedDraft);
@@ -203,14 +255,20 @@ export default function CreateAirportTransfer() {
         if (draft.registrationDoc) setRegistrationDoc(draft.registrationDoc);
         if (draft.roadworthinessDoc) setRoadworthinessDoc(draft.roadworthinessDoc);
         if (draft.ownerIdDoc) setOwnerIdDoc(draft.ownerIdDoc);
-        setLastSaved(new Date(draft.timestamp));
+        const restoredAt = new Date(draft.timestamp);
+        setLastSaved(restoredAt);
+        setRestoredDraftAt(restoredAt);
+        if (restoredFromKey && restoredFromKey !== primaryDraftKey) {
+          localStorage.setItem(primaryDraftKey, savedDraft);
+          localStorage.removeItem(restoredFromKey);
+        }
         toast({ title: "Draft restored", description: "Your previous work has been restored" });
       } catch (err) {
         console.error('Failed to load draft:', err);
       }
     }
     setDraftLoaded(true);
-  }, [user?.id, draftLoaded, getStorageKey, toast, isEditMode]);
+  }, [user?.id, draftLoaded, getStorageKey, getDraftLookupKeys, toast, isEditMode, isLoading]);
 
   const hasDraftContent =
     Boolean(
@@ -229,7 +287,6 @@ export default function CreateAirportTransfer() {
 
   // Auto-save on form changes (only after load)
   useEffect(() => {
-    if (isEditMode) return;
     if (!draftLoaded) return;
     
     const draftKey = getStorageKey();
@@ -257,7 +314,6 @@ export default function CreateAirportTransfer() {
 
   // Save on page unload
   useEffect(() => {
-    if (isEditMode) return;
     const handleBeforeUnload = () => {
       if (!hasDraftContent) return;
       
@@ -870,6 +926,9 @@ export default function CreateAirportTransfer() {
               <>
             <div className="flex justify-between items-center">
               <div className="text-sm text-muted-foreground">
+                {restoredDraftAt && (
+                  <span className="text-primary mr-3">{isEditMode ? "Restored edit draft" : "Restored draft"}: {restoredDraftAt.toLocaleTimeString()}</span>
+                )}
                 {lastSaved && (
                   <span>Last saved: {lastSaved.toLocaleTimeString()}</span>
                 )}
@@ -893,6 +952,7 @@ export default function CreateAirportTransfer() {
                     if (!window.confirm("Discard saved draft? This cannot be undone.")) return;
                     clearDraft();
                     setLastSaved(null);
+                    setRestoredDraftAt(null);
                     toast({ title: "Draft discarded", description: "Saved draft has been removed." });
                   }}
                   disabled={isSaving || submitting}

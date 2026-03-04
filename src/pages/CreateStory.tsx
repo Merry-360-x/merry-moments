@@ -17,7 +17,7 @@ import { uiErrorMessage } from "@/lib/ui-errors";
 const isVideoUrl = (url: string) => /\/video\/upload\//i.test(url) || /\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i.test(url);
 
 export default function CreateStory() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -32,6 +32,11 @@ export default function CreateStory() {
     () => (user?.id ? `create-story-draft-${user.id}` : "create-story-draft-anonymous"),
     [user?.id]
   );
+  const getAnonymousStorageKey = useCallback(() => "create-story-draft-anonymous", []);
+  const getDraftLookupKeys = useCallback(() => {
+    const primaryKey = getStorageKey();
+    return user?.id ? [primaryKey, getAnonymousStorageKey()] : [primaryKey];
+  }, [getStorageKey, getAnonymousStorageKey, user?.id]);
 
   const hasDraftContent = Boolean(title.trim() || location.trim() || body.trim() || mediaUrls.length > 0);
 
@@ -42,10 +47,22 @@ export default function CreateStory() {
   }, [selectedMedia]);
 
   useEffect(() => {
+    if (isLoading) return;
     if (draftLoaded) return;
 
-    const draftKey = getStorageKey();
-    const savedDraft = localStorage.getItem(draftKey);
+    const primaryDraftKey = getStorageKey();
+    let restoredFromKey: string | null = null;
+    let savedDraft: string | null = null;
+
+    for (const key of getDraftLookupKeys()) {
+      const value = localStorage.getItem(key);
+      if (value) {
+        restoredFromKey = key;
+        savedDraft = value;
+        break;
+      }
+    }
+
     if (savedDraft) {
       try {
         const draft = JSON.parse(savedDraft);
@@ -53,6 +70,10 @@ export default function CreateStory() {
         if (typeof draft.location === "string") setLocation(draft.location);
         if (typeof draft.body === "string") setBody(draft.body);
         if (Array.isArray(draft.mediaUrls)) setMediaUrls(draft.mediaUrls);
+        if (restoredFromKey && restoredFromKey !== primaryDraftKey) {
+          localStorage.setItem(primaryDraftKey, savedDraft);
+          localStorage.removeItem(restoredFromKey);
+        }
         toast({ title: "Draft restored", description: "Your previous story draft has been restored." });
       } catch (error) {
         console.error("Failed to restore story draft:", error);
@@ -60,7 +81,7 @@ export default function CreateStory() {
     }
 
     setDraftLoaded(true);
-  }, [draftLoaded, getStorageKey, toast]);
+  }, [draftLoaded, getStorageKey, getDraftLookupKeys, toast, isLoading]);
 
   useEffect(() => {
     if (!draftLoaded) return;

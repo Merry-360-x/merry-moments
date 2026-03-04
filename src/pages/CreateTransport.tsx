@@ -176,6 +176,7 @@ export default function CreateTransport() {
 
   const [uploading, setUploading] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [restoredDraftAt, setRestoredDraftAt] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [isEditLoading, setIsEditLoading] = useState(false);
@@ -183,7 +184,15 @@ export default function CreateTransport() {
   const totalSteps = 5;
   const stepTitles = ["Vehicle", "Pricing", "Photos", "Documents", "Review"];
 
-  const STORAGE_KEY = 'create_transport_progress';
+  const getStorageKey = () => {
+    const userPart = user?.id || "anonymous";
+    if (isEditMode && editId) return `create-transport-draft-edit-${editId}-${userPart}`;
+    return user?.id ? `create-transport-draft-${user.id}` : "create-transport-draft-anonymous";
+  };
+  const getAnonymousStorageKey = () => {
+    if (isEditMode && editId) return `create-transport-draft-edit-${editId}-anonymous`;
+    return "create-transport-draft-anonymous";
+  };
 
   // Fetch host profile completion status
   useEffect(() => {
@@ -259,6 +268,34 @@ export default function CreateTransport() {
       setExistingRoadworthinessUrl((data as any).roadworthiness_certificate_url || "");
       setExistingOwnerIdUrl((data as any).owner_identification_url || "");
 
+      const primaryDraftKey = getStorageKey();
+      const draftLookupKeys = user?.id
+        ? [primaryDraftKey, getAnonymousStorageKey()]
+        : [primaryDraftKey];
+      for (const key of draftLookupKeys) {
+        const savedData = localStorage.getItem(key);
+        if (!savedData) continue;
+        try {
+          const parsed = JSON.parse(savedData);
+          if (parsed.formData) setFormData(parsed.formData);
+          const restoredAt = new Date(parsed.timestamp);
+          setLastSaved(restoredAt);
+          setRestoredDraftAt(restoredAt);
+          if (key !== primaryDraftKey) {
+            localStorage.setItem(primaryDraftKey, savedData);
+            localStorage.removeItem(key);
+          }
+          toast({
+            title: "Progress Restored",
+            description: "Your edit draft has been restored.",
+            duration: 3000,
+          });
+          break;
+        } catch (e) {
+          console.error("Failed to restore transport edit draft:", e);
+        }
+      }
+
       setDraftLoaded(true);
       setIsEditLoading(false);
     };
@@ -272,18 +309,37 @@ export default function CreateTransport() {
 
   // Load saved progress from localStorage on mount
   useEffect(() => {
-    if (isEditMode) {
-      setDraftLoaded(true);
-      return;
-    }
+    if (isLoading) return;
+    if (isEditMode) return;
     if (draftLoaded) return;
-    
-    const savedData = localStorage.getItem(STORAGE_KEY);
+
+    const primaryDraftKey = getStorageKey();
+    let restoredFromKey: string | null = null;
+    let savedData: string | null = null;
+    const draftLookupKeys = user?.id
+      ? [primaryDraftKey, getAnonymousStorageKey()]
+      : [primaryDraftKey];
+
+    for (const key of draftLookupKeys) {
+      const value = localStorage.getItem(key);
+      if (value) {
+        restoredFromKey = key;
+        savedData = value;
+        break;
+      }
+    }
+
     if (savedData) {
       try {
         const parsed = JSON.parse(savedData);
         if (parsed.formData) setFormData(parsed.formData);
-        setLastSaved(new Date(parsed.timestamp));
+        const restoredAt = new Date(parsed.timestamp);
+        setLastSaved(restoredAt);
+        setRestoredDraftAt(restoredAt);
+        if (restoredFromKey && restoredFromKey !== primaryDraftKey) {
+          localStorage.setItem(primaryDraftKey, savedData);
+          localStorage.removeItem(restoredFromKey);
+        }
         
         toast({
           title: "Progress Restored",
@@ -295,8 +351,7 @@ export default function CreateTransport() {
       }
     }
     setDraftLoaded(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftLoaded, isEditMode]);
+  }, [draftLoaded, isEditMode, isLoading, user?.id]);
 
   const hasDraftContent =
     Boolean(
@@ -321,24 +376,24 @@ export default function CreateTransport() {
 
   // Auto-save progress
   useEffect(() => {
-    if (isEditMode) return;
     if (!draftLoaded) return;
     if (!hasDraftContent) return;
+    const storageKey = getStorageKey();
     
     const timer = setTimeout(() => {
       const dataToSave = {
         formData,
         timestamp: new Date().toISOString(),
       };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+      localStorage.setItem(storageKey, JSON.stringify(dataToSave));
       setLastSaved(new Date());
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [formData, draftLoaded, isEditMode, hasDraftContent]);
+  }, [formData, draftLoaded, isEditMode, hasDraftContent, user?.id, editId]);
 
   useEffect(() => {
-    if (isEditMode) return;
+    const storageKey = getStorageKey();
 
     const handleBeforeUnload = () => {
       if (!hasDraftContent) return;
@@ -347,27 +402,28 @@ export default function CreateTransport() {
         formData,
         timestamp: new Date().toISOString(),
       };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+      localStorage.setItem(storageKey, JSON.stringify(dataToSave));
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [formData, hasDraftContent, isEditMode, STORAGE_KEY]);
+  }, [formData, hasDraftContent, isEditMode, user?.id, editId]);
 
   const handleSaveDraft = () => {
     setIsSaving(true);
+    const storageKey = getStorageKey();
     const dataToSave = {
       formData,
       timestamp: new Date().toISOString(),
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+    localStorage.setItem(storageKey, JSON.stringify(dataToSave));
     setLastSaved(new Date());
     toast({ title: "Draft saved", description: "Your progress has been saved locally" });
     setTimeout(() => setIsSaving(false), 500);
   };
 
   const clearDraft = () => {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(getStorageKey());
   };
 
   // Handle exterior images
@@ -1239,6 +1295,11 @@ export default function CreateTransport() {
           {wizardStep === 5 && (
             <>
           <div className="space-y-3">
+            {restoredDraftAt && (
+              <p className="text-xs text-primary text-center">
+                {isEditMode ? "Restored edit draft" : "Restored draft"}: {restoredDraftAt.toLocaleTimeString()}
+              </p>
+            )}
             {lastSaved && (
               <p className="text-xs text-muted-foreground text-center">
                 Last saved: {lastSaved.toLocaleTimeString()}
@@ -1269,6 +1330,7 @@ export default function CreateTransport() {
                   if (!window.confirm("Discard saved draft? This cannot be undone.")) return;
                   clearDraft();
                   setLastSaved(null);
+                  setRestoredDraftAt(null);
                   toast({ title: "Draft discarded", description: "Saved draft has been removed." });
                 }}
                 disabled={uploading || isSaving}

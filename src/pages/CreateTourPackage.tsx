@@ -155,6 +155,7 @@ Some components are non-refundable once booked, including but not limited to:
   const [customPolicyUrl, setCustomPolicyUrl] = useState<string>("");
   const [uploadingCustomPolicy, setUploadingCustomPolicy] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [restoredDraftAt, setRestoredDraftAt] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [includeRoomType, setIncludeRoomType] = useState(false);
@@ -163,8 +164,20 @@ Some components are non-refundable once booked, including but not limited to:
   const totalSteps = 4;
   const stepTitles = ["Basic Info", "Itinerary", "Pricing", "Media & Review"];
 
-  // Use a stable storage key - always use user ID if available, otherwise anonymous
-  const getStorageKey = () => user?.id ? `tour-package-draft-${user.id}` : 'tour-package-draft-anonymous';
+  // Use stable storage keys - separate keys for create vs edit mode
+  const getStorageKey = () => {
+    const userPart = user?.id || "anonymous";
+    if (isEditMode && editId) return `tour-package-draft-edit-${editId}-${userPart}`;
+    return user?.id ? `tour-package-draft-${user.id}` : "tour-package-draft-anonymous";
+  };
+  const getAnonymousStorageKey = () => {
+    if (isEditMode && editId) return `tour-package-draft-edit-${editId}-anonymous`;
+    return "tour-package-draft-anonymous";
+  };
+  const getDraftLookupKeys = () => {
+    const primaryKey = getStorageKey();
+    return user?.id ? [primaryKey, getAnonymousStorageKey()] : [primaryKey];
+  };
 
   useEffect(() => {
     if (!isEditMode || !editId || !user?.id) return;
@@ -282,6 +295,62 @@ Some components are non-refundable once booked, including but not limited to:
         : "";
       setSelectedPolicies(policyType ? policyType.split(",").map((v: string) => v.trim()).filter(Boolean) : []);
 
+      const primaryDraftKey = getStorageKey();
+      const draftLookupKeys = user?.id
+        ? [primaryDraftKey, getAnonymousStorageKey()]
+        : [primaryDraftKey];
+      for (const key of draftLookupKeys) {
+        const savedDraft = localStorage.getItem(key);
+        if (!savedDraft) continue;
+        try {
+          const draft = JSON.parse(savedDraft);
+          if (draft.formData) {
+            const loadedPricingModels = getTourPricingModels({
+              pricing_model: draft.formData.pricing_model,
+              pricing_models: draft.formData.pricing_models,
+            });
+            setFormData((prev) => ({
+              ...prev,
+              ...draft.formData,
+              pricing_models: loadedPricingModels,
+              pricing_model: loadedPricingModels[0] || "per_person",
+              pricing_duration_value: Number(draft.formData.pricing_duration_value || 1),
+              time_pricing_tiers: normalizeTimePricingTiers(draft.formData.time_pricing_tiers, loadedPricingModels[0] || "per_person"),
+              group_pricing_tiers: normalizeGroupPricingTiers(draft.formData.group_pricing_tiers),
+            }));
+          }
+          if (draft.groupDiscounts) setGroupDiscounts(draft.groupDiscounts);
+          if (draft.pricingTiers) {
+            const migratedTiers = draft.pricingTiers.map((tier: any) => ({
+              group_size: tier.group_size || 1,
+              room_type: tier.room_type || "double_twin",
+              price_per_person: tier.price_per_person || 0,
+            }));
+            setPricingTiers(migratedTiers);
+          }
+          if (draft.selectedNonRefundable) setSelectedNonRefundable(draft.selectedNonRefundable);
+          if (draft.customNonRefundable1) setCustomNonRefundable1(draft.customNonRefundable1);
+          if (draft.customNonRefundable2) setCustomNonRefundable2(draft.customNonRefundable2);
+          if (draft.coverImage) setCoverImage(draft.coverImage);
+          if (draft.galleryImages) setGalleryImages(draft.galleryImages);
+          if (draft.selectedPolicies) setSelectedPolicies(draft.selectedPolicies);
+          if (draft.customPolicyText) setCustomPolicyText(draft.customPolicyText);
+          if (draft.customPolicyUrl) setCustomPolicyUrl(draft.customPolicyUrl);
+          if (draft.includeRoomType !== undefined) setIncludeRoomType(draft.includeRoomType);
+          const restoredAt = new Date(draft.timestamp);
+          setLastSaved(restoredAt);
+          setRestoredDraftAt(restoredAt);
+          if (key !== primaryDraftKey) {
+            localStorage.setItem(primaryDraftKey, savedDraft);
+            localStorage.removeItem(key);
+          }
+          toast({ title: "Draft restored", description: "Your edit draft has been restored" });
+          break;
+        } catch (err) {
+          console.error("[CreateTourPackage] Failed to load edit draft:", err);
+        }
+      }
+
       setDraftLoaded(true);
       setIsEditLoading(false);
     };
@@ -295,15 +364,23 @@ Some components are non-refundable once booked, including but not limited to:
 
   // Load draft on mount (only once)
   useEffect(() => {
-    if (isEditMode) {
-      setDraftLoaded(true);
-      return;
-    }
+    if (isLoading) return;
+    if (isEditMode) return;
     if (draftLoaded) return; // Already loaded
-    
-    const draftKey = getStorageKey();
-    const savedDraft = localStorage.getItem(draftKey);
-    
+
+    const primaryDraftKey = getStorageKey();
+    let restoredFromKey: string | null = null;
+    let savedDraft: string | null = null;
+
+    for (const key of getDraftLookupKeys()) {
+      const value = localStorage.getItem(key);
+      if (value) {
+        restoredFromKey = key;
+        savedDraft = value;
+        break;
+      }
+    }
+
     if (savedDraft) {
       try {
         const draft = JSON.parse(savedDraft);
@@ -341,15 +418,21 @@ Some components are non-refundable once booked, including but not limited to:
         if (draft.customPolicyText) setCustomPolicyText(draft.customPolicyText);
         if (draft.customPolicyUrl) setCustomPolicyUrl(draft.customPolicyUrl);
         if (draft.includeRoomType !== undefined) setIncludeRoomType(draft.includeRoomType);
-        setLastSaved(new Date(draft.timestamp));
+        const restoredAt = new Date(draft.timestamp);
+        setLastSaved(restoredAt);
+        setRestoredDraftAt(restoredAt);
+        if (restoredFromKey && restoredFromKey !== primaryDraftKey) {
+          localStorage.setItem(primaryDraftKey, savedDraft);
+          localStorage.removeItem(restoredFromKey);
+        }
         toast({ title: "Draft restored", description: "Your previous work has been restored" });
-        console.log('[CreateTourPackage] Draft restored from', draftKey);
+        console.log('[CreateTourPackage] Draft restored from', restoredFromKey || primaryDraftKey);
       } catch (err) {
         console.error('Failed to load draft:', err);
       }
     }
     setDraftLoaded(true);
-  }, [user?.id, draftLoaded, isEditMode]);
+  }, [user?.id, draftLoaded, isEditMode, isLoading]);
 
   const hasDraftContent =
     Boolean(
@@ -376,7 +459,6 @@ Some components are non-refundable once booked, including but not limited to:
 
   // Auto-save on form changes (debounced) - only after initial load
   useEffect(() => {
-    if (isEditMode) return;
     if (!draftLoaded) return; // Don't save until we've tried to load
     
     const draftKey = getStorageKey();
@@ -409,7 +491,6 @@ Some components are non-refundable once booked, including but not limited to:
 
   // Also save immediately when leaving the page
   useEffect(() => {
-    if (isEditMode) return;
     const handleBeforeUnload = () => {
       if (!hasDraftContent) return;
       
@@ -1848,6 +1929,11 @@ Some components are non-refundable once booked, including but not limited to:
 
           {/* Actions */}
           <div className="space-y-3 pt-6 border-t">
+            {restoredDraftAt && (
+              <p className="text-xs text-primary text-center">
+                {isEditMode ? "Restored edit draft" : "Restored draft"}: {restoredDraftAt.toLocaleTimeString()}
+              </p>
+            )}
             {lastSaved && (
               <p className="text-xs text-muted-foreground text-center">
                 Last saved: {lastSaved.toLocaleTimeString()}
@@ -1879,6 +1965,7 @@ Some components are non-refundable once booked, including but not limited to:
                   if (!window.confirm("Discard saved draft? This cannot be undone.")) return;
                   clearDraft();
                   setLastSaved(null);
+                  setRestoredDraftAt(null);
                   toast({ title: "Draft discarded", description: "Saved draft has been removed." });
                 }}
                 disabled={uploading || isSaving}

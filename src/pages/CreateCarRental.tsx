@@ -93,16 +93,32 @@ export default function CreateCarRental() {
       });
   }, [user?.id]);
 
-  // Use a stable storage key per user
-  const getStorageKey = useCallback(() => user?.id ? `car-rental-draft-${user.id}` : 'car-rental-draft-anonymous', [user?.id]);
+  // Use stable storage keys per user
+  const getStorageKey = useCallback(() => user?.id ? `car-rental-draft-${user.id}` : "car-rental-draft-anonymous", [user?.id]);
+  const getAnonymousStorageKey = useCallback(() => "car-rental-draft-anonymous", []);
+  const getDraftLookupKeys = useCallback(() => {
+    const primaryKey = getStorageKey();
+    return user?.id ? [primaryKey, getAnonymousStorageKey()] : [primaryKey];
+  }, [getStorageKey, getAnonymousStorageKey, user?.id]);
 
   // Load draft on mount (only once)
   useEffect(() => {
+    if (isLoading) return;
     if (draftLoaded) return;
-    
-    const draftKey = getStorageKey();
-    const savedDraft = localStorage.getItem(draftKey);
-    
+
+    const primaryDraftKey = getStorageKey();
+    let restoredFromKey: string | null = null;
+    let savedDraft: string | null = null;
+
+    for (const key of getDraftLookupKeys()) {
+      const value = localStorage.getItem(key);
+      if (value) {
+        restoredFromKey = key;
+        savedDraft = value;
+        break;
+      }
+    }
+
     if (savedDraft) {
       try {
         const draft = JSON.parse(savedDraft);
@@ -114,13 +130,17 @@ export default function CreateCarRental() {
         if (draft.roadworthinessDoc) setRoadworthinessDoc(draft.roadworthinessDoc);
         if (draft.ownerIdDoc) setOwnerIdDoc(draft.ownerIdDoc);
         setLastSaved(new Date(draft.timestamp));
+        if (restoredFromKey && restoredFromKey !== primaryDraftKey) {
+          localStorage.setItem(primaryDraftKey, savedDraft);
+          localStorage.removeItem(restoredFromKey);
+        }
         toast({ title: "Draft restored", description: "Your previous work has been restored" });
       } catch (err) {
         console.error('Failed to load draft:', err);
       }
     }
     setDraftLoaded(true);
-  }, [user?.id, draftLoaded, getStorageKey, toast]);
+  }, [user?.id, draftLoaded, getStorageKey, getDraftLookupKeys, toast, isLoading]);
 
   const hasDraftContent =
     Boolean(

@@ -56,16 +56,26 @@ export function CloudinaryUploadDialog(props: {
   const autoStart = props.autoStart ?? false;
   const [dragActive, setDragActive] = useState(false);
 
+  const effectiveMaxFiles = useMemo(() => {
+    if (props.multiple) {
+      if (props.maxFiles === 1) return 1;
+      return Number.POSITIVE_INFINITY;
+    }
+    return props.maxFiles ?? 1;
+  }, [props.maxFiles, props.multiple]);
+
   const canAddMore = useMemo(() => {
-    const max = props.maxFiles ?? (props.multiple ? 20 : 1);
-    return props.value.length < max;
-  }, [props.maxFiles, props.multiple, props.value.length]);
+    if (effectiveMaxFiles === 1) return true;
+    if (!Number.isFinite(effectiveMaxFiles)) return true;
+    return props.value.length + items.length < effectiveMaxFiles;
+  }, [effectiveMaxFiles, items.length, props.value.length]);
 
   const pickFiles = () => inputRef.current?.click();
 
   const enqueue = (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    const max = props.maxFiles ?? (props.multiple ? 20 : 1);
+    const max = effectiveMaxFiles;
+    const singleReplaceMode = max === 1;
     
     // File size validation (10MB limit)
     const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
@@ -74,7 +84,7 @@ export function CloudinaryUploadDialog(props: {
 
     const next: UploadItem[] = [];
     for (const f of Array.from(files)) {
-      if (props.value.length + next.length >= max) break;
+      if (!singleReplaceMode && Number.isFinite(max) && props.value.length + items.length + next.length >= max) break;
       
       // Check file size
       if (f.size > MAX_FILE_SIZE) {
@@ -110,6 +120,8 @@ export function CloudinaryUploadDialog(props: {
         percent: 0,
         status: "queued",
       });
+
+      if (singleReplaceMode && next.length >= 1) break;
     }
     
     // Show error toast for oversized files
@@ -131,6 +143,16 @@ export function CloudinaryUploadDialog(props: {
       });
     }
     
+    if (singleReplaceMode) {
+      setItems((prev) => {
+        prev.forEach((p) => {
+          if (p.previewUrl) URL.revokeObjectURL(p.previewUrl);
+        });
+        return next.slice(-1);
+      });
+      return;
+    }
+
     setItems((prev) => [...prev, ...next]);
   };
 
@@ -188,7 +210,15 @@ export function CloudinaryUploadDialog(props: {
       
       // Call onChange once at the end with ALL uploaded URLs
       if (newUrls.length > 0) {
-        props.onChange([...props.value, ...newUrls]);
+        if (effectiveMaxFiles === 1) {
+          const latest = newUrls[newUrls.length - 1];
+          props.onChange(latest ? [latest] : []);
+        } else if (Number.isFinite(effectiveMaxFiles)) {
+          const merged = [...props.value, ...newUrls].slice(0, effectiveMaxFiles);
+          props.onChange(merged);
+        } else {
+          props.onChange([...props.value, ...newUrls]);
+        }
       }
     } finally {
       setBusy(false);
@@ -385,7 +415,7 @@ export function CloudinaryUploadDialog(props: {
             ref={inputRef}
             type="file"
             accept={props.accept ?? "image/*,video/*"}
-            multiple={Boolean(props.multiple)}
+            multiple={Boolean(props.multiple && effectiveMaxFiles !== 1)}
             className="hidden"
             onChange={(e) => {
               enqueue(e.target.files);
