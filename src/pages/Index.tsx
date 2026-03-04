@@ -107,7 +107,7 @@ const Index = () => {
               : null,
       }));
 
-      return [...tours, ...packages].slice(0, 4);
+      return [...tours, ...packages].slice(0, 8);
     },
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 20,
@@ -177,7 +177,11 @@ const Index = () => {
         </div>
       </section>
 
-      <section className="container mx-auto px-4 py-16">
+      <section className="container mx-auto px-4 py-16 min-h-[60vh]">
+        <PersonalizedRecommendations type="properties" limit={8} mode="popular" title="Popular Stays" />
+      </section>
+
+      <section className="container mx-auto px-4 pb-16">
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h2 className="text-2xl md:text-3xl font-bold text-foreground">Popular Tours</h2>
@@ -188,7 +192,7 @@ const Index = () => {
 
         {isPopularToursLoading ? (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {Array.from({ length: 4 }).map((_, i) => (
+            {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="h-64 rounded-xl bg-muted animate-pulse" />
             ))}
           </div>
@@ -223,10 +227,6 @@ const Index = () => {
             </CardContent>
           </Card>
         )}
-      </section>
-
-      <section className="container mx-auto px-4 pb-16 min-h-[60vh]">
-        <PersonalizedRecommendations type="properties" limit={8} mode="popular" title="Popular Stays" />
       </section>
 
       {/* Hosting CTA */}
