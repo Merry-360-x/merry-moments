@@ -20,7 +20,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatMoney } from "@/lib/money";
-import { getGuestFeePercent, getProviderFeePercent, setAccommodationGuestFeePercent as persistAccommodationGuestFeePercent } from "@/lib/fees";
+import {
+  calculateHostEarningsFromGuestTotal,
+  getGuestFeePercent,
+  setAccommodationGuestFeePercent as persistAccommodationGuestFeePercent,
+} from "@/lib/fees";
 import { getTourPriceSuffix, getTourPricingModel } from "@/lib/tour-pricing";
 import { normalizeAdminMetrics } from "@/lib/admin-metrics";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
@@ -466,7 +470,7 @@ export default function AdminDashboard() {
   // Payouts state
   const [payoutFilter, setPayoutFilter] = useState<"all" | "pending" | "processing" | "completed" | "rejected">("all");
   const [processingPayout, setProcessingPayout] = useState<string | null>(null);
-  const [accommodationGuestFeePercent, setAccommodationGuestFeePercent] = useState<number>(() => getGuestFeePercent("accommodation"));
+  const [, setAccommodationGuestFeePercent] = useState<number>(() => getGuestFeePercent("accommodation"));
   const [accommodationGuestFeeInput, setAccommodationGuestFeeInput] = useState<string>(() => String(getGuestFeePercent("accommodation")));
   const [savingAccommodationGuestFee, setSavingAccommodationGuestFee] = useState(false);
 
@@ -2537,8 +2541,6 @@ For support, contact: support@merry360x.com
     ? correctedRevenueGross
     : (metrics?.revenue_gross ?? 0);
 
-  const accommodationHostFeePercent = getProviderFeePercent("accommodation");
-
   const saveAccommodationGuestFee = () => {
     const parsed = Number(accommodationGuestFeeInput);
     if (!Number.isFinite(parsed)) {
@@ -2569,10 +2571,15 @@ For support, contact: support@merry360x.com
         if (status !== "confirmed" && status !== "completed") return totals;
 
         const bookingType = String(booking.booking_type || "").toLowerCase();
-        const isAccommodation = bookingType === "property";
+        const serviceType: "accommodation" | "tour" | "transport" =
+          bookingType === "property"
+            ? "accommodation"
+            : bookingType === "tour"
+              ? "tour"
+              : "transport";
 
         const listingSourceCurrency =
-          isAccommodation && booking.properties?.currency
+          bookingType === "property" && booking.properties?.currency
             ? booking.properties.currency
             : bookingType === "tour" && booking.tour_packages?.currency
               ? booking.tour_packages.currency
@@ -2580,14 +2587,21 @@ For support, contact: support@merry360x.com
                 ? booking.transport_vehicles.currency
                 : booking.currency || "RWF";
 
-        const listingPriceRwf = toRwfAmount(Number(booking.total_price || 0), listingSourceCurrency);
-        const guestServiceFeeRwf = isAccommodation ? listingPriceRwf * (accommodationGuestFeePercent / 100) : 0;
-        const hostServiceFeeRwf = isAccommodation ? listingPriceRwf * (accommodationHostFeePercent / 100) : 0;
-        const bookingAmountRwf = listingPriceRwf + guestServiceFeeRwf;
+        const checkoutAmount = Number(booking.checkout_requests?.total_amount || 0);
+        const checkoutCurrency = String(booking.checkout_requests?.currency || booking.currency || listingSourceCurrency || "RWF");
+        const fallbackListingAmountRwf =
+          toRwfAmount(Number(booking.total_price || 0), listingSourceCurrency) *
+          (1 + getGuestFeePercent(serviceType) / 100);
+        const bookingAmountRwf = checkoutAmount > 0
+          ? toRwfAmount(checkoutAmount, checkoutCurrency)
+          : fallbackListingAmountRwf;
+
+        const earningsFromGuestTotal = calculateHostEarningsFromGuestTotal(bookingAmountRwf, serviceType);
+        const platformServiceFeesRwf = earningsFromGuestTotal.platformTotalEarnings;
 
         totals.totalAmountBooked += bookingAmountRwf;
         totals.totalAmountAfterPawapay += bookingAmountRwf * (1 - 0.031);
-        totals.totalAmountAfterServiceFees += bookingAmountRwf - guestServiceFeeRwf - hostServiceFeeRwf;
+        totals.totalAmountAfterServiceFees += bookingAmountRwf - platformServiceFeesRwf;
 
         return totals;
       },
@@ -2597,7 +2611,7 @@ For support, contact: support@merry360x.com
         totalAmountAfterServiceFees: 0,
       }
     );
-  }, [bookings, accommodationGuestFeePercent, accommodationHostFeePercent]);
+  }, [bookings]);
 
   const tabLoadingMessage: Record<TabValue, string> = {
     overview: "Loading overview...",
@@ -2779,7 +2793,7 @@ For support, contact: support@merry360x.com
                   <span className="text-sm">Total Amount Booked</span>
                     </div>
                     <p className="text-2xl font-bold text-foreground">{formatMoney(adminFinancialOverview.totalAmountBooked, "RWF")}</p>
-                    <p className="text-xs text-muted-foreground">Listing + {accommodationGuestFeePercent}% service fee</p>
+                    <p className="text-xs text-muted-foreground">Guest-paid totals from confirmed/completed bookings</p>
                   </Card>
                   <Card className="p-4">
                     <div className="flex items-center gap-2 text-muted-foreground mb-1">
@@ -2795,7 +2809,7 @@ For support, contact: support@merry360x.com
                   <span className="text-sm">After Service Fees</span>
                     </div>
                     <p className="text-2xl font-bold text-foreground">{formatMoney(adminFinancialOverview.totalAmountAfterServiceFees, "RWF")}</p>
-                    <p className="text-xs text-muted-foreground">Total booked - {accommodationHostFeePercent}% - {accommodationGuestFeePercent}%</p>
+                    <p className="text-xs text-muted-foreground">Total booked - platform fees by booking type</p>
                   </Card>
         </div>
 
