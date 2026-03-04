@@ -19,7 +19,7 @@ import { isVideoUrl } from "@/lib/media";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { formatMoney } from "@/lib/money";
 import { AMENITIES, AMENITIES_BY_CATEGORY } from "@/lib/amenities";
-import { calculateHostEarningsFromGuestTotal, getGuestFeePercent } from "@/lib/fees";
+import { calculateHostEarningsFromGuestTotal } from "@/lib/fees";
 import { getTourPricingModel, getTourPricingModels } from "@/lib/tour-pricing";
 import { useFxRates } from "@/hooks/useFxRates";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -7479,49 +7479,19 @@ export default function HostDashboard() {
                   <div className="space-y-4">
                     {pendingRequests.map((b) => {
                       let itemName = 'Unknown';
-                      let serviceType: 'accommodation' | 'tour' | 'transport' = 'tour';
 
                       if (b.booking_type === 'property') {
                         itemName = (b as any).properties?.title || 'Property';
-                        serviceType = 'accommodation';
                       } else if (b.booking_type === 'tour') {
                         itemName = (b as any).tour_packages?.title || 'Tour';
-                        serviceType = 'tour';
                       } else if (b.booking_type === 'transport') {
                         const vehicle = vehicles.find(v => v.id === b.transport_id);
                         itemName = vehicle?.title || 'Transport';
-                        serviceType = 'transport';
                       }
 
-                      const { listingSubtotal, currency: listingCurrency } = getOriginalListingSubtotal(b);
-                      const { amount: guestPaidAmount, currency: guestPaidCurrency } = getResolvedBookingAmountForHost(b);
-                      const listingTotal = listingSubtotal;
-                      const nights = Math.max(
-                        1,
-                        Math.ceil(
-                          (new Date(b.check_out).getTime() - new Date(b.check_in).getTime()) /
-                            (1000 * 60 * 60 * 24)
-                        )
-                      );
-                      const guests = Math.max(1, Number(b.guests || 1));
-                      const unitLabel =
-                        serviceType === 'accommodation'
-                          ? 'Nightly listing rate'
-                          : serviceType === 'tour'
-                            ? 'Price per participant'
-                            : 'Base listing fare';
-                      const listingAmountLabel = serviceType === 'accommodation' ? 'Apartment Amount' : 'Listing Amount';
-                      const unitValue =
-                        serviceType === 'accommodation'
-                          ? listingTotal / nights
-                          : serviceType === 'tour'
-                            ? listingTotal / guests
-                            : listingTotal;
-                      const feePercent = HOST_EARNING_FEE_PERCENT;
-                      const safeListingTotal = Math.max(0, Number(listingTotal || 0));
-                      const listingTotalRwf = toRwfAmount(safeListingTotal, listingCurrency);
-                      const displayFeeDeductionRwf = Math.max(0, listingTotalRwf * (feePercent / 100));
-                      const displayHostNetEarningsRwf = Math.max(0, listingTotalRwf - displayFeeDeductionRwf);
+                      const { amount: resolvedBookingAmount, currency: resolvedBookingCurrency } = getResolvedBookingAmountForHost(b);
+                      const hostNetAmount = Math.max(0, Number(resolvedBookingAmount || 0) * (1 - HOST_EARNING_FEE_PERCENT / 100));
+                      const hostNetAmountRwf = toRwfAmount(hostNetAmount, resolvedBookingCurrency);
                       
                       return (
                         <Card key={b.id} className="overflow-hidden border border-border shadow-sm">
@@ -7573,29 +7543,12 @@ export default function HostDashboard() {
                                 </div>
                               </div>
                               
-                              {/* Original Listing Price */}
+                              {/* Host amount */}
                               <div className="space-y-1">
-                                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Original Listing Price (No coupon, No fees)</p>
+                                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Host Net Amount</p>
                                 <div className="rounded-lg border border-border bg-background px-2.5 py-2">
-                                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{unitLabel}</p>
-                                  <p className="text-base font-semibold leading-tight mt-1">{formatMoney(toRwfAmount(unitValue, listingCurrency), 'RWF')}</p>
-                                  <p className="text-[11px] text-muted-foreground mt-1">
-                                    {serviceType === 'accommodation'
-                                      ? `${nights} night${nights !== 1 ? 's' : ''}`
-                                      : `${guests} guest${guests !== 1 ? 's' : ''}`}
-                                  </p>
-                                  <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
-                                    <span className="text-[11px] text-muted-foreground uppercase tracking-wide">{listingAmountLabel}</span>
-                                    <span className="text-sm font-semibold">{formatMoney(toRwfAmount(listingTotal, listingCurrency), 'RWF')}</span>
-                                  </div>
-                                  <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
-                                    <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Platform fee deducted ({feePercent}%)</span>
-                                    <span className="text-sm font-semibold text-destructive">-{formatMoney(displayFeeDeductionRwf, 'RWF')}</span>
-                                  </div>
-                                  <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
-                                    <span className="text-[11px] text-muted-foreground uppercase tracking-wide">You will earn</span>
-                                    <span className="text-sm font-semibold text-emerald-600">{formatMoney(displayHostNetEarningsRwf, 'RWF')}</span>
-                                  </div>
+                                  <p className="text-base font-semibold leading-tight text-emerald-600">{formatMoney(hostNetAmountRwf, 'RWF')}</p>
+                                  <p className="text-[11px] text-muted-foreground mt-1">After host fee deduction</p>
                                 </div>
                               </div>
                             </div>
@@ -7731,36 +7684,9 @@ export default function HostDashboard() {
                   const isBulkOrder = orderItemCount > 1;
                   
                   // Calculate original listing price breakdown
-                  const serviceType = itemType === 'property' ? 'accommodation' : itemType === 'tour' ? 'tour' : 'transport';
-                  const { listingSubtotal, currency: listingCurrency } = getOriginalListingSubtotal(b);
-                  const { amount: guestPaidAmount, currency: guestPaidCurrency } = getResolvedBookingAmountForHost(b);
-                  const listingTotal = listingSubtotal;
-                  const nights = Math.max(
-                    1,
-                    Math.ceil(
-                      (new Date(b.check_out).getTime() - new Date(b.check_in).getTime()) /
-                        (1000 * 60 * 60 * 24)
-                    )
-                  );
-                  const guests = Math.max(1, Number(b.guests || 1));
-                  const unitLabel =
-                    serviceType === 'accommodation'
-                      ? 'Nightly listing rate'
-                      : serviceType === 'tour'
-                        ? 'Price per participant'
-                        : 'Base listing fare';
-                  const listingAmountLabel = serviceType === 'accommodation' ? 'Apartment Amount' : 'Listing Amount';
-                  const unitValue =
-                    serviceType === 'accommodation'
-                      ? listingTotal / nights
-                      : serviceType === 'tour'
-                        ? listingTotal / guests
-                        : listingTotal;
-                  const feePercent = HOST_EARNING_FEE_PERCENT;
-                  const safeListingTotal = Math.max(0, Number(listingTotal || 0));
-                  const listingTotalRwf = toRwfAmount(safeListingTotal, listingCurrency);
-                  const displayFeeDeductionRwf = Math.max(0, listingTotalRwf * (feePercent / 100));
-                  const displayHostNetEarningsRwf = Math.max(0, listingTotalRwf - displayFeeDeductionRwf);
+                  const { amount: resolvedBookingAmount, currency: resolvedBookingCurrency } = getResolvedBookingAmountForHost(b);
+                  const hostNetAmount = Math.max(0, Number(resolvedBookingAmount || 0) * (1 - HOST_EARNING_FEE_PERCENT / 100));
+                  const hostNetAmountRwf = toRwfAmount(hostNetAmount, resolvedBookingCurrency);
                   
                   return (
                   <Card key={b.id} className="overflow-hidden border shadow-sm hover:shadow-md transition-shadow">
@@ -7838,29 +7764,12 @@ export default function HostDashboard() {
                           </div>
                         </div>
                         
-                        {/* Original Listing Price */}
+                        {/* Host amount */}
                         <div className="space-y-1">
-                          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Original Listing Price (No coupon, No fees)</p>
+                          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Host Net Amount</p>
                           <div className="rounded-lg border border-border bg-background px-2.5 py-2">
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{unitLabel}</p>
-                            <p className="text-base font-semibold leading-tight mt-1">{formatMoney(toRwfAmount(unitValue, listingCurrency), 'RWF')}</p>
-                            <p className="text-[11px] text-muted-foreground mt-1">
-                              {serviceType === 'accommodation'
-                                ? `${nights} night${nights !== 1 ? 's' : ''}`
-                                : `${guests} guest${guests !== 1 ? 's' : ''}`}
-                            </p>
-                            <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
-                              <span className="text-[11px] text-muted-foreground uppercase tracking-wide">{listingAmountLabel}</span>
-                              <span className="text-sm font-semibold">{formatMoney(toRwfAmount(listingTotal, listingCurrency), 'RWF')}</span>
-                            </div>
-                            <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
-                              <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Platform fee deducted ({feePercent}%)</span>
-                              <span className="text-sm font-semibold text-destructive">-{formatMoney(displayFeeDeductionRwf, 'RWF')}</span>
-                            </div>
-                            <div className="border-t border-border/60 mt-2 pt-2 flex items-center justify-between">
-                              <span className="text-[11px] text-muted-foreground uppercase tracking-wide">You will earn</span>
-                              <span className="text-sm font-semibold text-emerald-600">{formatMoney(displayHostNetEarningsRwf, 'RWF')}</span>
-                            </div>
+                            <p className="text-base font-semibold leading-tight text-emerald-600">{formatMoney(hostNetAmountRwf, 'RWF')}</p>
+                            <p className="text-[11px] text-muted-foreground mt-1">After host fee deduction</p>
                           </div>
                         </div>
                       </div>
@@ -8998,50 +8907,12 @@ END OF REPORT
                 </h3>
                 <Card className="p-4">
                   {(() => {
-                    const {
-                      listingSubtotal: listingTotal,
-                      currency: listingCurrency,
-                    } = getOriginalListingSubtotal(bookingFullDetails);
-                    const { amount: guestPaidAmount, currency: guestPaidCurrency } = getResolvedBookingAmountForHost(bookingFullDetails as Booking);
+                    const { amount: resolvedBookingAmount, currency: resolvedBookingCurrency } = getResolvedBookingAmountForHost(bookingFullDetails as Booking);
                     const displayCurrency = 'RWF';
-                    const nights = Math.max(
-                      1,
-                      Math.ceil(
-                        (new Date(bookingFullDetails.check_out).getTime() - new Date(bookingFullDetails.check_in).getTime()) /
-                          (1000 * 60 * 60 * 24)
-                      )
+                    const convertedHostNetEarnings = toRwfAmount(
+                      Math.max(0, Number(resolvedBookingAmount || 0) * (1 - HOST_EARNING_FEE_PERCENT / 100)),
+                      resolvedBookingCurrency
                     );
-                    const guests = Math.max(1, Number(bookingFullDetails.guests || 1));
-
-                    const unitLabel =
-                      bookingFullDetails.booking_type === 'property'
-                        ? 'Nightly listing rate'
-                        : bookingFullDetails.booking_type === 'tour'
-                          ? 'Price per participant'
-                          : 'Base listing fare';
-                    const listingAmountLabel = bookingFullDetails.booking_type === 'property' ? 'Apartment Amount' : 'Listing Amount';
-
-                    const unitValue =
-                      bookingFullDetails.booking_type === 'property'
-                        ? listingTotal / nights
-                        : bookingFullDetails.booking_type === 'tour'
-                          ? listingTotal / guests
-                          : listingTotal;
-                    const modalServiceType =
-                      bookingFullDetails.booking_type === 'property'
-                        ? 'accommodation'
-                        : bookingFullDetails.booking_type === 'tour'
-                          ? 'tour'
-                          : 'transport';
-                    const feePercent = HOST_EARNING_FEE_PERCENT;
-                    const safeListingTotal = Math.max(0, Number(listingTotal || 0));
-                    const convertedListingTotal = toRwfAmount(listingTotal, listingCurrency);
-                    const convertedUnitValue = toRwfAmount(unitValue, listingCurrency);
-                    const guestServiceFeePercent = bookingFullDetails.booking_type === 'property' ? getGuestFeePercent('accommodation') : 0;
-                    const convertedServiceFee = Math.max(0, convertedListingTotal * (guestServiceFeePercent / 100));
-                    const convertedBookingAmount = convertedListingTotal + convertedServiceFee;
-                    const convertedFeeDeduction = Math.max(0, convertedListingTotal * (feePercent / 100));
-                    const convertedHostNetEarnings = Math.max(0, convertedListingTotal - convertedFeeDeduction);
                     const effectivePaymentStatus = String(
                       bookingFullDetails.checkout_requests?.payment_status || bookingFullDetails.payment_status || "unknown"
                     )
@@ -9056,49 +8927,9 @@ END OF REPORT
                     return (
                       <div className="space-y-4">
                         <div className="rounded-xl border bg-muted/20 p-4">
-                          <p className="text-xs uppercase tracking-wide text-muted-foreground">Original Listing Price (No coupon, No fees)</p>
+                          <p className="text-xs uppercase tracking-wide text-muted-foreground">Host Net Amount</p>
                           <p className="text-2xl font-bold mt-1">{formatMoney(convertedListingTotal, displayCurrency)}</p>
-                        </div>
-
-                        <div className="rounded-xl border p-4 space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">{unitLabel}</span>
-                            <span className="font-medium">{formatMoney(convertedUnitValue, displayCurrency)}</span>
-                          </div>
-
-                          {bookingFullDetails.booking_type === 'property' && (
-                            <div className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">Nights</span>
-                              <span className="font-medium">{nights}</span>
-                            </div>
-                          )}
-
-                          {(bookingFullDetails.booking_type === 'property' || bookingFullDetails.booking_type === 'tour') && (
-                            <div className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">Guests</span>
-                              <span className="font-medium">{guests}</span>
-                            </div>
-                          )}
-
-                          <div className="border-t pt-2 mt-2 flex justify-between items-center">
-                            <span className="font-medium">{listingAmountLabel}</span>
-                            <span className="text-base font-semibold">{formatMoney(convertedListingTotal, displayCurrency)}</span>
-                          </div>
-
-                          <div className="border-t pt-2 mt-2 flex justify-between items-center">
-                            <span className="font-medium">Platform fee deducted ({feePercent}%)</span>
-                            <span className="text-base font-semibold text-destructive">-{formatMoney(convertedFeeDeduction, displayCurrency)}</span>
-                          </div>
-
-                          <div className="border-t pt-2 mt-2 flex justify-between items-center">
-                            <span className="font-medium">You will earn</span>
-                            <span className="text-base font-semibold text-emerald-600">{formatMoney(convertedHostNetEarnings, displayCurrency)}</span>
-                          </div>
-                        </div>
-
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Booking Amount ({String(displayCurrency).toUpperCase()}):</span>
-                          <span className="font-semibold text-emerald-600">{formatMoney(convertedBookingAmount, displayCurrency)}</span>
+                          <p className="text-xs text-muted-foreground mt-1">After host fee deduction</p>
                         </div>
 
                         <div className="flex justify-between text-sm">
