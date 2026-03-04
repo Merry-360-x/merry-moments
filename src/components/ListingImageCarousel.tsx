@@ -21,7 +21,22 @@ export default function ListingImageCarousel({
   );
   const [hover, setHover] = useState(false);
   const [idx, setIdx] = useState(0);
+  const [loadedIndices, setLoadedIndices] = useState<Set<number>>(() => new Set([0]));
   const timerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    setLoadedIndices(new Set([0]));
+  }, [clean.length]);
+
+  useEffect(() => {
+    if (clean.length === 0) return;
+    setLoadedIndices((prev) => {
+      const next = new Set(prev);
+      next.add(idx);
+      next.add((idx + 1) % clean.length);
+      return next;
+    });
+  }, [idx, clean.length]);
 
   useEffect(() => {
     if (!hover || clean.length <= 1) return;
@@ -58,7 +73,7 @@ export default function ListingImageCarousel({
           isVideoUrl(src) ? (
             <video
               key={src}
-              src={src}
+              src={loadedIndices.has(i) ? src : undefined}
               className="w-full h-full object-cover shrink-0"
               muted
               playsInline
@@ -67,7 +82,11 @@ export default function ListingImageCarousel({
           ) : (
             <img
               key={src}
-              src={optimizeCloudinaryImage(src, { width: 800, height: 600, quality: 'auto', format: 'auto' })}
+              src={
+                loadedIndices.has(i)
+                  ? optimizeCloudinaryImage(src, { width: 640, height: 480, quality: 'auto:good', format: 'auto' })
+                  : undefined
+              }
               alt={alt}
               className="w-full h-full object-cover shrink-0"
               loading="lazy"
