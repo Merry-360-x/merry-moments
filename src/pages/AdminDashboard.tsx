@@ -838,6 +838,16 @@ export default function AdminDashboard() {
     [adminUsers]
   );
 
+  const adminUserById = useMemo(() => {
+    const map = new Map<string, AdminUserRow>();
+    for (const user of adminUsers) {
+      if (user.user_id) {
+        map.set(user.user_id, user);
+      }
+    }
+    return map;
+  }, [adminUsers]);
+
   const { data: profileMedia = [] } = useQuery({
     queryKey: ["admin-profile-media", userIdsForDocs],
     queryFn: async () => {
@@ -2808,10 +2818,10 @@ For support, contact: support@merry360x.com
                   <Card className="p-4">
                     <div className="flex items-center gap-2 text-muted-foreground mb-1">
                   <Wallet className="w-4 h-4" />
-                  <span className="text-sm">Host Earnings</span>
+                  <span className="text-sm">After Service Fees</span>
                     </div>
                     <p className="text-2xl font-bold text-foreground">{formatMoney(adminFinancialOverview.totalAmountAfterServiceFees, "RWF")}</p>
-                    <p className="text-xs text-muted-foreground">What hosts/providers receive after platform fees</p>
+                    <p className="text-xs text-muted-foreground">Total booked - platform fees by booking type</p>
                   </Card>
                   <Card className="p-4">
                     <div className="flex items-center gap-2 text-muted-foreground mb-1">
@@ -4072,6 +4082,7 @@ For support, contact: support@merry360x.com
                     <TableRow>
                       <TableHead className="w-16">Image</TableHead>
                       <TableHead>Property</TableHead>
+                      <TableHead>Host</TableHead>
                       <TableHead>Location</TableHead>
                       <TableHead>Price</TableHead>
                       <TableHead>Rating</TableHead>
@@ -4086,6 +4097,18 @@ For support, contact: support@merry360x.com
                           <Thumb src={p.images?.[0]} alt={p.title} />
                         </TableCell>
                         <TableCell className="font-medium">{p.title}</TableCell>
+                        <TableCell>
+                          {(() => {
+                            const host = p.host_id ? adminUserById.get(p.host_id) : undefined;
+                            const name = host?.full_name || host?.email || "—";
+                            return (
+                              <div className="text-sm leading-tight">
+                                <p className="font-medium text-foreground truncate max-w-[180px]">{name}</p>
+                                <p className="text-muted-foreground truncate max-w-[180px]">{host?.email || p.host_id || "—"}</p>
+                              </div>
+                            );
+                          })()}
+                        </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{p.location || "—"}</TableCell>
                         <TableCell>{formatMoney(p.price_per_night ?? 0, p.currency ?? "RWF")}</TableCell>
                         <TableCell>
@@ -4129,7 +4152,7 @@ For support, contact: support@merry360x.com
                     ))}
                     {properties.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                           No properties found
                         </TableCell>
                       </TableRow>
