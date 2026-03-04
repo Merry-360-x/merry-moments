@@ -161,6 +161,8 @@ export default function CheckoutNew() {
     phone: "",
     notes: "",
   });
+
+  const checkoutDraftKey = `checkout-draft-${user?.id || "guest"}`;
   
   // Payment state — defaults from geo-detection
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -214,6 +216,18 @@ export default function CheckoutNew() {
   const [discountLoading, setDiscountLoading] = useState(false);
   const [discountError, setDiscountError] = useState<string | null>(null);
 
+  const clearCheckoutDraft = () => {
+    localStorage.removeItem(checkoutDraftKey);
+  };
+
+  const hasCheckoutDraftContent =
+    Boolean(
+      formData.fullName.trim() ||
+      formData.email.trim() ||
+      formData.notes.trim() ||
+      phoneNumber.trim()
+    );
+
   // Load user data
   useEffect(() => {
     if (user) {
@@ -264,6 +278,61 @@ export default function CheckoutNew() {
         });
     }
   }, [user]);
+
+  useEffect(() => {
+    const savedDraft = localStorage.getItem(checkoutDraftKey);
+    if (!savedDraft) return;
+
+    try {
+      const parsed = JSON.parse(savedDraft);
+      if (parsed?.formData) {
+        setFormData((prev) => ({
+          ...prev,
+          ...parsed.formData,
+        }));
+      }
+      if (typeof parsed?.phoneNumber === "string") setPhoneNumber(parsed.phoneNumber);
+      if (typeof parsed?.countryCode === "string") setCountryCode(parsed.countryCode);
+      if (typeof parsed?.paymentMethod === "string") setPaymentMethod(parsed.paymentMethod);
+    } catch (error) {
+      console.warn("Failed to restore checkout draft", error);
+    }
+  }, [checkoutDraftKey]);
+
+  useEffect(() => {
+    if (!hasCheckoutDraftContent) return;
+
+    const timer = setTimeout(() => {
+      const draft = {
+        formData,
+        phoneNumber,
+        countryCode,
+        paymentMethod,
+        timestamp: new Date().toISOString(),
+      };
+      localStorage.setItem(checkoutDraftKey, JSON.stringify(draft));
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [formData, phoneNumber, countryCode, paymentMethod, checkoutDraftKey, hasCheckoutDraftContent]);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (!hasCheckoutDraftContent) return;
+
+      const draft = {
+        formData,
+        phoneNumber,
+        countryCode,
+        paymentMethod,
+        timestamp: new Date().toISOString(),
+      };
+      localStorage.setItem(checkoutDraftKey, JSON.stringify(draft));
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [formData, phoneNumber, countryCode, paymentMethod, checkoutDraftKey, hasCheckoutDraftContent]);
 
   // Load discount from localStorage or URL
   useEffect(() => {
@@ -1047,6 +1116,7 @@ export default function CheckoutNew() {
 
         await clearCart();
         localStorage.removeItem("applied_discount");
+        clearCheckoutDraft();
 
         // Redirect to booking success with a message about expecting a call
         navigate(`/booking-success?checkoutId=${checkoutId}&method=${paymentMethod}`);
@@ -1082,6 +1152,7 @@ export default function CheckoutNew() {
 
         await clearCart();
         localStorage.removeItem("applied_discount");
+        clearCheckoutDraft();
 
         toast({
           title: "Redirecting to secure card checkout",
@@ -1201,6 +1272,7 @@ export default function CheckoutNew() {
       // Clear cart
       await clearCart();
       localStorage.removeItem("applied_discount");
+      clearCheckoutDraft();
 
       // Show success message
       toast({

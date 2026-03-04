@@ -212,6 +212,21 @@ export default function CreateAirportTransfer() {
     setDraftLoaded(true);
   }, [user?.id, draftLoaded, getStorageKey, toast, isEditMode]);
 
+  const hasDraftContent =
+    Boolean(
+      formData.title.trim() ||
+      formData.provider_name.trim() ||
+      formData.car_brand.trim() ||
+      formData.car_model.trim() ||
+      Object.keys(selectedRoutes).length > 0 ||
+      exteriorImages.length > 0 ||
+      interiorImages.length > 0 ||
+      insuranceDoc ||
+      registrationDoc ||
+      roadworthinessDoc ||
+      ownerIdDoc
+    );
+
   // Auto-save on form changes (only after load)
   useEffect(() => {
     if (isEditMode) return;
@@ -219,8 +234,7 @@ export default function CreateAirportTransfer() {
     
     const draftKey = getStorageKey();
     
-    // Only save if there's meaningful content
-    if (!formData.title && !formData.car_brand) return;
+    if (!hasDraftContent) return;
     
     const timer = setTimeout(() => {
       const draft = {
@@ -239,13 +253,13 @@ export default function CreateAirportTransfer() {
     }, 1000); // Debounce 1 second
 
     return () => clearTimeout(timer);
-  }, [formData, selectedRoutes, exteriorImages, interiorImages, insuranceDoc, registrationDoc, roadworthinessDoc, ownerIdDoc, user?.id, draftLoaded, getStorageKey, isEditMode]);
+  }, [formData, selectedRoutes, exteriorImages, interiorImages, insuranceDoc, registrationDoc, roadworthinessDoc, ownerIdDoc, user?.id, draftLoaded, getStorageKey, isEditMode, hasDraftContent]);
 
   // Save on page unload
   useEffect(() => {
     if (isEditMode) return;
     const handleBeforeUnload = () => {
-      if (!formData.title && !formData.car_brand) return;
+      if (!hasDraftContent) return;
       
       const draftKey = getStorageKey();
       const draft = {
@@ -264,7 +278,7 @@ export default function CreateAirportTransfer() {
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [formData, selectedRoutes, exteriorImages, interiorImages, insuranceDoc, registrationDoc, roadworthinessDoc, ownerIdDoc, user?.id, getStorageKey, isEditMode]);
+  }, [formData, selectedRoutes, exteriorImages, interiorImages, insuranceDoc, registrationDoc, roadworthinessDoc, ownerIdDoc, user?.id, getStorageKey, isEditMode, hasDraftContent]);
 
   const clearDraft = () => {
     const draftKey = getStorageKey();

@@ -30,6 +30,7 @@
     "check:bookings": "node show-booking-currencies.mjs",
     "test:booking-ui": "node test-booking-ui.mjs",
     "create:bulk-booking": "node create-bulk-booking-test.mjs",
+    "trip-advisor:generate-corpus": "node scripts/generate-trip-advisor-corpus.mjs tmp/trip-advisor-corpus.ndjson 1000000",
     "seo:audit": "node scripts/seo-index-audit.mjs",
     "migrate:cloudinary": "node scripts/migrate-cloudinary-assets.mjs",
     "audit:media-migration": "node scripts/audit-media-migration.mjs"

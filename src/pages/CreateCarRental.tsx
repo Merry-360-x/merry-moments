@@ -122,14 +122,31 @@ export default function CreateCarRental() {
     setDraftLoaded(true);
   }, [user?.id, draftLoaded, getStorageKey, toast]);
 
+  const hasDraftContent =
+    Boolean(
+      formData.title.trim() ||
+      formData.provider_name.trim() ||
+      formData.car_brand.trim() ||
+      formData.car_model.trim() ||
+      formData.daily_price > 0 ||
+      formData.weekly_price > 0 ||
+      formData.monthly_price > 0 ||
+      formData.key_features.length > 0 ||
+      exteriorImages.length > 0 ||
+      interiorImages.length > 0 ||
+      insuranceDoc ||
+      registrationDoc ||
+      roadworthinessDoc ||
+      ownerIdDoc
+    );
+
   // Auto-save on form changes (only after load)
   useEffect(() => {
     if (!draftLoaded) return;
     
     const draftKey = getStorageKey();
     
-    // Only save if there's meaningful content
-    if (!formData.title && !formData.car_brand) return;
+    if (!hasDraftContent) return;
     
     const timer = setTimeout(() => {
       const draft = {
@@ -147,12 +164,12 @@ export default function CreateCarRental() {
     }, 1000); // Debounce 1 second
 
     return () => clearTimeout(timer);
-  }, [formData, exteriorImages, interiorImages, insuranceDoc, registrationDoc, roadworthinessDoc, ownerIdDoc, user?.id, draftLoaded, getStorageKey]);
+  }, [formData, exteriorImages, interiorImages, insuranceDoc, registrationDoc, roadworthinessDoc, ownerIdDoc, user?.id, draftLoaded, getStorageKey, hasDraftContent]);
 
   // Save on page unload
   useEffect(() => {
     const handleBeforeUnload = () => {
-      if (!formData.title && !formData.car_brand) return;
+      if (!hasDraftContent) return;
       
       const draftKey = getStorageKey();
       const draft = {
@@ -170,7 +187,7 @@ export default function CreateCarRental() {
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [formData, exteriorImages, interiorImages, insuranceDoc, registrationDoc, roadworthinessDoc, ownerIdDoc, user?.id, getStorageKey]);
+  }, [formData, exteriorImages, interiorImages, insuranceDoc, registrationDoc, roadworthinessDoc, ownerIdDoc, user?.id, getStorageKey, hasDraftContent]);
 
   const clearDraft = () => {
     const draftKey = getStorageKey();

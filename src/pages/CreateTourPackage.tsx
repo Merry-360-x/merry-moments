@@ -339,6 +339,7 @@ Some components are non-refundable once booked, including but not limited to:
         if (draft.galleryImages) setGalleryImages(draft.galleryImages);
         if (draft.selectedPolicies) setSelectedPolicies(draft.selectedPolicies);
         if (draft.customPolicyText) setCustomPolicyText(draft.customPolicyText);
+        if (draft.customPolicyUrl) setCustomPolicyUrl(draft.customPolicyUrl);
         if (draft.includeRoomType !== undefined) setIncludeRoomType(draft.includeRoomType);
         setLastSaved(new Date(draft.timestamp));
         toast({ title: "Draft restored", description: "Your previous work has been restored" });
@@ -350,6 +351,29 @@ Some components are non-refundable once booked, including but not limited to:
     setDraftLoaded(true);
   }, [user?.id, draftLoaded, isEditMode]);
 
+  const hasDraftContent =
+    Boolean(
+      formData.title.trim() ||
+      formData.description.trim() ||
+      formData.city.trim() ||
+      formData.daily_itinerary.trim() ||
+      formData.included_services.trim() ||
+      formData.excluded_services.trim() ||
+      formData.meeting_point.trim() ||
+      formData.what_to_bring.trim() ||
+      formData.cancellation_policy.trim() ||
+      customPolicyText.trim() ||
+      customPolicyUrl ||
+      coverImage ||
+      galleryImages.length > 0 ||
+      selectedPolicies.length > 0 ||
+      selectedNonRefundable.length > 0 ||
+      customNonRefundable1.trim() ||
+      customNonRefundable2.trim() ||
+      groupDiscounts.length > 0 ||
+      pricingTiers.length > 0
+    );
+
   // Auto-save on form changes (debounced) - only after initial load
   useEffect(() => {
     if (isEditMode) return;
@@ -357,8 +381,7 @@ Some components are non-refundable once booked, including but not limited to:
     
     const draftKey = getStorageKey();
     
-    // Only save if there's meaningful content
-    if (!formData.title && !formData.description) return;
+    if (!hasDraftContent) return;
     
     const timer = setTimeout(() => {
       const draft = {
@@ -373,6 +396,7 @@ Some components are non-refundable once booked, including but not limited to:
         galleryImages,
         selectedPolicies,
         customPolicyText,
+        customPolicyUrl,
         timestamp: new Date().toISOString(),
       };
       localStorage.setItem(draftKey, JSON.stringify(draft));
@@ -381,13 +405,13 @@ Some components are non-refundable once booked, including but not limited to:
     }, 1000); // Debounce 1 second (faster)
 
     return () => clearTimeout(timer);
-  }, [formData, groupDiscounts, pricingTiers, selectedNonRefundable, customNonRefundable1, customNonRefundable2, coverImage, galleryImages, selectedPolicies, customPolicyText, user?.id, draftLoaded, isEditMode]);
+  }, [formData, groupDiscounts, pricingTiers, selectedNonRefundable, customNonRefundable1, customNonRefundable2, coverImage, galleryImages, selectedPolicies, customPolicyText, customPolicyUrl, user?.id, draftLoaded, isEditMode, hasDraftContent]);
 
   // Also save immediately when leaving the page
   useEffect(() => {
     if (isEditMode) return;
     const handleBeforeUnload = () => {
-      if (!formData.title && !formData.description) return;
+      if (!hasDraftContent) return;
       
       const draftKey = getStorageKey();
       const draft = {
@@ -402,6 +426,7 @@ Some components are non-refundable once booked, including but not limited to:
         galleryImages,
         selectedPolicies,
         customPolicyText,
+        customPolicyUrl,
         timestamp: new Date().toISOString(),
       };
       localStorage.setItem(draftKey, JSON.stringify(draft));
@@ -410,7 +435,7 @@ Some components are non-refundable once booked, including but not limited to:
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [formData, groupDiscounts, pricingTiers, selectedNonRefundable, customNonRefundable1, customNonRefundable2, coverImage, galleryImages, selectedPolicies, customPolicyText, user?.id, isEditMode]);
+  }, [formData, groupDiscounts, pricingTiers, selectedNonRefundable, customNonRefundable1, customNonRefundable2, coverImage, galleryImages, selectedPolicies, customPolicyText, customPolicyUrl, user?.id, isEditMode, hasDraftContent]);
 
   const saveDraft = () => {
     const draftKey = getStorageKey();
@@ -426,6 +451,7 @@ Some components are non-refundable once booked, including but not limited to:
       galleryImages,
       selectedPolicies,
       customPolicyText,
+      customPolicyUrl,
       timestamp: new Date().toISOString(),
     };
     

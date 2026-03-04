@@ -261,6 +261,20 @@ export default function CreateTour() {
     setDraftLoaded(true);
   }, [user?.id, draftLoaded, isEditMode]);
 
+  function hasDraftContent() {
+    return Boolean(
+      formData.title.trim() ||
+      formData.description.trim() ||
+      formData.location.trim() ||
+      formData.price_per_person > 0 ||
+      formData.time_pricing_tiers.length > 0 ||
+      formData.group_pricing_tiers.length > 0 ||
+      formData.categories.length > 0 ||
+      images.length > 0 ||
+      licenseUrl.trim()
+    );
+  }
+
   // Auto-save on form changes (only after load)
   useEffect(() => {
     if (isEditMode) return;
@@ -268,8 +282,7 @@ export default function CreateTour() {
     
     const draftKey = getStorageKey();
     
-    // Only save if there's meaningful content
-    if (!formData.title && !formData.description) return;
+    if (!hasDraftContent()) return;
     
     const timer = setTimeout(() => {
       const draft = {
@@ -283,13 +296,13 @@ export default function CreateTour() {
     }, 1000); // Debounce 1 second
 
     return () => clearTimeout(timer);
-  }, [formData, images, user?.id, draftLoaded, isEditMode]);
+  }, [formData, images, user?.id, draftLoaded, isEditMode, licenseUrl]);
 
   // Save on page unload
   useEffect(() => {
     if (isEditMode) return;
     const handleBeforeUnload = () => {
-      if (!formData.title && !formData.description) return;
+      if (!hasDraftContent()) return;
       
       const draftKey = getStorageKey();
       const draft = {
@@ -303,7 +316,7 @@ export default function CreateTour() {
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [formData, images, user?.id, isEditMode]);
+  }, [formData, images, user?.id, isEditMode, licenseUrl]);
 
   const saveDraft = () => {
     const draftKey = getStorageKey();
@@ -403,16 +416,6 @@ export default function CreateTour() {
   };
 
   const missingRequirements = getMissingRequirements();
-
-  const hasDraftContent = () => {
-    return Boolean(
-      formData.title.trim() ||
-      formData.description.trim() ||
-      formData.location.trim() ||
-      images.length > 0 ||
-      licenseUrl.trim()
-    );
-  };
 
   const handlePdfChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

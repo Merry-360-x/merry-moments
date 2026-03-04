@@ -457,6 +457,8 @@ export default function AdminDashboard() {
     ends_at: null,
   });
   const [bannerEdits, setBannerEdits] = useState<Record<string, Partial<AdBannerRow>>>({});
+  const legalDraftStorageKey = `admin-legal-draft-${legalContentType}`;
+  const bannerDraftStorageKey = "admin-new-banner-draft";
 
   // Document viewer state
   const [viewingDocument, setViewingDocument] = useState<{ url: string; title: string } | null>(null);
@@ -667,6 +669,7 @@ export default function AdminDashboard() {
         starts_at: null,
         ends_at: null,
       });
+      localStorage.removeItem(bannerDraftStorageKey);
       await refetchAdBanners();
       if (payload.id) {
         setBannerEdits((prev) => {
@@ -771,11 +774,65 @@ export default function AdminDashboard() {
 
   // Load legal content into editor when data changes
   useEffect(() => {
+    const savedDraft = localStorage.getItem(legalDraftStorageKey);
+    if (savedDraft !== null) {
+      setLegalContent(savedDraft);
+      return;
+    }
+
     if (legalContentData?.content) {
       const sections = legalContentData.content.sections || [];
       setLegalContent(sections.map((s: any) => s.text).join('\n\n'));
+      return;
     }
-  }, [legalContentData]);
+
+    setLegalContent("");
+  }, [legalContentData, legalDraftStorageKey]);
+
+  useEffect(() => {
+    if (!legalContent.trim()) {
+      localStorage.removeItem(legalDraftStorageKey);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      localStorage.setItem(legalDraftStorageKey, legalContent);
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [legalContent, legalDraftStorageKey]);
+
+  useEffect(() => {
+    const savedBannerDraft = localStorage.getItem(bannerDraftStorageKey);
+    if (!savedBannerDraft) return;
+    try {
+      const parsed = JSON.parse(savedBannerDraft);
+      if (parsed && typeof parsed === "object") {
+        setNewBanner((prev) => ({ ...prev, ...parsed }));
+      }
+    } catch (error) {
+      console.warn("Failed to restore banner draft", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    const hasBannerDraft = Boolean(
+      newBanner.message?.trim() ||
+      newBanner.cta_label?.trim() ||
+      newBanner.cta_url?.trim()
+    );
+
+    if (!hasBannerDraft) {
+      localStorage.removeItem(bannerDraftStorageKey);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      localStorage.setItem(bannerDraftStorageKey, JSON.stringify(newBanner));
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [newBanner]);
 
   const markAsPaid = async (bookingId: string) => {
     setMarkingPaid(bookingId);
@@ -2490,6 +2547,7 @@ For support, contact: support@merry360x.com
       if (error) throw error;
 
       await refetchLegalContent();
+      localStorage.removeItem(legalDraftStorageKey);
       toast({
         title: "Success",
         description: `${typeLabels[legalContentType]} updated successfully`,
@@ -5433,9 +5491,12 @@ For support, contact: support@merry360x.com
                   <Button
                     variant="outline"
                     onClick={() => {
+                      localStorage.removeItem(legalDraftStorageKey);
                       if (legalContentData?.content) {
                         const sections = legalContentData.content.sections || [];
                         setLegalContent(sections.map((s: any) => s.text).join('\n\n'));
+                      } else {
+                        setLegalContent("");
                       }
                     }}
                   >

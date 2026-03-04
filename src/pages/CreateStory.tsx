@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -26,12 +26,79 @@ export default function CreateStory() {
   const [body, setBody] = useState("");
   const [mediaUrls, setMediaUrls] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [draftLoaded, setDraftLoaded] = useState(false);
+
+  const getStorageKey = useCallback(
+    () => (user?.id ? `create-story-draft-${user.id}` : "create-story-draft-anonymous"),
+    [user?.id]
+  );
+
+  const hasDraftContent = Boolean(title.trim() || location.trim() || body.trim() || mediaUrls.length > 0);
 
   const selectedMedia = mediaUrls[0] || "";
   const mediaType = useMemo(() => {
     if (!selectedMedia) return null;
     return isVideoUrl(selectedMedia) ? "video" : "image";
   }, [selectedMedia]);
+
+  useEffect(() => {
+    if (draftLoaded) return;
+
+    const draftKey = getStorageKey();
+    const savedDraft = localStorage.getItem(draftKey);
+    if (savedDraft) {
+      try {
+        const draft = JSON.parse(savedDraft);
+        if (typeof draft.title === "string") setTitle(draft.title);
+        if (typeof draft.location === "string") setLocation(draft.location);
+        if (typeof draft.body === "string") setBody(draft.body);
+        if (Array.isArray(draft.mediaUrls)) setMediaUrls(draft.mediaUrls);
+        toast({ title: "Draft restored", description: "Your previous story draft has been restored." });
+      } catch (error) {
+        console.error("Failed to restore story draft:", error);
+      }
+    }
+
+    setDraftLoaded(true);
+  }, [draftLoaded, getStorageKey, toast]);
+
+  useEffect(() => {
+    if (!draftLoaded) return;
+    if (!hasDraftContent) return;
+
+    const draftKey = getStorageKey();
+    const timer = setTimeout(() => {
+      const draft = {
+        title,
+        location,
+        body,
+        mediaUrls,
+        timestamp: new Date().toISOString(),
+      };
+      localStorage.setItem(draftKey, JSON.stringify(draft));
+    }, 700);
+
+    return () => clearTimeout(timer);
+  }, [title, location, body, mediaUrls, draftLoaded, getStorageKey, hasDraftContent]);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (!hasDraftContent) return;
+
+      const draftKey = getStorageKey();
+      const draft = {
+        title,
+        location,
+        body,
+        mediaUrls,
+        timestamp: new Date().toISOString(),
+      };
+      localStorage.setItem(draftKey, JSON.stringify(draft));
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [title, location, body, mediaUrls, getStorageKey, hasDraftContent]);
 
   const submitStory = async () => {
     if (!user) {
@@ -66,6 +133,8 @@ export default function CreateStory() {
 
       const { error } = await supabase.from("stories").insert(payload as never);
       if (error) throw error;
+
+      localStorage.removeItem(getStorageKey());
 
       toast({ title: "Story published", description: "Your story has been posted successfully." });
       navigate("/dashboard");

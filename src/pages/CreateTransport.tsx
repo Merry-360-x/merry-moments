@@ -298,11 +298,32 @@ export default function CreateTransport() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftLoaded, isEditMode]);
 
+  const hasDraftContent =
+    Boolean(
+      formData.title.trim() ||
+      formData.provider_name.trim() ||
+      formData.description.trim() ||
+      formData.car_brand.trim() ||
+      formData.car_model.trim() ||
+      formData.car_type.trim() ||
+      formData.transmission.trim() ||
+      formData.fuel_type.trim() ||
+      formData.drive_train.trim() ||
+      formData.daily_price > 0 ||
+      formData.weekly_price > 0 ||
+      formData.monthly_price > 0 ||
+      formData.key_features.length > 0 ||
+      existingExteriorUrls.length > 0 ||
+      existingInteriorUrls.length > 0 ||
+      exteriorPreviews.length > 0 ||
+      interiorPreviews.length > 0
+    );
+
   // Auto-save progress
   useEffect(() => {
     if (isEditMode) return;
     if (!draftLoaded) return;
-    if (!formData.title && !formData.car_brand) return;
+    if (!hasDraftContent) return;
     
     const timer = setTimeout(() => {
       const dataToSave = {
@@ -314,7 +335,24 @@ export default function CreateTransport() {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [formData, draftLoaded, isEditMode]);
+  }, [formData, draftLoaded, isEditMode, hasDraftContent]);
+
+  useEffect(() => {
+    if (isEditMode) return;
+
+    const handleBeforeUnload = () => {
+      if (!hasDraftContent) return;
+
+      const dataToSave = {
+        formData,
+        timestamp: new Date().toISOString(),
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [formData, hasDraftContent, isEditMode, STORAGE_KEY]);
 
   const handleSaveDraft = () => {
     setIsSaving(true);
