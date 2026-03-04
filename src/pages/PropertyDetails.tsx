@@ -911,32 +911,60 @@ export default function PropertyDetails() {
     queryFn: async () => {
       const locationHint = locationHints[0] || "";
 
-      // Get tours from tours table
-      let toursQuery = supabase
+      // Get tours from tours table (schema-safe with fallback if optional columns are missing)
+      let toursData: Array<Record<string, unknown>> = [];
+      const toursPrimary = await supabase
         .from("tours")
         .select("id, title, location, duration_days, max_guests, price_per_person, currency, images")
         .eq("is_published", true)
         .order("created_at", { ascending: false })
         .limit(24);
 
-      const { data: toursData, error: toursError } = await toursQuery;
+      if (toursPrimary.error) {
+        const toursFallback = await supabase
+          .from("tours")
+          .select("id, title, location, price_per_person, currency, images")
+          .eq("is_published", true)
+          .order("created_at", { ascending: false })
+          .limit(24);
+
+        if (toursFallback.error) {
+          throw toursFallback.error;
+        }
+
+        toursData = (toursFallback.data ?? []) as Array<Record<string, unknown>>;
+      } else {
+        toursData = (toursPrimary.data ?? []) as Array<Record<string, unknown>>;
+      }
       
-      if (toursError) console.error("Tours error:", toursError);
-      
-      // Also get tour_packages - uses different column names
-      let packagesQuery = supabase
+      // Also get tour_packages - schema-safe with fallback
+      const packagesPrimary = await supabase
         .from("tour_packages")
         .select("id, title, city, max_guests, duration, price_per_adult, currency, cover_image")
         .eq("status", "approved")
         .order("created_at", { ascending: false })
         .limit(24);
 
-      const { data: packagesData, error: packagesError } = await packagesQuery;
-      
-      if (packagesError) console.error("Tour packages error:", packagesError);
+      let packagesData: Array<Record<string, unknown>> = [];
+      if (packagesPrimary.error) {
+        const packagesFallback = await supabase
+          .from("tour_packages")
+          .select("id, title, city, price_per_adult, currency, cover_image")
+          .eq("status", "approved")
+          .order("created_at", { ascending: false })
+          .limit(24);
+
+        if (packagesFallback.error) {
+          throw packagesFallback.error;
+        }
+
+        packagesData = (packagesFallback.data ?? []) as Array<Record<string, unknown>>;
+      } else {
+        packagesData = (packagesPrimary.data ?? []) as Array<Record<string, unknown>>;
+      }
       
       // Combine and normalize both
-      const tours = (toursData ?? []).map(t => ({
+      const tours = (toursData ?? []).map((t) => ({
         id: t.id,
         title: t.title,
         location: t.location,
