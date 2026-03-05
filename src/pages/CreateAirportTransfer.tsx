@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
 import { HostCreationSubpage } from "@/components/HostCreationSubpage";
 import { Progress } from "@/components/ui/progress";
+import { isVideoUrl } from "@/lib/media";
 
 const carTypes = ["SUV", "Sedan", "Hatchback", "Coupe", "Wagon", "Van", "Minibus"];
 const transmissionTypes = ["Automatic", "Manual", "Hybrid"];
@@ -395,7 +396,7 @@ export default function CreateAirportTransfer() {
       toast({
         variant: "destructive",
         title: "Missing images",
-        description: "Please add at least one exterior photo",
+        description: "Please add at least one exterior photo or video",
       });
       return;
     }
@@ -523,7 +524,7 @@ export default function CreateAirportTransfer() {
     if (!formData.fuel_type) missing.push("Fuel type");
     if (!formData.drive_train) missing.push("Drive train");
 
-    if (exteriorImages.length === 0) missing.push("At least one exterior photo");
+    if (exteriorImages.length === 0) missing.push("At least one exterior photo or video");
     if (Object.keys(selectedRoutes).length === 0) missing.push("At least one route with pricing");
 
     if (!insuranceDoc) missing.push("Insurance document");
@@ -815,13 +816,17 @@ export default function CreateAirportTransfer() {
               <h2 className="text-xl font-semibold border-b pb-2">Vehicle Photos</h2>
               
               <div>
-                <Label>Exterior Photos * (at least 1)</Label>
+                <Label>Exterior Media * (at least 1 photo or video)</Label>
                 <div className="mt-2">
                   {exteriorImages.length > 0 && (
                     <div className="grid grid-cols-4 gap-2 mb-2">
                       {exteriorImages.map((url, idx) => (
                         <div key={idx} className="relative group">
-                          <img src={url} alt="" className="w-full h-24 object-cover rounded border" />
+                          {isVideoUrl(url) ? (
+                            <video src={url} className="w-full h-24 object-cover rounded border" muted playsInline preload="metadata" />
+                          ) : (
+                            <img src={url} alt="" className="w-full h-24 object-cover rounded border" />
+                          )}
                           <button
                             type="button"
                             onClick={() => setExteriorImages(exteriorImages.filter((_, i) => i !== idx))}
@@ -834,19 +839,23 @@ export default function CreateAirportTransfer() {
                     </div>
                   )}
                   <Button type="button" variant="outline" onClick={() => setExteriorDialogOpen(true)}>
-                    <Upload className="w-4 h-4 mr-2" /> Upload Exterior Photos
+                    <Upload className="w-4 h-4 mr-2" /> Upload Exterior Media
                   </Button>
                 </div>
               </div>
 
               <div>
-                <Label>Interior Photos</Label>
+                <Label>Interior Media</Label>
                 <div className="mt-2">
                   {interiorImages.length > 0 && (
                     <div className="grid grid-cols-4 gap-2 mb-2">
                       {interiorImages.map((url, idx) => (
                         <div key={idx} className="relative group">
-                          <img src={url} alt="" className="w-full h-24 object-cover rounded border" />
+                          {isVideoUrl(url) ? (
+                            <video src={url} className="w-full h-24 object-cover rounded border" muted playsInline preload="metadata" />
+                          ) : (
+                            <img src={url} alt="" className="w-full h-24 object-cover rounded border" />
+                          )}
                           <button
                             type="button"
                             onClick={() => setInteriorImages(interiorImages.filter((_, i) => i !== idx))}
@@ -859,7 +868,7 @@ export default function CreateAirportTransfer() {
                     </div>
                   )}
                   <Button type="button" variant="outline" onClick={() => setInteriorDialogOpen(true)}>
-                    <Upload className="w-4 h-4 mr-2" /> Upload Interior Photos
+                    <Upload className="w-4 h-4 mr-2" /> Upload Interior Media
                   </Button>
                 </div>
               </div>
@@ -1004,9 +1013,9 @@ export default function CreateAirportTransfer() {
 
       {/* Upload Dialogs */}
       <CloudinaryUploadDialog
-        title="Upload Exterior Photos"
+        title="Upload Exterior Media"
         folder="airport-transfer/exterior"
-        accept="image/*"
+        accept="image/*,video/*"
         open={exteriorDialogOpen}
         onOpenChange={setExteriorDialogOpen}
         value={exteriorImages}
@@ -1016,9 +1025,9 @@ export default function CreateAirportTransfer() {
       />
 
       <CloudinaryUploadDialog
-        title="Upload Interior Photos"
+        title="Upload Interior Media"
         folder="airport-transfer/interior"
-        accept="image/*"
+        accept="image/*,video/*"
         open={interiorDialogOpen}
         onOpenChange={setInteriorDialogOpen}
         value={interiorImages}

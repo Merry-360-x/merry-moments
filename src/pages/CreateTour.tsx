@@ -23,6 +23,7 @@ import { getTourPricingModels } from "@/lib/tour-pricing";
 import { HostCreationSubpage } from "@/components/HostCreationSubpage";
 import { Progress } from "@/components/ui/progress";
 import { roundToCurrency } from "@/lib/fx";
+import { isVideoUrl } from "@/lib/media";
 
 const categories = ["Nature", "Adventure", "Cultural", "Wildlife", "Historical", "City Tours", "Eco-Tourism", "Photography"];
 const tourPricingModels = [
@@ -475,7 +476,7 @@ export default function CreateTour() {
     if (touched.has('duration_days') && formData.duration_days < 1) newErrors.duration_days = "Must be at least 1";
     if (touched.has('max_participants') && formData.max_participants < 1) newErrors.max_participants = "Must be at least 1";
     if (touched.has('categories') && formData.categories.length === 0) newErrors.categories = "Select at least one";
-    if (touched.has('images') && images.length === 0) newErrors.images = "Upload at least one image";
+    if (touched.has('images') && images.length === 0) newErrors.images = "Upload at least one photo or video";
     setErrors(newErrors);
   }, [formData, images, touched]);
 
@@ -1230,14 +1231,18 @@ export default function CreateTour() {
             <>
           {/* Media */}
           <div className="space-y-5">
-            <h2 className="text-base font-medium pb-2 border-b">Images & Files</h2>
+            <h2 className="text-base font-medium pb-2 border-b">Media & Files</h2>
 
             <div>
-              <Label className="text-sm font-normal mb-2 block">Tour Images * <span className="text-xs text-muted-foreground">(at least 1)</span></Label>
+              <Label className="text-sm font-normal mb-2 block">Tour Media * <span className="text-xs text-muted-foreground">(at least 1 photo or video)</span></Label>
               <div className="flex flex-wrap gap-2 mb-3">
                 {images.map((img, i) => (
                   <div key={i} className="relative group">
-                    <img src={img} alt="" className="w-20 h-20 object-cover rounded border" />
+                    {isVideoUrl(img) ? (
+                      <video src={img} className="w-20 h-20 object-cover rounded border" muted playsInline preload="metadata" />
+                    ) : (
+                      <img src={img} alt="" className="w-20 h-20 object-cover rounded border" />
+                    )}
                     <button
                       type="button"
                       onClick={() => setImages(images.filter((_, idx) => idx !== i))}
@@ -1249,13 +1254,13 @@ export default function CreateTour() {
                 ))}
               </div>
               <Button type="button" variant="outline" size="sm" onClick={() => setCloudinaryDialogOpen(true)}>
-                <Upload className="w-3.5 h-3.5 mr-1.5" /> Upload Images
+                <Upload className="w-3.5 h-3.5 mr-1.5" /> Upload Media
               </Button>
               {errors.images && <p className="text-xs text-destructive mt-1">{errors.images}</p>}
               <CloudinaryUploadDialog
-                title="Upload Images"
+                title="Upload Media"
                 folder="tours"
-                accept="image/*"
+                accept="image/*,video/*"
                 multiple={true}
                 maxFiles={10}
                 autoStart={true}

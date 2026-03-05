@@ -22,6 +22,7 @@ import { getTourPricingModels } from "@/lib/tour-pricing";
 import { HostCreationSubpage } from "@/components/HostCreationSubpage";
 import { Progress } from "@/components/ui/progress";
 import { roundToCurrency } from "@/lib/fx";
+import { isVideoUrl } from "@/lib/media";
 
 const categories = ["Cultural", "Adventure", "Wildlife", "City Tours", "Hiking", "Photography", "Historical", "Eco-Tourism"];
 const tourTypes = ["Private", "Group"];
@@ -1923,13 +1924,17 @@ Some components are non-refundable once booked, including but not limited to:
             <>
           {/* Media */}
           <div className="space-y-5">
-            <h2 className="text-base font-medium pb-2 border-b">Images & Files</h2>
+            <h2 className="text-base font-medium pb-2 border-b">Media & Files</h2>
 
             <div>
-              <Label className="text-sm font-normal mb-2 block">Cover Image (Optional)</Label>
+              <Label className="text-sm font-normal mb-2 block">Cover Media (Optional)</Label>
               {coverImage ? (
                 <div className="relative inline-block">
-                  <img src={coverImage} alt="Cover" className="w-full max-w-sm h-40 object-cover rounded border" />
+                  {isVideoUrl(coverImage) ? (
+                    <video src={coverImage} className="w-full max-w-sm h-40 object-cover rounded border" muted playsInline preload="metadata" />
+                  ) : (
+                    <img src={coverImage} alt="Cover" className="w-full max-w-sm h-40 object-cover rounded border" />
+                  )}
                   <button
                     type="button"
                     onClick={() => setCoverImage("")}
@@ -1940,13 +1945,13 @@ Some components are non-refundable once booked, including but not limited to:
                 </div>
               ) : (
                 <Button type="button" variant="outline" size="sm" onClick={() => setCoverDialogOpen(true)}>
-                  <Upload className="w-3.5 h-3.5 mr-1.5" /> Upload Cover
+                  <Upload className="w-3.5 h-3.5 mr-1.5" /> Upload Cover Media
                 </Button>
               )}
               <CloudinaryUploadDialog
-                title="Upload Cover"
+                title="Upload Cover Media"
                 folder="tour-packages"
-                accept="image/*"
+                accept="image/*,video/*"
                 multiple={false}
                 maxFiles={1}
                 autoStart={true}
@@ -1958,11 +1963,15 @@ Some components are non-refundable once booked, including but not limited to:
             </div>
 
             <div>
-              <Label className="text-sm font-normal mb-2 block">Gallery Images</Label>
+              <Label className="text-sm font-normal mb-2 block">Gallery Media</Label>
               <div className="flex flex-wrap gap-2 mb-3">
                 {galleryImages.map((img, i) => (
                   <div key={i} className="relative group">
-                    <img src={img} alt="" className="w-20 h-20 object-cover rounded border" />
+                    {isVideoUrl(img) ? (
+                      <video src={img} className="w-20 h-20 object-cover rounded border" muted playsInline preload="metadata" />
+                    ) : (
+                      <img src={img} alt="" className="w-20 h-20 object-cover rounded border" />
+                    )}
                     <button
                       type="button"
                       onClick={() => setGalleryImages(galleryImages.filter((_, idx) => idx !== i))}
@@ -1974,12 +1983,12 @@ Some components are non-refundable once booked, including but not limited to:
                 ))}
               </div>
               <Button type="button" variant="outline" size="sm" onClick={() => setGalleryDialogOpen(true)}>
-                <Upload className="w-3.5 h-3.5 mr-1.5" /> Add Gallery Images
+                <Upload className="w-3.5 h-3.5 mr-1.5" /> Add Gallery Media
               </Button>
               <CloudinaryUploadDialog
-                title="Upload Gallery"
+                title="Upload Gallery Media"
                 folder="tour-packages"
-                accept="image/*"
+                accept="image/*,video/*"
                 multiple={true}
                 maxFiles={10}
                 autoStart={true}

@@ -17,6 +17,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CURRENCY_OPTIONS } from "@/lib/currencies";
 import { HostCreationSubpage } from "@/components/HostCreationSubpage";
 import { Progress } from "@/components/ui/progress";
+import { isVideoUrl } from "@/lib/media";
+
+const isVideoPreviewSrc = (src: string) => /^data:video\//i.test(src) || isVideoUrl(src);
 
 // Car types
 const carTypes = [
@@ -516,7 +519,7 @@ export default function CreateTransport() {
     if (exteriorImages.length === 0 && existingExteriorUrls.length === 0) {
       toast({
         title: "Missing Images",
-        description: "Please upload at least one exterior image of your vehicle.",
+        description: "Please upload at least one exterior photo or video of your vehicle.",
         variant: "destructive",
       });
       return;
@@ -676,7 +679,7 @@ export default function CreateTransport() {
     if (!(formData.daily_price > 0)) missing.push("Daily price");
 
     if (exteriorImages.length === 0 && existingExteriorUrls.length === 0) {
-      missing.push("At least one exterior image");
+      missing.push("At least one exterior photo or video");
     }
 
     if (!insuranceDoc && !existingInsuranceUrl) missing.push("Insurance document");
@@ -1057,7 +1060,7 @@ export default function CreateTransport() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Camera className="w-5 h-5" />
-                Exterior Photos *
+                Exterior Media *
               </CardTitle>
               <CardDescription>Upload clear photos of the outside of your vehicle (front, back, sides)</CardDescription>
             </CardHeader>
@@ -1065,11 +1068,21 @@ export default function CreateTransport() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {exteriorPreviews.map((preview, index) => (
                   <div key={index} className="relative aspect-square">
-                    <img
-                      src={preview}
-                      alt={`Exterior ${index + 1}`}
-                      className="w-full h-full object-cover rounded-lg"
-                    />
+                    {isVideoPreviewSrc(preview) ? (
+                      <video
+                        src={preview}
+                        className="w-full h-full object-cover rounded-lg"
+                        muted
+                        playsInline
+                        preload="metadata"
+                      />
+                    ) : (
+                      <img
+                        src={preview}
+                        alt={`Exterior ${index + 1}`}
+                        className="w-full h-full object-cover rounded-lg"
+                      />
+                    )}
                     <button
                       type="button"
                       onClick={() => removeExteriorImage(index)}
@@ -1084,7 +1097,7 @@ export default function CreateTransport() {
                   <span className="text-sm text-muted-foreground">Add Exterior</span>
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/*,video/*"
                     multiple
                     onChange={handleExteriorImageChange}
                     className="hidden"
@@ -1099,7 +1112,7 @@ export default function CreateTransport() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Camera className="w-5 h-5" />
-                Interior Photos
+                Interior Media
               </CardTitle>
               <CardDescription>Upload photos of the inside of your vehicle (dashboard, seats, trunk)</CardDescription>
             </CardHeader>
@@ -1107,11 +1120,21 @@ export default function CreateTransport() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {interiorPreviews.map((preview, index) => (
                   <div key={index} className="relative aspect-square">
-                    <img
-                      src={preview}
-                      alt={`Interior ${index + 1}`}
-                      className="w-full h-full object-cover rounded-lg"
-                    />
+                    {isVideoPreviewSrc(preview) ? (
+                      <video
+                        src={preview}
+                        className="w-full h-full object-cover rounded-lg"
+                        muted
+                        playsInline
+                        preload="metadata"
+                      />
+                    ) : (
+                      <img
+                        src={preview}
+                        alt={`Interior ${index + 1}`}
+                        className="w-full h-full object-cover rounded-lg"
+                      />
+                    )}
                     <button
                       type="button"
                       onClick={() => removeInteriorImage(index)}
@@ -1126,7 +1149,7 @@ export default function CreateTransport() {
                   <span className="text-sm text-muted-foreground">Add Interior</span>
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/*,video/*"
                     multiple
                     onChange={handleInteriorImageChange}
                     className="hidden"

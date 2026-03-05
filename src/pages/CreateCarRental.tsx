@@ -15,6 +15,7 @@ import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { HostCreationSubpage } from "@/components/HostCreationSubpage";
 import { Progress } from "@/components/ui/progress";
+import { isVideoUrl } from "@/lib/media";
 
 const carTypes = ["SUV", "Sedan", "Hatchback", "Coupe", "Wagon", "Van", "Minibus", "Truck", "Luxury"];
 const transmissionTypes = ["Automatic", "Manual", "Hybrid"];
@@ -248,7 +249,7 @@ export default function CreateCarRental() {
       toast({
         variant: "destructive",
         title: "Missing images",
-        description: "Please add at least one exterior photo",
+        description: "Please add at least one exterior photo or video",
       });
       return;
     }
@@ -330,7 +331,7 @@ export default function CreateCarRental() {
     if (!(formData.seats >= 1)) missing.push("Seats");
     if (!(formData.daily_price > 0)) missing.push("Daily price");
 
-    if (exteriorImages.length === 0) missing.push("At least one exterior photo");
+    if (exteriorImages.length === 0) missing.push("At least one exterior photo or video");
     if (!insuranceDoc) missing.push("Insurance document");
     if (!registrationDoc) missing.push("Registration document");
     if (!roadworthinessDoc) missing.push("Roadworthiness certificate");
@@ -552,13 +553,17 @@ export default function CreateCarRental() {
           <div className="space-y-4">
             <h2 className="text-xl font-semibold border-b pb-2">Photos</h2>
             <div>
-              <Label>Exterior Photos * (at least 1)</Label>
+              <Label>Exterior Media * (at least 1 photo or video)</Label>
               <div className="mt-2">
                 {exteriorImages.length > 0 && (
                   <div className="grid grid-cols-4 gap-2 mb-2">
                     {exteriorImages.map((url, idx) => (
                       <div key={idx} className="relative group">
-                        <img src={url} alt="" className="w-full h-24 object-cover rounded border" />
+                        {isVideoUrl(url) ? (
+                          <video src={url} className="w-full h-24 object-cover rounded border" muted playsInline preload="metadata" />
+                        ) : (
+                          <img src={url} alt="" className="w-full h-24 object-cover rounded border" />
+                        )}
                         <button type="button" onClick={() => setExteriorImages(exteriorImages.filter((_, i) => i !== idx))} className="absolute top-1 right-1 bg-destructive text-white p-1 rounded-full opacity-0 group-hover:opacity-100">
                           <X className="w-3 h-3" />
                         </button>
@@ -567,18 +572,22 @@ export default function CreateCarRental() {
                   </div>
                 )}
                 <Button type="button" variant="outline" onClick={() => setExteriorDialogOpen(true)}>
-                  <Upload className="w-4 h-4 mr-2" /> Upload Exterior Photos
+                  <Upload className="w-4 h-4 mr-2" /> Upload Exterior Media
                 </Button>
               </div>
             </div>
             <div>
-              <Label>Interior Photos</Label>
+              <Label>Interior Media</Label>
               <div className="mt-2">
                 {interiorImages.length > 0 && (
                   <div className="grid grid-cols-4 gap-2 mb-2">
                     {interiorImages.map((url, idx) => (
                       <div key={idx} className="relative group">
-                        <img src={url} alt="" className="w-full h-24 object-cover rounded border" />
+                        {isVideoUrl(url) ? (
+                          <video src={url} className="w-full h-24 object-cover rounded border" muted playsInline preload="metadata" />
+                        ) : (
+                          <img src={url} alt="" className="w-full h-24 object-cover rounded border" />
+                        )}
                         <button type="button" onClick={() => setInteriorImages(interiorImages.filter((_, i) => i !== idx))} className="absolute top-1 right-1 bg-destructive text-white p-1 rounded-full opacity-0 group-hover:opacity-100">
                           <X className="w-3 h-3" />
                         </button>
@@ -587,7 +596,7 @@ export default function CreateCarRental() {
                   </div>
                 )}
                 <Button type="button" variant="outline" onClick={() => setInteriorDialogOpen(true)}>
-                  <Upload className="w-4 h-4 mr-2" /> Upload Interior Photos
+                  <Upload className="w-4 h-4 mr-2" /> Upload Interior Media
                 </Button>
               </div>
             </div>
@@ -684,9 +693,9 @@ export default function CreateCarRental() {
 
       {/* Upload Dialogs */}
       <CloudinaryUploadDialog
-        title="Upload Exterior Photos"
+        title="Upload Exterior Media"
         folder="car-rentals/exterior"
-        accept="image/*"
+        accept="image/*,video/*"
         open={exteriorDialogOpen}
         onOpenChange={setExteriorDialogOpen}
         value={exteriorImages}
@@ -696,9 +705,9 @@ export default function CreateCarRental() {
       />
 
       <CloudinaryUploadDialog
-        title="Upload Interior Photos"
+        title="Upload Interior Media"
         folder="car-rentals/interior"
-        accept="image/*"
+        accept="image/*,video/*"
         open={interiorDialogOpen}
         onOpenChange={setInteriorDialogOpen}
         value={interiorImages}
