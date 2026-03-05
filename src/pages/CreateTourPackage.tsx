@@ -818,18 +818,64 @@ Some components are non-refundable once booked, including but not limited to:
         (packageData as any).price_per_adult = roundToCurrency(singleTier.price_per_person, String(formData.currency || "RWF"));
       }
 
+      const isMissingColumnError = (error: any) => {
+        const code = String(error?.code || "");
+        const message = String(error?.message || "");
+        return code === "42703" || (code === "PGRST204" && (message.includes("column") || message.includes("Could not find the")));
+      };
+
+      const extractMissingColumnName = (error: any): string | null => {
+        const message = `${String(error?.message || "")} ${String(error?.details || "")}`;
+        const pgMatch = message.match(/column\s+"?([a-zA-Z0-9_]+)"?\s+(?:of relation|does not exist)/i);
+        if (pgMatch?.[1]) return pgMatch[1];
+        const postgrestMatch = message.match(/Could not find the\s+'([a-zA-Z0-9_]+)'\s+column/i);
+        if (postgrestMatch?.[1]) return postgrestMatch[1];
+        return null;
+      };
+
+      const runTourPackageMutationWithFallback = async <T,>(
+        payload: Record<string, any>,
+        runMutation: (nextPayload: Record<string, any>) => Promise<T>,
+      ): Promise<T> => {
+        const workingPayload = { ...payload };
+        let lastError: any = null;
+
+        for (let attempt = 0; attempt < 10; attempt += 1) {
+          const result = await runMutation(workingPayload);
+          const resultError = (result as any)?.error;
+          if (!resultError) return result;
+
+          lastError = resultError;
+          if (!isMissingColumnError(resultError)) break;
+
+          const missingColumn = extractMissingColumnName(resultError);
+          if (!missingColumn || !(missingColumn in workingPayload)) break;
+          delete workingPayload[missingColumn];
+        }
+
+        throw lastError || new Error("Write failed");
+      };
+
       if (isEditMode && editId) {
-        const { error } = await supabase
-          .from("tour_packages")
-          .update({
+        const { error } = await runTourPackageMutationWithFallback(
+          {
             ...(packageData as any),
             categories: formData.categories,
-          })
-          .eq("id", editId)
-          .eq("host_id", user.id);
+          },
+          async (nextPayload) =>
+            await supabase
+              .from("tour_packages")
+              .update(nextPayload)
+              .eq("id", editId)
+              .eq("host_id", user.id)
+        );
         if (error) throw error;
       } else {
-        const { data: newPackage, error } = await supabase.from("tour_packages").insert(packageData as any).select("id").single();
+        const { data: newPackage, error } = await runTourPackageMutationWithFallback(
+          packageData as any,
+          async (nextPayload) =>
+            await supabase.from("tour_packages").insert(nextPayload as any).select("id").single()
+        );
         if (error) throw error;
 
         if (newPackage && formData.categories.length > 0) {

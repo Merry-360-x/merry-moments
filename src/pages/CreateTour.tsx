@@ -620,6 +620,21 @@ export default function CreateTour() {
         return await supabase.from("tours").insert(payload).select().single();
       };
 
+      const isMissingColumnError = (error: any) => {
+        const code = String(error?.code || "");
+        const message = String(error?.message || "");
+        return code === "42703" || (code === "PGRST204" && (message.includes("column") || message.includes("Could not find the")));
+      };
+
+      const extractMissingColumnName = (error: any): string | null => {
+        const message = `${String(error?.message || "")} ${String(error?.details || "")}`;
+        const pgMatch = message.match(/column\s+"?([a-zA-Z0-9_]+)"?\s+(?:of relation|does not exist)/i);
+        if (pgMatch?.[1]) return pgMatch[1];
+        const postgrestMatch = message.match(/Could not find the\s+'([a-zA-Z0-9_]+)'\s+column/i);
+        if (postgrestMatch?.[1]) return postgrestMatch[1];
+        return null;
+      };
+
       const licenseValue = licenseUrl || null;
       const payloadCandidates = licenseValue
         ? [
@@ -633,7 +648,20 @@ export default function CreateTour() {
       let writeSucceeded = false;
 
       for (const payload of payloadCandidates) {
-        const writeResult = await writeTour(payload);
+        const retryPayload = { ...payload };
+        let writeResult: any = null;
+
+        for (let attempt = 0; attempt < 10; attempt += 1) {
+          writeResult = await writeTour(retryPayload);
+          const error = (writeResult as any)?.error;
+          if (!error) break;
+          if (!isMissingColumnError(error)) break;
+
+          const missingColumn = extractMissingColumnName(error);
+          if (!missingColumn || !(missingColumn in retryPayload)) break;
+          delete retryPayload[missingColumn];
+        }
+
         if (!(writeResult as any)?.error) {
           writeSucceeded = true;
           break;

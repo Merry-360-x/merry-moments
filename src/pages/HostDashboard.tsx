@@ -1021,6 +1021,58 @@ export default function HostDashboard() {
     );
   };
 
+  const isMissingColumnError = (error: any) => {
+    const code = String(error?.code || "");
+    const message = String(error?.message || "");
+    return (
+      code === "42703" ||
+      (code === "PGRST204" && (message.includes("column") || message.includes("Could not find the")))
+    );
+  };
+
+  const extractMissingColumnName = (error: any): string | null => {
+    const message = String(error?.message || "");
+    const details = String(error?.details || "");
+    const combined = `${message} ${details}`;
+
+    const pgMatch = combined.match(/column\s+"?([a-zA-Z0-9_]+)"?\s+(?:of relation|does not exist)/i);
+    if (pgMatch?.[1]) return pgMatch[1];
+
+    const postgrestMatch = combined.match(/Could not find the\s+'([a-zA-Z0-9_]+)'\s+column/i);
+    if (postgrestMatch?.[1]) return postgrestMatch[1];
+
+    return null;
+  };
+
+  const runPropertiesMutationWithFallback = async (
+    operation: (payload: Record<string, unknown>) => Promise<{ error: any; data?: any }>,
+    initialPayload: Record<string, unknown>
+  ) => {
+    const payload = { ...initialPayload };
+    let lastError: any = null;
+
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      const result = await operation(payload);
+      if (!result?.error) {
+        return { error: null, data: result?.data, payloadUsed: payload };
+      }
+
+      lastError = result.error;
+      if (!isMissingColumnError(lastError)) {
+        return { error: lastError, data: result?.data, payloadUsed: payload };
+      }
+
+      const missingColumn = extractMissingColumnName(lastError);
+      if (!missingColumn || !(missingColumn in payload)) {
+        return { error: lastError, data: result?.data, payloadUsed: payload };
+      }
+
+      delete payload[missingColumn];
+    }
+
+    return { error: lastError, data: null, payloadUsed: payload };
+  };
+
   // Auto-show profile completion dialog if profile is incomplete
   // Only show once per page load after data is actually fetched from database
   useEffect(() => {
@@ -1286,12 +1338,13 @@ export default function HostDashboard() {
       normalizedUpdates.main_image = nextImages[0] ?? null;
     }
 
-    let { error } = await supabase.from("properties").update(normalizedUpdates as never).eq("id", id);
-    if (error && shouldFallbackConferenceColumns(error)) {
-      const { price_per_group_size, conference_room_price, conference_room_duration_hours, ...fallbackUpdates } = normalizedUpdates as any;
-      const retry = await supabase.from("properties").update(fallbackUpdates).eq("id", id);
-      error = retry.error;
-    }
+    const { error } = await runPropertiesMutationWithFallback(
+      async (payload) => {
+        const response = await supabase.from("properties").update(payload as never).eq("id", id);
+        return { error: response.error, data: null };
+      },
+      normalizedUpdates
+    );
     if (error) {
       logError("host.property.update", error);
       toast({ variant: "destructive", title: "Update failed", description: uiErrorMessage(error) });
@@ -1403,22 +1456,17 @@ export default function HostDashboard() {
     console.log("[createProperty] Attempting insert with payload:", payload);
 
     try {
-      let { error, data: newProp } = await supabase
-        .from("properties")
-        .insert(payload as never)
-        .select()
-        .single();
-
-      if (error && shouldFallbackConferenceColumns(error)) {
-        const { price_per_group_size, conference_room_price, conference_room_duration_hours, ...fallbackPayload } = payload as any;
-        const retry = await supabase
-          .from("properties")
-          .insert(fallbackPayload as never)
-          .select()
-          .single();
-        error = retry.error;
-        newProp = retry.data as any;
-      }
+      const { error, data: newProp } = await runPropertiesMutationWithFallback(
+        async (payloadInput) => {
+          const response = await supabase
+            .from("properties")
+            .insert(payloadInput as never)
+            .select()
+            .single();
+          return { error: response.error, data: response.data };
+        },
+        payload
+      );
 
       if (error) {
         console.error("[createProperty] Full error:", JSON.stringify(error, null, 2));
@@ -5131,12 +5179,13 @@ export default function HostDashboard() {
                     main_image: propertyForm.images.length > 0 ? propertyForm.images[0] : null,
                   };
 
-                  let { error } = await supabase.from("properties").insert(payload);
-                  if (error && shouldFallbackConferenceColumns(error)) {
-                    const { price_per_group_size, conference_room_price, conference_room_duration_hours, ...fallbackPayload } = payload as any;
-                    const retry = await supabase.from("properties").insert(fallbackPayload);
-                    error = retry.error;
-                  }
+                  const { error } = await runPropertiesMutationWithFallback(
+                    async (payloadInput) => {
+                      const response = await supabase.from("properties").insert(payloadInput as any);
+                      return { error: response.error, data: null };
+                    },
+                    payload as any
+                  );
                   if (error) throw error;
                   
                   toast({ title: "Success!", description: "Your room has been listed." });
