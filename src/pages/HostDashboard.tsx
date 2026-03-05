@@ -6203,6 +6203,44 @@ export default function HostDashboard() {
                     </div>
                   </div>
 
+                  <div className="rounded-xl border border-border p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <Label htmlFor="property-breakfast-available-lower" className="text-sm font-medium cursor-pointer">
+                          Breakfast pricing (optional)
+                        </Label>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Set an optional breakfast add-on guests can choose when booking.
+                        </p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        id="property-breakfast-available-lower"
+                        checked={propertyForm.breakfast_available}
+                        onChange={(e) => setPropertyForm((f) => ({
+                          ...f,
+                          breakfast_available: e.target.checked,
+                          breakfast_price_per_night: e.target.checked ? f.breakfast_price_per_night : null,
+                        }))}
+                        className="w-4 h-4 rounded border-gray-300 mt-1"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-center">
+                      <Input
+                        type="number"
+                        min={0}
+                        disabled={!propertyForm.breakfast_available}
+                        value={propertyForm.breakfast_price_per_night || ""}
+                        onChange={(e) => setPropertyForm((f) => ({
+                          ...f,
+                          breakfast_price_per_night: e.target.value ? Number(e.target.value) : null,
+                        }))}
+                        placeholder="Breakfast extra per night"
+                      />
+                      <span className="text-sm text-muted-foreground">{propertyForm.currency}</span>
+                    </div>
+                  </div>
+
                   <div className="rounded-xl border p-4 space-y-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
