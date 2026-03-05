@@ -784,7 +784,7 @@ function generateReviewEmailHtml({ guestName, propertyTitle, propertyImage, loca
     eyebrow: "Guest Feedback",
     title: "How was your stay?",
     subtitle: `Hi ${guestName || "there"}, your feedback helps travelers and hosts alike.`,
-    bodyHtml: `${image}${details}<div style="margin-top:14px;">${stars}</div><div style="margin-top:16px;"><a href="${GOOGLE_REVIEW_URL}" style="display:inline-block;text-decoration:none;background:#111827;color:#ffffff;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:600;">Review Merry360X on Google</a></div>`,
+    bodyHtml: `${image}${details}<div style="margin-top:14px;">${stars}</div><div style="margin-top:16px;"><a href="${GOOGLE_REVIEW_URL}" style="display:inline-block;text-decoration:none;background:#111827;color:#ffffff;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:600;">Leave a Website Review on Google</a></div>`,
     ctaText: "Leave a Review",
     ctaUrl: reviewUrl,
     footerLink: SITE_URL,
