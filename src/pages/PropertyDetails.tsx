@@ -27,7 +27,7 @@ import { convertAmount } from "@/lib/fx";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 
 type PropertyRow = {
@@ -791,7 +791,7 @@ export default function PropertyDetails() {
     [finalTotal, breakfastAddon.total]
   );
 
-  const submitBooking = async () => {
+  const submitBooking = async (includeBreakfastOverride?: boolean) => {
     if (!data || !propertyId) return;
 
     // If user added a tour/transport add-on, enforce Trip Cart → Checkout flow.
@@ -866,7 +866,10 @@ export default function PropertyDetails() {
     qs.set("checkIn", checkIn.toISOString().slice(0, 10));
     qs.set("checkOut", checkOut.toISOString().slice(0, 10));
     qs.set("guests", String(guests));
-    qs.set("withBreakfast", breakfastAddon.includeBreakfast ? "1" : "0");
+    const includeBreakfast = breakfastAddon.breakfastEnabled
+      ? (typeof includeBreakfastOverride === "boolean" ? includeBreakfastOverride : breakfastAddon.includeBreakfast)
+      : false;
+    qs.set("withBreakfast", includeBreakfast ? "1" : "0");
     if (breakfastAddon.breakfastEnabled) {
       qs.set("breakfastPricePerNight", String(breakfastAddon.breakfastPricePerNight));
     }
@@ -1983,25 +1986,6 @@ export default function PropertyDetails() {
                   </div>
                 ) : null}
 
-                {!isMonthlyOnlyListing && breakfastAddon.breakfastEnabled ? (
-                  <div className="mt-4 rounded-md border border-border p-3">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <Label className="text-sm">Breakfast option</Label>
-                      <Select value={breakfastPlan} onValueChange={(value) => setBreakfastPlan(value as "no_breakfast" | "with_breakfast")}>
-                        <SelectTrigger className="w-full sm:w-[360px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="no_breakfast">Book without breakfast</SelectItem>
-                          <SelectItem value="with_breakfast">
-                            Book with breakfast (+{displayMoney(Number(breakfastAddon.breakfastPricePerNight), String(data.currency ?? "RWF"))} / night)
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                ) : null}
-
                 <div className="mt-4 flex items-center justify-between gap-4">
                   <div className="text-sm text-muted-foreground">
                     {nights > 0 ? (
@@ -2028,6 +2012,18 @@ export default function PropertyDetails() {
                     )}
                   </div>
                   <div className="flex items-center gap-2">
+                    {(() => {
+                      const bookingDisabled = booking || nights <= 0 || (isMonthlyOnlyListing && nights < 30) || (addedAddOn && !isInTripCart);
+                      const bookingCtaLabel = booking
+                        ? t("common.processing")
+                        : addedAddOn
+                        ? isInTripCart
+                          ? t("propertyDetails.checkoutTrip")
+                          : t("propertyDetails.addStayToCart")
+                        : t("common.bookNow");
+
+                      return (
+                        <>
                     <Button
                       variant="outline"
                       onClick={addPropertyToTripCart}
@@ -2036,19 +2032,48 @@ export default function PropertyDetails() {
                     >
                       {isInTripCart ? t("propertyDetails.inTripCart") : t("propertyDetails.addToTripCart")}
                     </Button>
-                    <Button
-                      onClick={submitBooking}
-                      disabled={booking || nights <= 0 || (isMonthlyOnlyListing && nights < 30) || (addedAddOn && !isInTripCart)}
-                      type="button"
-                    >
-                      {booking
-                        ? t("common.processing")
-                        : addedAddOn
-                        ? isInTripCart
-                          ? t("propertyDetails.checkoutTrip")
-                          : t("propertyDetails.addStayToCart")
-                        : t("common.bookNow")}
-                    </Button>
+                    {!isMonthlyOnlyListing && breakfastAddon.breakfastEnabled ? (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button type="button" disabled={bookingDisabled}>
+                            {bookingCtaLabel}
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            disabled={bookingDisabled}
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              setBreakfastPlan("no_breakfast");
+                              void submitBooking(false);
+                            }}
+                          >
+                            Book without breakfast
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={bookingDisabled}
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              setBreakfastPlan("with_breakfast");
+                              void submitBooking(true);
+                            }}
+                          >
+                            Book with breakfast (+{displayMoney(Number(breakfastAddon.breakfastPricePerNight), String(data.currency ?? "RWF"))} / night)
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    ) : (
+                      <Button
+                        onClick={() => void submitBooking()}
+                        disabled={bookingDisabled}
+                        type="button"
+                      >
+                        {bookingCtaLabel}
+                      </Button>
+                    )}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
 
