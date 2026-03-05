@@ -1936,23 +1936,6 @@ export default function PropertyDetails() {
                   </div>
                 </div>
 
-                {!isMonthlyOnlyListing && breakfastAddon.breakfastEnabled ? (
-                  <div className="mt-4">
-                    <Label>Breakfast option</Label>
-                    <Select value={breakfastPlan} onValueChange={(value) => setBreakfastPlan(value as "no_breakfast" | "with_breakfast")}>
-                      <SelectTrigger className="mt-2 w-full sm:w-[360px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="no_breakfast">Book without breakfast</SelectItem>
-                        <SelectItem value="with_breakfast">
-                          Book with breakfast (+{displayMoney(Number(breakfastAddon.breakfastPricePerNight), String(data.currency ?? "RWF"))} / night)
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ) : null}
-
                 {/* Show blocked dates if any */}
                 {blockedDates.length > 0 && (
                   <div className="mt-3">
@@ -1997,6 +1980,25 @@ export default function PropertyDetails() {
                         ? `Duration: ${Math.max(1, Number(data.conference_room_duration_hours || 1))} hour(s)`
                         : "Duration available on request"}
                     </p>
+                  </div>
+                ) : null}
+
+                {!isMonthlyOnlyListing && breakfastAddon.breakfastEnabled ? (
+                  <div className="mt-4 rounded-md border border-border p-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <Label className="text-sm">Breakfast option</Label>
+                      <Select value={breakfastPlan} onValueChange={(value) => setBreakfastPlan(value as "no_breakfast" | "with_breakfast")}>
+                        <SelectTrigger className="w-full sm:w-[360px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="no_breakfast">Book without breakfast</SelectItem>
+                          <SelectItem value="with_breakfast">
+                            Book with breakfast (+{displayMoney(Number(breakfastAddon.breakfastPricePerNight), String(data.currency ?? "RWF"))} / night)
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 ) : null}
 
