@@ -93,6 +93,8 @@ export default function HostApplication() {
       images: [] as string[],
       property_type: "Apartment",
       price_per_night: 50000,
+      breakfast_available: false,
+      breakfast_price_per_night: null as number | null,
       max_guests: 2,
       bedrooms: 1,
       bathrooms: 1,
@@ -963,6 +965,34 @@ export default function HostApplication() {
                               {currencies.map((c) => <SelectItem key={c.value} value={c.value}>{c.symbol}</SelectItem>)}
                             </SelectContent>
                           </Select>
+                        </div>
+                      </div>
+
+                      <div className="md:col-span-2 space-y-2 rounded-md border border-border p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <Label htmlFor="host-app-breakfast-available" className="cursor-pointer">Offer breakfast option</Label>
+                          <input
+                            id="host-app-breakfast-available"
+                            type="checkbox"
+                            checked={Boolean(serviceData.breakfast_available)}
+                            onChange={(e) => {
+                              updateField("breakfast_available", e.target.checked);
+                              if (!e.target.checked) updateField("breakfast_price_per_night", null);
+                            }}
+                            className="w-4 h-4 rounded border-gray-300"
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-center">
+                          <Input
+                            id="host-app-breakfast-price"
+                            type="number"
+                            min={0}
+                            disabled={!serviceData.breakfast_available}
+                            value={serviceData.breakfast_price_per_night || ""}
+                            onChange={(e) => updateField("breakfast_price_per_night", e.target.value ? Number(e.target.value) : null)}
+                            placeholder="Breakfast extra per night"
+                          />
+                          <span className="text-sm text-muted-foreground">{serviceData.currency || "RWF"}</span>
                         </div>
                       </div>
 

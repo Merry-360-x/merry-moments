@@ -347,6 +347,7 @@ export default function TripCart() {
     
     // Save to localStorage
     saveCartItemMetadata(editingItem.reference_id, {
+      ...editingItem.metadata,
       check_in: editCheckIn,
       check_out: editCheckOut,
       guests: editGuests,
@@ -372,9 +373,13 @@ export default function TripCart() {
       const isProperty = item.item_type === 'property';
       const nights = isProperty && item.metadata?.nights ? item.metadata.nights : 1;
       const multiplier = isProperty ? nights : item.quantity;
+      const breakfastPerNight = isProperty && item.metadata?.breakfast_included
+        ? Number(item.metadata?.breakfast_price_per_night || 0)
+        : 0;
+      const breakfastTotal = breakfastPerNight > 0 ? breakfastPerNight * nights : 0;
       
       // Calculate base price (before any discounts)
-      const baseItemTotal = item.price * multiplier;
+      const baseItemTotal = item.price * multiplier + breakfastTotal;
       const convertedBase = convertAmount(baseItemTotal, item.currency, curr, usdRates) ?? baseItemTotal;
       baseSubtotalAmount += convertedBase;
       
@@ -501,13 +506,17 @@ export default function TripCart() {
                 const isAccommodation = item.item_type === 'property';
                 // For properties, multiply by nights from metadata
                 const nights = item.metadata?.nights || item.quantity;
+                const breakfastPerNight = isAccommodation && item.metadata?.breakfast_included
+                  ? Number(item.metadata?.breakfast_price_per_night || 0)
+                  : 0;
+                const breakfastTotal = breakfastPerNight > 0 ? breakfastPerNight * nights : 0;
                 
                 // Calculate stay discount for properties
                 const stayDiscount = isAccommodation && nights 
                   ? (nights >= 30 && item.monthly_discount ? item.monthly_discount : nights >= 7 && item.weekly_discount ? item.weekly_discount : 0)
                   : 0;
                 
-                const basePrice = isAccommodation ? pricePerUnit * nights : pricePerUnit;
+                const basePrice = isAccommodation ? (pricePerUnit * nights + (convertAmount(breakfastTotal, item.currency, displayCurrency, usdRates) ?? breakfastTotal)) : pricePerUnit;
                 const discountAmount = basePrice * (stayDiscount / 100);
                 const itemPrice = basePrice - discountAmount;
                 const { platformFee } = isAccommodation ? calculateGuestTotal(itemPrice, 'accommodation') : { platformFee: 0 };
@@ -580,6 +589,9 @@ export default function TripCart() {
                                       {item.metadata.guests}
                                     </span>
                                   )}
+                                  {item.metadata?.breakfast_included && (
+                                    <span className="text-primary">With breakfast</span>
+                                  )}
                                   <button
                                     onClick={() => handleEditDates(item)}
                                     className="flex items-center gap-1 text-primary hover:underline"
@@ -635,6 +647,11 @@ export default function TripCart() {
                             {isAccommodation && item.metadata?.nights && (
                               <p className="text-[10px] md:text-xs text-muted-foreground">
                                 {formatMoney(pricePerUnit, displayCurrency)}/night × {nights}n
+                                {item.metadata?.breakfast_included ? (
+                                  <>
+                                    {" "}+ breakfast {formatMoney(convertAmount((Number(item.metadata?.breakfast_price_per_night || 0) * nights), item.currency, displayCurrency, usdRates) ?? (Number(item.metadata?.breakfast_price_per_night || 0) * nights), displayCurrency)}
+                                  </>
+                                ) : null}
                                 {stayDiscount > 0 && <span className="text-emerald-600 dark:text-emerald-400 ml-1">({stayDiscount}% off)</span>}
                               </p>
                             )}

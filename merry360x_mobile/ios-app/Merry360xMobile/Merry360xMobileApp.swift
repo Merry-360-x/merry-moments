@@ -38,6 +38,11 @@ struct Merry360xMobileApp: App {
                     showSplash = false
                 }
             }
+            .onOpenURL { url in
+                Task {
+                    await session.handleOAuthCallback(url)
+                }
+            }
         }
     }
 }

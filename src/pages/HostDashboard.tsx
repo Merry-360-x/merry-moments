@@ -165,6 +165,8 @@ interface Property {
   conference_room_duration_hours?: number | null;
   conference_room_min_rooms_required?: number | null;
   conference_room_equipment?: string[] | null;
+  breakfast_available?: boolean | null;
+  breakfast_price_per_night?: number | null;
 }
 
 interface Tour {
@@ -593,6 +595,9 @@ export default function HostDashboard() {
     // Monthly rental options
     available_for_monthly_rental: false,
     price_per_month: null as number | null,
+    // Optional breakfast
+    breakfast_available: false,
+    breakfast_price_per_night: null as number | null,
     // Rules
     check_in_time: "14:00",
     check_out_time: "11:00",
@@ -1452,6 +1457,10 @@ export default function HostDashboard() {
     payload.conference_room_equipment = hasConferenceRoom
       ? (propertyForm.conference_room_equipment || [])
       : null;
+    payload.breakfast_available = Boolean(propertyForm.breakfast_available);
+    payload.breakfast_price_per_night = propertyForm.breakfast_available
+      ? (propertyForm.breakfast_price_per_night ? Number(propertyForm.breakfast_price_per_night) : null)
+      : null;
 
     console.log("[createProperty] Attempting insert with payload:", payload);
 
@@ -1524,6 +1533,8 @@ export default function HostDashboard() {
       monthly_discount: 0,
       available_for_monthly_rental: false,
       price_per_month: null,
+      breakfast_available: false,
+      breakfast_price_per_night: null,
       check_in_time: "14:00",
       check_out_time: "11:00",
       smoking_allowed: false,
@@ -2805,6 +2816,8 @@ export default function HostDashboard() {
       monthly_discount: Number(property.monthly_discount || 0),
       available_for_monthly_rental: Boolean((property as any).available_for_monthly_rental),
       price_per_month: Number((property as any).price_per_month || 0) || null,
+      breakfast_available: Boolean((property as any).breakfast_available),
+      breakfast_price_per_night: Number((property as any).breakfast_price_per_night || 0) || null,
       check_in_time: property.check_in_time || "14:00",
       check_out_time: property.check_out_time || "11:00",
       smoking_allowed: Boolean(property.smoking_allowed),
@@ -2848,6 +2861,8 @@ export default function HostDashboard() {
         available_for_monthly_rental: propertyForm.listing_mode === "monthly_only" ? true : Boolean(propertyForm.available_for_monthly_rental),
         price_per_month: propertyForm.listing_mode === "monthly_only" ? monthlyPrice : propertyForm.price_per_month,
         monthly_only_listing: propertyForm.listing_mode === "monthly_only",
+        breakfast_available: Boolean(propertyForm.breakfast_available),
+        breakfast_price_per_night: propertyForm.breakfast_available ? propertyForm.breakfast_price_per_night : null,
         check_in_time: propertyForm.check_in_time,
         check_out_time: propertyForm.check_out_time,
         smoking_allowed: Boolean(propertyForm.smoking_allowed),
@@ -3454,6 +3469,10 @@ export default function HostDashboard() {
         conference_room_duration_hours: form.conference_room_duration_hours ?? null,
         conference_room_min_rooms_required: form.conference_room_min_rooms_required ?? null,
         conference_room_equipment: form.conference_room_equipment ?? [],
+        breakfast_available: Boolean(form.breakfast_available),
+        breakfast_price_per_night: form.breakfast_available
+          ? (form.breakfast_price_per_night ? Number(form.breakfast_price_per_night) : null)
+          : null,
       });
       if (success) setEditingPropertyId(null);
     };
@@ -3548,6 +3567,36 @@ export default function HostDashboard() {
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>{currencies.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
                   </Select>
+                </div>
+              </div>
+              <div className="rounded-md border border-border p-3 space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <Label htmlFor={`property-breakfast-toggle-${property.id}`} className="text-xs cursor-pointer">Offer breakfast option</Label>
+                  <input
+                    id={`property-breakfast-toggle-${property.id}`}
+                    type="checkbox"
+                    checked={Boolean(form.breakfast_available)}
+                    onChange={(e) => setForm((f) => ({
+                      ...f,
+                      breakfast_available: e.target.checked,
+                      breakfast_price_per_night: e.target.checked ? f.breakfast_price_per_night : null,
+                    }))}
+                    className="w-4 h-4 rounded border-gray-300"
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-center">
+                  <Input
+                    type="number"
+                    min={0}
+                    disabled={!form.breakfast_available}
+                    value={form.breakfast_price_per_night || ""}
+                    onChange={(e) => setForm((f) => ({
+                      ...f,
+                      breakfast_price_per_night: e.target.value ? Number(e.target.value) : null,
+                    }))}
+                    placeholder="Breakfast extra per night"
+                  />
+                  <span className="text-xs text-muted-foreground">{form.currency || "RWF"}</span>
                 </div>
               </div>
               {form.price_per_group ? (
@@ -5151,6 +5200,10 @@ export default function HostDashboard() {
                     available_for_monthly_rental: isMonthlyOnly ? true : Boolean(propertyForm.available_for_monthly_rental),
                     price_per_month: propertyForm.price_per_month ? Number(propertyForm.price_per_month) : null,
                                         monthly_only_listing: isMonthlyOnly,
+                    breakfast_available: Boolean(propertyForm.breakfast_available),
+                    breakfast_price_per_night: propertyForm.breakfast_available
+                      ? (propertyForm.breakfast_price_per_night ? Number(propertyForm.breakfast_price_per_night) : null)
+                      : null,
                     price_per_person: isMonthlyOnly ? null : (propertyForm.price_per_person || null),
                     price_per_group: isMonthlyOnly ? null : (propertyForm.price_per_group || null),
                     price_per_group_size: isMonthlyOnly ? null : (propertyForm.price_per_group_size || null),
@@ -5390,6 +5443,46 @@ export default function HostDashboard() {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+              <div className="rounded-xl border border-border p-4 space-y-3">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <Label htmlFor="room-breakfast-available" className="text-sm font-medium cursor-pointer">
+                      Offer breakfast option
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Optional: guests can book with breakfast at an extra per-night cost.
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    id="room-breakfast-available"
+                    checked={propertyForm.breakfast_available}
+                    onChange={(e) => setPropertyForm((f) => ({
+                      ...f,
+                      breakfast_available: e.target.checked,
+                      breakfast_price_per_night: e.target.checked ? f.breakfast_price_per_night : null,
+                    }))}
+                    className="w-4 h-4 rounded border-gray-300 mt-1"
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-center">
+                  <Input
+                    type="number"
+                    min={0}
+                    disabled={!propertyForm.breakfast_available}
+                    value={propertyForm.breakfast_price_per_night || ""}
+                    onChange={(e) => setPropertyForm((f) => ({
+                      ...f,
+                      breakfast_price_per_night: e.target.value ? Number(e.target.value) : null,
+                    }))}
+                    placeholder="Breakfast extra per night"
+                  />
+                  <span className="text-sm text-muted-foreground">{propertyForm.currency}</span>
+                </div>
+                {!propertyForm.breakfast_available && (
+                  <p className="text-xs text-muted-foreground">Enable the toggle above to apply breakfast pricing.</p>
+                )}
               </div>
               {propertyForm.listing_mode === "standard" && (
                 <details className="rounded-lg border border-border p-3 bg-muted/20">
@@ -5945,6 +6038,47 @@ export default function HostDashboard() {
                         </SelectContent>
                       </Select>
                     </div>
+                  </div>
+                  <div className="rounded-xl border border-border p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <Label htmlFor="property-breakfast-available" className="text-sm font-medium cursor-pointer">
+                          Offer breakfast option
+                        </Label>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Optional: guests can book with breakfast at an extra per-night cost.
+                        </p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        id="property-breakfast-available"
+                        checked={propertyForm.breakfast_available}
+                        onChange={(e) => setPropertyForm((f) => ({
+                          ...f,
+                          breakfast_available: e.target.checked,
+                          breakfast_price_per_night: e.target.checked ? f.breakfast_price_per_night : null,
+                        }))}
+                        className="w-4 h-4 rounded border-gray-300 mt-1"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-center">
+                      <Input
+                        type="number"
+                        min={0}
+                        disabled={!propertyForm.breakfast_available}
+                        value={propertyForm.breakfast_price_per_night || ""}
+                        onChange={(e) => setPropertyForm((f) => ({
+                          ...f,
+                          breakfast_price_per_night: e.target.value ? Number(e.target.value) : null,
+                        }))}
+                        placeholder="Breakfast extra per night"
+                        className="flex-1"
+                      />
+                      <span className="text-sm text-muted-foreground">{propertyForm.currency}</span>
+                    </div>
+                    {!propertyForm.breakfast_available && (
+                      <p className="text-xs text-muted-foreground">Enable the toggle above to apply breakfast pricing.</p>
+                    )}
                   </div>
                   {propertyForm.listing_mode === "standard" && (
                     <details className="rounded-xl border border-border p-4 bg-muted/20">

@@ -12,6 +12,9 @@ export interface CartItemMetadata {
   check_out?: string;
   guests?: number;
   nights?: number;
+  breakfast_included?: boolean;
+  breakfast_price_per_night?: number;
+  breakfast_total?: number;
   start_date?: string;
   end_date?: string;
 }

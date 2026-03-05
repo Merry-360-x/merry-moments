@@ -27,6 +27,7 @@ import { convertAmount } from "@/lib/fx";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 
 type PropertyRow = {
@@ -66,6 +67,8 @@ type PropertyRow = {
   conference_room_duration_hours?: number | null;
   conference_room_min_rooms_required?: number | null;
   conference_room_equipment?: string[] | null;
+  breakfast_available?: boolean | null;
+  breakfast_price_per_night?: number | null;
 };
 
 const fetchProperty = async (id: string) => {
@@ -174,6 +177,10 @@ export default function PropertyDetails() {
     return inferred > 0 ? inferred : 1;
   });
   const [booking, setBooking] = useState(false);
+  const [breakfastPlan, setBreakfastPlan] = useState<"no_breakfast" | "with_breakfast">(() => {
+    const withBreakfastParam = searchParams.get("withBreakfast") === "1";
+    return withBreakfastParam ? "with_breakfast" : "no_breakfast";
+  });
 
   const { data: myPoints = 0 } = useQuery({
     queryKey: ["loyalty_points", user?.id],
@@ -766,6 +773,24 @@ export default function PropertyDetails() {
     [subtotalAfterStayDiscount, loyaltyDiscountAmount]
   );
 
+  const breakfastAddon = useMemo(() => {
+    const breakfastPricePerNight = Number(data?.breakfast_price_per_night || 0);
+    const breakfastEnabled = Boolean(data?.breakfast_available) && breakfastPricePerNight > 0;
+    const includeBreakfast = breakfastEnabled && breakfastPlan === "with_breakfast";
+    const total = includeBreakfast ? breakfastPricePerNight * Math.max(0, nights) : 0;
+    return {
+      breakfastEnabled,
+      includeBreakfast,
+      breakfastPricePerNight,
+      total,
+    };
+  }, [data?.breakfast_available, data?.breakfast_price_per_night, breakfastPlan, nights]);
+
+  const totalWithBreakfast = useMemo(
+    () => Math.max(0, finalTotal + breakfastAddon.total),
+    [finalTotal, breakfastAddon.total]
+  );
+
   const submitBooking = async () => {
     if (!data || !propertyId) return;
 
@@ -841,6 +866,10 @@ export default function PropertyDetails() {
     qs.set("checkIn", checkIn.toISOString().slice(0, 10));
     qs.set("checkOut", checkOut.toISOString().slice(0, 10));
     qs.set("guests", String(guests));
+    qs.set("withBreakfast", breakfastAddon.includeBreakfast ? "1" : "0");
+    if (breakfastAddon.breakfastEnabled) {
+      qs.set("breakfastPricePerNight", String(breakfastAddon.breakfastPricePerNight));
+    }
     if (addedAddOn) qs.set("requireTripCart", "1");
     navigate(`/checkout?${qs.toString()}`);
   };
@@ -853,6 +882,9 @@ export default function PropertyDetails() {
       check_out: checkOut ? checkOut.toISOString().slice(0, 10) : undefined,
       guests: guests,
       nights: nights,
+      breakfast_included: breakfastAddon.includeBreakfast,
+      breakfast_price_per_night: breakfastAddon.includeBreakfast ? breakfastAddon.breakfastPricePerNight : 0,
+      breakfast_total: breakfastAddon.total,
     };
     await addToCart("property", data.id, 1, metadata);
   };
@@ -1465,6 +1497,13 @@ export default function PropertyDetails() {
                       {isMonthlyOnlyListing ? ` ${t("common.perMonth", "per month")}` : ` ${t("common.perNight")}`}
                     </span>
                   </div>
+                  {!isMonthlyOnlyListing ? (
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {breakfastAddon.breakfastEnabled
+                        ? `No breakfast by default • Optional breakfast +${displayMoney(Number(breakfastAddon.breakfastPricePerNight), String(data.currency ?? "RWF"))} / night`
+                        : "No breakfast included"}
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
@@ -1897,6 +1936,23 @@ export default function PropertyDetails() {
                   </div>
                 </div>
 
+                {!isMonthlyOnlyListing && breakfastAddon.breakfastEnabled ? (
+                  <div className="mt-4">
+                    <Label>Breakfast option</Label>
+                    <Select value={breakfastPlan} onValueChange={(value) => setBreakfastPlan(value as "no_breakfast" | "with_breakfast")}>
+                      <SelectTrigger className="mt-2 w-full sm:w-[360px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="no_breakfast">Book without breakfast</SelectItem>
+                        <SelectItem value="with_breakfast">
+                          Book with breakfast (+{displayMoney(Number(breakfastAddon.breakfastPricePerNight), String(data.currency ?? "RWF"))} / night)
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : null}
+
                 {/* Show blocked dates if any */}
                 {blockedDates.length > 0 && (
                   <div className="mt-3">
@@ -1952,8 +2008,13 @@ export default function PropertyDetails() {
                           ? `${stayUnits.months} month${stayUnits.months === 1 ? "" : "s"} • Total: `
                           : `${nights} night${nights === 1 ? "" : "s"} • Total: `}
                         <span className="font-semibold text-foreground">
-                          {displayMoney(Number(finalTotal), String(data.currency ?? "RWF"))}
+                          {displayMoney(Number(totalWithBreakfast), String(data.currency ?? "RWF"))}
                         </span>
+                        {breakfastAddon.includeBreakfast && breakfastAddon.total > 0 ? (
+                          <span className="ml-2 text-primary font-medium">
+                            • Breakfast +{displayMoney(Number(breakfastAddon.total), String(data.currency ?? "RWF"))}
+                          </span>
+                        ) : null}
                         {stayDiscount.amount > 0 && stayDiscount.label ? (
                           <span className="ml-2 text-green-600 font-medium">
                             • You save {displayMoney(Number(stayDiscount.amount), String(data.currency ?? "RWF"))}

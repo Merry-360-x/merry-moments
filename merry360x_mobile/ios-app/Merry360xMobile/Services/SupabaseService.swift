@@ -21,13 +21,65 @@ final class SupabaseService {
         self.apiBaseURL = MobileConfig.apiBaseUrl
     }
 
-    func oauthAuthorizeURL(provider: String, redirectTo: String = "\(MobileConfig.apiBaseUrl)/auth/callback") -> URL? {
+    func oauthAuthorizeURL(provider: String, redirectTo: String = "merry360x://auth/callback") -> URL? {
         var components = URLComponents(url: baseURL.appendingPathComponent("auth/v1/authorize"), resolvingAgainstBaseURL: false)
         components?.queryItems = [
             URLQueryItem(name: "provider", value: provider),
             URLQueryItem(name: "redirect_to", value: redirectTo)
         ]
         return components?.url
+    }
+
+    func signInFromOAuthCallback(_ url: URL) async throws -> MobileAuthSession {
+        guard let accessToken = extractOAuthAccessToken(from: url), !accessToken.isEmpty else {
+            throw NSError(domain: "SupabaseService", code: 6, userInfo: [NSLocalizedDescriptionKey: "Missing OAuth access token"])
+        }
+
+        let userId = try await fetchUserId(accessToken: accessToken)
+        storeSession(userId: userId, accessToken: accessToken)
+        return MobileAuthSession(userId: userId, accessToken: accessToken)
+    }
+
+    private func extractOAuthAccessToken(from url: URL) -> String? {
+        if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+           let queryToken = components.queryItems?.first(where: { $0.name == "access_token" })?.value,
+           !queryToken.isEmpty {
+            return queryToken
+        }
+
+        let absolute = url.absoluteString
+        guard let hashIndex = absolute.firstIndex(of: "#") else { return nil }
+        let fragment = String(absolute[absolute.index(after: hashIndex)...])
+        guard !fragment.isEmpty else { return nil }
+
+        let pairs = fragment.split(separator: "&")
+        for pair in pairs {
+            let parts = pair.split(separator: "=", maxSplits: 1)
+            guard parts.count == 2 else { continue }
+            if parts[0] == "access_token" {
+                return String(parts[1]).removingPercentEncoding ?? String(parts[1])
+            }
+        }
+        return nil
+    }
+
+    private func fetchUserId(accessToken: String) async throws -> String {
+        let url = baseURL.appendingPathComponent("auth/v1/user")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue(anonKey, forHTTPHeaderField: "apikey")
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw NSError(domain: "SupabaseService", code: 7, userInfo: [NSLocalizedDescriptionKey: "Unable to fetch OAuth user"])
+        }
+
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        guard let userId = json?["id"] as? String, !userId.isEmpty else {
+            throw NSError(domain: "SupabaseService", code: 8, userInfo: [NSLocalizedDescriptionKey: "OAuth user id not found"])
+        }
+        return userId
     }
 
     func signIn(email: String, password: String) async throws -> MobileAuthSession {

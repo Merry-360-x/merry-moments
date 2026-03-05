@@ -51,6 +51,19 @@ final class AppSessionViewModel: ObservableObject {
         }
     }
 
+    func handleOAuthCallback(_ url: URL) async {
+        guard let service else { return }
+        guard url.absoluteString.lowercased().contains("access_token") else { return }
+
+        do {
+            let authSession = try await service.signInFromOAuthCallback(url)
+            let fetchedRoles = try await service.fetchUserRoles(userId: authSession.userId)
+            markAuthenticated(userId: authSession.userId, roles: fetchedRoles)
+        } catch {
+            // keep current state if OAuth callback parsing/fetch fails
+        }
+    }
+
     func signOut() async {
         guard let service else {
             isAuthenticated = false
