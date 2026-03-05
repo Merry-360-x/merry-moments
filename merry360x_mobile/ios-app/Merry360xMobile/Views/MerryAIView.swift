@@ -28,14 +28,14 @@ struct MerryAIView: View {
                         .font(.system(size: 18, weight: .bold))
                     Text("Travel assistant for stays, tours and transport")
                         .font(.system(size: 12))
-                        .foregroundColor(.gray)
+                        .foregroundColor(AppTheme.textSecondary)
                 }
                 
                 Spacer()
                 
                 Button(action: { /* Reset conversation */ }) {
                     Image(systemName: "arrow.clockwise")
-                        .foregroundColor(.gray)
+                        .foregroundColor(AppTheme.textSecondary)
                         .font(.system(size: 18))
                 }
             }
@@ -47,7 +47,7 @@ struct MerryAIView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Try asking:")
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.gray)
+                        .foregroundColor(AppTheme.textSecondary)
                     
                     // Suggestion chips
                     FlowLayout(spacing: 8) {
@@ -125,12 +125,12 @@ struct SuggestionChip: View {
         Button(action: { /* Handle tap */ }) {
             Text(text)
                 .font(.system(size: 13))
-                .foregroundColor(.secondary)
+                    .foregroundColor(AppTheme.textPrimary)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                        .stroke(AppTheme.borderSubtle, lineWidth: 1)
                 )
         }
         .buttonStyle(.plain)

@@ -11,35 +11,51 @@ struct HomeView: View {
     @StateObject private var viewModel = HomeViewModel()
     @State private var showSearchSheet = false
 
+    private var hasAnyContent: Bool {
+        !viewModel.citySections.isEmpty || !viewModel.listings.isEmpty || !viewModel.tours.isEmpty || !viewModel.cars.isEmpty || !viewModel.events.isEmpty
+    }
+
+    private var showInitialLoader: Bool {
+        viewModel.loading && !hasAnyContent
+    }
+
     var body: some View {
         ScrollView {
-            VStack(spacing: 16) {
+            LazyVStack(spacing: 16) {
                 searchBar
-                
-                if viewModel.loading {
-                    ProgressView("Loading...")
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 40)
+
+                if showInitialLoader {
+                    VStack(spacing: 10) {
+                        ProgressView()
+                            .controlSize(.regular)
+                        Text("Loading stays, tours and transport...")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(AppTheme.textSecondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 56)
                 }
                 
                 if let error = viewModel.errorMessage {
                     Text(error)
                         .font(.caption)
-                        .foregroundColor(.red)
+                        .foregroundColor(AppTheme.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
-                if !viewModel.citySections.isEmpty {
+                if !showInitialLoader && !viewModel.citySections.isEmpty {
                     ForEach(viewModel.citySections) { section in
                         citySection(section)
                     }
-                } else if !viewModel.loading {
+                } else if !showInitialLoader && !viewModel.loading {
                     featuredSection
                 }
 
-                categorySection(title: "Tour Packages", listings: viewModel.events, emptyText: "No tour packages available yet")
-                categorySection(title: "Tours", listings: viewModel.tours, emptyText: "No tours available yet")
-                categorySection(title: "Transport", listings: viewModel.cars, emptyText: "No transport available yet")
+                if !showInitialLoader {
+                    categorySection(title: "Tour Packages", listings: viewModel.events, emptyText: "No tour packages available yet")
+                    categorySection(title: "Tours", listings: viewModel.tours, emptyText: "No tours available yet")
+                    categorySection(title: "Transport", listings: viewModel.cars, emptyText: "No transport available yet")
+                }
             }
             .padding(16)
         }
@@ -57,6 +73,7 @@ struct HomeView: View {
             HStack {
                 Text(title)
                     .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(AppTheme.textPrimary)
                 Spacer()
                 if !listings.isEmpty {
                     Text("See all")
@@ -68,7 +85,7 @@ struct HomeView: View {
             if listings.isEmpty {
                 Text(emptyText)
                     .font(.system(size: 13))
-                    .foregroundColor(.gray)
+                    .foregroundColor(AppTheme.textSecondary)
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
@@ -87,26 +104,26 @@ struct HomeView: View {
             HStack(spacing: 12) {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 18))
-                    .foregroundColor(.gray)
+                    .foregroundColor(AppTheme.textSecondary)
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Where to?")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.black)
+                        .foregroundColor(AppTheme.textPrimary)
                     Text("Anywhere · Any week · Add guests")
                         .font(.system(size: 12))
-                        .foregroundColor(.gray)
+                        .foregroundColor(AppTheme.textSecondary)
                 }
                 
                 Spacer()
                 
                 Image(systemName: "slider.horizontal.3")
                     .font(.system(size: 14))
-                    .foregroundColor(.black)
+                    .foregroundColor(AppTheme.textPrimary)
                     .frame(width: 36, height: 36)
                     .overlay(
                         RoundedRectangle(cornerRadius: 18)
-                            .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                            .stroke(AppTheme.borderSubtle, lineWidth: 1)
                     )
             }
             .padding(.horizontal, 16)
@@ -122,10 +139,11 @@ struct HomeView: View {
             HStack {
                 Text("Stays in \(section.city)")
                     .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(AppTheme.textPrimary)
                 Spacer()
                 Text("\(section.count)")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.gray)
+                    .foregroundColor(AppTheme.textSecondary)
             }
             
             ScrollView(.horizontal, showsIndicators: false) {
@@ -174,19 +192,21 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(listing.title)
                     .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(AppTheme.textPrimary)
                     .lineLimit(1)
                 
                 Text(listing.location)
                     .font(.system(size: 12))
-                    .foregroundColor(.gray)
+                    .foregroundColor(AppTheme.textSecondary)
                     .lineLimit(1)
                 
                 HStack(spacing: 4) {
                     Text("\(listing.currency) \(Int(listing.pricePerNight))")
                         .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(AppTheme.textPrimary)
                     Text("/ night")
                         .font(.system(size: 12))
-                        .foregroundColor(.gray)
+                        .foregroundColor(AppTheme.textSecondary)
                 }
             }
         }
@@ -255,6 +275,7 @@ struct HomeView: View {
             HStack {
                 Text("Featured stays")
                     .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(AppTheme.textPrimary)
                 Spacer()
                 Text("See all")
                     .font(.system(size: 14, weight: .semibold))

@@ -21,6 +21,15 @@ final class SupabaseService {
         self.apiBaseURL = MobileConfig.apiBaseUrl
     }
 
+    func oauthAuthorizeURL(provider: String, redirectTo: String = "\(MobileConfig.apiBaseUrl)/auth/callback") -> URL? {
+        var components = URLComponents(url: baseURL.appendingPathComponent("auth/v1/authorize"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [
+            URLQueryItem(name: "provider", value: provider),
+            URLQueryItem(name: "redirect_to", value: redirectTo)
+        ]
+        return components?.url
+    }
+
     func signIn(email: String, password: String) async throws -> MobileAuthSession {
         let url = baseURL.appendingPathComponent("auth/v1/token")
         var components = URLComponents(url: url, resolvingAgainstBaseURL: false)

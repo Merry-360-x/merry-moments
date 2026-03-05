@@ -2,6 +2,7 @@ import SwiftUI
 
 struct LoginView: View {
     @EnvironmentObject private var session: AppSessionViewModel
+    @Environment(\.openURL) private var openURL
     @StateObject private var viewModel = AuthViewModel()
     @State private var selectedTab = 0 // 0 = Email, 1 = Phone
     @State private var phoneNumber = ""
@@ -29,7 +30,7 @@ struct LoginView: View {
                     
                     Text("Sign in to continue")
                         .font(.system(size: 15))
-                        .foregroundColor(.gray)
+                        .foregroundColor(AppTheme.textSecondary)
                 }
                 .padding(.top, 40)
                 
@@ -85,7 +86,7 @@ struct LoginView: View {
                                 HStack {
                                     Text("🇷🇼")
                                     Text("+250")
-                                        .foregroundColor(.black)
+                                        .foregroundColor(AppTheme.textPrimary)
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 14)
@@ -120,7 +121,7 @@ struct LoginView: View {
                             
                             Button(action: { showPassword.toggle() }) {
                                 Image(systemName: showPassword ? "eye.slash" : "eye")
-                                    .foregroundColor(.gray)
+                                    .foregroundColor(AppTheme.textSecondary)
                             }
                         }
                         .padding(.horizontal, 16)
@@ -193,7 +194,7 @@ struct LoginView: View {
                 // Social Auth Buttons
                 VStack(spacing: 12) {
                     // Apple Sign In
-                    Button(action: { /* Apple sign in */ }) {
+                    Button(action: { handleOAuth(provider: "apple") }) {
                         HStack(spacing: 12) {
                             Image(systemName: "apple.logo")
                                 .font(.system(size: 20))
@@ -208,7 +209,7 @@ struct LoginView: View {
                     }
                     
                     // Google Sign In
-                    Button(action: { /* Google sign in */ }) {
+                    Button(action: { handleOAuth(provider: "google") }) {
                         HStack(spacing: 12) {
                             Text("G")
                                 .font(.system(size: 20, weight: .bold))
@@ -232,7 +233,7 @@ struct LoginView: View {
                 // Sign Up Link
                 HStack {
                     Text("Don't have an account?")
-                        .foregroundColor(.gray)
+                        .foregroundColor(AppTheme.textSecondary)
                     
                     Button("Sign Up") {
                         // Navigate to sign up
@@ -246,6 +247,14 @@ struct LoginView: View {
             }
         }
         .background(Color.white)
+    }
+
+    private func handleOAuth(provider: String) {
+        guard let service = SupabaseService(), let url = service.oauthAuthorizeURL(provider: provider) else {
+            viewModel.errorMessage = "Unable to start \(provider.capitalized) sign in."
+            return
+        }
+        openURL(url)
     }
 }
 

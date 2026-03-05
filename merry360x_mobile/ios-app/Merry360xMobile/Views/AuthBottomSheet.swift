@@ -12,6 +12,7 @@ enum AuthInputTab: String, CaseIterable {
 
 struct AuthBottomSheet: View {
     @EnvironmentObject private var session: AppSessionViewModel
+    @Environment(\.openURL) private var openURL
     @StateObject private var viewModel = AuthViewModel()
     @Binding var isPresented: Bool
     
@@ -66,7 +67,7 @@ struct AuthBottomSheet: View {
                         
                         Text(authMode == .login ? "Sign in to continue" : "Join Merry360x today")
                             .font(.system(size: 14))
-                            .foregroundColor(.gray)
+                            .foregroundColor(AppTheme.textSecondary)
                     }
                     
                     // Login / Signup Toggle
@@ -143,7 +144,7 @@ struct AuthBottomSheet: View {
                                 HStack {
                                     Text("🇷🇼")
                                     Text("+250")
-                                        .foregroundColor(.black)
+                                        .foregroundColor(AppTheme.textPrimary)
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 14)
@@ -229,7 +230,7 @@ struct AuthBottomSheet: View {
                         
                         Text("or continue with")
                             .font(.system(size: 13))
-                            .foregroundColor(.gray)
+                            .foregroundColor(AppTheme.textSecondary)
                         
                         Rectangle()
                             .fill(Color.gray.opacity(0.3))
@@ -239,7 +240,7 @@ struct AuthBottomSheet: View {
                     // Social Login Buttons
                     HStack(spacing: 12) {
                         // Apple
-                        Button(action: { /* Apple sign in */ }) {
+                        Button(action: { handleOAuth(provider: "apple") }) {
                             HStack(spacing: 8) {
                                 Image(systemName: "apple.logo")
                                     .font(.system(size: 18))
@@ -254,7 +255,7 @@ struct AuthBottomSheet: View {
                         }
                         
                         // Google
-                        Button(action: { /* Google sign in */ }) {
+                        Button(action: { handleOAuth(provider: "google") }) {
                             HStack(spacing: 8) {
                                 Text("G")
                                     .font(.system(size: 18, weight: .bold))
@@ -277,7 +278,7 @@ struct AuthBottomSheet: View {
                     // Terms
                     Text("By continuing, you agree to our Terms of Service and Privacy Policy")
                         .font(.system(size: 11))
-                        .foregroundColor(.gray)
+                        .foregroundColor(AppTheme.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.top, 8)
                 }
@@ -322,6 +323,14 @@ struct AuthBottomSheet: View {
                 isPresented = false
             }
         }
+    }
+
+    private func handleOAuth(provider: String) {
+        guard let service = SupabaseService(), let url = service.oauthAuthorizeURL(provider: provider) else {
+            viewModel.errorMessage = "Unable to start \(provider.capitalized) sign in."
+            return
+        }
+        openURL(url)
     }
 }
 

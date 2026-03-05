@@ -14,11 +14,16 @@ struct ProfileView: View {
 
     private var dashboardEntries: [(systemName: String, title: String, path: String)] {
         var entries: [(String, String, String)] = []
+        if session.isAuthenticated { entries.append(("rectangle.grid.2x2", "My Dashboard", "/dashboard")) }
         if normalizedRoles.contains("admin") { entries.append(("shield", "Admin Dashboard", "/admin")) }
+        if normalizedRoles.contains("admin") { entries.append(("person.2.badge.gearshape", "Admin Roles", "/admin/roles")) }
+        if normalizedRoles.contains("admin") { entries.append(("link.badge.plus", "Admin Integrations", "/admin/integrations")) }
         if normalizedRoles.contains("financial_staff") { entries.append(("dollarsign.circle", "Financial Dashboard", "/financial-dashboard")) }
         if normalizedRoles.contains("operations_staff") { entries.append(("gearshape", "Operations Dashboard", "/operations-dashboard")) }
         if normalizedRoles.contains("customer_support") { entries.append(("headphones", "Support Dashboard", "/customer-support-dashboard")) }
         if normalizedRoles.contains("host") { entries.append(("house", "Host Dashboard", "/host-dashboard")) }
+        if normalizedRoles.contains("affiliate") { entries.append(("link", "Affiliate Dashboard", "/affiliate-dashboard")) }
+        if normalizedRoles.contains("affiliate") { entries.append(("person.crop.circle.badge.checkmark", "Affiliate Portal", "/affiliate")) }
         return entries
     }
     
@@ -31,7 +36,7 @@ struct ProfileView: View {
                     Button(action: { /* Open notifications */ }) {
                         Image(systemName: "bell")
                             .font(.system(size: 20))
-                            .foregroundColor(.black)
+                            .foregroundColor(AppTheme.textPrimary)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -51,10 +56,11 @@ struct ProfileView: View {
                     
                     Text("Guest")
                         .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(AppTheme.textPrimary)
                     
                     Text(session.isAuthenticated ? "Logged in" : "Browsing as guest")
                         .font(.system(size: 14))
-                        .foregroundColor(.gray)
+                        .foregroundColor(AppTheme.textSecondary)
                 }
                 .padding(.vertical, 20)
                 
@@ -100,7 +106,7 @@ struct ProfileView: View {
                 if let hostActionMessage {
                     Text(hostActionMessage)
                         .font(.system(size: 13))
-                        .foregroundColor(.gray)
+                        .foregroundColor(AppTheme.textSecondary)
                         .padding(.horizontal, 20)
                         .padding(.top, 8)
                 }
@@ -195,20 +201,20 @@ struct ProfileSectionItem: View {
         HStack(spacing: 12) {
             Image(systemName: systemName)
                 .font(.system(size: 20))
-                .foregroundColor(.gray)
+                    .foregroundColor(AppTheme.textSecondary)
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.system(size: 16, weight: .medium))
                 Text(subtitle)
                     .font(.system(size: 13))
-                    .foregroundColor(.gray)
+                    .foregroundColor(AppTheme.textSecondary)
             }
             
             Spacer()
             
             Image(systemName: "chevron.right")
-                .foregroundColor(.gray)
+                .foregroundColor(AppTheme.textSecondary)
                 .font(.system(size: 14))
         }
         .padding(.vertical, 12)
@@ -243,22 +249,23 @@ struct ProfileMenuItem: View {
             HStack(spacing: 12) {
                 Image(systemName: systemName)
                     .font(.system(size: 18))
-                    .foregroundColor(.gray)
+                    .foregroundColor(AppTheme.textSecondary)
                     .frame(width: 24)
                 
                 Text(title)
                     .font(.system(size: 15))
+                    .foregroundColor(AppTheme.textPrimary)
                 
                 Spacer()
                 
                 if let value = value {
                     Text(value)
                         .font(.system(size: 15))
-                        .foregroundColor(.gray)
+                        .foregroundColor(AppTheme.textSecondary)
                 }
                 
                 Image(systemName: "chevron.right")
-                    .foregroundColor(.gray)
+                    .foregroundColor(AppTheme.textSecondary)
                     .font(.system(size: 12))
             }
             .padding(.horizontal, 20)

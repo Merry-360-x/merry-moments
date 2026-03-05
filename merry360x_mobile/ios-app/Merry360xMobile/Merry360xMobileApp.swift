@@ -48,7 +48,11 @@ private struct BrandedSplashView: View {
 
     var body: some View {
         ZStack {
-            AppTheme.coral
+            LinearGradient(
+                colors: [Color.white, Color(red: 246/255, green: 246/255, blue: 248/255)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
                 .ignoresSafeArea()
 
             Image("SplashLogo")

@@ -51,10 +51,10 @@ final class HomeViewModel: ObservableObject {
         loading = true
         errorMessage = nil
         do {
-            async let stayTask = service.fetchFeaturedListings(limit: 1000)
-            async let toursTask = service.fetchTours(limit: 300)
-            async let carsTask = service.fetchCars(limit: 300)
-            async let eventsTask = service.fetchEvents(limit: 300)
+            async let stayTask = service.fetchFeaturedListings(limit: 120)
+            async let toursTask = service.fetchTours(limit: 120)
+            async let carsTask = service.fetchCars(limit: 120)
+            async let eventsTask = service.fetchEvents(limit: 120)
 
             let stayRows = try await stayTask
             let tourRows = try await toursTask
