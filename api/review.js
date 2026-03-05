@@ -10,6 +10,7 @@ const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const SITE_URL = "https://merry360x.com";
+const GOOGLE_REVIEW_URL = "https://g.page/r/CaydY8tsMgH8EBM/review";
 
 function json(res, status, body) {
   res.statusCode = status;
@@ -783,7 +784,7 @@ function generateReviewEmailHtml({ guestName, propertyTitle, propertyImage, loca
     eyebrow: "Guest Feedback",
     title: "How was your stay?",
     subtitle: `Hi ${guestName || "there"}, your feedback helps travelers and hosts alike.`,
-    bodyHtml: `${image}${details}<div style="margin-top:14px;">${stars}</div>`,
+    bodyHtml: `${image}${details}<div style="margin-top:14px;">${stars}</div><div style="margin-top:16px;"><a href="${GOOGLE_REVIEW_URL}" style="display:inline-block;text-decoration:none;background:#111827;color:#ffffff;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:600;">Review Merry360X on Google</a></div>`,
     ctaText: "Leave a Review",
     ctaUrl: reviewUrl,
     footerLink: SITE_URL,

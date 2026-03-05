@@ -14,6 +14,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const FINANCE_EMAIL = process.env.FINANCE_EMAIL || process.env.PAYMENTS_EMAIL || "support@merry360x.com";
 const FINANCE_NAME = process.env.FINANCE_NAME || "Finance Team";
+const GOOGLE_REVIEW_URL = "https://g.page/r/CaydY8tsMgH8EBM/review";
 
 function json(res, status, body) {
   res.statusCode = status;
@@ -197,7 +198,7 @@ function generateBookingConfirmationHtml(booking) {
     eyebrow: "Booking Confirmation",
     title: "Your booking is confirmed",
     subtitle: "Thank you for booking with Merry 360 Experiences.",
-    bodyHtml: `${itemsHtml}${details}<div style="margin-top:14px;"><p style="margin:0 0 8px;color:#6b7280;font-size:12px;">Rate your experience:</p>${stars}</div>`,
+    bodyHtml: `${itemsHtml}${details}<div style="margin-top:14px;"><p style="margin:0 0 8px;color:#6b7280;font-size:12px;">Rate your experience:</p>${stars}</div><div style="margin-top:16px;"><a href="${GOOGLE_REVIEW_URL}" style="display:inline-block;text-decoration:none;background:#111827;color:#ffffff;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:600;">Review Merry360X on Google</a></div>`,
     ctaText: "View My Bookings",
     ctaUrl: "https://merry360x.com/my-bookings",
   });
