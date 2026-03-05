@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -161,6 +161,7 @@ Some components are non-refundable once booked, including but not limited to:
   const [includeRoomType, setIncludeRoomType] = useState(false);
   const [isEditLoading, setIsEditLoading] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
+  const skipAutosaveOnUnmountRef = useRef(false);
   const totalSteps = 4;
   const stepTitles = ["Basic Info", "Itinerary", "Pricing", "Media & Review"];
 
@@ -337,6 +338,11 @@ Some components are non-refundable once booked, including but not limited to:
           if (draft.customPolicyText) setCustomPolicyText(draft.customPolicyText);
           if (draft.customPolicyUrl) setCustomPolicyUrl(draft.customPolicyUrl);
           if (draft.includeRoomType !== undefined) setIncludeRoomType(draft.includeRoomType);
+          if (draft.licenseUrl) setLicenseUrl(draft.licenseUrl);
+          if (draft.pdfUrl) setPdfUrl(draft.pdfUrl);
+          if (typeof draft.wizardStep === "number") {
+            setWizardStep(Math.max(1, Math.min(totalSteps, Math.floor(draft.wizardStep))));
+          }
           const restoredAt = new Date(draft.timestamp);
           setLastSaved(restoredAt);
           setRestoredDraftAt(restoredAt);
@@ -418,6 +424,11 @@ Some components are non-refundable once booked, including but not limited to:
         if (draft.customPolicyText) setCustomPolicyText(draft.customPolicyText);
         if (draft.customPolicyUrl) setCustomPolicyUrl(draft.customPolicyUrl);
         if (draft.includeRoomType !== undefined) setIncludeRoomType(draft.includeRoomType);
+        if (draft.licenseUrl) setLicenseUrl(draft.licenseUrl);
+        if (draft.pdfUrl) setPdfUrl(draft.pdfUrl);
+        if (typeof draft.wizardStep === "number") {
+          setWizardStep(Math.max(1, Math.min(totalSteps, Math.floor(draft.wizardStep))));
+        }
         const restoredAt = new Date(draft.timestamp);
         setLastSaved(restoredAt);
         setRestoredDraftAt(restoredAt);
@@ -447,6 +458,8 @@ Some components are non-refundable once booked, including but not limited to:
       formData.cancellation_policy.trim() ||
       customPolicyText.trim() ||
       customPolicyUrl ||
+      licenseUrl ||
+      pdfUrl ||
       coverImage ||
       galleryImages.length > 0 ||
       selectedPolicies.length > 0 ||
@@ -454,7 +467,8 @@ Some components are non-refundable once booked, including but not limited to:
       customNonRefundable1.trim() ||
       customNonRefundable2.trim() ||
       groupDiscounts.length > 0 ||
-      pricingTiers.length > 0
+      pricingTiers.length > 0 ||
+      wizardStep > 1
     );
 
   // Auto-save on form changes (debounced) - only after initial load
@@ -479,6 +493,9 @@ Some components are non-refundable once booked, including but not limited to:
         selectedPolicies,
         customPolicyText,
         customPolicyUrl,
+        licenseUrl,
+        pdfUrl,
+        wizardStep,
         timestamp: new Date().toISOString(),
       };
       localStorage.setItem(draftKey, JSON.stringify(draft));
@@ -487,7 +504,7 @@ Some components are non-refundable once booked, including but not limited to:
     }, 1000); // Debounce 1 second (faster)
 
     return () => clearTimeout(timer);
-  }, [formData, groupDiscounts, pricingTiers, selectedNonRefundable, customNonRefundable1, customNonRefundable2, coverImage, galleryImages, selectedPolicies, customPolicyText, customPolicyUrl, user?.id, draftLoaded, isEditMode, hasDraftContent]);
+  }, [formData, groupDiscounts, pricingTiers, selectedNonRefundable, customNonRefundable1, customNonRefundable2, coverImage, galleryImages, selectedPolicies, customPolicyText, customPolicyUrl, licenseUrl, pdfUrl, wizardStep, user?.id, draftLoaded, isEditMode, hasDraftContent]);
 
   // Also save immediately when leaving the page
   useEffect(() => {
@@ -508,6 +525,9 @@ Some components are non-refundable once booked, including but not limited to:
         selectedPolicies,
         customPolicyText,
         customPolicyUrl,
+        licenseUrl,
+        pdfUrl,
+        wizardStep,
         timestamp: new Date().toISOString(),
       };
       localStorage.setItem(draftKey, JSON.stringify(draft));
@@ -516,7 +536,39 @@ Some components are non-refundable once booked, including but not limited to:
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [formData, groupDiscounts, pricingTiers, selectedNonRefundable, customNonRefundable1, customNonRefundable2, coverImage, galleryImages, selectedPolicies, customPolicyText, customPolicyUrl, user?.id, isEditMode, hasDraftContent]);
+  }, [formData, groupDiscounts, pricingTiers, selectedNonRefundable, customNonRefundable1, customNonRefundable2, coverImage, galleryImages, selectedPolicies, customPolicyText, customPolicyUrl, licenseUrl, pdfUrl, wizardStep, user?.id, isEditMode, hasDraftContent]);
+
+  useEffect(() => {
+    return () => {
+      if (skipAutosaveOnUnmountRef.current) return;
+      if (!hasDraftContent) return;
+
+      try {
+        const draftKey = getStorageKey();
+        const draft = {
+          formData,
+          groupDiscounts,
+          pricingTiers,
+          includeRoomType,
+          selectedNonRefundable,
+          customNonRefundable1,
+          customNonRefundable2,
+          coverImage,
+          galleryImages,
+          selectedPolicies,
+          customPolicyText,
+          customPolicyUrl,
+          licenseUrl,
+          pdfUrl,
+          wizardStep,
+          timestamp: new Date().toISOString(),
+        };
+        localStorage.setItem(draftKey, JSON.stringify(draft));
+      } catch (error) {
+        console.error("[CreateTourPackage] Failed to save draft on unmount", error);
+      }
+    };
+  }, [formData, groupDiscounts, pricingTiers, includeRoomType, selectedNonRefundable, customNonRefundable1, customNonRefundable2, coverImage, galleryImages, selectedPolicies, customPolicyText, customPolicyUrl, licenseUrl, pdfUrl, wizardStep, user?.id, isEditMode, hasDraftContent]);
 
   const saveDraft = () => {
     const draftKey = getStorageKey();
@@ -533,6 +585,9 @@ Some components are non-refundable once booked, including but not limited to:
       selectedPolicies,
       customPolicyText,
       customPolicyUrl,
+      licenseUrl,
+      pdfUrl,
+      wizardStep,
       timestamp: new Date().toISOString(),
     };
     
@@ -788,6 +843,7 @@ Some components are non-refundable once booked, including but not limited to:
         title: "Success!",
         description: isEditMode ? "Tour package updated successfully" : "Tour package created successfully",
       });
+      skipAutosaveOnUnmountRef.current = true;
       clearDraft(); // Clear the draft after successful submission
       navigate(redirectTo);
     } catch (error: any) {
@@ -833,7 +889,10 @@ Some components are non-refundable once booked, including but not limited to:
     <HostCreationSubpage
       title={isEditMode ? "Edit Tour Package" : "Create Tour Package"}
       subtitle={isEditMode ? "Update your tour package details" : "Fill in the details to create your tour package"}
-      onBack={() => navigate("/host-dashboard")}
+      onBack={() => {
+        if (hasDraftContent) saveDraft();
+        navigate("/host-dashboard");
+      }}
       maxWidthClassName="max-w-2xl"
     >
       <form onSubmit={handleSubmit} className="space-y-10">
@@ -1946,7 +2005,16 @@ Some components are non-refundable once booked, including but not limited to:
               </div>
             )}
             <div className="flex gap-3">
-              <Button type="button" variant="outline" onClick={() => navigate("/host-dashboard")} disabled={uploading} className="flex-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  if (hasDraftContent) saveDraft();
+                  navigate("/host-dashboard");
+                }}
+                disabled={uploading}
+                className="flex-1"
+              >
                 Cancel
               </Button>
               <Button 

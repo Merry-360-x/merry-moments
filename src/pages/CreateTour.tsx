@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -117,6 +117,7 @@ export default function CreateTour() {
   const [isSaving, setIsSaving] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
+  const skipAutosaveOnUnmountRef = useRef(false);
   const totalSteps = 4;
   const stepTitles = ["Basic Info", "Pricing", "Media", "Review"];
 
@@ -235,6 +236,10 @@ export default function CreateTour() {
           }
           if (draft.images) setImages(draft.images);
           if (draft.licenseUrl) setLicenseUrl(draft.licenseUrl);
+          if (draft.pdfUrl) setPdfUrl(draft.pdfUrl);
+          if (typeof draft.wizardStep === "number") {
+            setWizardStep(Math.max(1, Math.min(totalSteps, Math.floor(draft.wizardStep))));
+          }
           const restoredAt = new Date(draft.timestamp);
           setLastSaved(restoredAt);
           setRestoredDraftAt(restoredAt);
@@ -313,6 +318,11 @@ export default function CreateTour() {
           }));
         }
         if (draft.images) setImages(draft.images);
+        if (draft.licenseUrl) setLicenseUrl(draft.licenseUrl);
+        if (draft.pdfUrl) setPdfUrl(draft.pdfUrl);
+        if (typeof draft.wizardStep === "number") {
+          setWizardStep(Math.max(1, Math.min(totalSteps, Math.floor(draft.wizardStep))));
+        }
         const restoredAt = new Date(draft.timestamp);
         setLastSaved(restoredAt);
         setRestoredDraftAt(restoredAt);
@@ -339,7 +349,8 @@ export default function CreateTour() {
       formData.group_pricing_tiers.length > 0 ||
       formData.categories.length > 0 ||
       images.length > 0 ||
-      licenseUrl.trim()
+      licenseUrl.trim() ||
+      pdfUrl.trim()
     );
   }
 
@@ -356,6 +367,8 @@ export default function CreateTour() {
         formData,
         images,
         licenseUrl,
+        pdfUrl,
+        wizardStep,
         timestamp: new Date().toISOString(),
       };
       localStorage.setItem(draftKey, JSON.stringify(draft));
@@ -364,7 +377,7 @@ export default function CreateTour() {
     }, 1000); // Debounce 1 second
 
     return () => clearTimeout(timer);
-  }, [formData, images, user?.id, draftLoaded, isEditMode, licenseUrl]);
+  }, [formData, images, user?.id, draftLoaded, isEditMode, licenseUrl, pdfUrl, wizardStep]);
 
   // Save on page unload
   useEffect(() => {
@@ -376,6 +389,8 @@ export default function CreateTour() {
         formData,
         images,
         licenseUrl,
+        pdfUrl,
+        wizardStep,
         timestamp: new Date().toISOString(),
       };
       localStorage.setItem(draftKey, JSON.stringify(draft));
@@ -384,7 +399,29 @@ export default function CreateTour() {
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [formData, images, user?.id, isEditMode, licenseUrl]);
+  }, [formData, images, user?.id, isEditMode, licenseUrl, pdfUrl, wizardStep]);
+
+  useEffect(() => {
+    return () => {
+      if (skipAutosaveOnUnmountRef.current) return;
+      if (!hasDraftContent()) return;
+
+      try {
+        const draftKey = getStorageKey();
+        const draft = {
+          formData,
+          images,
+          licenseUrl,
+          pdfUrl,
+          wizardStep,
+          timestamp: new Date().toISOString(),
+        };
+        localStorage.setItem(draftKey, JSON.stringify(draft));
+      } catch (error) {
+        console.error("[CreateTour] Failed to save draft on unmount", error);
+      }
+    };
+  }, [formData, images, licenseUrl, pdfUrl, wizardStep, user?.id, isEditMode]);
 
   const saveDraft = () => {
     const draftKey = getStorageKey();
@@ -392,6 +429,8 @@ export default function CreateTour() {
       formData,
       images,
       licenseUrl,
+      pdfUrl,
+      wizardStep,
       timestamp: new Date().toISOString(),
     };
     
@@ -613,6 +652,7 @@ export default function CreateTour() {
           ? "Your tour changes have been saved."
           : "Your tour is now live and visible to guests.",
       });
+          skipAutosaveOnUnmountRef.current = true;
       clearDraft();
       navigate("/host-dashboard");
     } catch (error: any) {
@@ -673,7 +713,10 @@ export default function CreateTour() {
     <HostCreationSubpage
       title={isEditMode ? "Edit Tour" : "Create Tour"}
       subtitle={isEditMode ? "Update your tour details" : "Fill in the details to create your tour"}
-      onBack={() => navigate("/host-dashboard")}
+      onBack={() => {
+        if (hasDraftContent()) saveDraft();
+        navigate("/host-dashboard");
+      }}
       maxWidthClassName="max-w-2xl"
     >
       <form onSubmit={handleSubmit} className="space-y-10">

@@ -130,6 +130,7 @@ import {
 interface Property {
   id: string;
   title: string;
+  main_image?: string | null;
   description: string | null;
   location: string;
   address?: string | null;
@@ -608,7 +609,7 @@ export default function HostDashboard() {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
 
   // Auto-save keys for localStorage
-  const PROPERTY_FORM_KEY = 'host_property_draft';
+  const PROPERTY_FORM_KEY = user?.id ? `host_property_draft_${user.id}` : 'host_property_draft_anonymous';
   const VEHICLE_FORM_KEY = 'host_vehicle_draft';
   const MANUAL_REVIEW_FORM_KEY = user?.id ? `host_manual_review_draft_${user.id}` : null;
 
@@ -624,18 +625,48 @@ export default function HostDashboard() {
     } catch (e) {
       console.error('Failed to load property draft:', e);
     }
-  }, []);
+  }, [PROPERTY_FORM_KEY]);
+
+  const hasPropertyDraftContent = useCallback((form = propertyForm, step = wizardStep) => {
+    return Boolean(
+      form.title.trim() ||
+      form.location.trim() ||
+      form.address.trim() ||
+      form.description.trim() ||
+      form.images.length > 0 ||
+      form.amenities.length > 0 ||
+      Number(form.price_per_night || 0) > 0 ||
+      Number(form.price_per_month || 0) > 0 ||
+      step > 1
+    );
+  }, [propertyForm, wizardStep]);
+
+  const savePropertyDraft = useCallback((form = propertyForm, step = wizardStep) => {
+    if (!hasPropertyDraftContent(form, step)) return false;
+    try {
+      localStorage.setItem(PROPERTY_FORM_KEY, JSON.stringify({ form, step }));
+      return true;
+    } catch (e) {
+      console.error('Failed to save property draft:', e);
+      return false;
+    }
+  }, [PROPERTY_FORM_KEY, hasPropertyDraftContent, propertyForm, wizardStep]);
 
   // Auto-save property form
   useEffect(() => {
-    if (showPropertyWizard && propertyForm.title) {
-      try {
-        localStorage.setItem(PROPERTY_FORM_KEY, JSON.stringify({ form: propertyForm, step: wizardStep }));
-      } catch (e) {
-        console.error('Failed to save property draft:', e);
-      }
-    }
-  }, [propertyForm, wizardStep, showPropertyWizard]);
+    if (!showPropertyWizard) return;
+    void savePropertyDraft(propertyForm, wizardStep);
+  }, [propertyForm, wizardStep, showPropertyWizard, savePropertyDraft]);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (!showPropertyWizard) return;
+      void savePropertyDraft(propertyForm, wizardStep);
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [showPropertyWizard, propertyForm, wizardStep, savePropertyDraft]);
 
 
 
@@ -1246,9 +1277,18 @@ export default function HostDashboard() {
 
   // Property CRUD
   const updateProperty = async (id: string, updates: Partial<Property>) => {
-    let { error } = await supabase.from("properties").update(updates).eq("id", id);
+    const normalizedUpdates: Record<string, unknown> = { ...updates };
+    if (Object.prototype.hasOwnProperty.call(updates, "images")) {
+      const nextImages = Array.isArray(updates.images)
+        ? updates.images.filter((img): img is string => typeof img === "string" && img.trim().length > 0)
+        : [];
+      normalizedUpdates.images = nextImages.length > 0 ? nextImages : null;
+      normalizedUpdates.main_image = nextImages[0] ?? null;
+    }
+
+    let { error } = await supabase.from("properties").update(normalizedUpdates as never).eq("id", id);
     if (error && shouldFallbackConferenceColumns(error)) {
-      const { price_per_group_size, conference_room_price, conference_room_duration_hours, ...fallbackUpdates } = updates as any;
+      const { price_per_group_size, conference_room_price, conference_room_duration_hours, ...fallbackUpdates } = normalizedUpdates as any;
       const retry = await supabase.from("properties").update(fallbackUpdates).eq("id", id);
       error = retry.error;
     }
@@ -1257,7 +1297,7 @@ export default function HostDashboard() {
       toast({ variant: "destructive", title: "Update failed", description: uiErrorMessage(error) });
       return false;
     }
-    setProperties((prev) => prev.map((p) => (p.id === id ? { ...p, ...updates } : p)));
+    setProperties((prev) => prev.map((p) => (p.id === id ? { ...p, ...(normalizedUpdates as Partial<Property>) } : p)));
     toast({ title: "Saved", description: "Property updated successfully." });
     return true;
   };
@@ -1451,6 +1491,10 @@ export default function HostDashboard() {
 
   const discardPropertyDraft = () => {
     localStorage.removeItem(PROPERTY_FORM_KEY);
+    if (!propertyWizardEditId) {
+      resetPropertyForm();
+      setWizardStep(1);
+    }
     toast({ title: "Draft discarded", description: "Saved property/room draft has been removed." });
   };
 
@@ -2660,8 +2704,19 @@ export default function HostDashboard() {
   // Helper functions to open wizards and notify about drafts
   const openPropertyWizard = () => {
     setPropertyWizardEditId(null);
-    setPropertyForm((prev) => ({ ...prev, listing_mode: "standard" }));
     const hasDraft = localStorage.getItem(PROPERTY_FORM_KEY);
+    if (hasDraft) {
+      try {
+        const parsed = JSON.parse(hasDraft);
+        if (parsed?.form) setPropertyForm(parsed.form);
+        setWizardStep(parsed?.step || 1);
+      } catch (e) {
+        console.error("Failed to restore property draft:", e);
+      }
+    } else {
+      resetPropertyForm();
+      setWizardStep(1);
+    }
     setShowPropertyWizard(true);
     if (hasDraft) {
       toast({
@@ -5639,9 +5694,17 @@ export default function HostDashboard() {
                 if (wizardStep > 1) {
                   setWizardStep(wizardStep - 1);
                 } else {
+                  if (!propertyWizardEditId) {
+                    const saved = savePropertyDraft(propertyForm, wizardStep);
+                    if (saved) {
+                      toast({ title: "Draft saved", description: "Your property draft is saved." });
+                    }
+                  }
                   setShowPropertyWizard(false);
                   setPropertyWizardEditId(null);
-                  resetPropertyForm();
+                  if (propertyWizardEditId) {
+                    resetPropertyForm();
+                  }
                 }
               }}
               className="flex items-center gap-2 text-muted-foreground hover:text-foreground"

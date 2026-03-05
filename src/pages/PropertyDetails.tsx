@@ -672,7 +672,10 @@ export default function PropertyDetails() {
   }, [isMonthlyOnlyListing, checkIn, checkOut]);
 
   const media = useMemo(() => {
-    const values = [data?.main_image, ...(data?.images ?? [])].filter(Boolean) as string[];
+    const currentImages = (data?.images ?? []).filter(Boolean) as string[];
+    const values = currentImages.length > 0
+      ? currentImages
+      : ([data?.main_image].filter(Boolean) as string[]);
     return Array.from(new Set(values));
   }, [data?.main_image, data?.images]);
   const optimizedImageUrl = useCallback(
