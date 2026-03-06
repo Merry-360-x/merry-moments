@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useFavorites } from "@/hooks/useFavorites";
-import { ArrowLeft, BadgeCheck, Ban, CalendarIcon, ChevronLeft, ChevronRight, Heart, Star, User } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Ban, BedDouble, CalendarIcon, ChevronLeft, ChevronRight, DoorOpen, Heart, Star, User } from "lucide-react";
 import { amenityByValue } from "@/lib/amenities";
 import PropertyCard from "@/components/PropertyCard";
 import { formatMoney } from "@/lib/money";
@@ -27,7 +27,7 @@ import { convertAmount } from "@/lib/fx";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 
 type PropertyRow = {
@@ -1514,15 +1514,29 @@ export default function PropertyDetails() {
               <div className="mt-6 bg-card rounded-xl shadow-card p-5">
                 <div className="text-sm font-semibold text-foreground mb-2">{t("propertyDetails.aboutThisPlace")}</div>
                 {(data.bedrooms || data.bathrooms || data.beds || data.max_guests) ? (
-                  <div className="text-sm text-muted-foreground">
-                    {[
-                      data.max_guests ? t("tourDetails.upToGuests", { count: data.max_guests }) : null,
-                      data.bedrooms ? t("propertyDetails.bedrooms", { count: data.bedrooms }) : null,
-                      data.beds ? t("propertyDetails.beds", { count: data.beds }) : null,
-                      data.bathrooms ? t("propertyDetails.bathrooms", { count: data.bathrooms }) : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
+                  <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+                    {data.max_guests ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1">
+                        {t("tourDetails.upToGuests", { count: data.max_guests })}
+                      </span>
+                    ) : null}
+                    {data.bedrooms ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1">
+                        <DoorOpen className="h-3.5 w-3.5" />
+                        {t("propertyDetails.bedrooms", { count: data.bedrooms })}
+                      </span>
+                    ) : null}
+                    {data.beds ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1">
+                        <BedDouble className="h-3.5 w-3.5" />
+                        {t("propertyDetails.beds", { count: data.beds })}
+                      </span>
+                    ) : null}
+                    {data.bathrooms ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1">
+                        {t("propertyDetails.bathrooms", { count: data.bathrooms })}
+                      </span>
+                    ) : null}
                   </div>
                 ) : null}
 
@@ -1996,9 +2010,11 @@ export default function PropertyDetails() {
                         <span className="font-semibold text-foreground">
                           {displayMoney(Number(totalWithBreakfast), String(data.currency ?? "RWF"))}
                         </span>
-                        {breakfastAddon.includeBreakfast && breakfastAddon.total > 0 ? (
+                        {breakfastAddon.breakfastEnabled ? (
                           <span className="ml-2 text-primary font-medium">
-                            • Breakfast +{displayMoney(Number(breakfastAddon.total), String(data.currency ?? "RWF"))}
+                            {breakfastAddon.includeBreakfast && breakfastAddon.total > 0
+                              ? `• Breakfast +${displayMoney(Number(breakfastAddon.total), String(data.currency ?? "RWF"))}`
+                              : "• Breakfast Free"}
                           </span>
                         ) : null}
                         {stayDiscount.amount > 0 && stayDiscount.label ? (
@@ -2033,35 +2049,30 @@ export default function PropertyDetails() {
                       {isInTripCart ? t("propertyDetails.inTripCart") : t("propertyDetails.addToTripCart")}
                     </Button>
                     {!isMonthlyOnlyListing && breakfastAddon.breakfastEnabled ? (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button type="button" disabled={bookingDisabled}>
-                            {bookingCtaLabel}
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            disabled={bookingDisabled}
-                            onSelect={(e) => {
-                              e.preventDefault();
-                              setBreakfastPlan("no_breakfast");
-                              void submitBooking(false);
-                            }}
-                          >
-                            Book without breakfast
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            disabled={bookingDisabled}
-                            onSelect={(e) => {
-                              e.preventDefault();
-                              setBreakfastPlan("with_breakfast");
-                              void submitBooking(true);
-                            }}
-                          >
-                            Book with breakfast (+{displayMoney(Number(breakfastAddon.breakfastPricePerNight), String(data.currency ?? "RWF"))} / night)
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={breakfastPlan}
+                          onValueChange={(value) => setBreakfastPlan(value as "no_breakfast" | "with_breakfast")}
+                          disabled={bookingDisabled}
+                        >
+                          <SelectTrigger className="w-[260px]">
+                            <SelectValue placeholder="Select breakfast option" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="no_breakfast">No breakfast (Free)</SelectItem>
+                            <SelectItem value="with_breakfast">
+                              With breakfast (+{displayMoney(Number(breakfastAddon.breakfastPricePerNight), String(data.currency ?? "RWF"))} / night)
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          onClick={() => void submitBooking()}
+                          disabled={bookingDisabled}
+                          type="button"
+                        >
+                          {bookingCtaLabel}
+                        </Button>
+                      </div>
                     ) : (
                       <Button
                         onClick={() => void submitBooking()}
