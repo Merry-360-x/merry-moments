@@ -2867,10 +2867,10 @@ For support, contact: support@merry360x.com
                   <Card className="p-4">
                     <div className="flex items-center gap-2 text-muted-foreground mb-1">
                   <Wallet className="w-4 h-4" />
-                  <span className="text-sm">Total Amount Booked</span>
+                  <span className="text-sm">Amount All Hosts Earned</span>
                     </div>
-                    <p className="text-2xl font-bold text-foreground">{formatMoney(adminFinancialOverview.totalAmountBooked, "RWF")}</p>
-                    <p className="text-xs text-muted-foreground">Guest-paid totals from confirmed/completed bookings</p>
+                    <p className="text-2xl font-bold text-foreground">{formatMoney(adminFinancialOverview.totalAmountAfterServiceFees, "RWF")}</p>
+                    <p className="text-xs text-muted-foreground">Combined host net earnings from confirmed/completed bookings</p>
                   </Card>
                   <Card className="p-4">
                     <div className="flex items-center gap-2 text-muted-foreground mb-1">
@@ -2883,10 +2883,10 @@ For support, contact: support@merry360x.com
                   <Card className="p-4">
                     <div className="flex items-center gap-2 text-muted-foreground mb-1">
                   <Wallet className="w-4 h-4" />
-                  <span className="text-sm">After Service Fees</span>
+                  <span className="text-sm">Total Amount Booked</span>
                     </div>
-                    <p className="text-2xl font-bold text-foreground">{formatMoney(adminFinancialOverview.totalAmountAfterServiceFees, "RWF")}</p>
-                    <p className="text-xs text-muted-foreground">Total booked - platform fees by booking type</p>
+                    <p className="text-2xl font-bold text-foreground">{formatMoney(adminFinancialOverview.totalAmountBooked, "RWF")}</p>
+                    <p className="text-xs text-muted-foreground">Guest-paid totals from confirmed/completed bookings</p>
                   </Card>
                   <Card className="p-4">
                     <div className="flex items-center gap-2 text-muted-foreground mb-1">

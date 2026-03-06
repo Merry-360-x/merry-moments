@@ -7863,6 +7863,14 @@ export default function HostDashboard() {
                           
                           {/* Actions Footer */}
                           <div className="flex flex-wrap items-center justify-end gap-1.5 px-2.5 py-2 bg-background border-t border-border">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 px-2.5 text-xs"
+                              onClick={() => viewBookingDetails(b)}
+                            >
+                              <Eye className="w-4 h-4 mr-1" /> Details
+                            </Button>
                             {isBookingPaymentUnpaid(b) && (
                               <>
                                 <Button
@@ -8059,7 +8067,7 @@ export default function HostDashboard() {
                       </div>
                       
                       {/* Guest Info */}
-                      {b.is_guest_booking && b.guest_name && (
+                      {(b.guest_name || b.guest_email || b.guest_phone) && (
                         <div className="mt-2.5 p-2.5 bg-background rounded-lg border border-border">
                           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Guest Information</p>
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
