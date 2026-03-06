@@ -2664,14 +2664,19 @@ For support, contact: support@merry360x.com
     ? correctedRevenueGross
     : (metrics?.revenue_gross ?? 0);
 
+  const isConfirmedPaidBooking = (booking: BookingRow): boolean => {
+    const status = String(booking.status || "").toLowerCase();
+    if (status !== "confirmed" && status !== "completed") return false;
+
+    const paymentStatus = String(booking.checkout_requests?.payment_status || booking.payment_status || "").toLowerCase();
+    const isUnpaidFlow = ["failed", "pending", "requested", "unpaid", "not_paid", "expired"].includes(paymentStatus);
+    const isRefundFlow = paymentStatus === "requested" || paymentStatus === "refunded" || paymentStatus.includes("refund");
+    return !isUnpaidFlow && !isRefundFlow;
+  };
+
   const adminHostNetEarningsTotal = useMemo(() => {
     return bookings.reduce((sum, booking) => {
-      const status = String(booking.status || "").toLowerCase();
-      if (status !== "confirmed" && status !== "completed") return sum;
-
-      const paymentStatus = String(booking.checkout_requests?.payment_status || booking.payment_status || "").toLowerCase();
-      if (["failed", "pending", "requested", "unpaid", "not_paid", "expired"].includes(paymentStatus)) return sum;
-      if (paymentStatus === "requested" || paymentStatus === "refunded" || paymentStatus.includes("refund")) return sum;
+      if (!isConfirmedPaidBooking(booking)) return sum;
 
       const bookingType = String(booking.booking_type || "").toLowerCase();
       const serviceType: "accommodation" | "tour" | "transport" =
@@ -2691,6 +2696,40 @@ For support, contact: support@merry360x.com
       const financials = calculateBookingFinancialsFromDiscountedListing(listingSubtotalAfterDiscount, serviceType);
       return sum + toRwfAmount(financials.hostNetEarnings, paidCurrency);
     }, 0);
+  }, [bookings]);
+
+  const adminChargesOverview = useMemo(() => {
+    return bookings.reduce(
+      (totals, booking) => {
+        if (!isConfirmedPaidBooking(booking)) return totals;
+
+        const bookingType = String(booking.booking_type || "").toLowerCase();
+        const serviceType: "accommodation" | "tour" | "transport" =
+          bookingType === "property"
+            ? "accommodation"
+            : bookingType === "tour"
+              ? "tour"
+              : "transport";
+
+        const paidAmount = Number(booking.checkout_requests?.total_amount || booking.total_price || 0);
+        const paidCurrency = String(booking.checkout_requests?.currency || booking.currency || "RWF").toUpperCase();
+        if (!(paidAmount > 0)) return totals;
+
+        const guestFeePercent = getGuestFeePercent(serviceType);
+        const listingSubtotalAfterDiscount = Math.max(0, paidAmount / (1 + guestFeePercent / 100));
+        const financials = calculateBookingFinancialsFromDiscountedListing(listingSubtotalAfterDiscount, serviceType);
+
+        totals.platformGuestFees += toRwfAmount(financials.guestFee, paidCurrency);
+        totals.hostFees += toRwfAmount(financials.hostFee, paidCurrency);
+        totals.earnedFromCharges = totals.platformGuestFees + totals.hostFees;
+        return totals;
+      },
+      {
+        platformGuestFees: 0,
+        hostFees: 0,
+        earnedFromCharges: 0,
+      }
+    );
   }, [bookings]);
 
   const saveAccommodationGuestFee = () => {
@@ -3023,10 +3062,10 @@ For support, contact: support@merry360x.com
                   <DollarSign className="w-4 h-4" />
                   <span className="text-sm">Earned from Charges</span>
                     </div>
-                    <p className="text-2xl font-bold text-primary">{formatMoney(adminFinancialOverview.earnedFromCharges, "RWF")}</p>
+                    <p className="text-2xl font-bold text-primary">{formatMoney(adminChargesOverview.earnedFromCharges, "RWF")}</p>
                     <p className="text-xs text-muted-foreground">
                       Platform fees + host fees from confirmed/completed bookings
-                      {` (platform: ${formatMoney(adminFinancialOverview.platformGuestFees, "RWF")}, host: ${formatMoney(adminFinancialOverview.hostFees, "RWF")})`}
+                      {` (platform: ${formatMoney(adminChargesOverview.platformGuestFees, "RWF")}, host: ${formatMoney(adminChargesOverview.hostFees, "RWF")})`}
                     </p>
                   </Card>
         </div>
