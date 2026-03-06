@@ -2652,18 +2652,6 @@ For support, contact: support@merry360x.com
     [bookings, refundRequestRefs]
   );
 
-  const correctedRevenueGross = useMemo(() => {
-    return bookings.reduce((sum, booking) => {
-      const status = String(booking.status || "").toLowerCase();
-      if (status !== "confirmed" && status !== "completed") return sum;
-      return sum + toRwfAmount(Number(booking.total_price || 0), booking.currency);
-    }, 0);
-  }, [bookings]);
-
-  const displayedRevenueGross = bookingsFetched
-    ? correctedRevenueGross
-    : (metrics?.revenue_gross ?? 0);
-
   const isConfirmedPaidBooking = (booking: BookingRow): boolean => {
     const status = String(booking.status || "").toLowerCase();
     if (status !== "confirmed" && status !== "completed") return false;
@@ -2674,31 +2662,7 @@ For support, contact: support@merry360x.com
     return !isUnpaidFlow && !isRefundFlow;
   };
 
-  const adminHostNetEarningsTotal = useMemo(() => {
-    return bookings.reduce((sum, booking) => {
-      if (!isConfirmedPaidBooking(booking)) return sum;
-
-      const bookingType = String(booking.booking_type || "").toLowerCase();
-      const serviceType: "accommodation" | "tour" | "transport" =
-        bookingType === "property"
-          ? "accommodation"
-          : bookingType === "tour"
-            ? "tour"
-            : "transport";
-
-      const paidAmount = Number(booking.checkout_requests?.total_amount || booking.total_price || 0);
-      const paidCurrency = String(booking.checkout_requests?.currency || booking.currency || "RWF").toUpperCase();
-      const guestFeePercent = getGuestFeePercent(serviceType);
-      const listingSubtotalAfterDiscount = paidAmount > 0
-        ? Math.max(0, paidAmount / (1 + guestFeePercent / 100))
-        : 0;
-
-      const financials = calculateBookingFinancialsFromDiscountedListing(listingSubtotalAfterDiscount, serviceType);
-      return sum + toRwfAmount(financials.hostNetEarnings, paidCurrency);
-    }, 0);
-  }, [bookings]);
-
-  const adminChargesOverview = useMemo(() => {
+  const adminPaidFinancialOverview = useMemo(() => {
     return bookings.reduce(
       (totals, booking) => {
         if (!isConfirmedPaidBooking(booking)) return totals;
@@ -2719,18 +2683,36 @@ For support, contact: support@merry360x.com
         const listingSubtotalAfterDiscount = Math.max(0, paidAmount / (1 + guestFeePercent / 100));
         const financials = calculateBookingFinancialsFromDiscountedListing(listingSubtotalAfterDiscount, serviceType);
 
+        const discountRaw = Math.max(0, Number(booking.checkout_requests?.metadata?.discount_amount || 0));
+
+        totals.totalAmountBooked += toRwfAmount(paidAmount, paidCurrency);
+        totals.totalDiscountApplied += toRwfAmount(discountRaw, paidCurrency);
+        totals.totalAmountAfterPlatformFees += toRwfAmount(paidAmount + discountRaw, paidCurrency);
+        totals.totalAmountAfterServiceFees += toRwfAmount(financials.hostNetEarnings, paidCurrency);
         totals.platformGuestFees += toRwfAmount(financials.guestFee, paidCurrency);
         totals.hostFees += toRwfAmount(financials.hostFee, paidCurrency);
-        totals.earnedFromCharges = totals.platformGuestFees + totals.hostFees;
+        totals.earnedFromCharges += toRwfAmount(financials.platformTotalEarnings, paidCurrency);
+        totals.totalAmountAfterPawapay += toRwfAmount(paidAmount * (1 - 0.031), paidCurrency);
         return totals;
       },
       {
+        totalAmountAfterPlatformFees: 0,
+        totalDiscountApplied: 0,
+        totalAmountBooked: 0,
+        totalAmountAfterPawapay: 0,
+        totalAmountAfterServiceFees: 0,
         platformGuestFees: 0,
         hostFees: 0,
         earnedFromCharges: 0,
       }
     );
   }, [bookings]);
+
+  const displayedRevenueGross = bookingsFetched
+    ? adminPaidFinancialOverview.totalAmountBooked
+    : (metrics?.revenue_gross ?? 0);
+
+  const adminHostNetEarningsTotal = adminPaidFinancialOverview.totalAmountAfterServiceFees;
 
   const saveAccommodationGuestFee = () => {
     const parsed = Number(accommodationGuestFeeInput);
@@ -3041,7 +3023,7 @@ For support, contact: support@merry360x.com
                   <Percent className="w-4 h-4" />
                   <span className="text-sm">After Platform Fees</span>
                     </div>
-                    <p className="text-2xl font-bold text-foreground">{formatMoney(adminFinancialOverview.totalAmountAfterPlatformFees, "RWF")}</p>
+                    <p className="text-2xl font-bold text-foreground">{formatMoney(adminPaidFinancialOverview.totalAmountAfterPlatformFees, "RWF")}</p>
                     <p className="text-xs text-muted-foreground">Guest totals after platform fee additions, before discounts</p>
                   </Card>
                   <Card className="p-4">
@@ -3049,11 +3031,11 @@ For support, contact: support@merry360x.com
                   <Wallet className="w-4 h-4" />
                   <span className="text-sm">After Discount Applied</span>
                     </div>
-                    <p className="text-2xl font-bold text-foreground">{formatMoney(adminFinancialOverview.totalAmountBooked, "RWF")}</p>
+                    <p className="text-2xl font-bold text-foreground">{formatMoney(adminPaidFinancialOverview.totalAmountBooked, "RWF")}</p>
                     <p className="text-xs text-muted-foreground">
                       Guest-paid totals after discounts
-                      {adminFinancialOverview.totalDiscountApplied > 0
-                        ? ` (discounts: ${formatMoney(adminFinancialOverview.totalDiscountApplied, "RWF")})`
+                      {adminPaidFinancialOverview.totalDiscountApplied > 0
+                        ? ` (discounts: ${formatMoney(adminPaidFinancialOverview.totalDiscountApplied, "RWF")})`
                         : ""}
                     </p>
                   </Card>
@@ -3062,10 +3044,10 @@ For support, contact: support@merry360x.com
                   <DollarSign className="w-4 h-4" />
                   <span className="text-sm">Earned from Charges</span>
                     </div>
-                    <p className="text-2xl font-bold text-primary">{formatMoney(adminChargesOverview.earnedFromCharges, "RWF")}</p>
+                    <p className="text-2xl font-bold text-primary">{formatMoney(adminPaidFinancialOverview.earnedFromCharges, "RWF")}</p>
                     <p className="text-xs text-muted-foreground">
                       Platform fees + host fees from confirmed/completed bookings
-                      {` (platform: ${formatMoney(adminChargesOverview.platformGuestFees, "RWF")}, host: ${formatMoney(adminChargesOverview.hostFees, "RWF")})`}
+                      {` (platform: ${formatMoney(adminPaidFinancialOverview.platformGuestFees, "RWF")}, host: ${formatMoney(adminPaidFinancialOverview.hostFees, "RWF")})`}
                     </p>
                   </Card>
         </div>
