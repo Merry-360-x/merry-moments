@@ -236,6 +236,14 @@ type BookingRow = {
   host_profile?: {
     full_name: string | null;
   };
+  checkout_requests?: {
+    id: string;
+    total_amount: number | null;
+    currency: string | null;
+    payment_method: string | null;
+    payment_status?: string | null;
+    metadata?: Record<string, any> | null;
+  } | null;
 };
 
 type ReviewRow = {
@@ -1059,7 +1067,11 @@ export default function AdminDashboard() {
           ? supabase.from("profiles").select("id, full_name, nickname, email, phone").in("id", guestIds).then(r => r.data || [])
           : Promise.resolve([]),
         orderIds.length > 0
-          ? supabase.from("checkout_requests").select("id, total_amount, currency, payment_method").in("id", orderIds).then(r => r.data || [])
+          ? supabase
+              .from("checkout_requests")
+              .select("id, total_amount, currency, payment_method, payment_status, metadata")
+              .in("id", orderIds)
+              .then(r => r.data || [])
           : Promise.resolve([])
       ]);
       
@@ -2664,16 +2676,21 @@ For support, contact: support@merry360x.com
 
         const checkoutAmount = Number(booking.checkout_requests?.total_amount || 0);
         const checkoutCurrency = String(booking.checkout_requests?.currency || booking.currency || listingSourceCurrency || "RWF");
+        const checkoutDiscount = Number(booking.checkout_requests?.metadata?.discount_amount || 0);
+        const checkoutDiscountRwf = toRwfAmount(Math.max(0, checkoutDiscount), checkoutCurrency);
         const fallbackListingAmountRwf =
           toRwfAmount(Number(booking.total_price || 0), listingSourceCurrency) *
           (1 + getGuestFeePercent(serviceType) / 100);
         const bookingAmountRwf = checkoutAmount > 0
           ? toRwfAmount(checkoutAmount, checkoutCurrency)
           : fallbackListingAmountRwf;
+        const bookingAmountBeforeDiscountRwf = bookingAmountRwf + checkoutDiscountRwf;
 
         const earningsFromGuestTotal = calculateHostEarningsFromGuestTotal(bookingAmountRwf, serviceType);
         const platformServiceFeesRwf = earningsFromGuestTotal.platformTotalEarnings;
 
+        totals.totalAmountAfterPlatformFees += bookingAmountBeforeDiscountRwf;
+        totals.totalDiscountApplied += checkoutDiscountRwf;
         totals.totalAmountBooked += bookingAmountRwf;
         totals.totalAmountAfterPawapay += bookingAmountRwf * (1 - 0.031);
         totals.totalAmountAfterServiceFees += bookingAmountRwf - platformServiceFeesRwf;
@@ -2682,6 +2699,8 @@ For support, contact: support@merry360x.com
         return totals;
       },
       {
+        totalAmountAfterPlatformFees: 0,
+        totalDiscountApplied: 0,
         totalAmountBooked: 0,
         totalAmountAfterPawapay: 0,
         totalAmountAfterServiceFees: 0,
@@ -2875,18 +2894,23 @@ For support, contact: support@merry360x.com
                   <Card className="p-4">
                     <div className="flex items-center gap-2 text-muted-foreground mb-1">
                   <Percent className="w-4 h-4" />
-                  <span className="text-sm">After PawaPay Fee</span>
+                  <span className="text-sm">After Platform Fees</span>
                     </div>
-                    <p className="text-2xl font-bold text-foreground">{formatMoney(adminFinancialOverview.totalAmountAfterPawapay, "RWF")}</p>
-                    <p className="text-xs text-muted-foreground">Total booked - 3.1% processing</p>
+                    <p className="text-2xl font-bold text-foreground">{formatMoney(adminFinancialOverview.totalAmountAfterPlatformFees, "RWF")}</p>
+                    <p className="text-xs text-muted-foreground">Guest totals after platform fee additions, before discounts</p>
                   </Card>
                   <Card className="p-4">
                     <div className="flex items-center gap-2 text-muted-foreground mb-1">
                   <Wallet className="w-4 h-4" />
-                  <span className="text-sm">Total Amount Booked</span>
+                  <span className="text-sm">After Discount Applied</span>
                     </div>
                     <p className="text-2xl font-bold text-foreground">{formatMoney(adminFinancialOverview.totalAmountBooked, "RWF")}</p>
-                    <p className="text-xs text-muted-foreground">Guest-paid totals from confirmed/completed bookings</p>
+                    <p className="text-xs text-muted-foreground">
+                      Guest-paid totals after discounts
+                      {adminFinancialOverview.totalDiscountApplied > 0
+                        ? ` (discounts: ${formatMoney(adminFinancialOverview.totalDiscountApplied, "RWF")})`
+                        : ""}
+                    </p>
                   </Card>
                   <Card className="p-4">
                     <div className="flex items-center gap-2 text-muted-foreground mb-1">
@@ -5952,13 +5976,6 @@ For support, contact: support@merry360x.com
                   </div>
                   <div className="p-4">
                     {(() => {
-                      const serviceType: "accommodation" | "tour" | "transport" =
-                        selectedBooking.booking_type === "property"
-                          ? "accommodation"
-                          : selectedBooking.booking_type === "tour"
-                            ? "tour"
-                            : "transport";
-
                       const listingSourceCurrency =
                         selectedBooking.booking_type === "property" && selectedBooking.properties?.currency
                           ? selectedBooking.properties.currency
@@ -5968,39 +5985,67 @@ For support, contact: support@merry360x.com
                               ? selectedBooking.transport_vehicles.currency
                               : selectedBooking.currency || "RWF";
 
+                      const serviceType: "accommodation" | "tour" | "transport" =
+                        selectedBooking.booking_type === "property"
+                          ? "accommodation"
+                          : selectedBooking.booking_type === "tour"
+                            ? "tour"
+                            : "transport";
+
                       const displayCurrency = "RWF";
 
-                      const listingAmount = convertAdminCurrency(
-                        Number(selectedBooking.total_price || 0),
-                        listingSourceCurrency,
-                        displayCurrency
+                      const paidAfterDiscountRaw = Math.max(
+                        0,
+                        Number(selectedBooking.checkout_requests?.total_amount || selectedBooking.total_price || 0)
                       );
-
-                      const guestPaidBaseAmount = Number(
-                        selectedBooking.checkout_requests?.total_amount || selectedBooking.total_price || 0
-                      );
-                      const guestPaidBaseCurrency = String(
+                      const paidCurrency = String(
                         selectedBooking.checkout_requests?.currency || listingSourceCurrency || "RWF"
                       );
+                      const discountRaw = Math.max(
+                        0,
+                        Number(selectedBooking.checkout_requests?.metadata?.discount_amount || 0)
+                      );
+                      const paidBeforeDiscountRaw = paidAfterDiscountRaw + discountRaw;
 
-                      const hostEarnedBase = calculateHostEarningsFromGuestTotal(
-                        Math.max(0, guestPaidBaseAmount),
+                      const beforeDiscountBreakdown = calculateHostEarningsFromGuestTotal(
+                        paidBeforeDiscountRaw,
                         serviceType
-                      ).hostNetEarnings;
-
-                      const hostEarned = convertAdminCurrency(
-                        Number(hostEarnedBase || 0),
-                        guestPaidBaseCurrency,
-                        displayCurrency
+                      );
+                      const afterDiscountBreakdown = calculateHostEarningsFromGuestTotal(
+                        paidAfterDiscountRaw,
+                        serviceType
                       );
 
-                      const paidAmount = selectedBooking.checkout_requests
-                        ? convertAdminCurrency(
-                            Number(selectedBooking.checkout_requests.total_amount || 0),
-                            selectedBooking.checkout_requests.currency || "RWF",
-                            displayCurrency
-                          )
-                        : null;
+                      const actualListingPrice = convertAdminCurrency(
+                        Number(beforeDiscountBreakdown.basePrice || 0),
+                        paidCurrency,
+                        displayCurrency
+                      );
+                      const afterPlatformFees = convertAdminCurrency(
+                        Number(paidBeforeDiscountRaw || 0),
+                        paidCurrency,
+                        displayCurrency
+                      );
+                      const afterDiscount = convertAdminCurrency(
+                        Number(paidAfterDiscountRaw || 0),
+                        paidCurrency,
+                        displayCurrency
+                      );
+                      const discountValue = convertAdminCurrency(
+                        Number(discountRaw || 0),
+                        paidCurrency,
+                        displayCurrency
+                      );
+                      const hostFeeValue = convertAdminCurrency(
+                        Number(afterDiscountBreakdown.hostFee || 0),
+                        paidCurrency,
+                        displayCurrency
+                      );
+                      const hostEarned = convertAdminCurrency(
+                        Number(afterDiscountBreakdown.hostNetEarnings || 0),
+                        paidCurrency,
+                        displayCurrency
+                      );
 
                       const paymentMethodRaw = String(
                         selectedBooking.checkout_requests?.payment_method || selectedBooking.payment_method || "not_specified"
@@ -6018,23 +6063,35 @@ For support, contact: support@merry360x.com
                       return (
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-xs text-muted-foreground">Listing Price ({String(displayCurrency).toUpperCase()})</p>
+                        <p className="text-xs text-muted-foreground">Actual Listing Price ({String(displayCurrency).toUpperCase()})</p>
                         <p className="text-xl font-bold text-primary">
-                          {formatMoney(Number(listingAmount || 0), displayCurrency)}
+                          {formatMoney(Number(actualListingPrice || 0), displayCurrency)}
                         </p>
                       </div>
-                      {selectedBooking.checkout_requests && (
-                        <div>
-                          <p className="text-xs text-muted-foreground">Amount Paid ({String(displayCurrency).toUpperCase()})</p>
-                          <p className="text-xl font-bold text-green-600">
-                            {formatMoney(Number(paidAmount || 0), displayCurrency)}
-                          </p>
-                        </div>
-                      )}
                       <div>
-                        <p className="text-xs text-muted-foreground">Amount Earned by Host ({String(displayCurrency).toUpperCase()})</p>
+                        <p className="text-xs text-muted-foreground">After Platform Fees ({String(displayCurrency).toUpperCase()})</p>
+                        <p className="text-xl font-bold text-foreground">
+                          {formatMoney(Number(afterPlatformFees || 0), displayCurrency)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">After Discount ({String(displayCurrency).toUpperCase()})</p>
+                        <p className="text-xl font-bold text-green-600">
+                          {formatMoney(Number(afterDiscount || 0), displayCurrency)}
+                        </p>
+                        {discountValue > 0 ? (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Discount applied: {formatMoney(Number(discountValue || 0), displayCurrency)}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">After Host Fees ({String(displayCurrency).toUpperCase()})</p>
                         <p className="text-xl font-bold text-emerald-600">
                           {formatMoney(Number(hostEarned || 0), displayCurrency)}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Host fee deducted: {formatMoney(Number(hostFeeValue || 0), displayCurrency)}
                         </p>
                       </div>
                       <div>
