@@ -9211,8 +9211,13 @@ END OF REPORT
                 </h3>
                 <Card className="p-4">
                   {(() => {
+                    const originalListing = getOriginalListingSubtotal(bookingFullDetails as Booking);
                     const { amount: hostNetAmount, currency: hostNetCurrency } = getHostNetEarningsForBooking(bookingFullDetails as Booking);
                     const displayCurrency = 'RWF';
+                    const convertedOriginalListingPrice = toRwfAmount(
+                      Math.max(0, Number(originalListing.listingSubtotal || 0)),
+                      originalListing.currency
+                    );
                     const convertedHostNetEarnings = toRwfAmount(
                       hostNetAmount,
                       hostNetCurrency
@@ -9230,6 +9235,12 @@ END OF REPORT
 
                     return (
                       <div className="space-y-4">
+                        <div className="rounded-xl border bg-muted/20 p-4">
+                          <p className="text-xs uppercase tracking-wide text-muted-foreground">Original Listing Price</p>
+                          <p className="text-2xl font-bold mt-1">{formatMoney(convertedOriginalListingPrice, displayCurrency)}</p>
+                          <p className="text-xs text-muted-foreground mt-1">Base listing amount before platform fees</p>
+                        </div>
+
                         <div className="rounded-xl border bg-muted/20 p-4">
                           <p className="text-xs uppercase tracking-wide text-muted-foreground">Host Net Amount</p>
                           <p className="text-2xl font-bold mt-1">{formatMoney(convertedHostNetEarnings, displayCurrency)}</p>

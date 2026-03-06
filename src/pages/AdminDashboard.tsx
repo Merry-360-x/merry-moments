@@ -5952,6 +5952,13 @@ For support, contact: support@merry360x.com
                   </div>
                   <div className="p-4">
                     {(() => {
+                      const serviceType: "accommodation" | "tour" | "transport" =
+                        selectedBooking.booking_type === "property"
+                          ? "accommodation"
+                          : selectedBooking.booking_type === "tour"
+                            ? "tour"
+                            : "transport";
+
                       const listingSourceCurrency =
                         selectedBooking.booking_type === "property" && selectedBooking.properties?.currency
                           ? selectedBooking.properties.currency
@@ -5968,6 +5975,25 @@ For support, contact: support@merry360x.com
                         listingSourceCurrency,
                         displayCurrency
                       );
+
+                      const guestPaidBaseAmount = Number(
+                        selectedBooking.checkout_requests?.total_amount || selectedBooking.total_price || 0
+                      );
+                      const guestPaidBaseCurrency = String(
+                        selectedBooking.checkout_requests?.currency || listingSourceCurrency || "RWF"
+                      );
+
+                      const hostEarnedBase = calculateHostEarningsFromGuestTotal(
+                        Math.max(0, guestPaidBaseAmount),
+                        serviceType
+                      ).hostNetEarnings;
+
+                      const hostEarned = convertAdminCurrency(
+                        Number(hostEarnedBase || 0),
+                        guestPaidBaseCurrency,
+                        displayCurrency
+                      );
+
                       const paidAmount = selectedBooking.checkout_requests
                         ? convertAdminCurrency(
                             Number(selectedBooking.checkout_requests.total_amount || 0),
@@ -6005,6 +6031,12 @@ For support, contact: support@merry360x.com
                           </p>
                         </div>
                       )}
+                      <div>
+                        <p className="text-xs text-muted-foreground">Amount Earned by Host ({String(displayCurrency).toUpperCase()})</p>
+                        <p className="text-xl font-bold text-emerald-600">
+                          {formatMoney(Number(hostEarned || 0), displayCurrency)}
+                        </p>
+                      </div>
                       <div>
                         <p className="text-xs text-muted-foreground">Payment Method</p>
                         <p className="text-sm font-medium">{paymentMethodLabel || "Not specified"}</p>
