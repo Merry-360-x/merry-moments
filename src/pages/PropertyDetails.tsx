@@ -27,7 +27,7 @@ import { convertAmount } from "@/lib/fx";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 
 type PropertyRow = {
@@ -2049,30 +2049,43 @@ export default function PropertyDetails() {
                       {isInTripCart ? t("propertyDetails.inTripCart") : t("propertyDetails.addToTripCart")}
                     </Button>
                     {!isMonthlyOnlyListing && breakfastAddon.breakfastEnabled ? (
-                      <div className="flex items-center gap-2">
-                        <Select
-                          value={breakfastPlan}
-                          onValueChange={(value) => setBreakfastPlan(value as "no_breakfast" | "with_breakfast")}
-                          disabled={bookingDisabled}
-                        >
-                          <SelectTrigger className="w-[260px]">
-                            <SelectValue placeholder="Select breakfast option" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="no_breakfast">No breakfast (Free)</SelectItem>
-                            <SelectItem value="with_breakfast">
-                              With breakfast (+{displayMoney(Number(breakfastAddon.breakfastPricePerNight), String(data.currency ?? "RWF"))} / night)
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          onClick={() => void submitBooking()}
-                          disabled={bookingDisabled}
-                          type="button"
-                        >
-                          {bookingCtaLabel}
-                        </Button>
-                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button type="button" disabled={bookingDisabled}>
+                            {bookingCtaLabel}
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            disabled={bookingDisabled}
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              setBreakfastPlan("no_breakfast");
+                            }}
+                          >
+                            {breakfastPlan === "no_breakfast" ? "No breakfast (Free) - selected" : "No breakfast (Free)"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={bookingDisabled}
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              setBreakfastPlan("with_breakfast");
+                            }}
+                          >
+                            {breakfastPlan === "with_breakfast"
+                              ? `With breakfast (+${displayMoney(Number(breakfastAddon.breakfastPricePerNight), String(data.currency ?? "RWF"))} / night) - selected`
+                              : `With breakfast (+${displayMoney(Number(breakfastAddon.breakfastPricePerNight), String(data.currency ?? "RWF"))} / night)`}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={bookingDisabled}
+                            onSelect={() => {
+                              void submitBooking();
+                            }}
+                          >
+                            Continue to checkout
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     ) : (
                       <Button
                         onClick={() => void submitBooking()}
