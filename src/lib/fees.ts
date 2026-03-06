@@ -216,3 +216,46 @@ export function calculateHostEarningsFromGuestTotal(
     platformTotalEarnings,
   };
 }
+
+/**
+ * Calculate booking totals from listing subtotal AFTER all discounts are applied.
+ *
+ * This enforces the canonical sequence:
+ * 1) listing subtotal (after discount)
+ * 2) add guest/platform fee -> guest total paid
+ * 3) deduct host/provider fee -> host net earnings
+ */
+export function calculateBookingFinancialsFromDiscountedListing(
+  discountedListingSubtotal: number,
+  serviceType: 'accommodation' | 'tour' | 'transport'
+): {
+  discountedListingSubtotal: number;
+  guestFee: number;
+  guestTotal: number;
+  hostFee: number;
+  hostNetEarnings: number;
+  platformTotalEarnings: number;
+  guestFeePercent: number;
+  hostFeePercent: number;
+} {
+  const base = Math.max(0, Number(discountedListingSubtotal || 0));
+  const guestFeePercent = getGuestFeePercent(serviceType);
+  const hostFeePercent = getHostOrProviderFeePercent(serviceType);
+
+  const guestFee = (base * guestFeePercent) / 100;
+  const guestTotal = base + guestFee;
+  const hostFee = (base * hostFeePercent) / 100;
+  const hostNetEarnings = base - hostFee;
+  const platformTotalEarnings = guestFee + hostFee;
+
+  return {
+    discountedListingSubtotal: base,
+    guestFee,
+    guestTotal,
+    hostFee,
+    hostNetEarnings,
+    platformTotalEarnings,
+    guestFeePercent,
+    hostFeePercent,
+  };
+}

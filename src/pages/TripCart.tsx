@@ -1,3 +1,4 @@
+import { calculateBookingFinancialsFromDiscountedListing, calculateGuestTotal } from "@/lib/fees";
 import { useMemo, useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { getTourPriceSuffix, getTourPricingModel } from "@/lib/tour-pricing";
@@ -16,7 +17,6 @@ import { formatMoney } from "@/lib/money";
 import { useTripCart, getGuestCart, getCartItemMetadata, saveCartItemMetadata, CartItemMetadata } from "@/hooks/useTripCart";
 import { useFxRates } from "@/hooks/useFxRates";
 import { convertAmount } from "@/lib/fx";
-import { calculateGuestTotal, PLATFORM_FEES } from "@/lib/fees";
 import { 
   Trash2, 
   Tag, 
@@ -366,6 +366,7 @@ export default function TripCart() {
     let baseSubtotalAmount = 0;
     let stayDiscountAmount = 0;
     let feesAmount = 0;
+    const itemSnapshots: Array<{ discountedAfterStay: number; isAccommodation: boolean }> = [];
     const curr = preferredCurrency || "RWF";
 
     cartItems.forEach((item) => {
@@ -398,11 +399,10 @@ export default function TripCart() {
       }
       
       // Calculate platform fees on the discounted amount
-      const afterDiscount = convertedBase - itemDiscount;
-      if (isProperty) {
-        const { platformFee } = calculateGuestTotal(afterDiscount, 'accommodation');
-        feesAmount += platformFee;
-      }
+      itemSnapshots.push({
+        discountedAfterStay: Math.max(0, convertedBase - itemDiscount),
+        isAccommodation: isProperty,
+      });
       // Tours: no guest fee
     });
 
@@ -420,6 +420,16 @@ export default function TripCart() {
         promoDiscountAmount = 0;
       }
     }
+
+    itemSnapshots.forEach((snapshot) => {
+      if (!snapshot.isAccommodation) return;
+      const promoShare = subtotalAfterStay > 0
+        ? (snapshot.discountedAfterStay / subtotalAfterStay) * promoDiscountAmount
+        : 0;
+      const discountedListingSubtotal = Math.max(0, snapshot.discountedAfterStay - promoShare);
+      const { guestFee } = calculateBookingFinancialsFromDiscountedListing(discountedListingSubtotal, 'accommodation');
+      feesAmount += guestFee;
+    });
 
     return {
       baseSubtotal: baseSubtotalAmount,

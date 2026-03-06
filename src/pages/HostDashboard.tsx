@@ -19,7 +19,7 @@ import { isVideoUrl } from "@/lib/media";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { formatMoney } from "@/lib/money";
 import { AMENITIES, AMENITIES_BY_CATEGORY } from "@/lib/amenities";
-import { calculateHostEarningsFromGuestTotal } from "@/lib/fees";
+import { calculateBookingFinancialsFromDiscountedListing, calculateHostEarningsFromGuestTotal } from "@/lib/fees";
 import { getTourPricingModel, getTourPricingModels } from "@/lib/tour-pricing";
 import { useFxRates } from "@/hooks/useFxRates";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -2416,34 +2416,25 @@ export default function HostDashboard() {
     tour_id?: string | null;
     transport_id?: string | null;
   }) => {
+    const bookingType = String(booking.booking_type || '').toLowerCase();
+    const serviceType: 'accommodation' | 'tour' | 'transport' =
+      bookingType === 'property'
+        ? 'accommodation'
+        : bookingType === 'tour'
+          ? 'tour'
+          : 'transport';
+
     if (!booking.order_id) {
       const listedAmount = Number(booking.total_price || 0);
-      return Number.isFinite(listedAmount) && listedAmount > 0 ? listedAmount : 0;
+      if (!Number.isFinite(listedAmount) || listedAmount <= 0) return 0;
+      return calculateBookingFinancialsFromDiscountedListing(listedAmount, serviceType).guestTotal;
     }
 
     const checkout = checkoutByOrderId[booking.order_id];
     const checkoutTotal = Number(checkout?.total_amount || 0);
-    if (!Number.isFinite(checkoutTotal) || checkoutTotal <= 0) {
-      const listedAmount = Number(booking.total_price || 0);
-      return Number.isFinite(listedAmount) && listedAmount > 0 ? listedAmount : 0;
-    }
-
-    const orderBookings = (bookings || []).filter((row) => row.order_id === booking.order_id);
-    if (orderBookings.length <= 1) {
-      const listedAmount = Number(booking.total_price || 0);
-      if (
-        Number.isFinite(listedAmount) &&
-        listedAmount > 0 &&
-        !isCheckoutAmountReasonable(checkoutTotal, listedAmount)
-      ) {
-        return listedAmount;
-      }
-      return checkoutTotal;
-    }
 
     const checkoutItems = checkout?.metadata?.items;
     if (Array.isArray(checkoutItems) && checkoutItems.length > 0) {
-      const bookingType = String(booking.booking_type || '').toLowerCase();
       const targetReferenceId = bookingType === 'property'
         ? booking.property_id
         : bookingType === 'tour'
@@ -2467,12 +2458,31 @@ export default function HostDashboard() {
           const quantity = Math.max(1, Number(matchedItem.quantity || 1));
           const itemPrice = Number(matchedItem.price || 0);
           const itemDiscount = Number(matchedItem.discount_applied || 0);
-          const itemNetTotal = (itemPrice * quantity) - itemDiscount;
-          if (Number.isFinite(itemNetTotal) && itemNetTotal >= 0) {
-            return itemNetTotal;
+          const discountedListingSubtotal = (itemPrice * quantity) - itemDiscount;
+          if (Number.isFinite(discountedListingSubtotal) && discountedListingSubtotal >= 0) {
+            return calculateBookingFinancialsFromDiscountedListing(discountedListingSubtotal, serviceType).guestTotal;
           }
         }
       }
+    }
+
+    if (!Number.isFinite(checkoutTotal) || checkoutTotal <= 0) {
+      const listedAmount = Number(booking.total_price || 0);
+      if (!Number.isFinite(listedAmount) || listedAmount <= 0) return 0;
+      return calculateBookingFinancialsFromDiscountedListing(listedAmount, serviceType).guestTotal;
+    }
+
+    const orderBookings = (bookings || []).filter((row) => row.order_id === booking.order_id);
+    if (orderBookings.length <= 1) {
+      const listedAmount = Number(booking.total_price || 0);
+      if (
+        Number.isFinite(listedAmount) &&
+        listedAmount > 0 &&
+        !isCheckoutAmountReasonable(checkoutTotal, listedAmount)
+      ) {
+        return listedAmount;
+      }
+      return checkoutTotal;
     }
 
     const listedAmount = Number(booking.total_price || 0);
@@ -2743,16 +2753,16 @@ export default function HostDashboard() {
   }, []);
 
   const getHostNetEarningsForBooking = useCallback((booking: Booking) => {
-    const { amount: guestPaidAmount, currency } = getResolvedBookingAmountForHost(booking);
-    const normalizedGuestPaid = Math.max(0, Number(guestPaidAmount || 0));
+    const listing = getOriginalListingSubtotal(booking);
+    const discountedListingSubtotal = Math.max(0, Number(listing.listingSubtotal || 0));
     const serviceType = getBookingServiceType(booking);
-    const earnings = calculateHostEarningsFromGuestTotal(normalizedGuestPaid, serviceType);
+    const earnings = calculateBookingFinancialsFromDiscountedListing(discountedListingSubtotal, serviceType);
 
     return {
       amount: Number.isFinite(earnings.hostNetEarnings) ? Math.max(0, earnings.hostNetEarnings) : 0,
-      currency,
+      currency: listing.currency,
     };
-  }, [getBookingServiceType, getResolvedBookingAmountForHost]);
+  }, [getBookingServiceType, getOriginalListingSubtotal]);
 
   const confirmedBookings = (bookings || []).filter((b) => {
     const status = String(b.status || "").toLowerCase();

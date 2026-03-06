@@ -21,7 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatMoney } from "@/lib/money";
 import {
-  calculateHostEarningsFromGuestTotal,
+  calculateBookingFinancialsFromDiscountedListing,
   getGuestFeePercent,
   setAccommodationGuestFeePercent as persistAccommodationGuestFeePercent,
 } from "@/lib/fees";
@@ -2712,25 +2712,62 @@ For support, contact: support@merry360x.com
 
         const checkoutAmount = Number(booking.checkout_requests?.total_amount || 0);
         const checkoutCurrency = String(booking.checkout_requests?.currency || booking.currency || listingSourceCurrency || "RWF");
-        const checkoutDiscount = Number(booking.checkout_requests?.metadata?.discount_amount || 0);
-        const checkoutDiscountRwf = toRwfAmount(Math.max(0, checkoutDiscount), checkoutCurrency);
-        const fallbackListingAmountRwf =
-          toRwfAmount(Number(booking.total_price || 0), listingSourceCurrency) *
-          (1 + getGuestFeePercent(serviceType) / 100);
-        const bookingAmountRwf = checkoutAmount > 0
-          ? toRwfAmount(checkoutAmount, checkoutCurrency)
-          : fallbackListingAmountRwf;
-        const bookingAmountBeforeDiscountRwf = bookingAmountRwf + checkoutDiscountRwf;
+        const checkoutItems = booking.checkout_requests?.metadata?.items;
+        const bookingTypeForItem = String(booking.booking_type || "").toLowerCase();
+        const targetReferenceId = bookingTypeForItem === "property"
+          ? booking.property_id
+          : bookingTypeForItem === "tour"
+            ? booking.tour_id
+            : booking.transport_id;
+        const allowedItemTypes = bookingTypeForItem === "property"
+          ? ["property"]
+          : bookingTypeForItem === "tour"
+            ? ["tour", "tour_package"]
+            : ["transport_vehicle", "transport"];
 
-        const earningsFromGuestTotal = calculateHostEarningsFromGuestTotal(bookingAmountRwf, serviceType);
-        const platformServiceFeesRwf = earningsFromGuestTotal.platformTotalEarnings;
+        const matchedItem = Array.isArray(checkoutItems) && targetReferenceId
+          ? checkoutItems.find((item: any) => {
+              const itemType = String(item?.item_type || "").toLowerCase();
+              const itemReferenceId = String(item?.reference_id || "");
+              return allowedItemTypes.includes(itemType) && itemReferenceId === String(targetReferenceId);
+            })
+          : null;
 
-        totals.totalAmountAfterPlatformFees += bookingAmountBeforeDiscountRwf;
-        totals.totalDiscountApplied += checkoutDiscountRwf;
-        totals.totalAmountBooked += bookingAmountRwf;
-        totals.totalAmountAfterPawapay += bookingAmountRwf * (1 - 0.031);
-        totals.totalAmountAfterServiceFees += bookingAmountRwf - platformServiceFeesRwf;
-        totals.earnedFromCharges += platformServiceFeesRwf;
+        const itemQuantity = Math.max(1, Number(matchedItem?.quantity || 1));
+        const itemPrice = Number(matchedItem?.price || 0);
+        const itemDiscount = Math.max(0, Number(matchedItem?.discount_applied || 0));
+
+        const discountCurrency = String(
+          matchedItem?.calculated_price_currency || checkoutCurrency || listingSourceCurrency || "RWF"
+        ).toUpperCase();
+
+        const listingAfterDiscountRaw = matchedItem
+          ? Math.max(0, (itemPrice * itemQuantity) - itemDiscount)
+          : checkoutAmount > 0
+            ? Math.max(0, checkoutAmount / (1 + getGuestFeePercent(serviceType) / 100))
+            : Math.max(0, Number(booking.total_price || 0));
+
+        const listingAfterDiscountCurrency = String(
+          matchedItem?.calculated_price_currency || checkoutCurrency || listingSourceCurrency || "RWF"
+        ).toUpperCase();
+
+        const financials = calculateBookingFinancialsFromDiscountedListing(listingAfterDiscountRaw, serviceType);
+
+        const checkoutDiscountRaw = Math.max(0, Number(booking.checkout_requests?.metadata?.discount_amount || 0));
+        const computedDiscountRaw = matchedItem ? itemDiscount : checkoutDiscountRaw;
+        const discountAppliedRwf = toRwfAmount(computedDiscountRaw, discountCurrency);
+
+        const guestTotalRwf = toRwfAmount(financials.guestTotal, listingAfterDiscountCurrency);
+        const platformGuestFeeRwf = toRwfAmount(financials.guestFee, listingAfterDiscountCurrency);
+        const hostFeeRwf = toRwfAmount(financials.hostFee, listingAfterDiscountCurrency);
+        const hostNetRwf = toRwfAmount(financials.hostNetEarnings, listingAfterDiscountCurrency);
+
+        totals.totalAmountAfterPlatformFees += guestTotalRwf + discountAppliedRwf;
+        totals.totalDiscountApplied += discountAppliedRwf;
+        totals.totalAmountBooked += guestTotalRwf;
+        totals.totalAmountAfterPawapay += guestTotalRwf * (1 - 0.031);
+        totals.totalAmountAfterServiceFees += hostNetRwf;
+        totals.earnedFromCharges += platformGuestFeeRwf + hostFeeRwf;
 
         return totals;
       },
@@ -6030,40 +6067,70 @@ For support, contact: support@merry360x.com
 
                       const displayCurrency = "RWF";
 
-                      const paidAfterDiscountRaw = Math.max(
+                      const checkoutItems = selectedBooking.checkout_requests?.metadata?.items;
+                      const bookingTypeForItem = String(selectedBooking.booking_type || "").toLowerCase();
+                      const targetReferenceId = bookingTypeForItem === "property"
+                        ? selectedBooking.property_id
+                        : bookingTypeForItem === "tour"
+                          ? selectedBooking.tour_id
+                          : selectedBooking.transport_id;
+                      const allowedItemTypes = bookingTypeForItem === "property"
+                        ? ["property"]
+                        : bookingTypeForItem === "tour"
+                          ? ["tour", "tour_package"]
+                          : ["transport_vehicle", "transport"];
+
+                      const matchedItem = Array.isArray(checkoutItems) && targetReferenceId
+                        ? checkoutItems.find((item: any) => {
+                            const itemType = String(item?.item_type || "").toLowerCase();
+                            const itemReferenceId = String(item?.reference_id || "");
+                            return allowedItemTypes.includes(itemType) && itemReferenceId === String(targetReferenceId);
+                          })
+                        : null;
+
+                      const checkoutAmount = Math.max(
                         0,
                         Number(selectedBooking.checkout_requests?.total_amount || selectedBooking.total_price || 0)
                       );
                       const paidCurrency = String(
-                        selectedBooking.checkout_requests?.currency || listingSourceCurrency || "RWF"
+                        matchedItem?.calculated_price_currency || selectedBooking.checkout_requests?.currency || listingSourceCurrency || "RWF"
                       );
-                      const discountRaw = Math.max(
-                        0,
-                        Number(selectedBooking.checkout_requests?.metadata?.discount_amount || 0)
-                      );
-                      const paidBeforeDiscountRaw = paidAfterDiscountRaw + discountRaw;
 
-                      const beforeDiscountBreakdown = calculateHostEarningsFromGuestTotal(
-                        paidBeforeDiscountRaw,
+                      const matchedItemQuantity = Math.max(1, Number(matchedItem?.quantity || 1));
+                      const matchedItemPrice = Number(matchedItem?.price || 0);
+                      const matchedItemDiscount = Math.max(0, Number(matchedItem?.discount_applied || 0));
+                      const discountRaw = matchedItem
+                        ? matchedItemDiscount
+                        : Math.max(0, Number(selectedBooking.checkout_requests?.metadata?.discount_amount || 0));
+
+                      const listingAfterDiscountRaw = matchedItem
+                        ? Math.max(0, (matchedItemPrice * matchedItemQuantity) - matchedItemDiscount)
+                        : checkoutAmount > 0
+                          ? Math.max(0, checkoutAmount / (1 + getGuestFeePercent(serviceType) / 100))
+                          : Math.max(0, Number(selectedBooking.total_price || 0));
+
+                      const listingBeforeDiscountRaw = listingAfterDiscountRaw + discountRaw;
+                      const beforeDiscountBreakdown = calculateBookingFinancialsFromDiscountedListing(
+                        listingBeforeDiscountRaw,
                         serviceType
                       );
-                      const afterDiscountBreakdown = calculateHostEarningsFromGuestTotal(
-                        paidAfterDiscountRaw,
+                      const afterDiscountBreakdown = calculateBookingFinancialsFromDiscountedListing(
+                        listingAfterDiscountRaw,
                         serviceType
                       );
 
                       const actualListingPrice = convertAdminCurrency(
-                        Number(beforeDiscountBreakdown.basePrice || 0),
+                        Number(listingBeforeDiscountRaw || 0),
                         paidCurrency,
                         displayCurrency
                       );
                       const afterPlatformFees = convertAdminCurrency(
-                        Number(paidBeforeDiscountRaw || 0),
+                        Number(beforeDiscountBreakdown.guestTotal || 0),
                         paidCurrency,
                         displayCurrency
                       );
                       const afterDiscount = convertAdminCurrency(
-                        Number(paidAfterDiscountRaw || 0),
+                        Number(afterDiscountBreakdown.guestTotal || 0),
                         paidCurrency,
                         displayCurrency
                       );

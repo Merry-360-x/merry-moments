@@ -16,7 +16,11 @@ import { formatMoney } from "@/lib/money";
 import { useTripCart, CartItemMetadata, getCartItemMetadata } from "@/hooks/useTripCart";
 import { useFxRates } from "@/hooks/useFxRates";
 import { convertAmount, PAYMENT_CURRENCIES } from "@/lib/fx";
-import { calculateGuestTotal, calculateHostEarningsFromGuestTotal, PLATFORM_FEES } from "@/lib/fees";
+import {
+  calculateBookingFinancialsFromDiscountedListing,
+  calculateGuestTotal,
+  PLATFORM_FEES,
+} from "@/lib/fees";
 import { getFriendlyPaymentErrorMessage } from "@/lib/ui-errors";
 import { 
   ArrowLeft, 
@@ -685,8 +689,11 @@ export default function CheckoutNew() {
   const { subtotal, serviceFees, discount, stayDiscount, total, displayCurrency } = useMemo(() => {
     let subtotalAmount = 0;
     let stayDiscountAmount = 0;
-    let feesAmount = 0;
     const curr = preferredCurrency || "RWF";
+    const itemSnapshots: Array<{
+      discountedAfterStay: number;
+      isAccommodation: boolean;
+    }> = [];
 
     cartItems.forEach((item) => {
       // For properties, use nights from metadata; for other items use quantity
@@ -702,6 +709,7 @@ export default function CheckoutNew() {
       subtotalAmount += converted;
       
       // Apply weekly/monthly discount for properties
+      let stayDiscountForItem = 0;
       if (isProperty && nights > 0) {
         const weeklyDiscount = Number(item.weekly_discount ?? 0);
         const monthlyDiscount = Number(item.monthly_discount ?? 0);
@@ -711,25 +719,20 @@ export default function CheckoutNew() {
             ? weeklyDiscount 
             : 0;
         if (discountPercent > 0) {
-          stayDiscountAmount += Math.round((converted * discountPercent) / 100);
+            stayDiscountForItem = Math.round((converted * discountPercent) / 100);
+            stayDiscountAmount += stayDiscountForItem;
         }
       }
-      
-      if (isProperty) {
-        // Calculate fees on the discounted amount
-        const discountedAmount = converted - (nights >= 30 
-          ? Math.round((converted * Number(item.monthly_discount ?? 0)) / 100)
-          : nights >= 7 
-            ? Math.round((converted * Number(item.weekly_discount ?? 0)) / 100)
-            : 0);
-        const { platformFee } = calculateGuestTotal(discountedAmount, 'accommodation');
-        feesAmount += platformFee;
-      }
+
+        itemSnapshots.push({
+          discountedAfterStay: Math.max(0, converted - stayDiscountForItem),
+          isAccommodation: isProperty,
+        });
     });
 
     let discountAmount = 0;
+      const afterStayDiscount = Math.max(0, subtotalAmount - stayDiscountAmount);
     if (appliedDiscount) {
-      const afterStayDiscount = subtotalAmount - stayDiscountAmount;
       if (appliedDiscount.discount_type === 'percentage') {
         discountAmount = afterStayDiscount * (appliedDiscount.discount_value / 100);
       } else {
@@ -741,12 +744,24 @@ export default function CheckoutNew() {
       }
     }
 
+    let feesAmount = 0;
+    itemSnapshots.forEach((snapshot) => {
+      if (!snapshot.isAccommodation) return;
+
+      const promoShare = afterStayDiscount > 0
+        ? (snapshot.discountedAfterStay / afterStayDiscount) * discountAmount
+        : 0;
+      const discountedListingSubtotal = Math.max(0, snapshot.discountedAfterStay - promoShare);
+      const { guestFee } = calculateBookingFinancialsFromDiscountedListing(discountedListingSubtotal, 'accommodation');
+      feesAmount += guestFee;
+    });
+
     return {
       subtotal: subtotalAmount,
       stayDiscount: stayDiscountAmount,
       serviceFees: feesAmount,
       discount: discountAmount,
-      total: subtotalAmount - stayDiscountAmount + feesAmount - discountAmount,
+      total: afterStayDiscount - discountAmount + feesAmount,
       displayCurrency: curr,
     };
   }, [cartItems, preferredCurrency, usdRates, appliedDiscount]);
@@ -965,22 +980,45 @@ export default function CheckoutNew() {
         // so booking records can store a consistent (amount + currency) pair.
         // Payment conversion to RWF is handled separately at the checkout level.
         const converted = itemTotal;
-        const feeResult = isAccommodation 
-          ? calculateGuestTotal(converted, 'accommodation') 
-          : { guestTotal: converted, platformFee: 0 };
+        const weeklyDiscount = Number(item.weekly_discount ?? 0);
+        const monthlyDiscount = Number(item.monthly_discount ?? 0);
+        const stayDiscountPercent = isAccommodation && nights > 0
+          ? (nights >= 30 && monthlyDiscount > 0
+              ? monthlyDiscount
+              : nights >= 7 && weeklyDiscount > 0
+                ? weeklyDiscount
+                : 0)
+          : 0;
+        const stayDiscountForItem = stayDiscountPercent > 0
+          ? Math.round((converted * stayDiscountPercent) / 100)
+          : 0;
+        const itemAfterStayDiscount = Math.max(0, converted - stayDiscountForItem);
         
         // Apply proportional discount
         let itemDiscount = 0;
-        if (discount > 0) {
-          itemDiscount = (converted / subtotal) * discount;
+        const discountableSubtotal = Math.max(0, subtotal - stayDiscount);
+        if (discount > 0 && discountableSubtotal > 0) {
+          itemDiscount = (itemAfterStayDiscount / discountableSubtotal) * discount;
         }
+
+        const totalItemDiscount = stayDiscountForItem + itemDiscount;
+        const discountedListingSubtotal = Math.max(0, converted - totalItemDiscount);
+        const itemServiceType: 'accommodation' | 'tour' | 'transport' =
+          isAccommodation
+            ? 'accommodation'
+            : (item.item_type === 'tour' || item.item_type === 'tour_package')
+              ? 'tour'
+              : 'transport';
+        const financials = isAccommodation
+          ? calculateBookingFinancialsFromDiscountedListing(discountedListingSubtotal, 'accommodation')
+          : calculateBookingFinancialsFromDiscountedListing(discountedListingSubtotal, itemServiceType);
         
         return {
           ...item,
-          calculated_price: feeResult.guestTotal - itemDiscount,
+          calculated_price: financials.guestTotal,
           calculated_price_currency: item.currency,
-          platform_fee: feeResult.platformFee,
-          discount_applied: itemDiscount,
+          platform_fee: financials.guestFee,
+          discount_applied: totalItemDiscount,
         };
       });
       
@@ -1009,12 +1047,18 @@ export default function CheckoutNew() {
         });
       }
       
-      // Calculate host earnings from total
+      // Calculate host earnings from total guest-paid amount (already includes discount-first pricing)
       const serviceType: 'accommodation' | 'tour' | 'transport' = 
         cartItems.some(i => i.item_type === 'property') ? 'accommodation' 
         : cartItems.some(i => i.item_type === 'tour' || i.item_type === 'tour_package') ? 'tour' 
         : 'transport';
-      const earningsFullCalc = calculateHostEarningsFromGuestTotal(Math.round(amountInRwf), serviceType);
+      const guestFeePercent = PLATFORM_FEES[serviceType].guestFeePercent;
+      const hostFeePercent = serviceType === 'accommodation'
+        ? PLATFORM_FEES.accommodation.hostFeePercent
+        : PLATFORM_FEES[serviceType].providerFeePercent;
+      const discountedListingSubtotalRwf = Math.round(amountInRwf / (1 + (guestFeePercent / 100)));
+      const hostFeeAmountRwf = Math.round((discountedListingSubtotalRwf * hostFeePercent) / 100);
+      const hostEarningsAmountRwf = discountedListingSubtotalRwf - hostFeeAmountRwf;
       
       // Create a single checkout request with all cart items in metadata
       const checkoutData: any = {
@@ -1026,9 +1070,9 @@ export default function CheckoutNew() {
         total_amount: Math.round(amountInRwf),
         currency: 'RWF', // Always store in RWF
         // Fee breakdown fields
-        base_price_amount: Math.round(earningsFullCalc.basePrice),
+        base_price_amount: discountedListingSubtotalRwf,
         service_fee_amount: Math.round(serviceFees * (displayCurrency === 'RWF' ? 1 : (amountInRwf / payableAmount))),
-        host_earnings_amount: Math.round(earningsFullCalc.hostNetEarnings),
+        host_earnings_amount: hostEarningsAmountRwf,
         payment_status: 'pending',
         payment_method: paymentMethod === 'card' ? 'card' : paymentMethod === 'bank' ? 'bank_transfer' : 'mobile_money',
         metadata: {
