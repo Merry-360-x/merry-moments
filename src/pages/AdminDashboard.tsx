@@ -3029,14 +3029,11 @@ For support, contact: support@merry360x.com
                   <Card className="p-4">
                     <div className="flex items-center gap-2 text-muted-foreground mb-1">
                   <Wallet className="w-4 h-4" />
-                  <span className="text-sm">After Discount Applied</span>
+                  <span className="text-sm">Discount Amount</span>
                     </div>
-                    <p className="text-2xl font-bold text-foreground">{formatMoney(adminPaidFinancialOverview.totalAmountBooked, "RWF")}</p>
+                    <p className="text-2xl font-bold text-foreground">{formatMoney(adminPaidFinancialOverview.totalDiscountApplied, "RWF")}</p>
                     <p className="text-xs text-muted-foreground">
-                      Guest-paid totals after discounts
-                      {adminPaidFinancialOverview.totalDiscountApplied > 0
-                        ? ` (discounts: ${formatMoney(adminPaidFinancialOverview.totalDiscountApplied, "RWF")})`
-                        : ""}
+                      Total discounts applied across confirmed/completed paid bookings
                     </p>
                   </Card>
                   <Card className="p-4">
