@@ -2664,6 +2664,35 @@ For support, contact: support@merry360x.com
     ? correctedRevenueGross
     : (metrics?.revenue_gross ?? 0);
 
+  const adminHostNetEarningsTotal = useMemo(() => {
+    return bookings.reduce((sum, booking) => {
+      const status = String(booking.status || "").toLowerCase();
+      if (status !== "confirmed" && status !== "completed") return sum;
+
+      const paymentStatus = String(booking.checkout_requests?.payment_status || booking.payment_status || "").toLowerCase();
+      if (["failed", "pending", "requested", "unpaid", "not_paid", "expired"].includes(paymentStatus)) return sum;
+      if (paymentStatus === "requested" || paymentStatus === "refunded" || paymentStatus.includes("refund")) return sum;
+
+      const bookingType = String(booking.booking_type || "").toLowerCase();
+      const serviceType: "accommodation" | "tour" | "transport" =
+        bookingType === "property"
+          ? "accommodation"
+          : bookingType === "tour"
+            ? "tour"
+            : "transport";
+
+      const paidAmount = Number(booking.checkout_requests?.total_amount || booking.total_price || 0);
+      const paidCurrency = String(booking.checkout_requests?.currency || booking.currency || "RWF").toUpperCase();
+      const guestFeePercent = getGuestFeePercent(serviceType);
+      const listingSubtotalAfterDiscount = paidAmount > 0
+        ? Math.max(0, paidAmount / (1 + guestFeePercent / 100))
+        : 0;
+
+      const financials = calculateBookingFinancialsFromDiscountedListing(listingSubtotalAfterDiscount, serviceType);
+      return sum + toRwfAmount(financials.hostNetEarnings, paidCurrency);
+    }, 0);
+  }, [bookings]);
+
   const saveAccommodationGuestFee = () => {
     const parsed = Number(accommodationGuestFeeInput);
     if (!Number.isFinite(parsed)) {
@@ -2965,8 +2994,8 @@ For support, contact: support@merry360x.com
                   <Wallet className="w-4 h-4" />
                   <span className="text-sm">Amount All Hosts Earned</span>
                     </div>
-                    <p className="text-2xl font-bold text-foreground">{formatMoney(adminFinancialOverview.totalAmountAfterServiceFees, "RWF")}</p>
-                    <p className="text-xs text-muted-foreground">Combined host net earnings from confirmed/completed bookings</p>
+                    <p className="text-2xl font-bold text-foreground">{formatMoney(adminHostNetEarningsTotal, "RWF")}</p>
+                    <p className="text-xs text-muted-foreground">Combined host net earnings (same formula as Host Dashboard)</p>
                   </Card>
                   <Card className="p-4">
                     <div className="flex items-center gap-2 text-muted-foreground mb-1">
