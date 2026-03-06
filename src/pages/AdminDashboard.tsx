@@ -1027,56 +1027,86 @@ export default function AdminDashboard() {
 
   // Bookings - direct query with enhanced loading
   const { data: bookings = [], refetch: refetchBookings, isFetched: bookingsFetched, isLoading: isBookingsLoading } = useQuery({
-    queryKey: ["admin-bookings-direct", bookingStatus],
+    queryKey: ["admin-bookings-direct"],
     queryFn: async () => {
-      let q = supabase
-        .from("bookings")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(500);
-      if (bookingStatus && bookingStatus !== "all" && bookingStatus !== "refund_requested") {
-        q = bookingStatus === "pending"
-          ? q.in("status", ["pending", "pending_confirmation"])
-          : q.eq("status", bookingStatus);
+      const pageSize = 1000;
+      let from = 0;
+      const allRows: any[] = [];
+
+      while (true) {
+        const { data, error } = await supabase
+          .from("bookings")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .range(from, from + pageSize - 1);
+
+        if (error) {
+          console.error("Error fetching bookings:", error);
+          throw error;
+        }
+
+        const pageRows = data || [];
+        allRows.push(...pageRows);
+
+        if (pageRows.length < pageSize) {
+          break;
+        }
+
+        from += pageSize;
       }
-      const { data, error } = await q;
-      if (error) {
-        console.error("Error fetching bookings:", error);
-        throw error;
-      }
-      console.log("Bookings fetched:", data?.length || 0, "records");
+
+      console.log("Bookings fetched:", allRows.length, "records");
       
       // Fetch property, tour, transport, profile, and checkout details separately
-      const propertyIds = [...new Set(data?.filter(b => b.property_id).map(b => b.property_id))];
-      const tourIds = [...new Set(data?.filter(b => b.tour_id).map(b => b.tour_id))];
-      const transportIds = [...new Set(data?.filter(b => b.transport_id).map(b => b.transport_id))];
-      const guestIds = [...new Set(data?.filter(b => b.guest_id && !b.is_guest_booking).map(b => b.guest_id))];
-      const orderIds = [...new Set(data?.filter(b => b.order_id).map(b => b.order_id))];
-      
+      const propertyIds = [...new Set(allRows.filter(b => b.property_id).map(b => b.property_id))];
+      const tourIds = [...new Set(allRows.filter(b => b.tour_id).map(b => b.tour_id))];
+      const transportIds = [...new Set(allRows.filter(b => b.transport_id).map(b => b.transport_id))];
+      const guestIds = [...new Set(allRows.filter(b => b.guest_id && !b.is_guest_booking).map(b => b.guest_id))];
+      const orderIds = [...new Set(allRows.filter(b => b.order_id).map(b => b.order_id))];
+
+      const chunk = <T,>(items: T[], size: number): T[][] => {
+        const chunks: T[][] = [];
+        for (let i = 0; i < items.length; i += size) {
+          chunks.push(items.slice(i, i + size));
+        }
+        return chunks;
+      };
+
+      const fetchInChunks = async <T,>(ids: string[], fetcher: (subset: string[]) => Promise<T[]>): Promise<T[]> => {
+        if (ids.length === 0) return [];
+        const subsets = chunk(ids, 200);
+        const results = await Promise.all(subsets.map((subset) => fetcher(subset)));
+        return results.flat();
+      };
+
       const [properties, tours, vehicles, profiles, checkouts] = await Promise.all([
-        propertyIds.length > 0 
-          ? supabase.from("properties").select("id, title, images, currency").in("id", propertyIds).then(r => r.data || [])
-          : Promise.resolve([]),
-        tourIds.length > 0
-          ? supabase.from("tour_packages").select("id, title, currency").in("id", tourIds).then(r => r.data || [])
-          : Promise.resolve([]),
-        transportIds.length > 0
-          ? supabase.from("transport_vehicles").select("id, title, vehicle_type, currency").in("id", transportIds).then(r => r.data || [])
-          : Promise.resolve([]),
-        guestIds.length > 0
-          ? supabase.from("profiles").select("id, full_name, nickname, email, phone").in("id", guestIds).then(r => r.data || [])
-          : Promise.resolve([]),
-        orderIds.length > 0
-          ? supabase
-              .from("checkout_requests")
-              .select("id, total_amount, currency, payment_method, payment_status, metadata")
-              .in("id", orderIds)
-              .then(r => r.data || [])
-          : Promise.resolve([])
+        fetchInChunks(propertyIds, async (subset) => {
+          const { data } = await supabase.from("properties").select("id, title, images, currency").in("id", subset);
+          return data || [];
+        }),
+        fetchInChunks(tourIds, async (subset) => {
+          const { data } = await supabase.from("tour_packages").select("id, title, currency").in("id", subset);
+          return data || [];
+        }),
+        fetchInChunks(transportIds, async (subset) => {
+          const { data } = await supabase.from("transport_vehicles").select("id, title, vehicle_type, currency").in("id", subset);
+          return data || [];
+        }),
+        fetchInChunks(guestIds, async (subset) => {
+          const { data } = await supabase.from("profiles").select("id, full_name, nickname, email, phone").in("id", subset);
+          return data || [];
+        }),
+        fetchInChunks(orderIds, async (subset) => {
+          const { data } = await supabase
+            .from("checkout_requests")
+            .select("id, total_amount, currency, payment_method, payment_status, metadata")
+            .in("id", subset);
+          return data || [];
+        }),
       ]);
       
       // Map the data back to bookings
-      const enrichedData = (data || []).map(booking => {
+      const enrichedData = allRows.map(booking => {
         const enriched = { ...booking };
         if (booking.property_id) {
           enriched.properties = properties.find(p => p.id === booking.property_id) || null;
@@ -2580,13 +2610,19 @@ For support, contact: support@merry360x.com
   const filteredBookingsById = useMemo(() => {
     const query = bookingIdSearch.trim().toLowerCase();
 
+    const filteredByStatus = bookingStatus === "all" || bookingStatus === "refund_requested"
+      ? bookings
+      : bookingStatus === "pending"
+        ? bookings.filter((booking) => isPendingBookingStatus(booking.status))
+        : bookings.filter((booking) => String(booking.status || "").toLowerCase() === bookingStatus);
+
     const filteredByRefundRequest = bookingStatus === "refund_requested"
-      ? bookings.filter((booking) => {
+      ? filteredByStatus.filter((booking) => {
           const bookingId = String(booking.id || "").toLowerCase();
           const orderId = String(booking.order_id || "").toLowerCase();
           return refundRequestRefs.has(bookingId) || (orderId && refundRequestRefs.has(orderId));
         })
-      : bookings;
+      : filteredByStatus;
 
     if (!query) return filteredByRefundRequest;
     return filteredByRefundRequest.filter((booking) => {
