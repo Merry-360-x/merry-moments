@@ -2411,6 +2411,10 @@ export default function HostDashboard() {
     id?: string | null;
     order_id?: string | null;
     total_price?: number | null;
+    booking_type?: string | null;
+    property_id?: string | null;
+    tour_id?: string | null;
+    transport_id?: string | null;
   }) => {
     if (!booking.order_id) {
       const listedAmount = Number(booking.total_price || 0);
@@ -2437,11 +2441,52 @@ export default function HostDashboard() {
       return checkoutTotal;
     }
 
-    const listedAmount = Number(booking.total_price || 0);
-    if (Number.isFinite(listedAmount) && listedAmount > 0) return listedAmount;
+    const checkoutItems = checkout?.metadata?.items;
+    if (Array.isArray(checkoutItems) && checkoutItems.length > 0) {
+      const bookingType = String(booking.booking_type || '').toLowerCase();
+      const targetReferenceId = bookingType === 'property'
+        ? booking.property_id
+        : bookingType === 'tour'
+          ? booking.tour_id
+          : booking.transport_id;
 
+      const allowedItemTypes = bookingType === 'property'
+        ? ['property']
+        : bookingType === 'tour'
+          ? ['tour', 'tour_package']
+          : ['transport_vehicle', 'transport'];
+
+      if (targetReferenceId) {
+        const matchedItem = checkoutItems.find((item: any) => {
+          const itemType = String(item?.item_type || '').toLowerCase();
+          const itemReferenceId = String(item?.reference_id || '');
+          return allowedItemTypes.includes(itemType) && itemReferenceId === String(targetReferenceId);
+        });
+
+        if (matchedItem) {
+          const quantity = Math.max(1, Number(matchedItem.quantity || 1));
+          const itemPrice = Number(matchedItem.price || 0);
+          const itemDiscount = Number(matchedItem.discount_applied || 0);
+          const itemNetTotal = (itemPrice * quantity) - itemDiscount;
+          if (Number.isFinite(itemNetTotal) && itemNetTotal >= 0) {
+            return itemNetTotal;
+          }
+        }
+      }
+    }
+
+    const listedAmount = Number(booking.total_price || 0);
     const positiveRows = orderBookings.filter((row) => Number(row.total_price || 0) > 0);
     const positiveTotal = positiveRows.reduce((sum, row) => sum + Number(row.total_price || 0), 0);
+
+    if (
+      Number.isFinite(listedAmount) &&
+      listedAmount > 0 &&
+      Number.isFinite(positiveTotal) &&
+      positiveTotal > 0
+    ) {
+      return checkoutTotal * (listedAmount / positiveTotal);
+    }
 
     if (positiveRows.length === 0) {
       return checkoutTotal / orderBookings.length;
