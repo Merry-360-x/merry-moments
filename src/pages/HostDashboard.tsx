@@ -2698,18 +2698,9 @@ export default function HostDashboard() {
 
     const guestPaid = getBookingGuestPaidAmount(booking);
 
-    const orderDiscount = Number(checkout?.metadata?.discount_amount || 0);
-    let bookingDiscountShare = 0;
-    if (orderDiscount > 0 && booking.order_id) {
-      const orderBookings = (bookings || []).filter((b) => b.order_id === booking.order_id);
-      const orderBookingsTotal = orderBookings.reduce((sum, row) => sum + getBookingGuestPaidAmount(row), 0);
-      if (orderBookingsTotal > 0 && guestPaid > 0) {
-        bookingDiscountShare = orderDiscount * (guestPaid / orderBookingsTotal);
-      }
-    }
-
-    const adjustedGuestPaid = guestPaid + bookingDiscountShare;
-    const { basePrice } = calculateHostEarningsFromGuestTotal(adjustedGuestPaid, serviceType);
+    // Keep fallback calculations on post-discount paid value so host totals
+    // match admin financial metrics and avoid inflating net earnings.
+    const { basePrice } = calculateHostEarningsFromGuestTotal(guestPaid, serviceType);
 
     return {
       listingSubtotal: Number.isFinite(basePrice) ? Math.max(0, basePrice) : 0,
