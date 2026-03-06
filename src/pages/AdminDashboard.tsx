@@ -1026,7 +1026,7 @@ export default function AdminDashboard() {
   });
 
   // Bookings - direct query with enhanced loading
-  const { data: bookings = [], refetch: refetchBookings, isFetched: bookingsFetched, isLoading: isBookingsLoading } = useQuery({
+  const { data: bookings = [], refetch: refetchBookings, isLoading: isBookingsLoading } = useQuery({
     queryKey: ["admin-bookings-direct"],
     queryFn: async () => {
       const pageSize = 1000;
@@ -2708,9 +2708,9 @@ For support, contact: support@merry360x.com
     );
   }, [bookings]);
 
-  const displayedRevenueGross = bookingsFetched
-    ? adminPaidFinancialOverview.totalAmountBooked
-    : (metrics?.revenue_gross ?? 0);
+  const displayedRevenueGross =
+    adminPaidFinancialOverview.totalAmountAfterServiceFees +
+    adminPaidFinancialOverview.earnedFromCharges;
 
   const adminHostNetEarningsTotal = adminPaidFinancialOverview.totalAmountAfterServiceFees;
 
