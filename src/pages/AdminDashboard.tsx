@@ -4614,6 +4614,7 @@ For support, contact: support@merry360x.com
                       <TableHead className="w-[210px]">Schedule</TableHead>
                       <TableHead className="w-[60px] text-center">Guests</TableHead>
                       <TableHead className="w-[240px]">Payment & Amount</TableHead>
+                      <TableHead className="w-[170px]">Host Earning</TableHead>
                       <TableHead className="w-[100px]">Booking</TableHead>
                       <TableHead className="w-[340px] text-right">Actions</TableHead>
                     </TableRow>
@@ -4655,6 +4656,22 @@ For support, contact: support@merry360x.com
                       const paymentCurrencySource = String(b.checkout_requests?.currency || listingCurrency || "RWF");
                       const paymentAmountRwf = toRwfAmount(paymentAmountSource, paymentCurrencySource);
                       const paymentMethod = b.checkout_requests?.payment_method || b.payment_method || "—";
+                      const bookingType = String(b.booking_type || "").toLowerCase();
+                      const serviceType: "accommodation" | "tour" | "transport" =
+                        bookingType === "property"
+                          ? "accommodation"
+                          : bookingType === "tour"
+                            ? "tour"
+                            : "transport";
+                      const guestFeePercent = getGuestFeePercent(serviceType);
+                      const listingSubtotalAfterDiscount = paymentAmountSource > 0
+                        ? Math.max(0, paymentAmountSource / (1 + guestFeePercent / 100))
+                        : 0;
+                      const bookingFinancials = calculateBookingFinancialsFromDiscountedListing(
+                        listingSubtotalAfterDiscount,
+                        serviceType,
+                      );
+                      const hostEarningRwf = toRwfAmount(bookingFinancials.hostNetEarnings, paymentCurrencySource);
 
                       return (
                       <TableRow key={b.id}>
@@ -4775,6 +4792,16 @@ For support, contact: support@merry360x.com
                             {(refundRequestRefs.has(String(b.id || "").toLowerCase()) || (b.order_id && refundRequestRefs.has(String(b.order_id).toLowerCase()))) && (
                               <Badge className="bg-amber-100 text-amber-800">Refund Requested</Badge>
                             )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="align-top">
+                          <div className="space-y-1">
+                            <div className="font-medium whitespace-nowrap text-emerald-700">
+                              {formatMoney(hostEarningRwf, "RWF")}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              Net after fee ({bookingFinancials.hostFeePercent}%)
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -4946,7 +4973,7 @@ For support, contact: support@merry360x.com
                     })}
                     {filteredBookingsById.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                           No bookings found
                         </TableCell>
                       </TableRow>

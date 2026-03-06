@@ -17,6 +17,8 @@ import { useNotificationBadge, NotificationBadge } from "@/hooks/useNotification
 import { useFxRates } from "@/hooks/useFxRates";
 import { convertAmount } from "@/lib/fx";
 import { formatMoney } from "@/lib/money";
+import { calculateBookingFinancialsFromDiscountedListing, getGuestFeePercent } from "@/lib/fees";
+import { Banknote, Wallet } from "lucide-react";
 
 type HostApplication = {
   id: string;
@@ -489,6 +491,53 @@ export default function OperationsStaffDashboard() {
   const pendingBookings = bookings.filter(b => isPendingBookingStatus(b.status));
   const confirmedBookings = bookings.filter(b => b.status === 'confirmed');
 
+  const getBookingServiceType = (booking: Booking): 'accommodation' | 'tour' | 'transport' => {
+    const bookingType = String(booking.booking_type || '').toLowerCase();
+    if (bookingType === 'property') return 'accommodation';
+    if (bookingType === 'tour') return 'tour';
+    return 'transport';
+  };
+
+  const normalizePaymentStatus = (booking: Booking) => String(booking.payment_status || '').trim().toLowerCase();
+
+  const isConfirmedPaidBooking = (booking: Booking) => {
+    const status = String(booking.status || '').toLowerCase();
+    const payment = normalizePaymentStatus(booking);
+    const isConfirmed = status === 'confirmed' || status === 'completed';
+    const isUnpaidFlow = ['failed', 'pending', 'requested', 'unpaid', 'not_paid', 'expired'].includes(payment);
+    const isRefundFlow = payment === 'requested' || payment === 'refunded' || payment.includes('refund');
+    return isConfirmed && !isUnpaidFlow && !isRefundFlow;
+  };
+
+  const realEarnings = useMemo(() => {
+    return bookings.reduce(
+      (totals, booking) => {
+        if (!isConfirmedPaidBooking(booking)) return totals;
+
+        const paidAmount = Number(booking.total_price || 0);
+        const paidCurrency = String(booking.currency || 'RWF').toUpperCase();
+        const serviceType = getBookingServiceType(booking);
+        const guestFeePercent = getGuestFeePercent(serviceType);
+        const listingSubtotalAfterDiscount = paidAmount > 0
+          ? Math.max(0, paidAmount / (1 + guestFeePercent / 100))
+          : 0;
+
+        const financials = calculateBookingFinancialsFromDiscountedListing(
+          listingSubtotalAfterDiscount,
+          serviceType,
+        );
+
+        totals.hostNetEarnings += convertAmount(financials.hostNetEarnings, paidCurrency, 'RWF', usdRates) ?? financials.hostNetEarnings;
+        totals.platformEarnings += convertAmount(financials.platformTotalEarnings, paidCurrency, 'RWF', usdRates) ?? financials.platformTotalEarnings;
+        return totals;
+      },
+      {
+        hostNetEarnings: 0,
+        platformEarnings: 0,
+      }
+    );
+  }, [bookings, usdRates]);
+
   const userDataRows = useMemo(() => {
     const latestByUserId = new Map<string, HostApplication>();
     applications.forEach((app) => {
@@ -813,6 +862,30 @@ export default function OperationsStaffDashboard() {
             <CardContent>
               <div className="text-2xl font-bold">{transport.length}</div>
               <p className="text-xs text-muted-foreground mt-1">All transport options</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Real Host Earnings</CardTitle>
+              <Banknote className="h-4 w-4 text-emerald-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-emerald-600">{formatMoney(realEarnings.hostNetEarnings, 'RWF')}</div>
+              <p className="text-xs text-muted-foreground mt-1">Confirmed/completed, net after host fees</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Platform Earnings</CardTitle>
+              <Wallet className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatMoney(realEarnings.platformEarnings, 'RWF')}</div>
+              <p className="text-xs text-muted-foreground mt-1">Guest fee + host/provider fee</p>
             </CardContent>
           </Card>
         </div>

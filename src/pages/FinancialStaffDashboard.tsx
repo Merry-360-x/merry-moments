@@ -18,6 +18,7 @@ import { useNotificationBadge, NotificationBadge } from "@/hooks/useNotification
 import { useToast } from "@/hooks/use-toast";
 import { useFxRates } from "@/hooks/useFxRates";
 import { convertAmount } from "@/lib/fx";
+import { calculateBookingFinancialsFromDiscountedListing, getGuestFeePercent } from "@/lib/fees";
 
 type BookingRow = {
   id: string;
@@ -600,6 +601,48 @@ export default function FinancialStaffDashboard() {
   const isPendingBookingStatus = (status: string | null | undefined) =>
     status === 'pending' || status === 'pending_confirmation';
 
+  const normalizePaymentStatus = useCallback((booking: BookingRow) => {
+    const checkoutStatus = booking.checkout_requests?.payment_status;
+    return String(checkoutStatus || booking.payment_status || '').trim().toLowerCase();
+  }, []);
+
+  const isConfirmedPaidBooking = useCallback((booking: BookingRow) => {
+    const status = String(booking.status || '').toLowerCase();
+    const payment = normalizePaymentStatus(booking);
+    const isConfirmed = status === 'confirmed' || status === 'completed';
+    const isUnpaidFlow = ['failed', 'pending', 'requested', 'unpaid', 'not_paid', 'expired'].includes(payment);
+    const isRefundFlow = payment === 'requested' || payment === 'refunded' || payment.includes('refund');
+    return isConfirmed && !isUnpaidFlow && !isRefundFlow;
+  }, [normalizePaymentStatus]);
+
+  const getBookingServiceType = useCallback((booking: BookingRow): 'accommodation' | 'tour' | 'transport' => {
+    const bookingType = String(booking.booking_type || '').toLowerCase();
+    if (bookingType === 'property') return 'accommodation';
+    if (bookingType === 'tour') return 'tour';
+    return 'transport';
+  }, []);
+
+  const getBookingFinancials = useCallback((booking: BookingRow) => {
+    const paidAmount = Number(booking.checkout_requests?.total_amount || booking.total_price || 0);
+    const paidCurrency = String(booking.checkout_requests?.currency || booking.currency || dashboardCurrency).toUpperCase();
+    const serviceType = getBookingServiceType(booking);
+    const guestFeePercent = getGuestFeePercent(serviceType);
+    const listingSubtotalAfterDiscount = paidAmount > 0
+      ? Math.max(0, paidAmount / (1 + guestFeePercent / 100))
+      : 0;
+
+    const financials = calculateBookingFinancialsFromDiscountedListing(
+      listingSubtotalAfterDiscount,
+      serviceType,
+    );
+
+    return {
+      paidAmount,
+      paidCurrency,
+      ...financials,
+    };
+  }, [dashboardCurrency, getBookingServiceType]);
+
   // Filter bookings by date range
   const filteredBookings = useMemo(() => {
     return bookings.filter(b => {
@@ -645,6 +688,25 @@ export default function FinancialStaffDashboard() {
   const filteredRevenue = useMemo(() => {
     return completedBookings.reduce((sum, b) => sum + getBookingDisplayAmount(b), 0);
   }, [completedBookings, dashboardCurrency, usdRates]);
+
+  const realEarningsTotals = useMemo(() => {
+    return bookings.reduce(
+      (totals, booking) => {
+        if (!isConfirmedPaidBooking(booking)) return totals;
+
+        const financials = getBookingFinancials(booking);
+        totals.hostNetEarnings += convertToDashboardCurrency(financials.hostNetEarnings, financials.paidCurrency);
+        totals.platformEarnings += convertToDashboardCurrency(financials.platformTotalEarnings, financials.paidCurrency);
+        totals.guestPaid += convertToDashboardCurrency(financials.guestTotal, financials.paidCurrency);
+        return totals;
+      },
+      {
+        hostNetEarnings: 0,
+        platformEarnings: 0,
+        guestPaid: 0,
+      }
+    );
+  }, [bookings, convertToDashboardCurrency, getBookingFinancials, isConfirmedPaidBooking]);
 
   const exportReport = () => {
     const csvContent = [
@@ -733,7 +795,7 @@ export default function FinancialStaffDashboard() {
         </Card>
 
         {/* Metrics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
@@ -742,6 +804,32 @@ export default function FinancialStaffDashboard() {
             <CardContent>
               <div className="text-2xl font-bold">{revenueDisplay}</div>
               <p className="text-xs text-muted-foreground mt-1">Across all bookings</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Real Host Earnings</CardTitle>
+              <Banknote className="h-4 w-4 text-emerald-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-emerald-600">
+                {formatMoney(realEarningsTotals.hostNetEarnings, dashboardCurrency)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Confirmed/completed, net after host fees</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Platform Earnings</CardTitle>
+              <Wallet className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {formatMoney(realEarningsTotals.platformEarnings, dashboardCurrency)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Guest fee + host/provider fee</p>
             </CardContent>
           </Card>
 

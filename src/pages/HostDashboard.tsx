@@ -8641,6 +8641,48 @@ export default function HostDashboard() {
                 </Card>
               </div>
 
+              <Card className="p-4 mb-6">
+                <h3 className="text-lg font-semibold mb-3">Booking Earnings Breakdown</h3>
+                {filteredReportBookings.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No bookings found for the selected date range.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table className="min-w-[980px]">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Booking ID</TableHead>
+                          <TableHead>Order ID</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right">Paid Amount (RWF)</TableHead>
+                          <TableHead className="text-right">Host Net Earning (RWF)</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredReportBookings
+                          .slice()
+                          .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))
+                          .map((b) => {
+                            const { amount, currency } = getResolvedBookingAmountForHost(b);
+                            const paidAmountRwf = toRwfAmount(amount, currency);
+                            const { amount: hostNetAmount, currency: hostNetCurrency } = getHostNetEarningsForBooking(b);
+                            const hostNetRwf = toRwfAmount(hostNetAmount, hostNetCurrency);
+
+                            return (
+                              <TableRow key={b.id}>
+                                <TableCell className="font-mono text-xs break-all">{b.id}</TableCell>
+                                <TableCell className="font-mono text-xs break-all">{b.order_id || "-"}</TableCell>
+                                <TableCell className="capitalize">{String(b.status || "-")}</TableCell>
+                                <TableCell className="text-right font-medium">{formatMoney(paidAmountRwf, "RWF")}</TableCell>
+                                <TableCell className="text-right font-semibold text-emerald-600">{formatMoney(hostNetRwf, "RWF")}</TableCell>
+                              </TableRow>
+                            );
+                          })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </Card>
+
               {/* Export Buttons */}
               <div className="flex flex-wrap gap-3">
                 <Button 
