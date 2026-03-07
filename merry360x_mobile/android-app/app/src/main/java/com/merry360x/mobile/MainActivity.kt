@@ -1,7 +1,5 @@
 package com.merry360x.mobile
 
-import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -45,10 +43,13 @@ import com.merry360x.mobile.ui.screens.ProfileScreen
 import com.merry360x.mobile.ui.screens.TripCartScreen
 import com.merry360x.mobile.ui.screens.WishlistsScreen
 import com.merry360x.mobile.ui.screens.AuthBottomSheet
+import com.merry360x.mobile.ui.screens.AppCenterDestination
+import com.merry360x.mobile.ui.screens.AppCentersScreen
 import com.merry360x.mobile.viewmodel.AuthViewModel
 import com.merry360x.mobile.viewmodel.BookingViewModel
 import com.merry360x.mobile.viewmodel.FeatureViewModel
 import com.merry360x.mobile.viewmodel.HomeViewModel
+import com.merry360x.mobile.viewmodel.TripsViewModel
 
 private data class NavItem(
     val label: String,
@@ -70,10 +71,12 @@ class MainActivity : ComponentActivity() {
                 val authViewModel = remember { AuthViewModel(api) }
                 val homeViewModel = remember { HomeViewModel(api) }
                 val bookingViewModel = remember { BookingViewModel(api) }
+                val tripsViewModel = remember { TripsViewModel(api) }
                 val featureViewModel = remember { FeatureViewModel(featureApi) }
                 val authState by authViewModel.state.collectAsState()
                 val homeState by homeViewModel.state.collectAsState()
                 val bookingState by bookingViewModel.state.collectAsState()
+                val tripsState by tripsViewModel.state.collectAsState()
                 val featureState by featureViewModel.state.collectAsState()
                 
                 val navItems = listOf(
@@ -86,6 +89,7 @@ class MainActivity : ComponentActivity() {
                 
                 // Auth sheet state
                 var showAuthSheet by remember { mutableStateOf(false) }
+                var activeCenter by rememberSaveable { mutableStateOf<AppCenterDestination?>(null) }
                 val authSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
                 
                 // Auth Bottom Sheet
@@ -111,6 +115,10 @@ class MainActivity : ComponentActivity() {
                     if (authState.authenticated && hasDashboardRole) {
                         tab = 4
                     }
+                }
+
+                LaunchedEffect(authState.userId) {
+                    tripsViewModel.load(authState.userId)
                 }
 
                 Scaffold(
@@ -202,20 +210,45 @@ class MainActivity : ComponentActivity() {
                                 )
                                 2 -> MerryAIScreen()
                                 3 -> TripCartScreen(
-                                    isLoading = bookingState.submitting
+                                    bookings = tripsState.bookings,
+                                    isLoading = tripsState.loading || bookingState.submitting,
+                                    errorMessage = tripsState.error
                                 )
-                                4 -> ProfileScreen(
-                                    isLoggedIn = authState.authenticated,
-                                    userName = "Guest",
-                                    roles = authState.roles,
-                                    onLogin = { showAuthSheet = true },
-                                    onSignOut = { authViewModel.signOut() },
-                                    onBecomeHost = { authViewModel.becomeHost() },
-                                    onOpenDashboard = { path ->
-                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://merry360x.com$path"))
-                                        startActivity(intent)
-                                    }
-                                )
+                                4 -> if (activeCenter == null) {
+                                    ProfileScreen(
+                                        isLoggedIn = authState.authenticated,
+                                        userName = "Guest",
+                                        roles = authState.roles,
+                                        onLogin = { showAuthSheet = true },
+                                        onSignOut = { authViewModel.signOut() },
+                                        onBecomeHost = { authViewModel.becomeHost() },
+                                        onOpenDashboard = { path ->
+                                            activeCenter = when {
+                                                path.contains("admin") || path.contains("financial") || path.contains("operations") || path.contains("support") -> AppCenterDestination.BACKOFFICE
+                                                path.contains("host") -> AppCenterDestination.HOST_STUDIO
+                                                path.contains("affiliate") -> AppCenterDestination.AFFILIATE
+                                                else -> AppCenterDestination.BACKOFFICE
+                                            }
+                                        },
+                                        onNavigate = { target ->
+                                            activeCenter = when (target) {
+                                                "terms", "privacy", "refund", "safety", "help_center", "chat" -> AppCenterDestination.SUPPORT_LEGAL
+                                                "travel_stories" -> AppCenterDestination.HOST_STUDIO
+                                                "bookings", "checkout", "my_bookings" -> AppCenterDestination.BOOKINGS_CHECKOUT
+                                                "affiliate" -> AppCenterDestination.AFFILIATE
+                                                else -> null
+                                            }
+                                        }
+                                    )
+                                } else {
+                                    AppCentersScreen(
+                                        destination = activeCenter ?: AppCenterDestination.BACKOFFICE,
+                                        onBackToProfile = { activeCenter = null },
+                                        api = api,
+                                        userId = authState.userId,
+                                        accessToken = authState.accessToken,
+                                    )
+                                }
                             }
                         }
                     }

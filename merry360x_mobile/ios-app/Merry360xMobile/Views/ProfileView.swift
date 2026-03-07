@@ -2,28 +2,27 @@ import SwiftUI
 
 struct ProfileView: View {
     @EnvironmentObject private var session: AppSessionViewModel
-    @Environment(\.openURL) private var openURL
     @StateObject private var viewModel = ProfileViewModel()
     @State private var showAuthSheet = false
     @State private var becomingHost = false
     @State private var hostActionMessage: String?
+    @State private var activeCenter: AppCenterDestination?
 
     private var normalizedRoles: Set<String> {
         Set(session.roles.map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() })
     }
 
-    private var dashboardEntries: [(systemName: String, title: String, path: String)] {
-        var entries: [(String, String, String)] = []
-        if session.isAuthenticated { entries.append(("rectangle.grid.2x2", "My Dashboard", "/dashboard")) }
-        if normalizedRoles.contains("admin") { entries.append(("shield", "Admin Dashboard", "/admin")) }
-        if normalizedRoles.contains("admin") { entries.append(("person.2.badge.gearshape", "Admin Roles", "/admin/roles")) }
-        if normalizedRoles.contains("admin") { entries.append(("link.badge.plus", "Admin Integrations", "/admin/integrations")) }
-        if normalizedRoles.contains("financial_staff") { entries.append(("dollarsign.circle", "Financial Dashboard", "/financial-dashboard")) }
-        if normalizedRoles.contains("operations_staff") { entries.append(("gearshape", "Operations Dashboard", "/operations-dashboard")) }
-        if normalizedRoles.contains("customer_support") { entries.append(("headphones", "Support Dashboard", "/customer-support-dashboard")) }
-        if normalizedRoles.contains("host") { entries.append(("house", "Host Dashboard", "/host-dashboard")) }
-        if normalizedRoles.contains("affiliate") { entries.append(("link", "Affiliate Dashboard", "/affiliate-dashboard")) }
-        if normalizedRoles.contains("affiliate") { entries.append(("person.crop.circle.badge.checkmark", "Affiliate Portal", "/affiliate")) }
+    private var dashboardEntries: [(systemName: String, title: String, destination: AppCenterDestination)] {
+        var entries: [(String, String, AppCenterDestination)] = []
+        if normalizedRoles.contains("admin") || normalizedRoles.contains("financial_staff") || normalizedRoles.contains("operations_staff") || normalizedRoles.contains("customer_support") {
+            entries.append(("shield", "Backoffice Center", .backoffice))
+        }
+        if normalizedRoles.contains("host") {
+            entries.append(("house", "Host Studio", .hostStudio))
+        }
+        if normalizedRoles.contains("affiliate") {
+            entries.append(("link", "Affiliate Center", .affiliateCenter))
+        }
         return entries
     }
     
@@ -121,38 +120,56 @@ struct ProfileView: View {
                 
                 // Explore Section
                 ProfileSection(title: "Explore") {
-                    ProfileMenuItem(systemName: "camera", title: "Travel Stories")
+                    ProfileMenuItem(systemName: "camera", title: "Travel Stories") {
+                        activeCenter = .hostStudio
+                    }
+                    ProfileMenuItem(systemName: "link", title: "Affiliate Program") {
+                        activeCenter = .affiliateCenter
+                    }
                 }
                 
                 // Legal Section
                 ProfileSection(title: "Legal") {
-                    ProfileMenuItem(systemName: "doc.text", title: "Terms & Conditions")
-                    ProfileMenuItem(systemName: "lock", title: "Privacy Policy")
-                    ProfileMenuItem(systemName: "arrow.uturn.left", title: "Refund Policy")
-                    ProfileMenuItem(systemName: "checkmark.shield", title: "Safety Guidelines")
+                    ProfileMenuItem(systemName: "doc.text", title: "Terms & Conditions") {
+                        activeCenter = .supportLegal
+                    }
+                    ProfileMenuItem(systemName: "lock", title: "Privacy Policy") {
+                        activeCenter = .supportLegal
+                    }
+                    ProfileMenuItem(systemName: "arrow.uturn.left", title: "Refund Policy") {
+                        activeCenter = .supportLegal
+                    }
+                    ProfileMenuItem(systemName: "checkmark.shield", title: "Safety Guidelines") {
+                        activeCenter = .supportLegal
+                    }
                 }
                 
                 // Help Section
                 ProfileSection(title: "Help") {
-                    ProfileMenuItem(systemName: "bubble.left", title: "Let's Chat")
-                    ProfileMenuItem(systemName: "questionmark.circle", title: "Help Center")
+                    ProfileMenuItem(systemName: "bubble.left", title: "Let's Chat") {
+                        activeCenter = .supportLegal
+                    }
+                    ProfileMenuItem(systemName: "questionmark.circle", title: "Help Center") {
+                        activeCenter = .supportLegal
+                    }
                     ProfileMenuItem(systemName: "star", title: "App Store")
                     ProfileMenuItem(systemName: "play.fill", title: "Google Play")
                 }
                 
-                // Parity Section
-                ProfileSection(title: "Parity") {
-                    ProfileMenuItem(systemName: "iphone", title: "All Website Pages")
-                }
-                
                 if session.isAuthenticated && !dashboardEntries.isEmpty {
                     ProfileSection(title: "Dashboards") {
-                        ForEach(dashboardEntries, id: \.path) { item in
+                        ForEach(dashboardEntries, id: \.title) { item in
                             ProfileMenuItem(systemName: item.systemName, title: item.title) {
-                                if let url = URL(string: "\(MobileConfig.apiBaseUrl)\(item.path)") {
-                                    openURL(url)
-                                }
+                                activeCenter = item.destination
                             }
+                        }
+                    }
+                }
+
+                if session.isAuthenticated {
+                    ProfileSection(title: "Bookings") {
+                        ProfileMenuItem(systemName: "calendar", title: "Bookings & Checkout") {
+                            activeCenter = .bookingsCheckout
                         }
                     }
                 }
@@ -183,6 +200,10 @@ struct ProfileView: View {
             AuthBottomSheet(isPresented: $showAuthSheet)
                 .presentationDetents([.large])
                 .presentationDragIndicator(.hidden)
+        }
+        .sheet(item: $activeCenter) { destination in
+            AppCentersView(destination: destination)
+                .environmentObject(session)
         }
         .task {
             if let userId = session.userId {

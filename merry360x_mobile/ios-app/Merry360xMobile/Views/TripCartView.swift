@@ -8,8 +8,29 @@ enum TripTab: String, CaseIterable {
 }
 
 struct TripCartView: View {
+    @EnvironmentObject private var session: AppSessionViewModel
     @State private var selectedTab: TripTab = .cart
     @State private var isLoading = false
+    @State private var bookings: [[String: Any]] = []
+    @State private var errorMessage: String?
+
+    private let service = SupabaseService()
+
+    private var filteredBookings: [[String: Any]] {
+        switch selectedTab {
+        case .cart:
+            return bookings.filter { String(($0["status"] as? String ?? "")).lowercased() == "pending" }
+        case .upcoming:
+            return bookings.filter {
+                let status = String(($0["status"] as? String ?? "")).lowercased()
+                return status == "confirmed" || status == "completed"
+            }
+        case .completed:
+            return bookings.filter { String(($0["status"] as? String ?? "")).lowercased() == "completed" }
+        case .cancelled:
+            return bookings.filter { String(($0["status"] as? String ?? "")).lowercased() == "cancelled" }
+        }
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -39,13 +60,70 @@ struct TripCartView: View {
                         .font(.system(size: 15))
                         .foregroundColor(.gray)
                 }
-            } else {
+            } else if let errorMessage {
+                Text(errorMessage)
+                    .font(.system(size: 14))
+                    .foregroundColor(.red)
+                    .padding(.horizontal, 20)
+            } else if filteredBookings.isEmpty {
                 TripEmptyState(tab: selectedTab)
+            } else {
+                ScrollView {
+                    VStack(spacing: 10) {
+                        ForEach(Array(filteredBookings.enumerated()), id: \.offset) { _, booking in
+                            BookingRow(booking: booking)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
             }
             
             Spacer()
         }
         .background(Color.white)
+        .task {
+            await loadBookings()
+        }
+    }
+
+    private func loadBookings() async {
+        guard let userId = session.userId, let service else {
+            errorMessage = "Login required to view bookings."
+            return
+        }
+
+        isLoading = true
+        errorMessage = nil
+        do {
+            bookings = try await service.fetchUserBookings(userId: userId)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isLoading = false
+    }
+}
+
+private struct BookingRow: View {
+    let booking: [String: Any]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Booking \(String(describing: booking["id"] as? String ?? "" ).prefix(8))")
+                .font(.system(size: 14, weight: .semibold))
+
+            Text("Status: \(String(booking["status"] as? String ?? "pending").capitalized)")
+                .font(.system(size: 12))
+                .foregroundColor(.gray)
+
+            let currency = String(booking["currency"] as? String ?? "RWF")
+            let amount = NumberFormatter.localizedString(from: NSNumber(value: Double(booking["total_price"] as? Double ?? 0)), number: .decimal)
+            Text("\(currency) \(amount)")
+                .font(.system(size: 13, weight: .medium))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }
 

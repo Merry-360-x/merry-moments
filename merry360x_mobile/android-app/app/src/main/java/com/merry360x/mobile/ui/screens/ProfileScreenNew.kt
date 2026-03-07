@@ -31,7 +31,6 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Payments
-import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
@@ -72,6 +71,8 @@ fun ProfileScreen(
         if (normalizedRoles.contains("operations_staff")) add(Pair("Operations Dashboard", "/operations-dashboard"))
         if (normalizedRoles.contains("customer_support")) add(Pair("Support Dashboard", "/customer-support-dashboard"))
         if (normalizedRoles.contains("host")) add(Pair("Host Dashboard", "/host-dashboard"))
+        if (normalizedRoles.contains("affiliate")) add(Pair("Affiliate Dashboard", "/affiliate-dashboard"))
+        if (normalizedRoles.contains("affiliate")) add(Pair("Affiliate Portal", "/affiliate"))
     }
 
     Column(
@@ -192,6 +193,21 @@ fun ProfileScreen(
             ProfileMenuItem(icon = Icons.Default.CameraAlt, title = "Travel Stories") {
                 onNavigate("travel_stories")
             }
+            ProfileMenuItem(icon = Icons.Default.Payments, title = "Affiliate Program") {
+                onNavigate("affiliate")
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Bookings Section
+            ProfileSectionHeader("Bookings")
+
+            ProfileMenuItem(icon = Icons.Default.Home, title = "My Bookings") {
+                onNavigate("my_bookings")
+            }
+            ProfileMenuItem(icon = Icons.Default.Payments, title = "Checkout & Payment Status") {
+                onNavigate("checkout")
+            }
             
             Spacer(modifier = Modifier.height(20.dp))
             
@@ -227,15 +243,6 @@ fun ProfileScreen(
             }
             ProfileMenuItem(icon = Icons.Default.PlayArrow, title = "Google Play") {
                 onNavigate("google_play")
-            }
-            
-            Spacer(modifier = Modifier.height(20.dp))
-            
-            // Parity Section
-            ProfileSectionHeader("Parity")
-            
-            ProfileMenuItem(icon = Icons.Default.PhoneAndroid, title = "All Website Pages") {
-                onNavigate("website_pages")
             }
             
             Spacer(modifier = Modifier.height(20.dp))

@@ -15,3 +15,13 @@ data class BookingDraft(
     val totalPrice: Double,
     val currency: String,
 )
+
+data class BookingRecord(
+    val id: String,
+    val status: String,
+    val paymentStatus: String,
+    val totalPrice: Double,
+    val currency: String,
+    val checkIn: String?,
+    val checkOut: String?,
+)

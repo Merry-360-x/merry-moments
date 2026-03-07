@@ -11,6 +11,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,6 +29,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.merry360x.mobile.data.BookingRecord
+import com.merry360x.mobile.theme.CardGray
 import com.merry360x.mobile.theme.Coral
 
 private enum class TripTab(val title: String) {
@@ -35,10 +42,21 @@ private enum class TripTab(val title: String) {
 
 @Composable
 fun TripCartScreen(
-    cartCount: Int = 0,
-    isLoading: Boolean = false
+    bookings: List<BookingRecord> = emptyList(),
+    isLoading: Boolean = false,
+    errorMessage: String? = null,
 ) {
     var selectedTab by remember { mutableStateOf(TripTab.CART) }
+    val filteredBookings = remember(selectedTab, bookings) {
+        when (selectedTab) {
+            TripTab.CART -> bookings.filter { it.status.equals("pending", true) }
+            TripTab.UPCOMING -> bookings.filter {
+                it.status.equals("confirmed", true) || it.status.equals("completed", true)
+            }
+            TripTab.COMPLETED -> bookings.filter { it.status.equals("completed", true) }
+            TripTab.CANCELLED -> bookings.filter { it.status.equals("cancelled", true) }
+        }
+    }
     
     Column(
         modifier = Modifier
@@ -85,6 +103,19 @@ fun TripCartScreen(
                         )
                     }
                 }
+                errorMessage != null -> {
+                    Text(text = errorMessage, color = Color.Red)
+                }
+                filteredBookings.isNotEmpty() -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(filteredBookings) { booking ->
+                            BookingTripRow(booking)
+                        }
+                    }
+                }
                 else -> {
                     TripEmptyState(tab = selectedTab)
                 }
@@ -93,6 +124,20 @@ fun TripCartScreen(
     }
 }
 
+@Composable
+private fun BookingTripRow(booking: BookingRecord) {
+    Card(shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = CardGray)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Booking ${booking.id.take(8)}", fontWeight = FontWeight.SemiBold)
+            Text("Status: ${booking.status}", color = Color.Gray, fontSize = 13.sp)
+            Row {
+                Text("${booking.currency} ${String.format(\"%,.0f\", booking.totalPrice)}", fontWeight = FontWeight.Medium)
+                Spacer(modifier = Modifier.weight(1f))
+                Text(booking.paymentStatus, color = Color.Gray, fontSize = 12.sp)
+            }
+        }
+    }
+}
 @Composable
 private fun TripTabItem(
     title: String,
