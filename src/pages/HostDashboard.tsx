@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/Navbar";
@@ -386,16 +386,74 @@ const monthlyCancellationPolicyDetails: Record<"strict" | "fair", { title: strin
 const vehicleTypes = ["Sedan", "SUV", "Van", "Bus", "Minibus", "Motorcycle"];
 const tourCategories = ["Nature", "Adventure", "Cultural", "Wildlife", "Historical"];
 const tourDifficulties = ["Easy", "Moderate", "Hard"];
+
+type HostTabValue =
+  | "overview"
+  | "properties"
+  | "calendar-availability"
+  | "tours"
+  | "transport"
+  | "bookings"
+  | "manual-reviews"
+  | "discounts"
+  | "financial"
+  | "payout-methods";
+
+const HOST_TAB_STORAGE_KEY = "host-dashboard:last-tab";
+const HOST_TAB_VALUES: HostTabValue[] = [
+  "overview",
+  "properties",
+  "calendar-availability",
+  "tours",
+  "transport",
+  "bookings",
+  "manual-reviews",
+  "discounts",
+  "financial",
+  "payout-methods",
+];
+
+const isHostTabValue = (value: string | null | undefined): value is HostTabValue =>
+  Boolean(value && HOST_TAB_VALUES.includes(value as HostTabValue));
+
 export default function HostDashboard() {
   const { user, isHost, isLoading: authLoading, rolesLoading } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { usdRates } = useFxRates();
   const { currency: preferredCurrency } = usePreferences();
 
-  const [tab, setTab] = useState("overview");
+  const [tab, setTab] = useState<HostTabValue>(() => {
+    if (typeof window === "undefined") return "overview";
+    const urlTab = new URLSearchParams(window.location.search).get("tab");
+    if (isHostTabValue(urlTab)) return urlTab;
+    const savedTab = window.sessionStorage.getItem(HOST_TAB_STORAGE_KEY);
+    return isHostTabValue(savedTab) ? savedTab : "overview";
+  });
+  const setHostTab = useCallback((nextTab: string) => {
+    if (isHostTabValue(nextTab)) {
+      setTab(nextTab);
+    }
+  }, []);
   const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const urlTab = searchParams.get("tab");
+    if (isHostTabValue(urlTab) && urlTab !== tab) {
+      setTab(urlTab);
+    }
+  }, [searchParams, tab]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.sessionStorage.setItem(HOST_TAB_STORAGE_KEY, tab);
+    if (searchParams.get("tab") === tab) return;
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("tab", tab);
+    setSearchParams(nextParams, { replace: true });
+  }, [tab, searchParams, setSearchParams]);
   
   // Payout states (combined into single dialog)
   const [showPayoutDialog, setShowPayoutDialog] = useState(false);
@@ -1910,12 +1968,7 @@ export default function HostDashboard() {
           reviewerEmail: restoredReviewerEmail,
           reviewerName: restoredReviewerName,
         }));
-        if (restoredPropertyId || restoredReviewerEmail || restoredReviewerName) {
-          toast({
-            title: "Draft Restored",
-            description: "Your manual review form draft has been restored.",
-          });
-        }
+        // Keep the restoration silent on page load to avoid interrupting the current tab.
       }
     } catch (e) {
       console.error('Failed to load manual review draft:', e);
@@ -7241,7 +7294,7 @@ export default function HostDashboard() {
           </Card>
         )}
 
-        <Tabs value={tab} onValueChange={setTab}>
+        <Tabs value={tab} onValueChange={setHostTab}>
           <div className="mb-6 max-w-full overflow-x-auto">
             <TabsList className="w-max min-w-full justify-start">
               <TabsTrigger value="overview">Overview</TabsTrigger>

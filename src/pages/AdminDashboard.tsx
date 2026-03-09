@@ -31,6 +31,7 @@ import {
 import { getTourPriceSuffix, getTourPricingModel } from "@/lib/tour-pricing";
 import { normalizeAdminMetrics } from "@/lib/admin-metrics";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
+import { useSearchParams } from "react-router-dom";
 import {
   Users,
   Home,
@@ -365,6 +366,31 @@ type TabValue =
   | "legal-content"
   | "affiliates";
 
+const ADMIN_TAB_STORAGE_KEY = "admin-dashboard:last-tab";
+const ADMIN_TAB_VALUES: TabValue[] = [
+  "overview",
+  "ads",
+  "host-applications",
+  "users",
+  "user-data",
+  "accommodations",
+  "tours",
+  "transport",
+  "bookings",
+  "booking-calculations",
+  "payments",
+  "payouts",
+  "reviews",
+  "support",
+  "safety",
+  "reports",
+  "legal-content",
+  "affiliates",
+];
+
+const isAdminTabValue = (value: string | null | undefined): value is TabValue =>
+  Boolean(value && ADMIN_TAB_VALUES.includes(value as TabValue));
+
 const DEFAULT_ADMIN_FX_TO_RWF: Record<string, number> = {
   USD: 1455.5,
   EUR: 1716.76225,
@@ -439,7 +465,14 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<TabValue>("overview");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [tab, setTab] = useState<TabValue>(() => {
+    if (typeof window === "undefined") return "overview";
+    const urlTab = new URLSearchParams(window.location.search).get("tab");
+    if (isAdminTabValue(urlTab)) return urlTab;
+    const savedTab = window.sessionStorage.getItem(ADMIN_TAB_STORAGE_KEY);
+    return isAdminTabValue(savedTab) ? savedTab : "overview";
+  });
   const [userSearch, setUserSearch] = useState("");
   const [userDataSearch, setUserDataSearch] = useState("");
   const [userDataFilter, setUserDataFilter] = useState<"all" | "collected" | "missing">("all");
@@ -514,6 +547,22 @@ export default function AdminDashboard() {
   const [adminFxRatesLoading, setAdminFxRatesLoading] = useState(false);
   const [adminFxRatesSaving, setAdminFxRatesSaving] = useState(false);
   const [adminFxRatesUpdatedAt, setAdminFxRatesUpdatedAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    const urlTab = searchParams.get("tab");
+    if (isAdminTabValue(urlTab) && urlTab !== tab) {
+      setTab(urlTab);
+    }
+  }, [searchParams, tab]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.sessionStorage.setItem(ADMIN_TAB_STORAGE_KEY, tab);
+    if (searchParams.get("tab") === tab) return;
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("tab", tab);
+    setSearchParams(nextParams, { replace: true });
+  }, [tab, searchParams, setSearchParams]);
 
   // Set up real-time subscriptions for instant updates
   useEffect(() => {
