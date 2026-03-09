@@ -1163,7 +1163,7 @@ export default function AdminDashboard() {
 
   // Host Payouts query
   const { data: payouts = [], refetch: refetchPayouts, isLoading: isPayoutsLoading } = useQuery({
-    queryKey: ["admin-host_payouts", payoutFilter],
+    queryKey: ["admin-host_payouts", payoutFilter, tab],
     queryFn: async () => {
       let query = supabase
         .from("host_payouts")
@@ -1173,7 +1173,7 @@ export default function AdminDashboard() {
         `)
         .order("created_at", { ascending: false });
       
-      if (payoutFilter !== "all") {
+      if (tab === "payouts" && payoutFilter !== "all") {
         query = query.eq("status", payoutFilter);
       }
 
@@ -2873,7 +2873,23 @@ For support, contact: support@merry360x.com
       }
     });
 
-    const totals = new Map<string, { hostId: string; hostName: string; bookings: number; hostEarningsRwf: number }>();
+    const payoutTotalsByHost = new Map<string, { pendingAndProcessingRwf: number; completedRwf: number }>();
+    payouts.forEach((payout: any) => {
+      const hostId = String(payout.host_id || "").trim();
+      if (!hostId) return;
+      const amountRwf = toRwfAmount(Number(payout.amount || 0), payout.currency || "RWF");
+      const status = String(payout.status || "").toLowerCase();
+
+      const current = payoutTotalsByHost.get(hostId) || { pendingAndProcessingRwf: 0, completedRwf: 0 };
+      if (status === "pending" || status === "processing") {
+        current.pendingAndProcessingRwf += amountRwf;
+      } else if (status === "completed") {
+        current.completedRwf += amountRwf;
+      }
+      payoutTotalsByHost.set(hostId, current);
+    });
+
+    const totals = new Map<string, { hostId: string; hostName: string; bookings: number; hostEarningsRwf: number; walletEarningsRwf: number }>();
 
     bookings.forEach((booking) => {
       if (!booking.host_id || !isConfirmedPaidBooking(booking)) return;
@@ -2901,6 +2917,7 @@ For support, contact: support@merry360x.com
         hostName: hostNameById.get(hostId) || "Unknown Host",
         bookings: 0,
         hostEarningsRwf: 0,
+        walletEarningsRwf: 0,
       };
 
       current.bookings += 1;
@@ -2908,8 +2925,16 @@ For support, contact: support@merry360x.com
       totals.set(hostId, current);
     });
 
+    totals.forEach((row, hostId) => {
+      const payoutTotals = payoutTotalsByHost.get(hostId) || { pendingAndProcessingRwf: 0, completedRwf: 0 };
+      row.walletEarningsRwf = Math.max(
+        0,
+        row.hostEarningsRwf - payoutTotals.pendingAndProcessingRwf - payoutTotals.completedRwf,
+      );
+    });
+
     return Array.from(totals.values()).sort((a, b) => b.hostEarningsRwf - a.hostEarningsRwf);
-  }, [adminUsers, applications, bookings]);
+  }, [adminUsers, applications, bookings, payouts]);
 
   const accommodationGuestFeePercent = getGuestFeePercent("accommodation");
   const accommodationHostFeePercent = getProviderFeePercent("accommodation");
@@ -3580,6 +3605,7 @@ For support, contact: support@merry360x.com
                         <TableHead>Host ID</TableHead>
                         <TableHead className="text-right">Bookings</TableHead>
                         <TableHead className="text-right">Total Host Earnings</TableHead>
+                        <TableHead className="text-right">Wallet Earnings</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -3590,6 +3616,9 @@ For support, contact: support@merry360x.com
                           <TableCell className="text-right">{host.bookings}</TableCell>
                           <TableCell className="text-right font-semibold text-emerald-700">
                             {formatMoney(host.hostEarningsRwf, "RWF")}
+                          </TableCell>
+                          <TableCell className="text-right font-semibold text-primary">
+                            {formatMoney(host.walletEarningsRwf, "RWF")}
                           </TableCell>
                         </TableRow>
                       ))}
