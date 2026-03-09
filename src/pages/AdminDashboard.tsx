@@ -3357,6 +3357,18 @@ For support, contact: support@merry360x.com
                 <p>
                   5) <span className="font-medium text-foreground">Platform earning</span> = guest fee + host fee.
                 </p>
+                <div className="rounded border bg-muted/20 p-2 space-y-1">
+                  <p className="font-medium text-foreground">Worked example (10% discount + 3.1% PawaPay)</p>
+                  <p>Base before discount = 100,000 RWF</p>
+                  <p>Discount (10%) = 10,000 RWF</p>
+                  <p>Discounted base = 90,000 RWF</p>
+                  <p>Guest fee (10%) = 9,000 RWF</p>
+                  <p>Guest total = 99,000 RWF</p>
+                  <p>PawaPay fee (3.1%) = 3,069 RWF</p>
+                  <p>Host fee (3%) = 2,700 RWF</p>
+                  <p>Host earning = 87,300 RWF</p>
+                  <p>Platform earning = 11,700 RWF</p>
+                </div>
                 <p>
                   Dashboard totals are the sum of all confirmed/completed paid bookings.
                 </p>
