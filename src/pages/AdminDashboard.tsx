@@ -2682,10 +2682,40 @@ For support, contact: support@merry360x.com
 
       const paidAmount = Number(booking.checkout_requests?.total_amount || booking.total_price || 0);
       const paidCurrency = String(booking.checkout_requests?.currency || booking.currency || "RWF").toUpperCase();
-      const guestFeePercent = getGuestFeePercent(serviceType);
-      const listingSubtotalAfterDiscount = paidAmount > 0
-        ? Math.max(0, paidAmount / (1 + guestFeePercent / 100))
-        : 0;
+
+      const checkoutItems = booking.checkout_requests?.metadata?.items;
+      const targetReferenceId = bookingType === "property"
+        ? booking.property_id
+        : bookingType === "tour"
+          ? booking.tour_id
+          : booking.transport_id;
+      const allowedItemTypes = bookingType === "property"
+        ? ["property"]
+        : bookingType === "tour"
+          ? ["tour", "tour_package"]
+          : ["transport_vehicle", "transport"];
+
+      const matchedItem = Array.isArray(checkoutItems) && targetReferenceId
+        ? checkoutItems.find((item: any) => {
+            const itemType = String(item?.item_type || "").toLowerCase();
+            const itemReferenceId = String(item?.reference_id || "");
+            return allowedItemTypes.includes(itemType) && itemReferenceId === String(targetReferenceId);
+          })
+        : null;
+
+      const itemQuantity = Math.max(1, Number(matchedItem?.quantity || 1));
+      const itemPrice = Number(matchedItem?.price || 0);
+      const itemDiscount = Math.max(0, Number(matchedItem?.discount_applied || 0));
+      const checkoutDiscount = Math.max(0, Number(booking.checkout_requests?.metadata?.discount_amount || 0));
+      const discountApplied = matchedItem ? itemDiscount : checkoutDiscount;
+
+      const listingSubtotalBeforeDiscount = matchedItem
+        ? Math.max(0, itemPrice * itemQuantity)
+        : Math.max(0, paidAmount + discountApplied);
+
+      const listingSubtotalAfterDiscount = matchedItem
+        ? Math.max(0, listingSubtotalBeforeDiscount - itemDiscount)
+        : Math.max(0, paidAmount);
 
       const financials = calculateBookingFinancialsFromDiscountedListing(listingSubtotalAfterDiscount, serviceType);
       const pawapay = calculatePawaPayProcessing(paidAmount);
@@ -2695,7 +2725,9 @@ For support, contact: support@merry360x.com
         serviceType,
         paidAmount,
         paidCurrency,
-        basePrice: listingSubtotalAfterDiscount,
+        baseBeforeDiscount: listingSubtotalBeforeDiscount,
+        discountApplied,
+        baseAfterDiscount: listingSubtotalAfterDiscount,
         guestFee: financials.guestFee,
         hostFee: financials.hostFee,
         hostNet: financials.hostNetEarnings,
@@ -5178,7 +5210,9 @@ For support, contact: support@merry360x.com
                       <TableHead className="w-[120px]">Type</TableHead>
                       <TableHead className="w-[140px]">Status</TableHead>
                       <TableHead className="w-[160px] text-right">Guest Paid</TableHead>
-                      <TableHead className="w-[160px] text-right">Base Price</TableHead>
+                      <TableHead className="w-[170px] text-right">Base Before Discount</TableHead>
+                      <TableHead className="w-[160px] text-right">Discount Applied</TableHead>
+                      <TableHead className="w-[170px] text-right">Base After Discount</TableHead>
                       <TableHead className="w-[160px] text-right">Guest Fee</TableHead>
                       <TableHead className="w-[160px] text-right">Host Fee</TableHead>
                       <TableHead className="w-[160px] text-right">Host Net</TableHead>
@@ -5210,7 +5244,9 @@ For support, contact: support@merry360x.com
                             </div>
                           </TableCell>
                           <TableCell className="text-right font-medium">{formatMoney(row.paidAmount, row.paidCurrency)}</TableCell>
-                          <TableCell className="text-right">{formatMoney(row.basePrice, row.paidCurrency)}</TableCell>
+                          <TableCell className="text-right">{formatMoney(row.baseBeforeDiscount, row.paidCurrency)}</TableCell>
+                          <TableCell className="text-right text-amber-700">-{formatMoney(row.discountApplied, row.paidCurrency)}</TableCell>
+                          <TableCell className="text-right">{formatMoney(row.baseAfterDiscount, row.paidCurrency)}</TableCell>
                           <TableCell className="text-right">{formatMoney(row.guestFee, row.paidCurrency)}</TableCell>
                           <TableCell className="text-right">{formatMoney(row.hostFee, row.paidCurrency)}</TableCell>
                           <TableCell className="text-right text-emerald-700 font-medium">{formatMoney(row.hostNet, row.paidCurrency)}</TableCell>
@@ -5222,7 +5258,7 @@ For support, contact: support@merry360x.com
                     })}
                     {bookingCalculationRows.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={14} className="text-center text-muted-foreground py-8">
                           No bookings found for the selected filters
                         </TableCell>
                       </TableRow>
