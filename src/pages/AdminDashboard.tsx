@@ -2960,6 +2960,16 @@ For support, contact: support@merry360x.com
     setAdminFxRatesSaving(false);
   };
 
+  const resetAdminFxRateInputs = () => {
+    setAdminFxRateInputs(
+      Object.fromEntries(Object.entries(DEFAULT_ADMIN_FX_TO_RWF).map(([code, rate]) => [code, String(rate)]))
+    );
+    toast({
+      title: "Defaults loaded",
+      description: "Default conversion rates were loaded. Click Save Conversion Rates to apply.",
+    });
+  };
+
   const saveAccommodationGuestFee = () => {
     const parsed = Number(accommodationGuestFeeInput);
     if (!Number.isFinite(parsed)) {
@@ -3385,7 +3395,14 @@ For support, contact: support@merry360x.com
                   />
                 ))}
               </div>
-              <div className="mt-3 flex justify-end">
+              <div className="mt-3 flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={resetAdminFxRateInputs}
+                  disabled={adminFxRatesLoading || adminFxRatesSaving}
+                >
+                  Reset to Defaults
+                </Button>
                 <Button onClick={saveAdminFxRates} disabled={adminFxRatesLoading || adminFxRatesSaving}>
                   {adminFxRatesSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                   Save Conversion Rates
