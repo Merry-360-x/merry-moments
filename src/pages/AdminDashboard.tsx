@@ -25,6 +25,7 @@ import {
   calculatePawaPayProcessing,
   calculateBookingFinancialsFromDiscountedListing,
   getGuestFeePercent,
+  getProviderFeePercent,
   setAccommodationGuestFeePercent as persistAccommodationGuestFeePercent,
 } from "@/lib/fees";
 import { getTourPriceSuffix, getTourPricingModel } from "@/lib/tour-pricing";
@@ -2680,45 +2681,26 @@ For support, contact: support@merry360x.com
             ? "tour"
             : "transport";
 
-      const paidAmount = Number(booking.checkout_requests?.total_amount || booking.total_price || 0);
+      const paidAmount = Math.max(0, Number(booking.checkout_requests?.total_amount || booking.total_price || 0));
       const paidCurrency = String(booking.checkout_requests?.currency || booking.currency || "RWF").toUpperCase();
 
-      const checkoutItems = booking.checkout_requests?.metadata?.items;
-      const targetReferenceId = bookingType === "property"
-        ? booking.property_id
-        : bookingType === "tour"
-          ? booking.tour_id
-          : booking.transport_id;
-      const allowedItemTypes = bookingType === "property"
-        ? ["property"]
-        : bookingType === "tour"
-          ? ["tour", "tour_package"]
-          : ["transport_vehicle", "transport"];
+      // Use checkout-level discount in checkout currency to avoid cross-currency item mismatches.
+      const discountApplied = Math.max(0, Number(booking.checkout_requests?.metadata?.discount_amount || 0));
+      const listingSubtotalAfterDiscount = paidAmount;
+      const listingSubtotalBeforeDiscount = Math.max(0, listingSubtotalAfterDiscount + discountApplied);
 
-      const matchedItem = Array.isArray(checkoutItems) && targetReferenceId
-        ? checkoutItems.find((item: any) => {
-            const itemType = String(item?.item_type || "").toLowerCase();
-            const itemReferenceId = String(item?.reference_id || "");
-            return allowedItemTypes.includes(itemType) && itemReferenceId === String(targetReferenceId);
-          })
-        : null;
-
-      const itemQuantity = Math.max(1, Number(matchedItem?.quantity || 1));
-      const itemPrice = Number(matchedItem?.price || 0);
-      const itemDiscount = Math.max(0, Number(matchedItem?.discount_applied || 0));
-      const checkoutDiscount = Math.max(0, Number(booking.checkout_requests?.metadata?.discount_amount || 0));
-      const discountApplied = matchedItem ? itemDiscount : checkoutDiscount;
-
-      const listingSubtotalBeforeDiscount = matchedItem
-        ? Math.max(0, itemPrice * itemQuantity)
-        : Math.max(0, paidAmount + discountApplied);
-
-      const listingSubtotalAfterDiscount = matchedItem
-        ? Math.max(0, listingSubtotalBeforeDiscount - itemDiscount)
-        : Math.max(0, paidAmount);
-
-      const financials = calculateBookingFinancialsFromDiscountedListing(listingSubtotalAfterDiscount, serviceType);
+      // Requested calculation order:
+      // 1) base - discount = paid amount
+      // 2) deduct PawaPay fee from paid amount
+      // 3) deduct platform + host fees from post-PawaPay amount
       const pawapay = calculatePawaPayProcessing(paidAmount);
+      const amountAfterPawapay = pawapay.netAmount;
+      const guestFeePercent = getGuestFeePercent(serviceType);
+      const hostFeePercent = getProviderFeePercent(serviceType);
+      const guestFee = (amountAfterPawapay * guestFeePercent) / 100;
+      const hostFee = (amountAfterPawapay * hostFeePercent) / 100;
+      const hostNet = Math.max(0, amountAfterPawapay - guestFee - hostFee);
+      const platformTotal = guestFee + hostFee;
 
       return {
         booking,
@@ -2728,12 +2710,12 @@ For support, contact: support@merry360x.com
         baseBeforeDiscount: listingSubtotalBeforeDiscount,
         discountApplied,
         baseAfterDiscount: listingSubtotalAfterDiscount,
-        guestFee: financials.guestFee,
-        hostFee: financials.hostFee,
-        hostNet: financials.hostNetEarnings,
-        platformTotal: financials.platformTotalEarnings,
+        guestFee,
+        hostFee,
+        hostNet,
+        platformTotal,
         pawapayFee: pawapay.processingFee,
-        afterPawapay: pawapay.netAmount,
+        afterPawapay: amountAfterPawapay,
       };
     });
   }, [filteredBookingsById]);

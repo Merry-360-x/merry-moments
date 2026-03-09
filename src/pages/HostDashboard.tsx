@@ -19,7 +19,13 @@ import { isVideoUrl } from "@/lib/media";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { formatMoney } from "@/lib/money";
 import { AMENITIES, AMENITIES_BY_CATEGORY } from "@/lib/amenities";
-import { calculateBookingFinancialsFromDiscountedListing, calculateHostEarningsFromGuestTotal } from "@/lib/fees";
+import {
+  calculateBookingFinancialsFromDiscountedListing,
+  calculateHostEarningsFromGuestTotal,
+  calculatePawaPayProcessing,
+  getGuestFeePercent,
+  getProviderFeePercent,
+} from "@/lib/fees";
 import { getTourPricingModel, getTourPricingModels } from "@/lib/tour-pricing";
 import { useFxRates } from "@/hooks/useFxRates";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -2724,16 +2730,20 @@ export default function HostDashboard() {
   }, []);
 
   const getHostNetEarningsForBooking = useCallback((booking: Booking) => {
-    const listing = getOriginalListingSubtotal(booking);
-    const discountedListingSubtotal = Math.max(0, Number(listing.listingSubtotal || 0));
+    const resolvedBookingAmount = getResolvedBookingAmountForHost(booking);
+    const paidAmount = Math.max(0, Number(resolvedBookingAmount.amount || 0));
     const serviceType = getBookingServiceType(booking);
-    const earnings = calculateBookingFinancialsFromDiscountedListing(discountedListingSubtotal, serviceType);
+    const pawapay = calculatePawaPayProcessing(paidAmount);
+    const amountAfterPawapay = pawapay.netAmount;
+    const guestFee = (amountAfterPawapay * getGuestFeePercent(serviceType)) / 100;
+    const hostFee = (amountAfterPawapay * getProviderFeePercent(serviceType)) / 100;
+    const hostNetEarnings = Math.max(0, amountAfterPawapay - guestFee - hostFee);
 
     return {
-      amount: Number.isFinite(earnings.hostNetEarnings) ? Math.max(0, earnings.hostNetEarnings) : 0,
-      currency: listing.currency,
+      amount: Number.isFinite(hostNetEarnings) ? hostNetEarnings : 0,
+      currency: resolvedBookingAmount.currency,
     };
-  }, [getBookingServiceType, getOriginalListingSubtotal]);
+  }, [getBookingServiceType, getResolvedBookingAmountForHost]);
 
   const confirmedBookings = (bookings || []).filter((b) => {
     const status = String(b.status || "").toLowerCase();
