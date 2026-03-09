@@ -2858,6 +2858,59 @@ For support, contact: support@merry360x.com
     adminPaidFinancialOverview.earnedFromCharges;
 
   const adminHostNetEarningsTotal = adminPaidFinancialOverview.totalAmountAfterServiceFees;
+  const allHostsEarnings = useMemo(() => {
+    const hostNameById = new Map<string, string>();
+
+    applications.forEach((application) => {
+      if (application.user_id && application.profiles?.full_name) {
+        hostNameById.set(application.user_id, application.profiles.full_name);
+      }
+    });
+
+    adminUsers.forEach((adminUser) => {
+      if (adminUser.user_id && adminUser.full_name && !hostNameById.has(adminUser.user_id)) {
+        hostNameById.set(adminUser.user_id, adminUser.full_name);
+      }
+    });
+
+    const totals = new Map<string, { hostId: string; hostName: string; bookings: number; hostEarningsRwf: number }>();
+
+    bookings.forEach((booking) => {
+      if (!booking.host_id || !isConfirmedPaidBooking(booking)) return;
+
+      const bookingType = String(booking.booking_type || "").toLowerCase();
+      const serviceType: "accommodation" | "tour" | "transport" =
+        bookingType === "property"
+          ? "accommodation"
+          : bookingType === "tour"
+            ? "tour"
+            : "transport";
+
+      const paidAmount = Number(booking.checkout_requests?.total_amount || booking.total_price || 0);
+      const paidCurrency = String(booking.checkout_requests?.currency || booking.currency || "RWF").toUpperCase();
+      if (!(paidAmount > 0)) return;
+
+      const guestFeePercent = getGuestFeePercent(serviceType);
+      const discountedBase = Math.max(0, paidAmount / (1 + guestFeePercent / 100));
+      const financials = calculateBookingFinancialsFromDiscountedListing(discountedBase, serviceType);
+      const hostEarningsRwf = toRwfAmount(financials.hostNetEarnings, paidCurrency);
+
+      const hostId = String(booking.host_id);
+      const current = totals.get(hostId) || {
+        hostId,
+        hostName: hostNameById.get(hostId) || "Unknown Host",
+        bookings: 0,
+        hostEarningsRwf: 0,
+      };
+
+      current.bookings += 1;
+      current.hostEarningsRwf += hostEarningsRwf;
+      totals.set(hostId, current);
+    });
+
+    return Array.from(totals.values()).sort((a, b) => b.hostEarningsRwf - a.hostEarningsRwf);
+  }, [adminUsers, applications, bookings]);
+
   const accommodationGuestFeePercent = getGuestFeePercent("accommodation");
   const accommodationHostFeePercent = getProviderFeePercent("accommodation");
   const tourGuestFeePercent = getGuestFeePercent("tour");
@@ -3285,7 +3338,7 @@ For support, contact: support@merry360x.com
                   <span className="text-sm">Amount All Hosts Earned</span>
                     </div>
                     <p className="text-2xl font-bold text-foreground">{formatMoney(adminHostNetEarningsTotal, "RWF")}</p>
-                    <p className="text-xs text-muted-foreground">Combined host net earnings (same formula as Host Dashboard)</p>
+                    <p className="text-xs text-muted-foreground">Combined host net earnings only (platform fees excluded)</p>
                   </Card>
                   <Card className="p-4">
                     <div className="flex items-center gap-2 text-muted-foreground mb-1">
@@ -3346,16 +3399,25 @@ For support, contact: support@merry360x.com
                   1) <span className="font-medium text-foreground">Base amount</span> = listing subtotal before discount.
                 </p>
                 <p>
-                  2) <span className="font-medium text-foreground">Guest fee</span> = base amount x guest fee%.
+                  2) <span className="font-medium text-foreground">Discounted base</span> = base amount - discount.
                 </p>
                 <p>
-                  3) <span className="font-medium text-foreground">Host fee</span> = base amount x host fee%.
+                  3) <span className="font-medium text-foreground">Guest fee</span> = discounted base x guest fee%.
                 </p>
                 <p>
-                  4) <span className="font-medium text-foreground">Host earning</span> = base amount - host fee.
+                  4) <span className="font-medium text-foreground">Guest total</span> = discounted base + guest fee.
                 </p>
                 <p>
-                  5) <span className="font-medium text-foreground">Platform earning</span> = guest fee + host fee.
+                  5) <span className="font-medium text-foreground">PawaPay fee</span> = guest total x 3.1%.
+                </p>
+                <p>
+                  6) <span className="font-medium text-foreground">Host fee</span> = discounted base x host fee%.
+                </p>
+                <p>
+                  7) <span className="font-medium text-foreground">Host earning only</span> = discounted base - host fee (platform fee excluded).
+                </p>
+                <p>
+                  8) <span className="font-medium text-foreground">Platform earning</span> = guest fee + host fee.
                 </p>
                 <div className="rounded border bg-muted/20 p-2 space-y-1">
                   <p className="font-medium text-foreground">Worked example (10% discount + 3.1% PawaPay)</p>
@@ -3521,6 +3583,43 @@ For support, contact: support@merry360x.com
                 )}
               </Card>
             </div>
+
+            <Card className="p-4 mb-6">
+              <h3 className="font-semibold mb-2 flex items-center gap-2">
+                <Wallet className="w-4 h-4" /> All Hosts Total Earnings
+              </h3>
+              <p className="text-xs text-muted-foreground mb-3">
+                Per-host totals from confirmed/completed paid bookings. Host earnings only, platform fees excluded.
+              </p>
+              {allHostsEarnings.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No host earnings found yet.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader className="sticky top-0 z-10 bg-background">
+                      <TableRow>
+                        <TableHead>Host</TableHead>
+                        <TableHead>Host ID</TableHead>
+                        <TableHead className="text-right">Bookings</TableHead>
+                        <TableHead className="text-right">Total Host Earnings</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {allHostsEarnings.map((host) => (
+                        <TableRow key={host.hostId}>
+                          <TableCell className="font-medium">{host.hostName}</TableCell>
+                          <TableCell className="font-mono text-xs">{host.hostId}</TableCell>
+                          <TableCell className="text-right">{host.bookings}</TableCell>
+                          <TableCell className="text-right font-semibold text-emerald-700">
+                            {formatMoney(host.hostEarningsRwf, "RWF")}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </Card>
 
             {/* Pending Payments Section */}
             <Card className="p-4 mb-6">
@@ -5553,7 +5652,7 @@ For support, contact: support@merry360x.com
                       <TableHead className="w-[170px] text-right">Base After Discount</TableHead>
                       <TableHead className="w-[160px] text-right">Guest Fee</TableHead>
                       <TableHead className="w-[160px] text-right">Host Fee</TableHead>
-                      <TableHead className="w-[160px] text-right">Host Net</TableHead>
+                      <TableHead className="w-[190px] text-right">Host Earnings (Only)</TableHead>
                       <TableHead className="w-[180px] text-right">Platform Earnings</TableHead>
                       <TableHead className="w-[170px] text-right">PawaPay Fee 3.1%</TableHead>
                       <TableHead className="w-[180px] text-right">Net After PawaPay</TableHead>
