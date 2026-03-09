@@ -487,6 +487,15 @@ export default function AdminDashboard() {
   const [, setAccommodationGuestFeePercent] = useState<number>(() => getGuestFeePercent("accommodation"));
   const [accommodationGuestFeeInput, setAccommodationGuestFeeInput] = useState<string>(() => String(getGuestFeePercent("accommodation")));
   const [savingAccommodationGuestFee, setSavingAccommodationGuestFee] = useState(false);
+  const [bookingCalcFeeOverrides, setBookingCalcFeeOverrides] = useState(() => ({
+    pawapayFeePercent: PAWAPAY_PROCESSING_FEE_PERCENT,
+    accommodationGuestFeePercent: getGuestFeePercent("accommodation"),
+    accommodationHostFeePercent: getProviderFeePercent("accommodation"),
+    tourGuestFeePercent: getGuestFeePercent("tour"),
+    tourHostFeePercent: getProviderFeePercent("tour"),
+    transportGuestFeePercent: getGuestFeePercent("transport"),
+    transportHostFeePercent: getProviderFeePercent("transport"),
+  }));
 
   // Set up real-time subscriptions for instant updates
   useEffect(() => {
@@ -2671,6 +2680,24 @@ For support, contact: support@merry360x.com
     });
   }, [bookings, bookingIdSearch, bookingStatus, refundRequestRefs]);
 
+  const updateBookingCalcOverride = useCallback((key: keyof typeof bookingCalcFeeOverrides, rawValue: string) => {
+    const parsed = Number(rawValue);
+    const safeValue = Number.isFinite(parsed) ? Math.max(0, Math.min(100, parsed)) : 0;
+    setBookingCalcFeeOverrides((prev) => ({ ...prev, [key]: safeValue }));
+  }, []);
+
+  const resetBookingCalcOverrides = useCallback(() => {
+    setBookingCalcFeeOverrides({
+      pawapayFeePercent: PAWAPAY_PROCESSING_FEE_PERCENT,
+      accommodationGuestFeePercent: getGuestFeePercent("accommodation"),
+      accommodationHostFeePercent: getProviderFeePercent("accommodation"),
+      tourGuestFeePercent: getGuestFeePercent("tour"),
+      tourHostFeePercent: getProviderFeePercent("tour"),
+      transportGuestFeePercent: getGuestFeePercent("transport"),
+      transportHostFeePercent: getProviderFeePercent("transport"),
+    });
+  }, []);
+
   const bookingCalculationRows = useMemo(() => {
     return filteredBookingsById.map((booking) => {
       const bookingType = String(booking.booking_type || "").toLowerCase();
@@ -2693,10 +2720,18 @@ For support, contact: support@merry360x.com
       // 1) base - discount = paid amount
       // 2) deduct PawaPay fee from paid amount
       // 3) deduct platform + host fees from post-PawaPay amount
-      const pawapay = calculatePawaPayProcessing(paidAmount);
-      const amountAfterPawapay = pawapay.netAmount;
-      const guestFeePercent = getGuestFeePercent(serviceType);
-      const hostFeePercent = getProviderFeePercent(serviceType);
+      const guestFeePercent = serviceType === "accommodation"
+        ? bookingCalcFeeOverrides.accommodationGuestFeePercent
+        : serviceType === "tour"
+          ? bookingCalcFeeOverrides.tourGuestFeePercent
+          : bookingCalcFeeOverrides.transportGuestFeePercent;
+      const hostFeePercent = serviceType === "accommodation"
+        ? bookingCalcFeeOverrides.accommodationHostFeePercent
+        : serviceType === "tour"
+          ? bookingCalcFeeOverrides.tourHostFeePercent
+          : bookingCalcFeeOverrides.transportHostFeePercent;
+      const pawapayFee = (paidAmount * bookingCalcFeeOverrides.pawapayFeePercent) / 100;
+      const amountAfterPawapay = Math.max(0, paidAmount - pawapayFee);
       const guestFee = (amountAfterPawapay * guestFeePercent) / 100;
       const hostFee = (amountAfterPawapay * hostFeePercent) / 100;
       const hostNet = Math.max(0, amountAfterPawapay - guestFee - hostFee);
@@ -2714,11 +2749,11 @@ For support, contact: support@merry360x.com
         hostFee,
         hostNet,
         platformTotal,
-        pawapayFee: pawapay.processingFee,
+        pawapayFee,
         afterPawapay: amountAfterPawapay,
       };
     });
-  }, [filteredBookingsById]);
+  }, [bookingCalcFeeOverrides, filteredBookingsById]);
 
   const bookingOrderCount = useMemo(
     () => new Set(bookings.map((booking) => booking.order_id).filter(Boolean)).size,
@@ -5157,7 +5192,7 @@ For support, contact: support@merry360x.com
                 <div>
                   <h2 className="text-lg font-semibold">Booking Calculations</h2>
                   <p className="text-sm text-muted-foreground">
-                    Individual fee math for each booking and order, including 3.1% PawaPay deduction.
+                    Formula: paid amount (after discount) -> minus PawaPay -> minus platform/host fees -> host net.
                   </p>
                 </div>
                 <div className="flex items-center gap-2 w-full md:w-auto">
@@ -5180,6 +5215,89 @@ For support, contact: support@merry360x.com
                       <SelectItem value="refund_requested">Refund Requested</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+
+              <div className="mb-4 rounded-md border p-3 bg-muted/30">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
+                  <p className="text-xs text-muted-foreground">
+                    Adjust percentages below to allow changes and test scenarios. This affects this table only.
+                  </p>
+                  <Button variant="outline" size="sm" onClick={resetBookingCalcOverrides}>
+                    <RefreshCw className="w-3 h-3 mr-1" /> Reset Defaults
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="0.1"
+                    value={bookingCalcFeeOverrides.pawapayFeePercent}
+                    onChange={(e) => updateBookingCalcOverride("pawapayFeePercent", e.target.value)}
+                    placeholder="PawaPay %"
+                    title="PawaPay fee %"
+                  />
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="0.1"
+                    value={bookingCalcFeeOverrides.accommodationGuestFeePercent}
+                    onChange={(e) => updateBookingCalcOverride("accommodationGuestFeePercent", e.target.value)}
+                    placeholder="Acc Guest %"
+                    title="Accommodation guest/platform fee %"
+                  />
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="0.1"
+                    value={bookingCalcFeeOverrides.accommodationHostFeePercent}
+                    onChange={(e) => updateBookingCalcOverride("accommodationHostFeePercent", e.target.value)}
+                    placeholder="Acc Host %"
+                    title="Accommodation host/provider fee %"
+                  />
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="0.1"
+                    value={bookingCalcFeeOverrides.tourGuestFeePercent}
+                    onChange={(e) => updateBookingCalcOverride("tourGuestFeePercent", e.target.value)}
+                    placeholder="Tour Guest %"
+                    title="Tour guest/platform fee %"
+                  />
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="0.1"
+                    value={bookingCalcFeeOverrides.tourHostFeePercent}
+                    onChange={(e) => updateBookingCalcOverride("tourHostFeePercent", e.target.value)}
+                    placeholder="Tour Host %"
+                    title="Tour host/provider fee %"
+                  />
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="0.1"
+                    value={bookingCalcFeeOverrides.transportGuestFeePercent}
+                    onChange={(e) => updateBookingCalcOverride("transportGuestFeePercent", e.target.value)}
+                    placeholder="Transport Guest %"
+                    title="Transport guest/platform fee %"
+                  />
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="0.1"
+                    value={bookingCalcFeeOverrides.transportHostFeePercent}
+                    onChange={(e) => updateBookingCalcOverride("transportHostFeePercent", e.target.value)}
+                    placeholder="Transport Host %"
+                    title="Transport host/provider fee %"
+                  />
                 </div>
               </div>
 
