@@ -5529,7 +5529,7 @@ For support, contact: support@merry360x.com
                 <div>
                   <h2 className="text-lg font-semibold">Booking Calculations</h2>
                   <p className="text-sm text-muted-foreground">
-                      Formula: base amount - discount =&gt; guest fee =&gt; PawaPay fee; host earning uses discounted base - host fee.
+                    Formula order: discount first, then guest fee, then PawaPay, while host earning uses discounted base only.
                   </p>
                 </div>
                 <div className="flex items-center gap-2 w-full md:w-auto">
@@ -5553,6 +5553,19 @@ For support, contact: support@merry360x.com
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              <div className="mb-4 rounded-md border p-3 bg-muted/20 space-y-2">
+                <p className="text-sm font-medium">How this table is calculated</p>
+                <p className="text-xs text-muted-foreground">Variables: `B` = base before discount, `D` = discount, `A` = base after discount.</p>
+                <p className="text-xs text-muted-foreground">`A = B - D`</p>
+                <p className="text-xs text-muted-foreground">`Guest Fee = A x guest fee %`</p>
+                <p className="text-xs text-muted-foreground">`Guest Paid = A + Guest Fee`</p>
+                <p className="text-xs text-muted-foreground">`PawaPay Fee = Guest Paid x PawaPay %`</p>
+                <p className="text-xs text-muted-foreground">`Net After PawaPay = Guest Paid - PawaPay Fee`</p>
+                <p className="text-xs text-muted-foreground">`Host Fee = A x host fee %`</p>
+                <p className="text-xs text-muted-foreground">`Host Earnings (Only) = A - Host Fee`</p>
+                <p className="text-xs text-muted-foreground">`Platform Earnings = Guest Fee + Host Fee`</p>
               </div>
 
               <div className="mb-4 rounded-md border p-3 bg-muted/30">
