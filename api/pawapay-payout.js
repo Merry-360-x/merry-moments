@@ -66,11 +66,15 @@ function extractCountryIso(countryCode) {
   return "RWA";
 }
 
-async function fetchActivePayoutProviders(countryIso) {
+async function fetchActivePayoutProviders(countryIso, requestedCurrency = "RWF") {
   const endpoints = [
     `${PAWAPAY_API_URL}/active-conf?country=${countryIso}&operationType=PAYOUT`,
     `${PAWAPAY_API_URL}/v2/active-conf?country=${countryIso}&operationType=PAYOUT`,
+    `${PAWAPAY_API_URL}/active-conf?country=${countryIso}`,
+    `${PAWAPAY_API_URL}/v2/active-conf?country=${countryIso}`,
   ];
+
+  let diagnostics = null;
 
   for (const endpoint of endpoints) {
     try {
@@ -84,16 +88,76 @@ async function fetchActivePayoutProviders(countryIso) {
 
       if (!response.ok) continue;
       const payload = await response.json();
+
       const countries = Array.isArray(payload?.countries) ? payload.countries : [];
       const country = countries.find((entry) => String(entry?.country || "").toUpperCase() === countryIso);
+      if (!country) continue;
+
+      // Newer shape: countries[].providers[].currencies[].operationTypes.PAYOUT
       const providers = Array.isArray(country?.providers) ? country.providers : [];
-      return providers.map((entry) => String(entry?.provider || "").trim()).filter(Boolean);
+      const providersWithPayout = providers
+        .filter((providerEntry) => {
+          const currencies = Array.isArray(providerEntry?.currencies) ? providerEntry.currencies : [];
+          return currencies.some((currencyEntry) => {
+            const currencyCode = String(currencyEntry?.currency || "").toUpperCase();
+            const operationTypes = currencyEntry?.operationTypes || {};
+            return (
+              currencyCode === String(requestedCurrency || "RWF").toUpperCase() &&
+              Object.prototype.hasOwnProperty.call(operationTypes, "PAYOUT")
+            );
+          });
+        })
+        .map((providerEntry) => String(providerEntry?.provider || "").trim())
+        .filter(Boolean);
+
+      if (providersWithPayout.length > 0) {
+        return { providers: providersWithPayout, diagnostics: null };
+      }
+
+      // Legacy shape: countries[].correspondents[].operationTypes[]
+      const correspondents = Array.isArray(country?.correspondents) ? country.correspondents : [];
+      const correspondentsWithPayout = correspondents
+        .filter((entry) => {
+          const currencyCode = String(entry?.currency || "").toUpperCase();
+          const operationTypes = Array.isArray(entry?.operationTypes) ? entry.operationTypes : [];
+          const hasPayout = operationTypes.some(
+            (operation) => String(operation?.operationType || "").toUpperCase() === "PAYOUT"
+          );
+          return currencyCode === String(requestedCurrency || "RWF").toUpperCase() && hasPayout;
+        })
+        .map((entry) => String(entry?.correspondent || "").trim())
+        .filter(Boolean);
+
+      if (correspondentsWithPayout.length > 0) {
+        return { providers: correspondentsWithPayout, diagnostics: null };
+      }
+
+      diagnostics = {
+        country: countryIso,
+        currency: String(requestedCurrency || "RWF").toUpperCase(),
+        correspondents: correspondents.map((entry) => ({
+          correspondent: entry?.correspondent,
+          currency: entry?.currency,
+          operationTypes: Array.isArray(entry?.operationTypes)
+            ? entry.operationTypes.map((operation) => operation?.operationType)
+            : [],
+        })),
+        providers: providers.map((entry) => ({
+          provider: entry?.provider,
+          currencies: Array.isArray(entry?.currencies)
+            ? entry.currencies.map((currencyEntry) => ({
+                currency: currencyEntry?.currency,
+                operationTypes: Object.keys(currencyEntry?.operationTypes || {}),
+              }))
+            : [],
+        })),
+      };
     } catch (error) {
       console.warn("Failed reading active payout configuration", { endpoint, error: error?.message || String(error) });
     }
   }
 
-  return [];
+  return { providers: [], diagnostics };
 }
 
 function pickProviderFromActiveConfig({ requestedProvider, fallbackCorrespondent, activeProviders }) {
@@ -198,7 +262,19 @@ export default async function handler(req, res) {
       });
     }
 
-    const activeProviders = await fetchActivePayoutProviders(countryIso);
+    const { providers: activeProviders, diagnostics } = await fetchActivePayoutProviders(
+      countryIso,
+      currency || "RWF"
+    );
+
+    if (activeProviders.length === 0 && diagnostics) {
+      return json(res, 400, {
+        success: false,
+        error: `No PAYOUT flow is enabled on this PawaPay account for ${countryIso}/${String(currency || "RWF").toUpperCase()}. Enable PAYOUT for a correspondent in PawaPay dashboard first.`,
+        details: diagnostics,
+      });
+    }
+
     const correspondent = pickProviderFromActiveConfig({
       requestedProvider: resolvedProvider,
       fallbackCorrespondent: configuredCorrespondent,
