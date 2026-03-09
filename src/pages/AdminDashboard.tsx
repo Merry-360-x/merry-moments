@@ -3336,19 +3336,27 @@ For support, contact: support@merry360x.com
                 <Percent className="w-4 h-4" /> Calculation Formulas
               </h3>
               <div className="space-y-2 text-xs text-muted-foreground">
+                <p className="font-medium text-foreground">Simple formula builder (per booking)</p>
                 <p>
-                  Host earning (per booking) = discounted listing subtotal - host fee,
-                  where host fee = discounted listing subtotal x host fee%.
+                  1) <span className="font-medium text-foreground">Base amount</span> = listing subtotal after discount.
                 </p>
                 <p>
-                  Total platform earnings (per booking) = guest fee + host fee,
-                  where guest fee = discounted listing subtotal x guest fee%.
+                  2) <span className="font-medium text-foreground">Guest fee</span> = base amount x guest fee%.
                 </p>
                 <p>
-                  Dashboard totals = sum of per-booking values across confirmed/completed paid bookings.
+                  3) <span className="font-medium text-foreground">Host fee</span> = base amount x host fee%.
                 </p>
                 <p>
-                  Current fees: accommodation (guest {formatPercentLabel(accommodationGuestFeePercent)}, host {formatPercentLabel(accommodationHostFeePercent)}), tour (guest {formatPercentLabel(tourGuestFeePercent)}, host {formatPercentLabel(tourHostFeePercent)}), transport (guest {formatPercentLabel(transportGuestFeePercent)}, host {formatPercentLabel(transportHostFeePercent)}).
+                  4) <span className="font-medium text-foreground">Host earning</span> = base amount - host fee.
+                </p>
+                <p>
+                  5) <span className="font-medium text-foreground">Platform earning</span> = guest fee + host fee.
+                </p>
+                <p>
+                  Dashboard totals are the sum of all confirmed/completed paid bookings.
+                </p>
+                <p>
+                  Current rates: accommodation (guest {formatPercentLabel(accommodationGuestFeePercent)}, host {formatPercentLabel(accommodationHostFeePercent)}), tour (guest {formatPercentLabel(tourGuestFeePercent)}, host {formatPercentLabel(tourHostFeePercent)}), transport (guest {formatPercentLabel(transportGuestFeePercent)}, host {formatPercentLabel(transportHostFeePercent)}).
                 </p>
               </div>
             </Card>
@@ -3359,6 +3367,9 @@ For support, contact: support@merry360x.com
               </h3>
               <p className="text-xs text-muted-foreground mb-3">
                 These rates are used to normalize multi-currency bookings into RWF on this dashboard.
+              </p>
+              <p className="text-xs text-muted-foreground mb-3">
+                Edit each rate as: <span className="font-medium text-foreground">1 currency unit = X RWF</span>, then click <span className="font-medium text-foreground">Save Conversion Rates</span>.
               </p>
               <p className="text-xs text-muted-foreground mb-3">
                 Last updated: {adminFxRatesUpdatedAt ? new Date(adminFxRatesUpdatedAt).toLocaleString() : "Not available"}
@@ -3375,24 +3386,26 @@ For support, contact: support@merry360x.com
                   </div>
                 ))}
               </div>
-              <div className="mt-3 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                 {Object.entries(adminFxRateInputs).map(([code, value]) => (
-                  <Input
-                    key={`fx-${code}`}
-                    type="number"
-                    min={0}
-                    step="0.000001"
-                    value={value}
-                    onChange={(e) =>
-                      setAdminFxRateInputs((prev) => ({
-                        ...prev,
-                        [code]: e.target.value,
-                      }))
-                    }
-                    placeholder={`${code} to RWF`}
-                    title={`${code} -> RWF`}
-                    disabled={adminFxRatesLoading || adminFxRatesSaving}
-                  />
+                  <div key={`fx-${code}`} className="rounded border p-2 bg-muted/10">
+                    <p className="text-xs text-muted-foreground mb-1">1 {code} = ? RWF</p>
+                    <Input
+                      type="number"
+                      min={0}
+                      step="0.000001"
+                      value={value}
+                      onChange={(e) =>
+                        setAdminFxRateInputs((prev) => ({
+                          ...prev,
+                          [code]: e.target.value,
+                        }))
+                      }
+                      placeholder={`Rate for ${code}`}
+                      title={`${code} -> RWF`}
+                      disabled={adminFxRatesLoading || adminFxRatesSaving}
+                    />
+                  </div>
                 ))}
               </div>
               <div className="mt-3 flex justify-end gap-2">
