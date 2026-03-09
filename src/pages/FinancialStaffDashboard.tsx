@@ -467,7 +467,7 @@ export default function FinancialStaffDashboard() {
 
     const syncPayoutStatuses = async () => {
       try {
-        const response = await fetch("/api/pawapay-payout-status?syncAll=1&limit=100");
+        const response = await fetch("/api/pawapay-check-status?action=sync-payouts&syncAll=1&limit=100");
         if (!response.ok) return;
         const payload = await response.json().catch(() => null);
         if (payload?.updatedCount > 0) {
