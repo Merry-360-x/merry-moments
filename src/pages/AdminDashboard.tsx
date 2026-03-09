@@ -362,7 +362,7 @@ type TabValue =
   | "legal-content"
   | "affiliates";
 
-const ADMIN_FX_TO_RWF: Record<string, number> = {
+const DEFAULT_ADMIN_FX_TO_RWF: Record<string, number> = {
   USD: 1455.5,
   EUR: 1716.76225,
   GBP: 1972.4936,
@@ -373,11 +373,17 @@ const ADMIN_FX_TO_RWF: Record<string, number> = {
   AED: 396.323917,
 };
 
+let runtimeAdminFxToRwf: Record<string, number> = { ...DEFAULT_ADMIN_FX_TO_RWF };
+
+const setRuntimeAdminFxToRwf = (rates: Record<string, number>) => {
+  runtimeAdminFxToRwf = { ...rates };
+};
+
 const toRwfAmount = (amount: number, currency: string | null | undefined): number => {
   const safeAmount = Number.isFinite(Number(amount)) ? Number(amount) : 0;
   const code = String(currency || "RWF").toUpperCase();
   if (code === "RWF") return safeAmount;
-  const rate = ADMIN_FX_TO_RWF[code] ?? ADMIN_FX_TO_RWF.USD;
+  const rate = runtimeAdminFxToRwf[code] ?? runtimeAdminFxToRwf.USD ?? DEFAULT_ADMIN_FX_TO_RWF.USD;
   return safeAmount * rate;
 };
 
@@ -392,7 +398,7 @@ const convertAdminCurrency = (
   if (from === to) return safeAmount;
   const inRwf = toRwfAmount(safeAmount, from);
   if (to === "RWF") return inRwf;
-  const toRate = ADMIN_FX_TO_RWF[to] ?? ADMIN_FX_TO_RWF.USD;
+  const toRate = runtimeAdminFxToRwf[to] ?? runtimeAdminFxToRwf.USD ?? DEFAULT_ADMIN_FX_TO_RWF.USD;
   return inRwf / toRate;
 };
 
@@ -496,6 +502,13 @@ export default function AdminDashboard() {
     transportGuestFeePercent: getGuestFeePercent("transport"),
     transportHostFeePercent: getProviderFeePercent("transport"),
   }));
+  const [adminFxRates, setAdminFxRates] = useState<Record<string, number>>(() => ({ ...DEFAULT_ADMIN_FX_TO_RWF }));
+  const [adminFxRateInputs, setAdminFxRateInputs] = useState<Record<string, string>>(
+    () => Object.fromEntries(Object.entries(DEFAULT_ADMIN_FX_TO_RWF).map(([code, rate]) => [code, String(rate)]))
+  );
+  const [adminFxRatesLoading, setAdminFxRatesLoading] = useState(false);
+  const [adminFxRatesSaving, setAdminFxRatesSaving] = useState(false);
+  const [adminFxRatesUpdatedAt, setAdminFxRatesUpdatedAt] = useState<string | null>(null);
 
   // Set up real-time subscriptions for instant updates
   useEffect(() => {
@@ -2840,6 +2853,112 @@ For support, contact: support@merry360x.com
     adminPaidFinancialOverview.earnedFromCharges;
 
   const adminHostNetEarningsTotal = adminPaidFinancialOverview.totalAmountAfterServiceFees;
+  const accommodationGuestFeePercent = getGuestFeePercent("accommodation");
+  const accommodationHostFeePercent = getProviderFeePercent("accommodation");
+  const tourGuestFeePercent = getGuestFeePercent("tour");
+  const tourHostFeePercent = getProviderFeePercent("tour");
+  const transportGuestFeePercent = getGuestFeePercent("transport");
+  const transportHostFeePercent = getProviderFeePercent("transport");
+  const formatPercentLabel = (value: number) => `${Number(value.toFixed(2)).toString()}%`;
+
+  useEffect(() => {
+    const loadAdminFxRates = async () => {
+      setAdminFxRatesLoading(true);
+      const { data, error } = await (supabase as any)
+        .from("admin_fx_rates")
+        .select("currency_code,rate_to_rwf,updated_at,is_active")
+        .eq("is_active", true)
+        .order("currency_code", { ascending: true });
+
+      if (error) {
+        setAdminFxRatesLoading(false);
+        return;
+      }
+
+      const rows = Array.isArray(data) ? data : [];
+      if (rows.length === 0) {
+        setRuntimeAdminFxToRwf(DEFAULT_ADMIN_FX_TO_RWF);
+        setAdminFxRatesLoading(false);
+        return;
+      }
+
+      const loaded: Record<string, number> = {};
+      let latestUpdatedAt: string | null = null;
+
+      for (const row of rows) {
+        const code = String(row.currency_code || "").toUpperCase().trim();
+        const rate = Number(row.rate_to_rwf || 0);
+        if (!code || !Number.isFinite(rate) || rate <= 0) continue;
+        loaded[code] = rate;
+
+        const updatedAt = row.updated_at ? String(row.updated_at) : null;
+        if (updatedAt && (!latestUpdatedAt || new Date(updatedAt) > new Date(latestUpdatedAt))) {
+          latestUpdatedAt = updatedAt;
+        }
+      }
+
+      const merged = { ...DEFAULT_ADMIN_FX_TO_RWF, ...loaded };
+      setAdminFxRates(merged);
+      setAdminFxRateInputs(Object.fromEntries(Object.entries(merged).map(([code, rate]) => [code, String(rate)])));
+      setRuntimeAdminFxToRwf(merged);
+      setAdminFxRatesUpdatedAt(latestUpdatedAt);
+      setAdminFxRatesLoading(false);
+    };
+
+    loadAdminFxRates();
+  }, []);
+
+  const saveAdminFxRates = async () => {
+    setAdminFxRatesSaving(true);
+
+    const parsedRates: Record<string, number> = {};
+    for (const [code, raw] of Object.entries(adminFxRateInputs)) {
+      const parsed = Number(raw);
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        toast({
+          variant: "destructive",
+          title: "Invalid conversion rate",
+          description: `Enter a valid positive rate for ${code}.`,
+        });
+        setAdminFxRatesSaving(false);
+        return;
+      }
+      parsedRates[code.toUpperCase()] = parsed;
+    }
+
+    const payload = Object.entries(parsedRates).map(([code, rate]) => ({
+      currency_code: code,
+      rate_to_rwf: rate,
+      is_active: true,
+      updated_by: user?.id || null,
+    }));
+
+    const { error } = await (supabase as any)
+      .from("admin_fx_rates")
+      .upsert(payload, { onConflict: "currency_code" });
+
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "Could not save rates",
+        description: error.message || "Please try again.",
+      });
+      setAdminFxRatesSaving(false);
+      return;
+    }
+
+    const nowIso = new Date().toISOString();
+    setAdminFxRates(parsedRates);
+    setRuntimeAdminFxToRwf(parsedRates);
+    setAdminFxRatesUpdatedAt(nowIso);
+
+    toast({
+      title: "Rates saved",
+      description: "Admin conversion rates were updated.",
+    });
+
+    setAdminFxRatesSaving(false);
+  };
 
   const saveAccommodationGuestFee = () => {
     const parsed = Number(accommodationGuestFeeInput);
@@ -3201,6 +3320,78 @@ For support, contact: support@merry360x.com
                     <p className="text-xs text-muted-foreground">Real received amount after processing fee deduction</p>
                   </Card>
         </div>
+
+            <Card className="p-4 mb-6">
+              <h3 className="font-semibold mb-2 flex items-center gap-2">
+                <Percent className="w-4 h-4" /> Calculation Formulas
+              </h3>
+              <div className="space-y-2 text-xs text-muted-foreground">
+                <p>
+                  Host earning (per booking) = discounted listing subtotal - host fee,
+                  where host fee = discounted listing subtotal x host fee%.
+                </p>
+                <p>
+                  Total platform earnings (per booking) = guest fee + host fee,
+                  where guest fee = discounted listing subtotal x guest fee%.
+                </p>
+                <p>
+                  Dashboard totals = sum of per-booking values across confirmed/completed paid bookings.
+                </p>
+                <p>
+                  Current fees: accommodation (guest {formatPercentLabel(accommodationGuestFeePercent)}, host {formatPercentLabel(accommodationHostFeePercent)}), tour (guest {formatPercentLabel(tourGuestFeePercent)}, host {formatPercentLabel(tourHostFeePercent)}), transport (guest {formatPercentLabel(transportGuestFeePercent)}, host {formatPercentLabel(transportHostFeePercent)}).
+                </p>
+              </div>
+            </Card>
+
+            <Card className="p-4 mb-6">
+              <h3 className="font-semibold mb-2 flex items-center gap-2">
+                <DollarSign className="w-4 h-4" /> Conversion Rates (to RWF)
+              </h3>
+              <p className="text-xs text-muted-foreground mb-3">
+                These rates are used to normalize multi-currency bookings into RWF on this dashboard.
+              </p>
+              <p className="text-xs text-muted-foreground mb-3">
+                Last updated: {adminFxRatesUpdatedAt ? new Date(adminFxRatesUpdatedAt).toLocaleString() : "Not available"}
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 text-xs">
+                <div className="rounded border p-2 bg-muted/20">
+                  <span className="text-muted-foreground">RWF</span>
+                  <p className="font-semibold">1 RWF = 1 RWF</p>
+                </div>
+                {Object.entries(adminFxRates).map(([code, rate]) => (
+                  <div key={code} className="rounded border p-2 bg-muted/20">
+                    <span className="text-muted-foreground">{code}</span>
+                    <p className="font-semibold">1 {code} = {formatMoney(rate, "RWF")}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                {Object.entries(adminFxRateInputs).map(([code, value]) => (
+                  <Input
+                    key={`fx-${code}`}
+                    type="number"
+                    min={0}
+                    step="0.000001"
+                    value={value}
+                    onChange={(e) =>
+                      setAdminFxRateInputs((prev) => ({
+                        ...prev,
+                        [code]: e.target.value,
+                      }))
+                    }
+                    placeholder={`${code} to RWF`}
+                    title={`${code} -> RWF`}
+                    disabled={adminFxRatesLoading || adminFxRatesSaving}
+                  />
+                ))}
+              </div>
+              <div className="mt-3 flex justify-end">
+                <Button onClick={saveAdminFxRates} disabled={adminFxRatesLoading || adminFxRatesSaving}>
+                  {adminFxRatesSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                  Save Conversion Rates
+                </Button>
+              </div>
+            </Card>
 
             <Card className="p-4 mb-6">
               <h3 className="font-semibold mb-3 flex items-center gap-2">
