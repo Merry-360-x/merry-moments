@@ -47,6 +47,10 @@ import com.merry360x.mobile.data.SupabaseApi
 import com.merry360x.mobile.data.SupportSummaryMetrics
 import com.merry360x.mobile.theme.CardGray
 import com.merry360x.mobile.theme.Coral
+import java.time.LocalDate
+import java.time.format.DateTimeParseException
+import java.time.temporal.ChronoUnit
+import java.util.Locale
 import org.json.JSONObject
 import org.json.JSONArray
 
@@ -335,6 +339,13 @@ private fun NativeAdminOverviewModule(
             )
         )
     }
+    val defaultHostFormula = "host_payout_amount OR [total_price - (platform_fee + payment_method_fee)]"
+    val defaultPlatformFormula = "platform_fee + payment_method_fee"
+    var hostFormula by rememberSaveable { mutableStateOf(defaultHostFormula) }
+    var platformFormula by rememberSaveable { mutableStateOf(defaultPlatformFormula) }
+    var draftHostFormula by rememberSaveable { mutableStateOf(defaultHostFormula) }
+    var draftPlatformFormula by rememberSaveable { mutableStateOf(defaultPlatformFormula) }
+    var editingFormula by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         loading = true
@@ -365,6 +376,77 @@ private fun NativeAdminOverviewModule(
         MetricRow("Platform Charges", "${metrics.revenueCurrency} ${"%,.0f".format(metrics.platformCharges)}")
         MetricRow("Host Net", "${metrics.revenueCurrency} ${"%,.0f".format(metrics.hostNet)}")
         MetricRow("Discount Amount", "${metrics.revenueCurrency} ${"%,.0f".format(metrics.discountAmount)}")
+
+        Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = CardGray)) {
+            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Admin earning formulas", fontWeight = FontWeight.SemiBold)
+                if (editingFormula) {
+                    OutlinedTextField(
+                        value = draftHostFormula,
+                        onValueChange = { draftHostFormula = it },
+                        label = { Text("Host earning formula") },
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None),
+                    )
+                    OutlinedTextField(
+                        value = draftPlatformFormula,
+                        onValueChange = { draftPlatformFormula = it },
+                        label = { Text("Platform earning formula") },
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None),
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = {
+                            hostFormula = draftHostFormula.ifBlank { defaultHostFormula }
+                            platformFormula = draftPlatformFormula.ifBlank { defaultPlatformFormula }
+                            editingFormula = false
+                        }) {
+                            Text("Save Formula")
+                        }
+                        Button(onClick = {
+                            draftHostFormula = hostFormula
+                            draftPlatformFormula = platformFormula
+                            editingFormula = false
+                        }) {
+                            Text("Cancel")
+                        }
+                    }
+                } else {
+                    Text(
+                        "Host earning (per booking) = $hostFormula",
+                        fontSize = 12.sp,
+                        color = Color.DarkGray,
+                    )
+                    Text(
+                        "Platform earning (per booking) = $platformFormula",
+                        fontSize = 12.sp,
+                        color = Color.DarkGray,
+                    )
+                    Button(onClick = {
+                        draftHostFormula = hostFormula
+                        draftPlatformFormula = platformFormula
+                        editingFormula = true
+                    }) {
+                        Text("Edit Formula")
+                    }
+                }
+                Text(
+                    "Total host earnings = Sum(host earning for paid bookings)",
+                    fontSize = 12.sp,
+                    color = Color.DarkGray,
+                )
+                Text(
+                    "Total platform earnings = Sum(platform earning for paid bookings)",
+                    fontSize = 12.sp,
+                    color = Color.DarkGray,
+                )
+                Text(
+                    "Check: ${formatMoney(metrics.revenueCurrency, metrics.revenueGross)} = ${formatMoney(metrics.revenueCurrency, metrics.hostNet)} + ${formatMoney(metrics.revenueCurrency, metrics.platformCharges)}",
+                    fontSize = 12.sp,
+                    color = Color.DarkGray,
+                )
+            }
+        }
     }
 }
 
@@ -1308,7 +1390,9 @@ private fun NativeCheckoutModule(
     var checkIn by rememberSaveable { mutableStateOf("2026-03-15") }
     var checkOut by rememberSaveable { mutableStateOf("2026-03-17") }
     var guests by rememberSaveable { mutableStateOf("2") }
-    var amount by rememberSaveable { mutableStateOf("199500") }
+    var nightlyRate by rememberSaveable { mutableStateOf("95000") }
+    var guestServiceFeePercent by rememberSaveable { mutableStateOf("10") }
+    var discountAmount by rememberSaveable { mutableStateOf("0") }
     var currency by rememberSaveable { mutableStateOf("RWF") }
     var phone by rememberSaveable { mutableStateOf("") }
     var message by rememberSaveable { mutableStateOf("") }
@@ -1318,26 +1402,58 @@ private fun NativeCheckoutModule(
     var polling by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<String?>(null) }
 
+    val priceBreakdown = remember(
+        checkIn,
+        checkOut,
+        nightlyRate,
+        guestServiceFeePercent,
+        discountAmount,
+    ) {
+        calculateBookingPriceBreakdown(
+            checkIn = checkIn,
+            checkOut = checkOut,
+            nightlyRate = nightlyRate.toDoubleOrNull() ?: 0.0,
+            guestServiceFeePercent = guestServiceFeePercent.toDoubleOrNull() ?: 0.0,
+            discountAmount = discountAmount.toDoubleOrNull() ?: 0.0,
+        )
+    }
+
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Checkout", fontWeight = FontWeight.Bold)
         LabeledInput("Check In", checkIn) { checkIn = it }
         LabeledInput("Check Out", checkOut) { checkOut = it }
         LabeledInput("Guests", guests) { guests = it }
-        LabeledInput("Amount", amount) { amount = it }
+        LabeledInput("Nightly Rate", nightlyRate) { nightlyRate = it }
+        LabeledInput("Guest Service Fee %", guestServiceFeePercent) { guestServiceFeePercent = it }
+        LabeledInput("Discount", discountAmount) { discountAmount = it }
         LabeledInput("Currency", currency) { currency = it }
         LabeledInput("Phone", phone) { phone = it }
         LabeledInput("Message", message) { message = it }
+
+        Text("Price breakdown", fontWeight = FontWeight.SemiBold)
+        MetricRow(
+            "${formatMoney(currency, priceBreakdown.nightlyRate)} x ${priceBreakdown.nights} ${if (priceBreakdown.nights == 1L) "night" else "nights"}",
+            formatMoney(currency, priceBreakdown.baseSubtotal)
+        )
+        MetricRow(
+            "Service fee (${formatPercent(priceBreakdown.guestServiceFeePercent)})",
+            formatMoney(currency, priceBreakdown.serviceFee)
+        )
+        if (priceBreakdown.discountAmount > 0.0) {
+            MetricRow("Discount", "-${formatMoney(currency, priceBreakdown.discountAmount)}")
+        }
+        MetricRow("Total", formatMoney(currency, priceBreakdown.total))
 
         HostSubmitButton("Start Checkout", saving) {
             if (userId.isNullOrBlank()) {
                 status = "Login required"
                 return@HostSubmitButton
             }
-            val total = amount.toDoubleOrNull()
-            if (total == null || total <= 0) {
-                status = "Amount must be greater than 0"
+            if (priceBreakdown.total <= 0.0) {
+                status = "Computed total must be greater than 0"
                 return@HostSubmitButton
             }
+            val total = priceBreakdown.total
 
             saving = true
 
@@ -1443,4 +1559,59 @@ private fun NativeCheckoutModule(
         checkoutId?.let { Text("Checkout id: $it", color = Color.Gray, fontSize = 12.sp) }
         status?.let { Text(it, color = if (it.startsWith("Could")) Color.Red else Color.DarkGray, fontSize = 12.sp) }
     }
+}
+
+private data class BookingPriceBreakdown(
+    val nights: Long,
+    val nightlyRate: Double,
+    val baseSubtotal: Double,
+    val guestServiceFeePercent: Double,
+    val serviceFee: Double,
+    val discountAmount: Double,
+    val total: Double,
+)
+
+private fun calculateBookingPriceBreakdown(
+    checkIn: String,
+    checkOut: String,
+    nightlyRate: Double,
+    guestServiceFeePercent: Double,
+    discountAmount: Double,
+): BookingPriceBreakdown {
+    val nights = resolveNights(checkIn, checkOut)
+    val safeNightlyRate = nightlyRate.coerceAtLeast(0.0)
+    val safeGuestFeePercent = guestServiceFeePercent.coerceAtLeast(0.0)
+    val safeDiscount = discountAmount.coerceAtLeast(0.0)
+
+    val baseSubtotal = safeNightlyRate * nights
+    val serviceFee = baseSubtotal * (safeGuestFeePercent / 100.0)
+    val total = (baseSubtotal + serviceFee - safeDiscount).coerceAtLeast(0.0)
+
+    return BookingPriceBreakdown(
+        nights = nights,
+        nightlyRate = safeNightlyRate,
+        baseSubtotal = baseSubtotal,
+        guestServiceFeePercent = safeGuestFeePercent,
+        serviceFee = serviceFee,
+        discountAmount = safeDiscount,
+        total = total,
+    )
+}
+
+private fun resolveNights(checkIn: String, checkOut: String): Long {
+    return try {
+        val start = LocalDate.parse(checkIn.trim())
+        val end = LocalDate.parse(checkOut.trim())
+        ChronoUnit.DAYS.between(start, end).coerceAtLeast(1)
+    } catch (_: DateTimeParseException) {
+        1
+    }
+}
+
+private fun formatMoney(currency: String, amount: Double): String {
+    return "$currency ${String.format(Locale.US, "%,.0f", amount.coerceAtLeast(0.0))}"
+}
+
+private fun formatPercent(value: Double): String {
+    return String.format(Locale.US, "%.1f", value.coerceAtLeast(0.0)).trimEnd('0').trimEnd('.') + "%"
 }
