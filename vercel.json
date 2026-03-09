@@ -46,7 +46,7 @@
     },
     {
       "path": "/api/pawapay-payout-status?syncAll=1&limit=100",
-      "schedule": "*/10 * * * *"
+      "schedule": "15 2 * * *"
     }
   ]
 }
