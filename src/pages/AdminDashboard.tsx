@@ -2725,14 +2725,6 @@ For support, contact: support@merry360x.com
       const paidCurrency = String(booking.checkout_requests?.currency || booking.currency || "RWF").toUpperCase();
 
       // Use checkout-level discount in checkout currency to avoid cross-currency item mismatches.
-      const discountApplied = Math.max(0, Number(booking.checkout_requests?.metadata?.discount_amount || 0));
-      const listingSubtotalAfterDiscount = paidAmount;
-      const listingSubtotalBeforeDiscount = Math.max(0, listingSubtotalAfterDiscount + discountApplied);
-
-      // Requested calculation order:
-      // 1) base - discount = paid amount
-      // 2) deduct PawaPay fee from paid amount
-      // 3) deduct platform + host fees from post-PawaPay amount
       const guestFeePercent = serviceType === "accommodation"
         ? bookingCalcFeeOverrides.accommodationGuestFeePercent
         : serviceType === "tour"
@@ -2743,11 +2735,24 @@ For support, contact: support@merry360x.com
         : serviceType === "tour"
           ? bookingCalcFeeOverrides.tourHostFeePercent
           : bookingCalcFeeOverrides.transportHostFeePercent;
-      const pawapayFee = (paidAmount * bookingCalcFeeOverrides.pawapayFeePercent) / 100;
-      const amountAfterPawapay = Math.max(0, paidAmount - pawapayFee);
-      const guestFee = (amountAfterPawapay * guestFeePercent) / 100;
-      const hostFee = (amountAfterPawapay * hostFeePercent) / 100;
-      const hostNet = Math.max(0, amountAfterPawapay - guestFee - hostFee);
+
+      // Calculation order:
+      // 1) base amount before discount
+      // 2) discount -> base after discount
+      // 3) guest fee on discounted base
+      // 4) PawaPay fee on guest paid total (base after discount + guest fee)
+      // 5) host earning from discounted base only: base after discount - host fee
+      const discountApplied = Math.max(0, Number(booking.checkout_requests?.metadata?.discount_amount || 0));
+      const listingSubtotalAfterDiscount = Math.max(0, paidAmount / (1 + guestFeePercent / 100));
+      const listingSubtotalBeforeDiscount = Math.max(0, listingSubtotalAfterDiscount + discountApplied);
+
+      const guestFee = (listingSubtotalAfterDiscount * guestFeePercent) / 100;
+      const guestPaidTotal = listingSubtotalAfterDiscount + guestFee;
+      const pawapayFee = (guestPaidTotal * bookingCalcFeeOverrides.pawapayFeePercent) / 100;
+      const amountAfterPawapay = Math.max(0, guestPaidTotal - pawapayFee);
+
+      const hostFee = (listingSubtotalAfterDiscount * hostFeePercent) / 100;
+      const hostNet = Math.max(0, listingSubtotalAfterDiscount - hostFee);
       const platformTotal = guestFee + hostFee;
 
       return {
@@ -3338,7 +3343,7 @@ For support, contact: support@merry360x.com
               <div className="space-y-2 text-xs text-muted-foreground">
                 <p className="font-medium text-foreground">Simple formula builder (per booking)</p>
                 <p>
-                  1) <span className="font-medium text-foreground">Base amount</span> = listing subtotal after discount.
+                  1) <span className="font-medium text-foreground">Base amount</span> = listing subtotal before discount.
                 </p>
                 <p>
                   2) <span className="font-medium text-foreground">Guest fee</span> = base amount x guest fee%.
@@ -5413,7 +5418,7 @@ For support, contact: support@merry360x.com
                 <div>
                   <h2 className="text-lg font-semibold">Booking Calculations</h2>
                   <p className="text-sm text-muted-foreground">
-                    Formula: paid amount (after discount) =&gt; minus PawaPay =&gt; minus platform/host fees =&gt; host net.
+                      Formula: base amount - discount =&gt; guest fee =&gt; PawaPay fee; host earning uses discounted base - host fee.
                   </p>
                 </div>
                 <div className="flex items-center gap-2 w-full md:w-auto">
