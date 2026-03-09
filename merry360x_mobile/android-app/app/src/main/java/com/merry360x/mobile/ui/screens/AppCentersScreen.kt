@@ -260,7 +260,7 @@ private fun NativeModuleScreen(
                 NativePaymentStateModule("Booking Success", "Booking confirmed and visible in your trips.", Color(0xFF43A047))
             }
             destination == AppCenterDestination.BACKOFFICE && moduleTitle == "Admin Overview" -> {
-                NativeAdminOverviewModule(api = api, accessToken = accessToken)
+                NativeAdminOverviewModule(api = api, userId = userId, accessToken = accessToken)
             }
             destination == AppCenterDestination.BACKOFFICE && moduleTitle == "Financial Summary" -> {
                 NativeFinancialSummaryModule(api = api, accessToken = accessToken)
@@ -318,10 +318,13 @@ private fun NativeInfoModule(title: String) {
 @Composable
 private fun NativeAdminOverviewModule(
     api: SupabaseApi,
+    userId: String?,
     accessToken: String?,
 ) {
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
+    var rolesLoading by remember { mutableStateOf(true) }
+    var canEditAdminConfig by remember { mutableStateOf(false) }
     var metrics by remember {
         mutableStateOf(
             AdminOverviewMetrics(
@@ -346,6 +349,85 @@ private fun NativeAdminOverviewModule(
     var draftHostFormula by rememberSaveable { mutableStateOf(defaultHostFormula) }
     var draftPlatformFormula by rememberSaveable { mutableStateOf(defaultPlatformFormula) }
     var editingFormula by rememberSaveable { mutableStateOf(false) }
+    val defaultFxRates = remember {
+        linkedMapOf(
+            "AED" to 396.323917,
+            "AOA" to 1.584312,
+            "AUD" to 1010.117,
+            "BIF" to 0.491231,
+            "BRL" to 276.102528,
+            "CAD" to 1062.448047,
+            "CHF" to 1873.109877,
+            "CNH" to 209.757927,
+            "CNY" to 209.732456,
+            "CZK" to 70.714012,
+            "DKK" to 229.813989,
+            "EGP" to 31.06037,
+            "ETB" to 9.362504,
+            "EUR" to 1716.76225,
+            "GBP" to 1972.4936,
+            "GHS" to 132.559663,
+            "GNF" to 0.165927,
+            "HKD" to 186.330199,
+            "HUF" to 4.51205,
+            "IDR" to 0.085875,
+            "ILS" to 464.008306,
+            "INR" to 16.118935,
+            "JOD" to 2052.89542,
+            "JPY" to 9.289729,
+            "KES" to 11.283036,
+            "KMF" to 3.485195,
+            "KRW" to 0.991196,
+            "KWD" to 4762.762058,
+            "LSL" to 89.404815,
+            "LYD" to 229.848921,
+            "MAD" to 158.57527,
+            "MRO" to 4.071761,
+            "MUR" to 31.593811,
+            "MWK" to 0.839096,
+            "MZN" to 22.889921,
+            "NGN" to 1.066154,
+            "NOK" to 148.634932,
+            "PKR" to 5.203413,
+            "PLN" to 406.037196,
+            "QAR" to 399.314242,
+            "RUB" to 18.964437,
+            "RWF" to 1.0,
+            "SAR" to 388.122902,
+            "SDG" to 2.425591,
+            "SEK" to 160.930996,
+            "SGD" to 1142.643914,
+            "SSP" to 0.320938,
+            "SZL" to 89.404088,
+            "TRY" to 33.370976,
+            "TZS" to 0.563279,
+            "UGX" to 0.408996,
+            "USD" to 1455.5,
+            "XAF" to 2.551492,
+            "XDR" to 1997.84841,
+            "XOF" to 2.619172,
+            "ZAR" to 89.412093,
+            "ZIG" to 3.83597,
+            "ZMW" to 78.35757,
+        )
+    }
+    var fxRates by remember { mutableStateOf(defaultFxRates.toMap()) }
+    var draftFxRates by remember { mutableStateOf(defaultFxRates.mapValues { (_, value) -> value.toString() }) }
+    var editingFxRates by rememberSaveable { mutableStateOf(false) }
+    var fxStatus by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(userId, accessToken) {
+        if (userId.isNullOrBlank() || accessToken.isNullOrBlank()) {
+            canEditAdminConfig = false
+            rolesLoading = false
+            return@LaunchedEffect
+        }
+
+        rolesLoading = true
+        val roles = api.fetchUserRoles(userId, accessToken).getOrNull().orEmpty()
+        canEditAdminConfig = roles.any { it.contains("admin") }
+        rolesLoading = false
+    }
 
     LaunchedEffect(Unit) {
         loading = true
@@ -380,7 +462,7 @@ private fun NativeAdminOverviewModule(
         Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = CardGray)) {
             Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("Admin earning formulas", fontWeight = FontWeight.SemiBold)
-                if (editingFormula) {
+                if (editingFormula && canEditAdminConfig) {
                     OutlinedTextField(
                         value = draftHostFormula,
                         onValueChange = { draftHostFormula = it },
@@ -422,12 +504,18 @@ private fun NativeAdminOverviewModule(
                         fontSize = 12.sp,
                         color = Color.DarkGray,
                     )
-                    Button(onClick = {
-                        draftHostFormula = hostFormula
-                        draftPlatformFormula = platformFormula
-                        editingFormula = true
-                    }) {
-                        Text("Edit Formula")
+                    if (rolesLoading) {
+                        Text("Checking admin permission...", fontSize = 12.sp, color = Color.Gray)
+                    } else if (canEditAdminConfig) {
+                        Button(onClick = {
+                            draftHostFormula = hostFormula
+                            draftPlatformFormula = platformFormula
+                            editingFormula = true
+                        }) {
+                            Text("Edit Formula")
+                        }
+                    } else {
+                        Text("Only admins can edit formulas.", fontSize = 12.sp, color = Color.Gray)
                     }
                 }
                 Text(
@@ -445,6 +533,78 @@ private fun NativeAdminOverviewModule(
                     fontSize = 12.sp,
                     color = Color.DarkGray,
                 )
+            }
+        }
+
+        Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = CardGray)) {
+            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Currency conversion rates (to RWF)", fontWeight = FontWeight.SemiBold)
+                if (editingFxRates && canEditAdminConfig) {
+                    fxRates.keys.forEach { code ->
+                        OutlinedTextField(
+                            value = draftFxRates[code] ?: "",
+                            onValueChange = { newValue ->
+                                draftFxRates = draftFxRates.toMutableMap().apply { put(code, newValue) }
+                            },
+                            label = { Text("$code -> RWF") },
+                            modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None),
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = {
+                            val parsed = mutableMapOf<String, Double>()
+                            var invalidCode: String? = null
+                            fxRates.keys.forEach { code ->
+                                val value = draftFxRates[code]?.toDoubleOrNull()
+                                if (value == null || value <= 0.0) {
+                                    invalidCode = code
+                                } else {
+                                    parsed[code] = value
+                                }
+                            }
+
+                            if (invalidCode != null) {
+                                fxStatus = "Invalid rate for $invalidCode"
+                            } else {
+                                fxRates = parsed.toMap()
+                                editingFxRates = false
+                                fxStatus = "FX rates updated in admin view."
+                            }
+                        }) {
+                            Text("Save Rates")
+                        }
+                        Button(onClick = {
+                            draftFxRates = fxRates.mapValues { (_, value) -> value.toString() }
+                            editingFxRates = false
+                            fxStatus = null
+                        }) {
+                            Text("Cancel")
+                        }
+                    }
+                } else {
+                    fxRates.forEach { (code, rate) ->
+                        MetricRow("1 $code", "${String.format(Locale.US, "%.6f", rate)} RWF")
+                    }
+
+                    if (rolesLoading) {
+                        Text("Checking admin permission...", fontSize = 12.sp, color = Color.Gray)
+                    } else if (canEditAdminConfig) {
+                        Button(onClick = {
+                            draftFxRates = fxRates.mapValues { (_, value) -> value.toString() }
+                            editingFxRates = true
+                            fxStatus = null
+                        }) {
+                            Text("Edit FX Rates")
+                        }
+                    } else {
+                        Text("Only admins can edit FX rates.", fontSize = 12.sp, color = Color.Gray)
+                    }
+                }
+
+                fxStatus?.let {
+                    Text(it, fontSize = 12.sp, color = if (it.startsWith("Invalid")) Color.Red else Color.DarkGray)
+                }
             }
         }
     }
