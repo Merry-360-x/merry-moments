@@ -3311,81 +3311,71 @@ For support, contact: support@merry360x.com
           <Card className="p-4">
                 <div className="flex items-center gap-2 text-muted-foreground mb-1">
                   <Calendar className="w-4 h-4" />
-                  <span className="text-sm">Bookings</span>
+                  <span className="text-sm">Bookings (Total)</span>
                 </div>
                 <p className="text-2xl font-bold text-foreground">{metrics?.bookings_total ?? 0}</p>
-                <p className="text-xs text-muted-foreground">{metrics?.bookings_pending ?? 0} pending</p>
+                <p className="text-xs text-muted-foreground">Pending: {metrics?.bookings_pending ?? 0}</p>
           </Card>
           <Card className="p-4">
                 <div className="flex items-center gap-2 text-muted-foreground mb-1">
                   <Users className="w-4 h-4" />
-                  <span className="text-sm">Users</span>
+                  <span className="text-sm">Users (Total)</span>
                 </div>
                 <p className="text-2xl font-bold text-foreground">{metrics?.users_total ?? 0}</p>
-                <p className="text-xs text-muted-foreground">{metrics?.hosts_total ?? 0} hosts</p>
+                <p className="text-xs text-muted-foreground">Hosts: {metrics?.hosts_total ?? 0}</p>
           </Card>
           <Card className="p-4">
                 <div className="flex items-center gap-2 text-muted-foreground mb-1">
                   <Home className="w-4 h-4" />
-                  <span className="text-sm">Properties</span>
+                  <span className="text-sm">Properties (Total)</span>
                 </div>
                 <p className="text-2xl font-bold text-foreground">{metrics?.properties_total ?? 0}</p>
-                <p className="text-xs text-muted-foreground">{metrics?.properties_published ?? 0} live</p>
+                <p className="text-xs text-muted-foreground">Live: {metrics?.properties_published ?? 0}</p>
           </Card>
                   <Card className="p-4">
                     <div className="flex items-center gap-2 text-muted-foreground mb-1">
                   <Wallet className="w-4 h-4" />
-                  <span className="text-sm">Amount All Hosts Earned</span>
+                  <span className="text-sm">Host Earnings Only (A - Host Fee)</span>
                     </div>
                     <p className="text-2xl font-bold text-foreground">{formatMoney(adminHostNetEarningsTotal, "RWF")}</p>
-                    <p className="text-xs text-muted-foreground">Combined host net earnings only (platform fees excluded)</p>
                   </Card>
                   <Card className="p-4">
                     <div className="flex items-center gap-2 text-muted-foreground mb-1">
                   <Percent className="w-4 h-4" />
-                  <span className="text-sm">After Platform Fees</span>
+                  <span className="text-sm">Base Before Discount (A + D)</span>
                     </div>
                     <p className="text-2xl font-bold text-foreground">{formatMoney(adminPaidFinancialOverview.totalAmountAfterPlatformFees, "RWF")}</p>
-                    <p className="text-xs text-muted-foreground">Guest totals after platform fee additions, before discounts</p>
                   </Card>
                   <Card className="p-4">
                     <div className="flex items-center gap-2 text-muted-foreground mb-1">
                   <Wallet className="w-4 h-4" />
-                  <span className="text-sm">Discount Amount</span>
+                  <span className="text-sm">Discount Total (D)</span>
                     </div>
                     <p className="text-2xl font-bold text-foreground">{formatMoney(adminPaidFinancialOverview.totalDiscountApplied, "RWF")}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Total discounts applied across confirmed/completed paid bookings
-                    </p>
                   </Card>
                   <Card className="p-4">
                     <div className="flex items-center gap-2 text-muted-foreground mb-1">
                   <DollarSign className="w-4 h-4" />
-                  <span className="text-sm">Earned from Charges</span>
+                  <span className="text-sm">Platform Earnings (Guest Fee + Host Fee)</span>
                     </div>
                     <p className="text-2xl font-bold text-primary">{formatMoney(adminPaidFinancialOverview.earnedFromCharges, "RWF")}</p>
                     <p className="text-xs text-muted-foreground">
-                      Platform fees + host fees from confirmed/completed bookings
-                      {` (platform: ${formatMoney(adminPaidFinancialOverview.platformGuestFees, "RWF")}, host: ${formatMoney(adminPaidFinancialOverview.hostFees, "RWF")})`}
+                      {`Guest fees: ${formatMoney(adminPaidFinancialOverview.platformGuestFees, "RWF")}, Host fees: ${formatMoney(adminPaidFinancialOverview.hostFees, "RWF")}`}
                     </p>
                   </Card>
                   <Card className="p-4">
                     <div className="flex items-center gap-2 text-muted-foreground mb-1">
                   <Wallet className="w-4 h-4" />
-                  <span className="text-sm">PawaPay Processing Fees</span>
+                  <span className="text-sm">PawaPay Fees (Guest Paid x 3.1%)</span>
                     </div>
                     <p className="text-2xl font-bold text-destructive">{formatMoney(adminPaidFinancialOverview.totalPawapayFees, "RWF")}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {`3.1% fee deducted from every confirmed/completed paid booking`}
-                    </p>
                   </Card>
                   <Card className="p-4">
                     <div className="flex items-center gap-2 text-muted-foreground mb-1">
                   <DollarSign className="w-4 h-4" />
-                  <span className="text-sm">Net After PawaPay</span>
+                  <span className="text-sm">Net Received (Guest Paid - PawaPay)</span>
                     </div>
                     <p className="text-2xl font-bold text-primary">{formatMoney(adminPaidFinancialOverview.totalAmountAfterPawapay, "RWF")}</p>
-                    <p className="text-xs text-muted-foreground">Real received amount after processing fee deduction</p>
                   </Card>
         </div>
 
