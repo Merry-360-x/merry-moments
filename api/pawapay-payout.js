@@ -59,6 +59,63 @@ function resolveProvider(provider, payoutDetails) {
   );
 }
 
+function extractCountryIso(countryCode) {
+  if (countryCode === "254") return "KEN";
+  if (countryCode === "256") return "UGA";
+  if (countryCode === "260") return "ZMB";
+  return "RWA";
+}
+
+async function fetchActivePayoutProviders(countryIso) {
+  const endpoints = [
+    `${PAWAPAY_API_URL}/active-conf?country=${countryIso}&operationType=PAYOUT`,
+    `${PAWAPAY_API_URL}/v2/active-conf?country=${countryIso}&operationType=PAYOUT`,
+  ];
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${PAWAPAY_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) continue;
+      const payload = await response.json();
+      const countries = Array.isArray(payload?.countries) ? payload.countries : [];
+      const country = countries.find((entry) => String(entry?.country || "").toUpperCase() === countryIso);
+      const providers = Array.isArray(country?.providers) ? country.providers : [];
+      return providers.map((entry) => String(entry?.provider || "").trim()).filter(Boolean);
+    } catch (error) {
+      console.warn("Failed reading active payout configuration", { endpoint, error: error?.message || String(error) });
+    }
+  }
+
+  return [];
+}
+
+function pickProviderFromActiveConfig({ requestedProvider, fallbackCorrespondent, activeProviders }) {
+  if (!Array.isArray(activeProviders) || activeProviders.length === 0) {
+    return fallbackCorrespondent;
+  }
+
+  if (activeProviders.includes(fallbackCorrespondent)) {
+    return fallbackCorrespondent;
+  }
+
+  const providerHint = String(requestedProvider || "").toUpperCase();
+  if (!providerHint) return activeProviders[0];
+
+  const providerByHint = activeProviders.find((entry) => String(entry).toUpperCase().includes(providerHint));
+  if (providerByHint) {
+    return providerByHint;
+  }
+
+  return activeProviders[0];
+}
+
 function json(res, status, data) {
   res.status(status).json(data);
 }
@@ -128,15 +185,45 @@ export default async function handler(req, res) {
     }
 
     const countryCode = detectCountryCode(resolvedPhone);
+    const countryIso = extractCountryIso(countryCode);
     const correspondentKey = `${resolvedProvider}_${countryCode}`;
-    const correspondent =
+    const configuredCorrespondent =
       PAYOUT_CORRESPONDENTS[correspondentKey] ||
       PAYOUT_CORRESPONDENTS[String(resolvedProvider)] ||
       PAYOUT_CORRESPONDENTS[String(resolvedProvider).toUpperCase()];
 
+    if (!configuredCorrespondent) {
+      return json(res, 400, {
+        error: `Unsupported mobile money provider: ${resolvedProvider} for country code ${countryCode}`,
+      });
+    }
+
+    const activeProviders = await fetchActivePayoutProviders(countryIso);
+    const correspondent = pickProviderFromActiveConfig({
+      requestedProvider: resolvedProvider,
+      fallbackCorrespondent: configuredCorrespondent,
+      activeProviders,
+    });
+
     if (!correspondent) {
       return json(res, 400, {
         error: `Unsupported mobile money provider: ${resolvedProvider} for country code ${countryCode}`,
+      });
+    }
+
+    if (activeProviders.length > 0 && !activeProviders.includes(correspondent)) {
+      return json(res, 400, {
+        error: `No active payout flow available for ${resolvedProvider} in ${countryIso}/${currency || "RWF"}.`,
+        activeProviders,
+      });
+    }
+
+    if (configuredCorrespondent !== correspondent) {
+      console.log("🔀 Using active payout provider override", {
+        requestedProvider: resolvedProvider,
+        configuredCorrespondent,
+        selectedCorrespondent: correspondent,
+        countryIso,
       });
     }
 
