@@ -3335,21 +3335,21 @@ For support, contact: support@merry360x.com
                   <Card className="p-4">
                     <div className="flex items-center gap-2 text-muted-foreground mb-1">
                   <Wallet className="w-4 h-4" />
-                  <span className="text-sm">Host Earnings Only (A - Host Fee)</span>
+                  <span className="text-sm">Host Earnings Only</span>
                     </div>
                     <p className="text-2xl font-bold text-foreground">{formatMoney(adminHostNetEarningsTotal, "RWF")}</p>
                   </Card>
                   <Card className="p-4">
                     <div className="flex items-center gap-2 text-muted-foreground mb-1">
                   <Percent className="w-4 h-4" />
-                  <span className="text-sm">Base Before Discount (A + D)</span>
+                  <span className="text-sm">Base Before Discount</span>
                     </div>
                     <p className="text-2xl font-bold text-foreground">{formatMoney(adminPaidFinancialOverview.totalAmountAfterPlatformFees, "RWF")}</p>
                   </Card>
                   <Card className="p-4">
                     <div className="flex items-center gap-2 text-muted-foreground mb-1">
                   <Wallet className="w-4 h-4" />
-                  <span className="text-sm">Discount Total (D)</span>
+                  <span className="text-sm">Discount Total</span>
                     </div>
                     <p className="text-2xl font-bold text-foreground">{formatMoney(adminPaidFinancialOverview.totalDiscountApplied, "RWF")}</p>
                   </Card>
@@ -3422,9 +3422,6 @@ For support, contact: support@merry360x.com
                   <p>Platform earning = 11,700 RWF</p>
                 </div>
                 <p>
-                  Dashboard totals are the sum of all confirmed/completed paid bookings.
-                </p>
-                <p>
                   Current rates: accommodation (guest {formatPercentLabel(accommodationGuestFeePercent)}, host {formatPercentLabel(accommodationHostFeePercent)}), tour (guest {formatPercentLabel(tourGuestFeePercent)}, host {formatPercentLabel(tourHostFeePercent)}), transport (guest {formatPercentLabel(transportGuestFeePercent)}, host {formatPercentLabel(transportHostFeePercent)}).
                 </p>
               </div>
@@ -3434,12 +3431,6 @@ For support, contact: support@merry360x.com
               <h3 className="font-semibold mb-2 flex items-center gap-2">
                 <DollarSign className="w-4 h-4" /> Conversion Rates (to RWF)
               </h3>
-              <p className="text-xs text-muted-foreground mb-3">
-                These rates are used to normalize multi-currency bookings into RWF on this dashboard.
-              </p>
-              <p className="text-xs text-muted-foreground mb-3">
-                Edit each rate as: <span className="font-medium text-foreground">1 currency unit = X RWF</span>, then click <span className="font-medium text-foreground">Save Conversion Rates</span>.
-              </p>
               <p className="text-xs text-muted-foreground mb-3">
                 Last updated: {adminFxRatesUpdatedAt ? new Date(adminFxRatesUpdatedAt).toLocaleString() : "Not available"}
               </p>
@@ -3578,9 +3569,6 @@ For support, contact: support@merry360x.com
               <h3 className="font-semibold mb-2 flex items-center gap-2">
                 <Wallet className="w-4 h-4" /> All Hosts Total Earnings
               </h3>
-              <p className="text-xs text-muted-foreground mb-3">
-                Per-host totals from confirmed/completed paid bookings. Host earnings only, platform fees excluded.
-              </p>
               {allHostsEarnings.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No host earnings found yet.</p>
               ) : (
@@ -5518,9 +5506,6 @@ For support, contact: support@merry360x.com
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
                 <div>
                   <h2 className="text-lg font-semibold">Booking Calculations</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Formula order: discount first, then guest fee, then PawaPay, while host earning uses discounted base only.
-                  </p>
                 </div>
                 <div className="flex items-center gap-2 w-full md:w-auto">
                   <Input
@@ -5547,22 +5532,19 @@ For support, contact: support@merry360x.com
 
               <div className="mb-4 rounded-md border p-3 bg-muted/20 space-y-2">
                 <p className="text-sm font-medium">How this table is calculated</p>
-                <p className="text-xs text-muted-foreground">Variables: `B` = base before discount, `D` = discount, `A` = base after discount.</p>
-                <p className="text-xs text-muted-foreground">`A = B - D`</p>
-                <p className="text-xs text-muted-foreground">`Guest Fee = A x guest fee %`</p>
-                <p className="text-xs text-muted-foreground">`Guest Paid = A + Guest Fee`</p>
+                <p className="text-xs text-muted-foreground">`Base After Discount = Base Before Discount - Discount`</p>
+                <p className="text-xs text-muted-foreground">`Guest Fee = Base After Discount x Guest Fee %`</p>
+                <p className="text-xs text-muted-foreground">`Guest Paid = Base After Discount + Guest Fee`</p>
                 <p className="text-xs text-muted-foreground">`PawaPay Fee = Guest Paid x PawaPay %`</p>
                 <p className="text-xs text-muted-foreground">`Net After PawaPay = Guest Paid - PawaPay Fee`</p>
-                <p className="text-xs text-muted-foreground">`Host Fee = A x host fee %`</p>
-                <p className="text-xs text-muted-foreground">`Host Earnings (Only) = A - Host Fee`</p>
+                <p className="text-xs text-muted-foreground">`Host Fee = Base After Discount x Host Fee %`</p>
+                <p className="text-xs text-muted-foreground">`Host Earnings (Only) = Base After Discount - Host Fee`</p>
                 <p className="text-xs text-muted-foreground">`Platform Earnings = Guest Fee + Host Fee`</p>
               </div>
 
               <div className="mb-4 rounded-md border p-3 bg-muted/30">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
-                  <p className="text-xs text-muted-foreground">
-                    Adjust percentages below to allow changes and test scenarios. This affects this table only.
-                  </p>
+                  <p className="text-xs text-muted-foreground">Scenario fee controls</p>
                   <Button variant="outline" size="sm" onClick={resetBookingCalcOverrides}>
                     <RefreshCw className="w-3 h-3 mr-1" /> Reset Defaults
                   </Button>
