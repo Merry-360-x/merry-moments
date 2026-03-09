@@ -2936,6 +2936,14 @@ For support, contact: support@merry360x.com
     return Array.from(totals.values()).sort((a, b) => b.hostEarningsRwf - a.hostEarningsRwf);
   }, [adminUsers, applications, bookings, payouts]);
 
+  const walletEarningsByHostId = useMemo(() => {
+    const map = new Map<string, number>();
+    allHostsEarnings.forEach((host) => {
+      map.set(host.hostId, host.walletEarningsRwf || 0);
+    });
+    return map;
+  }, [allHostsEarnings]);
+
   const accommodationGuestFeePercent = getGuestFeePercent("accommodation");
   const accommodationHostFeePercent = getProviderFeePercent("accommodation");
   const tourGuestFeePercent = getGuestFeePercent("tour");
@@ -4318,6 +4326,7 @@ For support, contact: support@merry360x.com
                             <TableHead>Phone</TableHead>
                             <TableHead>Type</TableHead>
                             <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Wallet Earnings</TableHead>
                             <TableHead>Documents</TableHead>
                             <TableHead>Applied</TableHead>
                             <TableHead>Actions</TableHead>
@@ -4364,6 +4373,9 @@ For support, contact: support@merry360x.com
                                     </Badge>
                                   )}
                                 </div>
+                              </TableCell>
+                              <TableCell className="text-right font-semibold text-primary">
+                                {formatMoney(walletEarningsByHostId.get(app.user_id) || 0, "RWF")}
                               </TableCell>
                               <TableCell className="text-sm">
                                 <div className="flex gap-1 flex-wrap">
