@@ -219,15 +219,18 @@ type BookingRow = {
   properties?: {
     title: string;
     images: string[] | null;
+    host_id?: string | null;
   } | null;
   tour_packages?: {
     title: string;
     city: string;
     country: string;
+    host_id?: string | null;
   } | null;
   transport_vehicles?: {
     title: string;
     vehicle_type: string;
+    created_by?: string | null;
   } | null;
   profiles?: {
     id?: string;
@@ -401,6 +404,8 @@ const convertAdminCurrency = (
   const toRate = runtimeAdminFxToRwf[to] ?? runtimeAdminFxToRwf.USD ?? DEFAULT_ADMIN_FX_TO_RWF.USD;
   return inRwf / toRate;
 };
+
+const normalizeHostId = (value: unknown) => String(value || "").trim().toLowerCase();
 
 const statusColors: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800",
@@ -1107,15 +1112,15 @@ export default function AdminDashboard() {
 
       const [properties, tours, vehicles, profiles, checkouts] = await Promise.all([
         fetchInChunks(propertyIds, async (subset) => {
-          const { data } = await supabase.from("properties").select("id, title, images, currency").in("id", subset);
+          const { data } = await supabase.from("properties").select("id, title, images, currency, host_id").in("id", subset);
           return data || [];
         }),
         fetchInChunks(tourIds, async (subset) => {
-          const { data } = await supabase.from("tour_packages").select("id, title, currency").in("id", subset);
+          const { data } = await supabase.from("tour_packages").select("id, title, currency, host_id").in("id", subset);
           return data || [];
         }),
         fetchInChunks(transportIds, async (subset) => {
-          const { data } = await supabase.from("transport_vehicles").select("id, title, vehicle_type, currency").in("id", subset);
+          const { data } = await supabase.from("transport_vehicles").select("id, title, vehicle_type, currency, created_by").in("id", subset);
           return data || [];
         }),
         fetchInChunks(guestIds, async (subset) => {
@@ -1135,13 +1140,25 @@ export default function AdminDashboard() {
       const enrichedData = allRows.map(booking => {
         const enriched = { ...booking };
         if (booking.property_id) {
-          enriched.properties = properties.find(p => p.id === booking.property_id) || null;
+          const property = properties.find(p => p.id === booking.property_id) || null;
+          enriched.properties = property;
+          if (!enriched.host_id && property?.host_id) {
+            enriched.host_id = property.host_id;
+          }
         }
         if (booking.tour_id) {
-          enriched.tour_packages = tours.find(t => t.id === booking.tour_id) || null;
+          const tour = tours.find(t => t.id === booking.tour_id) || null;
+          enriched.tour_packages = tour;
+          if (!enriched.host_id && tour?.host_id) {
+            enriched.host_id = tour.host_id;
+          }
         }
         if (booking.transport_id) {
-          enriched.transport_vehicles = vehicles.find(v => v.id === booking.transport_id) || null;
+          const vehicle = vehicles.find(v => v.id === booking.transport_id) || null;
+          enriched.transport_vehicles = vehicle;
+          if (!enriched.host_id && vehicle?.created_by) {
+            enriched.host_id = vehicle.created_by;
+          }
         }
         if (booking.guest_id && !booking.is_guest_booking) {
           enriched.profiles = profiles.find(p => p.id === booking.guest_id) || null;
@@ -2864,18 +2881,20 @@ For support, contact: support@merry360x.com
     applications.forEach((application) => {
       if (application.user_id && application.profiles?.full_name) {
         hostNameById.set(application.user_id, application.profiles.full_name);
+        hostNameById.set(normalizeHostId(application.user_id), application.profiles.full_name);
       }
     });
 
     adminUsers.forEach((adminUser) => {
       if (adminUser.user_id && adminUser.full_name && !hostNameById.has(adminUser.user_id)) {
         hostNameById.set(adminUser.user_id, adminUser.full_name);
+        hostNameById.set(normalizeHostId(adminUser.user_id), adminUser.full_name);
       }
     });
 
     const payoutTotalsByHost = new Map<string, { pendingAndProcessingRwf: number; completedRwf: number }>();
     payouts.forEach((payout: any) => {
-      const hostId = String(payout.host_id || "").trim();
+      const hostId = normalizeHostId(payout.host_id);
       if (!hostId) return;
       const amountRwf = toRwfAmount(Number(payout.amount || 0), payout.currency || "RWF");
       const status = String(payout.status || "").toLowerCase();
@@ -2892,7 +2911,15 @@ For support, contact: support@merry360x.com
     const totals = new Map<string, { hostId: string; hostName: string; bookings: number; hostEarningsRwf: number; walletEarningsRwf: number }>();
 
     bookings.forEach((booking) => {
-      if (!booking.host_id || !isConfirmedPaidBooking(booking)) return;
+      if (!isConfirmedPaidBooking(booking)) return;
+
+      const resolvedHostId = normalizeHostId(
+        booking.host_id ||
+          booking.properties?.host_id ||
+          booking.tour_packages?.host_id ||
+          booking.transport_vehicles?.created_by,
+      );
+      if (!resolvedHostId) return;
 
       const bookingType = String(booking.booking_type || "").toLowerCase();
       const serviceType: "accommodation" | "tour" | "transport" =
@@ -2911,10 +2938,10 @@ For support, contact: support@merry360x.com
       const financials = calculateBookingFinancialsFromDiscountedListing(discountedBase, serviceType);
       const hostEarningsRwf = toRwfAmount(financials.hostNetEarnings, paidCurrency);
 
-      const hostId = String(booking.host_id);
+      const hostId = resolvedHostId;
       const current = totals.get(hostId) || {
         hostId,
-        hostName: hostNameById.get(hostId) || "Unknown Host",
+        hostName: hostNameById.get(hostId) || hostNameById.get(String(booking.host_id || "").trim()) || "Unknown Host",
         bookings: 0,
         hostEarningsRwf: 0,
         walletEarningsRwf: 0,
@@ -2939,7 +2966,9 @@ For support, contact: support@merry360x.com
   const walletEarningsByHostId = useMemo(() => {
     const map = new Map<string, number>();
     allHostsEarnings.forEach((host) => {
-      map.set(host.hostId, host.walletEarningsRwf || 0);
+      const normalizedHostId = normalizeHostId(host.hostId);
+      if (normalizedHostId) map.set(normalizedHostId, host.walletEarningsRwf || 0);
+      if (host.hostId) map.set(host.hostId, host.walletEarningsRwf || 0);
     });
     return map;
   }, [allHostsEarnings]);
@@ -4375,7 +4404,12 @@ For support, contact: support@merry360x.com
                                 </div>
                               </TableCell>
                               <TableCell className="text-right font-semibold text-primary">
-                                {formatMoney(walletEarningsByHostId.get(app.user_id) || 0, "RWF")}
+                                {formatMoney(
+                                  walletEarningsByHostId.get(normalizeHostId(app.user_id)) ||
+                                    walletEarningsByHostId.get(String(app.user_id || "").trim()) ||
+                                    0,
+                                  "RWF"
+                                )}
                               </TableCell>
                               <TableCell className="text-sm">
                                 <div className="flex gap-1 flex-wrap">
