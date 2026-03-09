@@ -2657,54 +2657,29 @@ export default function HostDashboard() {
       }
     }
 
-    const parsedCheckIn = booking.check_in ? new Date(booking.check_in) : null;
-    const parsedCheckOut = booking.check_out ? new Date(booking.check_out) : null;
-    const nights = parsedCheckIn && parsedCheckOut
-      ? Math.max(1, Math.ceil((parsedCheckOut.getTime() - parsedCheckIn.getTime()) / (1000 * 60 * 60 * 24)))
-      : 1;
-    const guests = Math.max(1, Number(booking.guests || 1));
-
-    if (booking.booking_type === 'property' || Boolean(booking.property_id)) {
-      const nightly = Number(booking.properties?.price_per_night || 0);
-      if (Number.isFinite(nightly) && nightly > 0) {
-        return {
-          listingSubtotal: nightly * nights,
-          currency: String(booking.properties?.currency || booking.currency || checkout?.currency || 'RWF').toUpperCase(),
-          serviceType: 'accommodation' as const,
-        };
-      }
+    const checkoutTotal = Number(checkout?.total_amount || 0);
+    if (Number.isFinite(checkoutTotal) && checkoutTotal > 0) {
+      // Keep host dashboard aligned with booking-calculation math by deriving
+      // listing subtotal from the actual paid checkout amount when no item
+      // breakdown is available.
+      const { basePrice } = calculateHostEarningsFromGuestTotal(checkoutTotal, serviceType);
+      return {
+        listingSubtotal: Number.isFinite(basePrice) ? Math.max(0, basePrice) : 0,
+        currency: String(checkout?.currency || booking.currency || 'RWF').toUpperCase(),
+        serviceType,
+      };
     }
 
-    if (booking.booking_type === 'tour' || Boolean(booking.tour_id)) {
-      const perAdult = Number(booking.tour_packages?.price_per_adult || 0);
-      if (Number.isFinite(perAdult) && perAdult > 0) {
-        return {
-          listingSubtotal: perAdult * guests,
-          currency: String(booking.tour_packages?.currency || booking.currency || checkout?.currency || 'RWF').toUpperCase(),
-          serviceType: 'tour' as const,
-        };
-      }
-    }
-
-    if (booking.booking_type === 'transport' || Boolean(booking.transport_id)) {
-      const transportFromJoin = Number(booking.transport_vehicles?.price_per_day || 0);
-      const vehicle = booking.transport_id ? vehicles.find((v) => v.id === booking.transport_id) : null;
-      const transportPrice = Number.isFinite(transportFromJoin) && transportFromJoin > 0
-        ? transportFromJoin
-        : Number(vehicle?.price_per_day || 0);
-      if (Number.isFinite(transportPrice) && transportPrice > 0) {
-        return {
-          listingSubtotal: transportPrice,
-          currency: String(booking.transport_vehicles?.currency || vehicle?.currency || booking.currency || checkout?.currency || 'RWF').toUpperCase(),
-          serviceType: 'transport' as const,
-        };
-      }
+    const fallbackListedAmount = Number(booking.total_price || 0);
+    if (Number.isFinite(fallbackListedAmount) && fallbackListedAmount > 0) {
+      return {
+        listingSubtotal: fallbackListedAmount,
+        currency: String(booking.currency || checkout?.currency || 'RWF').toUpperCase(),
+        serviceType,
+      };
     }
 
     const guestPaid = getBookingGuestPaidAmount(booking);
-
-    // Keep fallback calculations on post-discount paid value so host totals
-    // match admin financial metrics and avoid inflating net earnings.
     const { basePrice } = calculateHostEarningsFromGuestTotal(guestPaid, serviceType);
 
     return {
@@ -2712,7 +2687,7 @@ export default function HostDashboard() {
       currency: String(checkout?.currency || booking.currency || 'RWF').toUpperCase(),
       serviceType,
     };
-  }, [bookings, checkoutByOrderId, getBookingGuestPaidAmount, getCheckoutItemForBooking, vehicles]);
+  }, [checkoutByOrderId, getBookingGuestPaidAmount, getCheckoutItemForBooking]);
 
   const getResolvedBookingAmountForHost = useCallback((booking: Booking) => {
     const bookingAmount = getBookingAmountAndCurrency(booking);
