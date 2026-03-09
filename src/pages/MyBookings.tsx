@@ -18,6 +18,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { extractNeighborhood } from "@/lib/location";
 import { useFxRates } from "@/hooks/useFxRates";
 import { usePreferences } from "@/hooks/usePreferences";
+import { calculatePawaPayProcessing } from "@/lib/fees";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { BookingDateChangeDialog } from "@/components/BookingDateChangeDialog";
@@ -1040,17 +1041,30 @@ const MyBookings = () => {
                             <div className="text-right shrink-0">
                               <p className="font-bold text-foreground text-base">
                                 {(() => {
-                                  const amt = Number(booking.total_price);
+                                  const amt = Number(booking.checkout_requests?.total_amount || booking.total_price);
                                   const fromCur = booking.booking_type === "property" && booking.properties?.currency
-                                    ? booking.properties.currency
+                                    ? (booking.checkout_requests?.currency || booking.properties.currency)
                                     : booking.booking_type === "tour" && booking.tour_packages?.currency
-                                      ? booking.tour_packages.currency
-                                      : String(booking.currency || "USD");
+                                      ? (booking.checkout_requests?.currency || booking.tour_packages.currency)
+                                      : String(booking.checkout_requests?.currency || booking.currency || "USD");
                                   const converted = convertAmount(amt, fromCur, currency, usdRates);
                                   return formatMoney(converted ?? amt, converted !== null ? currency : fromCur);
                                 })()}
                               </p>
-                              <p className="text-xs text-muted-foreground mt-0.5">Individual total</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">Individual total (gross)</p>
+                              <p className="text-xs text-emerald-600 mt-0.5">
+                                {(() => {
+                                  const amt = Number(booking.checkout_requests?.total_amount || booking.total_price);
+                                  const fromCur = booking.booking_type === "property" && booking.properties?.currency
+                                    ? (booking.checkout_requests?.currency || booking.properties.currency)
+                                    : booking.booking_type === "tour" && booking.tour_packages?.currency
+                                      ? (booking.checkout_requests?.currency || booking.tour_packages.currency)
+                                      : String(booking.checkout_requests?.currency || booking.currency || "USD");
+                                  const net = calculatePawaPayProcessing(amt).netAmount;
+                                  const converted = convertAmount(net, fromCur, currency, usdRates);
+                                  return `Net after PawaPay: ${formatMoney(converted ?? net, converted !== null ? currency : fromCur)}`;
+                                })()}
+                              </p>
                             </div>
                           </div>
 
@@ -1108,15 +1122,27 @@ const MyBookings = () => {
                           </span>
                         </div>
                         {totalPaid > 0 && (
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-muted-foreground">Amount Paid</span>
-                            <span className="text-lg font-bold text-green-600">
-                              {(() => {
-                                const converted = convertAmount(totalPaid, paidCurrency, currency, usdRates);
-                                return formatMoney(converted ?? totalPaid, converted !== null ? currency : paidCurrency);
-                              })()}
-                            </span>
-                          </div>
+                          <>
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-muted-foreground">Amount Paid</span>
+                              <span className="text-lg font-bold text-green-600">
+                                {(() => {
+                                  const converted = convertAmount(totalPaid, paidCurrency, currency, usdRates);
+                                  return formatMoney(converted ?? totalPaid, converted !== null ? currency : paidCurrency);
+                                })()}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-muted-foreground">Net After PawaPay</span>
+                              <span className="text-base font-semibold text-emerald-700">
+                                {(() => {
+                                  const net = calculatePawaPayProcessing(totalPaid).netAmount;
+                                  const converted = convertAmount(net, paidCurrency, currency, usdRates);
+                                  return formatMoney(converted ?? net, converted !== null ? currency : paidCurrency);
+                                })()}
+                              </span>
+                            </div>
+                          </>
                         )}
                       </div>
                     )}

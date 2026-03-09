@@ -50,15 +50,10 @@ struct AuthBottomSheet: View {
             ScrollView {
                 VStack(spacing: 20) {
                     // Logo
-                    ZStack {
-                        Circle()
-                            .fill(AppTheme.coral)
-                            .frame(width: 64, height: 64)
-                        
-                        Text("M")
-                            .font(.system(size: 28, weight: .bold))
-                            .foregroundColor(.white)
-                    }
+                    Image("SplashLogo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 64, height: 64)
                     
                     // Title
                     VStack(spacing: 4) {
@@ -80,10 +75,10 @@ struct AuthBottomSheet: View {
                             }) {
                                 Text(mode.rawValue)
                                     .font(.system(size: 14, weight: authMode == mode ? .semibold : .regular))
-                                    .foregroundColor(authMode == mode ? .black : .gray)
+                                    .foregroundColor(authMode == mode ? AppTheme.textPrimary : AppTheme.textSecondary)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 10)
-                                    .background(authMode == mode ? Color.white : Color.clear)
+                                    .background(authMode == mode ? AppTheme.appBackground : Color.clear)
                                     .clipShape(RoundedRectangle(cornerRadius: 8))
                             }
                         }
@@ -202,6 +197,13 @@ struct AuthBottomSheet: View {
                             .foregroundColor(.red)
                             .multilineTextAlignment(.center)
                     }
+
+                    if let oauthError = session.authErrorMessage, !oauthError.isEmpty {
+                        Text(oauthError)
+                            .font(.system(size: 13))
+                            .foregroundColor(.red)
+                            .multilineTextAlignment(.center)
+                    }
                     
                     // Main Action Button
                     Button(action: handleAuth) {
@@ -257,19 +259,20 @@ struct AuthBottomSheet: View {
                         // Google
                         Button(action: { handleOAuth(provider: "google") }) {
                             HStack(spacing: 8) {
-                                Text("G")
-                                    .font(.system(size: 18, weight: .bold))
-                                    .foregroundColor(.red)
+                                Image("GoogleLogo")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 18, height: 18)
                                 Text("Google")
                                     .font(.system(size: 15, weight: .medium))
-                                    .foregroundColor(.black)
+                                    .foregroundColor(AppTheme.textPrimary)
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
-                            .background(Color.white)
+                            .background(AppTheme.appBackground)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                                    .stroke(AppTheme.borderSubtle, lineWidth: 1)
                             )
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                         }
@@ -286,15 +289,16 @@ struct AuthBottomSheet: View {
                 .padding(.bottom, 32)
             }
         }
-        .background(Color.white)
+        .background(AppTheme.appBackground)
     }
     
     private func handleAuth() {
         guard !viewModel.loading else { return }
-        
-        // Set email from phone if using phone tab
+
+        // Phone credentials are not wired to Supabase phone OTP in this app yet.
         if inputTab == .phone {
-            viewModel.email = "+250\(phone)"
+            viewModel.errorMessage = "Phone sign in is not available yet. Please use Email or Google/Apple sign in."
+            return
         }
         
         guard !viewModel.email.isEmpty, !viewModel.password.isEmpty else {

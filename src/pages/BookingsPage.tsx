@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Search, AlertCircle, Package, Home, MapPin, Car } from "lucide-react";
 import { formatMoney } from "@/lib/money";
 import { useToast } from "@/hooks/use-toast";
+import { calculatePawaPayProcessing } from "@/lib/fees";
 
 type BookingRow = any;
 
@@ -79,7 +80,9 @@ export default function BookingsPage() {
         const transportIds = [...new Set(bookings.filter(b => b.transport_id).map(b => b.transport_id))];
         const hostIds = [...new Set(bookings.filter(b => b.host_id).map(b => b.host_id))];
 
-        const [properties, tours, vehicles, hosts] = await Promise.all([
+        const orderIds = [...new Set(bookings.filter(b => b.order_id).map(b => b.order_id))];
+
+        const [properties, tours, vehicles, hosts, checkouts] = await Promise.all([
           propertyIds.length > 0 
             ? supabase.from("properties").select("id, title, images").in("id", propertyIds).then(r => r.data || [])
             : Promise.resolve([]),
@@ -91,6 +94,9 @@ export default function BookingsPage() {
             : Promise.resolve([]),
           hostIds.length > 0
             ? supabase.from("profiles").select("user_id, full_name, nickname, email").in("user_id", hostIds).then(r => r.data || [])
+            : Promise.resolve([]),
+          orderIds.length > 0
+            ? supabase.from("checkout_requests").select("id, total_amount, currency, payment_method").in("id", orderIds).then(r => r.data || [])
             : Promise.resolve([])
         ]);
 
@@ -107,6 +113,9 @@ export default function BookingsPage() {
           }
           if (booking.host_id) {
             enriched.profiles = hosts.find(h => h.user_id === booking.host_id) || null;
+          }
+          if (booking.order_id) {
+            enriched.checkout_requests = checkouts.find((c: any) => c.id === booking.order_id) || null;
           }
           return enriched;
         });
@@ -166,7 +175,8 @@ export default function BookingsPage() {
   }
 
   const isBulkOrder = searchResults.length > 1 || (searchResults.length > 0 && searchResults[0].order_id);
-  const totalAmount = searchResults.reduce((sum, b) => sum + (b.total_price || 0), 0);
+  const totalAmount = searchResults.reduce((sum, b) => sum + Number(b.checkout_requests?.total_amount || b.total_price || 0), 0);
+  const totalNetAfterPawaPay = calculatePawaPayProcessing(totalAmount).netAmount;
   const currency = searchResults[0]?.currency || "RWF";
 
   return (
@@ -236,6 +246,7 @@ export default function BookingsPage() {
                     <div className="text-right">
                       <p className="text-sm text-muted-foreground">Total Amount</p>
                       <p className="text-2xl font-bold">{formatMoney(totalAmount, currency)}</p>
+                      <p className="text-sm text-emerald-700">Net after PawaPay: {formatMoney(totalNetAfterPawaPay, currency)}</p>
                     </div>
                   </div>
                   {searchResults[0].order_id && (
@@ -280,7 +291,17 @@ export default function BookingsPage() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-xl font-bold">{formatMoney(booking.total_price, booking.currency || 'RWF')}</p>
+                          <p className="text-xl font-bold">
+                            {formatMoney(Number(booking.checkout_requests?.total_amount || booking.total_price || 0), booking.checkout_requests?.currency || booking.currency || 'RWF')}
+                          </p>
+                          <p className="text-xs text-emerald-700 mt-1">
+                            {(() => {
+                              const gross = Number(booking.checkout_requests?.total_amount || booking.total_price || 0);
+                              const net = calculatePawaPayProcessing(gross).netAmount;
+                              const cur = booking.checkout_requests?.currency || booking.currency || 'RWF';
+                              return `Net after PawaPay: ${formatMoney(net, cur)}`;
+                            })()}
+                          </p>
                           <div className="flex gap-2 mt-1">
                             <Badge variant={booking.status === 'confirmed' ? 'default' : 'secondary'}>
                               {booking.status}

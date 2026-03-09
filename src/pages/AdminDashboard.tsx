@@ -21,6 +21,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatMoney } from "@/lib/money";
 import {
+  PAWAPAY_PROCESSING_FEE_PERCENT,
+  calculatePawaPayProcessing,
   calculateBookingFinancialsFromDiscountedListing,
   getGuestFeePercent,
   setAccommodationGuestFeePercent as persistAccommodationGuestFeePercent,
@@ -349,6 +351,7 @@ type TabValue =
   | "tours"
   | "transport"
   | "bookings"
+  | "booking-calculations"
   | "payments"
   | "payouts"
   | "reviews"
@@ -1128,7 +1131,7 @@ export default function AdminDashboard() {
       
       return enrichedData as BookingRow[];
     },
-    enabled: tab === "bookings" || tab === "payments" || tab === "overview",
+    enabled: tab === "bookings" || tab === "booking-calculations" || tab === "payments" || tab === "overview",
     staleTime: 1000 * 20,
     gcTime: 1000 * 60 * 10,
     refetchOnWindowFocus: true,
@@ -2631,6 +2634,43 @@ For support, contact: support@merry360x.com
       return bookingId.includes(query) || orderId.includes(query);
     });
   }, [bookings, bookingIdSearch, bookingStatus, refundRequestRefs]);
+
+  const bookingCalculationRows = useMemo(() => {
+    return filteredBookingsById.map((booking) => {
+      const bookingType = String(booking.booking_type || "").toLowerCase();
+      const serviceType: "accommodation" | "tour" | "transport" =
+        bookingType === "property"
+          ? "accommodation"
+          : bookingType === "tour"
+            ? "tour"
+            : "transport";
+
+      const paidAmount = Number(booking.checkout_requests?.total_amount || booking.total_price || 0);
+      const paidCurrency = String(booking.checkout_requests?.currency || booking.currency || "RWF").toUpperCase();
+      const guestFeePercent = getGuestFeePercent(serviceType);
+      const listingSubtotalAfterDiscount = paidAmount > 0
+        ? Math.max(0, paidAmount / (1 + guestFeePercent / 100))
+        : 0;
+
+      const financials = calculateBookingFinancialsFromDiscountedListing(listingSubtotalAfterDiscount, serviceType);
+      const pawapay = calculatePawaPayProcessing(paidAmount);
+
+      return {
+        booking,
+        serviceType,
+        paidAmount,
+        paidCurrency,
+        basePrice: listingSubtotalAfterDiscount,
+        guestFee: financials.guestFee,
+        hostFee: financials.hostFee,
+        hostNet: financials.hostNetEarnings,
+        platformTotal: financials.platformTotalEarnings,
+        pawapayFee: pawapay.processingFee,
+        afterPawapay: pawapay.netAmount,
+      };
+    });
+  }, [filteredBookingsById]);
+
   const bookingOrderCount = useMemo(
     () => new Set(bookings.map((booking) => booking.order_id).filter(Boolean)).size,
     [bookings]
@@ -2682,6 +2722,7 @@ For support, contact: support@merry360x.com
         const guestFeePercent = getGuestFeePercent(serviceType);
         const listingSubtotalAfterDiscount = Math.max(0, paidAmount / (1 + guestFeePercent / 100));
         const financials = calculateBookingFinancialsFromDiscountedListing(listingSubtotalAfterDiscount, serviceType);
+        const pawapay = calculatePawaPayProcessing(paidAmount);
 
         const discountRaw = Math.max(0, Number(booking.checkout_requests?.metadata?.discount_amount || 0));
 
@@ -2692,13 +2733,15 @@ For support, contact: support@merry360x.com
         totals.platformGuestFees += toRwfAmount(financials.guestFee, paidCurrency);
         totals.hostFees += toRwfAmount(financials.hostFee, paidCurrency);
         totals.earnedFromCharges += toRwfAmount(financials.platformTotalEarnings, paidCurrency);
-        totals.totalAmountAfterPawapay += toRwfAmount(paidAmount * (1 - 0.031), paidCurrency);
+        totals.totalPawapayFees += toRwfAmount(pawapay.processingFee, paidCurrency);
+        totals.totalAmountAfterPawapay += toRwfAmount(pawapay.netAmount, paidCurrency);
         return totals;
       },
       {
         totalAmountAfterPlatformFees: 0,
         totalDiscountApplied: 0,
         totalAmountBooked: 0,
+        totalPawapayFees: 0,
         totalAmountAfterPawapay: 0,
         totalAmountAfterServiceFees: 0,
         platformGuestFees: 0,
@@ -2811,11 +2854,13 @@ For support, contact: support@merry360x.com
         const platformGuestFeeRwf = toRwfAmount(financials.guestFee, listingAfterDiscountCurrency);
         const hostFeeRwf = toRwfAmount(financials.hostFee, listingAfterDiscountCurrency);
         const hostNetRwf = toRwfAmount(financials.hostNetEarnings, listingAfterDiscountCurrency);
+        const pawapay = calculatePawaPayProcessing(guestTotalRwf);
 
         totals.totalAmountAfterPlatformFees += guestTotalRwf + discountAppliedRwf;
         totals.totalDiscountApplied += discountAppliedRwf;
         totals.totalAmountBooked += guestTotalRwf;
-        totals.totalAmountAfterPawapay += guestTotalRwf * (1 - 0.031);
+        totals.totalPawapayFees += pawapay.processingFee;
+        totals.totalAmountAfterPawapay += pawapay.netAmount;
         totals.totalAmountAfterServiceFees += hostNetRwf;
         totals.platformGuestFees += platformGuestFeeRwf;
         totals.hostFees += hostFeeRwf;
@@ -2827,6 +2872,7 @@ For support, contact: support@merry360x.com
         totalAmountAfterPlatformFees: 0,
         totalDiscountApplied: 0,
         totalAmountBooked: 0,
+        totalPawapayFees: 0,
         totalAmountAfterPawapay: 0,
         totalAmountAfterServiceFees: 0,
         platformGuestFees: 0,
@@ -2846,6 +2892,7 @@ For support, contact: support@merry360x.com
     tours: "Loading tours...",
     transport: "Loading transport...",
     bookings: "Loading bookings...",
+    "booking-calculations": "Loading booking calculations...",
     payments: "Loading payments...",
     payouts: "Loading payouts...",
     reviews: "Loading reviews...",
@@ -2865,6 +2912,7 @@ For support, contact: support@merry360x.com
     (tab === "tours" && isToursLoading) ||
     (tab === "transport" && isTransportLoading) ||
     (tab === "bookings" && isBookingsLoading) ||
+    (tab === "booking-calculations" && isBookingsLoading) ||
     (tab === "payments" && isBookingsLoading) ||
     (tab === "payouts" && isPayoutsLoading) ||
     (tab === "reviews" && isReviewsLoading) ||
@@ -2932,6 +2980,9 @@ For support, contact: support@merry360x.com
                   {bookings.filter(b => isPendingBookingStatus(b.status)).length}
                 </Badge>
               )}
+            </TabsTrigger>
+            <TabsTrigger value="booking-calculations" className="gap-1">
+              <BarChart3 className="w-4 h-4" /> Booking Calculations
             </TabsTrigger>
             <TabsTrigger value="payments" className="gap-1">
               <CreditCard className="w-4 h-4" /> Payments
@@ -3046,6 +3097,24 @@ For support, contact: support@merry360x.com
                       Platform fees + host fees from confirmed/completed bookings
                       {` (platform: ${formatMoney(adminPaidFinancialOverview.platformGuestFees, "RWF")}, host: ${formatMoney(adminPaidFinancialOverview.hostFees, "RWF")})`}
                     </p>
+                  </Card>
+                  <Card className="p-4">
+                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                  <Wallet className="w-4 h-4" />
+                  <span className="text-sm">PawaPay Processing Fees</span>
+                    </div>
+                    <p className="text-2xl font-bold text-destructive">{formatMoney(adminPaidFinancialOverview.totalPawapayFees, "RWF")}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {`3.1% fee deducted from every confirmed/completed paid booking`}
+                    </p>
+                  </Card>
+                  <Card className="p-4">
+                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                  <DollarSign className="w-4 h-4" />
+                  <span className="text-sm">Net After PawaPay</span>
+                    </div>
+                    <p className="text-2xl font-bold text-primary">{formatMoney(adminPaidFinancialOverview.totalAmountAfterPawapay, "RWF")}</p>
+                    <p className="text-xs text-muted-foreground">Real received amount after processing fee deduction</p>
                   </Card>
         </div>
 
@@ -4583,6 +4652,7 @@ For support, contact: support@merry360x.com
                   <p className="text-sm text-muted-foreground">Clear view of booking references, guest details, schedule, and payment tracking</p>
                 </div>
                 <div className="flex items-center gap-2 w-full md:w-auto">
+                  <Button variant="outline" onClick={() => setTab("booking-calculations")}>View Booking Calculations</Button>
                   <Input
                     value={bookingIdSearch}
                     onChange={(e) => setBookingIdSearch(e.target.value)}
@@ -5031,18 +5101,125 @@ For support, contact: support@merry360x.com
             </Card>
           </TabsContent>
 
+          {/* BOOKING CALCULATIONS TAB */}
+          <TabsContent value="booking-calculations">
+            <Card className="p-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+                <div>
+                  <h2 className="text-lg font-semibold">Booking Calculations</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Individual fee math for each booking and order, including 3.1% PawaPay deduction.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 w-full md:w-auto">
+                  <Input
+                    value={bookingIdSearch}
+                    onChange={(e) => setBookingIdSearch(e.target.value)}
+                    placeholder="Search Booking ID / Order ID"
+                    className="w-full md:w-64"
+                  />
+                  <Select value={bookingStatus} onValueChange={setBookingStatus}>
+                    <SelectTrigger className="w-44">
+                      <SelectValue placeholder="All statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="confirmed">Confirmed</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                      <SelectItem value="refund_requested">Refund Requested</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <Table className="min-w-[1700px] table-fixed">
+                  <TableHeader className="sticky top-0 z-10 bg-background">
+                    <TableRow>
+                      <TableHead className="w-[170px]">Booking</TableHead>
+                      <TableHead className="w-[160px]">Order</TableHead>
+                      <TableHead className="w-[120px]">Type</TableHead>
+                      <TableHead className="w-[140px]">Status</TableHead>
+                      <TableHead className="w-[160px] text-right">Guest Paid</TableHead>
+                      <TableHead className="w-[160px] text-right">Base Price</TableHead>
+                      <TableHead className="w-[160px] text-right">Guest Fee</TableHead>
+                      <TableHead className="w-[160px] text-right">Host Fee</TableHead>
+                      <TableHead className="w-[160px] text-right">Host Net</TableHead>
+                      <TableHead className="w-[180px] text-right">Platform Earnings</TableHead>
+                      <TableHead className="w-[170px] text-right">PawaPay Fee 3.1%</TableHead>
+                      <TableHead className="w-[180px] text-right">Net After PawaPay</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {bookingCalculationRows.map((row) => {
+                      const b = row.booking;
+                      return (
+                        <TableRow key={`calc-${b.id}`}>
+                          <TableCell className="font-mono text-xs break-all">{b.id}</TableCell>
+                          <TableCell>
+                            {b.order_id ? (
+                              <Badge variant="secondary" className="font-mono text-[11px] break-all whitespace-normal leading-4">
+                                {b.order_id}
+                              </Badge>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Single booking</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="capitalize">{row.serviceType}</TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-1">
+                              <StatusBadge status={b.status} />
+                              <PaymentStatusBadge status={b.checkout_requests?.payment_status || b.payment_status} />
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right font-medium">{formatMoney(row.paidAmount, row.paidCurrency)}</TableCell>
+                          <TableCell className="text-right">{formatMoney(row.basePrice, row.paidCurrency)}</TableCell>
+                          <TableCell className="text-right">{formatMoney(row.guestFee, row.paidCurrency)}</TableCell>
+                          <TableCell className="text-right">{formatMoney(row.hostFee, row.paidCurrency)}</TableCell>
+                          <TableCell className="text-right text-emerald-700 font-medium">{formatMoney(row.hostNet, row.paidCurrency)}</TableCell>
+                          <TableCell className="text-right">{formatMoney(row.platformTotal, row.paidCurrency)}</TableCell>
+                          <TableCell className="text-right text-destructive">{formatMoney(row.pawapayFee, row.paidCurrency)}</TableCell>
+                          <TableCell className="text-right text-primary font-semibold">{formatMoney(row.afterPawapay, row.paidCurrency)}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {bookingCalculationRows.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
+                          No bookings found for the selected filters
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </Card>
+          </TabsContent>
+
           {/* CART CHECKOUTS TAB */}
           {/* PAYMENTS TAB */}
           <TabsContent value="payments">
             <div className="grid md:grid-cols-3 gap-4 mb-6">
               <Card className="p-4">
                 <p className="text-sm text-muted-foreground">Total Revenue</p>
-                <p className="text-2xl font-bold text-primary">{formatMoney(metrics?.revenue_gross ?? 0, "RWF")}</p>
-                              <p className="text-2xl font-bold text-primary">{formatMoney(displayedRevenueGross, "RWF")}</p>
+                <p className="text-2xl font-bold text-primary">{formatMoney(displayedRevenueGross, "RWF")}</p>
               </Card>
               <Card className="p-4">
                 <p className="text-sm text-muted-foreground">Paid Bookings</p>
                 <p className="text-2xl font-bold">{metrics?.bookings_paid ?? 0}</p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-sm text-muted-foreground">PawaPay Fees ({PAWAPAY_PROCESSING_FEE_PERCENT}%)</p>
+                <p className="text-2xl font-bold text-destructive">{formatMoney(adminPaidFinancialOverview.totalPawapayFees, "RWF")}</p>
+              </Card>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4 mb-6">
+              <Card className="p-4">
+                <p className="text-sm text-muted-foreground">Net After PawaPay</p>
+                <p className="text-2xl font-bold text-primary">{formatMoney(adminPaidFinancialOverview.totalAmountAfterPawapay, "RWF")}</p>
               </Card>
               <Card className="p-4">
                 <p className="text-sm text-muted-foreground">Total Refunds</p>

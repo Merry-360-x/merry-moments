@@ -33,6 +33,8 @@ export const PLATFORM_FEES = {
   },
 } as const;
 
+export const PAWAPAY_PROCESSING_FEE_PERCENT = 3.1;
+
 const ACCOMMODATION_GUEST_FEE_STORAGE_KEY = "merry360x.accommodationGuestFeePercent";
 const MIN_GUEST_FEE_PERCENT = 0;
 const MAX_GUEST_FEE_PERCENT = 100;
@@ -257,5 +259,28 @@ export function calculateBookingFinancialsFromDiscountedListing(
     platformTotalEarnings,
     guestFeePercent,
     hostFeePercent,
+  };
+}
+
+/**
+ * Calculate PawaPay processing-fee breakdown for a charged amount.
+ */
+export function calculatePawaPayProcessing(
+  grossAmount: number
+): {
+  grossAmount: number;
+  feePercent: number;
+  processingFee: number;
+  netAmount: number;
+} {
+  const gross = Math.max(0, Number(grossAmount || 0));
+  const processingFee = (gross * PAWAPAY_PROCESSING_FEE_PERCENT) / 100;
+  const netAmount = gross - processingFee;
+
+  return {
+    grossAmount: gross,
+    feePercent: PAWAPAY_PROCESSING_FEE_PERCENT,
+    processingFee,
+    netAmount,
   };
 }

@@ -6,11 +6,12 @@ struct Merry360xMobileApp: App {
     @StateObject private var session = AppSessionViewModel()
     @State private var cartBadge: Int = 0
     @State private var showSplash = true
+    @AppStorage("merry_mobile_theme_mode") private var themeModeRaw = AppThemeMode.system.rawValue
 
     init() {
         let appearance = UITabBarAppearance()
         appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = UIColor.white
+        appearance.backgroundColor = UIColor.systemBackground
         appearance.backgroundEffect = nil
 
         UITabBar.appearance().standardAppearance = appearance
@@ -43,7 +44,12 @@ struct Merry360xMobileApp: App {
                     await session.handleOAuthCallback(url)
                 }
             }
+            .preferredColorScheme(currentThemeMode.colorScheme)
         }
+    }
+
+    private var currentThemeMode: AppThemeMode {
+        AppThemeMode(rawValue: themeModeRaw) ?? .system
     }
 }
 
@@ -168,7 +174,7 @@ private struct AndroidStyleBottomNav: View {
         }
         .padding(.top, 8)
         .padding(.bottom, 10)
-        .background(Color.white)
+        .background(AppTheme.appBackground)
         .overlay(alignment: .top) {
             Divider()
         }

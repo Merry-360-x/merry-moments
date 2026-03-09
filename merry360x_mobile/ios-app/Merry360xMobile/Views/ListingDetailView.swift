@@ -1,7 +1,12 @@
 import SwiftUI
 
 struct ListingDetailView: View {
-    var mediaRefs: [String] = []
+    @EnvironmentObject private var session: AppSessionViewModel
+    let listing: Listing
+
+    private var mediaRefs: [String] {
+        ((listing.images ?? []) + [listing.mainImage].compactMap { $0 })
+    }
 
     var body: some View {
         VStack(spacing: 12) {
@@ -30,15 +35,19 @@ struct ListingDetailView: View {
         }
         .padding(16)
         .background(AppTheme.appBackground)
-        .navigationTitle("Listing")
+        .navigationTitle(listing.title)
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            session.selectedListingId = listing.id
+            session.selectedListingTitle = listing.title
+        }
     }
 
     private var detailCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Kigali Hills Apartment")
+            Text(listing.title)
                 .font(.title3.bold())
-            Text("Kiyovu · 4.8 ★ (128 reviews)")
+            Text("\(listing.location) · \(listing.rating ?? 4.8, specifier: "%.1f") ★")
                 .font(.caption)
                 .foregroundColor(.gray)
 
@@ -128,20 +137,30 @@ struct ListingDetailView: View {
     private var bookingBar: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text("RWF 95,000")
+                Text("\(listing.currency) \(Int(listing.pricePerNight))")
                     .font(.headline)
                 Text("/ night")
                     .font(.caption)
                     .foregroundColor(.gray)
             }
             Spacer()
-            Button("Reserve") {}
-                .font(.headline)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-                .foregroundColor(.white)
-                .background(AppTheme.coral)
-                .clipShape(Capsule())
+            NavigationLink {
+                BookingView()
+                    .environmentObject(session)
+                    .onAppear {
+                        session.selectedListingId = listing.id
+                        session.selectedListingTitle = listing.title
+                    }
+            } label: {
+                Text("Reserve")
+                    .font(.headline)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                    .foregroundColor(.white)
+                    .background(AppTheme.coral)
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
         }
         .padding(12)
         .background(AppTheme.cardBackground)
@@ -155,11 +174,26 @@ struct ListingDetailView: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.white)
+            .background(AppTheme.appBackground)
             .clipShape(Capsule())
     }
 }
 
 #Preview {
-    NavigationStack { ListingDetailView() }
+    NavigationStack {
+        ListingDetailView(
+            listing: Listing(
+                id: "preview",
+                hostId: nil,
+                title: "Kigali Hills Apartment",
+                location: "Kigali",
+                pricePerNight: 95000,
+                pricePerMonth: nil,
+                currency: "RWF",
+                isPublished: true,
+                monthlyOnlyListing: false
+            )
+        )
+        .environmentObject(AppSessionViewModel())
+    }
 }

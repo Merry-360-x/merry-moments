@@ -16,8 +16,11 @@ struct HostToolsView: View {
                 .pickerStyle(.segmented)
 
                 if viewModel.loading {
-                    ProgressView("Loading host tools...")
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    MerryLoadingStateView(
+                        title: "Loading host tools",
+                        subtitle: "Preparing listings, bookings, and payouts...",
+                        showCardSkeletons: true
+                    )
                 }
 
                 if let error = viewModel.errorMessage {

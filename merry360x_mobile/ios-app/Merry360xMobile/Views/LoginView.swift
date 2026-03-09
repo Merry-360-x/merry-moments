@@ -153,7 +153,8 @@ struct LoginView: View {
                 // Sign In Button
                 Button(action: {
                     if selectedTab == 1 {
-                        viewModel.email = "+250\(phoneNumber)"
+                        viewModel.errorMessage = "Phone sign in is not available yet. Please use Email or Google/Apple sign in."
+                        return
                     }
                     Task { await viewModel.signIn(session: session) }
                 }) {
@@ -208,6 +209,12 @@ struct LoginView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
                     
+                    if let oauthError = session.authErrorMessage, !oauthError.isEmpty {
+                        Text(oauthError)
+                            .font(.system(size: 14))
+                            .foregroundColor(.red)
+                            .padding(.horizontal, 20)
+                    }
                     // Google Sign In
                     Button(action: { handleOAuth(provider: "google") }) {
                         HStack(spacing: 12) {

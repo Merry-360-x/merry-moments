@@ -51,10 +51,11 @@ final class HomeViewModel: ObservableObject {
         loading = true
         errorMessage = nil
         do {
-            async let stayTask = service.fetchFeaturedListings(limit: 120)
-            async let toursTask = service.fetchTours(limit: 120)
-            async let carsTask = service.fetchCars(limit: 120)
-            async let eventsTask = service.fetchEvents(limit: 120)
+            // Smaller first payload keeps card rendering and image loading responsive on device.
+            async let stayTask = service.fetchFeaturedListings(limit: 60)
+            async let toursTask = service.fetchTours(limit: 40)
+            async let carsTask = service.fetchCars(limit: 40)
+            async let eventsTask = service.fetchEvents(limit: 40)
 
             let stayRows = try await stayTask
             let tourRows = try await toursTask

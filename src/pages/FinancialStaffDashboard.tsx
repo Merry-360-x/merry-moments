@@ -18,7 +18,12 @@ import { useNotificationBadge, NotificationBadge } from "@/hooks/useNotification
 import { useToast } from "@/hooks/use-toast";
 import { useFxRates } from "@/hooks/useFxRates";
 import { convertAmount } from "@/lib/fx";
-import { calculateBookingFinancialsFromDiscountedListing, getGuestFeePercent } from "@/lib/fees";
+import {
+  PAWAPAY_PROCESSING_FEE_PERCENT,
+  calculateBookingFinancialsFromDiscountedListing,
+  calculatePawaPayProcessing,
+  getGuestFeePercent,
+} from "@/lib/fees";
 
 type BookingRow = {
   id: string;
@@ -695,15 +700,20 @@ export default function FinancialStaffDashboard() {
         if (!isConfirmedPaidBooking(booking)) return totals;
 
         const financials = getBookingFinancials(booking);
+        const pawapay = calculatePawaPayProcessing(financials.guestTotal);
         totals.hostNetEarnings += convertToDashboardCurrency(financials.hostNetEarnings, financials.paidCurrency);
         totals.platformEarnings += convertToDashboardCurrency(financials.platformTotalEarnings, financials.paidCurrency);
         totals.guestPaid += convertToDashboardCurrency(financials.guestTotal, financials.paidCurrency);
+        totals.pawapayFees += convertToDashboardCurrency(pawapay.processingFee, financials.paidCurrency);
+        totals.netAfterPawapay += convertToDashboardCurrency(pawapay.netAmount, financials.paidCurrency);
         return totals;
       },
       {
         hostNetEarnings: 0,
         platformEarnings: 0,
         guestPaid: 0,
+        pawapayFees: 0,
+        netAfterPawapay: 0,
       }
     );
   }, [bookings, convertToDashboardCurrency, getBookingFinancials, isConfirmedPaidBooking]);
@@ -795,7 +805,7 @@ export default function FinancialStaffDashboard() {
         </Card>
 
         {/* Metrics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
@@ -830,6 +840,32 @@ export default function FinancialStaffDashboard() {
                 {formatMoney(realEarningsTotals.platformEarnings, dashboardCurrency)}
               </div>
               <p className="text-xs text-muted-foreground mt-1">Guest fee + host/provider fee</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">PawaPay Fees ({PAWAPAY_PROCESSING_FEE_PERCENT}%)</CardTitle>
+              <XCircle className="h-4 w-4 text-destructive" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-destructive">
+                {formatMoney(realEarningsTotals.pawapayFees, dashboardCurrency)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Deducted from every confirmed/completed paid booking</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Net After PawaPay</CardTitle>
+              <CheckCircle className="h-4 w-4 text-emerald-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-emerald-600">
+                {formatMoney(realEarningsTotals.netAfterPawapay, dashboardCurrency)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Real collected amount after processing fees</p>
             </CardContent>
           </Card>
 
@@ -1472,6 +1508,7 @@ export default function FinancialStaffDashboard() {
                       .replace(/\b\w/g, (char) => char.toUpperCase());
 
                     return (
+                      <>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <p className="text-sm text-muted-foreground">Listing Price ({String(displayCurrency).toUpperCase()})</p>
@@ -1498,6 +1535,29 @@ export default function FinancialStaffDashboard() {
                           </Badge>
                         </div>
                       </div>
+                      {selectedBooking.checkout_requests && (
+                        <div className="mt-4 grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-sm text-muted-foreground">PawaPay Fee ({PAWAPAY_PROCESSING_FEE_PERCENT}%)</p>
+                            <p className="text-base font-semibold text-destructive">
+                              {formatMoney(
+                                calculatePawaPayProcessing(Number(paidAmount ?? selectedBooking.checkout_requests.total_amount ?? 0)).processingFee,
+                                displayCurrency
+                              )}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Net After PawaPay</p>
+                            <p className="text-base font-semibold text-emerald-600">
+                              {formatMoney(
+                                calculatePawaPayProcessing(Number(paidAmount ?? selectedBooking.checkout_requests.total_amount ?? 0)).netAmount,
+                                displayCurrency
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      </>
                     );
                   })()}
                 </div>

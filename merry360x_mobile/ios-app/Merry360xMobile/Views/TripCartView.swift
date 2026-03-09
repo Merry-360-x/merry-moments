@@ -13,6 +13,7 @@ struct TripCartView: View {
     @State private var isLoading = false
     @State private var bookings: [[String: Any]] = []
     @State private var errorMessage: String?
+    @State private var activeCenter: AppCenterDestination?
 
     private let service = SupabaseService()
 
@@ -53,13 +54,12 @@ struct TripCartView: View {
             
             // Content
             if isLoading {
-                VStack(spacing: 12) {
-                    ProgressView()
-                        .tint(AppTheme.coral)
-                    Text("Loading trips...")
-                        .font(.system(size: 15))
-                        .foregroundColor(.gray)
-                }
+                MerryLoadingStateView(
+                    title: "Loading your trips",
+                    subtitle: "Syncing bookings and checkout status...",
+                    showCardSkeletons: true
+                )
+                .padding(.horizontal, 16)
             } else if let errorMessage {
                 Text(errorMessage)
                     .font(.system(size: 14))
@@ -68,19 +68,41 @@ struct TripCartView: View {
             } else if filteredBookings.isEmpty {
                 TripEmptyState(tab: selectedTab)
             } else {
-                ScrollView {
-                    VStack(spacing: 10) {
-                        ForEach(Array(filteredBookings.enumerated()), id: \.offset) { _, booking in
-                            BookingRow(booking: booking)
+                VStack(spacing: 12) {
+                    if selectedTab == .cart {
+                        Button {
+                            activeCenter = .bookingsCheckout
+                        } label: {
+                            Text("Proceed to checkout")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(AppTheme.coral)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
                         }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 16)
                     }
-                    .padding(.horizontal, 16)
+
+                    ScrollView {
+                        VStack(spacing: 10) {
+                            ForEach(Array(filteredBookings.enumerated()), id: \.offset) { _, booking in
+                                BookingRow(booking: booking)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                    }
                 }
             }
             
             Spacer()
         }
-        .background(Color.white)
+        .background(AppTheme.appBackground)
+        .sheet(item: $activeCenter) { destination in
+            AppCentersView(destination: destination)
+                .environmentObject(session)
+        }
         .task {
             await loadBookings()
         }

@@ -99,6 +99,32 @@ struct MobileCheckoutRequest {
     let currency: String
 }
 
+struct MobileLegalContent {
+    let title: String
+    let updatedAt: String?
+    let sections: [String]
+}
+
+struct MobileSupportTicket {
+    let id: String
+    let subject: String
+    let message: String
+    let category: String?
+    let status: String
+    let priority: String?
+    let createdAt: String?
+}
+
+struct MobileSupportMessage {
+    let id: String
+    let ticketId: String
+    let senderId: String?
+    let senderType: String
+    let senderName: String?
+    let message: String
+    let createdAt: String?
+}
+
 final class SupabaseService {
     private let baseURL: URL
     private let anonKey: String
@@ -119,7 +145,9 @@ final class SupabaseService {
         var components = URLComponents(url: baseURL.appendingPathComponent("auth/v1/authorize"), resolvingAgainstBaseURL: false)
         components?.queryItems = [
             URLQueryItem(name: "provider", value: provider),
-            URLQueryItem(name: "redirect_to", value: redirectTo)
+            URLQueryItem(name: "redirect_to", value: redirectTo),
+            // Keep callback compatible with the current mobile parser that expects access_token in callback.
+            URLQueryItem(name: "flow_type", value: "implicit")
         ]
         return components?.url
     }
@@ -626,7 +654,7 @@ final class SupabaseService {
     func fetchProfileBasics(userId: String) async throws -> [String: Any]? {
         var components = URLComponents(url: baseURL.appendingPathComponent("rest/v1/profiles"), resolvingAgainstBaseURL: false)
         components?.queryItems = [
-            URLQueryItem(name: "select", value: "full_name,email,phone"),
+            URLQueryItem(name: "select", value: "full_name,nickname,avatar_url,email,phone"),
             URLQueryItem(name: "user_id", value: "eq.\(userId)"),
             URLQueryItem(name: "limit", value: "1")
         ]
@@ -797,6 +825,375 @@ final class SupabaseService {
             ticketsResolved: tickets.filter { String(describing: $0["status"] ?? "").lowercased() == "resolved" }.count,
             ticketsClosed: tickets.filter { String(describing: $0["status"] ?? "").lowercased() == "closed" }.count,
             reviewsTotal: reviews.count
+        )
+    }
+
+    func fetchAdminUsers(limit: Int = 30) async throws -> [[String: Any]] {
+        try await fetchRows(
+            table: "profiles",
+            select: "user_id,full_name,email,phone,created_at,is_suspended,is_verified",
+            filters: [
+                URLQueryItem(name: "order", value: "created_at.desc"),
+                URLQueryItem(name: "limit", value: String(limit))
+            ]
+        )
+    }
+
+    func fetchAdminHostApplications(limit: Int = 30) async throws -> [[String: Any]] {
+        try await fetchRows(
+            table: "host_applications",
+            select: "id,full_name,status,created_at,service_types,profile_complete,suspended,user_id",
+            filters: [
+                URLQueryItem(name: "order", value: "created_at.desc"),
+                URLQueryItem(name: "limit", value: String(limit))
+            ]
+        )
+    }
+
+    func fetchAdminBookings(limit: Int = 40) async throws -> [[String: Any]] {
+        try await fetchRows(
+            table: "bookings",
+            select: "id,order_id,status,payment_status,total_price,currency,guest_id,host_id,created_at,check_in,check_out",
+            filters: [
+                URLQueryItem(name: "order", value: "created_at.desc"),
+                URLQueryItem(name: "limit", value: String(limit))
+            ]
+        )
+    }
+
+    func fetchAdminPayments(limit: Int = 40) async throws -> [[String: Any]] {
+        try await fetchRows(
+            table: "checkout_requests",
+            select: "id,name,email,total_amount,currency,payment_status,payment_method,created_at",
+            filters: [
+                URLQueryItem(name: "order", value: "created_at.desc"),
+                URLQueryItem(name: "limit", value: String(limit))
+            ]
+        )
+    }
+
+    func fetchAdminPayouts(limit: Int = 40) async throws -> [[String: Any]] {
+        try await fetchRows(
+            table: "host_payouts",
+            select: "id,host_id,status,amount,currency,payout_method,created_at",
+            filters: [
+                URLQueryItem(name: "order", value: "created_at.desc"),
+                URLQueryItem(name: "limit", value: String(limit))
+            ]
+        )
+    }
+
+    func fetchAdminSupportTickets(limit: Int = 40) async throws -> [[String: Any]] {
+        try await fetchRows(
+            table: "support_tickets",
+            select: "id,subject,status,priority,user_id,user_email,created_at",
+            filters: [
+                URLQueryItem(name: "order", value: "created_at.desc"),
+                URLQueryItem(name: "limit", value: String(limit))
+            ]
+        )
+    }
+
+    func fetchAdminProperties(limit: Int = 40) async throws -> [[String: Any]] {
+        try await fetchRows(
+            table: "properties",
+            select: "id,title,location,price_per_night,currency,is_published,host_id,created_at",
+            filters: [
+                URLQueryItem(name: "order", value: "created_at.desc"),
+                URLQueryItem(name: "limit", value: String(limit))
+            ]
+        )
+    }
+
+    func fetchAdminTours(limit: Int = 40) async throws -> [[String: Any]] {
+        try await fetchRows(
+            table: "tours",
+            select: "id,title,location,price_per_person,currency,is_published,created_at",
+            filters: [
+                URLQueryItem(name: "order", value: "created_at.desc"),
+                URLQueryItem(name: "limit", value: String(limit))
+            ]
+        )
+    }
+
+    func fetchAdminTransportServices(limit: Int = 40) async throws -> [[String: Any]] {
+        try await fetchRows(
+            table: "transport_vehicles",
+            select: "id,service_type,location,price_per_day,price_per_hour,currency,is_published,created_by,created_at",
+            filters: [
+                URLQueryItem(name: "order", value: "created_at.desc"),
+                URLQueryItem(name: "limit", value: String(limit))
+            ]
+        )
+    }
+
+    func fetchAdminPropertyReviews(limit: Int = 40) async throws -> [[String: Any]] {
+        try await fetchRows(
+            table: "property_reviews",
+            select: "id,property_id,rating,review_text,status,created_at",
+            filters: [
+                URLQueryItem(name: "order", value: "created_at.desc"),
+                URLQueryItem(name: "limit", value: String(limit))
+            ]
+        )
+    }
+
+    func fetchAdminLegalContent(limit: Int = 40) async throws -> [[String: Any]] {
+        try await fetchRows(
+            table: "legal_content",
+            select: "id,content_type,title,updated_at,is_active",
+            filters: [
+                URLQueryItem(name: "order", value: "updated_at.desc"),
+                URLQueryItem(name: "limit", value: String(limit))
+            ]
+        )
+    }
+
+    func fetchAdminAffiliates(limit: Int = 40) async throws -> [[String: Any]] {
+        try await fetchRows(
+            table: "affiliates",
+            select: "id,user_id,affiliate_code,status,created_at",
+            filters: [
+                URLQueryItem(name: "order", value: "created_at.desc"),
+                URLQueryItem(name: "limit", value: String(limit))
+            ]
+        )
+    }
+
+    func fetchAdminAds(limit: Int = 40) async throws -> [[String: Any]] {
+        try await fetchRows(
+            table: "homepage_banners",
+            select: "id,title,placement,is_active,start_date,end_date,created_at",
+            filters: [
+                URLQueryItem(name: "order", value: "created_at.desc"),
+                URLQueryItem(name: "limit", value: String(limit))
+            ]
+        )
+    }
+
+    func updateHostApplicationStatus(applicationId: String, status: String) async throws {
+        try await updateRows(
+            table: "host_applications",
+            matchColumn: "id",
+            matchValue: applicationId,
+            body: ["status": status]
+        )
+    }
+
+    func setUserSuspended(userId: String, isSuspended: Bool) async throws {
+        try await updateRows(
+            table: "profiles",
+            matchColumn: "user_id",
+            matchValue: userId,
+            body: ["is_suspended": isSuspended]
+        )
+    }
+
+    func updateSupportTicketStatus(ticketId: String, status: String) async throws {
+        try await updateRows(
+            table: "support_tickets",
+            matchColumn: "id",
+            matchValue: ticketId,
+            body: ["status": status]
+        )
+    }
+
+    func updateHostPayoutStatus(payoutId: String, status: String) async throws {
+        try await updateRows(
+            table: "host_payouts",
+            matchColumn: "id",
+            matchValue: payoutId,
+            body: ["status": status]
+        )
+    }
+
+    func updateBookingStatus(bookingId: String, status: String) async throws {
+        try await updateRows(
+            table: "bookings",
+            matchColumn: "id",
+            matchValue: bookingId,
+            body: ["status": status]
+        )
+    }
+
+    func setPropertyPublished(propertyId: String, isPublished: Bool) async throws {
+        try await updateRows(
+            table: "properties",
+            matchColumn: "id",
+            matchValue: propertyId,
+            body: ["is_published": isPublished]
+        )
+    }
+
+    func setTourPublished(tourId: String, isPublished: Bool) async throws {
+        try await updateRows(
+            table: "tours",
+            matchColumn: "id",
+            matchValue: tourId,
+            body: ["is_published": isPublished]
+        )
+    }
+
+    func setTransportPublished(transportId: String, isPublished: Bool) async throws {
+        try await updateRows(
+            table: "transport_vehicles",
+            matchColumn: "id",
+            matchValue: transportId,
+            body: ["is_published": isPublished]
+        )
+    }
+
+    func updatePropertyReviewStatus(reviewId: String, status: String) async throws {
+        try await updateRows(
+            table: "property_reviews",
+            matchColumn: "id",
+            matchValue: reviewId,
+            body: ["status": status]
+        )
+    }
+
+    func updateLegalContentActive(contentId: String, isActive: Bool) async throws {
+        try await updateRows(
+            table: "legal_content",
+            matchColumn: "id",
+            matchValue: contentId,
+            body: ["is_active": isActive]
+        )
+    }
+
+    func updateAffiliateStatus(affiliateId: String, status: String) async throws {
+        try await updateRows(
+            table: "affiliates",
+            matchColumn: "id",
+            matchValue: affiliateId,
+            body: ["status": status]
+        )
+    }
+
+    func fetchLegalContent(contentType: String) async throws -> MobileLegalContent? {
+        let rows = try await fetchRows(
+            table: "legal_content",
+            select: "title,content,updated_at",
+            filters: [
+                URLQueryItem(name: "content_type", value: "eq.\(contentType)"),
+                URLQueryItem(name: "limit", value: "1")
+            ]
+        )
+
+        guard let row = rows.first else { return nil }
+        let title = (row["title"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let updatedAt = row["updated_at"] as? String
+
+        let sections = Self.extractLegalSections(from: row["content"])
+        return MobileLegalContent(title: title, updatedAt: updatedAt, sections: sections)
+    }
+
+    func fetchSupportTickets(userId: String) async throws -> [MobileSupportTicket] {
+        let rows = try await fetchRows(
+            table: "support_tickets",
+            select: "id,subject,message,category,status,priority,created_at",
+            filters: [
+                URLQueryItem(name: "user_id", value: "eq.\(userId)"),
+                URLQueryItem(name: "order", value: "created_at.desc")
+            ]
+        )
+
+        return rows.compactMap { row in
+            guard let id = row["id"] as? String, let subject = row["subject"] as? String else { return nil }
+            return MobileSupportTicket(
+                id: id,
+                subject: subject,
+                message: row["message"] as? String ?? "",
+                category: row["category"] as? String,
+                status: (row["status"] as? String) ?? "open",
+                priority: row["priority"] as? String,
+                createdAt: row["created_at"] as? String
+            )
+        }
+    }
+
+    func createSupportTicket(userId: String, subject: String, message: String, category: String = "general") async throws -> MobileSupportTicket {
+        let body: [String: Any] = [
+            "user_id": userId,
+            "subject": subject,
+            "message": message,
+            "category": category,
+            "status": "open",
+            "priority": "medium"
+        ]
+
+        let rows = try await insertRows(table: "support_tickets", body: body, preferRepresentation: true)
+        guard let row = rows.first, let id = row["id"] as? String else {
+            throw NSError(domain: "SupabaseService", code: 93, userInfo: [NSLocalizedDescriptionKey: "Support ticket was created but no ticket id was returned"]) 
+        }
+
+        return MobileSupportTicket(
+            id: id,
+            subject: row["subject"] as? String ?? subject,
+            message: row["message"] as? String ?? message,
+            category: row["category"] as? String,
+            status: row["status"] as? String ?? "open",
+            priority: row["priority"] as? String,
+            createdAt: row["created_at"] as? String
+        )
+    }
+
+    func fetchSupportMessages(ticketId: String) async throws -> [MobileSupportMessage] {
+        let rows = try await fetchRows(
+            table: "support_ticket_messages",
+            select: "id,ticket_id,sender_id,sender_type,sender_name,message,created_at",
+            filters: [
+                URLQueryItem(name: "ticket_id", value: "eq.\(ticketId)"),
+                URLQueryItem(name: "order", value: "created_at.asc")
+            ]
+        )
+
+        return rows.compactMap { row in
+            guard let id = row["id"] as? String,
+                  let rowTicketId = row["ticket_id"] as? String,
+                  let message = row["message"] as? String,
+                  let senderType = row["sender_type"] as? String else {
+                return nil
+            }
+
+            return MobileSupportMessage(
+                id: id,
+                ticketId: rowTicketId,
+                senderId: row["sender_id"] as? String,
+                senderType: senderType,
+                senderName: row["sender_name"] as? String,
+                message: message,
+                createdAt: row["created_at"] as? String
+            )
+        }
+    }
+
+    func createSupportMessage(ticketId: String, userId: String, senderName: String?, message: String) async throws -> MobileSupportMessage {
+        let body: [String: Any] = [
+            "ticket_id": ticketId,
+            "sender_id": userId,
+            "sender_type": "customer",
+            "sender_name": senderName ?? "Guest",
+            "message": message
+        ]
+
+        let rows = try await insertRows(table: "support_ticket_messages", body: body, preferRepresentation: true)
+        guard let row = rows.first,
+              let id = row["id"] as? String,
+              let rowTicketId = row["ticket_id"] as? String,
+              let senderType = row["sender_type"] as? String,
+              let text = row["message"] as? String else {
+            throw NSError(domain: "SupabaseService", code: 94, userInfo: [NSLocalizedDescriptionKey: "Support message was sent but no message id was returned"]) 
+        }
+
+        return MobileSupportMessage(
+            id: id,
+            ticketId: rowTicketId,
+            senderId: row["sender_id"] as? String,
+            senderType: senderType,
+            senderName: row["sender_name"] as? String,
+            message: text,
+            createdAt: row["created_at"] as? String
         )
     }
 
@@ -994,9 +1391,32 @@ final class SupabaseService {
         return (try JSONSerialization.jsonObject(with: data) as? [[String: Any]]) ?? []
     }
 
-    private func fetchRows(table: String, select: String) async throws -> [[String: Any]] {
+    private static func extractLegalSections(from content: Any?) -> [String] {
+        guard let contentDict = content as? [String: Any],
+              let sections = contentDict["sections"] as? [[String: Any]] else {
+            return []
+        }
+
+        return sections.compactMap { section in
+            if let text = section["text"] as? String {
+                let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty { return trimmed }
+            }
+
+            if let title = section["title"] as? String,
+               let items = section["items"] as? [String],
+               !items.isEmpty {
+                return ([title] + items.map { "- \($0)" }).joined(separator: "\n")
+            }
+
+            return nil
+        }
+    }
+
+    private func fetchRows(table: String, select: String, filters: [URLQueryItem] = []) async throws -> [[String: Any]] {
         var components = URLComponents(url: baseURL.appendingPathComponent("rest/v1/\(table)"), resolvingAgainstBaseURL: false)
         components?.queryItems = [URLQueryItem(name: "select", value: select)]
+        components?.queryItems?.append(contentsOf: filters)
         guard let url = components?.url else { return [] }
 
         var request = URLRequest(url: url)
@@ -1024,6 +1444,23 @@ final class SupabaseService {
         }
         guard preferRepresentation else { return [] }
         return (try JSONSerialization.jsonObject(with: data) as? [[String: Any]]) ?? []
+    }
+
+    private func updateRows(table: String, matchColumn: String, matchValue: String, body: [String: Any]) async throws {
+        let encodedValue = matchValue.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? matchValue
+        let url = baseURL.appendingPathComponent("rest/v1/\(table)?\(matchColumn)=eq.\(encodedValue)")
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.setValue(anonKey, forHTTPHeaderField: "apikey")
+        request.setValue(authorizedBearer(), forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("return=minimal", forHTTPHeaderField: "Prefer")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw NSError(domain: "SupabaseService", code: 95, userInfo: [NSLocalizedDescriptionKey: "Could not update \(table)"])
+        }
     }
 
     private func number(_ any: Any?) -> Double? {

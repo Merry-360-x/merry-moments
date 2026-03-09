@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		08FBBAD1C80ACA3C8D65F5B3 /* HostToolsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E5F583559BA36F65444B359 /* HostToolsView.swift */; };
-		0A3C6D629E1B4F58A4E20F91 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 71F76D93E5A84B77A3AA8B1D /* Assets.xcassets */; };
 		1BBA957812AC4C3AAF19D2BB /* ListingDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8BE84942DEEB748961FA0A7 /* ListingDetailView.swift */; };
 		26141A3BC466FF978547B9BD /* InboxViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77636B02989465BD7663874E /* InboxViewModel.swift */; };
 		3295A0E2FC59873DF5E80523 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 258800E4FC2A58627E17C861 /* AppTheme.swift */; };
@@ -26,9 +25,11 @@
 		8661137F6CFEA7BBB8CA569D /* InboxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B492409A5CD8CC0106276323 /* InboxView.swift */; };
 		8F976848687AD181576D8377 /* MobileConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9AC6BCA375032140C11B079 /* MobileConfig.swift */; };
 		BA0D7686C9419056D0BF840B /* MerryAIView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0C75F0F1E584758300DA768 /* MerryAIView.swift */; };
+		BD9BAE11144869130C6FA657 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1F8ABE46F51626E8B879133C /* Assets.xcassets */; };
 		C73E16CFAE66FC1E5CE8C7B2 /* SupabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EE17F493C949C9C7737B6B8 /* SupabaseService.swift */; };
 		D809C0A54C3972DE2C33BB3F /* AuthBottomSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCEF2BF4AF96DA396812DA0A /* AuthBottomSheet.swift */; };
 		DAD35C172E57680A55FEC815 /* AppSessionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D359D4564538296F3AB3F12A /* AppSessionViewModel.swift */; };
+		DF62966ABA6A1A9D8F7E0C98 /* AppCentersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC28D6AF40074EF300F2BC14 /* AppCentersView.swift */; };
 		EA6E06132CB8669D2D0A16E3 /* TripCartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 630293C49C7D65693BB534AE /* TripCartView.swift */; };
 		EEC489351B1489A769D984FA /* Merry360xMobileApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E47837FC68F6D4572DED53 /* Merry360xMobileApp.swift */; };
 		F9E6A5BB5B74BA3D627C1C38 /* BookingDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C31B1A4DAFE23AC3503064A /* BookingDraft.swift */; };
@@ -37,6 +38,7 @@
 
 /* Begin PBXFileReference section */
 		0CCFE6E86C04E2FF10CCB19F /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		1F8ABE46F51626E8B879133C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		258800E4FC2A58627E17C861 /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
 		27D02C0E370F56AC3962439B /* WishlistsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistsView.swift; sourceTree = "<group>"; };
 		4DD18EF3045B726AD6A6D975 /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
@@ -47,7 +49,6 @@
 		5F0B28FA6C9DF3A3EA2827A5 /* BookingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookingView.swift; sourceTree = "<group>"; };
 		630293C49C7D65693BB534AE /* TripCartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripCartView.swift; sourceTree = "<group>"; };
 		7075AC90E693191791B3A5BE /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
-		71F76D93E5A84B77A3AA8B1D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		77636B02989465BD7663874E /* InboxViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxViewModel.swift; sourceTree = "<group>"; };
 		7C31B1A4DAFE23AC3503064A /* BookingDraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookingDraft.swift; sourceTree = "<group>"; };
 		A51ED40924509F83D26F699F /* Listing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Listing.swift; sourceTree = "<group>"; };
@@ -60,6 +61,7 @@
 		D359D4564538296F3AB3F12A /* AppSessionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSessionViewModel.swift; sourceTree = "<group>"; };
 		D4E47837FC68F6D4572DED53 /* Merry360xMobileApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Merry360xMobileApp.swift; sourceTree = "<group>"; };
 		D8BE84942DEEB748961FA0A7 /* ListingDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListingDetailView.swift; sourceTree = "<group>"; };
+		DC28D6AF40074EF300F2BC14 /* AppCentersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCentersView.swift; sourceTree = "<group>"; };
 		E809988FC41F1B3657048F39 /* Merry360xMobile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Merry360xMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E9AC6BCA375032140C11B079 /* MobileConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileConfig.swift; sourceTree = "<group>"; };
 		FA614F0B66243FFD253411A1 /* ProfileViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileViewModel.swift; sourceTree = "<group>"; };
@@ -77,6 +79,7 @@
 		09B811C317BB244C6C949056 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				DC28D6AF40074EF300F2BC14 /* AppCentersView.swift */,
 				CCEF2BF4AF96DA396812DA0A /* AuthBottomSheet.swift */,
 				5F0B28FA6C9DF3A3EA2827A5 /* BookingView.swift */,
 				0CCFE6E86C04E2FF10CCB19F /* HomeView.swift */,
@@ -122,8 +125,8 @@
 		8BC52F69CC5FC50CEB55B1E1 /* Merry360xMobile */ = {
 			isa = PBXGroup;
 			children = (
+				1F8ABE46F51626E8B879133C /* Assets.xcassets */,
 				D4E47837FC68F6D4572DED53 /* Merry360xMobileApp.swift */,
-				71F76D93E5A84B77A3AA8B1D /* Assets.xcassets */,
 				34C0FA92938631140B59D6F0 /* Models */,
 				7840A4D36286506EDDBB63A1 /* Services */,
 				4DCF1B2877C29A0C9EB21E0F /* Theme */,
@@ -163,7 +166,7 @@
 			buildConfigurationList = 521AF3D6F4E4143C1CF9B0CD /* Build configuration list for PBXNativeTarget "Merry360xMobile" */;
 			buildPhases = (
 				A534A91E559A83BD5861D252 /* Sources */,
-				C07A6E8A57C94A5E93BB48E3 /* Resources */,
+				94FA2D9542338491F421712E /* Resources */,
 			);
 			buildRules = (
 			);
@@ -183,7 +186,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1430;
+				LastUpgradeCheck = 2610;
 			};
 			buildConfigurationList = 5C2067BAD3BDF79CB094A44F /* Build configuration list for PBXProject "Merry360xMobile" */;
 			compatibilityVersion = "Xcode 14.0";
@@ -204,11 +207,11 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		C07A6E8A57C94A5E93BB48E3 /* Resources */ = {
+		94FA2D9542338491F421712E /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0A3C6D629E1B4F58A4E20F91 /* Assets.xcassets in Resources */,
+				BD9BAE11144869130C6FA657 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -219,6 +222,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DF62966ABA6A1A9D8F7E0C98 /* AppCentersView.swift in Sources */,
 				DAD35C172E57680A55FEC815 /* AppSessionViewModel.swift in Sources */,
 				3295A0E2FC59873DF5E80523 /* AppTheme.swift in Sources */,
 				D809C0A54C3972DE2C33BB3F /* AuthBottomSheet.swift in Sources */,
@@ -254,6 +258,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -285,8 +290,10 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = XBT25PCJUH;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -300,6 +307,7 @@
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -311,10 +319,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 3;
-				DEVELOPMENT_TEAM = XBT25PCJUH;
+				CURRENT_PROJECT_VERSION = 6;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Merry360x;
+				INFOPLIST_KEY_CFBundleURLTypes = "[{\"CFBundleURLName\":\"com.merry360x.mobile.oauth\",\"CFBundleURLSchemes\":[\"merry360x\"]}]";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				"INFOPLIST_KEY_UISupportedInterfaceOrientations~ipad" = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -336,10 +344,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 3;
-				DEVELOPMENT_TEAM = XBT25PCJUH;
+				CURRENT_PROJECT_VERSION = 6;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Merry360x;
+				INFOPLIST_KEY_CFBundleURLTypes = "[{\"CFBundleURLName\":\"com.merry360x.mobile.oauth\",\"CFBundleURLSchemes\":[\"merry360x\"]}]";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				"INFOPLIST_KEY_UISupportedInterfaceOrientations~ipad" = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -360,6 +368,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -391,8 +400,10 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = XBT25PCJUH;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -413,6 +424,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
