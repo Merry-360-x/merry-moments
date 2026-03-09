@@ -1232,7 +1232,7 @@ export default function HostDashboard() {
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
-          payout_method: payoutForm.method,
+          payout_method: resolvedPayoutForm.method,
           payout_phone: resolvedPayoutForm.method === 'mobile_money' ? resolvedPayoutForm.phone : null,
           payout_bank_name: resolvedPayoutForm.method === 'bank_transfer' ? resolvedPayoutForm.bank_name : null,
           payout_bank_account: resolvedPayoutForm.method === 'bank_transfer' ? resolvedPayoutForm.bank_account : null,
@@ -1254,11 +1254,16 @@ export default function HostDashboard() {
       // Create payout details object
       const payoutDetails = resolvedPayoutForm.method === 'mobile_money'
         ? {
+            payout_method_id: selectedMethod.id,
+            method_type: selectedMethod.method_type,
             phone: resolvedPayoutForm.phone,
             account_name: resolvedPayoutForm.account_name,
+            provider: selectedMethod.mobile_provider,
             mobile_provider: selectedMethod.mobile_provider,
           }
         : {
+            payout_method_id: selectedMethod.id,
+            method_type: selectedMethod.method_type,
             bank_name: resolvedPayoutForm.bank_name,
             bank_account: resolvedPayoutForm.bank_account,
             account_name: resolvedPayoutForm.account_name,

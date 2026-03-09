@@ -1166,6 +1166,27 @@ export default function AdminDashboard() {
     refetchOnWindowFocus: true,
   });
 
+  useEffect(() => {
+    if (tab !== "payouts" && tab !== "overview") return;
+
+    const syncPayoutStatuses = async () => {
+      try {
+        const response = await fetch("/api/pawapay-payout-status?syncAll=1&limit=100");
+        if (!response.ok) return;
+        const payload = await response.json().catch(() => null);
+        if (payload?.updatedCount > 0) {
+          refetchPayouts();
+        }
+      } catch (error) {
+        console.warn("Payout status sync failed in admin dashboard", error);
+      }
+    };
+
+    void syncPayoutStatuses();
+    const timer = setInterval(syncPayoutStatuses, 45000);
+    return () => clearInterval(timer);
+  }, [tab, refetchPayouts]);
+
   // Process payout function - triggers PawaPay on approval
   const processPayout = async (payoutId: string, action: "completed" | "rejected", notes?: string) => {
     setProcessingPayout(payoutId);
@@ -1179,9 +1200,9 @@ export default function AdminDashboard() {
 
       if (fetchError) throw fetchError;
 
-      // If approving and mobile money, trigger PawaPay payout
-      if (action === "completed" && payout.payout_method === "mobile_money") {
-        const phone = payout.payout_details?.phone;
+      // If approving and payout request contains mobile money details, trigger PawaPay payout
+      if (action === "completed" && (payout.payout_method === "mobile_money" || payout.payout_details?.phone || payout.payout_details?.phone_number)) {
+        const phone = payout.payout_details?.phone || payout.payout_details?.phone_number;
         const provider =
           payout.payout_details?.provider ||
           payout.payout_details?.mobile_provider ||
@@ -1204,6 +1225,8 @@ export default function AdminDashboard() {
             payoutId: payout.id,
             amount: Math.round(payout.amount),
             currency: payout.currency || 'RWF',
+            payoutMethod: payout.payout_method,
+            payoutDetails: payout.payout_details,
             phoneNumber: phone,
             provider,
             description: `Host payout for ${payout.profiles?.full_name || payout.profiles?.email || 'Host'}`,
@@ -1235,10 +1258,22 @@ export default function AdminDashboard() {
           return;
         }
 
-        // PawaPay payout succeeded - status already updated by the API
+        // Mark who approved this payout while preserving status from provider response
+        await supabase
+          .from("host_payouts")
+          .update({
+            processed_by: user?.id,
+            processed_at: new Date().toISOString(),
+          })
+          .eq("id", payoutId);
+
+        const payoutStatus = payoutData.status || "processing";
         toast({
-          title: "Payout Sent!",
-          description: `${payout.currency} ${payout.amount.toLocaleString()} has been sent to ${phone} via PawaPay.`,
+          title: payoutStatus === "completed" ? "Payout Completed" : "Payout Sent",
+          description:
+            payoutStatus === "completed"
+              ? `${payout.currency} ${payout.amount.toLocaleString()} has been completed via PawaPay.`
+              : `${payout.currency} ${payout.amount.toLocaleString()} was approved and is processing via PawaPay to ${phone}.`,
         });
         refetchPayouts();
         setProcessingPayout(null);

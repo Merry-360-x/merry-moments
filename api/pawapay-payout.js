@@ -9,11 +9,55 @@ const supabase = createClient(
 const PAWAPAY_API_URL = process.env.PAWAPAY_BASE_URL || process.env.PAWAPAY_API_URL || "https://api.pawapay.cloud";
 const PAWAPAY_API_KEY = process.env.PAWAPAY_API_KEY;
 
-// PawaPay correspondent for Rwanda payouts
+// PawaPay correspondents by provider and country code.
 const PAYOUT_CORRESPONDENTS = {
+  MTN_250: "MTN_MOMO_RWA",
+  AIRTEL_250: "AIRTEL_RWA",
+  mtn_momo_250: "MTN_MOMO_RWA",
+  airtel_money_250: "AIRTEL_RWA",
+  MPESA_254: "MPESA_KEN",
+  mpesa_254: "MPESA_KEN",
+  MTN_256: "MTN_MOMO_UGA",
+  AIRTEL_256: "AIRTEL_OAPI_UGA",
+  mtn_momo_256: "MTN_MOMO_UGA",
+  airtel_money_256: "AIRTEL_OAPI_UGA",
+  MTN_260: "MTN_MOMO_ZMB",
+  ZAMTEL_260: "ZAMTEL_ZMB",
+  mtn_momo_260: "MTN_MOMO_ZMB",
+  zamtel_260: "ZAMTEL_ZMB",
   MTN: "MTN_MOMO_RWA",
   AIRTEL: "AIRTEL_RWA",
+  mtn_momo: "MTN_MOMO_RWA",
+  airtel_money: "AIRTEL_RWA",
 };
+
+function normalizePhone(phoneNumber) {
+  let normalized = String(phoneNumber || "").replace(/\s+/g, "").replace(/[^0-9]/g, "");
+  if (!normalized) return "";
+  if (normalized.startsWith("0")) {
+    normalized = `250${normalized.substring(1)}`;
+  }
+  if (!["250", "254", "256", "260"].some((prefix) => normalized.startsWith(prefix))) {
+    normalized = `250${normalized}`;
+  }
+  return normalized;
+}
+
+function detectCountryCode(phoneNumber) {
+  if (phoneNumber.startsWith("254")) return "254";
+  if (phoneNumber.startsWith("256")) return "256";
+  if (phoneNumber.startsWith("260")) return "260";
+  return "250";
+}
+
+function resolveProvider(provider, payoutDetails) {
+  return (
+    provider ||
+    payoutDetails?.provider ||
+    payoutDetails?.mobile_provider ||
+    "MTN"
+  );
+}
 
 function json(res, status, data) {
   res.status(status).json(data);
@@ -34,13 +78,42 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { payoutId, amount, currency, phoneNumber, provider, description } = req.body;
+    const {
+      payoutId,
+      amount,
+      currency,
+      phoneNumber,
+      provider,
+      payoutMethod,
+      payoutDetails,
+      description,
+    } = req.body;
 
-    console.log("📤 PawaPay Payout Request:", { payoutId, amount, currency, phoneNumber, provider });
+    const resolvedMethod = payoutMethod || payoutDetails?.method_type || "mobile_money";
+    const resolvedPhone = normalizePhone(phoneNumber || payoutDetails?.phone || payoutDetails?.phone_number);
+    const resolvedProvider = resolveProvider(provider, payoutDetails);
+
+    console.log("📤 PawaPay Payout Request:", {
+      payoutId,
+      amount,
+      currency,
+      payoutMethod: resolvedMethod,
+      provider: resolvedProvider,
+    });
 
     // Validate required fields
-    if (!payoutId || !amount || !phoneNumber) {
-      return json(res, 400, { error: "Missing required fields: payoutId, amount, phoneNumber" });
+    if (!payoutId || !amount) {
+      return json(res, 400, { error: "Missing required fields: payoutId, amount" });
+    }
+
+    if (resolvedMethod !== "mobile_money") {
+      return json(res, 400, {
+        error: `Automatic payout is only supported for mobile money. Received method: ${resolvedMethod}`,
+      });
+    }
+
+    if (!resolvedPhone) {
+      return json(res, 400, { error: "Missing required mobile money recipient phone number" });
     }
 
     // Validate minimum amount (101 RWF)
@@ -54,16 +127,17 @@ export default async function handler(req, res) {
       return json(res, 500, { error: "Payment provider not configured" });
     }
 
-    // Get correspondent based on provider
-    const correspondent = PAYOUT_CORRESPONDENTS[provider?.toUpperCase()] || PAYOUT_CORRESPONDENTS.MTN;
+    const countryCode = detectCountryCode(resolvedPhone);
+    const correspondentKey = `${resolvedProvider}_${countryCode}`;
+    const correspondent =
+      PAYOUT_CORRESPONDENTS[correspondentKey] ||
+      PAYOUT_CORRESPONDENTS[String(resolvedProvider)] ||
+      PAYOUT_CORRESPONDENTS[String(resolvedProvider).toUpperCase()];
 
-    // Format phone number for PawaPay (must be in international format without +)
-    let formattedPhone = phoneNumber.replace(/\s+/g, "").replace(/[^0-9]/g, "");
-    if (formattedPhone.startsWith("0")) {
-      formattedPhone = "250" + formattedPhone.substring(1);
-    }
-    if (!formattedPhone.startsWith("250")) {
-      formattedPhone = "250" + formattedPhone;
+    if (!correspondent) {
+      return json(res, 400, {
+        error: `Unsupported mobile money provider: ${resolvedProvider} for country code ${countryCode}`,
+      });
     }
 
     // Generate unique payout ID for PawaPay
@@ -77,7 +151,7 @@ export default async function handler(req, res) {
       correspondent,
       recipient: {
         type: "MSISDN",
-        address: { value: formattedPhone },
+        address: { value: resolvedPhone },
       },
       customerTimestamp: new Date().toISOString(),
       statementDescription: "Merry360 Payout", // Max 22 chars
@@ -108,11 +182,11 @@ export default async function handler(req, res) {
                           payoutData.message || 
                           "Payout failed";
       
-      // Update payout status to failed
+      // Mark the payout as rejected so staff can review/retry with corrected details.
       await supabase
         .from("host_payouts")
         .update({
-          status: "failed",
+          status: "rejected",
           admin_notes: errorMessage,
           updated_at: new Date().toISOString(),
         })

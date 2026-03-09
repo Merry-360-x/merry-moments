@@ -462,6 +462,27 @@ export default function FinancialStaffDashboard() {
     staleTime: 30000,
   });
 
+  useEffect(() => {
+    if (tab !== "payouts" && tab !== "overview") return;
+
+    const syncPayoutStatuses = async () => {
+      try {
+        const response = await fetch("/api/pawapay-payout-status?syncAll=1&limit=100");
+        if (!response.ok) return;
+        const payload = await response.json().catch(() => null);
+        if (payload?.updatedCount > 0) {
+          refetchPayouts();
+        }
+      } catch (error) {
+        console.warn("Payout status sync failed in financial dashboard", error);
+      }
+    };
+
+    void syncPayoutStatuses();
+    const timer = setInterval(syncPayoutStatuses, 45000);
+    return () => clearInterval(timer);
+  }, [tab, refetchPayouts]);
+
   // Process payout (approve/reject)
   const processPayout = async (payoutId: string, action: "completed" | "rejected", notes?: string) => {
     setProcessingPayout(payoutId);
@@ -476,8 +497,8 @@ export default function FinancialStaffDashboard() {
 
         if (payoutError) throw payoutError;
 
-        if (payout.payout_method === "mobile_money") {
-          const phone = payout.payout_details?.phone;
+        if (payout.payout_method === "mobile_money" || payout.payout_details?.phone || payout.payout_details?.phone_number) {
+          const phone = payout.payout_details?.phone || payout.payout_details?.phone_number;
           const provider = payout.payout_details?.provider || payout.payout_details?.mobile_provider || "MTN";
 
           if (!phone) {
@@ -490,6 +511,8 @@ export default function FinancialStaffDashboard() {
             body: JSON.stringify({
               amount: Math.round(Number(payout.amount || 0)),
               currency: payout.currency || "RWF",
+              payoutMethod: payout.payout_method,
+              payoutDetails: payout.payout_details,
               phoneNumber: phone,
               provider,
               payoutId,
@@ -498,15 +521,16 @@ export default function FinancialStaffDashboard() {
           });
 
           const pawapayResult = await pawapayResponse.json().catch(() => ({}));
-          if (!pawapayResponse.ok) {
+          if (!pawapayResponse.ok || !pawapayResult?.success) {
             throw new Error(pawapayResult?.error || "Failed to send payout via PawaPay");
           }
 
+          const payoutStatus = pawapayResult?.status || "processing";
           const { error } = await supabase
             .from("host_payouts")
             .update({
-              status: "completed",
-              admin_notes: notes || "Sent via PawaPay",
+              status: payoutStatus,
+              admin_notes: notes || `Sent via PawaPay (${payoutStatus})`,
               processed_by: user?.id,
               processed_at: new Date().toISOString(),
               pawapay_payout_id: pawapayResult?.pawapayPayoutId || pawapayResult?.payoutId || null,
@@ -516,8 +540,11 @@ export default function FinancialStaffDashboard() {
           if (error) throw error;
 
           toast({
-            title: "Payout Sent",
-            description: `Payment of ${payout.amount} ${payout.currency || "RWF"} sent to ${phone} via PawaPay.`,
+            title: payoutStatus === "completed" ? "Payout Completed" : "Payout Sent",
+            description:
+              payoutStatus === "completed"
+                ? `Payment of ${payout.amount} ${payout.currency || "RWF"} completed via PawaPay.`
+                : `Payment of ${payout.amount} ${payout.currency || "RWF"} approved and processing via PawaPay to ${phone}.`,
           });
 
           refetchPayouts();
