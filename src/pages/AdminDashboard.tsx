@@ -5192,7 +5192,7 @@ For support, contact: support@merry360x.com
                 <div>
                   <h2 className="text-lg font-semibold">Booking Calculations</h2>
                   <p className="text-sm text-muted-foreground">
-                    Formula: paid amount (after discount) -> minus PawaPay -> minus platform/host fees -> host net.
+                    Formula: paid amount (after discount) =&gt; minus PawaPay =&gt; minus platform/host fees =&gt; host net.
                   </p>
                 </div>
                 <div className="flex items-center gap-2 w-full md:w-auto">
