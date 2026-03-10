@@ -303,66 +303,8 @@ Some components are non-refundable once booked, including but not limited to:
         : "";
       setSelectedPolicies(policyType ? policyType.split(",").map((v: string) => v.trim()).filter(Boolean) : []);
 
-      const primaryDraftKey = getStorageKey();
-      const draftLookupKeys = user?.id
-        ? [primaryDraftKey, getAnonymousStorageKey()]
-        : [primaryDraftKey];
-      for (const key of draftLookupKeys) {
-        const savedDraft = localStorage.getItem(key);
-        if (!savedDraft) continue;
-        try {
-          const draft = JSON.parse(savedDraft);
-          if (draft.formData) {
-            const loadedPricingModels = getTourPricingModels({
-              pricing_model: draft.formData.pricing_model,
-              pricing_models: draft.formData.pricing_models,
-            });
-            setFormData((prev) => ({
-              ...prev,
-              ...draft.formData,
-              pricing_models: loadedPricingModels,
-              pricing_model: loadedPricingModels[0] || "per_person",
-              pricing_duration_value: Number(draft.formData.pricing_duration_value || 1),
-              time_pricing_tiers: normalizeTimePricingTiers(draft.formData.time_pricing_tiers, loadedPricingModels[0] || "per_person"),
-              group_pricing_tiers: normalizeGroupPricingTiers(draft.formData.group_pricing_tiers),
-            }));
-          }
-          if (draft.groupDiscounts) setGroupDiscounts(draft.groupDiscounts);
-          if (draft.pricingTiers) {
-            const migratedTiers = draft.pricingTiers.map((tier: any) => ({
-              group_size: tier.group_size || 1,
-              room_type: tier.room_type || "double_twin",
-              price_per_person: tier.price_per_person || 0,
-            }));
-            setPricingTiers(migratedTiers);
-          }
-          if (draft.selectedNonRefundable) setSelectedNonRefundable(draft.selectedNonRefundable);
-          if (draft.customNonRefundable1) setCustomNonRefundable1(draft.customNonRefundable1);
-          if (draft.customNonRefundable2) setCustomNonRefundable2(draft.customNonRefundable2);
-          if (draft.coverImage) setCoverImage(draft.coverImage);
-          if (draft.galleryImages) setGalleryImages(draft.galleryImages);
-          if (draft.selectedPolicies) setSelectedPolicies(draft.selectedPolicies);
-          if (draft.customPolicyText) setCustomPolicyText(draft.customPolicyText);
-          if (draft.customPolicyUrl) setCustomPolicyUrl(draft.customPolicyUrl);
-          if (draft.includeRoomType !== undefined) setIncludeRoomType(draft.includeRoomType);
-          if (draft.licenseUrl) setLicenseUrl(draft.licenseUrl);
-          if (draft.pdfUrl) setPdfUrl(draft.pdfUrl);
-          if (typeof draft.wizardStep === "number") {
-            setWizardStep(Math.max(1, Math.min(totalSteps, Math.floor(draft.wizardStep))));
-          }
-          const restoredAt = new Date(draft.timestamp);
-          setLastSaved(restoredAt);
-          setRestoredDraftAt(restoredAt);
-          if (key !== primaryDraftKey) {
-            localStorage.setItem(primaryDraftKey, savedDraft);
-            localStorage.removeItem(key);
-          }
-          toast({ title: "Draft restored", description: "Your edit draft has been restored" });
-          break;
-        } catch (err) {
-          console.error("[CreateTourPackage] Failed to load edit draft:", err);
-        }
-      }
+      // In edit mode, always trust live DB values over local draft snapshots.
+      // This prevents stale drafts from blanking or corrupting existing listings.
 
       setDraftLoaded(true);
       setIsEditLoading(false);

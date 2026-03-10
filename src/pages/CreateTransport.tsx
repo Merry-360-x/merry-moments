@@ -271,33 +271,8 @@ export default function CreateTransport() {
       setExistingRoadworthinessUrl((data as any).roadworthiness_certificate_url || "");
       setExistingOwnerIdUrl((data as any).owner_identification_url || "");
 
-      const primaryDraftKey = getStorageKey();
-      const draftLookupKeys = user?.id
-        ? [primaryDraftKey, getAnonymousStorageKey()]
-        : [primaryDraftKey];
-      for (const key of draftLookupKeys) {
-        const savedData = localStorage.getItem(key);
-        if (!savedData) continue;
-        try {
-          const parsed = JSON.parse(savedData);
-          if (parsed.formData) setFormData(parsed.formData);
-          const restoredAt = new Date(parsed.timestamp);
-          setLastSaved(restoredAt);
-          setRestoredDraftAt(restoredAt);
-          if (key !== primaryDraftKey) {
-            localStorage.setItem(primaryDraftKey, savedData);
-            localStorage.removeItem(key);
-          }
-          toast({
-            title: "Progress Restored",
-            description: "Your edit draft has been restored.",
-            duration: 3000,
-          });
-          break;
-        } catch (e) {
-          console.error("Failed to restore transport edit draft:", e);
-        }
-      }
+      // In edit mode, always trust live DB values over local draft snapshots.
+      // This prevents stale drafts from blanking or corrupting existing listings.
 
       setDraftLoaded(true);
       setIsEditLoading(false);

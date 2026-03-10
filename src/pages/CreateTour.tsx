@@ -217,49 +217,8 @@ export default function CreateTour() {
       setPdfUrl((data as any).itinerary_pdf_url || "");
       setLicenseUrl((data as any).tour_guide_license_url || (data as any).tour_license_url || "");
 
-      const primaryDraftKey = getStorageKey();
-      const draftLookupKeys = user?.id
-        ? [primaryDraftKey, getAnonymousStorageKey()]
-        : [primaryDraftKey];
-      for (const key of draftLookupKeys) {
-        const savedDraft = localStorage.getItem(key);
-        if (!savedDraft) continue;
-        try {
-          const draft = JSON.parse(savedDraft);
-          if (draft.formData) {
-            const loadedPricingModels = getTourPricingModels({
-              pricing_model: draft.formData.pricing_model,
-              pricing_models: draft.formData.pricing_models,
-            });
-            setFormData((prev) => ({
-              ...prev,
-              ...draft.formData,
-              pricing_models: loadedPricingModels,
-              pricing_model: loadedPricingModels[0] || "per_person",
-              pricing_duration_value: Number(draft.formData.pricing_duration_value || 1),
-              time_pricing_tiers: normalizeTimePricingTiers(draft.formData.time_pricing_tiers, loadedPricingModels[0] || "per_person"),
-              group_pricing_tiers: normalizeGroupPricingTiers(draft.formData.group_pricing_tiers),
-            }));
-          }
-          if (draft.images) setImages(draft.images);
-          if (draft.licenseUrl) setLicenseUrl(draft.licenseUrl);
-          if (draft.pdfUrl) setPdfUrl(draft.pdfUrl);
-          if (typeof draft.wizardStep === "number") {
-            setWizardStep(Math.max(1, Math.min(totalSteps, Math.floor(draft.wizardStep))));
-          }
-          const restoredAt = new Date(draft.timestamp);
-          setLastSaved(restoredAt);
-          setRestoredDraftAt(restoredAt);
-          if (key !== primaryDraftKey) {
-            localStorage.setItem(primaryDraftKey, savedDraft);
-            localStorage.removeItem(key);
-          }
-          toast({ title: "Draft restored", description: "Your edit draft has been restored" });
-          break;
-        } catch (err) {
-          console.error("[CreateTour] Failed to load edit draft:", err);
-        }
-      }
+      // In edit mode, always trust live DB values over local draft snapshots.
+      // This prevents stale drafts from blanking or corrupting existing listings.
 
       setDraftLoaded(true);
       setIsEditLoading(false);

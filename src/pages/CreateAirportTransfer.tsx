@@ -184,36 +184,8 @@ export default function CreateAirportTransfer() {
       });
       setSelectedRoutes(selected);
 
-      const primaryDraftKey = getStorageKey();
-      const draftLookupKeys = user?.id
-        ? [primaryDraftKey, getAnonymousStorageKey()]
-        : [primaryDraftKey];
-      for (const key of draftLookupKeys) {
-        const savedDraft = localStorage.getItem(key);
-        if (!savedDraft) continue;
-        try {
-          const draft = JSON.parse(savedDraft);
-          if (draft.formData) setFormData(draft.formData);
-          if (draft.selectedRoutes) setSelectedRoutes(draft.selectedRoutes);
-          if (draft.exteriorImages) setExteriorImages(draft.exteriorImages);
-          if (draft.interiorImages) setInteriorImages(draft.interiorImages);
-          if (draft.insuranceDoc) setInsuranceDoc(draft.insuranceDoc);
-          if (draft.registrationDoc) setRegistrationDoc(draft.registrationDoc);
-          if (draft.roadworthinessDoc) setRoadworthinessDoc(draft.roadworthinessDoc);
-          if (draft.ownerIdDoc) setOwnerIdDoc(draft.ownerIdDoc);
-          const restoredAt = new Date(draft.timestamp);
-          setLastSaved(restoredAt);
-          setRestoredDraftAt(restoredAt);
-          if (key !== primaryDraftKey) {
-            localStorage.setItem(primaryDraftKey, savedDraft);
-            localStorage.removeItem(key);
-          }
-          toast({ title: "Draft restored", description: "Your edit draft has been restored" });
-          break;
-        } catch (err) {
-          console.error("[CreateAirportTransfer] Failed to load edit draft:", err);
-        }
-      }
+      // In edit mode, always trust live DB values over local draft snapshots.
+      // This prevents stale drafts from blanking or corrupting existing listings.
 
       setDraftLoaded(true);
       setIsEditLoading(false);
