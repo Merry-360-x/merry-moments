@@ -647,7 +647,7 @@ export default function HostDashboard() {
   const [showRoomWizard, setShowRoomWizard] = useState(false);
   const [roomWizardStep, setRoomWizardStep] = useState(1);
   const [wizardStep, setWizardStep] = useState(1);
-  const [propertyForm, setPropertyForm] = useState({
+  const createDefaultPropertyForm = () => ({
     title: "",
     location: "",
     address: "",
@@ -687,6 +687,48 @@ export default function HostDashboard() {
     conference_room_min_rooms_required: null as number | null,
     conference_room_equipment: [] as string[],
   });
+  const mapPropertyToForm = (property: Property | Record<string, any>) => ({
+    ...createDefaultPropertyForm(),
+    title: String((property as any).title || (property as any).name || ""),
+    location: String((property as any).location || ""),
+    address: String((property as any).address || ""),
+    listing_mode: Boolean((property as any).monthly_only_listing)
+      ? "monthly_only"
+      : "standard",
+    property_type: String((property as any).property_type || "Apartment"),
+    description: String((property as any).description || ""),
+    price_per_night: Number((property as any).price_per_night || 50000),
+    price_per_person: Number((property as any).price_per_person || 0) || null,
+    price_per_group: Number((property as any).price_per_group || 0) || null,
+    price_per_group_size: Math.max(1, Number((property as any).price_per_group_size || 2)),
+    currency: String((property as any).currency || "RWF"),
+    max_guests: Math.max(1, Number((property as any).max_guests || 2)),
+    bedrooms: Math.max(0, Number((property as any).bedrooms || 1)),
+    bathrooms: Math.max(0, Number((property as any).bathrooms || 1)),
+    beds: Math.max(0, Number((property as any).beds || 1)),
+    amenities: Array.isArray((property as any).amenities) ? (property as any).amenities : [],
+    cancellation_policy: String((property as any).cancellation_policy || "fair"),
+    images: Array.isArray((property as any).images) ? (property as any).images : [],
+    weekly_discount: Number((property as any).weekly_discount || 0),
+    monthly_discount: Number((property as any).monthly_discount || 0),
+    available_for_monthly_rental: Boolean((property as any).available_for_monthly_rental),
+    price_per_month: Number((property as any).price_per_month || 0) || null,
+    breakfast_available: Boolean((property as any).breakfast_available),
+    breakfast_price_per_night: Number((property as any).breakfast_price_per_night || 0) || null,
+    check_in_time: String((property as any).check_in_time || "14:00"),
+    check_out_time: String((property as any).check_out_time || "11:00"),
+    smoking_allowed: Boolean((property as any).smoking_allowed),
+    events_allowed: Boolean((property as any).events_allowed),
+    pets_allowed: Boolean((property as any).pets_allowed),
+    conference_room_price: Number((property as any).conference_room_price || 0) || null,
+    conference_room_capacity: Math.max(1, Number((property as any).conference_room_capacity || 1)),
+    conference_room_duration_hours: Math.max(1, Number((property as any).conference_room_duration_hours || 1)),
+    conference_room_min_rooms_required: (property as any).conference_room_min_rooms_required ?? null,
+    conference_room_equipment: Array.isArray((property as any).conference_room_equipment)
+      ? (property as any).conference_room_equipment
+      : [],
+  });
+  const [propertyForm, setPropertyForm] = useState(createDefaultPropertyForm);
   const [creatingProperty, setCreatingProperty] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
 
@@ -1586,42 +1628,7 @@ export default function HostDashboard() {
 
   const resetPropertyForm = () => {
     localStorage.removeItem(PROPERTY_FORM_KEY); // Clear draft
-    setPropertyForm({
-      title: "",
-      location: "",
-      address: "",
-      listing_mode: "standard",
-      property_type: "Apartment",
-      description: "",
-      price_per_night: 50000,
-      price_per_person: null,
-      price_per_group: null,
-      price_per_group_size: 2,
-      currency: "RWF",
-      max_guests: 2,
-      bedrooms: 1,
-      bathrooms: 1,
-      beds: 1,
-      amenities: [],
-      cancellation_policy: "fair",
-      images: [],
-      weekly_discount: 0,
-      monthly_discount: 0,
-      available_for_monthly_rental: false,
-      price_per_month: null,
-      breakfast_available: false,
-      breakfast_price_per_night: null,
-      check_in_time: "14:00",
-      check_out_time: "11:00",
-      smoking_allowed: false,
-      events_allowed: false,
-      pets_allowed: false,
-      conference_room_price: null,
-      conference_room_capacity: 1,
-      conference_room_duration_hours: 1,
-      conference_room_min_rooms_required: null,
-      conference_room_equipment: [],
-    });
+    setPropertyForm(createDefaultPropertyForm());
   };
 
   const discardPropertyDraft = () => {
@@ -2897,50 +2904,25 @@ export default function HostDashboard() {
     }
   };
 
-  const openPropertyWizardForEdit = (property: Property) => {
+  const openPropertyWizardForEdit = async (property: Property) => {
     setPropertyWizardEditId(property.id);
     setWizardStep(1);
-    setPropertyForm((prev) => ({
-      ...prev,
-      title: property.title || "",
-      location: property.location || "",
-      address: property.address || "",
-      listing_mode: Boolean((property as any).monthly_only_listing)
-        ? "monthly_only"
-        : Boolean((property as any).available_for_monthly_rental) && Number((property as any).price_per_month || 0) > 0
-        ? "monthly_only"
-        : "standard",
-      property_type: property.property_type || "Apartment",
-      description: property.description || "",
-      price_per_night: Number(property.price_per_night || 50000),
-      price_per_person: Number((property as any).price_per_person || 0) || null,
-      price_per_group: Number(property.price_per_group || 0) || null,
-      price_per_group_size: Math.max(1, Number(property.price_per_group_size || 2)),
-      currency: property.currency || "RWF",
-      max_guests: Math.max(1, Number(property.max_guests || 2)),
-      bedrooms: Math.max(0, Number(property.bedrooms || 1)),
-      bathrooms: Math.max(0, Number(property.bathrooms || 1)),
-      beds: Math.max(0, Number(property.beds || 1)),
-      amenities: property.amenities || [],
-      cancellation_policy: property.cancellation_policy || "fair",
-      images: property.images || [],
-      weekly_discount: Number(property.weekly_discount || 0),
-      monthly_discount: Number(property.monthly_discount || 0),
-      available_for_monthly_rental: Boolean((property as any).available_for_monthly_rental),
-      price_per_month: Number((property as any).price_per_month || 0) || null,
-      breakfast_available: Boolean((property as any).breakfast_available),
-      breakfast_price_per_night: Number((property as any).breakfast_price_per_night || 0) || null,
-      check_in_time: property.check_in_time || "14:00",
-      check_out_time: property.check_out_time || "11:00",
-      smoking_allowed: Boolean(property.smoking_allowed),
-      events_allowed: Boolean(property.events_allowed),
-      pets_allowed: Boolean(property.pets_allowed),
-      conference_room_price: Number(property.conference_room_price || 0) || null,
-      conference_room_capacity: Math.max(1, Number(property.conference_room_capacity || 1)),
-      conference_room_duration_hours: Math.max(1, Number(property.conference_room_duration_hours || 1)),
-      conference_room_min_rooms_required: property.conference_room_min_rooms_required ?? null,
-      conference_room_equipment: property.conference_room_equipment || [],
-    }));
+    let sourceProperty: Property | Record<string, any> = property;
+    try {
+      const { data: latestProperty, error } = await supabase
+        .from("properties")
+        .select("*")
+        .eq("id", property.id)
+        .maybeSingle();
+
+      if (!error && latestProperty) {
+        sourceProperty = latestProperty as any;
+      }
+    } catch (error) {
+      console.warn("[HostDashboard] Failed to fetch latest property for edit, using local state", error);
+    }
+
+    setPropertyForm(mapPropertyToForm(sourceProperty));
     setShowPropertyWizard(true);
   };
 
