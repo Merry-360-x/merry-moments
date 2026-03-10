@@ -94,6 +94,7 @@ Some components are non-refundable once booked, including but not limited to:
     categories: [] as string[],
     tour_types: [] as string[],
     description: "",
+    optional_activities: "",
     city: "",
     duration: "",
     daily_itinerary: "",
@@ -226,6 +227,11 @@ Some components are non-refundable once booked, including but not limited to:
         categories: mergedCategories,
         tour_types: mergedTourTypes,
         description: data.description || "",
+        optional_activities: (() => {
+          const raw = (data as any)?.pricing_tiers;
+          if (!raw || Array.isArray(raw) || typeof raw !== "object") return "";
+          return String((raw as any).optional_activities || "");
+        })(),
         city: data.city || "",
         duration: data.duration || "",
         daily_itinerary: data.daily_itinerary || "",
@@ -801,6 +807,7 @@ Some components are non-refundable once booked, including but not limited to:
         tiers: normalizedPricingTiers,
         pricing_model: primaryPricingModel,
         pricing_models: selectedPricingModels,
+        optional_activities: formData.optional_activities.trim() || null,
         ...(selectedPricingModels.includes("per_hour") || selectedPricingModels.includes("per_minute")
           ? { pricing_duration_value: Math.max(0.25, Number(formData.pricing_duration_value || 1)) }
           : {}),
@@ -1028,6 +1035,16 @@ Some components are non-refundable once booked, including but not limited to:
                 placeholder="Provide a compelling description..."
                 rows={4}
                 className={formData.description.length > 0 && formData.description.length < 50 ? 'border-red-500 focus-visible:ring-red-500' : ''}
+              />
+            </div>
+
+            <div>
+              <Label className="text-sm font-normal mb-1.5 block">Optional Activities</Label>
+              <Textarea
+                value={formData.optional_activities}
+                onChange={(e) => setFormData({ ...formData, optional_activities: e.target.value })}
+                placeholder="Add optional activities guests can request (optional)"
+                rows={2}
               />
             </div>
 

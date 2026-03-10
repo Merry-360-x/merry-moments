@@ -84,6 +84,7 @@ export default function CreateTour() {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
+    optional_activities: "",
     location: "",
     categories: [] as string[],
     duration_days: 1,
@@ -187,9 +188,14 @@ export default function CreateTour() {
         if (!rawPricingTiers || Array.isArray(rawPricingTiers) || typeof rawPricingTiers !== "object") return [] as GroupPricingTier[];
         return normalizeGroupPricingTiers((rawPricingTiers as any).group_pricing_tiers);
       })();
+      const optionalActivities = (() => {
+        if (!rawPricingTiers || Array.isArray(rawPricingTiers) || typeof rawPricingTiers !== "object") return "";
+        return String((rawPricingTiers as any).optional_activities || "");
+      })();
       setFormData({
         title: data.title || "",
         description: data.description || "",
+        optional_activities: optionalActivities,
         location: data.location || "",
         categories: mergedCategories,
         duration_days: Number(data.duration_days || 1),
@@ -594,6 +600,7 @@ export default function CreateTour() {
       (tourData as any).pricing_tiers = {
         pricing_model: formData.pricing_model,
         pricing_models: formData.pricing_models,
+        optional_activities: formData.optional_activities.trim() || null,
         ...(formData.pricing_models.includes("per_hour") || formData.pricing_models.includes("per_minute")
           ? { pricing_duration_value: Math.max(0.25, Number(formData.pricing_duration_value || 1)) }
           : {}),
@@ -790,6 +797,16 @@ export default function CreateTour() {
                 )}
               />
               {errors.description && <p className="text-xs text-destructive mt-1">{errors.description}</p>}
+            </div>
+
+            <div>
+              <Label className="text-sm font-normal mb-1.5 block">Optional Activities</Label>
+              <Textarea
+                value={formData.optional_activities}
+                onChange={(e) => setFormData({ ...formData, optional_activities: e.target.value })}
+                placeholder="Add optional activities guests can request (optional)"
+                rows={2}
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">

@@ -739,17 +739,18 @@ export default function HostDashboard() {
 
   // Load saved drafts on mount
   useEffect(() => {
+    if (propertyWizardEditId) return;
     try {
       const savedProperty = localStorage.getItem(PROPERTY_FORM_KEY);
       if (savedProperty) {
         const parsed = JSON.parse(savedProperty);
-        setPropertyForm(parsed.form);
+        setPropertyForm({ ...createDefaultPropertyForm(), ...(parsed.form || {}) });
         setWizardStep(parsed.step || 1);
       }
     } catch (e) {
       console.error('Failed to load property draft:', e);
     }
-  }, [PROPERTY_FORM_KEY]);
+  }, [PROPERTY_FORM_KEY, propertyWizardEditId]);
 
   const hasPropertyDraftContent = useCallback((form = propertyForm, step = wizardStep) => {
     return Boolean(
@@ -2905,8 +2906,12 @@ export default function HostDashboard() {
   };
 
   const openPropertyWizardForEdit = async (property: Property) => {
+    localStorage.removeItem(PROPERTY_FORM_KEY);
     setPropertyWizardEditId(property.id);
     setWizardStep(1);
+    setPropertyForm(mapPropertyToForm(property));
+    setShowPropertyWizard(true);
+
     let sourceProperty: Property | Record<string, any> = property;
     try {
       const { data: latestProperty, error } = await supabase
@@ -2923,7 +2928,6 @@ export default function HostDashboard() {
     }
 
     setPropertyForm(mapPropertyToForm(sourceProperty));
-    setShowPropertyWizard(true);
   };
 
   const submitPropertyWizard = async () => {
