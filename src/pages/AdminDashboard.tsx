@@ -31,7 +31,7 @@ import {
 import { getTourPriceSuffix, getTourPricingModel } from "@/lib/tour-pricing";
 import { normalizeAdminMetrics } from "@/lib/admin-metrics";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import {
   Users,
   Home,
@@ -465,6 +465,7 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [tab, setTab] = useState<TabValue>(() => {
     if (typeof window === "undefined") return "overview";
@@ -549,20 +550,20 @@ export default function AdminDashboard() {
   const [adminFxRatesUpdatedAt, setAdminFxRatesUpdatedAt] = useState<string | null>(null);
 
   useEffect(() => {
-    const urlTab = searchParams.get("tab");
+    const urlTab = new URLSearchParams(location.search).get("tab");
     if (isAdminTabValue(urlTab) && urlTab !== tab) {
       setTab(urlTab);
     }
-  }, [searchParams, tab]);
+  }, [location.search, tab]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     window.sessionStorage.setItem(ADMIN_TAB_STORAGE_KEY, tab);
-    if (searchParams.get("tab") === tab) return;
-    const nextParams = new URLSearchParams(searchParams);
+    const nextParams = new URLSearchParams(location.search);
+    if (nextParams.get("tab") === tab) return;
     nextParams.set("tab", tab);
     setSearchParams(nextParams, { replace: true });
-  }, [tab, searchParams, setSearchParams]);
+  }, [tab, location.search, setSearchParams]);
 
   // Set up real-time subscriptions for instant updates
   useEffect(() => {

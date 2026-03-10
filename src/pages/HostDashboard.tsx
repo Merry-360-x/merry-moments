@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useNavigate, Link, useSearchParams } from "react-router-dom";
+import { useNavigate, Link, useLocation, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/Navbar";
@@ -419,6 +419,7 @@ const isHostTabValue = (value: string | null | undefined): value is HostTabValue
 export default function HostDashboard() {
   const { user, isHost, isLoading: authLoading, rolesLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -440,20 +441,20 @@ export default function HostDashboard() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const urlTab = searchParams.get("tab");
+    const urlTab = new URLSearchParams(location.search).get("tab");
     if (isHostTabValue(urlTab) && urlTab !== tab) {
       setTab(urlTab);
     }
-  }, [searchParams, tab]);
+  }, [location.search, tab]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     window.sessionStorage.setItem(HOST_TAB_STORAGE_KEY, tab);
-    if (searchParams.get("tab") === tab) return;
-    const nextParams = new URLSearchParams(searchParams);
+    const nextParams = new URLSearchParams(location.search);
+    if (nextParams.get("tab") === tab) return;
     nextParams.set("tab", tab);
     setSearchParams(nextParams, { replace: true });
-  }, [tab, searchParams, setSearchParams]);
+  }, [tab, location.search, setSearchParams]);
   
   // Payout states (combined into single dialog)
   const [showPayoutDialog, setShowPayoutDialog] = useState(false);
