@@ -559,6 +559,9 @@ export default function AdminDashboard() {
   useEffect(() => {
     const urlTab = new URLSearchParams(location.search).get("tab");
     if (!isAdminTabValue(urlTab)) return;
+    if (pendingTabSyncRef.current && urlTab !== pendingTabSyncRef.current) {
+      return;
+    }
     if (pendingTabSyncRef.current === urlTab) {
       pendingTabSyncRef.current = null;
       return;

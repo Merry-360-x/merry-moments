@@ -445,6 +445,9 @@ export default function HostDashboard() {
   useEffect(() => {
     const urlTab = new URLSearchParams(location.search).get("tab");
     if (!isHostTabValue(urlTab)) return;
+    if (pendingTabSyncRef.current && urlTab !== pendingTabSyncRef.current) {
+      return;
+    }
     if (pendingTabSyncRef.current === urlTab) {
       pendingTabSyncRef.current = null;
       return;
