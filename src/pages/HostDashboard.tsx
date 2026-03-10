@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate, Link, useLocation, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
@@ -433,8 +433,10 @@ export default function HostDashboard() {
     const savedTab = window.sessionStorage.getItem(HOST_TAB_STORAGE_KEY);
     return isHostTabValue(savedTab) ? savedTab : "overview";
   });
+  const pendingTabSyncRef = useRef<HostTabValue | null>(null);
   const setHostTab = useCallback((nextTab: string) => {
     if (isHostTabValue(nextTab)) {
+      pendingTabSyncRef.current = nextTab;
       setTab(nextTab);
     }
   }, []);
@@ -442,7 +444,12 @@ export default function HostDashboard() {
 
   useEffect(() => {
     const urlTab = new URLSearchParams(location.search).get("tab");
-    if (isHostTabValue(urlTab) && urlTab !== tab) {
+    if (!isHostTabValue(urlTab)) return;
+    if (pendingTabSyncRef.current === urlTab) {
+      pendingTabSyncRef.current = null;
+      return;
+    }
+    if (urlTab !== tab) {
       setTab(urlTab);
     }
   }, [location.search, tab]);
@@ -451,7 +458,11 @@ export default function HostDashboard() {
     if (typeof window === "undefined") return;
     window.sessionStorage.setItem(HOST_TAB_STORAGE_KEY, tab);
     const nextParams = new URLSearchParams(location.search);
-    if (nextParams.get("tab") === tab) return;
+    if (nextParams.get("tab") === tab) {
+      pendingTabSyncRef.current = null;
+      return;
+    }
+    pendingTabSyncRef.current = tab;
     nextParams.set("tab", tab);
     setSearchParams(nextParams, { replace: true });
   }, [tab, location.search, setSearchParams]);
@@ -2845,7 +2856,7 @@ export default function HostDashboard() {
         title: 'No payout method found',
         description: 'Please add a payout method first.',
       });
-      setTab('payout-methods');
+      setHostTab('payout-methods');
       return;
     }
 
@@ -7006,7 +7017,7 @@ export default function HostDashboard() {
           is_published: true,
         });
         setVehicleWizardStep(1);
-        setTab("transport");
+        setHostTab("transport");
         setEditingVehicleId((created as any).id);
       }
     };
@@ -7384,7 +7395,7 @@ export default function HostDashboard() {
                 Need to send a direct review link? Use <span className="font-medium text-foreground">Manual Reviews</span>.
               </div>
               <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setTab("manual-reviews")}>
+              <Button variant="outline" onClick={() => setHostTab("manual-reviews")}>
                 <Send className="w-4 h-4 mr-2" /> Send Review Request
               </Button>
               <Button
@@ -9760,7 +9771,7 @@ END OF REPORT
                     size="sm"
                     onClick={() => {
                       setShowPayoutDialog(false);
-                      setTab('payout-methods');
+                      setHostTab('payout-methods');
                     }}
                   >
                     Manage methods

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { AffiliatesManagement } from "@/components/AffiliatesManagement";
@@ -474,6 +474,13 @@ export default function AdminDashboard() {
     const savedTab = window.sessionStorage.getItem(ADMIN_TAB_STORAGE_KEY);
     return isAdminTabValue(savedTab) ? savedTab : "overview";
   });
+  const pendingTabSyncRef = useRef<TabValue | null>(null);
+  const setAdminTab = useCallback((nextTab: string) => {
+    if (isAdminTabValue(nextTab)) {
+      pendingTabSyncRef.current = nextTab;
+      setTab(nextTab);
+    }
+  }, []);
   const [userSearch, setUserSearch] = useState("");
   const [userDataSearch, setUserDataSearch] = useState("");
   const [userDataFilter, setUserDataFilter] = useState<"all" | "collected" | "missing">("all");
@@ -551,7 +558,12 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const urlTab = new URLSearchParams(location.search).get("tab");
-    if (isAdminTabValue(urlTab) && urlTab !== tab) {
+    if (!isAdminTabValue(urlTab)) return;
+    if (pendingTabSyncRef.current === urlTab) {
+      pendingTabSyncRef.current = null;
+      return;
+    }
+    if (urlTab !== tab) {
       setTab(urlTab);
     }
   }, [location.search, tab]);
@@ -560,7 +572,11 @@ export default function AdminDashboard() {
     if (typeof window === "undefined") return;
     window.sessionStorage.setItem(ADMIN_TAB_STORAGE_KEY, tab);
     const nextParams = new URLSearchParams(location.search);
-    if (nextParams.get("tab") === tab) return;
+    if (nextParams.get("tab") === tab) {
+      pendingTabSyncRef.current = null;
+      return;
+    }
+    pendingTabSyncRef.current = tab;
     nextParams.set("tab", tab);
     setSearchParams(nextParams, { replace: true });
   }, [tab, location.search, setSearchParams]);
@@ -998,7 +1014,7 @@ export default function AdminDashboard() {
     const host = hostId ? adminUserById.get(hostId) : undefined;
     const searchTerm = host?.email || host?.full_name || hostId || "";
     setUserSearch(searchTerm);
-    setTab("users");
+    setAdminTab("users");
   };
 
   const { data: profileMedia = [] } = useQuery({
@@ -3325,7 +3341,7 @@ For support, contact: support@merry360x.com
           </div>
         </div>
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)}>
+        <Tabs value={tab} onValueChange={setAdminTab}>
           <TabsList className="flex flex-wrap h-auto gap-1 mb-6">
             <TabsTrigger value="overview" className="gap-1">
               <BarChart3 className="w-4 h-4" /> Overview
@@ -3848,7 +3864,7 @@ For support, contact: support@merry360x.com
             <div className="grid md:grid-cols-3 gap-4">
               <Card 
                 className={`p-4 border-l-4 border-l-yellow-500 cursor-pointer hover:shadow-md transition-shadow ${(metrics?.tickets_open ?? 0) > 0 ? 'ring-2 ring-red-500 ring-opacity-50 animate-pulse' : ''}`}
-                onClick={() => setTab("support")}
+                onClick={() => setAdminTab("support")}
               >
                 <h4 className="font-medium flex items-center gap-2">
                   <MessageSquare className="w-4 h-4" /> Open Tickets
@@ -5176,7 +5192,7 @@ For support, contact: support@merry360x.com
                   <p className="text-sm text-muted-foreground">Clear view of booking references, guest details, schedule, and payment tracking</p>
                 </div>
                 <div className="flex items-center gap-2 w-full md:w-auto">
-                  <Button variant="outline" onClick={() => setTab("booking-calculations")}>View Booking Calculations</Button>
+                  <Button variant="outline" onClick={() => setAdminTab("booking-calculations")}>View Booking Calculations</Button>
                   <Input
                     value={bookingIdSearch}
                     onChange={(e) => setBookingIdSearch(e.target.value)}
