@@ -789,12 +789,6 @@ export default function HostDashboard() {
     }
   }, [vehicleForm, vehicleWizardStep, showVehicleWizard]);
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate("/auth?redirect=/host-dashboard");
-    }
-  }, [user, authLoading, navigate]);
-
   const fetchData = useCallback(async () => {
     if (!user) {
       setIsLoading(false);

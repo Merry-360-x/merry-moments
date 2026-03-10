@@ -33,6 +33,11 @@ type HomeTour = {
   pricingDurationUnit?: "minute" | "hour" | null;
 };
 
+const parsePackageDurationDays = (duration: string | null | undefined): number | null => {
+  const parsed = Number.parseInt(String(duration ?? ""), 10);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 const Index = () => {
   const { user } = useAuth();
   const { t } = useTranslation();
@@ -51,7 +56,7 @@ const Index = () => {
           .limit(8),
         supabase
           .from("tour_packages")
-          .select("id, title, city, country, price_per_adult, currency, cover_image, gallery_images, rating, review_count, category, duration_days, host_id, pricing_tiers")
+          .select("id, title, city, country, price_per_adult, currency, cover_image, gallery_images, rating, review_count, category, duration, host_id, pricing_tiers")
           .eq("status", "approved")
           .order("rating", { ascending: false, nullsFirst: false })
           .order("created_at", { ascending: false })
@@ -91,7 +96,7 @@ const Index = () => {
         rating: pkg.rating,
         reviewCount: pkg.review_count,
         category: pkg.category,
-        durationDays: pkg.duration_days,
+        durationDays: parsePackageDurationDays(pkg.duration),
         source: "tour_packages",
         hostId: pkg.host_id,
         pricingModel: getTourPricingModel(pkg.pricing_tiers),

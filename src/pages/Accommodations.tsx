@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Search, Star, ChevronLeft, ChevronRight } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -6,12 +7,10 @@ import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import PropertyCard from "@/components/PropertyCard";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { useEffect, useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate } from "react-router-dom";
-import { useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites } from "@/hooks/useFavorites";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -292,7 +291,7 @@ const Accommodations = () => {
     navigate(`/accommodations?${params.toString()}`);
   };
 
-  const requestNearbyRecommendations = async (options?: { silent?: boolean }) => {
+  const requestNearbyRecommendations = useCallback(async (options?: { silent?: boolean }) => {
     const silent = Boolean(options?.silent);
 
     if (!("geolocation" in navigator)) {
@@ -333,13 +332,36 @@ const Accommodations = () => {
       },
       { enableHighAccuracy: false, timeout: 8000 }
     );
-  };
+  }, [navigate, searchParams, toast]);
 
   useEffect(() => {
     if (autoLocationRequested || nearby) return;
-    setAutoLocationRequested(true);
-    requestNearbyRecommendations({ silent: true });
-  }, [autoLocationRequested, nearby]);
+
+    let cancelled = false;
+
+    const maybeRequestNearbyRecommendations = async () => {
+      setAutoLocationRequested(true);
+
+      if (!("permissions" in navigator) || typeof navigator.permissions?.query !== "function") {
+        return;
+      }
+
+      try {
+        const permissionStatus = await navigator.permissions.query({ name: "geolocation" });
+        if (!cancelled && permissionStatus.state === "granted") {
+          await requestNearbyRecommendations({ silent: true });
+        }
+      } catch {
+        // Ignore permission API errors; nearby recommendations remain available via explicit user action.
+      }
+    };
+
+    void maybeRequestNearbyRecommendations();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [autoLocationRequested, nearby, requestNearbyRecommendations]);
 
   const {
     data: properties = [],

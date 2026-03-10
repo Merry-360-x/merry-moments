@@ -196,7 +196,7 @@ export class RecommendationEngine {
 
       const { data: packages } = await supabase
         .from('tour_packages')
-        .select('id, title, city, country, category, duration_days, rating, review_count, price_per_adult, currency, cover_image, gallery_images, pricing_tiers, host_id, created_at')
+        .select('id, title, city, country, category, duration, rating, review_count, price_per_adult, currency, cover_image, gallery_images, pricing_tiers, host_id, created_at')
         .eq('status', 'approved')
         .order('created_at', { ascending: false })
         .limit(50);
