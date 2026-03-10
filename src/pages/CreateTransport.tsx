@@ -605,12 +605,17 @@ export default function CreateTransport() {
         } as any;
 
       if (isEditMode && editId) {
-        const { error } = await supabase
+        const { data: updatedVehicle, error } = await supabase
           .from("transport_vehicles")
           .update(vehiclePayload)
           .eq("id", editId)
-          .eq("created_by", user.id);
+          .eq("created_by", user.id)
+          .select("id")
+          .maybeSingle();
         if (error) throw error;
+        if (!updatedVehicle?.id) {
+          throw new Error("Vehicle update failed: listing not found or you don't have permission to edit it.");
+        }
       } else {
         const { error } = await supabase
           .from("transport_vehicles")

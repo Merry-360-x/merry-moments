@@ -424,12 +424,17 @@ export default function CreateAirportTransfer() {
         };
 
       if (isEditMode && editId) {
-        const { error: vehicleError } = await supabase
+        const { data: updatedVehicle, error: vehicleError } = await supabase
           .from("transport_vehicles")
           .update(vehiclePayload)
           .eq("id", editId)
-          .eq("created_by", user.id);
+          .eq("created_by", user.id)
+          .select("id")
+          .maybeSingle();
         if (vehicleError) throw vehicleError;
+        if (!updatedVehicle?.id) {
+          throw new Error("Airport transfer update failed: listing not found or you don't have permission to edit it.");
+        }
       } else {
         const { data: vehicle, error: vehicleError } = await supabase
           .from("transport_vehicles")

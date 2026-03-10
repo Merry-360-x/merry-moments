@@ -807,7 +807,7 @@ Some components are non-refundable once booked, including but not limited to:
       };
 
       if (isEditMode && editId) {
-        const { error } = await runTourPackageMutationWithFallback(
+        const { data: updatedPackage, error } = await runTourPackageMutationWithFallback(
           {
             ...(packageData as any),
             categories: formData.categories,
@@ -818,8 +818,13 @@ Some components are non-refundable once booked, including but not limited to:
               .update(nextPayload)
               .eq("id", editId)
               .eq("host_id", user.id)
+              .select("id")
+              .maybeSingle()
         );
         if (error) throw error;
+        if (!(updatedPackage as any)?.id) {
+          throw new Error("Tour package update failed: listing not found or you don't have permission to edit it.");
+        }
       } else {
         const { data: newPackage, error } = await runTourPackageMutationWithFallback(
           packageData as any,

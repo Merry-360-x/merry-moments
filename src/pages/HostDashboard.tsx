@@ -1464,8 +1464,23 @@ export default function HostDashboard() {
 
     const { error } = await runPropertiesMutationWithFallback(
       async (payload) => {
-        const response = await supabase.from("properties").update(payload as never).eq("id", id);
-        return { error: response.error, data: null };
+        const response = await supabase
+          .from("properties")
+          .update(payload as never)
+          .eq("id", id)
+          .eq("host_id", user!.id)
+          .select("id")
+          .maybeSingle();
+        if (response.error) return { error: response.error, data: null };
+        if (!response.data?.id) {
+          return {
+            error: {
+              message: "Property update failed: listing not found or you don't have permission to edit it.",
+            },
+            data: null,
+          };
+        }
+        return { error: null, data: response.data };
       },
       normalizedUpdates
     );
@@ -1658,8 +1673,18 @@ export default function HostDashboard() {
     if (!user) return false;
     try {
       const tableName = source === "tour_packages" ? "tour_packages" : "tours";
-      const { error } = await supabase.from(tableName).update(updates).eq("id", id);
+      const ownerField = tableName === "tour_packages" ? "host_id" : "created_by";
+      const { data: updatedRow, error } = await supabase
+        .from(tableName)
+        .update(updates)
+        .eq("id", id)
+        .eq(ownerField, user.id)
+        .select("id")
+        .maybeSingle();
       if (error) throw error;
+      if (!updatedRow?.id) {
+        throw new Error("Tour update failed: listing not found or you don't have permission to edit it.");
+      }
       toast({ title: "Success", description: "Tour updated successfully" });
       fetchData();
       return true;

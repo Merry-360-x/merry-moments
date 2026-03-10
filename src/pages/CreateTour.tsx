@@ -582,7 +582,9 @@ export default function CreateTour() {
             .from("tours")
             .update(payload)
             .eq("id", editId)
-            .eq("created_by", user.id);
+            .eq("created_by", user.id)
+            .select("id")
+            .maybeSingle();
         }
         return await supabase.from("tours").insert(payload).select().single();
       };
@@ -630,6 +632,10 @@ export default function CreateTour() {
         }
 
         if (!(writeResult as any)?.error) {
+          if (isEditMode && editId && !(writeResult as any)?.data?.id) {
+            lastError = new Error("Tour update failed: listing not found or you don't have permission to edit it.");
+            continue;
+          }
           writeSucceeded = true;
           break;
         }
