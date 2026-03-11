@@ -208,11 +208,10 @@ const Index = () => {
       <Navbar />
 
       <section className="border-b border-border/50 bg-gradient-to-b from-background via-secondary/20 to-background">
-        <div className="container mx-auto px-4 py-4">
-          <div className="mb-3 flex items-center justify-between">
+        <div className="container mx-auto px-4 py-2.5">
+          <div className="mb-2 flex items-center justify-between">
             <div>
               <h2 className="text-base md:text-lg font-semibold text-foreground">Stories</h2>
-              <p className="text-xs text-muted-foreground">Quick moments from hosts and travelers</p>
             </div>
             <Button variant="ghost" size="sm" onClick={() => navigate("/stories")}>View all</Button>
           </div>
@@ -265,8 +264,8 @@ const Index = () => {
       </section>
 
       {/* Hero Section */}
-      <section className="container mx-auto px-4 pt-5 md:pt-8">
-        <div className="relative w-full min-h-[40vh] md:min-h-[70vh] flex items-center justify-center overflow-hidden rounded-3xl border border-border/40 shadow-lg">
+      <section className="container mx-auto px-4 pt-3 md:pt-5">
+        <div className="relative w-full min-h-[34vh] md:min-h-[58vh] flex items-center justify-center overflow-hidden rounded-3xl border border-border/40 shadow-lg">
           {/* Video Background */}
           <video
             autoPlay
@@ -284,7 +283,7 @@ const Index = () => {
           <div className="absolute inset-0 bg-gradient-to-b from-foreground/10 via-foreground/20 to-foreground/50 z-[2]" />
 
           {/* Content */}
-          <div className="relative z-10 container mx-auto px-4 py-20 text-center">
+          <div className="relative z-10 container mx-auto px-4 py-12 md:py-16 text-center">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-primary-foreground mb-8 italic animate-fade-in">
               {t("index.heroTitle")}
             </h1>
@@ -293,7 +292,7 @@ const Index = () => {
             <HeroSearch />
 
             {/* Referral CTA */}
-            <div className="mt-8 flex justify-center">
+            <div className="mt-6 md:mt-8 flex justify-center">
               <Button
                 onClick={() => navigate('/affiliate-signup')}
                 variant="outline"
@@ -308,7 +307,7 @@ const Index = () => {
         </div>
       </section>
 
-      <section className="container mx-auto px-4 py-16 min-h-[60vh]">
+      <section className="container mx-auto px-4 pt-10 pb-16">
         <PersonalizedRecommendations type="properties" limit={8} mode="popular" title="Popular Stays" />
       </section>
 
