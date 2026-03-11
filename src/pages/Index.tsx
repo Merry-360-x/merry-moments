@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import HeroSearch from "@/components/HeroSearch";
@@ -8,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import TourPromoCard from "@/components/TourPromoCard";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,6 +33,30 @@ type HomeTour = {
   pricingModel?: ReturnType<typeof getTourPricingModel>;
   pricingDurationValue?: number | null;
   pricingDurationUnit?: "minute" | "hour" | null;
+};
+
+type HomeStoryRow = {
+  id: string;
+  user_id: string;
+  media_url: string | null;
+  image_url: string | null;
+  created_at: string | null;
+};
+
+type HomeStoryAuthor = {
+  user_id: string;
+  full_name: string | null;
+  nickname: string | null;
+  avatar_url: string | null;
+};
+
+type HomeStoryCircle = {
+  storyId: string;
+  userId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  fallbackPreviewUrl: string | null;
+  createdAt: string | null;
 };
 
 const parsePackageDurationDays = (duration: string | null | undefined): number | null => {
@@ -115,9 +141,128 @@ const Index = () => {
     gcTime: 1000 * 60 * 20,
   });
 
+  const { data: storyCircles = [], isLoading: isStoryCirclesLoading } = useQuery({
+    queryKey: ["home-story-circles"],
+    queryFn: async () => {
+      const { data: storiesData, error: storiesError } = await supabase
+        .from("stories")
+        .select("id, user_id, media_url, image_url, created_at")
+        .order("created_at", { ascending: false })
+        .limit(80);
+
+      if (storiesError) throw storiesError;
+
+      const stories = (storiesData ?? []) as HomeStoryRow[];
+      if (stories.length === 0) return [] as HomeStoryCircle[];
+
+      const latestByUser = new Map<string, HomeStoryRow>();
+      for (const story of stories) {
+        if (!latestByUser.has(story.user_id)) {
+          latestByUser.set(story.user_id, story);
+        }
+      }
+
+      const userIds = Array.from(latestByUser.keys());
+      const { data: authorsData, error: authorsError } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, nickname, avatar_url")
+        .in("user_id", userIds);
+
+      if (authorsError) throw authorsError;
+
+      const authorMap = new Map<string, HomeStoryAuthor>();
+      (authorsData ?? []).forEach((author: any) => {
+        authorMap.set(author.user_id, author as HomeStoryAuthor);
+      });
+
+      return Array.from(latestByUser.values())
+        .slice(0, 16)
+        .map((story) => {
+          const author = authorMap.get(story.user_id);
+          return {
+            storyId: story.id,
+            userId: story.user_id,
+            displayName: author?.nickname || author?.full_name || "Traveler",
+            avatarUrl: author?.avatar_url || null,
+            fallbackPreviewUrl: story.media_url || story.image_url || null,
+            createdAt: story.created_at,
+          } as HomeStoryCircle;
+        });
+    },
+    staleTime: 1000 * 60 * 2,
+  });
+
+  const storyFreshness = useMemo(() => {
+    const now = Date.now();
+    return new Map(
+      storyCircles.map((story) => {
+        const created = story.createdAt ? new Date(story.createdAt).getTime() : 0;
+        const isFresh = created > 0 && now - created <= 1000 * 60 * 60 * 24;
+        return [story.storyId, isFresh] as const;
+      })
+    );
+  }, [storyCircles]);
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
+
+      <section className="border-b border-border/50 bg-gradient-to-b from-background via-secondary/20 to-background">
+        <div className="container mx-auto px-4 py-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <h2 className="text-base md:text-lg font-semibold text-foreground">Stories</h2>
+              <p className="text-xs text-muted-foreground">Quick moments from hosts and travelers</p>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => navigate("/stories")}>View all</Button>
+          </div>
+
+          {isStoryCirclesLoading ? (
+            <div className="flex gap-4 overflow-x-auto pb-1">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="shrink-0">
+                  <div className="h-16 w-16 rounded-full bg-muted animate-pulse" />
+                  <div className="mt-2 h-3 w-14 rounded bg-muted animate-pulse" />
+                </div>
+              ))}
+            </div>
+          ) : storyCircles.length > 0 ? (
+            <div className="flex gap-4 overflow-x-auto pb-1">
+              {storyCircles.map((story) => {
+                const isFresh = storyFreshness.get(story.storyId) ?? false;
+                const fallbackText = story.displayName.slice(0, 1).toUpperCase();
+                return (
+                  <button
+                    key={story.storyId}
+                    type="button"
+                    onClick={() => navigate("/stories")}
+                    className="group shrink-0 text-left"
+                    aria-label={`Open stories by ${story.displayName}`}
+                  >
+                    <div
+                      className={`rounded-full p-[2px] transition-transform group-hover:scale-105 ${
+                        isFresh
+                          ? "bg-gradient-to-tr from-fuchsia-500 via-amber-400 to-orange-500"
+                          : "bg-gradient-to-tr from-muted-foreground/50 to-muted-foreground/20"
+                      }`}
+                    >
+                      <Avatar className="h-16 w-16 border-2 border-background">
+                        <AvatarImage src={story.avatarUrl || story.fallbackPreviewUrl || undefined} alt={story.displayName} />
+                        <AvatarFallback>{fallbackText}</AvatarFallback>
+                      </Avatar>
+                    </div>
+                    <p className="mt-1 w-16 truncate text-xs text-center text-foreground">{story.displayName}</p>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed border-border px-4 py-3 text-sm text-muted-foreground">
+              No stories yet. Be the first to share a moment.
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* Hero Section */}
       <section
