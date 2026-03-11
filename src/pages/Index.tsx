@@ -265,8 +265,8 @@ const Index = () => {
       </section>
 
       {/* Hero Section */}
-      <section className="px-4 pt-5 md:px-6 md:pt-8">
-        <div className="relative mx-auto min-h-[40vh] md:min-h-[70vh] max-w-7xl flex items-center justify-center overflow-hidden rounded-3xl border border-border/40 shadow-lg">
+      <section className="container mx-auto px-4 pt-5 md:pt-8">
+        <div className="relative w-full min-h-[40vh] md:min-h-[70vh] flex items-center justify-center overflow-hidden rounded-3xl border border-border/40 shadow-lg">
           {/* Video Background */}
           <video
             autoPlay
