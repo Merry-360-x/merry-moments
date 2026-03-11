@@ -17,6 +17,8 @@ data class AuthUiState(
     val userId: String? = null,
     val accessToken: String? = null,
     val roles: List<String> = emptyList(),
+    val displayName: String = "",
+    val userEmail: String = "",
 )
 
 class AuthViewModel(
@@ -40,12 +42,15 @@ class AuthViewModel(
             _state.value = if (result.isSuccess) {
                 val session = result.getOrNull()!!
                 val roles = api.fetchUserRoles(session.userId, session.accessToken).getOrDefault(emptyList())
+                val profile = api.fetchCurrentUserProfile(session.accessToken)
                 _state.value.copy(
                     loading = false,
                     authenticated = true,
                     userId = session.userId,
                     accessToken = session.accessToken,
-                    roles = roles
+                    roles = roles,
+                    displayName = profile.first,
+                    userEmail = profile.second,
                 )
             } else {
                 _state.value.copy(loading = false, error = result.exceptionOrNull()?.message ?: "Sign-in failed")
@@ -60,17 +65,78 @@ class AuthViewModel(
             _state.value = if (result.isSuccess) {
                 val session = result.getOrNull()!!
                 val roles = api.fetchUserRoles(session.userId, session.accessToken).getOrDefault(emptyList())
+                val profile = api.fetchCurrentUserProfile(session.accessToken)
                 _state.value.copy(
                     loading = false,
                     authenticated = true,
                     userId = session.userId,
                     accessToken = session.accessToken,
-                    roles = roles
+                    roles = roles,
+                    displayName = profile.first,
+                    userEmail = profile.second,
                 )
             } else {
                 _state.value.copy(loading = false, error = result.exceptionOrNull()?.message ?: "Sign-up failed")
             }
         }
+    }
+
+    fun completeAuthCallback(callbackUrl: String) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(loading = true, error = null)
+
+            val accessToken = extractCallbackParam(callbackUrl, "access_token")
+            if (accessToken.isNullOrBlank()) {
+                val callbackError = extractCallbackParam(callbackUrl, "error_description")
+                    ?: extractCallbackParam(callbackUrl, "error")
+                    ?: "Missing access token in callback"
+                _state.value = _state.value.copy(loading = false, error = callbackError)
+                return@launch
+            }
+
+            val userIdResult = api.fetchCurrentUserId(accessToken)
+            if (userIdResult.isFailure) {
+                _state.value = _state.value.copy(
+                    loading = false,
+                    error = userIdResult.exceptionOrNull()?.message ?: "Failed to complete callback"
+                )
+                return@launch
+            }
+
+            val userId = userIdResult.getOrNull().orEmpty()
+            val roles = api.fetchUserRoles(userId, accessToken).getOrDefault(emptyList())
+            val profile = api.fetchCurrentUserProfile(accessToken)
+
+            _state.value = _state.value.copy(
+                loading = false,
+                authenticated = true,
+                userId = userId,
+                accessToken = accessToken,
+                roles = roles,
+                displayName = profile.first,
+                userEmail = profile.second,
+                error = null
+            )
+        }
+    }
+
+    private fun extractCallbackParam(callbackUrl: String, key: String): String? {
+        val normalized = callbackUrl.replace('#', '&')
+        val marker = "$key="
+        val start = normalized.indexOf(marker)
+        if (start == -1) return null
+        val valueStart = start + marker.length
+        val valueEnd = normalized.indexOf('&', valueStart).takeIf { it >= 0 } ?: normalized.length
+        return normalized.substring(valueStart, valueEnd)
+            .replace("+", "%20")
+            .let { encoded ->
+                try {
+                    java.net.URLDecoder.decode(encoded, "UTF-8")
+                } catch (_: Exception) {
+                    encoded
+                }
+            }
+            .takeIf { it.isNotBlank() }
     }
 
     fun becomeHost() {

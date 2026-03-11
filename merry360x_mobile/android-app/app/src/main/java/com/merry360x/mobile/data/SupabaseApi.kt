@@ -114,6 +114,58 @@ class SupabaseApi(
         }
     }
 
+    suspend fun fetchCurrentUserId(accessToken: String): Result<String> = withContext(Dispatchers.IO) {
+        if (supabaseUrl.isBlank() || anonKey.isBlank()) {
+            return@withContext Result.failure(IllegalStateException("Missing Supabase config"))
+        }
+
+        val request = Request.Builder()
+            .url("$supabaseUrl/auth/v1/user")
+            .addHeader("apikey", anonKey)
+            .addHeader("Authorization", "Bearer $accessToken")
+            .get()
+            .build()
+
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                return@withContext Result.failure(IllegalStateException("Could not fetch current user"))
+            }
+
+            val body = response.body?.string().orEmpty()
+            val userId = JSONObject(body).optString("id").orEmpty()
+            if (userId.isBlank()) {
+                Result.failure(IllegalStateException("Could not parse current user"))
+            } else {
+                Result.success(userId)
+            }
+        }
+    }
+
+    // Returns (displayName, email) — never throws, falls back to empty strings
+    suspend fun fetchCurrentUserProfile(accessToken: String): Pair<String, String> = withContext(Dispatchers.IO) {
+        if (supabaseUrl.isBlank() || anonKey.isBlank()) return@withContext Pair("", "")
+        try {
+            val request = Request.Builder()
+                .url("$supabaseUrl/auth/v1/user")
+                .addHeader("apikey", anonKey)
+                .addHeader("Authorization", "Bearer $accessToken")
+                .get()
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@withContext Pair("", "")
+                val body = response.body?.string().orEmpty()
+                val json = JSONObject(body)
+                val email = json.optString("email", "").trim()
+                val meta = json.optJSONObject("user_metadata")
+                val name = (meta?.optString("full_name") ?: meta?.optString("name") ?: "").trim()
+                Pair(name, email)
+            }
+        } catch (_: Exception) {
+            Pair("", "")
+        }
+    }
+
     suspend fun becomeHost(accessToken: String): Result<Unit> = withContext(Dispatchers.IO) {
         if (supabaseUrl.isBlank() || anonKey.isBlank()) {
             return@withContext Result.failure(IllegalStateException("Missing Supabase config"))
@@ -716,6 +768,36 @@ class SupabaseApi(
         if (!payload.has("status")) payload.put("status", "approved")
         val result = postJson("tour_packages", payload, accessToken, false)
         if (result.isSuccess) Result.success(Unit) else Result.failure(result.exceptionOrNull() ?: IllegalStateException("Package create failed"))
+    }
+
+    suspend fun createProperty(hostId: String, payload: JSONObject, accessToken: String?): Result<Unit> = withContext(Dispatchers.IO) {
+        payload.put("host_id", hostId)
+        payload.put("is_published", true)
+        if (!payload.has("name")) payload.put("name", payload.optString("title", "Untitled Property"))
+        if (!payload.has("title")) payload.put("title", payload.optString("name", "Untitled Property"))
+        if (!payload.has("property_type")) payload.put("property_type", "Apartment")
+        if (!payload.has("currency")) payload.put("currency", "RWF")
+        if (!payload.has("max_guests")) payload.put("max_guests", 2)
+        if (!payload.has("bedrooms")) payload.put("bedrooms", 1)
+        if (!payload.has("bathrooms")) payload.put("bathrooms", 1)
+        if (!payload.has("images")) payload.put("images", JSONArray())
+        val result = postJson("properties", payload, accessToken, false)
+        if (result.isSuccess) Result.success(Unit) else Result.failure(result.exceptionOrNull() ?: IllegalStateException("Property create failed"))
+    }
+
+    suspend fun createRoom(hostId: String, payload: JSONObject, accessToken: String?): Result<Unit> = withContext(Dispatchers.IO) {
+        payload.put("host_id", hostId)
+        payload.put("is_published", true)
+        payload.put("property_type", "Room")
+        payload.put("name", payload.optString("title", "Untitled Room"))
+        if (!payload.has("currency")) payload.put("currency", "RWF")
+        if (!payload.has("max_guests")) payload.put("max_guests", 2)
+        if (!payload.has("bedrooms")) payload.put("bedrooms", 1)
+        if (!payload.has("bathrooms")) payload.put("bathrooms", 1)
+        if (!payload.has("beds")) payload.put("beds", 1)
+        if (!payload.has("images")) payload.put("images", JSONArray())
+        val result = postJson("properties", payload, accessToken, false)
+        if (result.isSuccess) Result.success(Unit) else Result.failure(result.exceptionOrNull() ?: IllegalStateException("Room create failed"))
     }
 
     suspend fun createTransportVehicle(hostId: String, payload: JSONObject, serviceType: String, accessToken: String?): Result<String?> = withContext(Dispatchers.IO) {

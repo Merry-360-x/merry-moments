@@ -7,6 +7,11 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.Badge
@@ -34,17 +39,33 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.merry360x.mobile.data.SupabaseApi
 import com.merry360x.mobile.data.FeatureApi
+import com.merry360x.mobile.data.Listing
 import com.merry360x.mobile.ui.screens.LoginScreenNew
 import com.merry360x.mobile.theme.Coral
 import com.merry360x.mobile.theme.Merry360xTheme
+import com.merry360x.mobile.ui.screens.BookingScreen
 import com.merry360x.mobile.ui.screens.HomeScreen
+import com.merry360x.mobile.ui.screens.ListingDetailScreen
 import com.merry360x.mobile.ui.screens.MerryAIScreen
 import com.merry360x.mobile.ui.screens.ProfileScreen
 import com.merry360x.mobile.ui.screens.TripCartScreen
 import com.merry360x.mobile.ui.screens.WishlistsScreen
 import com.merry360x.mobile.ui.screens.AuthBottomSheet
 import com.merry360x.mobile.ui.screens.AppCenterDestination
+import android.content.Intent
+import android.net.Uri
 import com.merry360x.mobile.ui.screens.AppCentersScreen
+import com.merry360x.mobile.ui.screens.AuthCallbackScreen
+import com.merry360x.mobile.ui.screens.AppModeScreen
+import com.merry360x.mobile.ui.screens.CompleteProfileScreen
+import com.merry360x.mobile.ui.screens.CurrencyPickerScreen
+import com.merry360x.mobile.ui.screens.ForgotPasswordScreen
+import com.merry360x.mobile.ui.screens.LanguagePickerScreen
+import com.merry360x.mobile.ui.screens.NotificationsScreen
+import com.merry360x.mobile.ui.screens.RegionPickerScreen
+import com.merry360x.mobile.ui.screens.ResetPasswordScreen
+import com.merry360x.mobile.ui.screens.SafetyGuidelinesScreen
+import com.merry360x.mobile.ui.screens.SearchResultsScreen
 import com.merry360x.mobile.viewmodel.AuthViewModel
 import com.merry360x.mobile.viewmodel.BookingViewModel
 import com.merry360x.mobile.viewmodel.FeatureViewModel
@@ -58,6 +79,26 @@ private data class NavItem(
     val badgeCount: Int = 0
 )
 
+private enum class ExploreFlow {
+    HOME,
+    SEARCH_RESULTS,
+    DETAIL,
+    BOOKING,
+}
+
+private enum class GlobalScreen {
+    AUTH_CALLBACK,
+    FORGOT_PASSWORD,
+    RESET_PASSWORD,
+    COMPLETE_PROFILE,
+    SAFETY_GUIDELINES,
+    REGION,
+    LANGUAGE,
+    CURRENCY,
+    APP_MODE,
+    NOTIFICATIONS,
+}
+
 class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,6 +107,11 @@ class MainActivity : ComponentActivity() {
         setContent {
             Merry360xTheme {
                 var tab by rememberSaveable { mutableStateOf(0) }
+                var exploreFlow by rememberSaveable { mutableStateOf(ExploreFlow.HOME) }
+                var selectedListing by remember { mutableStateOf<Listing?>(null) }
+                var globalScreen by rememberSaveable { mutableStateOf<GlobalScreen?>(null) }
+                var searchDestination by rememberSaveable { mutableStateOf("") }
+                val launchCallbackUrl = remember { intent?.dataString }
                 val api = remember { SupabaseApi(BuildConfig.SUPABASE_URL, BuildConfig.SUPABASE_ANON_KEY) }
                 val featureApi = remember { FeatureApi(BuildConfig.SUPABASE_URL, BuildConfig.SUPABASE_ANON_KEY) }
                 val authViewModel = remember { AuthViewModel(api) }
@@ -90,6 +136,10 @@ class MainActivity : ComponentActivity() {
                 // Auth sheet state
                 var showAuthSheet by remember { mutableStateOf(false) }
                 var activeCenter by rememberSaveable { mutableStateOf<AppCenterDestination?>(null) }
+                var selectedRegion by rememberSaveable { mutableStateOf("Rwanda") }
+                var selectedLanguage by rememberSaveable { mutableStateOf("English") }
+                var selectedCurrency by rememberSaveable { mutableStateOf("RWF") }
+                var selectedMode by rememberSaveable { mutableStateOf("Light") }
                 val authSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
                 
                 // Auth Bottom Sheet
@@ -101,6 +151,10 @@ class MainActivity : ComponentActivity() {
                     onPassword = authViewModel::updatePassword,
                     onSignIn = authViewModel::signIn,
                     onSignUp = authViewModel::signUp,
+                    onForgotPassword = {
+                        showAuthSheet = false
+                        globalScreen = GlobalScreen.FORGOT_PASSWORD
+                    },
                     onDismiss = { showAuthSheet = false }
                 )
 
@@ -121,6 +175,13 @@ class MainActivity : ComponentActivity() {
                     tripsViewModel.load(authState.userId)
                 }
 
+                LaunchedEffect(launchCallbackUrl) {
+                    if (!launchCallbackUrl.isNullOrBlank()) {
+                        globalScreen = GlobalScreen.AUTH_CALLBACK
+                        authViewModel.completeAuthCallback(launchCallbackUrl)
+                    }
+                }
+
                 Scaffold(
                         bottomBar = {
                             NavigationBar(
@@ -130,7 +191,12 @@ class MainActivity : ComponentActivity() {
                                 navItems.forEachIndexed { index, item ->
                                     NavigationBarItem(
                                         selected = tab == index,
-                                        onClick = { tab = index },
+                                        onClick = {
+                                            tab = index
+                                            if (index == 0 && exploreFlow != ExploreFlow.HOME) {
+                                                exploreFlow = ExploreFlow.HOME
+                                            }
+                                        },
                                         label = { 
                                             Text(
                                                 item.label, 
@@ -195,16 +261,101 @@ class MainActivity : ComponentActivity() {
                             featureViewModel.load("replace-with-real-user-id")
                         }
                         Box(modifier) {
-                            when (tab) {
-                                0 -> HomeScreen(
-                                    uiState = homeState,
-                                    onRefresh = { homeViewModel.load() },
-                                    onSelectListing = { id, title ->
-                                        bookingViewModel.selectedListingId = id
-                                        bookingViewModel.selectedListingTitle = title
-                                        tab = 3
+                            if (globalScreen != null) {
+                                when (globalScreen) {
+                                    GlobalScreen.AUTH_CALLBACK -> AuthCallbackScreen(
+                                        uiState = authState,
+                                        onBack = { globalScreen = null },
+                                        onContinue = { globalScreen = null },
+                                    )
+                                    GlobalScreen.FORGOT_PASSWORD -> ForgotPasswordScreen(
+                                        onBack = { globalScreen = null },
+                                        onContinueToReset = { globalScreen = GlobalScreen.RESET_PASSWORD },
+                                    )
+                                    GlobalScreen.RESET_PASSWORD -> ResetPasswordScreen(
+                                        onBack = { globalScreen = GlobalScreen.FORGOT_PASSWORD },
+                                        onDone = { globalScreen = null },
+                                    )
+                                    GlobalScreen.COMPLETE_PROFILE -> CompleteProfileScreen(
+                                        onBack = { globalScreen = null }
+                                    )
+                                    GlobalScreen.SAFETY_GUIDELINES -> SafetyGuidelinesScreen(
+                                        onBack = { globalScreen = null }
+                                    )
+                                    GlobalScreen.REGION -> RegionPickerScreen(
+                                        currentRegion = selectedRegion,
+                                        onSelect = { selectedRegion = it },
+                                        onBack = { globalScreen = null }
+                                    )
+                                    GlobalScreen.LANGUAGE -> LanguagePickerScreen(
+                                        currentLanguage = selectedLanguage,
+                                        onSelect = { selectedLanguage = it },
+                                        onBack = { globalScreen = null }
+                                    )
+                                    GlobalScreen.CURRENCY -> CurrencyPickerScreen(
+                                        currentCurrency = selectedCurrency,
+                                        onSelect = { selectedCurrency = it },
+                                        onBack = { globalScreen = null }
+                                    )
+                                    GlobalScreen.APP_MODE -> AppModeScreen(
+                                        currentMode = selectedMode,
+                                        onSelect = { selectedMode = it },
+                                        onBack = { globalScreen = null }
+                                    )
+                                    GlobalScreen.NOTIFICATIONS -> NotificationsScreen(
+                                        onBack = { globalScreen = null }
+                                    )
+                                    null -> Unit
+                                }
+                            } else when (tab) {
+                                0 -> when (exploreFlow) {
+                                    ExploreFlow.HOME -> HomeScreen(
+                                        uiState = homeState,
+                                        onRefresh = { homeViewModel.load() },
+                                        onSelectListing = { listing ->
+                                            selectedListing = listing
+                                            bookingViewModel.selectedListingId = listing.id
+                                            bookingViewModel.selectedListingTitle = listing.title
+                                            exploreFlow = ExploreFlow.DETAIL
+                                        },
+                                        onSearchSubmit = { destination, _, _, _ ->
+                                            searchDestination = destination
+                                            exploreFlow = ExploreFlow.SEARCH_RESULTS
+                                        },
+                                    )
+                                    ExploreFlow.SEARCH_RESULTS -> {
+                                        val allListings = homeState.listings + homeState.tours + homeState.cars + homeState.events
+                                        SearchResultsScreen(
+                                            destination = searchDestination,
+                                            listings = allListings.distinctBy { it.id },
+                                            onBack = { exploreFlow = ExploreFlow.HOME },
+                                            onSelectListing = { listing ->
+                                                selectedListing = listing
+                                                bookingViewModel.selectedListingId = listing.id
+                                                bookingViewModel.selectedListingTitle = listing.title
+                                                exploreFlow = ExploreFlow.DETAIL
+                                            }
+                                        )
+                                    )
+                                    ExploreFlow.DETAIL -> {
+                                        val listing = selectedListing
+                                        if (listing != null) {
+                                            ListingDetailScreen(
+                                                listing = listing,
+                                                onBack = { exploreFlow = ExploreFlow.HOME },
+                                                onReserve = { exploreFlow = ExploreFlow.BOOKING }
+                                            )
+                                        } else {
+                                            exploreFlow = ExploreFlow.HOME
+                                        }
                                     }
-                                )
+                                    ExploreFlow.BOOKING -> BookingScreen(
+                                        uiState = bookingState,
+                                        selectedListingTitle = bookingViewModel.selectedListingTitle,
+                                        onBack = { exploreFlow = ExploreFlow.DETAIL },
+                                        onSubmit = { bookingViewModel.submitSampleBooking() }
+                                    )
+                                }
                                 1 -> WishlistsScreen(
                                     onGoToExplore = { tab = 0 }
                                 )
@@ -214,40 +365,74 @@ class MainActivity : ComponentActivity() {
                                     isLoading = tripsState.loading || bookingState.submitting,
                                     errorMessage = tripsState.error
                                 )
-                                4 -> if (activeCenter == null) {
-                                    ProfileScreen(
-                                        isLoggedIn = authState.authenticated,
-                                        userName = "Guest",
-                                        roles = authState.roles,
-                                        onLogin = { showAuthSheet = true },
-                                        onSignOut = { authViewModel.signOut() },
-                                        onBecomeHost = { authViewModel.becomeHost() },
-                                        onOpenDashboard = { path ->
-                                            activeCenter = when {
-                                                path.contains("admin") || path.contains("financial") || path.contains("operations") || path.contains("support") -> AppCenterDestination.BACKOFFICE
-                                                path.contains("host") -> AppCenterDestination.HOST_STUDIO
-                                                path.contains("affiliate") -> AppCenterDestination.AFFILIATE
-                                                else -> AppCenterDestination.BACKOFFICE
-                                            }
-                                        },
-                                        onNavigate = { target ->
-                                            activeCenter = when (target) {
-                                                "terms", "privacy", "refund", "safety", "help_center", "chat" -> AppCenterDestination.SUPPORT_LEGAL
-                                                "travel_stories" -> AppCenterDestination.HOST_STUDIO
-                                                "bookings", "checkout", "my_bookings" -> AppCenterDestination.BOOKINGS_CHECKOUT
-                                                "affiliate" -> AppCenterDestination.AFFILIATE
-                                                else -> null
-                                            }
+                                4 -> AnimatedContent(
+                                    targetState = activeCenter,
+                                    label = "profile-center-transition",
+                                    transitionSpec = {
+                                        if (targetState != null) {
+                                            slideInHorizontally(initialOffsetX = { it / 3 }) + fadeIn() togetherWith
+                                                slideOutHorizontally(targetOffsetX = { -it / 5 }) + fadeOut()
+                                        } else {
+                                            slideInHorizontally(initialOffsetX = { -it / 4 }) + fadeIn() togetherWith
+                                                slideOutHorizontally(targetOffsetX = { it / 3 }) + fadeOut()
                                         }
-                                    )
-                                } else {
-                                    AppCentersScreen(
-                                        destination = activeCenter ?: AppCenterDestination.BACKOFFICE,
-                                        onBackToProfile = { activeCenter = null },
-                                        api = api,
-                                        userId = authState.userId,
-                                        accessToken = authState.accessToken,
-                                    )
+                                    }
+                                ) { center ->
+                                    if (center == null) {
+                                        ProfileScreen(
+                                            isLoggedIn = authState.authenticated,
+                                            userName = when {
+                                                authState.displayName.isNotBlank() -> authState.displayName
+                                                authState.userEmail.isNotBlank() -> authState.userEmail.substringBefore("@").replaceFirstChar { it.uppercase() }
+                                                authState.authenticated -> "Account"
+                                                else -> "Welcome"
+                                            },
+                                            roles = authState.roles,
+                                            selectedRegion = selectedRegion,
+                                            selectedLanguage = selectedLanguage,
+                                            selectedCurrency = selectedCurrency,
+                                            selectedMode = selectedMode,
+                                            onLogin = { showAuthSheet = true },
+                                            onSignOut = { authViewModel.signOut() },
+                                            onBecomeHost = { authViewModel.becomeHost() },
+                                            onOpenDashboard = { path ->
+                                                activeCenter = when {
+                                                    path.contains("admin") || path.contains("financial") || path.contains("operations") || path.contains("support") -> AppCenterDestination.BACKOFFICE
+                                                    path.contains("host") -> AppCenterDestination.HOST_STUDIO
+                                                    path.contains("affiliate") -> AppCenterDestination.AFFILIATE
+                                                    else -> AppCenterDestination.BACKOFFICE
+                                                }
+                                            },
+                                            onNavigate = { target ->
+                                                when (target) {
+                                                    "complete_profile" -> globalScreen = GlobalScreen.COMPLETE_PROFILE
+                                                    "safety" -> globalScreen = GlobalScreen.SAFETY_GUIDELINES
+                                                    "region" -> globalScreen = GlobalScreen.REGION
+                                                    "language" -> globalScreen = GlobalScreen.LANGUAGE
+                                                    "currency" -> globalScreen = GlobalScreen.CURRENCY
+                                                    "mode" -> globalScreen = GlobalScreen.APP_MODE
+                                                    "notifications" -> globalScreen = GlobalScreen.NOTIFICATIONS
+                                                    "terms", "privacy", "refund", "help_center", "chat" -> activeCenter = AppCenterDestination.SUPPORT_LEGAL
+                                                    "travel_stories" -> activeCenter = AppCenterDestination.HOST_STUDIO
+                                                    "bookings", "checkout", "my_bookings" -> activeCenter = AppCenterDestination.BOOKINGS_CHECKOUT
+                                                    "affiliate" -> activeCenter = AppCenterDestination.AFFILIATE
+                                                    "app_store", "google_play" -> {
+                                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.merry360x.mobile"))
+                                                        this@MainActivity.startActivity(intent)
+                                                    }
+                                                    else -> {}
+                                                }
+                                            }
+                                        )
+                                    } else {
+                                        AppCentersScreen(
+                                            destination = center,
+                                            onBackToProfile = { activeCenter = null },
+                                            api = api,
+                                            userId = authState.userId,
+                                            accessToken = authState.accessToken,
+                                        )
+                                    }
                                 }
                             }
                         }

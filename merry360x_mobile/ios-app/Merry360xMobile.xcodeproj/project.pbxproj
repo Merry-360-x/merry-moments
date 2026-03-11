@@ -319,7 +319,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 6;
+						CURRENT_PROJECT_VERSION = 8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Merry360x;
 				INFOPLIST_KEY_CFBundleURLTypes = "[{\"CFBundleURLName\":\"com.merry360x.mobile.oauth\",\"CFBundleURLSchemes\":[\"merry360x\"]}]";
@@ -331,7 +331,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+						MARKETING_VERSION = 1.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.merry360x.mobile;
 				PRODUCT_NAME = Merry360xMobile;
 				SDKROOT = iphoneos;
@@ -344,7 +344,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 6;
+						CURRENT_PROJECT_VERSION = 8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Merry360x;
 				INFOPLIST_KEY_CFBundleURLTypes = "[{\"CFBundleURLName\":\"com.merry360x.mobile.oauth\",\"CFBundleURLSchemes\":[\"merry360x\"]}]";
@@ -356,7 +356,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+						MARKETING_VERSION = 1.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.merry360x.mobile;
 				PRODUCT_NAME = Merry360xMobile;
 				SDKROOT = iphoneos;

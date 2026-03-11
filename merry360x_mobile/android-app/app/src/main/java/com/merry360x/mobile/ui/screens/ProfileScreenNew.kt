@@ -1,7 +1,14 @@
 package com.merry360x.mobile.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +24,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.animateContentSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.Help
@@ -53,11 +62,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.merry360x.mobile.theme.Coral
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ProfileScreen(
     isLoggedIn: Boolean = false,
     userName: String = "Guest",
     roles: List<String> = emptyList(),
+    selectedRegion: String = "Rwanda",
+    selectedLanguage: String = "English",
+    selectedCurrency: String = "RWF",
+    selectedMode: String = "Light",
     onLogin: () -> Unit = {},
     onSignOut: () -> Unit = {},
     onBecomeHost: () -> Unit = {},
@@ -79,6 +93,7 @@ fun ProfileScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
+            .animateContentSize()
     ) {
         // Notification button
         Row(
@@ -103,39 +118,66 @@ fun ProfileScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
         ) {
-            // Profile Avatar
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .clip(CircleShape)
-                        .background(Color.Black),
-                    contentAlignment = Alignment.Center
+            AnimatedContent(targetState = isLoggedIn, label = "profile-auth-state") { loggedIn ->
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    Box(
+                        modifier = Modifier
+                            .size(if (loggedIn) 88.dp else 80.dp)
+                            .clip(CircleShape)
+                            .background(if (loggedIn) Coral else Color.Black),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = userName.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
+                            color = Color.White,
+                            fontSize = if (loggedIn) 34.sp else 32.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     Text(
-                        text = userName.first().uppercase(),
-                        color = Color.White,
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.Bold
+                        text = userName,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    Text(
+                        text = if (loggedIn) "Account active" else "Sign in to your account",
+                        fontSize = 14.sp,
+                        color = Color.Gray
                     )
                 }
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                Text(
-                    text = userName,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-                
-                Text(
-                    text = if (isLoggedIn) "Logged in" else "Browsing as guest",
-                    fontSize = 14.sp,
-                    color = Color.Gray
-                )
+            }
+
+            AnimatedVisibility(
+                visible = isLoggedIn,
+                enter = fadeIn() + slideInVertically(initialOffsetY = { it / 3 }),
+                exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 3 })
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (normalizedRoles.isEmpty()) {
+                            RoleChip("Traveler")
+                        } else {
+                            normalizedRoles.forEach { role ->
+                                RoleChip(role.replace('_', ' ').replaceFirstChar { it.uppercase() })
+                            }
+                        }
+                    }
+                }
             }
             
             Spacer(modifier = Modifier.height(24.dp))
@@ -166,22 +208,51 @@ fun ProfileScreen(
                     }
                 }
             }
+
+            AnimatedVisibility(
+                visible = isLoggedIn,
+                enter = fadeIn() + slideInVertically(initialOffsetY = { it / 4 }),
+                exit = fadeOut()
+            ) {
+                Column {
+                    Spacer(modifier = Modifier.height(20.dp))
+                    ProfileSectionHeader("Account Centers")
+                    if (normalizedRoles.contains("host")) {
+                        ProfileMenuItem(icon = Icons.Default.Home, title = "Host Studio") {
+                            onOpenDashboard("/host-dashboard")
+                        }
+                    }
+                    if (normalizedRoles.contains("admin") || normalizedRoles.contains("financial_staff") || normalizedRoles.contains("operations_staff") || normalizedRoles.contains("customer_support")) {
+                        ProfileMenuItem(icon = Icons.Default.AdminPanelSettings, title = "Backoffice Center") {
+                            onOpenDashboard("/admin")
+                        }
+                    }
+                    if (normalizedRoles.contains("affiliate")) {
+                        ProfileMenuItem(icon = Icons.Default.Payments, title = "Affiliate Center") {
+                            onOpenDashboard("/affiliate")
+                        }
+                    }
+                }
+            }
             
             Spacer(modifier = Modifier.height(24.dp))
             
             // Settings Section
             ProfileSectionHeader("Settings")
             
-            ProfileMenuItem(icon = Icons.Default.Place, title = "Region", value = "Rwanda") {
+            ProfileMenuItem(icon = Icons.Default.Place, title = "Region", value = selectedRegion) {
                 onNavigate("region")
             }
-            ProfileMenuItem(icon = Icons.Default.Language, title = "Language", value = "English") {
+            ProfileMenuItem(icon = Icons.Default.Language, title = "Language", value = selectedLanguage) {
                 onNavigate("language")
             }
-            ProfileMenuItem(icon = Icons.Default.Payments, title = "Currency", value = "RWF") {
+            ProfileMenuItem(icon = Icons.Default.Payments, title = "Currency", value = selectedCurrency) {
                 onNavigate("currency")
             }
-            ProfileMenuItem(icon = Icons.Default.DarkMode, title = "Mode", value = "Light") {
+            ProfileMenuItem(icon = Icons.Default.VerifiedUser, title = "Complete Profile") {
+                onNavigate("complete_profile")
+            }
+            ProfileMenuItem(icon = Icons.Default.DarkMode, title = "Mode", value = selectedMode) {
                 onNavigate("mode")
             }
             
@@ -265,6 +336,18 @@ fun ProfileScreen(
             
             Spacer(modifier = Modifier.height(32.dp))
         }
+    }
+}
+
+@Composable
+private fun RoleChip(label: String) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(Coral.copy(alpha = 0.14f))
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+    ) {
+        Text(label, color = Coral, fontSize = 12.sp, fontWeight = FontWeight.Medium)
     }
 }
 
