@@ -218,7 +218,7 @@ const Index = () => {
       <Navbar />
 
       <section className="container mx-auto px-4 pt-3 md:pt-4">
-        <div className="rounded-2xl border border-border/40 bg-gradient-to-r from-background via-secondary/20 to-background px-3 py-2">
+        <div className="px-0 py-0">
           <div className="mb-1 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-foreground">Stories</h2>
             <Button variant="ghost" size="sm" onClick={() => navigate("/stories")}>View all</Button>
