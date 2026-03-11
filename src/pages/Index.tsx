@@ -243,7 +243,7 @@ const Index = () => {
                     className="group shrink-0"
                     aria-label={`Open stories by ${story.displayName}`}
                   >
-                    <Avatar className={`h-12 w-12 border ${isFresh ? "border-primary ring-2 ring-primary ring-offset-2 ring-offset-background" : "border-border/50"}`}>
+                    <Avatar className={`h-12 w-12 ${isFresh ? "border-[3px] border-primary" : "border border-border/50"}`}>
                       <AvatarImage src={story.avatarUrl || story.fallbackPreviewUrl || undefined} alt={story.displayName} />
                       <AvatarFallback>{fallbackText}</AvatarFallback>
                     </Avatar>

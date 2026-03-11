@@ -30,13 +30,13 @@ const TikTokIcon = ({ className }: IconProps) => (
 );
 
 const socialLinks = [
-  { label: "X", href: "https://x.com/merry360x", Icon: XIcon },
-  { label: "LinkedIn", href: "https://www.linkedin.com/company/merry360x", Icon: Linkedin },
-  { label: "TripAdvisor", href: "https://www.tripadvisor.com", Icon: TripAdvisorIcon },
-  { label: "Facebook", href: "https://www.facebook.com/merry360x", Icon: Facebook },
-  { label: "Instagram", href: "https://www.instagram.com/merry360x", Icon: Instagram },
-  { label: "YouTube", href: "https://www.youtube.com/@merry360x", Icon: Youtube },
-  { label: "TikTok", href: "https://www.tiktok.com/@merry360x", Icon: TikTokIcon },
+  { label: "X", href: "https://x.com/merry360x", Icon: XIcon, colorClass: "text-black dark:text-white" },
+  { label: "LinkedIn", href: "https://www.linkedin.com/company/merry360x", Icon: Linkedin, colorClass: "text-[#0A66C2]" },
+  { label: "TripAdvisor", href: "https://www.tripadvisor.com", Icon: TripAdvisorIcon, colorClass: "text-[#00AA6C]" },
+  { label: "Facebook", href: "https://www.facebook.com/merry360x", Icon: Facebook, colorClass: "text-[#1877F2]" },
+  { label: "Instagram", href: "https://www.instagram.com/merry360x", Icon: Instagram, colorClass: "text-[#E1306C]" },
+  { label: "YouTube", href: "https://www.youtube.com/@merry360x", Icon: Youtube, colorClass: "text-[#FF0000]" },
+  { label: "TikTok", href: "https://www.tiktok.com/@merry360x", Icon: TikTokIcon, colorClass: "text-[#111111] dark:text-white" },
 ];
 
 const Footer = () => {
@@ -87,7 +87,7 @@ const Footer = () => {
                 href={social.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border/70 hover:border-primary/60 hover:text-primary transition-colors"
+                className={`inline-flex h-8 w-8 items-center justify-center rounded-full border border-border/70 transition-colors ${social.colorClass}`}
                 aria-label={social.label}
                 title={social.label}
               >
@@ -116,7 +116,7 @@ const Footer = () => {
                   href={social.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/70 text-muted-foreground hover:text-primary hover:border-primary/60 transition-colors"
+                  className={`inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/70 transition-colors ${social.colorClass}`}
                   aria-label={social.label}
                   title={social.label}
                 >
