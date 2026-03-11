@@ -265,45 +265,45 @@ const Index = () => {
       </section>
 
       {/* Hero Section */}
-      <section
-        className="relative min-h-[40vh] md:min-h-[70vh] flex items-center justify-center overflow-hidden"
-      >
-        {/* Video Background */}
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="metadata"
-          className="absolute inset-0 w-full h-full object-cover z-[1]"
-          style={{ objectPosition: "center center" }}
-        >
-          <source src={heroVideo} type="video/mp4" />
-        </video>
+      <section className="px-4 pt-5 md:px-6 md:pt-8">
+        <div className="relative mx-auto min-h-[40vh] md:min-h-[70vh] max-w-7xl flex items-center justify-center overflow-hidden rounded-3xl border border-border/40 shadow-lg">
+          {/* Video Background */}
+          <video
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            className="absolute inset-0 w-full h-full object-cover z-[1]"
+            style={{ objectPosition: "center center" }}
+          >
+            <source src={heroVideo} type="video/mp4" />
+          </video>
 
-        {/* Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-foreground/10 via-foreground/20 to-foreground/50 z-[2]" />
+          {/* Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-b from-foreground/10 via-foreground/20 to-foreground/50 z-[2]" />
 
-        {/* Content */}
-        <div className="relative z-10 container mx-auto px-4 py-20 text-center">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-primary-foreground mb-8 italic animate-fade-in">
-            {t("index.heroTitle")}
-          </h1>
+          {/* Content */}
+          <div className="relative z-10 container mx-auto px-4 py-20 text-center">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-primary-foreground mb-8 italic animate-fade-in">
+              {t("index.heroTitle")}
+            </h1>
 
-          {/* Search Bar */}
-          <HeroSearch />
+            {/* Search Bar */}
+            <HeroSearch />
 
-          {/* Referral CTA */}
-          <div className="mt-8 flex justify-center">
-            <Button
-              onClick={() => navigate('/affiliate-signup')}
-              variant="outline"
-              size="lg"
-              className="bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20 hover:text-white transition-all shadow-lg"
-            >
-              <TrendingUp className="w-5 h-5 mr-2" />
-              Refer an Operator & Earn 10%
-            </Button>
+            {/* Referral CTA */}
+            <div className="mt-8 flex justify-center">
+              <Button
+                onClick={() => navigate('/affiliate-signup')}
+                variant="outline"
+                size="lg"
+                className="bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20 hover:text-white transition-all shadow-lg"
+              >
+                <TrendingUp className="w-5 h-5 mr-2" />
+                Refer an Operator & Earn 10%
+              </Button>
+            </div>
           </div>
         </div>
       </section>
