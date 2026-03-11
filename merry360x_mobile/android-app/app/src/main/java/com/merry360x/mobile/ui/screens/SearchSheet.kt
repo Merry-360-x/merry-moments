@@ -119,7 +119,7 @@ fun SearchSheet(
                         onClick = onDismiss,
                         modifier = Modifier
                             .size(32.dp)
-                            .background(Color.Gray.copy(alpha = 0.1f), CircleShape)
+                            .background(Color(0xFF9E9E9E).copy(alpha = 0.1f), CircleShape)
                     ) {
                         Icon(
                             Icons.Default.Close,
@@ -141,7 +141,7 @@ fun SearchSheet(
                                     text = step.name.lowercase().replaceFirstChar { it.uppercase() },
                                     fontSize = 14.sp,
                                     fontWeight = if (currentStep == step) FontWeight.SemiBold else FontWeight.Normal,
-                                    color = if (currentStep == step) Color.Black else Color.Gray
+                                    color = if (currentStep == step) Color.Black else Color(0xFF9E9E9E)
                                 )
                                 if (currentStep == step) {
                                     Spacer(modifier = Modifier.height(4.dp))
@@ -160,7 +160,7 @@ fun SearchSheet(
                     Spacer(modifier = Modifier.size(32.dp))
                 }
 
-                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.5f))
+                HorizontalDivider(color = Color(0xFFDDDDDD).copy(alpha = 0.5f))
 
                 // Content
                 Column(
@@ -203,7 +203,7 @@ fun SearchSheet(
                 }
 
                 // Footer
-                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.5f))
+                HorizontalDivider(color = Color(0xFFDDDDDD).copy(alpha = 0.5f))
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -264,17 +264,17 @@ private fun WhereContent(
     OutlinedTextField(
         value = destination,
         onValueChange = onDestinationChange,
-        placeholder = { Text("Search destinations", color = Color.Gray) },
+        placeholder = { Text("Search destinations", color = Color(0xFF9E9E9E)) },
         leadingIcon = {
-            Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray)
+            Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF9E9E9E))
         },
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = Color.Black,
-            unfocusedBorderColor = Color.Gray.copy(alpha = 0.3f),
-            focusedContainerColor = Color.Gray.copy(alpha = 0.05f),
-            unfocusedContainerColor = Color.Gray.copy(alpha = 0.05f)
+            unfocusedBorderColor = Color(0xFF9E9E9E).copy(alpha = 0.3f),
+            focusedContainerColor = Color(0xFF9E9E9E).copy(alpha = 0.05f),
+            unfocusedContainerColor = Color(0xFF9E9E9E).copy(alpha = 0.05f)
         ),
         singleLine = true
     )
@@ -308,13 +308,13 @@ private fun WhereContent(
                     modifier = Modifier
                         .size(48.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(Color.Gray.copy(alpha = 0.1f)),
+                        .background(Color(0xFF9E9E9E).copy(alpha = 0.1f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Default.LocationOn,
                         contentDescription = null,
-                        tint = Color.Gray,
+                        tint = Color(0xFF9E9E9E),
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -323,12 +323,12 @@ private fun WhereContent(
 
                 Column {
                     Text(dest.name, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                    Text(dest.description, fontSize = 14.sp, color = Color.Gray)
+                    Text(dest.description, fontSize = 14.sp, color = Color(0xFF9E9E9E))
                 }
             }
 
             if (index < filteredDestinations.lastIndex) {
-                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.5f))
+                HorizontalDivider(color = Color(0xFFDDDDDD).copy(alpha = 0.5f))
             }
         }
     }
@@ -375,7 +375,7 @@ private fun WhenContent(
     // Calendar
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.Gray.copy(alpha = 0.05f)),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF9E9E9E).copy(alpha = 0.05f)),
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -410,7 +410,7 @@ private fun WhenContent(
                         modifier = Modifier.weight(1f),
                         textAlign = TextAlign.Center,
                         fontSize = 12.sp,
-                        color = Color.Gray
+                        color = Color(0xFF9E9E9E)
                     )
                 }
             }
@@ -450,8 +450,8 @@ private fun WhenContent(
                                 .background(
                                     when {
                                         isSelected -> Color.Black
-                                        isInRange -> Color.Gray.copy(alpha = 0.15f)
-                                        isToday -> Color.Gray.copy(alpha = 0.1f)
+                                        isInRange -> Color(0xFF9E9E9E).copy(alpha = 0.15f)
+                                        isToday -> Color(0xFF9E9E9E).copy(alpha = 0.1f)
                                         else -> Color.Transparent
                                     }
                                 )
@@ -479,7 +479,7 @@ private fun WhenContent(
                                 fontSize = 14.sp,
                                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                                 color = when {
-                                    isPast -> Color.Gray.copy(alpha = 0.4f)
+                                    isPast -> Color(0xFF9E9E9E).copy(alpha = 0.4f)
                                     isSelected -> Color.White
                                     else -> Color.Black
                                 }
@@ -527,7 +527,7 @@ private fun WhenContent(
                         }
                         onDateSelect(tempCheckIn, tempCheckOut)
                     }
-                    .border(1.dp, Color.Gray.copy(alpha = 0.3f), RoundedCornerShape(999.dp)),
+                    .border(1.dp, Color(0xFF9E9E9E).copy(alpha = 0.3f), RoundedCornerShape(999.dp)),
                 colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                 shape = RoundedCornerShape(999.dp)
             ) {
@@ -563,17 +563,17 @@ private fun DateCard(
 ) {
     Card(
         modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = Color.Gray.copy(alpha = 0.1f)),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF9E9E9E).copy(alpha = 0.1f)),
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(label, fontSize = 12.sp, color = Color.Gray)
+            Text(label, fontSize = 12.sp, color = Color(0xFF9E9E9E))
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = date?.format(DateTimeFormatter.ofPattern("MMM d, yyyy")) ?: "Add date",
                 fontSize = 16.sp,
                 fontWeight = if (date != null) FontWeight.Medium else FontWeight.Normal,
-                color = if (date != null) Color.Black else Color.Gray
+                color = if (date != null) Color.Black else Color(0xFF9E9E9E)
             )
         }
     }
@@ -601,7 +601,7 @@ private fun WhoContent(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.Gray.copy(alpha = 0.05f)),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF9E9E9E).copy(alpha = 0.05f)),
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -615,7 +615,7 @@ private fun WhoContent(
 
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 16.dp),
-                color = Color.LightGray.copy(alpha = 0.5f)
+                color = Color(0xFFDDDDDD).copy(alpha = 0.5f)
             )
 
             GuestRow(
@@ -628,7 +628,7 @@ private fun WhoContent(
 
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 16.dp),
-                color = Color.LightGray.copy(alpha = 0.5f)
+                color = Color(0xFFDDDDDD).copy(alpha = 0.5f)
             )
 
             GuestRow(
@@ -646,7 +646,7 @@ private fun WhoContent(
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color.Gray.copy(alpha = 0.05f)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF9E9E9E).copy(alpha = 0.05f)),
             shape = RoundedCornerShape(12.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -655,30 +655,30 @@ private fun WhoContent(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.LocationOn, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.LocationOn, contentDescription = null, tint = Color(0xFF9E9E9E), modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(destination, fontSize = 14.sp, color = Color.Gray)
+                    Text(destination, fontSize = 14.sp, color = Color(0xFF9E9E9E))
                 }
 
                 if (checkInDate != null && checkOutDate != null) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF9E9E9E), modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             "${checkInDate.format(DateTimeFormatter.ofPattern("MMM d"))} - ${checkOutDate.format(DateTimeFormatter.ofPattern("MMM d"))}",
                             fontSize = 14.sp,
-                            color = Color.Gray
+                            color = Color(0xFF9E9E9E)
                         )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF9E9E9E), modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     val totalGuests = adults + children + infants
-                    Text("$totalGuests guest${if (totalGuests == 1) "" else "s"}", fontSize = 14.sp, color = Color.Gray)
+                    Text("$totalGuests guest${if (totalGuests == 1) "" else "s"}", fontSize = 14.sp, color = Color(0xFF9E9E9E))
                 }
             }
         }
@@ -700,7 +700,7 @@ private fun GuestRow(
     ) {
         Column {
             Text(title, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-            Text(subtitle, fontSize = 14.sp, color = Color.Gray)
+            Text(subtitle, fontSize = 14.sp, color = Color(0xFF9E9E9E))
         }
 
         Row(
@@ -713,7 +713,7 @@ private fun GuestRow(
                     .size(32.dp)
                     .border(
                         1.dp,
-                        if (count > minCount) Color.Gray else Color.Gray.copy(alpha = 0.3f),
+                        if (count > minCount) Color(0xFF9E9E9E) else Color(0xFF9E9E9E).copy(alpha = 0.3f),
                         CircleShape
                     ),
                 enabled = count > minCount
@@ -722,7 +722,7 @@ private fun GuestRow(
                     Icons.Default.Remove,
                     contentDescription = "Remove",
                     modifier = Modifier.size(14.dp),
-                    tint = if (count > minCount) Color.Black else Color.Gray.copy(alpha = 0.4f)
+                    tint = if (count > minCount) Color.Black else Color(0xFF9E9E9E).copy(alpha = 0.4f)
                 )
             }
 
@@ -738,7 +738,7 @@ private fun GuestRow(
                 onClick = { onCountChange(count + 1) },
                 modifier = Modifier
                     .size(32.dp)
-                    .border(1.dp, Color.Gray, CircleShape)
+                    .border(1.dp, Color(0xFF9E9E9E), CircleShape)
             ) {
                 Icon(
                     Icons.Default.Add,

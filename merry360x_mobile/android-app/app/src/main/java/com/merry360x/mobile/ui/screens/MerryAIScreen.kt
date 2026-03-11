@@ -86,7 +86,7 @@ fun MerryAIScreen(
                 Text(
                     text = "Travel assistant for stays, tours and transport",
                     fontSize = 12.sp,
-                    color = Color.Gray
+                    color = Color(0xFF9E9E9E)
                 )
             }
             
@@ -94,7 +94,7 @@ fun MerryAIScreen(
                 Icon(
                     imageVector = Icons.Default.Refresh,
                     contentDescription = "Reset",
-                    tint = Color.Gray
+                    tint = Color(0xFF9E9E9E)
                 )
             }
         }
@@ -110,7 +110,7 @@ fun MerryAIScreen(
             Text(
                 text = "Try asking:",
                 fontSize = 13.sp,
-                color = Color.Gray,
+                color = Color(0xFF9E9E9E),
                 fontWeight = FontWeight.Medium
             )
             
@@ -182,14 +182,14 @@ fun MerryAIScreen(
                 placeholder = {
                     Text(
                         "Ask about places, tours, packages...",
-                        color = Color.Gray,
+                        color = Color(0xFF9E9E9E),
                         fontSize = 14.sp
                     )
                 },
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(24.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedBorderColor = Color.LightGray,
+                    unfocusedBorderColor = Color(0xFFDDDDDD),
                     focusedBorderColor = Coral
                 ),
                 singleLine = true
@@ -201,7 +201,7 @@ fun MerryAIScreen(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(CircleShape)
-                    .background(if (inputText.isNotEmpty()) Coral else Color.LightGray)
+                    .background(if (inputText.isNotEmpty()) Coral else Color(0xFFDDDDDD))
                     .clickable(enabled = inputText.isNotEmpty()) {
                         onSendMessage(inputText)
                         inputText = ""
@@ -223,14 +223,14 @@ fun MerryAIScreen(
 private fun SuggestionChip(text: String) {
     Box(
         modifier = Modifier
-            .border(1.dp, Color.LightGray, RoundedCornerShape(8.dp))
+            .border(1.dp, Color(0xFFDDDDDD), RoundedCornerShape(8.dp))
             .clickable { /* Handle suggestion tap */ }
             .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
         Text(
             text = text,
             fontSize = 13.sp,
-            color = Color.DarkGray
+            color = Color(0xFF777777)
         )
     }
 }

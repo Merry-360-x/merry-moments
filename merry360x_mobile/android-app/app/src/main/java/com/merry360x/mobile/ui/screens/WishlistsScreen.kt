@@ -51,7 +51,7 @@ fun WishlistsScreen(
             Text(
                 text = "Save listings from Explore and they'll appear here.",
                 fontSize = 15.sp,
-                color = Color.Gray,
+                color = Color(0xFF9E9E9E),
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(horizontal = 32.dp)
             )

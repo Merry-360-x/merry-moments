@@ -36,7 +36,7 @@ fun ProfileScreen(
             Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = CardGray)) {
                 Column(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Profile", fontWeight = FontWeight.Bold)
-                    Text("User ID: $userId", color = Color.Gray)
+                    Text("User ID: $userId", color = Color(0xFF9E9E9E))
                 }
             }
         }
@@ -53,7 +53,7 @@ fun ProfileScreen(
         }
 
         paymentMessage?.let {
-            item { Text(it, color = Color.Gray) }
+            item { Text(it, color = Color(0xFF9E9E9E)) }
         }
 
         item { Text("Wishlist", fontWeight = FontWeight.Bold) }

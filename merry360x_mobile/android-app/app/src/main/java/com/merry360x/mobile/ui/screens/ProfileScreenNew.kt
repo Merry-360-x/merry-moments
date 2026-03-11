@@ -149,7 +149,7 @@ fun ProfileScreen(
                     Text(
                         text = if (loggedIn) "Account active" else "Sign in to your account",
                         fontSize = 14.sp,
-                        color = Color.Gray
+                        color = Color(0xFF9E9E9E)
                     )
                 }
             }
@@ -380,7 +380,7 @@ private fun ProfileSectionItem(
             imageVector = icon,
             contentDescription = null,
             modifier = Modifier.size(24.dp),
-            tint = Color.DarkGray
+            tint = Color(0xFF777777)
         )
         
         Spacer(modifier = Modifier.width(12.dp))
@@ -394,7 +394,7 @@ private fun ProfileSectionItem(
             Text(
                 text = subtitle,
                 fontSize = 13.sp,
-                color = Color.Gray
+                color = Color(0xFF9E9E9E)
             )
         }
         
@@ -402,7 +402,7 @@ private fun ProfileSectionItem(
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
-                tint = Color.Gray
+                tint = Color(0xFF9E9E9E)
             )
         }
     }
@@ -426,7 +426,7 @@ private fun ProfileMenuItem(
             imageVector = icon,
             contentDescription = null,
             modifier = Modifier.size(20.dp),
-            tint = Color.DarkGray
+            tint = Color(0xFF777777)
         )
         
         Spacer(modifier = Modifier.width(12.dp))
@@ -441,7 +441,7 @@ private fun ProfileMenuItem(
             Text(
                 text = value,
                 fontSize = 15.sp,
-                color = Color.Gray
+                color = Color(0xFF9E9E9E)
             )
             
             Spacer(modifier = Modifier.width(4.dp))
@@ -450,10 +450,10 @@ private fun ProfileMenuItem(
         Icon(
             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = null,
-            tint = Color.Gray,
+            tint = Color(0xFF9E9E9E),
             modifier = Modifier.size(20.dp)
         )
     }
     
-    HorizontalDivider(color = Color.LightGray.copy(alpha = 0.5f))
+    HorizontalDivider(color = Color(0xFFDDDDDD).copy(alpha = 0.5f))
 }

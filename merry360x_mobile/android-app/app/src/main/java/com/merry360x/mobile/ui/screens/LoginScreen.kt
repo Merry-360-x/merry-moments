@@ -38,7 +38,7 @@ fun LoginScreen(
     ) {
         Spacer(modifier = Modifier.height(48.dp))
         Text("Welcome to Merry360x", fontWeight = FontWeight.Bold)
-        Text("Sign in to continue", color = Color.Gray)
+        Text("Sign in to continue", color = Color(0xFF9E9E9E))
 
         Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = CardGray)) {
             Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

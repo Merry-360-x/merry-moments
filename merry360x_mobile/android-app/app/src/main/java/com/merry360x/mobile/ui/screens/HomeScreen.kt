@@ -70,8 +70,8 @@ import com.merry360x.mobile.viewmodel.HomeUiState
 import java.time.LocalDate
 import kotlinx.coroutines.launch
 
-private val TextSecondary = Color(0xFF888888)
-private val SoftGray = Color(0xFFF4F4F4)
+private val TextSecondary = Color(0xFF9E9E9E)
+private val SoftGray = Color(0xFFF9F9F9)
 
 @Composable
 fun HomeScreen(
@@ -333,14 +333,14 @@ fun HomeScreen(
                                 modifier = Modifier
                                     .size(36.dp)
                                     .clip(CircleShape)
-                                    .background(Color(0xFFF4F4F4))
+                                    .background(Color(0xFFF9F9F9))
                                     .clickable { showCreateStory = false },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.Black, modifier = Modifier.size(18.dp))
                             }
                         }
-                        Text("Tell the community about your travel experience.", color = Color.Gray, fontSize = 13.sp)
+                        Text("Tell the community about your travel experience.", color = Color(0xFF9E9E9E), fontSize = 13.sp)
 
                         OutlinedTextField(
                             value = storyTitle,
@@ -453,14 +453,14 @@ private fun StoriesRow(
                     Icon(
                         Icons.Default.Add,
                         contentDescription = "Add Story",
-                        tint = if (isLoggedIn) Color.White else Color.Gray,
+                        tint = if (isLoggedIn) Color.White else Color(0xFF9E9E9E),
                         modifier = Modifier.size(28.dp)
                     )
                 }
                 Text(
                     "Your Story",
                     fontSize = 10.sp,
-                    color = Color(0xFF555555),
+                    color = Color(0xFF6B6B6B),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center,
@@ -504,7 +504,7 @@ private fun StoriesRow(
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .background(Brush.verticalGradient(listOf(Color(0xFF2C2C2C), Color(0xFF111111)))),
+                                    .background(Brush.verticalGradient(listOf(Color(0xFF3D3D3D), Color(0xFF1A1A1A)))),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
@@ -520,7 +520,7 @@ private fun StoriesRow(
                 Text(
                     story.title,
                     fontSize = 10.sp,
-                    color = Color(0xFF555555),
+                    color = Color(0xFF6B6B6B),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center,
@@ -553,7 +553,7 @@ private fun CategoryTabs(selected: Int, onSelect: (Int) -> Unit) {
             ) {
                 Text(
                     label,
-                    color = if (isSelected) Color.White else Color(0xFF555555),
+                    color = if (isSelected) Color.White else Color(0xFF6B6B6B),
                     fontSize = 13.sp,
                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
                 )
@@ -590,7 +590,7 @@ private fun ContentSection(
                     title,
                     fontSize = 21.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF111111),
+                    color = Color(0xFF1A1A1A),
                     letterSpacing = (-0.3).sp
                 )
             }
@@ -694,7 +694,7 @@ private fun CitySectionComponent(
                     section.city,
                     fontSize = 21.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF111111),
+                    color = Color(0xFF1A1A1A),
                     letterSpacing = (-0.3).sp
                 )
             }
@@ -737,7 +737,7 @@ private fun ListingCard(listing: Listing, onClick: () -> Unit) {
                 modifier = Modifier
                     .fillMaxSize()
                     .background(
-                        Brush.verticalGradient(listOf(Color(0xFF2A2A2A), Color(0xFF111111)))
+                        Brush.verticalGradient(listOf(Color(0xFF3D3D3D), Color(0xFF1A1A1A)))
                     )
             )
         }
@@ -768,7 +768,7 @@ private fun ListingCard(listing: Listing, onClick: () -> Unit) {
                 "${listing.currency} ${listing.pricePerNight.toInt()}",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF111111)
+                color = Color(0xFF1A1A1A)
             )
         }
 

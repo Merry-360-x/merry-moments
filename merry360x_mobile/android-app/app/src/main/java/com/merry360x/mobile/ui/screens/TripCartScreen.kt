@@ -98,7 +98,7 @@ fun TripCartScreen(
                         CircularProgressIndicator(color = Coral)
                         Text(
                             text = "Loading trips...",
-                            color = Color.Gray,
+                            color = Color(0xFF9E9E9E),
                             fontSize = 15.sp
                         )
                     }
@@ -129,11 +129,11 @@ private fun BookingTripRow(booking: BookingRecord) {
     Card(shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = CardGray)) {
         Column(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("Booking ${booking.id.take(8)}", fontWeight = FontWeight.SemiBold)
-            Text("Status: ${booking.status}", color = Color.Gray, fontSize = 13.sp)
+            Text("Status: ${booking.status}", color = Color(0xFF9E9E9E), fontSize = 13.sp)
             Row {
                 Text("${booking.currency} ${String.format(\"%,.0f\", booking.totalPrice)}", fontWeight = FontWeight.Medium)
                 Spacer(modifier = Modifier.weight(1f))
-                Text(booking.paymentStatus, color = Color.Gray, fontSize = 12.sp)
+                Text(booking.paymentStatus, color = Color(0xFF9E9E9E), fontSize = 12.sp)
             }
         }
     }
@@ -152,7 +152,7 @@ private fun TripTabItem(
             text = title,
             fontSize = 15.sp,
             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-            color = if (isSelected) Coral else Color.Gray
+            color = if (isSelected) Coral else Color(0xFF9E9E9E)
         )
         
         Spacer(modifier = Modifier.height(8.dp))
@@ -188,7 +188,7 @@ private fun TripEmptyState(tab: TripTab) {
         Text(
             text = subtitle,
             fontSize = 14.sp,
-            color = Color.Gray
+            color = Color(0xFF9E9E9E)
         )
     }
 }

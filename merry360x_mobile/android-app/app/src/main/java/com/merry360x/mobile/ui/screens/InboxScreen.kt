@@ -29,7 +29,7 @@ fun InboxScreen(items: List<Pair<String, String>>) {
             Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = CardGray)) {
                 Column(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(row.first, fontWeight = FontWeight.SemiBold)
-                    Text(row.second, color = Color.Gray)
+                    Text(row.second, color = Color(0xFF9E9E9E))
                 }
             }
         }

@@ -19,19 +19,32 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.merry360x.mobile.data.Listing
 import com.merry360x.mobile.theme.CardGray
 import com.merry360x.mobile.theme.Coral
 
 @Composable
-fun ListingDetailScreen(mediaRefs: List<String> = emptyList()) {
+fun ListingDetailScreen(
+    listing: Listing,
+    onBack: () -> Unit,
+    onReserve: () -> Unit,
+) {
     Column(
         modifier = Modifier
             .background(Color.White)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("← Listing", color = Color.Gray)
+        Text(
+            "← Back to Explore",
+            color = Color(0xFF9E9E9E),
+            fontSize = 13.sp,
+            modifier = Modifier.clickable { onBack() }
+        )
+
+        val mediaRefs = listing.images.orEmpty() + listOfNotNull(listing.mainImage)
         val firstImage = firstListingImageUrl(mediaRefs)
         if (firstImage != null) {
             AsyncImage(
@@ -41,28 +54,31 @@ fun ListingDetailScreen(mediaRefs: List<String> = emptyList()) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(210.dp)
-                    .background(Color.LightGray, RoundedCornerShape(20.dp))
+                    .background(Color(0xFFDDDDDD), RoundedCornerShape(20.dp))
             )
         } else {
             Spacer(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(210.dp)
-                    .background(Color.LightGray, RoundedCornerShape(20.dp))
+                    .background(Color(0xFFDDDDDD), RoundedCornerShape(20.dp))
             )
         }
 
         Card(shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = CardGray)) {
             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Kigali Hills Apartment", fontWeight = FontWeight.Bold)
-                Text("Kiyovu · 4.8 ★ (128 reviews)", color = Color.Gray)
+                Text(listing.title, fontWeight = FontWeight.Bold)
+                Text(
+                    "${listing.location} · ${(listing.rating ?: 0.0).toString().take(3)} ★",
+                    color = Color(0xFF9E9E9E)
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    MetaPill("2 guests")
-                    MetaPill("1 bedroom")
+                    MetaPill("Flexible booking")
+                    MetaPill("Instant request")
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    MetaPill("1 bed")
-                    MetaPill("Fast Wi‑Fi")
+                    MetaPill("Mobile confirmed")
+                    MetaPill("Shared backend")
                 }
             }
         }
@@ -71,8 +87,8 @@ fun ListingDetailScreen(mediaRefs: List<String> = emptyList()) {
             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("About this place", fontWeight = FontWeight.Bold)
                 Text(
-                    "Modern apartment with city skyline views, walkable restaurants, and premium comfort for short and long stays.",
-                    color = Color.DarkGray
+                    "View key listing details and continue directly to booking without leaving the app.",
+                    color = Color(0xFF777777)
                 )
             }
         }
@@ -80,12 +96,20 @@ fun ListingDetailScreen(mediaRefs: List<String> = emptyList()) {
         Card(shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = CardGray)) {
             Row(modifier = Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
-                    Text("RWF 95,000", fontWeight = FontWeight.Bold)
-                    Text("/ night", color = Color.Gray)
+                    val isMonthlyOnly = listing.monthlyOnlyListing == true
+                    val amount = if (isMonthlyOnly) {
+                        listing.pricePerMonth ?: listing.pricePerNight
+                    } else {
+                        listing.pricePerNight
+                    }
+                    val unit = if (isMonthlyOnly) "/ month" else "/ night"
+                    Text("${listing.currency} ${String.format(\"%,.0f\", amount)}", fontWeight = FontWeight.Bold)
+                    Text(unit, color = Color(0xFF9E9E9E))
                 }
                 Card(
                     shape = RoundedCornerShape(999.dp),
-                    colors = CardDefaults.cardColors(containerColor = Coral)
+                    colors = CardDefaults.cardColors(containerColor = Coral),
+                    modifier = Modifier.clickable { onReserve() }
                 ) {
                     Text("Reserve", modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp), color = Color.White, fontWeight = FontWeight.Bold)
                 }

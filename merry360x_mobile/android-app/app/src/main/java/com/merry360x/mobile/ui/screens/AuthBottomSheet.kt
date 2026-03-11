@@ -114,14 +114,14 @@ fun AuthBottomSheet(
                             .width(40.dp)
                             .height(4.dp)
                             .clip(RoundedCornerShape(2.dp))
-                            .background(Color.LightGray)
+                            .background(Color(0xFFDDDDDD))
                     )
                     
                     IconButton(onClick = onDismiss) {
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Close",
-                            tint = Color.Gray
+                            tint = Color(0xFF9E9E9E)
                         )
                     }
                 }
@@ -157,7 +157,7 @@ fun AuthBottomSheet(
                 Text(
                     text = if (authMode == SheetAuthMode.LOGIN) "Sign in to continue" else "Join Merry360x today",
                     fontSize = 14.sp,
-                    color = Color.Gray
+                    color = Color(0xFF9E9E9E)
                 )
                 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -186,7 +186,7 @@ fun AuthBottomSheet(
                                 text = if (mode == SheetAuthMode.LOGIN) "Log in" else "Sign up",
                                 fontSize = 14.sp,
                                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                color = if (isSelected) Color.Black else Color.Gray
+                                color = if (isSelected) Color.Black else Color(0xFF9E9E9E)
                             )
                         }
                     }
@@ -214,7 +214,7 @@ fun AuthBottomSheet(
                                 Icon(
                                     imageVector = if (tab == SheetAuthTab.EMAIL) Icons.Default.Email else Icons.Default.Phone,
                                     contentDescription = null,
-                                    tint = if (isSelected) Coral else Color.Gray,
+                                    tint = if (isSelected) Coral else Color(0xFF9E9E9E),
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
@@ -222,7 +222,7 @@ fun AuthBottomSheet(
                                     text = if (tab == SheetAuthTab.EMAIL) "Email" else "Phone",
                                     fontSize = 14.sp,
                                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                    color = if (isSelected) Coral else Color.Gray
+                                    color = if (isSelected) Coral else Color(0xFF9E9E9E)
                                 )
                             }
                             Spacer(modifier = Modifier.height(8.dp))
@@ -248,7 +248,7 @@ fun AuthBottomSheet(
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = Coral,
-                            unfocusedBorderColor = Color.LightGray,
+                            unfocusedBorderColor = Color(0xFFDDDDDD),
                             focusedContainerColor = CardGray,
                             unfocusedContainerColor = CardGray
                         ),
@@ -267,7 +267,7 @@ fun AuthBottomSheet(
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = Coral,
-                            unfocusedBorderColor = Color.LightGray,
+                            unfocusedBorderColor = Color(0xFFDDDDDD),
                             focusedContainerColor = CardGray,
                             unfocusedContainerColor = CardGray
                         ),
@@ -286,7 +286,7 @@ fun AuthBottomSheet(
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = Coral,
-                                unfocusedBorderColor = Color.LightGray,
+                                unfocusedBorderColor = Color(0xFFDDDDDD),
                                 focusedContainerColor = CardGray,
                                 unfocusedContainerColor = CardGray
                             ),
@@ -307,7 +307,7 @@ fun AuthBottomSheet(
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = Coral,
-                                unfocusedBorderColor = Color.LightGray,
+                                unfocusedBorderColor = Color(0xFFDDDDDD),
                                 focusedContainerColor = CardGray,
                                 unfocusedContainerColor = CardGray
                             ),
@@ -327,7 +327,7 @@ fun AuthBottomSheet(
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Coral,
-                        unfocusedBorderColor = Color.LightGray,
+                        unfocusedBorderColor = Color(0xFFDDDDDD),
                         focusedContainerColor = CardGray,
                         unfocusedContainerColor = CardGray
                     ),
@@ -337,7 +337,7 @@ fun AuthBottomSheet(
                             Icon(
                                 imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
                                 contentDescription = if (passwordVisible) "Hide password" else "Show password",
-                                tint = Color.Gray
+                                tint = Color(0xFF9E9E9E)
                             )
                         }
                     },
@@ -355,7 +355,7 @@ fun AuthBottomSheet(
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = Coral,
-                            unfocusedBorderColor = Color.LightGray,
+                            unfocusedBorderColor = Color(0xFFDDDDDD),
                             focusedContainerColor = CardGray,
                             unfocusedContainerColor = CardGray
                         ),
@@ -422,16 +422,16 @@ fun AuthBottomSheet(
                 ) {
                     HorizontalDivider(
                         modifier = Modifier.weight(1f),
-                        color = Color.LightGray
+                        color = Color(0xFFDDDDDD)
                     )
                     Text(
                         text = "  or continue with  ",
                         fontSize = 13.sp,
-                        color = Color.Gray
+                        color = Color(0xFF9E9E9E)
                     )
                     HorizontalDivider(
                         modifier = Modifier.weight(1f),
-                        color = Color.LightGray
+                        color = Color(0xFFDDDDDD)
                     )
                 }
                 
@@ -473,7 +473,7 @@ fun AuthBottomSheet(
                             .weight(1f)
                             .height(52.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .border(1.dp, Color.LightGray, RoundedCornerShape(12.dp))
+                            .border(1.dp, Color(0xFFDDDDDD), RoundedCornerShape(12.dp))
                             .background(Color.White)
                             .clickable { onSignInWithGoogle() },
                         contentAlignment = Alignment.Center
@@ -505,7 +505,7 @@ fun AuthBottomSheet(
                 Text(
                     text = "By continuing, you agree to our Terms of Service and Privacy Policy",
                     fontSize = 11.sp,
-                    color = Color.Gray,
+                    color = Color(0xFF9E9E9E),
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )

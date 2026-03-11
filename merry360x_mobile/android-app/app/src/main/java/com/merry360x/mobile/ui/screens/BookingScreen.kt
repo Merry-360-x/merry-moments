@@ -1,6 +1,7 @@
 package com.merry360x.mobile.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -27,6 +28,7 @@ import com.merry360x.mobile.viewmodel.BookingUiState
 fun BookingScreen(
     uiState: BookingUiState,
     selectedListingTitle: String?,
+    onBack: (() -> Unit)? = null,
     onSubmit: () -> Unit,
 ) {
     Column(
@@ -35,8 +37,16 @@ fun BookingScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        if (onBack != null) {
+            Text(
+                "<- Back to Listing",
+                color = Color(0xFF9E9E9E),
+                modifier = Modifier.clickable { onBack() }
+            )
+        }
+
         Text("Confirm your trip", fontWeight = FontWeight.Bold)
-        Text("Selected: ${selectedListingTitle ?: "No listing selected yet"}", color = Color.Gray)
+        Text("Selected: ${selectedListingTitle ?: "No listing selected yet"}", color = Color(0xFF9E9E9E))
 
         SectionCard("Dates") {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -71,10 +81,10 @@ fun BookingScreen(
         }
 
         uiState.statusMessage?.let {
-            Text(it, color = Color.Gray)
+            Text(it, color = Color(0xFF9E9E9E))
         }
 
-        Text("You won’t be charged yet.", color = Color.Gray)
+        Text("You won’t be charged yet.", color = Color(0xFF9E9E9E))
     }
 }
 
@@ -92,7 +102,7 @@ private fun SectionCard(title: String, content: @Composable () -> Unit) {
 private fun InputCard(label: String, value: String) {
     Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(modifier = Modifier.padding(10.dp)) {
-            Text(label, color = Color.Gray)
+            Text(label, color = Color(0xFF9E9E9E))
             Text(value, fontWeight = FontWeight.SemiBold)
         }
     }

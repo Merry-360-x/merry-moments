@@ -101,7 +101,7 @@ fun LoginScreenNew(
         Text(
             text = "Sign in to continue",
             fontSize = 15.sp,
-            color = Color.Gray
+            color = Color(0xFF9E9E9E)
         )
         
         Spacer(modifier = Modifier.height(32.dp))
@@ -154,11 +154,11 @@ fun LoginScreenNew(
                     OutlinedTextField(
                         value = uiState.email,
                         onValueChange = onEmail,
-                        placeholder = { Text("Enter your email", color = Color.Gray) },
+                        placeholder = { Text("Enter your email", color = Color(0xFF9E9E9E)) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedBorderColor = Color.LightGray,
+                            unfocusedBorderColor = Color(0xFFDDDDDD),
                             focusedBorderColor = Coral,
                             unfocusedContainerColor = Color.White,
                             focusedContainerColor = Color.White
@@ -194,11 +194,11 @@ fun LoginScreenNew(
                     OutlinedTextField(
                         value = uiState.password,
                         onValueChange = onPassword,
-                        placeholder = { Text("Enter your password", color = Color.Gray) },
+                        placeholder = { Text("Enter your password", color = Color(0xFF9E9E9E)) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedBorderColor = Color.LightGray,
+                            unfocusedBorderColor = Color(0xFFDDDDDD),
                             focusedBorderColor = Coral,
                             unfocusedContainerColor = Color.White,
                             focusedContainerColor = Color.White
@@ -216,7 +216,7 @@ fun LoginScreenNew(
                                     else 
                                         Icons.Default.VisibilityOff,
                                     contentDescription = "Toggle password visibility",
-                                    tint = Color.Gray
+                                    tint = Color(0xFF9E9E9E)
                                 )
                             }
                         }
@@ -237,11 +237,11 @@ fun LoginScreenNew(
                             phoneNumber = it
                             onPhone(it)
                         },
-                        placeholder = { Text("+250 7XX XXX XXX", color = Color.Gray) },
+                        placeholder = { Text("+250 7XX XXX XXX", color = Color(0xFF9E9E9E)) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedBorderColor = Color.LightGray,
+                            unfocusedBorderColor = Color(0xFFDDDDDD),
                             focusedBorderColor = Coral,
                             unfocusedContainerColor = Color.White,
                             focusedContainerColor = Color.White
@@ -262,7 +262,7 @@ fun LoginScreenNew(
                     containerColor = if (uiState.email.isNotEmpty() && uiState.password.isNotEmpty()) 
                         Coral 
                     else 
-                        Color.LightGray
+                        Color(0xFFDDDDDD)
                 ),
                 enabled = !uiState.loading
             ) {
@@ -296,17 +296,17 @@ fun LoginScreenNew(
         ) {
             HorizontalDivider(
                 modifier = Modifier.weight(1f),
-                color = Color.LightGray
+                color = Color(0xFFDDDDDD)
             )
             Text(
                 text = "or",
-                color = Color.Gray,
+                color = Color(0xFF9E9E9E),
                 fontSize = 14.sp,
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
             HorizontalDivider(
                 modifier = Modifier.weight(1f),
-                color = Color.LightGray
+                color = Color(0xFFDDDDDD)
             )
         }
         
@@ -342,7 +342,7 @@ fun LoginScreenNew(
             onClick = onSignInWithGoogle,
             modifier = Modifier
                 .fillMaxWidth()
-                .border(1.dp, Color.LightGray, RoundedCornerShape(12.dp)),
+                .border(1.dp, Color(0xFFDDDDDD), RoundedCornerShape(12.dp)),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color.White)
         ) {
@@ -368,7 +368,7 @@ fun LoginScreenNew(
         Row {
             Text(
                 text = "Don't have an account? ",
-                color = Color.Gray,
+                color = Color(0xFF9E9E9E),
                 fontSize = 14.sp
             )
             Text(
@@ -410,7 +410,7 @@ private fun AuthTabButton(
                 text = title,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
-                color = if (isSelected) Color.White else Color.Gray
+                color = if (isSelected) Color.White else Color(0xFF9E9E9E)
             )
         }
     }

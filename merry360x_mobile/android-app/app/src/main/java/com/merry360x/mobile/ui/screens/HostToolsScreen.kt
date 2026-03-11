@@ -88,7 +88,7 @@ fun HostToolsScreen(
 private fun HostMetricRow(label: String, value: String) {
     Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = CardGray)) {
         Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp)) {
-            Text(label, color = Color.Gray)
+            Text(label, color = Color(0xFF9E9E9E))
             Text(value, modifier = Modifier.align(androidx.compose.ui.Alignment.CenterEnd), fontWeight = FontWeight.SemiBold)
         }
     }

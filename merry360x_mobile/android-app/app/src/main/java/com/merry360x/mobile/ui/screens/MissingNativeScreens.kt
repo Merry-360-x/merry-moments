@@ -75,7 +75,7 @@ fun AuthCallbackScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("<- Back", color = Color.Gray, modifier = Modifier.clickable { onBack() })
+        Text("<- Back", color = Color(0xFF9E9E9E), modifier = Modifier.clickable { onBack() })
         Text("Auth Callback", fontSize = 22.sp, fontWeight = FontWeight.Bold)
 
         Card(shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = CardGray)) {
@@ -83,18 +83,18 @@ fun AuthCallbackScreen(
                 when {
                     uiState.loading -> {
                         CircularProgressIndicator(color = Coral)
-                        Text("Completing sign-in securely...", color = Color.DarkGray)
+                        Text("Completing sign-in securely...", color = Color(0xFF777777))
                     }
                     uiState.authenticated -> {
                         Text("Sign-in completed", fontWeight = FontWeight.SemiBold)
-                        Text("You are now authenticated in the native app.", color = Color.DarkGray)
+                        Text("You are now authenticated in the native app.", color = Color(0xFF777777))
                     }
                     uiState.error != null -> {
                         Text("Callback failed", fontWeight = FontWeight.SemiBold)
                         Text(uiState.error, color = Color(0xFFC62828))
                     }
                     else -> {
-                        Text("Waiting for callback processing...", color = Color.DarkGray)
+                        Text("Waiting for callback processing...", color = Color(0xFF777777))
                     }
                 }
             }
@@ -139,7 +139,7 @@ fun SearchResultsScreen(
         item {
             Text(
                 "<- Back",
-                color = Color.Gray,
+                color = Color(0xFF9E9E9E),
                 fontSize = 13.sp,
                 modifier = Modifier.clickable { onBack() }
             )
@@ -155,7 +155,7 @@ fun SearchResultsScreen(
             } else {
                 "Query: $query"
             }
-            Text(subtitle, color = Color.Gray)
+            Text(subtitle, color = Color(0xFF9E9E9E))
         }
 
         if (filtered.isEmpty()) {
@@ -164,7 +164,7 @@ fun SearchResultsScreen(
                     Text(
                         "No listings found. Try a different search.",
                         modifier = Modifier.padding(12.dp),
-                        color = Color.Gray
+                        color = Color(0xFF9E9E9E)
                     )
                 }
             }
@@ -177,7 +177,7 @@ fun SearchResultsScreen(
                 ) {
                     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(listing.title, fontWeight = FontWeight.SemiBold)
-                        Text(listing.location, color = Color.Gray, fontSize = 13.sp)
+                        Text(listing.location, color = Color(0xFF9E9E9E), fontSize = 13.sp)
                         val amount = if (listing.monthlyOnlyListing == true) {
                             listing.pricePerMonth ?: listing.pricePerNight
                         } else {
@@ -205,9 +205,9 @@ fun ForgotPasswordScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("<- Back", color = Color.Gray, modifier = Modifier.clickable { onBack() })
+        Text("<- Back", color = Color(0xFF9E9E9E), modifier = Modifier.clickable { onBack() })
         Text("Forgot Password", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        Text("Enter your email to continue password recovery.", color = Color.Gray)
+        Text("Enter your email to continue password recovery.", color = Color(0xFF9E9E9E))
 
         OutlinedTextField(
             value = email,
@@ -244,7 +244,7 @@ fun ResetPasswordScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("<- Back", color = Color.Gray, modifier = Modifier.clickable { onBack() })
+        Text("<- Back", color = Color(0xFF9E9E9E), modifier = Modifier.clickable { onBack() })
         Text("Reset Password", fontSize = 22.sp, fontWeight = FontWeight.Bold)
 
         OutlinedTextField(
@@ -287,9 +287,9 @@ fun CompleteProfileScreen(onBack: () -> Unit) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("<- Back", color = Color.Gray, modifier = Modifier.clickable { onBack() })
+        Text("<- Back", color = Color(0xFF9E9E9E), modifier = Modifier.clickable { onBack() })
         Text("Complete Profile", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        Text("Add your core account details for a complete booking profile.", color = Color.Gray)
+        Text("Add your core account details for a complete booking profile.", color = Color(0xFF9E9E9E))
 
         OutlinedTextField(
             value = fullName,
@@ -337,7 +337,7 @@ fun SafetyGuidelinesScreen(onBack: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         item {
-            Text("<- Back", color = Color.Gray, modifier = Modifier.clickable { onBack() })
+            Text("<- Back", color = Color(0xFF9E9E9E), modifier = Modifier.clickable { onBack() })
         }
         item {
             Text("Safety Guidelines", fontSize = 22.sp, fontWeight = FontWeight.Bold)
@@ -345,7 +345,7 @@ fun SafetyGuidelinesScreen(onBack: () -> Unit) {
 
         items(points) { point ->
             Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = CardGray)) {
-                Text(point, modifier = Modifier.padding(12.dp), color = Color.DarkGray)
+                Text(point, modifier = Modifier.padding(12.dp), color = Color(0xFF777777))
             }
         }
 
@@ -476,7 +476,7 @@ fun CurrencyPickerScreen(
                 ) {
                     Column {
                         Text(code, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                        Text(name, fontSize = 12.sp, color = Color.Gray)
+                        Text(name, fontSize = 12.sp, color = Color(0xFF9E9E9E))
                     }
                     if (code == currentCurrency) {
                         Icon(Icons.Default.Check, contentDescription = null, tint = Coral, modifier = Modifier.size(20.dp))
@@ -517,7 +517,7 @@ fun AppModeScreen(
                 ) {
                     Column {
                         Text(mode, fontSize = 16.sp, fontWeight = if (mode == currentMode) FontWeight.SemiBold else FontWeight.Normal)
-                        Text(description, fontSize = 12.sp, color = Color.Gray)
+                        Text(description, fontSize = 12.sp, color = Color(0xFF9E9E9E))
                     }
                     if (mode == currentMode) {
                         Icon(Icons.Default.Check, contentDescription = null, tint = Coral, modifier = Modifier.size(20.dp))
@@ -558,7 +558,7 @@ fun NotificationsScreen(onBack: () -> Unit) {
                 ) {
                     Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                         Text(items[i].label, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                        Text(items[i].description, fontSize = 12.sp, color = Color.Gray)
+                        Text(items[i].description, fontSize = 12.sp, color = Color(0xFF9E9E9E))
                     }
                     Switch(
                         checked = enabled[i],
@@ -722,10 +722,10 @@ fun NativeSupportChatScreen(
                             .background(Color(0xFFF4F4F4)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.Lock, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(28.dp))
+                        Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFF9E9E9E), modifier = Modifier.size(28.dp))
                     }
                     Text("Sign in to chat with support", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                    Text("Your conversations are private and tied to your account.", color = Color.Gray, fontSize = 13.sp)
+                    Text("Your conversations are private and tied to your account.", color = Color(0xFF9E9E9E), fontSize = 13.sp)
                 }
             }
 
@@ -761,18 +761,18 @@ fun NativeSupportChatScreen(
                                     }
                                     Column {
                                         Text("Support Team", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                                        Text("Usually responds within minutes", color = Color.Gray, fontSize = 12.sp)
+                                        Text("Usually responds within minutes", color = Color(0xFF9E9E9E), fontSize = 12.sp)
                                     }
                                 }
                                 Text("Hi $senderName! 👋 How can I help you today?", fontSize = 14.sp)
-                                Text("You can ask about:", color = Color.DarkGray, fontSize = 13.sp)
+                                Text("You can ask about:", color = Color(0xFF777777), fontSize = 13.sp)
                                 listOf(
                                     "Bookings & reservations",
                                     "Payments & refunds",
                                     "Account issues",
                                     "Tours & accommodations"
                                 ).forEach {
-                                    Text("• $it", color = Color.DarkGray, fontSize = 13.sp)
+                                    Text("• $it", color = Color(0xFF777777), fontSize = 13.sp)
                                 }
                             }
                         }
@@ -810,7 +810,7 @@ fun NativeSupportChatScreen(
                 OutlinedTextField(
                     value = draft,
                     onValueChange = { draft = it },
-                    placeholder = { Text("Type a message...", color = Color.Gray, fontSize = 14.sp) },
+                    placeholder = { Text("Type a message...", color = Color(0xFF9E9E9E), fontSize = 14.sp) },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(24.dp),
                     maxLines = 5,
@@ -868,7 +868,7 @@ private fun SupportChatBubble(msg: SupportChatMessage, isCustomer: Boolean) {
         ) {
             if (!isCustomer) {
                 msg.senderName?.let {
-                    Text(it, fontSize = 11.sp, color = Color.Gray, modifier = Modifier.padding(start = 2.dp, bottom = 2.dp))
+                    Text(it, fontSize = 11.sp, color = Color(0xFF9E9E9E), modifier = Modifier.padding(start = 2.dp, bottom = 2.dp))
                 }
             }
             Box(
@@ -893,7 +893,7 @@ private fun SupportChatBubble(msg: SupportChatMessage, isCustomer: Boolean) {
             Text(
                 text = formatChatTime(msg.createdAt),
                 fontSize = 10.sp,
-                color = Color.Gray,
+                color = Color(0xFF9E9E9E),
                 modifier = Modifier.padding(horizontal = 2.dp, top = 2.dp)
             )
         }

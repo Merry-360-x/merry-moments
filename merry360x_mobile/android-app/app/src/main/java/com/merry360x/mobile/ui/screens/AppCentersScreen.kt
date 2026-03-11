@@ -170,7 +170,7 @@ fun AppCentersScreen(
                             Text(title, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                             Text(
                                 "Native production modules backed by the same database as web.",
-                                color = Color.Gray,
+                                color = Color(0xFF9E9E9E),
                                 fontSize = 13.sp
                             )
                         }
@@ -203,9 +203,9 @@ fun AppCentersScreen(
                                 .padding(horizontal = 12.dp, vertical = 10.dp)
                         ) {
                             Text(moduleItem, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                            Text("Open", color = Color.Gray, fontSize = 12.sp)
+                            Text("Open", color = Color(0xFF9E9E9E), fontSize = 12.sp)
                         }
-                        HorizontalDivider(color = Color.LightGray.copy(alpha = 0.4f))
+                        HorizontalDivider(color = Color(0xFFDDDDDD).copy(alpha = 0.4f))
                     }
                 }
             }
@@ -331,10 +331,10 @@ private fun NativeInfoModule(title: String) {
     Card(shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = CardGray)) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(title, fontWeight = FontWeight.Bold)
-            Text("This module is native and uses the same backend and role controls as website.", color = Color.Gray, fontSize = 13.sp)
-            Text("- No webview redirect", color = Color.DarkGray, fontSize = 13.sp)
-            Text("- Shared Supabase data", color = Color.DarkGray, fontSize = 13.sp)
-            Text("- Same account roles", color = Color.DarkGray, fontSize = 13.sp)
+            Text("This module is native and uses the same backend and role controls as website.", color = Color(0xFF9E9E9E), fontSize = 13.sp)
+            Text("- No webview redirect", color = Color(0xFF777777), fontSize = 13.sp)
+            Text("- Shared Supabase data", color = Color(0xFF777777), fontSize = 13.sp)
+            Text("- Same account roles", color = Color(0xFF777777), fontSize = 13.sp)
         }
     }
 }
@@ -548,7 +548,7 @@ private fun MetricRow(label: String, value: String) {
             .background(CardGray, RoundedCornerShape(12.dp))
             .padding(horizontal = 12.dp, vertical = 10.dp)
     ) {
-        Text(label, color = Color.DarkGray, modifier = Modifier.weight(1f))
+        Text(label, color = Color(0xFF777777), modifier = Modifier.weight(1f))
         Text(value, fontWeight = FontWeight.SemiBold)
     }
 }
@@ -568,7 +568,7 @@ private fun NativeCreateStoryModule(
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Add Story", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-        Text("Uses the same stories payload fields as website.", color = Color.Gray, fontSize = 13.sp)
+        Text("Uses the same stories payload fields as website.", color = Color(0xFF9E9E9E), fontSize = 13.sp)
 
         OutlinedTextField(
             value = title,
@@ -600,7 +600,7 @@ private fun NativeCreateStoryModule(
             modifier = Modifier.fillMaxWidth(),
         )
 
-        status?.let { Text(it, color = if (it.startsWith("Could")) Color.Red else Color.DarkGray, fontSize = 12.sp) }
+        status?.let { Text(it, color = if (it.startsWith("Could")) Color.Red else Color(0xFF777777), fontSize = 12.sp) }
 
         Button(
             onClick = {
@@ -690,7 +690,7 @@ private fun NativeCreateTourModule(
             status = if (result.isSuccess) "Tour created successfully." else "Could not create tour: ${result.exceptionOrNull()?.message}"
             saving = false
         }
-        status?.let { Text(it, color = if (it.startsWith("Could")) Color.Red else Color.DarkGray, fontSize = 12.sp) }
+        status?.let { Text(it, color = if (it.startsWith("Could")) Color.Red else Color(0xFF777777), fontSize = 12.sp) }
     }
 }
 
@@ -758,7 +758,7 @@ private fun NativeCreatePropertyModule(
             }
             saving = false
         }
-        status?.let { Text(it, color = if (it.startsWith("Could")) Color.Red else Color.DarkGray, fontSize = 12.sp) }
+        status?.let { Text(it, color = if (it.startsWith("Could")) Color.Red else Color(0xFF777777), fontSize = 12.sp) }
     }
 }
 
@@ -824,7 +824,7 @@ private fun NativeCreateRoomModule(
             }
             saving = false
         }
-        status?.let { Text(it, color = if (it.startsWith("Could")) Color.Red else Color.DarkGray, fontSize = 12.sp) }
+        status?.let { Text(it, color = if (it.startsWith("Could")) Color.Red else Color(0xFF777777), fontSize = 12.sp) }
     }
 }
 
@@ -880,7 +880,7 @@ private fun NativeCreateTourPackageModule(
             status = if (result.isSuccess) "Tour package created successfully." else "Could not create package: ${result.exceptionOrNull()?.message}"
             saving = false
         }
-        status?.let { Text(it, color = if (it.startsWith("Could")) Color.Red else Color.DarkGray, fontSize = 12.sp) }
+        status?.let { Text(it, color = if (it.startsWith("Could")) Color.Red else Color(0xFF777777), fontSize = 12.sp) }
     }
 }
 
@@ -945,7 +945,7 @@ private fun NativeCreateVehicleModule(
             status = if (result.isSuccess) "Vehicle created successfully." else "Could not create vehicle: ${result.exceptionOrNull()?.message}"
             saving = false
         }
-        status?.let { Text(it, color = if (it.startsWith("Could")) Color.Red else Color.DarkGray, fontSize = 12.sp) }
+        status?.let { Text(it, color = if (it.startsWith("Could")) Color.Red else Color(0xFF777777), fontSize = 12.sp) }
     }
 }
 
@@ -1009,7 +1009,7 @@ private fun NativeCreateAirportTransferModule(
             status = if (vehicleResult.isSuccess && pricingResult.isSuccess) "Airport transfer created successfully." else "Could not create airport transfer: ${(vehicleResult.exceptionOrNull() ?: pricingResult.exceptionOrNull())?.message}"
             saving = false
         }
-        status?.let { Text(it, color = if (it.startsWith("Could")) Color.Red else Color.DarkGray, fontSize = 12.sp) }
+        status?.let { Text(it, color = if (it.startsWith("Could")) Color.Red else Color(0xFF777777), fontSize = 12.sp) }
     }
 }
 
@@ -1045,13 +1045,13 @@ private fun NativeHelpCenterModule() {
     LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item {
             Text("Help Center", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            Text("Native support guidance mirrored from website categories.", color = Color.Gray, fontSize = 13.sp)
+            Text("Native support guidance mirrored from website categories.", color = Color(0xFF9E9E9E), fontSize = 13.sp)
         }
         items(faqs) { (q, a) ->
             Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = CardGray)) {
                 Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(q, fontWeight = FontWeight.SemiBold)
-                    Text(a, color = Color.DarkGray, fontSize = 13.sp)
+                    Text(a, color = Color(0xFF777777), fontSize = 13.sp)
                 }
             }
         }
@@ -1061,7 +1061,7 @@ private fun NativeHelpCenterModule() {
                     Text("Contact", fontWeight = FontWeight.SemiBold)
                     Text("Phone: +250 796 214 719", fontSize = 13.sp)
                     Text("Email: support@merry360x.com", fontSize = 13.sp)
-                    Text("Response: within 0-24 business hours", color = Color.Gray, fontSize = 12.sp)
+                    Text("Response: within 0-24 business hours", color = Color(0xFF9E9E9E), fontSize = 12.sp)
                 }
             }
         }
@@ -1102,7 +1102,7 @@ private fun NativeBookingsModule(
     when {
         loading -> CircularProgressIndicator(color = Coral)
         error != null -> Text(error.orEmpty(), color = Color.Red)
-        rows.isEmpty() -> Text("No bookings found.", color = Color.Gray)
+        rows.isEmpty() -> Text("No bookings found.", color = Color(0xFF9E9E9E))
         else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(rows) { row ->
                 Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = CardGray)) {
@@ -1130,7 +1130,7 @@ private fun NativePaymentStateModule(
                 .padding(18.dp)
         )
         Text(title, fontWeight = FontWeight.Bold)
-        Text(subtitle, color = Color.Gray, fontSize = 13.sp)
+        Text(subtitle, color = Color(0xFF9E9E9E), fontSize = 13.sp)
     }
 }
 
@@ -1254,7 +1254,7 @@ private fun NativeHostPayoutRequestModule(
             status = if (result.isSuccess) "Payout request submitted." else "Could not submit payout request: ${result.exceptionOrNull()?.message}"
             saving = false
         }
-        status?.let { Text(it, color = if (it.startsWith("Could")) Color.Red else Color.DarkGray, fontSize = 12.sp) }
+        status?.let { Text(it, color = if (it.startsWith("Could")) Color.Red else Color(0xFF777777), fontSize = 12.sp) }
     }
 }
 
@@ -1294,7 +1294,7 @@ private fun NativeHostPayoutHistoryModule(
     when {
         loading -> CircularProgressIndicator(color = Coral)
         error != null -> Text(error.orEmpty(), color = Color.Red)
-        rows.isEmpty() -> Text("No payout records found.", color = Color.Gray)
+        rows.isEmpty() -> Text("No payout records found.", color = Color(0xFF9E9E9E))
         else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(rows) { row ->
                 Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = CardGray)) {
@@ -1331,14 +1331,14 @@ private fun NativeHostReviewsModule(
     when {
         loading -> CircularProgressIndicator(color = Coral)
         error != null -> Text(error.orEmpty(), color = Color.Red)
-        reviews.isEmpty() -> Text("No reviews found.", color = Color.Gray)
+        reviews.isEmpty() -> Text("No reviews found.", color = Color(0xFF9E9E9E))
         else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(reviews) { review ->
                 Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = CardGray)) {
                     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text("Rating: ${review.rating.toInt()}/5", fontWeight = FontWeight.SemiBold)
                         Text(review.reviewText ?: "No text", fontSize = 13.sp)
-                        Text("Status: ${review.status}", color = Color.Gray, fontSize = 12.sp)
+                        Text("Status: ${review.status}", color = Color(0xFF9E9E9E), fontSize = 12.sp)
                     }
                 }
             }
@@ -1371,7 +1371,7 @@ private fun NativeAffiliateSignupModule(
             status = if (result.isSuccess) "Affiliate application submitted." else "Could not submit application: ${result.exceptionOrNull()?.message}"
             saving = false
         }
-        status?.let { Text(it, color = if (it.startsWith("Could")) Color.Red else Color.DarkGray, fontSize = 12.sp) }
+        status?.let { Text(it, color = if (it.startsWith("Could")) Color.Red else Color(0xFF777777), fontSize = 12.sp) }
     }
 }
 
@@ -1405,7 +1405,7 @@ private fun NativeAffiliateDashboardModule(
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         error?.let { Text(it, color = Color.Red, fontSize = 12.sp) }
         if (account == null) {
-            Text("No affiliate account found yet.", color = Color.Gray)
+            Text("No affiliate account found yet.", color = Color(0xFF9E9E9E))
             return@Column
         }
         MetricRow("Status", account!!.status)
@@ -1636,8 +1636,8 @@ private fun NativeCheckoutModule(
             polling = false
         }
 
-        checkoutId?.let { Text("Checkout id: $it", color = Color.Gray, fontSize = 12.sp) }
-        status?.let { Text(it, color = if (it.startsWith("Could")) Color.Red else Color.DarkGray, fontSize = 12.sp) }
+        checkoutId?.let { Text("Checkout id: $it", color = Color(0xFF9E9E9E), fontSize = 12.sp) }
+        status?.let { Text(it, color = if (it.startsWith("Could")) Color.Red else Color(0xFF777777), fontSize = 12.sp) }
     }
 }
 
