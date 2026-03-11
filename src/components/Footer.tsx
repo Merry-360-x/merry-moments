@@ -2,6 +2,16 @@ import { Link } from "react-router-dom";
 import Logo from "./Logo";
 import { useTranslation } from "react-i18next";
 
+const socialLinks = [
+  { label: "X", href: "https://x.com/merry360x" },
+  { label: "LinkedIn", href: "https://www.linkedin.com/company/merry360x" },
+  { label: "TripAdvisor", href: "https://www.tripadvisor.com" },
+  { label: "Facebook", href: "https://www.facebook.com/merry360x" },
+  { label: "Instagram", href: "https://www.instagram.com/merry360x" },
+  { label: "YouTube", href: "https://www.youtube.com/@merry360x" },
+  { label: "TikTok", href: "https://www.tiktok.com/@merry360x" },
+];
+
 const Footer = () => {
   const { t } = useTranslation();
   return (
@@ -42,6 +52,20 @@ const Footer = () => {
               Terms
             </Link>
           </div>
+          {/* Social links row */}
+          <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground mb-4">
+            {socialLinks.map((social) => (
+              <a
+                key={social.label}
+                href={social.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-primary transition-colors"
+              >
+                {social.label}
+              </a>
+            ))}
+          </div>
           {/* Copyright */}
           <div className="text-center text-xs text-muted-foreground pt-4 border-t border-border">
             <p>{t("footer.copyright", { year: new Date().getFullYear() })}</p>
@@ -56,6 +80,19 @@ const Footer = () => {
             <p className="mt-4 text-sm text-muted-foreground">
               {t("footer.tagline")}
             </p>
+            <div className="mt-4 flex flex-wrap gap-x-3 gap-y-2">
+              {socialLinks.map((social) => (
+                <a
+                  key={social.label}
+                  href={social.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                >
+                  {social.label}
+                </a>
+              ))}
+            </div>
           </div>
 
           {/* Explore */}
