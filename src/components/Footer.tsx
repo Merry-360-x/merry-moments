@@ -1,15 +1,42 @@
 import { Link } from "react-router-dom";
 import Logo from "./Logo";
 import { useTranslation } from "react-i18next";
+import { Facebook, Instagram, Linkedin, Youtube } from "lucide-react";
+
+type IconProps = { className?: string };
+
+const XIcon = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" aria-hidden="true" className={className} fill="currentColor">
+    <path d="M18.244 2H21l-6.56 7.497L22 22h-5.828l-4.565-5.964L6.39 22H3.633l7.017-8.017L2 2h5.976l4.127 5.431L18.244 2zm-1.022 18h1.532L7.143 3.895H5.5L17.222 20z" />
+  </svg>
+);
+
+const TripAdvisorIcon = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" aria-hidden="true" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="7.5" cy="12" r="3.5" />
+    <circle cx="16.5" cy="12" r="3.5" />
+    <circle cx="7.5" cy="12" r="1.25" fill="currentColor" stroke="none" />
+    <circle cx="16.5" cy="12" r="1.25" fill="currentColor" stroke="none" />
+    <path d="M3.5 8.8c1.4-.6 2.6-.9 4-.9h9c1.4 0 2.6.3 4 .9" />
+    <path d="M10.8 12h2.4" />
+    <path d="M12 8.6v-2" />
+  </svg>
+);
+
+const TikTokIcon = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" aria-hidden="true" className={className} fill="currentColor">
+    <path d="M14.2 3v9.1a4.8 4.8 0 1 1-3.4-4.6v2.6a2.3 2.3 0 1 0 1 2V3h2.4c.4 1.8 1.7 3.2 3.5 3.7V9a6.8 6.8 0 0 1-3.5-1z" />
+  </svg>
+);
 
 const socialLinks = [
-  { label: "X", href: "https://x.com/merry360x" },
-  { label: "LinkedIn", href: "https://www.linkedin.com/company/merry360x" },
-  { label: "TripAdvisor", href: "https://www.tripadvisor.com" },
-  { label: "Facebook", href: "https://www.facebook.com/merry360x" },
-  { label: "Instagram", href: "https://www.instagram.com/merry360x" },
-  { label: "YouTube", href: "https://www.youtube.com/@merry360x" },
-  { label: "TikTok", href: "https://www.tiktok.com/@merry360x" },
+  { label: "X", href: "https://x.com/merry360x", Icon: XIcon },
+  { label: "LinkedIn", href: "https://www.linkedin.com/company/merry360x", Icon: Linkedin },
+  { label: "TripAdvisor", href: "https://www.tripadvisor.com", Icon: TripAdvisorIcon },
+  { label: "Facebook", href: "https://www.facebook.com/merry360x", Icon: Facebook },
+  { label: "Instagram", href: "https://www.instagram.com/merry360x", Icon: Instagram },
+  { label: "YouTube", href: "https://www.youtube.com/@merry360x", Icon: Youtube },
+  { label: "TikTok", href: "https://www.tiktok.com/@merry360x", Icon: TikTokIcon },
 ];
 
 const Footer = () => {
@@ -53,16 +80,18 @@ const Footer = () => {
             </Link>
           </div>
           {/* Social links row */}
-          <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground mb-4">
+          <div className="flex flex-wrap justify-center gap-3 text-xs text-muted-foreground mb-4">
             {socialLinks.map((social) => (
               <a
                 key={social.label}
                 href={social.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hover:text-primary transition-colors"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border/70 hover:border-primary/60 hover:text-primary transition-colors"
+                aria-label={social.label}
+                title={social.label}
               >
-                {social.label}
+                <social.Icon className="h-4 w-4" />
               </a>
             ))}
           </div>
@@ -87,9 +116,11 @@ const Footer = () => {
                   href={social.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/70 text-muted-foreground hover:text-primary hover:border-primary/60 transition-colors"
+                  aria-label={social.label}
+                  title={social.label}
                 >
-                  {social.label}
+                  <social.Icon className="h-4 w-4" />
                 </a>
               ))}
             </div>
