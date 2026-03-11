@@ -1194,7 +1194,7 @@ export default function OperationsStaffDashboard() {
                               <p className="text-sm text-muted-foreground">Price</p>
                               <p className="font-medium">
                                 {selectedApplication.listing_price_per_night ? 
-                                  `${selectedApplication.listing_currency || 'RWF'} ${selectedApplication.listing_price_per_night.toLocaleString()}/night` : 
+                                  `${formatMoney(Number(selectedApplication.listing_price_per_night || 0), selectedApplication.listing_currency || 'RWF')}/night` : 
                                   'N/A'
                                 }
                               </p>
@@ -1859,7 +1859,7 @@ export default function OperationsStaffDashboard() {
                         </TableCell>
                         <TableCell>{booking.guests}</TableCell>
                         <TableCell className="font-mono text-sm">
-                          {booking.currency} {booking.total_price.toLocaleString()}
+                          {formatMoney(Number(booking.total_price || 0), booking.currency || 'RWF')}
                         </TableCell>
                         <TableCell>
                           <Badge
@@ -1983,14 +1983,12 @@ export default function OperationsStaffDashboard() {
                     </Badge>
                     <span className="text-sm text-muted-foreground">
                       {orderBookings.length} items • Total: {formatMoney(
-                        Number(
-                          convertAmount(
-                            orderBookings.reduce((sum, b) => sum + Number(b.total_price || 0), 0),
-                            selectedBooking.currency || "RWF",
-                            "RWF",
-                            usdRates
-                          ) ?? orderBookings.reduce((sum, b) => sum + Number(b.total_price || 0), 0)
-                        ),
+                        orderBookings.reduce((sum, b) => {
+                          const amount = Number(b.total_price || 0);
+                          const from = b.currency || "RWF";
+                          const converted = convertAmount(amount, from, "RWF", usdRates);
+                          return sum + Number(converted ?? amount);
+                        }, 0),
                         "RWF"
                       )}
                     </span>
@@ -2307,7 +2305,7 @@ export default function OperationsStaffDashboard() {
                   {selectedProperty.price_per_night && (
                     <div>
                       <p className="text-sm text-muted-foreground">Price per Night</p>
-                      <p className="font-mono">{selectedProperty.currency || 'RWF'} {selectedProperty.price_per_night.toLocaleString()}</p>
+                      <p className="font-mono">{formatMoney(Number(selectedProperty.price_per_night || 0), selectedProperty.currency || 'RWF')}</p>
                     </div>
                   )}
                   {selectedProperty.max_guests && (

@@ -1,5 +1,7 @@
 package com.merry360x.mobile.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -47,6 +49,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,6 +67,7 @@ import coil.compose.AsyncImage
 import com.merry360x.mobile.data.Listing
 import com.merry360x.mobile.data.StoryPreview
 import com.merry360x.mobile.data.SupabaseApi
+import com.merry360x.mobile.data.CloudinaryUploader
 import com.merry360x.mobile.theme.Coral
 import com.merry360x.mobile.viewmodel.CitySection
 import com.merry360x.mobile.viewmodel.HomeUiState
@@ -89,6 +93,7 @@ fun HomeScreen(
     var stories by remember { mutableStateOf<List<StoryPreview>>(emptyList()) }
     var viewingStory by remember { mutableStateOf<StoryPreview?>(null) }
     var showCreateStory by remember { mutableStateOf(false) }
+    val canPublishStories = !userId.isNullOrBlank() && !accessToken.isNullOrBlank() && api != null
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
@@ -135,7 +140,7 @@ fun HomeScreen(
             // ── Stories row ───────────────────────────────────────────────
             StoriesRow(
                 stories = stories,
-                isLoggedIn = !userId.isNullOrBlank(),
+                isLoggedIn = canPublishStories,
                 onViewStory = { viewingStory = it },
                 onAddStory = { showCreateStory = true },
             )
@@ -305,6 +310,26 @@ fun HomeScreen(
             var storyImageUrl by remember { mutableStateOf("") }
             var submitting by remember { mutableStateOf(false) }
             var submitError by remember { mutableStateOf<String?>(null) }
+            var uploadingImage by remember { mutableStateOf(false) }
+            val context = LocalContext.current
+            val canSubmitStory = canPublishStories
+            val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { selectedUri ->
+                if (selectedUri == null) return@rememberLauncherForActivityResult
+                uploadingImage = true
+                submitError = null
+                scope.launch {
+                    val uploadResult = CloudinaryUploader.uploadImage(
+                        context = context,
+                        imageUri = selectedUri,
+                    )
+                    if (uploadResult.isSuccess) {
+                        storyImageUrl = uploadResult.getOrNull().orEmpty()
+                    } else {
+                        submitError = uploadResult.exceptionOrNull()?.message ?: "Could not upload image"
+                    }
+                    uploadingImage = false
+                }
+            }
 
             Dialog(
                 onDismissRequest = { showCreateStory = false },
@@ -375,35 +400,64 @@ fun HomeScreen(
                             singleLine = true,
                         )
 
+                        Button(
+                            onClick = { imagePicker.launch("image/*") },
+                            enabled = !uploadingImage && !submitting,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF2F2F2), contentColor = Color.Black),
+                        ) {
+                            if (uploadingImage) {
+                                CircularProgressIndicator(color = Color.Black, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                            } else {
+                                Text("Upload Image to Cloudinary", fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                            }
+                        }
+
+                        if (storyImageUrl.isNotBlank()) {
+                            Text("Image uploaded and attached.", color = Color(0xFF4F4F4F), fontSize = 12.sp)
+                        }
+
                         submitError?.let {
                             Text(it, color = Color.Red, fontSize = 12.sp)
                         }
 
+                        if (!canSubmitStory) {
+                            Text(
+                                "Login required to post a story.",
+                                color = Color(0xFF9E9E9E),
+                                fontSize = 12.sp,
+                            )
+                        }
+
                         Button(
                             onClick = {
-                                if (!userId.isNullOrBlank() && api != null) {
-                                    submitting = true
-                                    submitError = null
-                                    scope.launch {
-                                        val res = api.createStory(
-                                            userId = userId,
-                                            title = storyTitle,
-                                            body = storyBody,
-                                            location = storyLocation.ifBlank { null },
-                                            mediaUrl = storyImageUrl.ifBlank { null },
-                                            accessToken = accessToken,
-                                        )
-                                        if (res.isSuccess) {
-                                            showCreateStory = false
-                                            stories = api.fetchRecentStories()
-                                        } else {
-                                            submitError = res.exceptionOrNull()?.message ?: "Could not post story"
-                                        }
-                                        submitting = false
+                                if (!canSubmitStory || userId.isNullOrBlank() || api == null) {
+                                    submitError = "Login required to post a story."
+                                    return@Button
+                                }
+
+                                submitting = true
+                                submitError = null
+                                scope.launch {
+                                    val res = api.createStory(
+                                        userId = userId,
+                                        title = storyTitle,
+                                        body = storyBody,
+                                        location = storyLocation.ifBlank { null },
+                                        mediaUrl = storyImageUrl.ifBlank { null },
+                                        accessToken = accessToken,
+                                    )
+                                    if (res.isSuccess) {
+                                        showCreateStory = false
+                                        stories = api.fetchRecentStories()
+                                    } else {
+                                        submitError = res.exceptionOrNull()?.message ?: "Could not post story"
                                     }
+                                    submitting = false
                                 }
                             },
-                            enabled = storyTitle.isNotBlank() && storyBody.isNotBlank() && !submitting,
+                            enabled = canSubmitStory && storyTitle.isNotBlank() && storyBody.isNotBlank() && !submitting && !uploadingImage,
                             modifier = Modifier.fillMaxWidth().height(50.dp),
                             shape = RoundedCornerShape(14.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Coral),

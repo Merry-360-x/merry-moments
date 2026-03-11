@@ -16,6 +16,8 @@ android {
         versionName = "1.3.0"
         buildConfigField("String", "SUPABASE_URL", "\"https://uwgiostcetoxotfnulfm.supabase.co\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3Z2lvc3RjZXRveG90Zm51bGZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgzNDAxMjgsImV4cCI6MjA4MzkxNjEyOH0.a3jDwpElRGICu7WvV3ahT0MCtmcUj4d9LO0KIHMSTtA\"")
+        buildConfigField("String", "CLOUDINARY_CLOUD_NAME", "\"dxdblhmbm\"")
+        buildConfigField("String", "CLOUDINARY_UPLOAD_PRESET", "\"default\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

@@ -13,12 +13,17 @@ import { Search, AlertCircle, Package, Home, MapPin, Car } from "lucide-react";
 import { formatMoney } from "@/lib/money";
 import { useToast } from "@/hooks/use-toast";
 import { calculatePawaPayProcessing } from "@/lib/fees";
+import { usePreferences } from "@/hooks/usePreferences";
+import { useFxRates } from "@/hooks/useFxRates";
+import { convertAmount } from "@/lib/fx";
 
 type BookingRow = any;
 
 export default function BookingsPage() {
   const { user, isAdmin, isOperationsStaff, isCustomerSupport } = useAuth();
   const { toast } = useToast();
+  const { currency: preferredCurrency } = usePreferences();
+  const { usdRates } = useFxRates();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchType, setSearchType] = useState<"booking" | "order">("booking");
   const [searchResults, setSearchResults] = useState<BookingRow[]>([]);
@@ -175,9 +180,26 @@ export default function BookingsPage() {
   }
 
   const isBulkOrder = searchResults.length > 1 || (searchResults.length > 0 && searchResults[0].order_id);
-  const totalAmount = searchResults.reduce((sum, b) => sum + Number(b.checkout_requests?.total_amount || b.total_price || 0), 0);
-  const totalNetAfterPawaPay = calculatePawaPayProcessing(totalAmount).netAmount;
-  const currency = searchResults[0]?.currency || "RWF";
+  const displayCurrency = preferredCurrency || "RWF";
+
+  const convertForDisplay = (amount: number, fromCurrency?: string | null) => {
+    const from = fromCurrency || "RWF";
+    const converted = convertAmount(Number(amount || 0), from, displayCurrency, usdRates);
+    return converted ?? Number(amount || 0);
+  };
+
+  const totalAmount = searchResults.reduce((sum, b) => {
+    const gross = Number(b.checkout_requests?.total_amount || b.total_price || 0);
+    const from = b.checkout_requests?.currency || b.currency || "RWF";
+    return sum + convertForDisplay(gross, from);
+  }, 0);
+
+  const totalNetAfterPawaPay = searchResults.reduce((sum, b) => {
+    const gross = Number(b.checkout_requests?.total_amount || b.total_price || 0);
+    const from = b.checkout_requests?.currency || b.currency || "RWF";
+    const net = calculatePawaPayProcessing(gross).netAmount;
+    return sum + convertForDisplay(net, from);
+  }, 0);
 
   return (
     <>
@@ -245,8 +267,8 @@ export default function BookingsPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-sm text-muted-foreground">Total Amount</p>
-                      <p className="text-2xl font-bold">{formatMoney(totalAmount, currency)}</p>
-                      <p className="text-sm text-emerald-700">Net after PawaPay: {formatMoney(totalNetAfterPawaPay, currency)}</p>
+                      <p className="text-2xl font-bold">{formatMoney(totalAmount, displayCurrency)}</p>
+                      <p className="text-sm text-emerald-700">Net after PawaPay: {formatMoney(totalNetAfterPawaPay, displayCurrency)}</p>
                     </div>
                   </div>
                   {searchResults[0].order_id && (
@@ -292,14 +314,18 @@ export default function BookingsPage() {
                         </div>
                         <div className="text-right">
                           <p className="text-xl font-bold">
-                            {formatMoney(Number(booking.checkout_requests?.total_amount || booking.total_price || 0), booking.checkout_requests?.currency || booking.currency || 'RWF')}
+                            {(() => {
+                              const amount = Number(booking.checkout_requests?.total_amount || booking.total_price || 0);
+                              const from = booking.checkout_requests?.currency || booking.currency || 'RWF';
+                              return formatMoney(convertForDisplay(amount, from), displayCurrency);
+                            })()}
                           </p>
                           <p className="text-xs text-emerald-700 mt-1">
                             {(() => {
                               const gross = Number(booking.checkout_requests?.total_amount || booking.total_price || 0);
                               const net = calculatePawaPayProcessing(gross).netAmount;
-                              const cur = booking.checkout_requests?.currency || booking.currency || 'RWF';
-                              return `Net after PawaPay: ${formatMoney(net, cur)}`;
+                              const from = booking.checkout_requests?.currency || booking.currency || 'RWF';
+                              return `Net after PawaPay: ${formatMoney(convertForDisplay(net, from), displayCurrency)}`;
                             })()}
                           </p>
                           <div className="flex gap-2 mt-1">

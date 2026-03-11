@@ -475,7 +475,7 @@ export default function StaffDashboard() {
       'Check-in': booking.check_in,
       'Check-out': booking.check_out,
       'Number of Guests': booking.guests,
-      'Total Price': `${booking.currency} ${booking.total_price}`,
+      'Total Price': formatMoney(Number(booking.total_price || 0), String(booking.currency || 'RWF')),
       'Payment Method': booking.payment_method || 'N/A',
       'Status': booking.status,
       'Special Requests': booking.special_requests || 'None',
@@ -510,6 +510,8 @@ export default function StaffDashboard() {
       ? booking.guest_phone 
       : booking.profiles?.phone;
 
+    const totalAmountLabel = formatMoney(Number(booking.total_price || 0), String(booking.currency || 'RWF'));
+
     const receiptContent = `
 PAYMENT RECEIPT
 ================
@@ -530,7 +532,7 @@ Number of Guests: ${booking.guests}
 
 PAYMENT DETAILS
 ---------------
-Total Amount: ${booking.currency} ${booking.total_price}
+Total Amount: ${totalAmountLabel}
 Payment Method: ${booking.payment_method || 'Pending'}
 Payment Status: ${booking.status}
 Transaction Date: ${new Date(booking.created_at).toLocaleString()}

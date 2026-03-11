@@ -17,6 +17,9 @@ enum AppCenterDestination: String, Identifiable {
     case safetyGuidelines
     case bookingsCheckout
     case websiteRoutes
+    case favorites
+    case tripCart
+    case completeProfile
 
     var id: String { rawValue }
 
@@ -38,6 +41,9 @@ enum AppCenterDestination: String, Identifiable {
         case .safetyGuidelines: return "Safety Guidelines"
         case .bookingsCheckout: return "Bookings & Checkout"
         case .websiteRoutes: return "Website Routes"
+        case .favorites: return "Favorites"
+        case .tripCart: return "Trip Cart"
+        case .completeProfile: return "Complete Profile"
         }
     }
 }
@@ -133,6 +139,16 @@ struct AppCentersView: View {
                 .navigationBarTitleDisplayMode(.inline)
             case .bookingsCheckout:
                 BookingsCheckoutCenterView()
+            case .favorites:
+                WishlistsView()
+                    .navigationTitle("Favorites")
+                    .navigationBarTitleDisplayMode(.inline)
+            case .tripCart:
+                TripCartView()
+                    .navigationTitle("Trip Cart")
+                    .navigationBarTitleDisplayMode(.inline)
+            case .completeProfile:
+                BookingsCheckoutCenterView()
             case .websiteRoutes:
                 NativeWebsiteRoutesView()
                     .navigationTitle("Website Routes")
@@ -189,8 +205,6 @@ private struct NativeWebsiteRoute: Identifiable, Hashable {
 }
 
 private struct NativeWebsiteRoutesView: View {
-    @State private var selectedRoute: NativeWebsiteRoute?
-
     private let groups: [String] = [
         "Core",
         "Authentication",
@@ -292,8 +306,10 @@ private struct NativeWebsiteRoutesView: View {
                 if !items.isEmpty {
                     Section(group) {
                         ForEach(items) { route in
-                            Button {
-                                selectedRoute = route
+                            NavigationLink {
+                                destinationView(for: route)
+                                    .navigationTitle(route.path)
+                                    .navigationBarTitleDisplayMode(.inline)
                             } label: {
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(route.path)
@@ -312,11 +328,6 @@ private struct NativeWebsiteRoutesView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .navigationDestination(item: $selectedRoute) { route in
-            destinationView(for: route)
-                .navigationTitle(route.path)
-                .navigationBarTitleDisplayMode(.inline)
-        }
     }
 
     @ViewBuilder
@@ -333,7 +344,7 @@ private struct NativeWebsiteRoutesView: View {
         case .auth:
             NativeAuthRouteView(route: route)
         case .stories:
-            NativeStoriesRouteView(route: route)
+            NativeStoriesRouteView()
         case .becomeHost:
             NativeBecomeHostRouteView()
         case .aboutPage:

@@ -8,6 +8,8 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { formatMoneyWithConversion } from "@/lib/money";
+import { usePreferences } from "@/hooks/usePreferences";
+import { useFxRates } from "@/hooks/useFxRates";
 
 interface BookingDateChangeDialogProps {
   booking: {
@@ -43,6 +45,8 @@ export function BookingDateChangeDialog({
   onSuccess
 }: BookingDateChangeDialogProps) {
   const { toast } = useToast();
+  const { currency: preferredCurrency } = usePreferences();
+  const { usdRates } = useFxRates();
   const [newStartDate, setNewStartDate] = useState("");
   const [newEndDate, setNewEndDate] = useState("");
   const [reason, setReason] = useState("");
@@ -51,6 +55,7 @@ export function BookingDateChangeDialog({
     newPrice: number;
     priceDifference: number;
   } | null>(null);
+  const displayCurrency = preferredCurrency || booking.currency;
 
   const calculateNewPrice = () => {
     if (!newStartDate || !newEndDate) return null;
@@ -213,7 +218,7 @@ export function BookingDateChangeDialog({
               <p>Check-in: {new Date(booking.check_in).toLocaleDateString()}</p>
               <p>Check-out: {new Date(booking.check_out).toLocaleDateString()}</p>
               <p className="font-semibold text-foreground mt-1">
-                Price: {formatMoneyWithConversion(booking.total_price, booking.currency, booking.currency, {})}
+                Price: {formatMoneyWithConversion(booking.total_price, booking.currency, displayCurrency, usdRates)}
               </p>
             </div>
           </div>
@@ -254,10 +259,10 @@ export function BookingDateChangeDialog({
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  <p className="font-semibold">New Price: {formatMoneyWithConversion(priceInfo.newPrice, booking.currency, booking.currency, {})}</p>
+                  <p className="font-semibold">New Price: {formatMoneyWithConversion(priceInfo.newPrice, booking.currency, displayCurrency, usdRates)}</p>
                   {priceInfo.priceDifference !== 0 && (
                     <p className={`text-sm ${priceInfo.priceDifference > 0 ? 'text-orange-600' : 'text-green-600'}`}>
-                      {priceInfo.priceDifference > 0 ? 'Additional' : 'Refund'}: {formatMoneyWithConversion(Math.abs(priceInfo.priceDifference), booking.currency, booking.currency, {})}
+                      {priceInfo.priceDifference > 0 ? 'Additional' : 'Refund'}: {formatMoneyWithConversion(Math.abs(priceInfo.priceDifference), booking.currency, displayCurrency, usdRates)}
                     </p>
                   )}
                 </AlertDescription>

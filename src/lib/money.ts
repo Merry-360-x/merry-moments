@@ -21,7 +21,7 @@ export function formatMoney(amount: number, currency: string): string {
   
   try {
     const num = new Intl.NumberFormat(undefined, { 
-      minimumFractionDigits: 0,
+      minimumFractionDigits: decimals,
       maximumFractionDigits: decimals,
     }).format(rounded);
     
@@ -30,7 +30,7 @@ export function formatMoney(amount: number, currency: string): string {
   } catch {
     // Fallback for unexpected currency codes
     return `${rounded.toLocaleString(undefined, { 
-      minimumFractionDigits: 0,
+      minimumFractionDigits: decimals,
       maximumFractionDigits: decimals 
     })} ${code}`;
   }
@@ -57,11 +57,6 @@ export function formatMoneyWithConversion(
   
   if (from === to) {
     return formatMoney(amount, to);
-  }
-  
-  if (!rates) {
-    // No rates available, show original
-    return formatMoney(amount, from);
   }
   
   // convertAmount already applies proper rounding

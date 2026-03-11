@@ -1694,4 +1694,124 @@ final class SupabaseService {
         return items
     }
 
+    // MARK: - Profile Full Fetch & Update
+
+    func fetchProfileFull(userId: String) async throws -> [String: Any]? {
+        var components = URLComponents(url: baseURL.appendingPathComponent("rest/v1/profiles"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [
+            URLQueryItem(name: "select", value: "full_name,nickname,avatar_url,email,phone,date_of_birth,bio,loyalty_points,loyalty_awarded,created_at"),
+            URLQueryItem(name: "user_id", value: "eq.\(userId)"),
+            URLQueryItem(name: "limit", value: "1")
+        ]
+        guard let url = components?.url else { return nil }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue(anonKey, forHTTPHeaderField: "apikey")
+        request.setValue(authorizedBearer(), forHTTPHeaderField: "Authorization")
+        let (data, _) = try await URLSession.shared.data(for: request)
+        let rows = (try JSONSerialization.jsonObject(with: data) as? [[String: Any]]) ?? []
+        return rows.first
+    }
+
+    func updateProfile(userId: String, fullName: String?, nickname: String?, phone: String?, dateOfBirth: String?, bio: String?) async throws {
+        var components = URLComponents(url: baseURL.appendingPathComponent("rest/v1/profiles"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [URLQueryItem(name: "user_id", value: "eq.\(userId)")]
+        guard let url = components?.url else { return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.setValue(anonKey, forHTTPHeaderField: "apikey")
+        request.setValue(authorizedBearer(), forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("return=minimal", forHTTPHeaderField: "Prefer")
+
+        var payload: [String: Any] = [:]
+        payload["full_name"] = fullName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? NSNull()
+        payload["nickname"] = nickname?.trimmingCharacters(in: .whitespacesAndNewlines) ?? NSNull()
+        payload["phone"] = phone?.trimmingCharacters(in: .whitespacesAndNewlines) ?? NSNull()
+        payload["bio"] = bio?.trimmingCharacters(in: .whitespacesAndNewlines) ?? NSNull()
+        if let dob = dateOfBirth?.trimmingCharacters(in: .whitespacesAndNewlines), !dob.isEmpty {
+            payload["date_of_birth"] = dob
+        }
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw NSError(domain: "SupabaseService", code: 50, userInfo: [NSLocalizedDescriptionKey: "Could not update profile"])
+        }
+    }
+
+    func countFavorites(userId: String) async throws -> Int {
+        var components = URLComponents(url: baseURL.appendingPathComponent("rest/v1/favorites"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [
+            URLQueryItem(name: "select", value: "id"),
+            URLQueryItem(name: "user_id", value: "eq.\(userId)")
+        ]
+        guard let url = components?.url else { return 0 }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue(anonKey, forHTTPHeaderField: "apikey")
+        request.setValue(authorizedBearer(), forHTTPHeaderField: "Authorization")
+        request.setValue("count=exact", forHTTPHeaderField: "Prefer")
+        let (_, response) = try await URLSession.shared.data(for: request)
+        if let http = response as? HTTPURLResponse,
+           let countStr = http.allHeaderFields["Content-Range"] as? String,
+           let total = countStr.split(separator: "/").last.flatMap({ Int($0) }) {
+            return total
+        }
+        return 0
+    }
+
+    func countUpcomingBookings(userId: String) async throws -> Int {
+        let today = ISO8601DateFormatter().string(from: Date()).prefix(10)
+        var components = URLComponents(url: baseURL.appendingPathComponent("rest/v1/bookings"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [
+            URLQueryItem(name: "select", value: "id"),
+            URLQueryItem(name: "guest_id", value: "eq.\(userId)"),
+            URLQueryItem(name: "check_in", value: "gte.\(today)")
+        ]
+        guard let url = components?.url else { return 0 }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue(anonKey, forHTTPHeaderField: "apikey")
+        request.setValue(authorizedBearer(), forHTTPHeaderField: "Authorization")
+        request.setValue("count=exact", forHTTPHeaderField: "Prefer")
+        let (_, response) = try await URLSession.shared.data(for: request)
+        if let http = response as? HTTPURLResponse,
+           let countStr = http.allHeaderFields["Content-Range"] as? String,
+           let total = countStr.split(separator: "/").last.flatMap({ Int($0) }) {
+            return total
+        }
+        return 0
+    }
+
+    func requestPasswordReset(email: String) async throws {
+        let url = baseURL.appendingPathComponent("auth/v1/recover")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue(anonKey, forHTTPHeaderField: "apikey")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["email": email])
+        _ = try await URLSession.shared.data(for: request)
+    }
+
+    // MARK: - Stories
+
+    func fetchRecentStories(limit: Int = 40) async throws -> [Story] {
+        var components = URLComponents(url: baseURL.appendingPathComponent("rest/v1/stories"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [
+            URLQueryItem(name: "select", value: "id,title,image_url,media_url,location,user_id,created_at"),
+            URLQueryItem(name: "order", value: "created_at.desc"),
+            URLQueryItem(name: "limit", value: String(limit))
+        ]
+
+        guard let url = components?.url else { return [] }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue(anonKey, forHTTPHeaderField: "apikey")
+        request.setValue("Bearer \(anonKey)", forHTTPHeaderField: "Authorization")
+
+        let (data, _) = try await URLSession.shared.data(for: request)
+        return try JSONDecoder().decode([Story].self, from: data)
+    }
+
 }

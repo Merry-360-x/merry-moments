@@ -63,3 +63,29 @@ struct Listing: Identifiable, Decodable {
         self.init(id: id, hostId: hostId, title: title, location: location, pricePerNight: price, pricePerMonth: monthlyPrice, currency: currency, isPublished: isPublished, monthlyOnlyListing: monthlyOnlyListing, images: images, mainImage: mainImage, rating: rating)
     }
 }
+
+// MARK: - Story
+
+struct Story: Identifiable, Decodable {
+    let id: String
+    let title: String
+    let imageUrl: String?
+    let mediaUrl: String?
+    let location: String?
+    let userId: String
+    let createdAt: String?
+
+    var displayImage: String? {
+        imageUrl ?? mediaUrl
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case imageUrl = "image_url"
+        case mediaUrl = "media_url"
+        case location
+        case userId = "user_id"
+        case createdAt = "created_at"
+    }
+}

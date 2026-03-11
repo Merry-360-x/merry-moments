@@ -208,8 +208,8 @@ export function convertAmount(amount: number, from: string, to: string, usdRates
   const t = String(to || "RWF").toUpperCase();
   if (f === t) return roundToCurrency(a, t);
   
-  // Use fixed rates if usdRates is null
-  const rates = usdRates ?? FIXED_RATES;
+  // Merge provided rates over fixed rates so conversion still works if rates are null/partial/empty.
+  const rates = { ...FIXED_RATES, ...(usdRates ?? {}) };
   const rf = rates[f];
   const rt = rates[t];
   if (!rf || !rt) return null;
@@ -250,7 +250,7 @@ export function convertAmountWithAudit(
 } {
   const f = String(from || "RWF").toUpperCase();
   const t = String(to || "RWF").toUpperCase();
-  const rates = usdRates ?? FIXED_RATES;
+  const rates = { ...FIXED_RATES, ...(usdRates ?? {}) };
   
   // Calculate the effective rate (from -> to)
   let rateUsed: number | null = null;

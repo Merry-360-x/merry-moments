@@ -8,6 +8,8 @@ struct ProfileView: View {
     @State private var hostActionMessage: String?
     @State private var activeCenter: AppCenterDestination?
     @State private var activeSettingSheet: ProfileSettingKind?
+    @State private var showPersonalInfoSheet = false
+    @State private var showSecuritySheet = false
 
     @AppStorage("merry_mobile_region") private var selectedRegion = "Rwanda"
     @AppStorage("merry_mobile_language") private var selectedLanguage = "English"
@@ -106,17 +108,17 @@ struct ProfileView: View {
                                     .scaledToFill()
                             } placeholder: {
                                 Circle()
-                                    .fill(Color(uiColor: .tertiarySystemFill))
+                                    .fill(session.isAuthenticated ? AppTheme.coral.opacity(0.3) : Color(uiColor: .tertiarySystemFill))
                             }
-                            .frame(width: 80, height: 80)
+                            .frame(width: session.isAuthenticated ? 88 : 80, height: session.isAuthenticated ? 88 : 80)
                             .clipShape(Circle())
                         } else {
                             Circle()
-                                .fill(Color(uiColor: .tertiarySystemFill))
-                                .frame(width: 80, height: 80)
+                                .fill(session.isAuthenticated ? AppTheme.coral : Color(uiColor: .tertiarySystemFill))
+                                .frame(width: session.isAuthenticated ? 88 : 80, height: session.isAuthenticated ? 88 : 80)
 
                             Text(String(profileHeaderName.prefix(1)).uppercased())
-                                .font(.system(size: 32, weight: .bold))
+                                .font(.system(size: session.isAuthenticated ? 34 : 32, weight: .bold))
                                 .foregroundColor(.white)
                         }
                     }
@@ -124,12 +126,57 @@ struct ProfileView: View {
                     Text(profileHeaderName)
                         .font(.system(size: 20, weight: .semibold))
                         .foregroundColor(AppTheme.textPrimary)
-                    
-                    Text(session.isAuthenticated ? "Logged in" : "Browse and sign in")
-                        .font(.system(size: 14))
-                        .foregroundColor(AppTheme.textSecondary)
+
+                    if let email = viewModel.email {
+                        Text(email)
+                            .font(.system(size: 13))
+                            .foregroundColor(AppTheme.textSecondary)
+                    } else {
+                        Text(session.isAuthenticated ? "Account active" : "Browse and sign in")
+                            .font(.system(size: 14))
+                            .foregroundColor(AppTheme.textSecondary)
+                    }
+
+                    // Role chips
+                    if session.isAuthenticated {
+                        let displayRoles = normalizedRoles.isEmpty
+                            ? ["Traveler"]
+                            : normalizedRoles.sorted().map { $0.replacingOccurrences(of: "_", with: " ").capitalized }
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(displayRoles, id: \.self) { tag in
+                                    Text(tag)
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(AppTheme.coral)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 5)
+                                        .background(AppTheme.coral.opacity(0.12))
+                                        .clipShape(Capsule())
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                        }
+                    }
                 }
                 .padding(.vertical, 20)
+
+                // Quick stats (logged-in only)
+                if session.isAuthenticated {
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                        ProfileStatCard(value: "\(viewModel.upcomingTrips)", label: "Upcoming")
+                        ProfileStatCard(value: "\(viewModel.loyaltyPoints)", label: "Points")
+                        ProfileStatCard(value: "\(viewModel.savedCount)", label: "Saved")
+                    }
+                    .padding(.horizontal, 20)
+
+                    if let ms = viewModel.memberSince {
+                        Text("Member since: \(ms)")
+                            .font(.system(size: 12))
+                            .foregroundColor(AppTheme.textSecondary)
+                            .padding(.top, 8)
+                            .padding(.horizontal, 20)
+                    }
+                }
 
                 if viewModel.loading {
                     MerryLoadingStateView(
@@ -185,6 +232,29 @@ struct ProfileView: View {
                         .foregroundColor(AppTheme.textSecondary)
                         .padding(.horizontal, 20)
                         .padding(.top, 8)
+                }
+
+                // Account Section (logged-in only)
+                if session.isAuthenticated {
+                    ProfileSection(title: "Account") {
+                        ProfileMenuItem(
+                            systemName: "person.text.rectangle",
+                            title: "Personal Info",
+                            value: viewModel.editFullName.isEmpty ? nil : viewModel.editFullName
+                        ) {
+                            showPersonalInfoSheet = true
+                        }
+                        ProfileMenuItem(systemName: "lock.shield", title: "Security") {
+                            showSecuritySheet = true
+                        }
+                        ProfileMenuItem(
+                            systemName: "checkmark.seal",
+                            title: "Complete Profile",
+                            value: viewModel.loyaltyPoints < 5 ? "Earn 5 pts" : nil
+                        ) {
+                            activeCenter = .completeProfile
+                        }
+                    }
                 }
                 
                 // Settings Section
@@ -254,8 +324,17 @@ struct ProfileView: View {
 
                 if session.isAuthenticated {
                     ProfileSection(title: "Bookings") {
-                        ProfileMenuItem(systemName: "calendar", title: "Bookings & Checkout") {
+                        ProfileMenuItem(systemName: "calendar", title: "My Bookings") {
                             activeCenter = .bookingsCheckout
+                        }
+                        ProfileMenuItem(systemName: "creditcard", title: "Checkout & Payment Status") {
+                            activeCenter = .bookingsCheckout
+                        }
+                        ProfileMenuItem(systemName: "heart", title: "Favorites") {
+                            activeCenter = .favorites
+                        }
+                        ProfileMenuItem(systemName: "cart", title: "Trip Cart") {
+                            activeCenter = .tripCart
                         }
                     }
                 }
@@ -301,6 +380,16 @@ struct ProfileView: View {
             }
             .presentationDetents([.height(330), .medium])
             .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showPersonalInfoSheet) {
+            PersonalInfoSheet(viewModel: viewModel, userId: session.userId ?? "")
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showSecuritySheet) {
+            SecuritySheet(viewModel: viewModel, email: viewModel.email ?? "")
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
         }
         .task(id: session.userId) {
             if let userId = session.userId {
@@ -532,4 +621,156 @@ struct ProfileMenuItem: View {
 #Preview {
     NavigationStack { ProfileView() }
         .environmentObject(AppSessionViewModel())
+}
+
+// MARK: - Quick Stat Card
+
+private struct ProfileStatCard: View {
+    let value: String
+    let label: String
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .font(.system(size: 22, weight: .bold))
+                .foregroundColor(AppTheme.textPrimary)
+            Text(label)
+                .font(.system(size: 12))
+                .foregroundColor(AppTheme.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 16)
+        .background(Color(uiColor: .secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+// MARK: - Personal Info Sheet
+
+private struct PersonalInfoSheet: View {
+    @ObservedObject var viewModel: ProfileViewModel
+    let userId: String
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Name") {
+                    LabeledContent("Full Name") {
+                        TextField("Your name", text: $viewModel.editFullName)
+                            .multilineTextAlignment(.trailing)
+                    }
+                    LabeledContent("Nickname") {
+                        TextField("Shown to guests", text: $viewModel.editNickname)
+                            .multilineTextAlignment(.trailing)
+                    }
+                }
+                Section("Contact") {
+                    LabeledContent("Phone") {
+                        TextField("+250...", text: $viewModel.editPhone)
+                            .multilineTextAlignment(.trailing)
+                            .keyboardType(.phonePad)
+                    }
+                    LabeledContent("Date of Birth") {
+                        TextField("YYYY-MM-DD", text: $viewModel.editDateOfBirth)
+                            .multilineTextAlignment(.trailing)
+                    }
+                }
+                Section("About You") {
+                    TextEditor(text: $viewModel.editBio)
+                        .frame(minHeight: 80)
+                }
+                if viewModel.saveSuccess {
+                    Section {
+                        Label("Changes saved!", systemImage: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                    }
+                }
+                if let err = viewModel.saveError {
+                    Section {
+                        Text(err).foregroundColor(.red).font(.caption)
+                    }
+                }
+            }
+            .navigationTitle("Personal Info")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(viewModel.saving ? "Saving..." : "Save") {
+                        Task {
+                            await viewModel.saveProfile(userId: userId)
+                            if viewModel.saveSuccess { dismiss() }
+                        }
+                    }
+                    .disabled(viewModel.saving)
+                    .foregroundColor(AppTheme.coral)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Security Sheet
+
+private struct SecuritySheet: View {
+    @ObservedObject var viewModel: ProfileViewModel
+    let email: String
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Account Email") {
+                    HStack {
+                        Image(systemName: "envelope")
+                            .foregroundColor(AppTheme.textSecondary)
+                        Text(email.isEmpty ? "—" : email)
+                            .foregroundColor(AppTheme.textPrimary)
+                    }
+                    Text("To change your email, contact support.")
+                        .font(.caption)
+                        .foregroundColor(AppTheme.textSecondary)
+                }
+                Section("Password Reset") {
+                    Text("A reset link will be sent to your email address.")
+                        .font(.caption)
+                        .foregroundColor(AppTheme.textSecondary)
+                    Button(action: {
+                        guard !email.isEmpty else { return }
+                        Task { await viewModel.requestPasswordReset(email: email) }
+                    }) {
+                        HStack {
+                            Image(systemName: "envelope.badge.shield.half.filled")
+                            Text(viewModel.resettingPassword ? "Sending..." : "Send Password Reset Email")
+                        }
+                        .foregroundColor(AppTheme.coral)
+                    }
+                    .disabled(viewModel.resettingPassword || email.isEmpty)
+                }
+                if viewModel.resetSuccess {
+                    Section {
+                        Label("Reset email sent! Check your inbox.", systemImage: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                            .font(.caption)
+                    }
+                }
+                if let err = viewModel.resetError {
+                    Section {
+                        Text(err).foregroundColor(.red).font(.caption)
+                    }
+                }
+            }
+            .navigationTitle("Security")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                        .foregroundColor(AppTheme.coral)
+                }
+            }
+        }
+    }
 }

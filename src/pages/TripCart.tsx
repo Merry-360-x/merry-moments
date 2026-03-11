@@ -16,7 +16,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { formatMoney } from "@/lib/money";
 import { useTripCart, getGuestCart, getCartItemMetadata, saveCartItemMetadata, CartItemMetadata } from "@/hooks/useTripCart";
 import { useFxRates } from "@/hooks/useFxRates";
-import { convertAmount } from "@/lib/fx";
+import { convertAmount, roundToCurrency } from "@/lib/fx";
 import { 
   Trash2, 
   Tag, 
@@ -311,7 +311,11 @@ export default function TripCart() {
       }
       
       setAppliedDiscount(data);
-      toast({ title: "Discount Applied!", description: `${data.discount_type === 'percentage' ? data.discount_value + '%' : data.currency + ' ' + data.discount_value} off` });
+      const fixedDiscountText = (() => {
+        const converted = convertAmount(data.discount_value, data.currency, displayCurrency, usdRates);
+        return `${formatMoney(converted ?? data.discount_value, converted !== null ? displayCurrency : data.currency)} off`;
+      })();
+      toast({ title: "Discount Applied!", description: `${data.discount_type === 'percentage' ? data.discount_value + '%' : fixedDiscountText}` });
     } catch {
       toast({ variant: "destructive", title: "Error", description: "Failed to validate discount code" });
     }
@@ -393,7 +397,7 @@ export default function TripCart() {
             ? item.weekly_discount 
             : 0;
         if (stayDiscountPercent > 0) {
-          itemDiscount = convertedBase * (stayDiscountPercent / 100);
+          itemDiscount = roundToCurrency(convertedBase * (stayDiscountPercent / 100), curr);
           stayDiscountAmount += itemDiscount;
         }
       }
@@ -416,8 +420,12 @@ export default function TripCart() {
         const converted = convertAmount(appliedDiscount.discount_value, appliedDiscount.currency, curr, usdRates);
         promoDiscountAmount = converted ?? 0;
       }
-      if (appliedDiscount.minimum_amount && subtotalAfterStay < appliedDiscount.minimum_amount) {
-        promoDiscountAmount = 0;
+      if (appliedDiscount.minimum_amount) {
+        const convertedMinimum = convertAmount(appliedDiscount.minimum_amount, appliedDiscount.currency, curr, usdRates);
+        const minimumForCurrentCurrency = convertedMinimum ?? appliedDiscount.minimum_amount;
+        if (subtotalAfterStay < minimumForCurrentCurrency) {
+          promoDiscountAmount = 0;
+        }
       }
     }
 
@@ -764,11 +772,16 @@ export default function TripCart() {
                       <span>-{formatMoney(discount, displayCurrency)}</span>
                     </div>
                   )}
-                  {appliedDiscount && appliedDiscount.minimum_amount && subtotal < appliedDiscount.minimum_amount && (
-                    <p className="text-xs text-amber-600 dark:text-amber-400">
-                      Min. {formatMoney(appliedDiscount.minimum_amount, appliedDiscount.currency)} required for discount
-                    </p>
-                  )}
+                  {appliedDiscount && appliedDiscount.minimum_amount && (() => {
+                    const convertedMinimum = convertAmount(appliedDiscount.minimum_amount, appliedDiscount.currency, displayCurrency, usdRates);
+                    const minimumForCurrentCurrency = convertedMinimum ?? appliedDiscount.minimum_amount;
+                    if (subtotal >= minimumForCurrentCurrency) return null;
+                    return (
+                      <p className="text-xs text-amber-600 dark:text-amber-400">
+                        Min. {formatMoney(minimumForCurrentCurrency, convertedMinimum !== null ? displayCurrency : appliedDiscount.currency)} required for discount
+                      </p>
+                    );
+                  })()}
                 </div>
 
                 {/* Total */}

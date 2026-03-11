@@ -15,7 +15,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { formatMoney } from "@/lib/money";
 import { useTripCart, CartItemMetadata, getCartItemMetadata } from "@/hooks/useTripCart";
 import { useFxRates } from "@/hooks/useFxRates";
-import { convertAmount, PAYMENT_CURRENCIES } from "@/lib/fx";
+import { convertAmount, PAYMENT_CURRENCIES, roundToCurrency } from "@/lib/fx";
 import {
   calculateBookingFinancialsFromDiscountedListing,
   calculateGuestTotal,
@@ -719,7 +719,7 @@ export default function CheckoutNew() {
             ? weeklyDiscount 
             : 0;
         if (discountPercent > 0) {
-            stayDiscountForItem = Math.round((converted * discountPercent) / 100);
+            stayDiscountForItem = roundToCurrency((converted * discountPercent) / 100, curr);
             stayDiscountAmount += stayDiscountForItem;
         }
       }
@@ -739,8 +739,12 @@ export default function CheckoutNew() {
         const converted = convertAmount(appliedDiscount.discount_value, appliedDiscount.currency, curr, usdRates);
         discountAmount = converted ?? 0;
       }
-      if (appliedDiscount.minimum_amount && afterStayDiscount < appliedDiscount.minimum_amount) {
-        discountAmount = 0;
+      if (appliedDiscount.minimum_amount) {
+        const convertedMinimum = convertAmount(appliedDiscount.minimum_amount, appliedDiscount.currency, curr, usdRates);
+        const minimumForCurrentCurrency = convertedMinimum ?? appliedDiscount.minimum_amount;
+        if (afterStayDiscount < minimumForCurrentCurrency) {
+          discountAmount = 0;
+        }
       }
     }
 
@@ -824,9 +828,12 @@ export default function CheckoutNew() {
       setDiscountCodeInput("");
       toast({
         title: "Discount applied!",
-        description: data.discount_type === 'percentage' 
+        description: data.discount_type === 'percentage'
           ? `${data.discount_value}% off your order`
-          : `${formatMoney(data.discount_value, displayCurrency)} off your order`,
+          : (() => {
+              const converted = convertAmount(data.discount_value, data.currency, displayCurrency, usdRates);
+              return `${formatMoney(converted ?? data.discount_value, converted !== null ? displayCurrency : data.currency)} off your order`;
+            })(),
       });
     } catch (err) {
       console.error("Discount error:", err);
@@ -990,7 +997,7 @@ export default function CheckoutNew() {
                 : 0)
           : 0;
         const stayDiscountForItem = stayDiscountPercent > 0
-          ? Math.round((converted * stayDiscountPercent) / 100)
+          ? roundToCurrency((converted * stayDiscountPercent) / 100, item.currency)
           : 0;
         const itemAfterStayDiscount = Math.max(0, converted - stayDiscountForItem);
         
@@ -1056,8 +1063,8 @@ export default function CheckoutNew() {
       const hostFeePercent = serviceType === 'accommodation'
         ? PLATFORM_FEES.accommodation.hostFeePercent
         : PLATFORM_FEES[serviceType].providerFeePercent;
-      const discountedListingSubtotalRwf = Math.round(amountInRwf / (1 + (guestFeePercent / 100)));
-      const hostFeeAmountRwf = Math.round((discountedListingSubtotalRwf * hostFeePercent) / 100);
+      const discountedListingSubtotalRwf = roundToCurrency(amountInRwf / (1 + (guestFeePercent / 100)), 'RWF');
+      const hostFeeAmountRwf = roundToCurrency((discountedListingSubtotalRwf * hostFeePercent) / 100, 'RWF');
       const hostEarningsAmountRwf = discountedListingSubtotalRwf - hostFeeAmountRwf;
       
       // Create a single checkout request with all cart items in metadata
@@ -1067,11 +1074,11 @@ export default function CheckoutNew() {
         email: formData.email,
         phone: fullPhone || formData.phone || null,
         message: formData.notes || null,
-        total_amount: Math.round(amountInRwf),
+        total_amount: roundToCurrency(amountInRwf, 'RWF'),
         currency: 'RWF', // Always store in RWF
         // Fee breakdown fields
         base_price_amount: discountedListingSubtotalRwf,
-        service_fee_amount: Math.round(serviceFees * (displayCurrency === 'RWF' ? 1 : (amountInRwf / payableAmount))),
+        service_fee_amount: roundToCurrency(serviceFees * (displayCurrency === 'RWF' ? 1 : (amountInRwf / payableAmount)), 'RWF'),
         host_earnings_amount: hostEarningsAmountRwf,
         payment_status: 'pending',
         payment_method: paymentMethod === 'card' ? 'card' : paymentMethod === 'bank' ? 'bank_transfer' : 'mobile_money',
@@ -1154,7 +1161,7 @@ export default function CheckoutNew() {
             guests: isProperty
               ? Number(item.metadata?.guests || bookingDetails?.guests || 1)
               : Number((item.metadata as any)?.participants || item.quantity || 1),
-            total_price: Math.round(itemAmount),
+            total_price: roundToCurrency(itemAmount, item.calculated_price_currency || item.currency || 'RWF'),
             currency: item.calculated_price_currency || item.currency || 'RWF',
             status: 'pending',
             payment_status: 'pending',
@@ -1186,7 +1193,7 @@ export default function CheckoutNew() {
               guestName: formData.fullName,
               guestEmail: formData.email,
               guestPhone: fullPhone || formData.phone || null,
-              totalAmount: Math.round(amountInRwf),
+              totalAmount: roundToCurrency(amountInRwf, 'RWF'),
               currency: 'RWF',
               paymentMethod: 'bank_transfer',
               items: cartItemsWithPrices.map((item) => ({
@@ -1223,7 +1230,7 @@ export default function CheckoutNew() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             checkoutId,
-            amount: Math.round(amountInRwf),
+            amount: roundToCurrency(amountInRwf, 'RWF'),
             currency: 'RWF',
             payerName: formData.fullName,
             payerEmail: formData.email,
@@ -1276,7 +1283,7 @@ export default function CheckoutNew() {
         });
       }
       
-      const finalAmount = Math.round(paymentAmount);
+      const finalAmount = roundToCurrency(paymentAmount, paymentCurrency);
       
       // Validate amount before initiating payment
       const minAmount = paymentCurrency === 'RWF' ? 100 : 
@@ -2136,7 +2143,10 @@ export default function CheckoutNew() {
                       <span className="text-xs text-green-600 dark:text-green-400">
                         ({appliedDiscount.discount_type === 'percentage' 
                           ? `${appliedDiscount.discount_value}% off` 
-                          : `${formatMoney(appliedDiscount.discount_value, displayCurrency)} off`})
+                          : (() => {
+                              const converted = convertAmount(appliedDiscount.discount_value, appliedDiscount.currency, displayCurrency, usdRates);
+                              return `${formatMoney(converted ?? appliedDiscount.discount_value, converted !== null ? displayCurrency : appliedDiscount.currency)} off`;
+                            })()})
                       </span>
                     </div>
                     <button

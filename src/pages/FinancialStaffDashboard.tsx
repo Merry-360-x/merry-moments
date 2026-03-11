@@ -1336,7 +1336,7 @@ export default function FinancialStaffDashboard() {
                         </TableCell>
                         <TableCell>
                           <span className="font-semibold">
-                            {payout.currency} {payout.amount?.toLocaleString()}
+                            {formatMoney(Number(payout.amount || 0), payout.currency || dashboardCurrency)}
                           </span>
                         </TableCell>
                         <TableCell>

@@ -52,6 +52,7 @@
 		77636B02989465BD7663874E /* InboxViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxViewModel.swift; sourceTree = "<group>"; };
 		7C31B1A4DAFE23AC3503064A /* BookingDraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookingDraft.swift; sourceTree = "<group>"; };
 		A51ED40924509F83D26F699F /* Listing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Listing.swift; sourceTree = "<group>"; };
+				18016F9E55664C13A19B626D /* Story.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Story.swift; sourceTree = "<group>"; };
 		A7AE6D019CE9CE549A72953A /* SearchSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchSheet.swift; sourceTree = "<group>"; };
 		B492409A5CD8CC0106276323 /* InboxView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxView.swift; sourceTree = "<group>"; };
 		B9F4D0EAC6D902A804927861 /* AuthViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewModel.swift; sourceTree = "<group>"; };

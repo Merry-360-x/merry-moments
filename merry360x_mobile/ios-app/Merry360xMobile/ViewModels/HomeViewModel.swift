@@ -13,6 +13,7 @@ final class HomeViewModel: ObservableObject {
     @Published var tours: [Listing] = []
     @Published var cars: [Listing] = []
     @Published var events: [Listing] = []
+    @Published var stories: [Story] = []
     @Published var citySections: [CitySection] = []
     @Published var cities: [(city: String, count: Int)] = []
     @Published var loading = false
@@ -56,16 +57,19 @@ final class HomeViewModel: ObservableObject {
             async let toursTask = service.fetchTours(limit: 40)
             async let carsTask = service.fetchCars(limit: 40)
             async let eventsTask = service.fetchEvents(limit: 40)
+            async let storiesTask = service.fetchRecentStories(limit: 40)
 
             let stayRows = try await stayTask
             let tourRows = try await toursTask
             let carRows = try await carsTask
             let eventRows = try await eventsTask
+            let storyRows = try await storiesTask
 
             listings = stayRows
             tours = tourRows
             cars = carRows
             events = eventRows
+            stories = storyRows
 
             var grouped: [String: [Listing]] = [:]
             for listing in stayRows {

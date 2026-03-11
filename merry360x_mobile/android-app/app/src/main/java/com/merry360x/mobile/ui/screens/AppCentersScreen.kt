@@ -1,5 +1,7 @@
 package com.merry360x.mobile.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -32,8 +34,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -51,12 +55,14 @@ import com.merry360x.mobile.data.HostReviewRecord
 import com.merry360x.mobile.data.OperationsSummaryMetrics
 import com.merry360x.mobile.data.SupabaseApi
 import com.merry360x.mobile.data.SupportSummaryMetrics
+import com.merry360x.mobile.data.CloudinaryUploader
 import com.merry360x.mobile.theme.CardGray
 import com.merry360x.mobile.theme.Coral
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
 import java.time.temporal.ChronoUnit
 import java.util.Locale
+import kotlinx.coroutines.launch
 import org.json.JSONObject
 import org.json.JSONArray
 
@@ -564,7 +570,30 @@ private fun NativeCreateStoryModule(
     var body by rememberSaveable { mutableStateOf("") }
     var mediaUrl by rememberSaveable { mutableStateOf("") }
     var saving by remember { mutableStateOf(false) }
+    var uploadingImage by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val canPublish = !userId.isNullOrBlank() && !accessToken.isNullOrBlank()
+    val hasRequiredFields = title.isNotBlank() && body.isNotBlank()
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { selectedUri ->
+        if (selectedUri == null) return@rememberLauncherForActivityResult
+        uploadingImage = true
+        status = null
+        scope.launch {
+            val uploadResult = CloudinaryUploader.uploadImage(
+                context = context,
+                imageUri = selectedUri,
+            )
+            status = if (uploadResult.isSuccess) {
+                mediaUrl = uploadResult.getOrNull().orEmpty()
+                "Image uploaded and attached."
+            } else {
+                "Could not upload image: ${uploadResult.exceptionOrNull()?.message ?: "Unknown error"}"
+            }
+            uploadingImage = false
+        }
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Add Story", fontWeight = FontWeight.Bold, fontSize = 18.sp)
@@ -600,18 +629,34 @@ private fun NativeCreateStoryModule(
             modifier = Modifier.fillMaxWidth(),
         )
 
+        Button(
+            onClick = { imagePicker.launch("image/*") },
+            enabled = !saving && !uploadingImage,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(if (uploadingImage) "Uploading image..." else "Upload Image to Cloudinary")
+        }
+
         status?.let { Text(it, color = if (it.startsWith("Could")) Color.Red else Color(0xFF777777), fontSize = 12.sp) }
+
+        if (!canPublish) {
+            Text("Login required to publish a story.", color = Color(0xFF9E9E9E), fontSize = 12.sp)
+        }
 
         Button(
             onClick = {
-                if (userId.isNullOrBlank()) {
+                if (!canPublish || userId.isNullOrBlank()) {
                     status = "Login required to publish a story."
+                    return@Button
+                }
+                if (!hasRequiredFields) {
+                    status = "Title and story are required."
                     return@Button
                 }
                 saving = true
                 status = null
             },
-            enabled = !saving,
+            enabled = !saving && !uploadingImage && canPublish && hasRequiredFields,
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(if (saving) "Publishing..." else "Publish Story")
@@ -619,13 +664,19 @@ private fun NativeCreateStoryModule(
     }
 
     if (saving) {
-        LaunchedEffect(title, location, body, mediaUrl, userId) {
+        val requestTitle = title
+        val requestLocation = location
+        val requestBody = body
+        val requestMediaUrl = mediaUrl
+        val requestUserId = userId
+
+        LaunchedEffect(saving) {
             val result = api.createStory(
-                userId = userId.orEmpty(),
-                title = title,
-                body = body,
-                location = location,
-                mediaUrl = mediaUrl,
+                userId = requestUserId.orEmpty(),
+                title = requestTitle,
+                body = requestBody,
+                location = requestLocation,
+                mediaUrl = requestMediaUrl,
                 accessToken = accessToken,
             )
             status = if (result.isSuccess) {

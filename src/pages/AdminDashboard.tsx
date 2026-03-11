@@ -1377,12 +1377,13 @@ export default function AdminDashboard() {
           .eq("id", payoutId);
 
         const payoutStatus = payoutData.status || "processing";
+        const payoutAmountLabel = formatMoney(Number(payout.amount ?? 0), String(payout.currency ?? "RWF"));
         toast({
           title: payoutStatus === "completed" ? "Payout Completed" : "Payout Sent",
           description:
             payoutStatus === "completed"
-              ? `${payout.currency} ${payout.amount.toLocaleString()} has been completed via PawaPay.`
-              : `${payout.currency} ${payout.amount.toLocaleString()} was approved and is processing via PawaPay to ${phone}.`,
+              ? `${payoutAmountLabel} has been completed via PawaPay.`
+              : `${payoutAmountLabel} was approved and is processing via PawaPay to ${phone}.`,
         });
         refetchPayouts();
         setProcessingPayout(null);
@@ -2225,7 +2226,7 @@ export default function AdminDashboard() {
       'Check In': booking.check_in,
       'Check Out': booking.check_out,
       'Number of Guests': booking.guests,
-      'Total Price': `${booking.currency} ${booking.total_price}`,
+      'Total Price': formatMoney(Number(booking.total_price || 0), String(booking.currency || 'RWF')),
       'Payment Method': booking.payment_method || 'N/A',
       'Payment Status': booking.payment_status || 'N/A',
       'Status': booking.status,
@@ -2263,6 +2264,17 @@ export default function AdminDashboard() {
       itemName = booking.properties.title;
     }
 
+    const bookingCurrency =
+      booking.booking_type === 'property' && booking.properties?.currency
+        ? booking.properties.currency
+        : booking.booking_type === 'tour' && booking.tour_packages?.currency
+          ? booking.tour_packages.currency
+          : booking.booking_type === 'transport' && booking.transport_vehicles?.currency
+            ? booking.transport_vehicles.currency
+            : booking.currency;
+
+    const totalAmountLabel = formatMoney(Number(booking.total_price || 0), String(bookingCurrency || 'RWF'));
+
     const receiptContent = `
 PAYMENT RECEIPT
 ================
@@ -2286,15 +2298,7 @@ Number of ${itemType === 'property' ? 'Guests' : 'Participants'}: ${booking.gues
 
 PAYMENT DETAILS
 ---------------
-Total Amount: ${
-  booking.booking_type === 'property' && booking.properties?.currency
-    ? booking.properties.currency
-    : booking.booking_type === 'tour' && booking.tour_packages?.currency
-      ? booking.tour_packages.currency
-      : booking.booking_type === 'transport' && booking.transport_vehicles?.currency
-        ? booking.transport_vehicles.currency
-        : booking.currency
-} ${booking.total_price}
+Total Amount: ${totalAmountLabel}
 Payment Method: ${booking.payment_method || 'Pending'}
 Payment Status: ${booking.payment_status || 'N/A'}
 Booking Status: ${booking.status}
@@ -2411,14 +2415,14 @@ For support, contact: support@merry360x.com
       "",
       "Summary",
       "-------",
-      `Gross Revenue (RWF): ${metrics?.revenue_gross ?? 0}`,
+      `Gross Revenue (RWF): ${formatMoney(Number(metrics?.revenue_gross ?? 0), "RWF")}`,
       `Bookings Paid: ${metrics?.bookings_paid ?? 0}`,
-      `Refunds Total (RWF): ${metrics?.refunds_total ?? 0}`,
+      `Refunds Total (RWF): ${formatMoney(Number(metrics?.refunds_total ?? 0), "RWF")}`,
       "",
       "Revenue by Currency",
       "-------------------",
       ...(revenueRows.length > 0
-        ? revenueRows.map((row) => `${row.currency}: ${row.amount}`)
+        ? revenueRows.map((row) => `${row.currency}: ${formatMoney(Number(row.amount ?? 0), row.currency)}`)
         : ["No currency revenue rows available"]),
     ];
 
@@ -5933,7 +5937,7 @@ For support, contact: support@merry360x.com
                         </TableCell>
                         <TableCell>
                           <span className="font-semibold">
-                            {payout.currency} {payout.amount?.toLocaleString()}
+                            {formatMoney(Number(payout.amount ?? 0), String(payout.currency ?? "RWF"))}
                           </span>
                         </TableCell>
                         <TableCell>

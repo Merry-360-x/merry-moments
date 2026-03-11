@@ -501,6 +501,11 @@ class SupabaseApi(
             return@withContext Result.failure(IllegalArgumentException("Title and body are required"))
         }
 
+        val bearerToken = accessToken?.trim().orEmpty()
+        if (bearerToken.isBlank()) {
+            return@withContext Result.failure(IllegalStateException("Login required to publish a story"))
+        }
+
         val safeMedia = mediaUrl?.trim().orEmpty().ifBlank { null }
         val mediaType = when {
             safeMedia == null -> null
@@ -522,7 +527,7 @@ class SupabaseApi(
         val request = Request.Builder()
             .url("$supabaseUrl/rest/v1/stories")
             .addHeader("apikey", anonKey)
-            .addHeader("Authorization", "Bearer ${accessToken?.takeIf { it.isNotBlank() } ?: anonKey}")
+            .addHeader("Authorization", "Bearer $bearerToken")
             .addHeader("Content-Type", "application/json")
             .addHeader("Prefer", "return=minimal")
             .post(json.toString().toRequestBody("application/json".toMediaType()))
@@ -530,7 +535,22 @@ class SupabaseApi(
 
         client.newCall(request).execute().use { response ->
             if (response.isSuccessful) Result.success(Unit)
-            else Result.failure(IllegalStateException("Could not publish story (${response.code})"))
+            else {
+                val errorBody = response.body?.string().orEmpty()
+                val parsedError = try {
+                    JSONObject(errorBody).optString("message").ifBlank { null }
+                        ?: JSONObject(errorBody).optString("error").ifBlank { null }
+                } catch (_: Exception) {
+                    null
+                }
+                val detail = parsedError ?: errorBody.take(180).ifBlank { null }
+                val message = if (detail != null) {
+                    "Could not publish story (${response.code}): $detail"
+                } else {
+                    "Could not publish story (${response.code})"
+                }
+                Result.failure(IllegalStateException(message))
+            }
         }
     }
 
