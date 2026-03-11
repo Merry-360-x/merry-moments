@@ -217,10 +217,50 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
 
+      <section className="container mx-auto px-4 pt-3 md:pt-4">
+        <div className="rounded-2xl border border-border/40 bg-gradient-to-r from-background via-secondary/20 to-background px-3 py-2">
+          <div className="mb-1 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-foreground">Stories</h2>
+            <Button variant="ghost" size="sm" onClick={() => navigate("/stories")}>View all</Button>
+          </div>
+
+          {isStoryCirclesLoading ? (
+            <div className="flex gap-3 overflow-x-auto pb-1">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="shrink-0 h-12 w-12 rounded-full bg-muted animate-pulse" />
+              ))}
+            </div>
+          ) : (
+            <div className="flex gap-3 overflow-x-auto pb-1">
+              {storyCircles.slice(0, 12).map((story) => {
+                const isFresh = storyFreshness.get(story.storyId) ?? false;
+                const fallbackText = story.displayName.slice(0, 1).toUpperCase();
+                return (
+                  <button
+                    key={story.storyId}
+                    type="button"
+                    onClick={() => navigate("/stories")}
+                    className="group shrink-0"
+                    aria-label={`Open stories by ${story.displayName}`}
+                  >
+                    <div className={`rounded-full p-[2px] ${isFresh ? "bg-gradient-to-tr from-fuchsia-500 via-amber-400 to-orange-500" : "bg-gradient-to-tr from-muted-foreground/50 to-muted-foreground/20"}`}>
+                      <Avatar className="h-12 w-12 border-2 border-background">
+                        <AvatarImage src={story.avatarUrl || story.fallbackPreviewUrl || undefined} alt={story.displayName} />
+                        <AvatarFallback>{fallbackText}</AvatarFallback>
+                      </Avatar>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </section>
+
       {/* Hero Section */}
-      <section className="container mx-auto px-4 pt-3 md:pt-5">
-        <div className="grid grid-cols-1 lg:grid-cols-[96px_minmax(0,1fr)_96px] gap-3 lg:gap-4 items-stretch">
-          <aside className="hidden lg:flex flex-col items-center gap-2 py-3 rounded-2xl bg-gradient-to-b from-muted/50 to-transparent border border-border/40">
+      <section className="container mx-auto px-4 pt-3 md:pt-4">
+        <div className="grid grid-cols-1 gap-3 items-stretch">
+          <aside className="hidden">
             <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Stories</span>
             {(isStoryCirclesLoading ? Array.from({ length: 5 }).map((_, index) => ({ storyId: `left-skeleton-${index}`, displayName: "", avatarUrl: null, fallbackPreviewUrl: null, createdAt: null })) : leftRailStories).map((story) => {
               const isFresh = storyFreshness.get(story.storyId) ?? true;
@@ -244,7 +284,7 @@ const Index = () => {
             })}
           </aside>
 
-          <div className="relative w-full min-h-[34vh] md:min-h-[58vh] flex items-center justify-center overflow-hidden rounded-3xl border border-border/40 shadow-lg">
+          <div className="relative left-1/2 right-1/2 w-screen -ml-[50vw] -mr-[50vw] min-h-[34vh] md:min-h-[58vh] flex items-center justify-center overflow-hidden">
             {/* Video Background */}
             <video
               autoPlay
@@ -285,7 +325,7 @@ const Index = () => {
             </div>
           </div>
 
-          <aside className="hidden lg:flex flex-col items-center gap-2 py-3 rounded-2xl bg-gradient-to-b from-muted/50 to-transparent border border-border/40">
+          <aside className="hidden">
             <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Live</span>
             {(isStoryCirclesLoading ? Array.from({ length: 5 }).map((_, index) => ({ storyId: `right-skeleton-${index}`, displayName: "", avatarUrl: null, fallbackPreviewUrl: null, createdAt: null })) : rightRailStories).map((story) => {
               const isFresh = storyFreshness.get(story.storyId) ?? true;
@@ -310,43 +350,6 @@ const Index = () => {
           </aside>
         </div>
 
-        <div className="lg:hidden mt-3 rounded-2xl border border-border/40 bg-gradient-to-r from-background via-secondary/20 to-background px-3 py-2">
-          <div className="mb-1 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-foreground">Stories</h2>
-            <Button variant="ghost" size="sm" onClick={() => navigate("/stories")}>View all</Button>
-          </div>
-
-          {isStoryCirclesLoading ? (
-            <div className="flex gap-3 overflow-x-auto pb-1">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="shrink-0 h-12 w-12 rounded-full bg-muted animate-pulse" />
-              ))}
-            </div>
-          ) : (
-            <div className="flex gap-3 overflow-x-auto pb-1">
-              {storyCircles.slice(0, 12).map((story) => {
-                const isFresh = storyFreshness.get(story.storyId) ?? false;
-                const fallbackText = story.displayName.slice(0, 1).toUpperCase();
-                return (
-                  <button
-                    key={story.storyId}
-                    type="button"
-                    onClick={() => navigate("/stories")}
-                    className="group shrink-0"
-                    aria-label={`Open stories by ${story.displayName}`}
-                  >
-                    <div className={`rounded-full p-[2px] ${isFresh ? "bg-gradient-to-tr from-fuchsia-500 via-amber-400 to-orange-500" : "bg-gradient-to-tr from-muted-foreground/50 to-muted-foreground/20"}`}>
-                      <Avatar className="h-12 w-12 border-2 border-background">
-                        <AvatarImage src={story.avatarUrl || story.fallbackPreviewUrl || undefined} alt={story.displayName} />
-                        <AvatarFallback>{fallbackText}</AvatarFallback>
-                      </Avatar>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
       </section>
 
       <section className="container mx-auto px-4 pt-10 pb-16">
