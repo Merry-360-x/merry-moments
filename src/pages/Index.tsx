@@ -233,7 +233,6 @@ const Index = () => {
           ) : (
             <div className="flex gap-3 overflow-x-auto pb-1">
               {storyCircles.slice(0, 12).map((story) => {
-                const isFresh = storyFreshness.get(story.storyId) ?? false;
                 const fallbackText = story.displayName.slice(0, 1).toUpperCase();
                 return (
                   <button
@@ -243,12 +242,10 @@ const Index = () => {
                     className="group shrink-0"
                     aria-label={`Open stories by ${story.displayName}`}
                   >
-                    <div className={`rounded-full p-[2px] ${isFresh ? "bg-gradient-to-tr from-fuchsia-500 via-amber-400 to-orange-500" : "bg-gradient-to-tr from-muted-foreground/50 to-muted-foreground/20"}`}>
-                      <Avatar className="h-12 w-12 border-2 border-background">
-                        <AvatarImage src={story.avatarUrl || story.fallbackPreviewUrl || undefined} alt={story.displayName} />
-                        <AvatarFallback>{fallbackText}</AvatarFallback>
-                      </Avatar>
-                    </div>
+                    <Avatar className="h-12 w-12 border border-border/50">
+                      <AvatarImage src={story.avatarUrl || story.fallbackPreviewUrl || undefined} alt={story.displayName} />
+                      <AvatarFallback>{fallbackText}</AvatarFallback>
+                    </Avatar>
                   </button>
                 );
               })}
