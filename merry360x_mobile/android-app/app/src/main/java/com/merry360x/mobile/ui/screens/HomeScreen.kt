@@ -1,6 +1,10 @@
 package com.merry360x.mobile.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -22,18 +26,26 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,15 +54,21 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import com.merry360x.mobile.data.Listing
+import com.merry360x.mobile.data.StoryPreview
+import com.merry360x.mobile.data.SupabaseApi
 import com.merry360x.mobile.theme.Coral
 import com.merry360x.mobile.viewmodel.CitySection
 import com.merry360x.mobile.viewmodel.HomeUiState
 import java.time.LocalDate
+import kotlinx.coroutines.launch
 
 private val TextSecondary = Color(0xFF888888)
 private val SoftGray = Color(0xFFF4F4F4)
@@ -61,11 +79,22 @@ fun HomeScreen(
     onRefresh: () -> Unit,
     onSelectListing: (Listing) -> Unit,
     onSearchSubmit: (destination: String, checkIn: LocalDate?, checkOut: LocalDate?, guests: Int) -> Unit = { _, _, _, _ -> },
+    api: SupabaseApi? = null,
+    userId: String? = null,
+    accessToken: String? = null,
+    userDisplayName: String = "",
 ) {
     var showSearchSheet by remember { mutableStateOf(false) }
     var selectedCategory by remember { mutableIntStateOf(0) }
+    var stories by remember { mutableStateOf<List<StoryPreview>>(emptyList()) }
+    var viewingStory by remember { mutableStateOf<StoryPreview?>(null) }
+    var showCreateStory by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
-    LaunchedEffect(Unit) { onRefresh() }
+    LaunchedEffect(Unit) {
+        onRefresh()
+        api?.let { stories = it.fetchRecentStories() }
+    }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.White)) {
         Column(
@@ -102,6 +131,14 @@ fun HomeScreen(
                     SearchBarHero(onClick = { showSearchSheet = true })
                 }
             }
+
+            // ── Stories row ───────────────────────────────────────────────
+            StoriesRow(
+                stories = stories,
+                isLoggedIn = !userId.isNullOrBlank(),
+                onViewStory = { viewingStory = it },
+                onAddStory = { showCreateStory = true },
+            )
 
             // ── Category filter pills ─────────────────────────────────────
             CategoryTabs(selected = selectedCategory, onSelect = { selectedCategory = it })
@@ -186,6 +223,311 @@ fun HomeScreen(
                 showSearchSheet = false
             }
         )
+
+        // ── Story Viewer ──────────────────────────────────────────────────────
+        viewingStory?.let { story ->
+            Dialog(
+                onDismissRequest = { viewingStory = null },
+                properties = DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black)
+                ) {
+                    if (story.imageUrl != null) {
+                        AsyncImage(
+                            model = story.imageUrl,
+                            contentDescription = story.title,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        listOf(Color.Black.copy(alpha = 0.45f), Color.Transparent, Color.Black.copy(alpha = 0.75f))
+                                    )
+                                )
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Brush.verticalGradient(listOf(Color(0xFF0D0D0D), Color(0xFF1C1005))))
+                        )
+                    }
+
+                    // Close button
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 56.dp, end = 20.dp)
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.4f))
+                            .clickable { viewingStory = null },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White, modifier = Modifier.size(18.dp))
+                    }
+
+                    // Story content
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .fillMaxWidth()
+                            .padding(24.dp)
+                            .padding(bottom = 40.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        story.location?.let {
+                            Text(
+                                it.uppercase(),
+                                color = Coral,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.5.sp
+                            )
+                        }
+                        Text(story.title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        // ── Create Story Sheet ────────────────────────────────────────────────
+        if (showCreateStory) {
+            var storyTitle by remember { mutableStateOf("") }
+            var storyBody by remember { mutableStateOf("") }
+            var storyLocation by remember { mutableStateOf("") }
+            var storyImageUrl by remember { mutableStateOf("") }
+            var submitting by remember { mutableStateOf(false) }
+            var submitError by remember { mutableStateOf<String?>(null) }
+
+            Dialog(
+                onDismissRequest = { showCreateStory = false },
+                properties = DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.White)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 24.dp)
+                            .padding(top = 56.dp, bottom = 40.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Share a Story", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFF4F4F4))
+                                    .clickable { showCreateStory = false },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.Black, modifier = Modifier.size(18.dp))
+                            }
+                        }
+                        Text("Tell the community about your travel experience.", color = Color.Gray, fontSize = 13.sp)
+
+                        OutlinedTextField(
+                            value = storyTitle,
+                            onValueChange = { storyTitle = it },
+                            label = { Text("Title *") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            singleLine = true,
+                        )
+                        OutlinedTextField(
+                            value = storyBody,
+                            onValueChange = { storyBody = it },
+                            label = { Text("Your story *") },
+                            modifier = Modifier.fillMaxWidth().height(140.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            maxLines = 8,
+                        )
+                        OutlinedTextField(
+                            value = storyLocation,
+                            onValueChange = { storyLocation = it },
+                            label = { Text("Location (optional)") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            singleLine = true,
+                        )
+                        OutlinedTextField(
+                            value = storyImageUrl,
+                            onValueChange = { storyImageUrl = it },
+                            label = { Text("Image URL (optional)") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            singleLine = true,
+                        )
+
+                        submitError?.let {
+                            Text(it, color = Color.Red, fontSize = 12.sp)
+                        }
+
+                        Button(
+                            onClick = {
+                                if (!userId.isNullOrBlank() && api != null) {
+                                    submitting = true
+                                    submitError = null
+                                    scope.launch {
+                                        val res = api.createStory(
+                                            userId = userId,
+                                            title = storyTitle,
+                                            body = storyBody,
+                                            location = storyLocation.ifBlank { null },
+                                            mediaUrl = storyImageUrl.ifBlank { null },
+                                            accessToken = accessToken,
+                                        )
+                                        if (res.isSuccess) {
+                                            showCreateStory = false
+                                            stories = api.fetchRecentStories()
+                                        } else {
+                                            submitError = res.exceptionOrNull()?.message ?: "Could not post story"
+                                        }
+                                        submitting = false
+                                    }
+                                }
+                            },
+                            enabled = storyTitle.isNotBlank() && storyBody.isNotBlank() && !submitting,
+                            modifier = Modifier.fillMaxWidth().height(50.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Coral),
+                        ) {
+                            if (submitting) {
+                                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            } else {
+                                Text("Post Story", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private val StoryRing = Brush.sweepGradient(listOf(Color(0xFFFF6B6B), Color(0xFFFF8E53), Color(0xFFFF6B6B)))
+
+@Composable
+private fun StoriesRow(
+    stories: List<StoryPreview>,
+    isLoggedIn: Boolean,
+    onViewStory: (StoryPreview) -> Unit,
+    onAddStory: () -> Unit,
+) {
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        // "Your Story" / Add button
+        item {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(5.dp),
+                modifier = Modifier.width(66.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(CircleShape)
+                        .background(if (isLoggedIn) Coral else Color(0xFFF0F0F0))
+                        .clickable(onClick = onAddStory),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = "Add Story",
+                        tint = if (isLoggedIn) Color.White else Color.Gray,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+                Text(
+                    "Your Story",
+                    fontSize = 10.sp,
+                    color = Color(0xFF555555),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+
+        items(stories) { story ->
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(5.dp),
+                modifier = Modifier
+                    .width(66.dp)
+                    .clickable { onViewStory(story) }
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(CircleShape)
+                        .border(
+                            width = 2.5.dp,
+                            brush = StoryRing,
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(58.dp)
+                            .clip(CircleShape)
+                    ) {
+                        if (story.imageUrl != null) {
+                            AsyncImage(
+                                model = story.imageUrl,
+                                contentDescription = story.title,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Brush.verticalGradient(listOf(Color(0xFF2C2C2C), Color(0xFF111111)))),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    story.title.firstOrNull()?.uppercaseChar()?.toString() ?: "S",
+                                    color = Color.White,
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+                Text(
+                    story.title,
+                    fontSize = 10.sp,
+                    color = Color(0xFF555555),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
     }
 }
 

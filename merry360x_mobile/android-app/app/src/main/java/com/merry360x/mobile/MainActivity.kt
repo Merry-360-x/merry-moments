@@ -324,6 +324,14 @@ class MainActivity : ComponentActivity() {
                                     ExploreFlow.HOME -> HomeScreen(
                                         uiState = homeState,
                                         onRefresh = { homeViewModel.load() },
+                                        api = api,
+                                        userId = authState.userId,
+                                        accessToken = authState.accessToken,
+                                        userDisplayName = when {
+                                            authState.displayName.isNotBlank() -> authState.displayName
+                                            authState.userEmail.isNotBlank() -> authState.userEmail.substringBefore("@")
+                                            else -> ""
+                                        },
                                         onSelectListing = { listing ->
                                             selectedListing = listing
                                             bookingViewModel.selectedListingId = listing.id

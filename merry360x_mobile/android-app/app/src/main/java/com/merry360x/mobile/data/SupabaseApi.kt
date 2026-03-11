@@ -455,6 +455,34 @@ class SupabaseApi(
         }
     }
 
+    suspend fun fetchRecentStories(limit: Int = 40): List<StoryPreview> = withContext(Dispatchers.IO) {
+        if (supabaseUrl.isBlank() || anonKey.isBlank()) return@withContext emptyList()
+        try {
+            val url = "$supabaseUrl/rest/v1/stories?select=id,title,image_url,media_url,location,user_id,created_at&order=created_at.desc&limit=$limit"
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("apikey", anonKey)
+                .addHeader("Authorization", "Bearer $anonKey")
+                .get()
+                .build()
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@withContext emptyList()
+                val arr = JSONArray(response.body?.string().orEmpty())
+                List(arr.length()) { i ->
+                    val obj = arr.getJSONObject(i)
+                    StoryPreview(
+                        id = obj.optString("id"),
+                        title = obj.optString("title"),
+                        imageUrl = obj.optString("image_url").ifBlank { obj.optString("media_url").ifBlank { null } },
+                        location = obj.optString("location").ifBlank { null },
+                        userId = obj.optString("user_id"),
+                        createdAt = obj.optString("created_at"),
+                    )
+                }
+            }
+        } catch (_: Exception) { emptyList() }
+    }
+
     suspend fun createStory(
         userId: String,
         title: String,
@@ -1596,6 +1624,15 @@ data class SupportChatMessage(
     val senderType: String,
     val senderName: String?,
     val message: String,
+    val createdAt: String,
+)
+
+data class StoryPreview(
+    val id: String,
+    val title: String,
+    val imageUrl: String?,
+    val location: String?,
+    val userId: String,
     val createdAt: String,
 )
 
