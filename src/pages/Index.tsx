@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import HeroSearch from "@/components/HeroSearch";
@@ -10,11 +10,12 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import TourPromoCard from "@/components/TourPromoCard";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getTourPricingModel } from "@/lib/tour-pricing";
-import { TrendingUp } from "lucide-react";
+import { ChevronLeft, ChevronRight, TrendingUp, X } from "lucide-react";
 import heroVideo from "@/assets/merry.mp4";
 
 type HomeTour = {
@@ -64,10 +65,16 @@ const parsePackageDurationDays = (duration: string | null | undefined): number |
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const isVideoMedia = (url?: string | null) => {
+  if (!url) return false;
+  return /\/video\/upload\//i.test(url) || /\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i.test(url);
+};
+
 const Index = () => {
   const { user } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [activeStoryModalIndex, setActiveStoryModalIndex] = useState<number | null>(null);
 
   const { data: popularTours = [], isLoading: isPopularToursLoading } = useQuery({
     queryKey: ["home-popular-tours"],
@@ -203,6 +210,28 @@ const Index = () => {
     );
   }, [storyCircles]);
 
+  const activeStory = activeStoryModalIndex !== null ? storyCircles[activeStoryModalIndex] ?? null : null;
+  const activeStoryMedia = activeStory?.fallbackPreviewUrl || null;
+  const activeStoryIsVideo = isVideoMedia(activeStoryMedia);
+
+  const openStoryModal = (index: number) => {
+    setActiveStoryModalIndex(index);
+  };
+
+  const closeStoryModal = () => {
+    setActiveStoryModalIndex(null);
+  };
+
+  const goToNextStoryModal = () => {
+    if (activeStoryModalIndex === null || storyCircles.length === 0) return;
+    setActiveStoryModalIndex((activeStoryModalIndex + 1) % storyCircles.length);
+  };
+
+  const goToPreviousStoryModal = () => {
+    if (activeStoryModalIndex === null || storyCircles.length === 0) return;
+    setActiveStoryModalIndex((activeStoryModalIndex - 1 + storyCircles.length) % storyCircles.length);
+  };
+
   const leftRailStories = useMemo(
     () => storyCircles.filter((_, index) => index % 2 === 0).slice(0, 5),
     [storyCircles]
@@ -232,14 +261,14 @@ const Index = () => {
             </div>
           ) : (
             <div className="flex gap-3 overflow-x-auto pb-1">
-              {storyCircles.slice(0, 12).map((story) => {
+              {storyCircles.slice(0, 12).map((story, index) => {
                 const isFresh = storyFreshness.get(story.storyId) ?? false;
                 const fallbackText = story.displayName.slice(0, 1).toUpperCase();
                 return (
                   <button
                     key={story.storyId}
                     type="button"
-                    onClick={() => navigate("/stories")}
+                    onClick={() => openStoryModal(index)}
                     className="group shrink-0"
                     aria-label={`Open stories by ${story.displayName}`}
                   >
@@ -406,6 +435,71 @@ const Index = () => {
       <HostingCTA />
 
       <Footer />
+
+      <Dialog open={activeStoryModalIndex !== null} onOpenChange={(open) => !open && closeStoryModal()}>
+        <DialogContent className="max-w-xl p-0 overflow-hidden border-border/40 bg-black">
+          {activeStory && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={closeStoryModal}
+                className="absolute right-3 top-3 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white"
+                aria-label="Close story viewer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={goToPreviousStoryModal}
+                className="absolute left-3 top-1/2 z-20 -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white"
+                aria-label="Previous story"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={goToNextStoryModal}
+                className="absolute right-3 top-1/2 z-20 -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white"
+                aria-label="Next story"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+
+              <div className="absolute left-3 top-3 z-20 flex items-center gap-2 rounded-full bg-black/50 px-3 py-1">
+                <Avatar className="h-7 w-7 border border-white/60">
+                  <AvatarImage src={activeStory.avatarUrl || activeStory.fallbackPreviewUrl || undefined} alt={activeStory.displayName} />
+                  <AvatarFallback>{activeStory.displayName.slice(0, 1).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <span className="text-xs font-medium text-white">{activeStory.displayName}</span>
+              </div>
+
+              <div className="min-h-[65vh] max-h-[80vh] bg-black flex items-center justify-center">
+                {activeStoryMedia ? (
+                  activeStoryIsVideo ? (
+                    <video
+                      src={activeStoryMedia}
+                      className="h-full w-full object-contain"
+                      controls
+                      autoPlay
+                      playsInline
+                    />
+                  ) : (
+                    <img
+                      src={activeStoryMedia}
+                      alt={activeStory.displayName}
+                      className="h-full w-full object-contain"
+                    />
+                  )
+                ) : (
+                  <div className="text-sm text-white/80">No media available for this story.</div>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
