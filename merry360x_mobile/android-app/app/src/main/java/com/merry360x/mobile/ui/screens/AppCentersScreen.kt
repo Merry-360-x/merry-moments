@@ -1,5 +1,11 @@
 package com.merry360x.mobile.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -72,23 +78,11 @@ fun AppCentersScreen(
 ) {
     var activeModule by remember(destination) { mutableStateOf<String?>(null) }
 
-    if (activeModule != null) {
-        NativeModuleScreen(
-            destination = destination,
-            moduleTitle = activeModule.orEmpty(),
-            onBack = { activeModule = null },
-            api = api,
-            userId = userId,
-            accessToken = accessToken,
-        )
-        return
-    }
-
     val title = when (destination) {
         AppCenterDestination.BACKOFFICE -> "Backoffice Center"
         AppCenterDestination.HOST_STUDIO -> "Host Studio"
         AppCenterDestination.AFFILIATE -> "Affiliate Center"
-        AppCenterDestination.SUPPORT_LEGAL -> "Support & Legal"
+        AppCenterDestination.SUPPORT_LEGAL -> "Legal"
         AppCenterDestination.BOOKINGS_CHECKOUT -> "Bookings & Checkout"
     }
 
@@ -109,6 +103,8 @@ fun AppCentersScreen(
             "Payout Requests",
             "Payout History",
             "Create Story",
+            "Create Property",
+            "Create Room",
             "Create Tour",
             "Create Tour Package",
             "Create Transport",
@@ -121,9 +117,6 @@ fun AppCentersScreen(
             "Affiliate Portal",
         )
         AppCenterDestination.SUPPORT_LEGAL -> listOf(
-            "Help Center",
-            "Support Center",
-            "Contact",
             "Privacy Policy",
             "Terms & Conditions",
             "Refund Policy",
@@ -138,58 +131,83 @@ fun AppCentersScreen(
         )
     }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        item {
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = CardGray)
-            ) {
-                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(title, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                    Text(
-                        "Native production modules backed by the same database as web.",
-                        color = Color.Gray,
-                        fontSize = 13.sp
-                    )
-                }
+    AnimatedContent(
+        targetState = activeModule,
+        label = "app-center-module-transition",
+        transitionSpec = {
+            if (targetState != null) {
+                slideInHorizontally(initialOffsetX = { it / 3 }) + fadeIn() togetherWith
+                    slideOutHorizontally(targetOffsetX = { -it / 4 }) + fadeOut()
+            } else {
+                slideInHorizontally(initialOffsetX = { -it / 4 }) + fadeIn() togetherWith
+                    slideOutHorizontally(targetOffsetX = { it / 3 }) + fadeOut()
             }
         }
-
-        item {
-            Text(
-                "Back to Profile",
-                color = Coral,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 14.sp,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Coral.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
-                    .clickable { onBackToProfile() }
-                    .padding(12.dp)
+    ) { module ->
+        if (module != null) {
+            NativeModuleScreen(
+                destination = destination,
+                moduleTitle = module,
+                onBack = { activeModule = null },
+                api = api,
+                userId = userId,
+                accessToken = accessToken,
             )
-        }
-
-        items(modules) { module ->
-            Card(
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.White)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { activeModule = module }
-                        .padding(horizontal = 12.dp, vertical = 10.dp)
-                ) {
-                    Text(module, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                    Text("Open", color = Color.Gray, fontSize = 12.sp)
+                item {
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = CardGray)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(title, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                            Text(
+                                "Native production modules backed by the same database as web.",
+                                color = Color.Gray,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
                 }
-                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.4f))
+
+                item {
+                    Text(
+                        "Back to Profile",
+                        color = Coral,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Coral.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+                            .clickable { onBackToProfile() }
+                            .padding(12.dp)
+                    )
+                }
+
+                items(modules) { moduleItem ->
+                    Card(
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { activeModule = moduleItem }
+                                .padding(horizontal = 12.dp, vertical = 10.dp)
+                        ) {
+                            Text(moduleItem, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                            Text("Open", color = Color.Gray, fontSize = 12.sp)
+                        }
+                        HorizontalDivider(color = Color.LightGray.copy(alpha = 0.4f))
+                    }
+                }
             }
         }
     }
@@ -225,6 +243,12 @@ private fun NativeModuleScreen(
         when {
             destination == AppCenterDestination.HOST_STUDIO && moduleTitle == "Create Story" -> {
                 NativeCreateStoryModule(api = api, userId = userId, accessToken = accessToken)
+            }
+            destination == AppCenterDestination.HOST_STUDIO && moduleTitle == "Create Property" -> {
+                NativeCreatePropertyModule(api = api, userId = userId, accessToken = accessToken)
+            }
+            destination == AppCenterDestination.HOST_STUDIO && moduleTitle == "Create Room" -> {
+                NativeCreateRoomModule(api = api, userId = userId, accessToken = accessToken)
             }
             destination == AppCenterDestination.HOST_STUDIO && moduleTitle == "Create Tour" -> {
                 NativeCreateTourModule(api = api, userId = userId, accessToken = accessToken)
@@ -664,6 +688,140 @@ private fun NativeCreateTourModule(
             }
             val result = api.createTour(userId, payload, accessToken)
             status = if (result.isSuccess) "Tour created successfully." else "Could not create tour: ${result.exceptionOrNull()?.message}"
+            saving = false
+        }
+        status?.let { Text(it, color = if (it.startsWith("Could")) Color.Red else Color.DarkGray, fontSize = 12.sp) }
+    }
+}
+
+@Composable
+private fun NativeCreatePropertyModule(
+    api: SupabaseApi,
+    userId: String?,
+    accessToken: String?,
+) {
+    var title by rememberSaveable { mutableStateOf("") }
+    var description by rememberSaveable { mutableStateOf("") }
+    var location by rememberSaveable { mutableStateOf("") }
+    var propertyType by rememberSaveable { mutableStateOf("Apartment") }
+    var pricePerNight by rememberSaveable { mutableStateOf("") }
+    var currency by rememberSaveable { mutableStateOf("RWF") }
+    var maxGuests by rememberSaveable { mutableStateOf("2") }
+    var bedrooms by rememberSaveable { mutableStateOf("1") }
+    var bathrooms by rememberSaveable { mutableStateOf("1") }
+    var beds by rememberSaveable { mutableStateOf("1") }
+    var saving by remember { mutableStateOf(false) }
+    var status by remember { mutableStateOf<String?>(null) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Create Property", fontWeight = FontWeight.Bold)
+        LabeledInput("Title", title) { title = it }
+        LabeledInput("Description", description) { description = it }
+        LabeledInput("Location", location) { location = it }
+        LabeledInput("Property Type", propertyType) { propertyType = it }
+        LabeledInput("Price Per Night", pricePerNight) { pricePerNight = it }
+        LabeledInput("Currency", currency) { currency = it }
+        LabeledInput("Max Guests", maxGuests) { maxGuests = it }
+        LabeledInput("Bedrooms", bedrooms) { bedrooms = it }
+        LabeledInput("Bathrooms", bathrooms) { bathrooms = it }
+        LabeledInput("Beds", beds) { beds = it }
+
+        HostSubmitButton("Publish Property", saving) {
+            if (userId.isNullOrBlank()) {
+                status = "Login required"
+                return@HostSubmitButton
+            }
+            saving = true
+            val payload = JSONObject().apply {
+                put("title", title)
+                put("name", title)
+                put("description", description)
+                put("location", location)
+                put("property_type", propertyType)
+                put("price_per_night", pricePerNight.toDoubleOrNull() ?: 0.0)
+                put("currency", currency)
+                put("max_guests", maxGuests.toIntOrNull() ?: 2)
+                put("bedrooms", bedrooms.toIntOrNull() ?: 1)
+                put("bathrooms", bathrooms.toIntOrNull() ?: 1)
+                put("beds", beds.toIntOrNull() ?: 1)
+                put("images", JSONArray())
+            }
+            val result = api.createProperty(userId, payload, accessToken)
+            status = if (result.isSuccess) {
+                title = ""
+                description = ""
+                location = ""
+                pricePerNight = ""
+                "Property created successfully."
+            } else {
+                "Could not create property: ${result.exceptionOrNull()?.message}"
+            }
+            saving = false
+        }
+        status?.let { Text(it, color = if (it.startsWith("Could")) Color.Red else Color.DarkGray, fontSize = 12.sp) }
+    }
+}
+
+@Composable
+private fun NativeCreateRoomModule(
+    api: SupabaseApi,
+    userId: String?,
+    accessToken: String?,
+) {
+    var title by rememberSaveable { mutableStateOf("") }
+    var description by rememberSaveable { mutableStateOf("") }
+    var location by rememberSaveable { mutableStateOf("") }
+    var pricePerNight by rememberSaveable { mutableStateOf("") }
+    var currency by rememberSaveable { mutableStateOf("RWF") }
+    var maxGuests by rememberSaveable { mutableStateOf("2") }
+    var bedrooms by rememberSaveable { mutableStateOf("1") }
+    var bathrooms by rememberSaveable { mutableStateOf("1") }
+    var beds by rememberSaveable { mutableStateOf("1") }
+    var saving by remember { mutableStateOf(false) }
+    var status by remember { mutableStateOf<String?>(null) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Create Room", fontWeight = FontWeight.Bold)
+        LabeledInput("Room Title", title) { title = it }
+        LabeledInput("Description", description) { description = it }
+        LabeledInput("Location", location) { location = it }
+        LabeledInput("Price Per Night", pricePerNight) { pricePerNight = it }
+        LabeledInput("Currency", currency) { currency = it }
+        LabeledInput("Max Guests", maxGuests) { maxGuests = it }
+        LabeledInput("Bedrooms", bedrooms) { bedrooms = it }
+        LabeledInput("Bathrooms", bathrooms) { bathrooms = it }
+        LabeledInput("Beds", beds) { beds = it }
+
+        HostSubmitButton("Publish Room", saving) {
+            if (userId.isNullOrBlank()) {
+                status = "Login required"
+                return@HostSubmitButton
+            }
+            saving = true
+            val payload = JSONObject().apply {
+                put("title", title)
+                put("name", title)
+                put("description", description)
+                put("location", location)
+                put("property_type", "Room")
+                put("price_per_night", pricePerNight.toDoubleOrNull() ?: 0.0)
+                put("currency", currency)
+                put("max_guests", maxGuests.toIntOrNull() ?: 2)
+                put("bedrooms", bedrooms.toIntOrNull() ?: 1)
+                put("bathrooms", bathrooms.toIntOrNull() ?: 1)
+                put("beds", beds.toIntOrNull() ?: 1)
+                put("images", JSONArray())
+            }
+            val result = api.createRoom(userId, payload, accessToken)
+            status = if (result.isSuccess) {
+                title = ""
+                description = ""
+                location = ""
+                pricePerNight = ""
+                "Room created successfully."
+            } else {
+                "Could not create room: ${result.exceptionOrNull()?.message}"
+            }
             saving = false
         }
         status?.let { Text(it, color = if (it.startsWith("Could")) Color.Red else Color.DarkGray, fontSize = 12.sp) }

@@ -97,6 +97,7 @@ private enum class GlobalScreen {
     CURRENCY,
     APP_MODE,
     NOTIFICATIONS,
+    CHAT,
 }
 
 class MainActivity : ComponentActivity() {
@@ -305,6 +306,17 @@ class MainActivity : ComponentActivity() {
                                     GlobalScreen.NOTIFICATIONS -> NotificationsScreen(
                                         onBack = { globalScreen = null }
                                     )
+                                    GlobalScreen.CHAT -> NativeSupportChatScreen(
+                                        api = api,
+                                        userId = authState.userId,
+                                        accessToken = authState.accessToken,
+                                        senderName = when {
+                                            authState.displayName.isNotBlank() -> authState.displayName
+                                            authState.userEmail.isNotBlank() -> authState.userEmail.substringBefore("@")
+                                            else -> "Customer"
+                                        },
+                                        onBack = { globalScreen = null }
+                                    )
                                     null -> Unit
                                 }
                             } else when (tab) {
@@ -412,7 +424,8 @@ class MainActivity : ComponentActivity() {
                                                     "currency" -> globalScreen = GlobalScreen.CURRENCY
                                                     "mode" -> globalScreen = GlobalScreen.APP_MODE
                                                     "notifications" -> globalScreen = GlobalScreen.NOTIFICATIONS
-                                                    "terms", "privacy", "refund", "help_center", "chat" -> activeCenter = AppCenterDestination.SUPPORT_LEGAL
+                                                    "chat", "help_center" -> globalScreen = GlobalScreen.CHAT
+                                                    "terms", "privacy", "refund" -> activeCenter = AppCenterDestination.SUPPORT_LEGAL
                                                     "travel_stories" -> activeCenter = AppCenterDestination.HOST_STUDIO
                                                     "bookings", "checkout", "my_bookings" -> activeCenter = AppCenterDestination.BOOKINGS_CHECKOUT
                                                     "affiliate" -> activeCenter = AppCenterDestination.AFFILIATE

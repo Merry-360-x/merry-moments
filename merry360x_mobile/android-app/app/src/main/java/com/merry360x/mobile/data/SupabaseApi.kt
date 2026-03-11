@@ -1457,7 +1457,147 @@ class SupabaseApi(
             items
         }
     }
+
+    // ── Support Chat ──────────────────────────────────────────────────────────
+
+    suspend fun fetchActiveTicket(userId: String, accessToken: String?): Result<SupportTicketData?> = withContext(Dispatchers.IO) {
+        runCatching {
+            val bearer = accessToken?.takeIf { it.isNotBlank() } ?: anonKey
+            val url = "$supabaseUrl/rest/v1/support_tickets?select=id,subject,status,created_at&user_id=eq.$userId&status=in.(open,in_progress)&order=created_at.desc&limit=1"
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("apikey", anonKey)
+                .addHeader("Authorization", "Bearer $bearer")
+                .get()
+                .build()
+            client.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                val arr = if (response.isSuccessful) JSONArray(body) else JSONArray()
+                if (arr.length() == 0) return@runCatching null
+                val obj = arr.getJSONObject(0)
+                SupportTicketData(
+                    id = obj.optString("id"),
+                    subject = obj.optString("subject"),
+                    status = obj.optString("status"),
+                    createdAt = obj.optString("created_at"),
+                )
+            }
+        }
+    }
+
+    suspend fun createTicketWithMessage(userId: String, message: String, senderName: String, accessToken: String?): Result<SupportTicketData> = withContext(Dispatchers.IO) {
+        runCatching {
+            val bearer = accessToken?.takeIf { it.isNotBlank() } ?: anonKey
+            val subject = if (message.length > 50) message.take(50) + "..." else message
+            val ticketPayload = JSONObject().apply {
+                put("user_id", userId)
+                put("category", "general")
+                put("subject", subject)
+                put("message", message)
+                put("status", "open")
+            }
+            val ticketReq = Request.Builder()
+                .url("$supabaseUrl/rest/v1/support_tickets")
+                .addHeader("apikey", anonKey)
+                .addHeader("Authorization", "Bearer $bearer")
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Prefer", "return=representation")
+                .post(ticketPayload.toString().toRequestBody("application/json".toMediaType()))
+                .build()
+            val ticketId: String
+            val createdAt: String
+            client.newCall(ticketReq).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) throw IllegalStateException("Could not create ticket (${response.code})")
+                val arr = JSONArray(body)
+                val obj = arr.getJSONObject(0)
+                ticketId = obj.optString("id")
+                createdAt = obj.optString("created_at")
+            }
+            val msgPayload = JSONObject().apply {
+                put("ticket_id", ticketId)
+                put("sender_id", userId)
+                put("sender_type", "customer")
+                put("sender_name", senderName)
+                put("message", message)
+            }
+            val msgReq = Request.Builder()
+                .url("$supabaseUrl/rest/v1/support_ticket_messages")
+                .addHeader("apikey", anonKey)
+                .addHeader("Authorization", "Bearer $bearer")
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Prefer", "return=minimal")
+                .post(msgPayload.toString().toRequestBody("application/json".toMediaType()))
+                .build()
+            client.newCall(msgReq).execute().close()
+            SupportTicketData(id = ticketId, subject = subject, status = "open", createdAt = createdAt)
+        }
+    }
+
+    suspend fun fetchTicketMessages(ticketId: String, accessToken: String?): Result<List<SupportChatMessage>> = withContext(Dispatchers.IO) {
+        runCatching {
+            val bearer = accessToken?.takeIf { it.isNotBlank() } ?: anonKey
+            val url = "$supabaseUrl/rest/v1/support_ticket_messages?ticket_id=eq.$ticketId&order=created_at.asc&select=id,sender_type,sender_name,message,created_at"
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("apikey", anonKey)
+                .addHeader("Authorization", "Bearer $bearer")
+                .get()
+                .build()
+            client.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                val arr = if (response.isSuccessful) JSONArray(body) else JSONArray()
+                List(arr.length()) { i ->
+                    val obj = arr.getJSONObject(i)
+                    SupportChatMessage(
+                        id = obj.optString("id"),
+                        senderType = obj.optString("sender_type", "customer"),
+                        senderName = obj.optString("sender_name").ifBlank { null },
+                        message = obj.optString("message"),
+                        createdAt = obj.optString("created_at"),
+                    )
+                }
+            }
+        }
+    }
+
+    suspend fun sendSupportMessage(ticketId: String, userId: String, message: String, senderName: String, accessToken: String?): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val bearer = accessToken?.takeIf { it.isNotBlank() } ?: anonKey
+            val payload = JSONObject().apply {
+                put("ticket_id", ticketId)
+                put("sender_id", userId)
+                put("sender_type", "customer")
+                put("sender_name", senderName)
+                put("message", message)
+            }
+            val request = Request.Builder()
+                .url("$supabaseUrl/rest/v1/support_ticket_messages")
+                .addHeader("apikey", anonKey)
+                .addHeader("Authorization", "Bearer $bearer")
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Prefer", "return=minimal")
+                .post(payload.toString().toRequestBody("application/json".toMediaType()))
+                .build()
+            client.newCall(request).execute().close()
+        }
+    }
 }
+
+data class SupportTicketData(
+    val id: String,
+    val subject: String,
+    val status: String,
+    val createdAt: String,
+)
+
+data class SupportChatMessage(
+    val id: String,
+    val senderType: String,
+    val senderName: String?,
+    val message: String,
+    val createdAt: String,
+)
 
 data class CityWithCount(val city: String, val count: Int)
 

@@ -5,20 +5,26 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -31,21 +37,30 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.merry360x.mobile.data.Listing
+import com.merry360x.mobile.data.SupabaseApi
+import com.merry360x.mobile.data.SupportChatMessage
+import com.merry360x.mobile.data.SupportTicketData
 import com.merry360x.mobile.theme.CardGray
 import com.merry360x.mobile.theme.Coral
 import com.merry360x.mobile.viewmodel.AuthUiState
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.util.Locale
 
 @Composable
 fun AuthCallbackScreen(
@@ -556,6 +571,341 @@ fun NotificationsScreen(onBack: () -> Unit) {
         }
     }
 }
+
+// ── Support Chat ─────────────────────────────────────────────────────────────
+
+@Composable
+fun NativeSupportChatScreen(
+    api: SupabaseApi,
+    userId: String?,
+    accessToken: String?,
+    senderName: String,
+    onBack: () -> Unit,
+) {
+    var ticket by remember { mutableStateOf<SupportTicketData?>(null) }
+    var messages by remember { mutableStateOf<List<SupportChatMessage>>(emptyList()) }
+    var draft by remember { mutableStateOf("") }
+    var loading by remember { mutableStateOf(true) }
+    var sending by remember { mutableStateOf(false) }
+    var sendError by remember { mutableStateOf<String?>(null) }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+
+    // Initial load
+    LaunchedEffect(userId) {
+        if (userId.isNullOrBlank()) { loading = false; return@LaunchedEffect }
+        loading = true
+        val result = api.fetchActiveTicket(userId, accessToken)
+        if (result.isSuccess) {
+            val t = result.getOrNull()
+            ticket = t
+            if (t != null) {
+                messages = api.fetchTicketMessages(t.id, accessToken).getOrNull() ?: emptyList()
+            }
+        }
+        loading = false
+    }
+
+    // Poll for new messages every 3 s
+    LaunchedEffect(ticket?.id) {
+        val t = ticket ?: return@LaunchedEffect
+        while (true) {
+            delay(3_000)
+            api.fetchTicketMessages(t.id, accessToken).getOrNull()?.let { messages = it }
+        }
+    }
+
+    // Auto-scroll to newest message
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) listState.animateScrollToItem(messages.size - 1)
+    }
+
+    val onSend: () -> Unit = {
+        val text = draft.trim()
+        if (text.isNotEmpty() && !sending && !userId.isNullOrBlank()) {
+            sending = true
+            sendError = null
+            scope.launch {
+                if (ticket == null) {
+                    val res = api.createTicketWithMessage(userId, text, senderName, accessToken)
+                    if (res.isSuccess) {
+                        ticket = res.getOrNull()
+                        draft = ""
+                        ticket?.id?.let { id ->
+                            messages = api.fetchTicketMessages(id, accessToken).getOrNull() ?: emptyList()
+                        }
+                    } else {
+                        sendError = "Could not start conversation. Try again."
+                    }
+                } else {
+                    val res = api.sendSupportMessage(ticket!!.id, userId, text, senderName, accessToken)
+                    if (res.isSuccess) {
+                        draft = ""
+                        messages = api.fetchTicketMessages(ticket!!.id, accessToken).getOrNull() ?: emptyList()
+                    } else {
+                        sendError = "Failed to send. Try again."
+                    }
+                }
+                sending = false
+            }
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .imePadding()
+    ) {
+        // Header bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Coral)
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onBack),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.22f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("S", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+            Spacer(Modifier.width(10.dp))
+            Column {
+                Text("Support Team", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                Text(
+                    text = ticket?.let { "Ticket ${it.status.replaceFirstChar(Char::uppercaseChar)}" }
+                        ?: "Usually responds within minutes",
+                    color = Color.White.copy(alpha = 0.82f),
+                    fontSize = 12.sp
+                )
+            }
+        }
+
+        when {
+            loading -> Box(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) { CircularProgressIndicator(color = Coral) }
+
+            userId.isNullOrBlank() -> Box(
+                modifier = Modifier.weight(1f).padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFF4F4F4)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Lock, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(28.dp))
+                    }
+                    Text("Sign in to chat with support", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                    Text("Your conversations are private and tied to your account.", color = Color.Gray, fontSize = 13.sp)
+                }
+            }
+
+            else -> LazyColumn(
+                state = listState,
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (messages.isEmpty()) {
+                    item {
+                        Card(
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F7F7)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .background(Coral),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text("S", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    }
+                                    Column {
+                                        Text("Support Team", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                        Text("Usually responds within minutes", color = Color.Gray, fontSize = 12.sp)
+                                    }
+                                }
+                                Text("Hi $senderName! 👋 How can I help you today?", fontSize = 14.sp)
+                                Text("You can ask about:", color = Color.DarkGray, fontSize = 13.sp)
+                                listOf(
+                                    "Bookings & reservations",
+                                    "Payments & refunds",
+                                    "Account issues",
+                                    "Tours & accommodations"
+                                ).forEach {
+                                    Text("• $it", color = Color.DarkGray, fontSize = 13.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+                items(messages) { msg ->
+                    SupportChatBubble(msg = msg, isCustomer = msg.senderType == "customer")
+                }
+            }
+        }
+
+        // Error banner
+        sendError?.let { err ->
+            Text(
+                text = err,
+                color = Color.White,
+                fontSize = 13.sp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFFE53935))
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            )
+        }
+
+        // Input bar
+        if (!userId.isNullOrBlank()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White)
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = draft,
+                    onValueChange = { draft = it },
+                    placeholder = { Text("Type a message...", color = Color.Gray, fontSize = 14.sp) },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(24.dp),
+                    maxLines = 5,
+                )
+                val canSend = draft.isNotBlank() && !sending
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(if (canSend) Coral else Color(0xFFDDDDDD))
+                        .clickable(enabled = canSend, onClick = onSend),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (sending) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            modifier = Modifier.size(22.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "Send",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SupportChatBubble(msg: SupportChatMessage, isCustomer: Boolean) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = if (isCustomer) Arrangement.End else Arrangement.Start
+    ) {
+        if (!isCustomer) {
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .background(Coral.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("S", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Coral)
+            }
+            Spacer(Modifier.width(6.dp))
+        }
+        Column(
+            horizontalAlignment = if (isCustomer) Alignment.End else Alignment.Start,
+            modifier = Modifier.weight(1f, fill = false)
+        ) {
+            if (!isCustomer) {
+                msg.senderName?.let {
+                    Text(it, fontSize = 11.sp, color = Color.Gray, modifier = Modifier.padding(start = 2.dp, bottom = 2.dp))
+                }
+            }
+            Box(
+                modifier = Modifier
+                    .background(
+                        color = if (isCustomer) Coral else Color(0xFFF0F0F0),
+                        shape = RoundedCornerShape(
+                            topStart = if (isCustomer) 18.dp else 4.dp,
+                            topEnd = if (isCustomer) 4.dp else 18.dp,
+                            bottomStart = 18.dp,
+                            bottomEnd = 18.dp,
+                        )
+                    )
+                    .padding(horizontal = 14.dp, vertical = 9.dp)
+            ) {
+                Text(
+                    text = msg.message,
+                    color = if (isCustomer) Color.White else Color.Black,
+                    fontSize = 14.sp,
+                )
+            }
+            Text(
+                text = formatChatTime(msg.createdAt),
+                fontSize = 10.sp,
+                color = Color.Gray,
+                modifier = Modifier.padding(horizontal = 2.dp, top = 2.dp)
+            )
+        }
+    }
+}
+
+private fun formatChatTime(iso: String): String = try {
+    val sdf = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+    sdf.timeZone = java.util.TimeZone.getTimeZone("UTC")
+    val date = sdf.parse(iso.take(19))
+    java.text.SimpleDateFormat("HH:mm", Locale.getDefault()).format(date ?: return "")
+} catch (_: Exception) { "" }
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
