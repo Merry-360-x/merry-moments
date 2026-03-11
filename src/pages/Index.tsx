@@ -203,75 +203,128 @@ const Index = () => {
     );
   }, [storyCircles]);
 
+  const leftRailStories = useMemo(
+    () => storyCircles.filter((_, index) => index % 2 === 0).slice(0, 5),
+    [storyCircles]
+  );
+
+  const rightRailStories = useMemo(
+    () => storyCircles.filter((_, index) => index % 2 !== 0).slice(0, 5),
+    [storyCircles]
+  );
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
 
       {/* Hero Section */}
       <section className="container mx-auto px-4 pt-3 md:pt-5">
-        <div className="relative w-full min-h-[34vh] md:min-h-[58vh] flex items-center justify-center overflow-hidden rounded-3xl border border-border/40 shadow-lg">
-          {/* Video Background */}
-          <video
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="metadata"
-            className="absolute inset-0 w-full h-full object-cover z-[1]"
-            style={{ objectPosition: "center center" }}
-          >
-            <source src={heroVideo} type="video/mp4" />
-          </video>
+        <div className="grid grid-cols-1 lg:grid-cols-[96px_minmax(0,1fr)_96px] gap-3 lg:gap-4 items-stretch">
+          <aside className="hidden lg:flex flex-col items-center gap-2 py-3 rounded-2xl bg-gradient-to-b from-muted/50 to-transparent border border-border/40">
+            <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Stories</span>
+            {(isStoryCirclesLoading ? Array.from({ length: 5 }).map((_, index) => ({ storyId: `left-skeleton-${index}`, displayName: "", avatarUrl: null, fallbackPreviewUrl: null, createdAt: null })) : leftRailStories).map((story) => {
+              const isFresh = storyFreshness.get(story.storyId) ?? true;
+              const fallbackText = story.displayName ? story.displayName.slice(0, 1).toUpperCase() : "";
+              return (
+                <button
+                  key={story.storyId}
+                  type="button"
+                  onClick={() => navigate("/stories")}
+                  className="group"
+                  aria-label={story.displayName ? `Open stories by ${story.displayName}` : "Loading story"}
+                >
+                  <div className={`rounded-full p-[2px] transition-transform group-hover:scale-105 ${isStoryCirclesLoading ? "bg-muted" : isFresh ? "bg-gradient-to-tr from-fuchsia-500 via-amber-400 to-orange-500" : "bg-gradient-to-tr from-muted-foreground/50 to-muted-foreground/20"}`}>
+                    <Avatar className="h-12 w-12 border-2 border-background">
+                      <AvatarImage src={story.avatarUrl || story.fallbackPreviewUrl || undefined} alt={story.displayName || "Story"} />
+                      <AvatarFallback>{fallbackText}</AvatarFallback>
+                    </Avatar>
+                  </div>
+                </button>
+              );
+            })}
+          </aside>
 
-          {/* Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-b from-foreground/10 via-foreground/20 to-foreground/50 z-[2]" />
+          <div className="relative w-full min-h-[34vh] md:min-h-[58vh] flex items-center justify-center overflow-hidden rounded-3xl border border-border/40 shadow-lg">
+            {/* Video Background */}
+            <video
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              className="absolute inset-0 w-full h-full object-cover z-[1]"
+              style={{ objectPosition: "center center" }}
+            >
+              <source src={heroVideo} type="video/mp4" />
+            </video>
 
-          {/* Content */}
-          <div className="relative z-10 container mx-auto px-4 py-12 md:py-16 text-center">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-primary-foreground mb-8 italic animate-fade-in">
-              {t("index.heroTitle")}
-            </h1>
+            {/* Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-b from-foreground/10 via-foreground/20 to-foreground/50 z-[2]" />
 
-            {/* Search Bar */}
-            <HeroSearch />
+            {/* Content */}
+            <div className="relative z-10 container mx-auto px-4 py-12 md:py-16 text-center">
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-primary-foreground mb-8 italic animate-fade-in">
+                {t("index.heroTitle")}
+              </h1>
 
-            {/* Referral CTA */}
-            <div className="mt-6 md:mt-8 flex justify-center">
-              <Button
-                onClick={() => navigate('/affiliate-signup')}
-                variant="outline"
-                size="lg"
-                className="bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20 hover:text-white transition-all shadow-lg"
-              >
-                <TrendingUp className="w-5 h-5 mr-2" />
-                Refer an Operator & Earn 10%
-              </Button>
+              {/* Search Bar */}
+              <HeroSearch />
+
+              {/* Referral CTA */}
+              <div className="mt-6 md:mt-8 flex justify-center">
+                <Button
+                  onClick={() => navigate('/affiliate-signup')}
+                  variant="outline"
+                  size="lg"
+                  className="bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20 hover:text-white transition-all shadow-lg"
+                >
+                  <TrendingUp className="w-5 h-5 mr-2" />
+                  Refer an Operator & Earn 10%
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
 
-      <section className="border-b border-border/50 bg-gradient-to-b from-background via-secondary/20 to-background mt-4">
-        <div className="container mx-auto px-4 py-2.5">
-          <div className="mb-2 flex items-center justify-between">
-            <div>
-              <h2 className="text-base md:text-lg font-semibold text-foreground">Stories</h2>
-            </div>
+          <aside className="hidden lg:flex flex-col items-center gap-2 py-3 rounded-2xl bg-gradient-to-b from-muted/50 to-transparent border border-border/40">
+            <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Live</span>
+            {(isStoryCirclesLoading ? Array.from({ length: 5 }).map((_, index) => ({ storyId: `right-skeleton-${index}`, displayName: "", avatarUrl: null, fallbackPreviewUrl: null, createdAt: null })) : rightRailStories).map((story) => {
+              const isFresh = storyFreshness.get(story.storyId) ?? true;
+              const fallbackText = story.displayName ? story.displayName.slice(0, 1).toUpperCase() : "";
+              return (
+                <button
+                  key={story.storyId}
+                  type="button"
+                  onClick={() => navigate("/stories")}
+                  className="group"
+                  aria-label={story.displayName ? `Open stories by ${story.displayName}` : "Loading story"}
+                >
+                  <div className={`rounded-full p-[2px] transition-transform group-hover:scale-105 ${isStoryCirclesLoading ? "bg-muted" : isFresh ? "bg-gradient-to-tr from-fuchsia-500 via-amber-400 to-orange-500" : "bg-gradient-to-tr from-muted-foreground/50 to-muted-foreground/20"}`}>
+                    <Avatar className="h-12 w-12 border-2 border-background">
+                      <AvatarImage src={story.avatarUrl || story.fallbackPreviewUrl || undefined} alt={story.displayName || "Story"} />
+                      <AvatarFallback>{fallbackText}</AvatarFallback>
+                    </Avatar>
+                  </div>
+                </button>
+              );
+            })}
+          </aside>
+        </div>
+
+        <div className="lg:hidden mt-3 rounded-2xl border border-border/40 bg-gradient-to-r from-background via-secondary/20 to-background px-3 py-2">
+          <div className="mb-1 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-foreground">Stories</h2>
             <Button variant="ghost" size="sm" onClick={() => navigate("/stories")}>View all</Button>
           </div>
 
           {isStoryCirclesLoading ? (
-            <div className="flex gap-4 overflow-x-auto pb-1">
+            <div className="flex gap-3 overflow-x-auto pb-1">
               {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="shrink-0">
-                  <div className="h-16 w-16 rounded-full bg-muted animate-pulse" />
-                  <div className="mt-2 h-3 w-14 rounded bg-muted animate-pulse" />
-                </div>
+                <div key={i} className="shrink-0 h-12 w-12 rounded-full bg-muted animate-pulse" />
               ))}
             </div>
-          ) : storyCircles.length > 0 ? (
-            <div className="flex gap-4 overflow-x-auto pb-1">
-              {storyCircles.map((story) => {
+          ) : (
+            <div className="flex gap-3 overflow-x-auto pb-1">
+              {storyCircles.slice(0, 12).map((story) => {
                 const isFresh = storyFreshness.get(story.storyId) ?? false;
                 const fallbackText = story.displayName.slice(0, 1).toUpperCase();
                 return (
@@ -279,29 +332,18 @@ const Index = () => {
                     key={story.storyId}
                     type="button"
                     onClick={() => navigate("/stories")}
-                    className="group shrink-0 text-left"
+                    className="group shrink-0"
                     aria-label={`Open stories by ${story.displayName}`}
                   >
-                    <div
-                      className={`rounded-full p-[2px] transition-transform group-hover:scale-105 ${
-                        isFresh
-                          ? "bg-gradient-to-tr from-fuchsia-500 via-amber-400 to-orange-500"
-                          : "bg-gradient-to-tr from-muted-foreground/50 to-muted-foreground/20"
-                      }`}
-                    >
-                      <Avatar className="h-16 w-16 border-2 border-background">
+                    <div className={`rounded-full p-[2px] ${isFresh ? "bg-gradient-to-tr from-fuchsia-500 via-amber-400 to-orange-500" : "bg-gradient-to-tr from-muted-foreground/50 to-muted-foreground/20"}`}>
+                      <Avatar className="h-12 w-12 border-2 border-background">
                         <AvatarImage src={story.avatarUrl || story.fallbackPreviewUrl || undefined} alt={story.displayName} />
                         <AvatarFallback>{fallbackText}</AvatarFallback>
                       </Avatar>
                     </div>
-                    <p className="mt-1 w-16 truncate text-xs text-center text-foreground">{story.displayName}</p>
                   </button>
                 );
               })}
-            </div>
-          ) : (
-            <div className="rounded-lg border border-dashed border-border px-4 py-3 text-sm text-muted-foreground">
-              No stories yet. Be the first to share a moment.
             </div>
           )}
         </div>
