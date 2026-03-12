@@ -11,6 +11,19 @@ import json
 import re
 import random
 
+
+_PRICE_TERMS = [
+    "cheap", "cheapest", "lowest", "low cost", "affordable", "budget", "best price", "least expensive",
+]
+
+_PROPERTY_TYPE_ALIASES: dict[str, list[str]] = {
+    "apartment": ["apartment", "apartments", "flat", "studio"],
+    "hotel": ["hotel", "hotels", "resort", "resorts"],
+    "villa": ["villa", "villas"],
+    "guesthouse": ["guesthouse", "guest house", "guesthouses"],
+    "lodge": ["lodge", "lodges", "camp", "camps"],
+}
+
 # ---------------------------------------------------------------------------
 # Intent catalogue for local intent classification
 # ---------------------------------------------------------------------------
@@ -320,9 +333,32 @@ def _classify_intent(text: str) -> tuple[str, float]:
     return best, round(min(score, 1.0), 2)
 
 
+def _contains_any(text: str, terms: list[str]) -> bool:
+    return any(term in text for term in terms)
+
+
+def _detect_property_type(text: str) -> str | None:
+    for canonical, aliases in _PROPERTY_TYPE_ALIASES.items():
+        if _contains_any(text, aliases):
+            return canonical
+    return None
+
+
+def _is_price_focused(text: str) -> bool:
+    compact = text.replace(" ", "")
+    return _contains_any(text, _PRICE_TERMS) or "thecheapest" in compact
+
+
 def _extract_entities(text: str) -> dict:
     t = text.lower()
     ents: dict = {}
+
+    if _is_price_focused(t):
+        ents["price_intent"] = "lowest_price"
+
+    property_type = _detect_property_type(t)
+    if property_type:
+        ents["property_type"] = property_type
 
     countries = [c for c in ["rwanda", "uganda", "kenya", "tanzania", "zambia"] if c in t]
     if countries:
@@ -354,9 +390,32 @@ def _extract_entities(text: str) -> dict:
 
 
 def _fallback_reply(intent: str, text: str) -> str:
+    raw = text.strip()
+    t = raw.lower()
+    entities = _extract_entities(raw)
+
+    # Compose intent for queries like "what the cheapest apartment" instead of
+    # returning generic accommodation text.
+    if _is_price_focused(t) and entities.get("property_type"):
+        property_type = str(entities["property_type"])
+        label = property_type.capitalize()
+        return (
+            f"💸 **Cheapest {label} options on Merry360X**\n\n"
+            f"Great choice. To find the current **lowest-price {property_type}s**, use:\n"
+            f"- Property type: **{label}**\n"
+            f"- Sort: **Price (low to high)**\n"
+            f"- Add flexible dates if possible (weekday stays are often cheaper)\n"
+            f"- Keep guest count accurate to avoid hidden capacity upgrades\n\n"
+            "**Typical budget ranges (East Africa):**\n"
+            "- Kigali / Kampala: ~$25–$70 per night\n"
+            "- Nairobi / Arusha: ~$30–$90 per night\n"
+            "- Zanzibar / safari-adjacent areas: ~$45–$120 per night\n\n"
+            "Send me your destination + dates + number of guests and I’ll narrow it down fast."
+        )
+
     if intent in _REPLIES:
         return random.choice(_REPLIES[intent])
-    ents = _extract_entities(text)
+    ents = entities
     countries = ents.get("countries", [])
     if countries:
         c = countries[0]
