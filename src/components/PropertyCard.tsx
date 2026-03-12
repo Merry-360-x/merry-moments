@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Star, Heart, Users, BadgeCheck } from "lucide-react";
+import { Star, Heart, Users, BadgeCheck, Clock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -214,62 +214,58 @@ const PropertyCard = ({
                 .join(" · ")}
             </p>
           ) : null}
-          {hasRules ? (
-            <div className="mb-3 px-1 text-xs">
-              <div className="grid grid-cols-3 gap-x-8 gap-y-4">
-                <div className="min-w-0">
-                  <div className="text-muted-foreground">Check-in</div>
-                  <div className="font-semibold text-foreground tabular-nums">
-                    {checkInTime ? String(checkInTime).slice(0, 5) : "—"}
-                  </div>
-                </div>
-                <div className="min-w-0">
-                  <div className="text-muted-foreground">Check-out</div>
-                  <div className="font-semibold text-foreground tabular-nums">
-                    {checkOutTime ? String(checkOutTime).slice(0, 5) : "—"}
-                  </div>
-                </div>
-                <div className="min-w-0">
-                  <div className="text-muted-foreground flex items-center gap-2">
-                    <Users className="w-3 h-3" />
-                    Guests
-                  </div>
-                  <div className="font-semibold text-foreground tabular-nums">
-                    {typeof maxGuests === "number" ? maxGuests : "—"}
-                  </div>
-                </div>
+          {/* Check-in / Check-out / Guests — only shown when at least one is set */}
+          {(checkInTime || checkOutTime || typeof maxGuests === "number") ? (
+            <div className="flex items-center flex-wrap gap-x-4 gap-y-1 mb-2.5 text-xs text-muted-foreground">
+              {(checkInTime || checkOutTime) ? (
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3 h-3 shrink-0" />
+                  <span className="tabular-nums">
+                    {checkInTime ? String(checkInTime).slice(0, 5) : "?"}
+                    {" – "}
+                    {checkOutTime ? String(checkOutTime).slice(0, 5) : "?"}
+                  </span>
+                </span>
+              ) : null}
+              {typeof maxGuests === "number" ? (
+                <span className="flex items-center gap-1">
+                  <Users className="w-3 h-3 shrink-0" />
+                  <span>Up to {maxGuests}</span>
+                </span>
+              ) : null}
+            </div>
+          ) : null}
 
-                <div className="min-w-0">
-                  <div className="text-muted-foreground">Smoking</div>
-                  {typeof smokingAllowed === "boolean" ? (
-                    <div className={`font-semibold ${smokingAllowed ? "text-green-600" : "text-red-600"}`}>
-                      {smokingAllowed ? "Yes" : "No"}
-                    </div>
-                  ) : (
-                    <div className="font-semibold text-foreground">—</div>
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <div className="text-muted-foreground">Events</div>
-                  {typeof eventsAllowed === "boolean" ? (
-                    <div className={`font-semibold ${eventsAllowed ? "text-green-600" : "text-red-600"}`}>
-                      {eventsAllowed ? "Yes" : "No"}
-                    </div>
-                  ) : (
-                    <div className="font-semibold text-foreground">—</div>
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <div className="text-muted-foreground">Pets</div>
-                  {typeof petsAllowed === "boolean" ? (
-                    <div className={`font-semibold ${petsAllowed ? "text-green-600" : "text-red-600"}`}>
-                      {petsAllowed ? "Yes" : "No"}
-                    </div>
-                  ) : (
-                    <div className="font-semibold text-foreground">—</div>
-                  )}
-                </div>
-              </div>
+          {/* Policy badges — only shown for fields that are explicitly set */}
+          {(typeof smokingAllowed === "boolean" || typeof eventsAllowed === "boolean" || typeof petsAllowed === "boolean") ? (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {typeof smokingAllowed === "boolean" ? (
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                  smokingAllowed
+                    ? "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+                    : "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                }`}>
+                  {smokingAllowed ? "✓" : "✗"} Smoking
+                </span>
+              ) : null}
+              {typeof eventsAllowed === "boolean" ? (
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                  eventsAllowed
+                    ? "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+                    : "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                }`}>
+                  {eventsAllowed ? "✓" : "✗"} Events
+                </span>
+              ) : null}
+              {typeof petsAllowed === "boolean" ? (
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                  petsAllowed
+                    ? "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+                    : "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                }`}>
+                  {petsAllowed ? "✓" : "✗"} Pets
+                </span>
+              ) : null}
             </div>
           ) : null}
         </div>
