@@ -15,6 +15,11 @@ import time
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+try:
+    from openai import OpenAI  # type: ignore
+except Exception:
+    OpenAI = None  # type: ignore
+
 
 _PRICE_TERMS = [
     "cheap", "cheapest", "lowest", "low cost", "affordable", "budget", "best price", "least expensive",
@@ -640,6 +645,67 @@ def _format_recommendations(recs: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def _openai_config() -> tuple[str | None, str]:
+    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    model = os.environ.get("OPENAI_MODEL", "gpt-5-nano").strip() or "gpt-5-nano"
+    return (api_key if api_key else None), model
+
+
+def _generate_openai_reply(
+    messages: list,
+    intent: str,
+    entities: dict,
+    recommendations: list[dict],
+    confidence: float,
+) -> tuple[str | None, str | None]:
+    api_key, model = _openai_config()
+    if not api_key or OpenAI is None:
+        return None, None
+
+    try:
+        client = OpenAI(api_key=api_key)
+
+        # Keep prompt compact but grounded in local retrieval/context.
+        conversation = []
+        for m in messages[-10:]:
+            role = str(m.get("role") or "user")
+            content = str(m.get("content") or "").strip()
+            if role in {"user", "assistant"} and content:
+                conversation.append(f"{role.upper()}: {content}")
+
+        grounding = {
+            "intent": intent,
+            "confidence": confidence,
+            "entities": entities,
+            "recommendations": recommendations[:5],
+        }
+
+        prompt = (
+            "You are Merry360X AI Trip Advisor for East Africa travel.\n"
+            "Be concise, helpful, and non-repetitive.\n"
+            "Use the grounding data exactly and do not invent listings.\n"
+            "If key details are missing, ask only 1-2 focused questions.\n"
+            "When recommendations exist, briefly summarize best options and next step.\n\n"
+            f"GROUNDING_JSON: {json.dumps(grounding, ensure_ascii=False)}\n\n"
+            "CONVERSATION:\n"
+            f"{'\n'.join(conversation)}\n"
+        )
+
+        response = client.responses.create(
+            model=model,
+            input=prompt,
+            store=False,
+        )
+
+        text = getattr(response, "output_text", None)
+        if isinstance(text, str) and text.strip():
+            return text.strip(), model
+        return None, None
+    except Exception as exc:
+        print(f"[ai-trip-advisor] OpenAI fallback to local: {exc}")
+        return None, None
+
+
 def _intent_confidence(intent: str, base_score: float, entities: dict, has_recs: bool) -> float:
     conf = base_score
     if entities.get("countries"):
@@ -858,6 +924,13 @@ def _process(messages: list, user_id: str | None = None, session_id: str | None 
     confidence = _intent_confidence(intent, base_conf, entities, bool(recommendations))
 
     reply = _fallback_reply(intent, text, entities, recommendations)
+    model_name = "merry360x-local-ai-v1"
+
+    llm_reply, llm_model = _generate_openai_reply(messages, intent, entities, recommendations, confidence)
+    if llm_reply:
+        reply = llm_reply
+        model_name = llm_model or model_name
+
     if confidence < 0.52:
         clarify = _clarification_questions(intent, entities)
         if clarify:
@@ -875,7 +948,7 @@ def _process(messages: list, user_id: str | None = None, session_id: str | None 
         "reply": reply,
         "intent": intent,
         "confidence": confidence,
-        "model": "merry360x-local-ai-v1",
+        "model": model_name,
         "extractedEntities": entities,
         "recommendations": recommendations,
         "memory": {
@@ -915,11 +988,14 @@ class handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
+        _, configured_model = _openai_config()
+        api_key, _ = _openai_config()
         self._send_json(200, {
             "ok": True,
             "service": "Merry360X AI Trip Advisor",
             "runtime": "Python",
-            "model": "merry360x-local-ai-v1",
+            "model": configured_model if (api_key and OpenAI is not None) else "merry360x-local-ai-v1",
+            "fallbackModel": "merry360x-local-ai-v1",
         })
 
     def do_POST(self):
