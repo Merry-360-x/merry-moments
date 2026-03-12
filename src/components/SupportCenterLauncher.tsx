@@ -15,7 +15,22 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 type Step = "home" | "ai" | "chat";
 
-type ChatMsg = { role: "user" | "assistant"; content: string };
+type AiRecommendation = {
+  id: string;
+  title: string;
+  location?: string;
+  currency?: string;
+  price?: number;
+  rating?: number;
+  review_count?: number;
+  property_type?: string;
+};
+
+type ChatMsg = {
+  role: "user" | "assistant";
+  content: string;
+  recommendations?: AiRecommendation[];
+};
 
 type TicketRow = {
   id: string;
@@ -59,6 +74,12 @@ export default function SupportCenterLauncher() {
       return `sess_${Date.now()}`;
     }
   }, []);
+
+  const formatRecommendationPrice = (price?: number, currency?: string) => {
+    if (!Number.isFinite(price as number) || !price || price <= 0) return "Price on request";
+    const safeCurrency = currency || "RWF";
+    return `${Math.round(price).toLocaleString()} ${safeCurrency}`;
+  };
 
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("home");
@@ -576,7 +597,22 @@ export default function SupportCenterLauncher() {
       const out = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error("AI request failed");
       const reply = typeof out?.reply === "string" ? out.reply : "Please try again.";
-      setAiMessages((m) => [...m, { role: "assistant", content: reply }]);
+      const recommendations: AiRecommendation[] = Array.isArray(out?.recommendations)
+        ? out.recommendations
+            .filter((x: unknown) => x && typeof x === "object" && typeof (x as { id?: unknown }).id === "string")
+            .map((x: any) => ({
+              id: String(x.id),
+              title: String(x.title || "Untitled"),
+              location: x.location ? String(x.location) : undefined,
+              currency: x.currency ? String(x.currency) : undefined,
+              price: Number(x.price || 0),
+              rating: Number(x.rating || 0),
+              review_count: Number(x.review_count || 0),
+              property_type: x.property_type ? String(x.property_type) : undefined,
+            }))
+            .slice(0, 3)
+        : [];
+      setAiMessages((m) => [...m, { role: "assistant", content: reply, recommendations }]);
       queueMicrotask(() => aiEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }));
     } catch (e) {
       logError("aiTripAdvisor", e);
@@ -713,6 +749,34 @@ export default function SupportCenterLauncher() {
                       }`}
                     >
                       {m.content}
+                      {m.role === "assistant" && Array.isArray(m.recommendations) && m.recommendations.length > 0 ? (
+                        <div className="mt-2 space-y-1.5">
+                          {m.recommendations.map((rec) => (
+                            <button
+                              key={`${idx}-${rec.id}`}
+                              type="button"
+                              onClick={() => {
+                                navigate(`/properties/${encodeURIComponent(rec.id)}`);
+                                setOpen(false);
+                              }}
+                              className="w-full text-left rounded-lg border border-border/70 bg-background/80 px-2.5 py-2 hover:bg-background transition-colors"
+                            >
+                              <div className="text-[11px] font-semibold text-foreground line-clamp-1">{rec.title}</div>
+                              <div className="text-[10px] text-muted-foreground line-clamp-1">
+                                {rec.location || "Location not specified"}
+                              </div>
+                              <div className="mt-1 flex items-center justify-between gap-2 text-[10px]">
+                                <span className="font-medium text-foreground">{formatRecommendationPrice(rec.price, rec.currency)}</span>
+                                <span className="text-muted-foreground">
+                                  {Number.isFinite(rec.rating as number) && (rec.rating || 0) > 0
+                                    ? `★ ${Number(rec.rating).toFixed(1)} (${rec.review_count || 0})`
+                                    : rec.property_type || "View"}
+                                </span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
                   ))}
                   {aiSending && (
