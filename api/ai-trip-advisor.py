@@ -672,7 +672,7 @@ def _clarification_questions(intent: str, entities: dict) -> str:
             missing.append("What is your max budget per night?")
         if not entities.get("guests"):
             missing.append("How many guests?")
-        if not entities.get("month"):
+        if not entities.get("month") and entities.get("date_flexibility") != "flexible":
             missing.append("What travel month or dates are you targeting?")
 
     if not missing:
@@ -682,6 +682,42 @@ def _clarification_questions(intent: str, entities: dict) -> str:
     for q in missing[:3]:
         lines.append(f"- {q}")
     return "\n".join(lines)
+
+
+def _shopping_missing_fields(entities: dict) -> list[str]:
+    missing: list[str] = []
+    if not entities.get("countries") and not entities.get("location_hint"):
+        missing.append("destination")
+    if not entities.get("budget_usd") and not entities.get("budget_rwf"):
+        missing.append("budget")
+    if not entities.get("guests"):
+        missing.append("guests")
+    if not entities.get("month") and entities.get("date_flexibility") != "flexible":
+        missing.append("dates")
+    return missing
+
+
+def _format_context_summary(entities: dict) -> str:
+    parts: list[str] = []
+    if entities.get("budget_usd"):
+        parts.append(f"budget: ${int(entities['budget_usd'])}/night")
+    elif entities.get("budget_rwf"):
+        parts.append(f"budget: {int(entities['budget_rwf']):,} RWF/night")
+
+    if entities.get("guests"):
+        parts.append(f"guests: {int(entities['guests'])}")
+
+    if entities.get("location_hint"):
+        parts.append(f"location: {entities['location_hint']}")
+    elif entities.get("countries"):
+        parts.append(f"country: {entities['countries'][0]}")
+
+    if entities.get("month"):
+        parts.append(f"dates: {str(entities['month']).title()}")
+    elif entities.get("date_flexibility") == "flexible":
+        parts.append("dates: flexible")
+
+    return " | ".join(parts)
 
 
 def _infer_contextual_intent(intent: str, messages: list, current_entities: dict, memory: dict) -> tuple[str, float]:
@@ -719,6 +755,38 @@ def _infer_contextual_intent(intent: str, messages: list, current_entities: dict
 def _fallback_reply(intent: str, text: str, entities: dict, recommendations: list[dict]) -> str:
     raw = text.strip()
     t = raw.lower()
+
+    if intent in {"accommodation", "budget"}:
+        missing = _shopping_missing_fields(entities)
+        summary = _format_context_summary(entities)
+        lead = "🏨 **Got it — I can help you find the best stay options.**"
+        if summary:
+            lead = f"{lead}\n\nCaptured details: {summary}."
+
+        if recommendations:
+            out = f"{lead}\n\n{_format_recommendations(recommendations)}"
+            if missing:
+                prompts = {
+                    "destination": "Which city or country should I focus on?",
+                    "budget": "What is your max budget per night?",
+                    "guests": "How many guests should I match for?",
+                    "dates": "What month or exact dates are you targeting?",
+                }
+                asks = [prompts[m] for m in missing[:2] if m in prompts]
+                if asks:
+                    out = f"{out}\n\nTo tighten results further:\n- " + "\n- ".join(asks)
+            return out
+
+        if summary and missing:
+            prompts = {
+                "destination": "Which city or country should I focus on?",
+                "budget": "What is your max budget per night?",
+                "guests": "How many guests should I match for?",
+                "dates": "What month or exact dates are you targeting?",
+            }
+            asks = [prompts[m] for m in missing[:3] if m in prompts]
+            if asks:
+                return f"{lead}\n\nI need a bit more to return exact listings:\n- " + "\n- ".join(asks)
 
     # Compose intent for queries like "what the cheapest apartment" instead of
     # returning generic accommodation text.

@@ -748,7 +748,7 @@ export default function SupportCenterLauncher() {
                         m.role === "user" ? "ml-auto bg-primary text-primary-foreground" : "bg-muted text-foreground"
                       }`}
                     >
-                      {m.content}
+                      <div className="whitespace-pre-wrap break-words">{m.content}</div>
                       {m.role === "assistant" && Array.isArray(m.recommendations) && m.recommendations.length > 0 ? (
                         <div className="mt-2 space-y-1.5">
                           {m.recommendations.map((rec) => (
