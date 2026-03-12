@@ -1379,11 +1379,13 @@ export default function AdminDashboard() {
         const payoutStatus = payoutData.status || "processing";
         const payoutAmountLabel = formatMoney(Number(payout.amount ?? 0), String(payout.currency ?? "RWF"));
         toast({
-          title: payoutStatus === "completed" ? "Payout Completed" : "Payout Sent",
+          title: payoutStatus === "completed" ? "Payout Completed" : payoutData?.isEnqueued ? "Payout Queued" : "Payout Sent",
           description:
             payoutStatus === "completed"
               ? `${payoutAmountLabel} has been completed via PawaPay.`
-              : `${payoutAmountLabel} was approved and is processing via PawaPay to ${phone}.`,
+              : payoutData?.isEnqueued
+                ? `${payoutAmountLabel} was accepted but queued due to provider delay. It will complete automatically once the provider resumes.`
+                : `${payoutAmountLabel} was approved and is processing via PawaPay to ${phone}.`,
         });
         refetchPayouts();
         setProcessingPayout(null);

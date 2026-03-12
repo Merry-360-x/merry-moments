@@ -252,7 +252,7 @@ struct ProfileView: View {
                             title: "Complete Profile",
                             value: viewModel.loyaltyPoints < 5 ? "Earn 5 pts" : nil
                         ) {
-                            activeCenter = .completeProfile
+                            showPersonalInfoSheet = true
                         }
                     }
                 }

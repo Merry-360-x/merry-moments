@@ -201,7 +201,9 @@ async function syncPayoutStatuses(req, res, supabase) {
           admin_notes:
             nextStatus === "rejected"
               ? `PawaPay Status: ${pawapayStatus}. ${buildPayoutErrorMessage(providerPayload)}`
-              : `PawaPay Status: ${pawapayStatus || "UNKNOWN"}`,
+              : pawapayStatus === "ENQUEUED"
+                ? "PawaPay Status: ENQUEUED. Payout is queued and will complete once provider resumes."
+                : `PawaPay Status: ${pawapayStatus || "UNKNOWN"}`,
           updated_at: new Date().toISOString(),
         })
         .eq("id", payout.id);

@@ -11,6 +11,13 @@ const PAWAPAY_API_KEY = process.env.PAWAPAY_API_KEY;
 
 // PawaPay correspondents by provider and country code.
 const PAYOUT_CORRESPONDENTS = {
+  MTN_MOMO_RWA: "MTN_MOMO_RWA",
+  AIRTEL_RWA: "AIRTEL_RWA",
+  MPESA_KEN: "MPESA_KEN",
+  MTN_MOMO_UGA: "MTN_MOMO_UGA",
+  AIRTEL_OAPI_UGA: "AIRTEL_OAPI_UGA",
+  MTN_MOMO_ZMB: "MTN_MOMO_ZMB",
+  ZAMTEL_ZMB: "ZAMTEL_ZMB",
   MTN_250: "MTN_MOMO_RWA",
   AIRTEL_250: "AIRTEL_RWA",
   mtn_momo_250: "MTN_MOMO_RWA",
@@ -64,6 +71,103 @@ function extractCountryIso(countryCode) {
   if (countryCode === "256") return "UGA";
   if (countryCode === "260") return "ZMB";
   return "RWA";
+}
+
+async function predictProvider(phoneNumber) {
+  const endpoints = [
+    `${PAWAPAY_API_URL}/predict-provider`,
+    `${PAWAPAY_API_URL}/v2/predict-provider`,
+  ];
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${PAWAPAY_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ phoneNumber }),
+      });
+
+      const raw = await response.text();
+      let payload = null;
+      try {
+        payload = raw ? JSON.parse(raw) : null;
+      } catch {
+        payload = { message: raw };
+      }
+
+      if (response.ok) {
+        return {
+          ok: true,
+          phoneNumber: payload?.phoneNumber || phoneNumber,
+          provider: payload?.provider || null,
+          country: payload?.country || null,
+        };
+      }
+
+      if (response.status >= 400 && response.status < 500) {
+        return {
+          ok: false,
+          validationError: true,
+          error:
+            payload?.errorMessage ||
+            payload?.message ||
+            "Invalid mobile money phone number for payout",
+        };
+      }
+    } catch (error) {
+      console.warn("Predict-provider request failed", {
+        endpoint,
+        error: error?.message || String(error),
+      });
+    }
+  }
+
+  return { ok: false, validationError: false };
+}
+
+async function fetchPayoutAvailability(countryIso) {
+  const endpoints = [
+    `${PAWAPAY_API_URL}/availability?country=${countryIso}&operationType=PAYOUT`,
+    `${PAWAPAY_API_URL}/v2/availability?country=${countryIso}&operationType=PAYOUT`,
+  ];
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${PAWAPAY_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) continue;
+      const payload = await response.json();
+      const countries = Array.isArray(payload) ? payload : [];
+      const country = countries.find((entry) => String(entry?.country || "").toUpperCase() === countryIso);
+      if (!country) continue;
+
+      const providers = Array.isArray(country?.providers) ? country.providers : [];
+      const byProvider = {};
+      for (const provider of providers) {
+        const code = String(provider?.provider || "").toUpperCase();
+        const op = String(provider?.operationTypes?.PAYOUT || "").toUpperCase();
+        if (code) byProvider[code] = op;
+      }
+
+      return byProvider;
+    } catch (error) {
+      console.warn("Failed reading payout availability", {
+        endpoint,
+        error: error?.message || String(error),
+      });
+    }
+  }
+
+  return {};
 }
 
 async function fetchActivePayoutProviders(countryIso, requestedCurrency = "RWF") {
@@ -248,17 +352,37 @@ export default async function handler(req, res) {
       return json(res, 500, { error: "Payment provider not configured" });
     }
 
-    const countryCode = detectCountryCode(resolvedPhone);
+    const predicted = await predictProvider(resolvedPhone);
+    if (predicted.validationError) {
+      return json(res, 400, {
+        success: false,
+        error: predicted.error,
+      });
+    }
+
+    const normalizedPredictedPhone = predicted.ok
+      ? normalizePhone(predicted.phoneNumber || resolvedPhone)
+      : resolvedPhone;
+
+    const shouldPreferPredictedProvider = ["MTN", "AIRTEL", "mtn_momo", "airtel_money"].includes(
+      String(resolvedProvider)
+    );
+    const providerForRouting =
+      shouldPreferPredictedProvider && predicted.ok && predicted.provider
+        ? predicted.provider
+        : resolvedProvider;
+
+    const countryCode = detectCountryCode(normalizedPredictedPhone);
     const countryIso = extractCountryIso(countryCode);
-    const correspondentKey = `${resolvedProvider}_${countryCode}`;
+    const correspondentKey = `${providerForRouting}_${countryCode}`;
     const configuredCorrespondent =
       PAYOUT_CORRESPONDENTS[correspondentKey] ||
-      PAYOUT_CORRESPONDENTS[String(resolvedProvider)] ||
-      PAYOUT_CORRESPONDENTS[String(resolvedProvider).toUpperCase()];
+      PAYOUT_CORRESPONDENTS[String(providerForRouting)] ||
+      PAYOUT_CORRESPONDENTS[String(providerForRouting).toUpperCase()];
 
     if (!configuredCorrespondent) {
       return json(res, 400, {
-        error: `Unsupported mobile money provider: ${resolvedProvider} for country code ${countryCode}`,
+        error: `Unsupported mobile money provider: ${providerForRouting} for country code ${countryCode}`,
       });
     }
 
@@ -276,21 +400,31 @@ export default async function handler(req, res) {
     }
 
     const correspondent = pickProviderFromActiveConfig({
-      requestedProvider: resolvedProvider,
+      requestedProvider: providerForRouting,
       fallbackCorrespondent: configuredCorrespondent,
       activeProviders,
     });
 
     if (!correspondent) {
       return json(res, 400, {
-        error: `Unsupported mobile money provider: ${resolvedProvider} for country code ${countryCode}`,
+        error: `Unsupported mobile money provider: ${providerForRouting} for country code ${countryCode}`,
       });
     }
 
     if (activeProviders.length > 0 && !activeProviders.includes(correspondent)) {
       return json(res, 400, {
-        error: `No active payout flow available for ${resolvedProvider} in ${countryIso}/${currency || "RWF"}.`,
+        error: `No active payout flow available for ${providerForRouting} in ${countryIso}/${currency || "RWF"}.`,
         activeProviders,
+      });
+    }
+
+    const availabilityByProvider = await fetchPayoutAvailability(countryIso);
+    const providerAvailability = availabilityByProvider[String(correspondent).toUpperCase()] || "UNKNOWN";
+    if (providerAvailability === "CLOSED") {
+      return json(res, 409, {
+        success: false,
+        error: `Payout provider ${correspondent} is currently unavailable (CLOSED). Please retry later or use another provider.`,
+        providerAvailability,
       });
     }
 
@@ -314,7 +448,7 @@ export default async function handler(req, res) {
       correspondent,
       recipient: {
         type: "MSISDN",
-        address: { value: resolvedPhone },
+        address: { value: normalizedPredictedPhone },
       },
       customerTimestamp: new Date().toISOString(),
       statementDescription: "Merry360 Payout", // Max 22 chars
@@ -364,6 +498,7 @@ export default async function handler(req, res) {
 
     // Payout initiated successfully
     const pawapayStatus = payoutData.status || "ACCEPTED";
+    const isEnqueued = pawapayStatus === "ENQUEUED" || providerAvailability === "DELAYED";
     let dbStatus = "processing";
     
     if (pawapayStatus === "COMPLETED") {
@@ -378,7 +513,9 @@ export default async function handler(req, res) {
       .update({
         status: dbStatus,
         pawapay_payout_id: pawapayPayoutId,
-        admin_notes: `PawaPay Status: ${pawapayStatus}`,
+        admin_notes: isEnqueued
+          ? `PawaPay Status: ${pawapayStatus}. Provider availability: ${providerAvailability}. Payout queued and will complete once provider resumes.`
+          : `PawaPay Status: ${pawapayStatus}. Provider availability: ${providerAvailability}`,
         updated_at: new Date().toISOString(),
       })
       .eq("id", payoutId);
@@ -391,7 +528,13 @@ export default async function handler(req, res) {
       pawapayPayoutId,
       status: dbStatus,
       pawapayStatus,
-      message: dbStatus === "completed" ? "Payout completed!" : "Payout is being processed",
+      providerAvailability,
+      isEnqueued,
+      message: dbStatus === "completed"
+        ? "Payout completed!"
+        : isEnqueued
+          ? "Payout accepted and queued due to temporary provider delay"
+          : "Payout is being processed",
     });
 
   } catch (error) {

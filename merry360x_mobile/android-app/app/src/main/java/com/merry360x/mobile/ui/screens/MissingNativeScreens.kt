@@ -276,9 +276,34 @@ fun ResetPasswordScreen(
 }
 
 @Composable
-fun CompleteProfileScreen(onBack: () -> Unit) {
+fun CompleteProfileScreen(
+    onBack: () -> Unit,
+    api: SupabaseApi,
+    userId: String?,
+    accessToken: String?
+) {
     var fullName by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
+    var loading by remember { mutableStateOf(true) }
+    var saving by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var success by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(userId) {
+        if (userId.isNullOrBlank()) {
+            loading = false
+            return@LaunchedEffect
+        }
+        loading = true
+        val result = api.fetchProfileBasics(userId, accessToken)
+        result.onSuccess { profile ->
+            fullName = profile?.fullName ?: ""
+            phone = profile?.phone ?: ""
+        }
+        result.onFailure { error = it.message }
+        loading = false
+    }
 
     Column(
         modifier = Modifier
@@ -291,30 +316,67 @@ fun CompleteProfileScreen(onBack: () -> Unit) {
         Text("Complete Profile", fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Text("Add your core account details for a complete booking profile.", color = Color(0xFF9E9E9E))
 
-        OutlinedTextField(
-            value = fullName,
-            onValueChange = { fullName = it },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("Full name") },
-            singleLine = true
-        )
+        if (loading) {
+            CircularProgressIndicator(color = Coral, modifier = Modifier.padding(16.dp))
+        } else {
+            error?.let {
+                Text(it, color = Color(0xFFC62828), fontSize = 13.sp)
+            }
 
-        OutlinedTextField(
-            value = phone,
-            onValueChange = { phone = it },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("Phone number") },
-            singleLine = true
-        )
+            if (success) {
+                Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9))) {
+                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Check, contentDescription = null, tint = Color(0xFF43A047))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Profile updated successfully!", color = Color(0xFF2E7D32), fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
 
-        Button(
-            onClick = onBack,
-            enabled = fullName.isNotBlank() && phone.isNotBlank(),
-            colors = ButtonDefaults.buttonColors(containerColor = Coral),
-            shape = RoundedCornerShape(10.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Save profile", color = Color.White)
+            OutlinedTextField(
+                value = fullName,
+                onValueChange = { fullName = it; success = false },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Full name") },
+                singleLine = true
+            )
+
+            OutlinedTextField(
+                value = phone,
+                onValueChange = { phone = it; success = false },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Phone number") },
+                singleLine = true
+            )
+
+            Button(
+                onClick = {
+                    if (userId.isNullOrBlank()) return@Button
+                    scope.launch {
+                        saving = true
+                        error = null
+                        val result = api.updateProfileBasics(
+                            userId = userId,
+                            fullName = fullName.ifBlank { null },
+                            phone = phone.ifBlank { null },
+                            accessToken = accessToken
+                        )
+                        result.onSuccess { success = true }
+                        result.onFailure { error = it.message }
+                        saving = false
+                    }
+                },
+                enabled = !saving && fullName.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(containerColor = Coral),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (saving) {
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                } else {
+                    Text("Save profile", color = Color.White)
+                }
+            }
         }
     }
 }

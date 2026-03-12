@@ -37,6 +37,41 @@ function formatDate(dateStr) {
   });
 }
 
+function getServiceTypeFromItem(itemType) {
+  if (itemType === "property") return "accommodation";
+  if (itemType === "tour" || itemType === "tour_package") return "tour";
+  return "transport";
+}
+
+function getFeePercentsForItem(itemType) {
+  const serviceType = getServiceTypeFromItem(itemType);
+  if (serviceType === "accommodation") {
+    return { guestFeePercent: 10, hostFeePercent: 3 };
+  }
+  if (serviceType === "tour") {
+    return { guestFeePercent: 0, hostFeePercent: 10 };
+  }
+  return { guestFeePercent: 0, hostFeePercent: 0 };
+}
+
+function computeHostReceivesAmount(item, booking) {
+  const itemHostEarnings = Number(item?.host_earnings_amount);
+  if (Number.isFinite(itemHostEarnings) && itemHostEarnings >= 0) {
+    return itemHostEarnings;
+  }
+
+  const bookingTotal = Number(booking?.total_price);
+  const guestPaid = Number(item?.calculated_price);
+  const guestPaidAmount = Number.isFinite(guestPaid) && guestPaid > 0
+    ? guestPaid
+    : (Number.isFinite(bookingTotal) && bookingTotal > 0 ? bookingTotal : 0);
+
+  const { guestFeePercent, hostFeePercent } = getFeePercentsForItem(item?.item_type);
+  const listingSubtotal = guestPaidAmount / (1 + (guestFeePercent / 100));
+  const hostFee = (listingSubtotal * hostFeePercent) / 100;
+  return Math.max(0, listingSubtotal - hostFee);
+}
+
 // Generate booking confirmation email HTML (minimalistic)
 function generateConfirmationEmail(checkout, items, bookingIds, reviewTokens) {
   const guestName = checkout.name || "Guest";
@@ -363,6 +398,10 @@ async function sendHostNotification(supabase, booking, item) {
     const checkIn = formatDate(booking.check_in);
     const checkOut = formatDate(booking.check_out);
     const totalAmount = formatMoney(booking.total_price, booking.currency);
+    const hostReceivesAmount = formatMoney(
+      computeHostReceivesAmount(item, booking),
+      booking.currency
+    );
     const bookingRef = `MRY-${booking.id.slice(0, 8).toUpperCase()}`;
 
     const hostHtml = renderMinimalEmail({
@@ -378,7 +417,8 @@ async function sendHostNotification(supabase, booking, item) {
         { label: "Check-in", value: escapeHtml(checkIn) },
         { label: "Check-out", value: escapeHtml(checkOut) },
         { label: "Guests", value: escapeHtml(`${booking.guests || 1}`) },
-        { label: "Total Amount", value: escapeHtml(totalAmount) },
+        { label: "Host Receives", value: escapeHtml(hostReceivesAmount) },
+        { label: "Guest Paid", value: escapeHtml(totalAmount) },
       ]),
       ctaText: "Open Host Dashboard",
       ctaUrl: "https://merry360x.com/host-dashboard",

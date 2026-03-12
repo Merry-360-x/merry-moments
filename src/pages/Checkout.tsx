@@ -1025,6 +1025,11 @@ export default function CheckoutNew() {
           calculated_price: financials.guestTotal,
           calculated_price_currency: item.currency,
           platform_fee: financials.guestFee,
+          host_fee_amount: financials.hostFee,
+          host_earnings_amount: financials.hostNetEarnings,
+          discounted_listing_subtotal: financials.discountedListingSubtotal,
+          guest_fee_percent: financials.guestFeePercent,
+          host_fee_percent: financials.hostFeePercent,
           discount_applied: totalItemDiscount,
         };
       });

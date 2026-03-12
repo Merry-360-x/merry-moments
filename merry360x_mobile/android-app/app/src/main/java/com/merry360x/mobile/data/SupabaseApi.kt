@@ -1231,6 +1231,37 @@ class SupabaseApi(
         }
     }
 
+    suspend fun updateProfileBasics(
+        userId: String,
+        fullName: String?,
+        phone: String?,
+        accessToken: String?
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        if (supabaseUrl.isBlank() || anonKey.isBlank()) {
+            return@withContext Result.failure(IllegalStateException("Missing Supabase config"))
+        }
+        val bearer = accessToken?.takeIf { it.isNotBlank() } ?: anonKey
+        val url = "$supabaseUrl/rest/v1/profiles?user_id=eq.$userId"
+        val payload = JSONObject().apply {
+            fullName?.let { put("full_name", it) }
+            phone?.let { put("phone", it) }
+        }
+        val request = Request.Builder()
+            .url(url)
+            .addHeader("apikey", anonKey)
+            .addHeader("Authorization", "Bearer $bearer")
+            .addHeader("Content-Type", "application/json")
+            .addHeader("Prefer", "return=minimal")
+            .patch(payload.toString().toRequestBody("application/json".toMediaType()))
+            .build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                return@withContext Result.failure(IllegalStateException("Profile update failed (${response.code})"))
+            }
+            Result.success(Unit)
+        }
+    }
+
     private fun postJson(
         table: String,
         payload: JSONObject,

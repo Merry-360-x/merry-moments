@@ -540,11 +540,13 @@ export default function FinancialStaffDashboard() {
           if (error) throw error;
 
           toast({
-            title: payoutStatus === "completed" ? "Payout Completed" : "Payout Sent",
+            title: payoutStatus === "completed" ? "Payout Completed" : pawapayResult?.isEnqueued ? "Payout Queued" : "Payout Sent",
             description:
               payoutStatus === "completed"
                 ? `Payment of ${payout.amount} ${payout.currency || "RWF"} completed via PawaPay.`
-                : `Payment of ${payout.amount} ${payout.currency || "RWF"} approved and processing via PawaPay to ${phone}.`,
+                : pawapayResult?.isEnqueued
+                  ? `Payment of ${payout.amount} ${payout.currency || "RWF"} was accepted but queued due to provider delay. It will complete automatically once the provider resumes.`
+                  : `Payment of ${payout.amount} ${payout.currency || "RWF"} approved and processing via PawaPay to ${phone}.`,
           });
 
           refetchPayouts();

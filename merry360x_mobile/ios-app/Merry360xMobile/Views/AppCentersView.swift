@@ -148,13 +148,33 @@ struct AppCentersView: View {
                     .navigationTitle("Trip Cart")
                     .navigationBarTitleDisplayMode(.inline)
             case .completeProfile:
-                BookingsCheckoutCenterView()
+                NativeCompleteProfileCenterView()
             case .websiteRoutes:
                 NativeWebsiteRoutesView()
                     .navigationTitle("Website Routes")
                     .navigationBarTitleDisplayMode(.inline)
             }
         }
+    }
+}
+
+private struct NativeCompleteProfileCenterView: View {
+    var body: some View {
+        List {
+            Section("Complete Your Profile") {
+                Label("Add full name, phone, and bio", systemImage: "person.text.rectangle")
+                Label("Upload a clear profile photo", systemImage: "camera")
+                Label("Set language, region, and currency", systemImage: "globe")
+                Label("Profile completion helps unlock host/affiliate flows", systemImage: "checkmark.seal")
+            }
+
+            Section("Tip") {
+                Text("For editing details, open Personal Info from the Profile screen.")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .navigationTitle("Complete Profile")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 

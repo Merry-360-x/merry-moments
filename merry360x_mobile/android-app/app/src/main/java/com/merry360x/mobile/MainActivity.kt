@@ -176,6 +176,12 @@ class MainActivity : ComponentActivity() {
                     tripsViewModel.load(authState.userId)
                 }
 
+                LaunchedEffect(authState.authenticated, authState.userId) {
+                    if (authState.authenticated && !authState.userId.isNullOrBlank()) {
+                        featureViewModel.load(authState.userId)
+                    }
+                }
+
                 LaunchedEffect(launchCallbackUrl) {
                     if (!launchCallbackUrl.isNullOrBlank()) {
                         globalScreen = GlobalScreen.AUTH_CALLBACK
@@ -194,6 +200,9 @@ class MainActivity : ComponentActivity() {
                                         selected = tab == index,
                                         onClick = {
                                             tab = index
+                                            if (index != 4) {
+                                                activeCenter = null
+                                            }
                                             if (index == 0 && exploreFlow != ExploreFlow.HOME) {
                                                 exploreFlow = ExploreFlow.HOME
                                             }
@@ -258,9 +267,6 @@ class MainActivity : ComponentActivity() {
                         }
                     ) { innerPadding ->
                         val modifier = Modifier.padding(innerPadding)
-                        if (authState.authenticated) {
-                            featureViewModel.load("replace-with-real-user-id")
-                        }
                         Box(modifier) {
                             if (globalScreen != null) {
                                 when (globalScreen) {
@@ -271,14 +277,17 @@ class MainActivity : ComponentActivity() {
                                     )
                                     GlobalScreen.FORGOT_PASSWORD -> ForgotPasswordScreen(
                                         onBack = { globalScreen = null },
-                                        onContinueToReset = { globalScreen = GlobalScreen.RESET_PASSWORD },
+                                        onContinueToReset = { globalScreen = GlobalScreen.FORGOT_PASSWORD },
                                     )
                                     GlobalScreen.RESET_PASSWORD -> ResetPasswordScreen(
                                         onBack = { globalScreen = GlobalScreen.FORGOT_PASSWORD },
                                         onDone = { globalScreen = null },
                                     )
                                     GlobalScreen.COMPLETE_PROFILE -> CompleteProfileScreen(
-                                        onBack = { globalScreen = null }
+                                        onBack = { globalScreen = null },
+                                        api = api,
+                                        userId = authViewModel.userId,
+                                        accessToken = authViewModel.accessToken
                                     )
                                     GlobalScreen.SAFETY_GUIDELINES -> SafetyGuidelinesScreen(
                                         onBack = { globalScreen = null }
@@ -424,24 +433,32 @@ class MainActivity : ComponentActivity() {
                                                 }
                                             },
                                             onNavigate = { target ->
-                                                when (target) {
-                                                    "complete_profile" -> globalScreen = GlobalScreen.COMPLETE_PROFILE
-                                                    "safety" -> globalScreen = GlobalScreen.SAFETY_GUIDELINES
-                                                    "region" -> globalScreen = GlobalScreen.REGION
-                                                    "language" -> globalScreen = GlobalScreen.LANGUAGE
-                                                    "currency" -> globalScreen = GlobalScreen.CURRENCY
-                                                    "mode" -> globalScreen = GlobalScreen.APP_MODE
-                                                    "notifications" -> globalScreen = GlobalScreen.NOTIFICATIONS
-                                                    "chat", "help_center" -> globalScreen = GlobalScreen.CHAT
-                                                    "terms", "privacy", "refund" -> activeCenter = AppCenterDestination.SUPPORT_LEGAL
-                                                    "travel_stories" -> activeCenter = AppCenterDestination.HOST_STUDIO
-                                                    "bookings", "checkout", "my_bookings" -> activeCenter = AppCenterDestination.BOOKINGS_CHECKOUT
-                                                    "affiliate" -> activeCenter = AppCenterDestination.AFFILIATE
-                                                    "app_store", "google_play" -> {
-                                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.merry360x.mobile"))
-                                                        this@MainActivity.startActivity(intent)
+                                                val authOnlyTargets = setOf("complete_profile", "travel_stories", "bookings", "checkout", "my_bookings", "affiliate")
+                                                if (!authState.authenticated && authOnlyTargets.contains(target)) {
+                                                    showAuthSheet = true
+                                                } else {
+                                                    when (target) {
+                                                        "complete_profile" -> globalScreen = GlobalScreen.COMPLETE_PROFILE
+                                                        "safety" -> globalScreen = GlobalScreen.SAFETY_GUIDELINES
+                                                        "region" -> globalScreen = GlobalScreen.REGION
+                                                        "language" -> globalScreen = GlobalScreen.LANGUAGE
+                                                        "currency" -> globalScreen = GlobalScreen.CURRENCY
+                                                        "mode" -> globalScreen = GlobalScreen.APP_MODE
+                                                        "notifications" -> globalScreen = GlobalScreen.NOTIFICATIONS
+                                                        "chat", "help_center" -> globalScreen = GlobalScreen.CHAT
+                                                        "terms", "privacy", "refund" -> activeCenter = AppCenterDestination.SUPPORT_LEGAL
+                                                        "travel_stories" -> {
+                                                            tab = 0
+                                                            exploreFlow = ExploreFlow.HOME
+                                                        }
+                                                        "bookings", "checkout", "my_bookings" -> activeCenter = AppCenterDestination.BOOKINGS_CHECKOUT
+                                                        "affiliate" -> activeCenter = AppCenterDestination.AFFILIATE
+                                                        "app_store", "google_play" -> {
+                                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.merry360x.mobile"))
+                                                            this@MainActivity.startActivity(intent)
+                                                        }
+                                                        else -> {}
                                                     }
-                                                    else -> {}
                                                 }
                                             }
                                         )
