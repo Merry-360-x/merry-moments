@@ -556,7 +556,7 @@ export default function SupportCenterLauncher() {
     setAiMessages(next);
     setAiSending(true);
     try {
-      const r = await fetch("/api/ai-trip-advisor-py", {
+      const r = await fetch("/api/ai-trip-advisor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: next }),
