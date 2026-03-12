@@ -1,114 +1,18 @@
 """
-Merry360X AI Trip Advisor — Python Edition
-POST /api/ai-trip-advisor-py
+Merry360X AI Trip Advisor — Local Python Brain
+POST /api/ai-trip-advisor
 
-Uses OpenAI GPT-4o-mini when OPENAI_API_KEY is set;
-falls back to a keyword-based Python brain otherwise.
-Response shape is forward-compatible with the JS version.
+Runs fully in-house with intent classification + entity extraction + curated
+knowledge responses (no external AI provider required).
 """
 
 from http.server import BaseHTTPRequestHandler
 import json
-import os
 import re
 import random
 
 # ---------------------------------------------------------------------------
-# Optional OpenAI dependency
-# ---------------------------------------------------------------------------
-try:
-    from openai import OpenAI as _OpenAI  # type: ignore
-    _OPENAI_AVAILABLE = True
-except ImportError:
-    _OPENAI_AVAILABLE = False
-
-# ---------------------------------------------------------------------------
-# System prompt – injected as the "system" message for every OpenAI call
-# ---------------------------------------------------------------------------
-_SYSTEM_PROMPT = """
-You are an expert AI travel assistant for Merry360X (merry360x.com), a travel booking platform
-specialising in authentic East African adventures. You respond in the language the user writes in.
-
-## Personality
-Friendly, knowledgeable, concise. Use markdown (bold, bullet points, emojis) for readability.
-Always tie recommendations back to bookable options on Merry360X.
-
-## Platform facts
-- Countries: Rwanda, Uganda, Kenya, Tanzania, Zambia
-- Services: accommodations (hotels, lodges, villas, apartments, guesthouses), tours & experiences,
-  car rentals, airport transfers, monthly rentals
-- Payments: MTN/Airtel Mobile Money, M-Pesa, Visa/Mastercard, bank transfer
-- Cancellation: Flexible (24 h), Moderate (5 days), Strict (7 days), Non-refundable (permits/events)
-- Support: support@merry360x.com | 24/7 for active trips
-
-## Key destinations
-
-**Rwanda**
-- Kigali – vibrant capital, Genocide Memorial, great food & nightlife
-- Volcanoes NP – mountain gorilla trekking ($1,500 permit; book 3–6 months ahead), golden monkeys
-- Lake Kivu – beach resorts, kayaking, scenic lakeside towns (Gisenyi, Kibuye)
-- Nyungwe Forest – chimpanzee tracking, canopy walkway, L'Hoest's monkeys
-- Akagera NP – Big Five (incl. rhinos re-introduced), hippo/bird boat safaris
-
-**Uganda**
-- Kampala / Entebbe – lively capital, Baha'i Temple gateway
-- Bwindi Impenetrable Forest – mountain gorillas ($800 permit, 4 sectors)
-- Queen Elizabeth NP – tree-climbing lions, Kazinga Channel boat safari
-- Murchison Falls – dramatic Nile waterfall, game drives, river boat trips
-- Jinja – Grade 5 white water rafting, bungee, source of the Nile
-- Kibale Forest – best chimp tracking in Africa
-
-**Kenya**
-- Masai Mara – Big Five year-round; Great Migration river crossings Jul–Oct
-- Amboseli – huge elephant herds with Kilimanjaro backdrop
-- Diani Beach – white-sand Indian Ocean coast, diving, water sports
-- Nairobi – Giraffe Centre, Elephant Orphanage, city-trip base
-- Samburu – Grevy's zebra, reticulated giraffe, rare northern species
-
-**Tanzania**
-- Serengeti – world-famous savanna; calving season Jan–Feb
-- Ngorongoro Crater – world's largest intact caldera, densest wildlife
-- Zanzibar – turquoise waters, Stone Town (UNESCO), snorkelling, diving
-- Kilimanjaro – Africa's highest peak (5,895 m); 5–9 day trekking routes
-- Arusha – northern circuit gateway
-
-**Zambia**
-- Victoria Falls – one of the world's largest waterfalls, sunset cruises
-- South Luangwa NP – walking safaris, leopard density
-- Lower Zambezi – canoe safaris, hippos, elephants
-
-## Seasonal guide
-- **Best (dry):** Jun–Sep and Dec–Feb
-- **Gorilla trekking:** Year-round; best Jun–Sep, Dec–Feb
-- **Great Migration river crossings:** Jul–Oct (Masai Mara / Serengeti border)
-- **Calving season:** Jan–Feb (southern Serengeti)
-- **Avoid for most activities:** Mar–May and Oct–Nov (heavy rains)
-- **Zanzibar:** Great year-round; best Jun–Oct and Dec–Feb
-
-## Activity highlights
-- Gorilla trekking: $1,500 (Rwanda) / $800 (Uganda); max 8 visitors/family/day; permits non-refundable
-- Safari game drives: 4×4 vehicles; dawn and dusk departures; Big Five in most parks
-- White water rafting (Jinja): Grade 5; full day ~$125/person
-- Hot air balloon (Mara/Serengeti): ~$450–$600/person at sunrise
-- Kilimanjaro: 5 main routes; Lemosho best success rate (7–8 days); cost $2,000–$4,000
-- Chimpanzee tracking (Kibale/Nyungwe): $150–$250 permit; 2–5 h on average
-
-## Booking process
-1. Search by destination + dates + guests
-2. Filter by type, price, amenities, guest count
-3. Review listing details, photos, policies, reviews
-4. Checkout → enter guest details → choose payment → confirm
-5. Email confirmation + host/guide contact details
-
-## Response guidelines
-- For trip planning: ask follow-up questions about budget, dates, group type, interests
-- For booking questions: give clear step-by-step guidance
-- For prices: give indicative ranges; note they vary by season and property
-- If unsure, recommend contacting support@merry360x.com
-""".strip()
-
-# ---------------------------------------------------------------------------
-# Intent catalogue for keyword-based classification (used in both modes)
+# Intent catalogue for local intent classification
 # ---------------------------------------------------------------------------
 _INTENTS: dict[str, dict] = {
     "greeting": {
@@ -472,10 +376,10 @@ def _fallback_reply(intent: str, text: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Processing pipelines
+# Processing pipeline
 # ---------------------------------------------------------------------------
 
-def _process_fallback(messages: list) -> dict:
+def _process(messages: list) -> dict:
     last = next((m for m in reversed(messages) if m.get("role") == "user"), {})
     text = str(last.get("content") or "")
     intent, confidence = _classify_intent(text)
@@ -484,59 +388,9 @@ def _process_fallback(messages: list) -> dict:
         "reply": _fallback_reply(intent, text),
         "intent": intent,
         "confidence": confidence,
-        "model": "python-keyword-fallback",
+        "model": "merry360x-local-ai-v1",
         "extractedEntities": _extract_entities(text),
     }
-
-
-def _process_openai(messages: list, api_key: str) -> dict:
-    client = _OpenAI(api_key=api_key)
-
-    openai_msgs = [{"role": "system", "content": _SYSTEM_PROMPT}]
-    for m in messages[-20:]:
-        role = str(m.get("role") or "user")
-        content = str(m.get("content") or "")
-        if role in ("user", "assistant") and content:
-            openai_msgs.append({"role": role, "content": content})
-
-    resp = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=openai_msgs,
-        max_tokens=900,
-        temperature=0.7,
-    )
-
-    reply = (resp.choices[0].message.content or
-             "I'm here to help with your East Africa travel plans!")
-
-    last = next((m for m in reversed(messages) if m.get("role") == "user"), {})
-    text = str(last.get("content") or "")
-    intent, confidence = _classify_intent(text)
-
-    result: dict = {
-        "ok": True,
-        "reply": reply,
-        "intent": intent,
-        "confidence": confidence,
-        "model": "gpt-4o-mini",
-        "extractedEntities": _extract_entities(text),
-    }
-    if resp.usage:
-        result["usage"] = {
-            "prompt_tokens": resp.usage.prompt_tokens,
-            "completion_tokens": resp.usage.completion_tokens,
-        }
-    return result
-
-
-def _process(messages: list) -> dict:
-    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
-    if _OPENAI_AVAILABLE and api_key:
-        try:
-            return _process_openai(messages, api_key)
-        except Exception as exc:
-            print(f"[ai-trip-advisor-py] OpenAI error, falling back: {exc}")
-    return _process_fallback(messages)
 
 
 # ---------------------------------------------------------------------------
@@ -573,7 +427,7 @@ class handler(BaseHTTPRequestHandler):
             "ok": True,
             "service": "Merry360X AI Trip Advisor",
             "runtime": "Python",
-            "model": "gpt-4o-mini (OpenAI)" if (_OPENAI_AVAILABLE and os.environ.get("OPENAI_API_KEY")) else "python-keyword-fallback",
+            "model": "merry360x-local-ai-v1",
         })
 
     def do_POST(self):
