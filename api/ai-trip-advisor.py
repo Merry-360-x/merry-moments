@@ -8,13 +8,39 @@ knowledge responses (no external AI provider required).
 
 from http.server import BaseHTTPRequestHandler
 import json
+import os
 import re
 import random
+import time
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 
 _PRICE_TERMS = [
     "cheap", "cheapest", "lowest", "low cost", "affordable", "budget", "best price", "least expensive",
 ]
+
+_SESSION_MEMORY: dict[str, dict] = {}
+_SESSION_TTL_SECONDS = 60 * 60 * 8
+_MAX_MEMORY_TURNS = 24
+
+_CITY_TO_COUNTRY = {
+    "kigali": "Rwanda",
+    "gisenyi": "Rwanda",
+    "kibuye": "Rwanda",
+    "kampala": "Uganda",
+    "entebbe": "Uganda",
+    "jinja": "Uganda",
+    "nairobi": "Kenya",
+    "masai mara": "Kenya",
+    "mara": "Kenya",
+    "arusha": "Tanzania",
+    "serengeti": "Tanzania",
+    "zanzibar": "Tanzania",
+    "dar es salaam": "Tanzania",
+    "livingstone": "Zambia",
+    "lusaka": "Zambia",
+}
 
 _PROPERTY_TYPE_ALIASES: dict[str, list[str]] = {
     "apartment": ["apartment", "apartments", "flat", "studio"],
@@ -386,20 +412,276 @@ def _extract_entities(text: str) -> dict:
             ents["month"] = mo
             break
 
+    guests_match = re.search(r"(\d+)\s*(guest|guests|people|persons|traveler|travelers|adults?)", t)
+    if guests_match:
+        ents["guests"] = max(1, int(guests_match.group(1)))
+
+    budget_match_plain = re.search(r"\b(\d{2,6})\s*(usd|\$|rwf|frw|eur)?\b", t)
+    if budget_match_plain and "budget_usd" not in ents:
+        val = int(budget_match_plain.group(1))
+        unit = (budget_match_plain.group(2) or "").lower()
+        if 20 <= val <= 100000:
+            if unit in {"rwf", "frw"}:
+                ents["budget_rwf"] = val
+            else:
+                ents["budget_usd"] = val
+
+    for city, country in _CITY_TO_COUNTRY.items():
+        if city in t:
+            ents["location_hint"] = city.title()
+            ents.setdefault("countries", [country])
+            break
+
     return ents
 
 
-def _fallback_reply(intent: str, text: str) -> str:
+def _merge_entities(base: dict, overlay: dict) -> dict:
+    merged = dict(base)
+    for k, v in overlay.items():
+        if v is None:
+            continue
+        if isinstance(v, list):
+            prev = merged.get(k, []) if isinstance(merged.get(k), list) else []
+            merged[k] = list(dict.fromkeys(prev + v))
+        else:
+            merged[k] = v
+    return merged
+
+
+def _memory_key(user_id: str | None, session_id: str | None) -> str:
+    if user_id:
+        return f"user:{user_id}"
+    if session_id:
+        return f"session:{session_id}"
+    return "anon:default"
+
+
+def _load_memory(user_id: str | None, session_id: str | None) -> dict:
+    now = time.time()
+    # Opportunistic cleanup
+    stale = [k for k, v in _SESSION_MEMORY.items() if now - float(v.get("updated_at", 0)) > _SESSION_TTL_SECONDS]
+    for k in stale:
+        _SESSION_MEMORY.pop(k, None)
+
+    key = _memory_key(user_id, session_id)
+    data = _SESSION_MEMORY.get(key) or {"turns": [], "entities": {}, "updated_at": now}
+    _SESSION_MEMORY[key] = data
+    return data
+
+
+def _save_memory(user_id: str | None, session_id: str | None, turn: dict, entities: dict):
+    key = _memory_key(user_id, session_id)
+    data = _SESSION_MEMORY.get(key) or {"turns": [], "entities": {}, "updated_at": time.time()}
+    data["turns"] = (data.get("turns", []) + [turn])[-_MAX_MEMORY_TURNS:]
+    data["entities"] = _merge_entities(data.get("entities", {}), entities)
+    data["updated_at"] = time.time()
+    _SESSION_MEMORY[key] = data
+
+
+def _supabase_config() -> tuple[str | None, str | None]:
+    url = os.environ.get("SUPABASE_URL") or os.environ.get("VITE_SUPABASE_URL")
+    key = (
+        os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+        or os.environ.get("SUPABASE_ANON_KEY")
+        or os.environ.get("VITE_SUPABASE_ANON_KEY")
+    )
+    if not url or not key:
+        return None, None
+    return url.rstrip("/"), key
+
+
+def _fetch_supabase_listings(limit: int = 120) -> list[dict]:
+    base, key = _supabase_config()
+    if not base or not key:
+        return []
+
+    params = {
+        "select": "id,title,location,price_per_night,price_per_month,monthly_only_listing,currency,property_type,rating,review_count,max_guests,is_published",
+        "is_published": "eq.true",
+        "limit": str(limit),
+    }
+    url = f"{base}/rest/v1/properties?{urlencode(params)}"
+    req = Request(
+        url,
+        headers={
+            "apikey": key,
+            "Authorization": f"Bearer {key}",
+            "Accept": "application/json",
+        },
+        method="GET",
+    )
+    try:
+        with urlopen(req, timeout=5) as resp:
+            raw = resp.read()
+        data = json.loads(raw.decode("utf-8"))
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def _normalized_price(item: dict) -> float:
+    monthly_only = bool(item.get("monthly_only_listing"))
+    price = item.get("price_per_month") if monthly_only else item.get("price_per_night")
+    try:
+        return float(price or 0)
+    except Exception:
+        return 0.0
+
+
+def _budget_cap(entities: dict) -> float | None:
+    if "budget_rwf" in entities:
+        try:
+            return float(entities["budget_rwf"])
+        except Exception:
+            return None
+    if "budget_usd" in entities:
+        # Approximate USD->RWF conversion for ranking fallback if listing is RWF-heavy
+        try:
+            return float(entities["budget_usd"]) * 1300
+        except Exception:
+            return None
+    return None
+
+
+def _rank_listings(items: list[dict], entities: dict, text: str, top_n: int = 5) -> list[dict]:
+    if not items:
+        return []
+
+    t = text.lower()
+    requested_type = entities.get("property_type")
+    requested_guests = int(entities.get("guests", 0) or 0)
+    countries = [str(c).lower() for c in entities.get("countries", [])]
+    location_hint = str(entities.get("location_hint", "")).lower()
+    cap = _budget_cap(entities)
+
+    filtered = []
+    for it in items:
+        p = _normalized_price(it)
+        if p <= 0:
+            continue
+        if requested_type and str(it.get("property_type", "")).lower() != str(requested_type).lower():
+            continue
+        if requested_guests and int(it.get("max_guests") or 0) and int(it.get("max_guests") or 0) < requested_guests:
+            continue
+        if cap and p > cap * 1.4:
+            continue
+        filtered.append(it)
+
+    pool = filtered if filtered else items
+    prices = [_normalized_price(it) for it in pool if _normalized_price(it) > 0]
+    p_min = min(prices) if prices else 1.0
+    p_max = max(prices) if prices else 1.0
+
+    scored = []
+    for it in pool:
+        price = _normalized_price(it)
+        rating = float(it.get("rating") or 0)
+        reviews = int(it.get("review_count") or 0)
+        location = str(it.get("location") or "")
+        ptype = str(it.get("property_type") or "")
+
+        if p_max == p_min:
+            price_score = 1.0
+        else:
+            price_score = 1.0 - ((price - p_min) / (p_max - p_min))
+
+        rating_score = min(rating / 5.0, 1.0)
+        review_score = min(reviews / 50.0, 1.0)
+
+        type_boost = 0.2 if requested_type and ptype.lower() == str(requested_type).lower() else 0.0
+        location_boost = 0.0
+        ll = location.lower()
+        if location_hint and location_hint in ll:
+            location_boost += 0.25
+        if countries and any(c in ll for c in countries):
+            location_boost += 0.15
+
+        price_weight = 0.55 if _is_price_focused(t) else 0.35
+        score = (price_weight * price_score) + (0.30 * rating_score) + (0.15 * review_score) + type_boost + location_boost
+
+        scored.append({
+            "id": str(it.get("id")),
+            "title": str(it.get("title") or "Untitled"),
+            "location": location,
+            "currency": str(it.get("currency") or "RWF"),
+            "price": price,
+            "rating": rating,
+            "review_count": reviews,
+            "property_type": ptype,
+            "score": round(score, 4),
+        })
+
+    scored.sort(key=lambda x: x["score"], reverse=True)
+    return scored[:top_n]
+
+
+def _format_recommendations(recs: list[dict]) -> str:
+    if not recs:
+        return ""
+    lines = ["🏷️ **Best matching listings right now:**"]
+    for r in recs[:3]:
+        price_text = f"{int(r['price']):,} {r['currency']}"
+        lines.append(
+            f"- **{r['title']}** · {r['location']} · {price_text} · ⭐ {r['rating']:.1f} ({r['review_count']})"
+        )
+    lines.append("\nShare your exact dates and I can narrow this to the best final picks.")
+    return "\n".join(lines)
+
+
+def _intent_confidence(intent: str, base_score: float, entities: dict, has_recs: bool) -> float:
+    conf = base_score
+    if entities.get("countries"):
+        conf += 0.08
+    if entities.get("property_type"):
+        conf += 0.08
+    if entities.get("budget_usd") or entities.get("budget_rwf"):
+        conf += 0.10
+    if entities.get("guests"):
+        conf += 0.06
+    if has_recs:
+        conf += 0.12
+
+    # Need stronger signals for shopping intents.
+    if intent in {"accommodation", "budget"}:
+        if not entities.get("countries") and not entities.get("location_hint"):
+            conf -= 0.10
+        if not entities.get("budget_usd") and not entities.get("budget_rwf"):
+            conf -= 0.08
+
+    return round(max(0.05, min(conf, 0.99)), 2)
+
+
+def _clarification_questions(intent: str, entities: dict) -> str:
+    missing: list[str] = []
+    if intent in {"accommodation", "budget"}:
+        if not entities.get("countries") and not entities.get("location_hint"):
+            missing.append("Which city or country do you want?")
+        if not entities.get("budget_usd") and not entities.get("budget_rwf"):
+            missing.append("What is your max budget per night?")
+        if not entities.get("guests"):
+            missing.append("How many guests?")
+        if not entities.get("month"):
+            missing.append("What travel month or dates are you targeting?")
+
+    if not missing:
+        return ""
+
+    lines = ["To give a precise recommendation, I need:"]
+    for q in missing[:3]:
+        lines.append(f"- {q}")
+    return "\n".join(lines)
+
+
+def _fallback_reply(intent: str, text: str, entities: dict, recommendations: list[dict]) -> str:
     raw = text.strip()
     t = raw.lower()
-    entities = _extract_entities(raw)
 
     # Compose intent for queries like "what the cheapest apartment" instead of
     # returning generic accommodation text.
     if _is_price_focused(t) and entities.get("property_type"):
         property_type = str(entities["property_type"])
         label = property_type.capitalize()
-        return (
+        base = (
             f"💸 **Cheapest {label} options on Merry360X**\n\n"
             f"Great choice. To find the current **lowest-price {property_type}s**, use:\n"
             f"- Property type: **{label}**\n"
@@ -412,9 +694,15 @@ def _fallback_reply(intent: str, text: str) -> str:
             "- Zanzibar / safari-adjacent areas: ~$45–$120 per night\n\n"
             "Send me your destination + dates + number of guests and I’ll narrow it down fast."
         )
+        if recommendations:
+            base = f"{base}\n\n{_format_recommendations(recommendations)}"
+        return base
 
     if intent in _REPLIES:
-        return random.choice(_REPLIES[intent])
+        base = random.choice(_REPLIES[intent])
+        if intent in {"accommodation", "budget"} and recommendations:
+            return f"{base}\n\n{_format_recommendations(recommendations)}"
+        return base
     ents = entities
     countries = ents.get("countries", [])
     if countries:
@@ -438,17 +726,45 @@ def _fallback_reply(intent: str, text: str) -> str:
 # Processing pipeline
 # ---------------------------------------------------------------------------
 
-def _process(messages: list) -> dict:
+def _process(messages: list, user_id: str | None = None, session_id: str | None = None) -> dict:
     last = next((m for m in reversed(messages) if m.get("role") == "user"), {})
     text = str(last.get("content") or "")
-    intent, confidence = _classify_intent(text)
+    intent, base_conf = _classify_intent(text)
+
+    memory = _load_memory(user_id, session_id)
+    prior_entities = memory.get("entities", {}) if isinstance(memory, dict) else {}
+    current_entities = _extract_entities(text)
+    entities = _merge_entities(prior_entities, current_entities)
+
+    listings = _fetch_supabase_listings(limit=150)
+    recommendations = _rank_listings(listings, entities, text, top_n=5)
+    confidence = _intent_confidence(intent, base_conf, entities, bool(recommendations))
+
+    reply = _fallback_reply(intent, text, entities, recommendations)
+    if confidence < 0.52:
+        clarify = _clarification_questions(intent, entities)
+        if clarify:
+            reply = f"{reply}\n\n{clarify}"
+
+    _save_memory(
+        user_id,
+        session_id,
+        {"role": "user", "content": text, "intent": intent, "confidence": confidence},
+        current_entities,
+    )
+
     return {
         "ok": True,
-        "reply": _fallback_reply(intent, text),
+        "reply": reply,
         "intent": intent,
         "confidence": confidence,
         "model": "merry360x-local-ai-v1",
-        "extractedEntities": _extract_entities(text),
+        "extractedEntities": entities,
+        "recommendations": recommendations,
+        "memory": {
+            "memoryKey": _memory_key(user_id, session_id),
+            "turnsStored": len(_SESSION_MEMORY.get(_memory_key(user_id, session_id), {}).get("turns", [])),
+        },
     }
 
 
@@ -503,8 +819,11 @@ class handler(BaseHTTPRequestHandler):
             self._send_json(400, {"ok": False, "error": "Expected non-empty messages array"})
             return
 
+        user_id = body.get("userId")
+        session_id = body.get("sessionId")
+
         try:
-            self._send_json(200, _process(messages))
+            self._send_json(200, _process(messages, str(user_id) if user_id else None, str(session_id) if session_id else None))
         except Exception as exc:
             print(f"[ai-trip-advisor-py] Unhandled error: {exc}")
             self._send_json(500, {"ok": False, "error": "Internal server error"})

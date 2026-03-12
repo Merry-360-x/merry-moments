@@ -47,6 +47,18 @@ export default function SupportCenterLauncher() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+  const aiSessionId = useMemo(() => {
+    const key = "merry360x_ai_session_id";
+    try {
+      const existing = localStorage.getItem(key);
+      if (existing) return existing;
+      const generated = `sess_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      localStorage.setItem(key, generated);
+      return generated;
+    } catch {
+      return `sess_${Date.now()}`;
+    }
+  }, []);
 
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("home");
@@ -559,7 +571,7 @@ export default function SupportCenterLauncher() {
       const r = await fetch("/api/ai-trip-advisor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: next }),
+        body: JSON.stringify({ messages: next, userId: user?.id ?? null, sessionId: aiSessionId }),
       });
       const out = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error("AI request failed");
