@@ -390,9 +390,14 @@ def _extract_entities(text: str) -> dict:
     if countries:
         ents["countries"] = [c.title() for c in countries]
 
-    m = re.search(r"\$\s*(\d[\d,]*)", text)
+    m = re.search(r"\$\s*(\d[\d,]*)", t)
     if m:
         ents["budget_usd"] = int(m.group(1).replace(",", ""))
+
+    if "budget_usd" not in ents:
+        m_trailing = re.search(r"(\d[\d,]*)\s*\$", t)
+        if m_trailing:
+            ents["budget_usd"] = int(m_trailing.group(1).replace(",", ""))
 
     m = re.search(r"(\d+)\s*(day|days|week|weeks|night|nights)", t)
     if m:
@@ -415,6 +420,10 @@ def _extract_entities(text: str) -> dict:
     guests_match = re.search(r"(\d+)\s*(guest|guests|people|persons|traveler|travelers|adults?)", t)
     if guests_match:
         ents["guests"] = max(1, int(guests_match.group(1)))
+    else:
+        implicit_guests = re.search(r"(?:we\s*are|for|party\s*of)\s*(\d{1,2})\b", t)
+        if implicit_guests:
+            ents["guests"] = max(1, int(implicit_guests.group(1)))
 
     budget_match_plain = re.search(r"\b(\d{2,6})\s*(usd|\$|rwf|frw|eur)?\b", t)
     if budget_match_plain and "budget_usd" not in ents:
@@ -431,6 +440,9 @@ def _extract_entities(text: str) -> dict:
             ents["location_hint"] = city.title()
             ents.setdefault("countries", [country])
             break
+
+    if "any date" in t or "anytime" in t or "flexible" in t:
+        ents["date_flexibility"] = "flexible"
 
     return ents
 
@@ -672,6 +684,38 @@ def _clarification_questions(intent: str, entities: dict) -> str:
     return "\n".join(lines)
 
 
+def _infer_contextual_intent(intent: str, messages: list, current_entities: dict, memory: dict) -> tuple[str, float]:
+    if intent != "general":
+        return intent, 0.0
+
+    has_detail_payload = any(
+        k in current_entities for k in [
+            "budget_usd", "budget_rwf", "guests", "month", "duration", "location_hint", "property_type"
+        ]
+    )
+    if not has_detail_payload:
+        return intent, 0.0
+
+    # Prefer continuing the most recent meaningful user intent from memory.
+    turns = memory.get("turns", []) if isinstance(memory, dict) else []
+    for turn in reversed(turns):
+        prior_intent = str(turn.get("intent") or "")
+        if prior_intent and prior_intent != "general":
+            if prior_intent in {"accommodation", "budget", "booking_process", "destination_rwanda", "destination_uganda", "destination_kenya", "destination_tanzania", "destination_zambia"}:
+                return prior_intent, 0.42
+            break
+
+    prior_text = " ".join(
+        str(m.get("content") or "").lower()
+        for m in messages[:-1]
+        if isinstance(m, dict)
+    )
+    if any(tok in prior_text for tok in ["stay", "hotel", "apartment", "guesthouse", "cheapest", "price", "budget"]):
+        return "accommodation", 0.38
+
+    return "budget", 0.30
+
+
 def _fallback_reply(intent: str, text: str, entities: dict, recommendations: list[dict]) -> str:
     raw = text.strip()
     t = raw.lower()
@@ -735,6 +779,11 @@ def _process(messages: list, user_id: str | None = None, session_id: str | None 
     prior_entities = memory.get("entities", {}) if isinstance(memory, dict) else {}
     current_entities = _extract_entities(text)
     entities = _merge_entities(prior_entities, current_entities)
+
+    inferred_intent, inferred_boost = _infer_contextual_intent(intent, messages, current_entities, memory)
+    if inferred_intent != intent:
+        intent = inferred_intent
+        base_conf = max(base_conf, inferred_boost)
 
     listings = _fetch_supabase_listings(limit=150)
     recommendations = _rank_listings(listings, entities, text, top_n=5)
