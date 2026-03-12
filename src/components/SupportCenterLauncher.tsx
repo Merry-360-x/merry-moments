@@ -586,13 +586,16 @@ export default function SupportCenterLauncher() {
     if (!text || aiSending) return;
     setAiDraft("");
     const next: ChatMsg[] = [...aiMessages, { role: "user" as const, content: text }];
+    const compactHistory = next
+      .slice(-6)
+      .map((m) => ({ role: m.role, content: String(m.content || "").slice(0, 260) }));
     setAiMessages(next);
     setAiSending(true);
     try {
       const r = await fetch("/api/ai-trip-advisor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: next, userId: user?.id ?? null, sessionId: aiSessionId }),
+        body: JSON.stringify({ messages: compactHistory, userId: user?.id ?? null, sessionId: aiSessionId }),
       });
       const out = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error("AI request failed");

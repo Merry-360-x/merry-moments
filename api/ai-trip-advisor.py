@@ -25,6 +25,9 @@ _PRICE_TERMS = [
     "cheap", "cheapest", "lowest", "low cost", "affordable", "budget", "best price", "least expensive",
 ]
 
+_MAX_REPLY_CHARS = 420
+_MAX_REPLY_LINES = 7
+
 _SESSION_MEMORY: dict[str, dict] = {}
 _SESSION_TTL_SECONDS = 60 * 60 * 8
 _MAX_MEMORY_TURNS = 24
@@ -635,14 +638,34 @@ def _rank_listings(items: list[dict], entities: dict, text: str, top_n: int = 5)
 def _format_recommendations(recs: list[dict]) -> str:
     if not recs:
         return ""
-    lines = ["🏷️ **Best matching listings right now:**"]
-    for r in recs[:3]:
+    lines = ["🏷️ **Top matches:**"]
+    for r in recs[:2]:
         price_text = f"{int(r['price']):,} {r['currency']}"
         lines.append(
             f"- **{r['title']}** · {r['location']} · {price_text} · ⭐ {r['rating']:.1f} ({r['review_count']})"
         )
-    lines.append("\nShare your exact dates and I can narrow this to the best final picks.")
+    lines.append("\nShare destination + dates for exact picks.")
     return "\n".join(lines)
+
+
+def _compact_reply_text(text: str) -> str:
+    lines = [ln.rstrip() for ln in str(text or "").splitlines()]
+    compact = []
+    non_empty_count = 0
+    for ln in lines:
+        if ln.strip() == "":
+            if compact and compact[-1] != "":
+                compact.append("")
+            continue
+        compact.append(ln)
+        non_empty_count += 1
+        if non_empty_count >= _MAX_REPLY_LINES:
+            break
+
+    out = "\n".join(compact).strip()
+    if len(out) > _MAX_REPLY_CHARS:
+        out = out[: _MAX_REPLY_CHARS - 1].rstrip() + "…"
+    return out
 
 
 def _openai_config() -> tuple[str | None, str]:
@@ -667,9 +690,9 @@ def _generate_openai_reply(
 
         # Keep prompt compact but grounded in local retrieval/context.
         conversation = []
-        for m in messages[-10:]:
+        for m in messages[-4:]:
             role = str(m.get("role") or "user")
-            content = str(m.get("content") or "").strip()
+            content = str(m.get("content") or "").strip()[:220]
             if role in {"user", "assistant"} and content:
                 conversation.append(f"{role.upper()}: {content}")
 
@@ -677,15 +700,16 @@ def _generate_openai_reply(
             "intent": intent,
             "confidence": confidence,
             "entities": entities,
-            "recommendations": recommendations[:5],
+            "recommendations": recommendations[:2],
         }
 
         prompt = (
             "You are Merry360X AI Trip Advisor for East Africa travel.\n"
             "Be concise, helpful, and non-repetitive.\n"
+            "Reply in <= 80 words and at most 5 short lines.\n"
             "Use the grounding data exactly and do not invent listings.\n"
-            "If key details are missing, ask only 1-2 focused questions.\n"
-            "When recommendations exist, briefly summarize best options and next step.\n\n"
+            "If key details are missing, ask only 1 focused question.\n"
+            "When recommendations exist, summarize very briefly and give one next step.\n\n"
             f"GROUNDING_JSON: {json.dumps(grounding, ensure_ascii=False)}\n\n"
             "CONVERSATION:\n"
             f"{'\n'.join(conversation)}\n"
@@ -695,11 +719,12 @@ def _generate_openai_reply(
             model=model,
             input=prompt,
             store=False,
+            max_output_tokens=120,
         )
 
         text = getattr(response, "output_text", None)
         if isinstance(text, str) and text.strip():
-            return text.strip(), model
+            return _compact_reply_text(text.strip()), model
         return None, None
     except Exception as exc:
         print(f"[ai-trip-advisor] OpenAI fallback to local: {exc}")
@@ -935,6 +960,8 @@ def _process(messages: list, user_id: str | None = None, session_id: str | None 
         clarify = _clarification_questions(intent, entities)
         if clarify:
             reply = f"{reply}\n\n{clarify}"
+
+    reply = _compact_reply_text(reply)
 
     _save_memory(
         user_id,
