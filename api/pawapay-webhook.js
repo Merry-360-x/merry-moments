@@ -54,6 +54,16 @@ function getFeePercentsForItem(itemType) {
   return { guestFeePercent: 0, hostFeePercent: 0 };
 }
 
+/**
+ * Calculate host earnings from an item/booking
+ * 
+ * IMPORTANT: PawaPay processing fees (3.1%) are absorbed by platform earnings,
+ * NOT deducted from host. Host only pays their platform fee (3% for accommodation, 10% for tours).
+ * 
+ * Accommodation: host gets base * 0.97 (3% fee from base only)
+ * Tour: host gets base * 0.90 (10% provider fee from base)
+ * Transport: host gets full amount (no fees)
+ */
 function computeHostReceivesAmount(item, booking) {
   const itemHostEarnings = Number(item?.host_earnings_amount);
   if (Number.isFinite(itemHostEarnings) && itemHostEarnings >= 0) {
@@ -67,9 +77,12 @@ function computeHostReceivesAmount(item, booking) {
     : (Number.isFinite(bookingTotal) && bookingTotal > 0 ? bookingTotal : 0);
 
   const { guestFeePercent, hostFeePercent } = getFeePercentsForItem(item?.item_type);
-  const listingSubtotal = guestPaidAmount / (1 + (guestFeePercent / 100));
-  const hostFee = (listingSubtotal * hostFeePercent) / 100;
-  return Math.max(0, listingSubtotal - hostFee);
+  // Step 1: Get base amount by removing guest fee
+  const baseAmount = guestPaidAmount / (1 + (guestFeePercent / 100));
+  // Step 2: Calculate host fee from base amount only
+  const hostFee = (baseAmount * hostFeePercent) / 100;
+  // Step 3: Host earnings = base - host fee (PawaPay fees NOT deducted here)
+  return Math.max(0, baseAmount - hostFee);
 }
 
 // Generate booking confirmation email HTML (minimalistic)

@@ -22,7 +22,6 @@ import { AMENITIES, AMENITIES_BY_CATEGORY } from "@/lib/amenities";
 import {
   calculateBookingFinancialsFromDiscountedListing,
   calculateHostEarningsFromGuestTotal,
-  calculatePawaPayProcessing,
   getGuestFeePercent,
   getProviderFeePercent,
 } from "@/lib/fees";
@@ -2828,11 +2827,20 @@ export default function HostDashboard() {
     const resolvedBookingAmount = getResolvedBookingAmountForHost(booking);
     const paidAmount = Math.max(0, Number(resolvedBookingAmount.amount || 0));
     const serviceType = getBookingServiceType(booking);
-    const pawapay = calculatePawaPayProcessing(paidAmount);
-    const amountAfterPawapay = pawapay.netAmount;
-    const guestFee = (amountAfterPawapay * getGuestFeePercent(serviceType)) / 100;
-    const hostFee = (amountAfterPawapay * getProviderFeePercent(serviceType)) / 100;
-    const hostNetEarnings = Math.max(0, amountAfterPawapay - guestFee - hostFee);
+    
+    // IMPORTANT: PawaPay fees are absorbed by platform, NOT deducted from host
+    // Host only pays their platform fee (3% for accommodation, 10% for tours) from base amount
+    const guestFeePercent = getGuestFeePercent(serviceType);
+    const hostFeePercent = getProviderFeePercent(serviceType);
+    
+    // Step 1: Get base amount (remove guest fee from what guest paid)
+    const baseAmount = paidAmount / (1 + guestFeePercent / 100);
+    
+    // Step 2: Calculate host fee from base amount only
+    const hostFee = (baseAmount * hostFeePercent) / 100;
+    
+    // Step 3: Host earnings = base - host fee (PawaPay NOT deducted)
+    const hostNetEarnings = Math.max(0, baseAmount - hostFee);
 
     return {
       amount: Number.isFinite(hostNetEarnings) ? hostNetEarnings : 0,

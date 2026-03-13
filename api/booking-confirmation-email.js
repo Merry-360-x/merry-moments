@@ -62,10 +62,21 @@ function paymentBadgeColor(paymentStatus) {
 
 /**
  * Calculate host earnings from total price based on service type
- * Fee structure:
- * - Accommodation: guest pays base*1.10, host gets base*0.97 → earnings = total/1.10 * 0.97
- * - Tour: guest pays base, host gets base*0.90 → earnings = total * 0.90
- * - Transport: no fees → earnings = total
+ * 
+ * Fee structure (PawaPay fees are absorbed by platform, NOT deducted from host):
+ * 
+ * Accommodation:
+ * - Guest pays: base * 1.10 (10% guest fee added)
+ * - Host gets: base * 0.97 (only 3% host fee deducted from base amount)
+ * - Platform absorbs PawaPay 3.1% from its earnings
+ * 
+ * Tour:
+ * - Guest pays: base (no extra fee)
+ * - Host gets: base * 0.90 (10% provider fee deducted from base)
+ * - Platform absorbs PawaPay 3.1% from its earnings
+ * 
+ * Transport:
+ * - No platform fees currently
  */
 function calculateHostEarnings(totalPrice, bookingType) {
   const total = Number(totalPrice);
@@ -74,17 +85,24 @@ function calculateHostEarnings(totalPrice, bookingType) {
   const type = String(bookingType || "").toLowerCase();
   
   if (type === "property" || type === "accommodation") {
-    // Guest fee 10% added, host fee 3% deducted from base
-    // total = base * 1.10, host_earnings = base * 0.97 = total * 0.97 / 1.10
-    return Math.round(total * 0.97 / 1.10);
+    // Step 1: Get base amount (remove guest fee): base = total / 1.10
+    // Step 2: Host fee is 3% of base: host_fee = base * 0.03
+    // Step 3: Host earnings = base - host_fee = base * 0.97
+    // Combined: total / 1.10 * 0.97
+    const baseAmount = total / 1.10;
+    const hostFee = baseAmount * 0.03;
+    return Math.round(baseAmount - hostFee);
   }
   
   if (type === "tour" || type === "tour_package") {
-    // No guest fee, 10% provider fee
-    return Math.round(total * 0.90);
+    // No guest fee added, so total = base
+    // Provider fee is 10% of base
+    const baseAmount = total;
+    const providerFee = baseAmount * 0.10;
+    return Math.round(baseAmount - providerFee);
   }
   
-  // Transport: no fees
+  // Transport: no platform fees currently
   return Math.round(total);
 }
 
