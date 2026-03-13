@@ -20,6 +20,11 @@ function json(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
+function formatMoneyRwf(amount) {
+  const num = Number(amount || 0);
+  return `${Math.round(num).toLocaleString("en-US")} RWF`;
+}
+
 function generatePayoutEmailHtml(payout) {
   const createdAt = new Date().toLocaleString("en-US", {
     weekday: "short",
@@ -34,7 +39,7 @@ function generatePayoutEmailHtml(payout) {
   const detailsTable = keyValueRows([
     { label: "Host", value: escapeHtml(payout.hostName || "N/A") },
     { label: "Host Email", value: escapeHtml(payout.hostEmail || "N/A") },
-    { label: "Amount", value: `${escapeHtml(payout.currency || "")}&nbsp;${escapeHtml(Number(payout.amount || 0).toLocaleString())}` },
+    { label: "Amount", value: escapeHtml(formatMoneyRwf(payout.amount)) },
     { label: "Method", value: escapeHtml(methodDisplay) },
     { label: payout.method === "mobile_money" ? "Phone" : "Bank", value: escapeHtml(payout.method === "mobile_money" ? (payout.phone || "N/A") : (payout.bankName || "N/A")) },
     { label: payout.method === "mobile_money" ? "Account Name" : "Account", value: escapeHtml(payout.method === "mobile_money" ? (payout.accountName || "N/A") : (payout.bankAccount || "N/A")) },
@@ -63,7 +68,7 @@ function generateHostPayoutConfirmationHtml(payout) {
 
   const methodDisplay = payout.method === "mobile_money" ? "Mobile Money" : "Bank Transfer";
   const detailsTable = keyValueRows([
-    { label: "Amount", value: `${escapeHtml(payout.currency || "")}&nbsp;${escapeHtml(Number(payout.amount || 0).toLocaleString())}` },
+    { label: "Amount", value: escapeHtml(formatMoneyRwf(payout.amount)) },
     { label: "Method", value: escapeHtml(methodDisplay) },
     { label: "Requested", value: escapeHtml(createdAt) },
     { label: "Status", value: "Pending review" },
@@ -124,9 +129,9 @@ async function sendPayoutEmails(payout, previewTo) {
     await sendBrevoEmail({
       toEmail: previewRecipient.email,
       toName: "Template Preview",
-      subject: `[Preview] Payout Request: ${payout.currency} ${Number(payout.amount).toLocaleString()} - ${payout.hostName || 'Host'}`,
+      subject: `[Preview] Payout Request: ${formatMoneyRwf(payout.amount)} - ${payout.hostName || 'Host'}`,
       htmlContent: generatePayoutEmailHtml(payout),
-      textContent: `Preview payout request for ${payout.hostName || 'Host'} (${payout.currency} ${Number(payout.amount).toLocaleString()})`,
+      textContent: `Preview payout request for ${payout.hostName || 'Host'} (${formatMoneyRwf(payout.amount)})`,
     });
     return;
   }
@@ -136,7 +141,7 @@ async function sendPayoutEmails(payout, previewTo) {
 New Payout Request
 
 Host: ${payout.hostName || 'N/A'} (${payout.hostEmail || 'N/A'})
-Amount: ${payout.currency} ${Number(payout.amount).toLocaleString()}
+Amount: ${formatMoneyRwf(payout.amount)}
 Method: ${payout.method === 'mobile_money' ? 'Mobile Money' : 'Bank Transfer'}
 ${payout.method === 'mobile_money' ? `Phone: ${payout.phone || 'N/A'}` : `Bank: ${payout.bankName || 'N/A'}\nAccount: ${payout.bankAccount || 'N/A'}`}
 Account Name: ${payout.accountName || 'N/A'}
@@ -149,7 +154,7 @@ Process this payout at: https://merry360x.com/admin-dashboard
 Hi ${payout.hostName || 'Host'},
 
 Your payout request has been received.
-Amount: ${payout.currency} ${Number(payout.amount).toLocaleString()}
+Amount: ${formatMoneyRwf(payout.amount)}
 Method: ${payout.method === 'mobile_money' ? 'Mobile Money' : 'Bank Transfer'}
 
 Current status: Pending review
@@ -160,7 +165,7 @@ You can track updates in your host dashboard: https://merry360x.com/host-dashboa
     sendBrevoEmail({
       toEmail: ADMIN_EMAIL,
       toName: "Merry 360 Experiences Support",
-      subject: `Payout Request: ${payout.currency} ${Number(payout.amount).toLocaleString()} - ${payout.hostName || 'Host'}`,
+      subject: `Payout Request: ${formatMoneyRwf(payout.amount)} - ${payout.hostName || 'Host'}`,
       htmlContent: supportHtml,
       textContent: supportText,
     }),
@@ -172,7 +177,7 @@ You can track updates in your host dashboard: https://merry360x.com/host-dashboa
       sendBrevoEmail({
         toEmail: hostEmailValidation.email,
         toName: payout.hostName || "Host",
-        subject: `Payout Request Received: ${payout.currency} ${Number(payout.amount).toLocaleString()}`,
+        subject: `Payout Request Received: ${formatMoneyRwf(payout.amount)}`,
         htmlContent: hostHtml,
         textContent: hostText,
       })

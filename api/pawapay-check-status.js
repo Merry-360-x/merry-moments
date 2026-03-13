@@ -41,11 +41,16 @@ function buildPayoutErrorMessage(payoutData) {
   );
 }
 
+function formatMoneyRwf(amount) {
+  const num = Number(amount || 0);
+  return `${Math.round(num).toLocaleString("en-US")} RWF`;
+}
+
 function buildPayoutResultEmailHtml({ status, amount, currency, method, reason }) {
   const statusLabel = status === "completed" ? "Completed" : "Rejected";
   const methodLabel = method === "mobile_money" ? "Mobile Money" : "Bank Transfer";
   const details = keyValueRows([
-    { label: "Amount", value: `${escapeHtml(currency || "")}&nbsp;${escapeHtml(Number(amount || 0).toLocaleString())}` },
+    { label: "Amount", value: escapeHtml(formatMoneyRwf(amount)) },
     { label: "Method", value: escapeHtml(methodLabel) },
     { label: "Status", value: escapeHtml(statusLabel) },
     { label: "Updated", value: escapeHtml(new Date().toLocaleString("en-US")) },
@@ -74,8 +79,8 @@ async function sendHostPayoutStatusEmail({ toEmail, toName, status, amount, curr
   const htmlContent = buildPayoutResultEmailHtml({ status, amount, currency, method, reason });
   const subject =
     status === "completed"
-      ? `Payout Completed: ${currency} ${Number(amount || 0).toLocaleString()}`
-      : `Payout Update: ${currency} ${Number(amount || 0).toLocaleString()}`;
+      ? `Payout Completed: ${formatMoneyRwf(amount)}`
+      : `Payout Update: ${formatMoneyRwf(amount)}`;
 
   const response = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",

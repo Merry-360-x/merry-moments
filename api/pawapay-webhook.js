@@ -16,13 +16,7 @@ const BREVO_API_KEY = process.env.BREVO_API_KEY;
 // Format currency
 function formatMoney(amount, currency = "RWF") {
   const num = Number(amount) || 0;
-  if (currency === "RWF") {
-    return `${num.toLocaleString()} RWF`;
-  }
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: currency,
-  }).format(num);
+  return `${Math.round(num).toLocaleString("en-US")} RWF`;
 }
 
 // Format date

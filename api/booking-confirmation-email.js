@@ -40,12 +40,7 @@ function formatMoney(amount, currency = "RWF") {
   if (!amount) return "—";
   const num = Number(amount);
   if (!Number.isFinite(num)) return "—";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: currency || "RWF",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(num);
+  return `${Math.round(num).toLocaleString("en-US")} RWF`;
 }
 
 function paymentLabel(paymentStatus) {

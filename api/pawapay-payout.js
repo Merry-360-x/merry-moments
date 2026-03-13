@@ -391,11 +391,11 @@ export default async function handler(req, res) {
       currency || "RWF"
     );
 
-    if (activeProviders.length === 0 && diagnostics) {
-      return json(res, 400, {
-        success: false,
-        error: `No PAYOUT flow is enabled on this PawaPay account for ${countryIso}/${String(currency || "RWF").toUpperCase()}. Enable PAYOUT for a correspondent in PawaPay dashboard first.`,
-        details: diagnostics,
+    if (activeProviders.length === 0) {
+      console.warn("PawaPay active payout providers could not be resolved; falling back to configured correspondent", {
+        countryIso,
+        currency: String(currency || "RWF").toUpperCase(),
+        diagnostics,
       });
     }
 
