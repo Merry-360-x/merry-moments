@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import com.merry360x.mobile.data.SupabaseApi
 import com.merry360x.mobile.data.FeatureApi
 import com.merry360x.mobile.data.Listing
+import com.merry360x.mobile.data.UserProfileDetails
 import com.merry360x.mobile.ui.screens.LoginScreenNew
 import com.merry360x.mobile.theme.Coral
 import com.merry360x.mobile.theme.Merry360xTheme
@@ -107,6 +108,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             Merry360xTheme {
+                var showAnimatedSplash by remember { mutableStateOf(true) }
                 var tab by rememberSaveable { mutableStateOf(0) }
                 var exploreFlow by rememberSaveable { mutableStateOf(ExploreFlow.HOME) }
                 var selectedListing by remember { mutableStateOf<Listing?>(null) }
@@ -141,6 +143,8 @@ class MainActivity : ComponentActivity() {
                 var selectedLanguage by rememberSaveable { mutableStateOf("English") }
                 var selectedCurrency by rememberSaveable { mutableStateOf("RWF") }
                 var selectedMode by rememberSaveable { mutableStateOf("Light") }
+                var profileDetails by remember { mutableStateOf<UserProfileDetails?>(null) }
+                var profileDetailsLoading by remember { mutableStateOf(false) }
                 val authSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
                 
                 // Auth Bottom Sheet
@@ -182,6 +186,17 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                LaunchedEffect(authState.authenticated, authState.userId, authState.accessToken) {
+                    if (!authState.authenticated || authState.userId.isNullOrBlank()) {
+                        profileDetails = null
+                        profileDetailsLoading = false
+                    } else {
+                        profileDetailsLoading = true
+                        profileDetails = api.fetchProfileDetails(authState.userId, authState.accessToken).getOrNull()
+                        profileDetailsLoading = false
+                    }
+                }
+
                 LaunchedEffect(launchCallbackUrl) {
                     if (!launchCallbackUrl.isNullOrBlank()) {
                         globalScreen = GlobalScreen.AUTH_CALLBACK
@@ -189,6 +204,12 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                // Show animated splash or main content
+                if (showAnimatedSplash) {
+                    SplashScreen(
+                        onSplashComplete = { showAnimatedSplash = false }
+                    )
+                } else {
                 Scaffold(
                         bottomBar = {
                             NavigationBar(
@@ -416,6 +437,8 @@ class MainActivity : ComponentActivity() {
                                                 authState.authenticated -> "Account"
                                                 else -> "Welcome"
                                             },
+                                            profileDetails = profileDetails,
+                                            profileDetailsLoading = profileDetailsLoading,
                                             roles = authState.roles,
                                             selectedRegion = selectedRegion,
                                             selectedLanguage = selectedLanguage,
@@ -476,6 +499,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
             }
+            } // End of showAnimatedSplash else block
         }
     }
 }

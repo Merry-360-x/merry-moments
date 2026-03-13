@@ -85,282 +85,166 @@ struct ProfileView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
-                // Notification button
-                HStack {
-                    Spacer()
-                    Button(action: { activeCenter = .supportChat }) {
-                        Image(systemName: "bell")
-                            .font(.system(size: 20))
-                            .foregroundColor(AppTheme.textPrimary)
-                    }
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
+                // Profile Header - Airbnb Style
+                profileHeader
                 
-                // Profile Avatar
-                VStack(spacing: 12) {
-                    ZStack {
-                        if let avatarURL = viewModel.avatarURL,
-                           let url = URL(string: avatarURL) {
-                            AsyncImage(url: url) { image in
-                                image
-                                    .resizable()
-                                    .scaledToFill()
-                            } placeholder: {
-                                Circle()
-                                    .fill(session.isAuthenticated ? AppTheme.coral.opacity(0.3) : Color(uiColor: .tertiarySystemFill))
-                            }
-                            .frame(width: session.isAuthenticated ? 88 : 80, height: session.isAuthenticated ? 88 : 80)
-                            .clipShape(Circle())
-                        } else {
-                            Circle()
-                                .fill(session.isAuthenticated ? AppTheme.coral : Color(uiColor: .tertiarySystemFill))
-                                .frame(width: session.isAuthenticated ? 88 : 80, height: session.isAuthenticated ? 88 : 80)
-
-                            Text(String(profileHeaderName.prefix(1)).uppercased())
-                                .font(.system(size: session.isAuthenticated ? 34 : 32, weight: .bold))
-                                .foregroundColor(.white)
-                        }
-                    }
-                    
-                    Text(profileHeaderName)
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(AppTheme.textPrimary)
-
-                    if let email = viewModel.email {
-                        Text(email)
-                            .font(.system(size: 13))
-                            .foregroundColor(AppTheme.textSecondary)
-                    } else {
-                        Text(session.isAuthenticated ? "Account active" : "Browse and sign in")
-                            .font(.system(size: 14))
-                            .foregroundColor(AppTheme.textSecondary)
-                    }
-
-                    // Role chips
-                    if session.isAuthenticated {
-                        let displayRoles = normalizedRoles.isEmpty
-                            ? ["Traveler"]
-                            : normalizedRoles.sorted().map { $0.replacingOccurrences(of: "_", with: " ").capitalized }
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                ForEach(displayRoles, id: \.self) { tag in
-                                    Text(tag)
-                                        .font(.system(size: 12, weight: .medium))
-                                        .foregroundColor(AppTheme.coral)
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 5)
-                                        .background(AppTheme.coral.opacity(0.12))
-                                        .clipShape(Capsule())
-                                }
-                            }
-                            .padding(.horizontal, 20)
-                        }
-                    }
-                }
-                .padding(.vertical, 20)
-
-                // Quick stats (logged-in only)
-                if session.isAuthenticated {
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                        ProfileStatCard(value: "\(viewModel.upcomingTrips)", label: "Upcoming")
-                        ProfileStatCard(value: "\(viewModel.loyaltyPoints)", label: "Points")
-                        ProfileStatCard(value: "\(viewModel.savedCount)", label: "Saved")
-                    }
-                    .padding(.horizontal, 20)
-
-                    if let ms = viewModel.memberSince {
-                        Text("Member since: \(ms)")
-                            .font(.system(size: 12))
-                            .foregroundColor(AppTheme.textSecondary)
-                            .padding(.top, 8)
-                            .padding(.horizontal, 20)
-                    }
-                }
-
-                if viewModel.loading {
-                    MerryLoadingStateView(
-                        title: "Loading your profile",
-                        subtitle: "Fetching wishlist and account data...",
-                        showCardSkeletons: false
-                    )
-                    .padding(.horizontal, 20)
+                // Login prompt for guests
+                if !session.isAuthenticated {
+                    guestLoginCard
                 }
                 
-                if session.isAuthenticated && !normalizedRoles.contains("host") {
-                    Button(action: {
-                        guard let userId = session.userId, !becomingHost else { return }
-                        becomingHost = true
-                        hostActionMessage = nil
-                        Task {
-                            do {
-                                let payload: [String: Any] = [
-                                    "status": "approved",
-                                    "applicant_type": "individual",
-                                    "service_types": [],
-                                    "profile_complete": false
-                                ]
-                                if let service = SupabaseService() {
-                                    try await service.becomeHost(userId: userId, payload: payload)
-                                }
-                                await session.refreshRoles()
-                                hostActionMessage = "You are now a host."
-                            } catch {
-                                hostActionMessage = "Could not become host. Please try again."
-                            }
-                            becomingHost = false
-                        }
-                    }) {
-                        HStack {
-                            Image(systemName: "person.badge.plus")
-                            Text(becomingHost ? "Activating Host..." : "Become a Host")
-                                .fontWeight(.semibold)
-                        }
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(AppTheme.coral)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                    }
-                    .padding(.horizontal, 20)
-                    .disabled(becomingHost)
-                }
-
+                // Your Merry 360x host action message
                 if let hostActionMessage {
                     Text(hostActionMessage)
-                        .font(.system(size: 13))
+                        .font(.system(size: 14))
                         .foregroundColor(AppTheme.textSecondary)
-                        .padding(.horizontal, 20)
+                        .padding(.horizontal, 24)
                         .padding(.top, 8)
                 }
-
-                // Account Section (logged-in only)
+                
+                // Settings Section (only show when logged in)
                 if session.isAuthenticated {
-                    ProfileSection(title: "Account") {
-                        ProfileMenuItem(
-                            systemName: "person.text.rectangle",
-                            title: "Personal Info",
-                            value: viewModel.editFullName.isEmpty ? nil : viewModel.editFullName
-                        ) {
+                    AirbnbSection(title: "Settings") {
+                        AirbnbMenuItem(icon: "person", title: "Personal information") {
                             showPersonalInfoSheet = true
                         }
-                        ProfileMenuItem(systemName: "lock.shield", title: "Security") {
+                        AirbnbMenuItem(icon: "lock.shield", title: "Login & security") {
                             showSecuritySheet = true
                         }
-                        ProfileMenuItem(
-                            systemName: "checkmark.seal",
-                            title: "Complete Profile",
-                            value: viewModel.loyaltyPoints < 5 ? "Earn 5 pts" : nil
-                        ) {
-                            showPersonalInfoSheet = true
+                        AirbnbMenuItem(icon: "creditcard", title: "Payments and payouts") {
+                            activeCenter = .bookingsCheckout
+                        }
+                        AirbnbMenuItem(icon: "bell", title: "Notifications") {
+                            activeCenter = .supportChat
+                        }
+                        AirbnbMenuItem(icon: "eye.slash", title: "Privacy and sharing", showDivider: false) {
+                            activeCenter = .privacyPolicy
                         }
                     }
                 }
                 
-                // Settings Section
-                ProfileSection(title: "Settings") {
-                    ProfileMenuItem(systemName: "globe", title: "Region", value: selectedRegion) {
+                // Preferences Section
+                AirbnbSection(title: "Preferences") {
+                    AirbnbMenuItem(icon: "globe", title: "Region", value: selectedRegion) {
                         activeSettingSheet = .region
                     }
-                    ProfileMenuItem(systemName: "textformat", title: "Language", value: selectedLanguage) {
+                    AirbnbMenuItem(icon: "character.bubble", title: "Language", value: selectedLanguage) {
                         activeSettingSheet = .language
                     }
-                    ProfileMenuItem(systemName: "dollarsign.circle", title: "Currency", value: selectedCurrency) {
+                    AirbnbMenuItem(icon: "dollarsign.circle", title: "Currency", value: selectedCurrency) {
                         activeSettingSheet = .currency
                     }
-                    ProfileMenuItem(systemName: "sun.max", title: "Mode", value: selectedModeLabel) {
+                    AirbnbMenuItem(icon: "moon", title: "Appearance", value: selectedModeLabel, showDivider: false) {
                         activeSettingSheet = .mode
                     }
                 }
                 
-                // Explore Section
-                ProfileSection(title: "Explore") {
-                    ProfileMenuItem(systemName: "camera", title: "Travel Stories") {
-                        activeCenter = .helpCenter
-                    }
-                    ProfileMenuItem(systemName: "link", title: "Affiliate Program") {
-                        activeCenter = .affiliateCenter
-                    }
-                    ProfileMenuItem(systemName: "map", title: "Website Route Map") {
-                        activeCenter = .websiteRoutes
-                    }
-                }
-                
-                // Legal Section
-                ProfileSection(title: "Legal") {
-                    ProfileMenuItem(systemName: "doc.text", title: "Terms & Conditions") {
-                        activeCenter = .termsConditions
-                    }
-                    ProfileMenuItem(systemName: "lock", title: "Privacy Policy") {
-                        activeCenter = .privacyPolicy
-                    }
-                    ProfileMenuItem(systemName: "arrow.uturn.left", title: "Refund Policy") {
-                        activeCenter = .refundPolicy
-                    }
-                    ProfileMenuItem(systemName: "checkmark.shield", title: "Safety Guidelines") {
-                        activeCenter = .safetyGuidelines
+                // Hosting Section (if host or can become host)
+                if session.isAuthenticated {
+                    AirbnbSection(title: "Hosting") {
+                        if normalizedRoles.contains("host") {
+                            AirbnbMenuItem(icon: "house", title: "Switch to hosting") {
+                                activeCenter = .hostStudio
+                            }
+                            AirbnbMenuItem(icon: "list.bullet", title: "Manage your listings") {
+                                activeCenter = .hostStudio
+                            }
+                            AirbnbMenuItem(icon: "calendar", title: "Your reservations", showDivider: false) {
+                                activeCenter = .hostStudio
+                            }
+                        } else {
+                            AirbnbMenuItem(icon: "house", title: "Become a Host", showDivider: false) {
+                                becomeHost()
+                            }
+                        }
                     }
                 }
                 
-                // Help Section
-                ProfileSection(title: "Help") {
-                    ProfileMenuItem(systemName: "bubble.left", title: "Let's Chat") {
-                        activeCenter = .supportChat
-                    }
-                    ProfileMenuItem(systemName: "questionmark.circle", title: "Help Center") {
-                        activeCenter = .helpCenter
-                    }
-                }
-                
+                // Your Dashboards Section (role-based)
                 if session.isAuthenticated && !dashboardEntries.isEmpty {
-                    ProfileSection(title: "Dashboards You Can Access") {
-                        ForEach(dashboardEntries, id: \.title) { item in
-                            ProfileMenuItem(systemName: item.systemName, title: item.title) {
+                    AirbnbSection(title: "Your dashboards") {
+                        ForEach(Array(dashboardEntries.enumerated()), id: \.element.title) { index, item in
+                            AirbnbMenuItem(
+                                icon: item.systemName,
+                                title: item.title,
+                                showDivider: index < dashboardEntries.count - 1
+                            ) {
                                 activeCenter = item.destination
                             }
                         }
                     }
                 }
-
+                
+                // Bookings Section
                 if session.isAuthenticated {
-                    ProfileSection(title: "Bookings") {
-                        ProfileMenuItem(systemName: "calendar", title: "My Bookings") {
+                    AirbnbSection(title: "Bookings") {
+                        AirbnbMenuItem(icon: "calendar.badge.clock", title: "Your trips") {
                             activeCenter = .bookingsCheckout
                         }
-                        ProfileMenuItem(systemName: "creditcard", title: "Checkout & Payment Status") {
-                            activeCenter = .bookingsCheckout
-                        }
-                        ProfileMenuItem(systemName: "heart", title: "Favorites") {
+                        AirbnbMenuItem(icon: "heart", title: "Wishlists") {
                             activeCenter = .favorites
                         }
-                        ProfileMenuItem(systemName: "cart", title: "Trip Cart") {
+                        AirbnbMenuItem(icon: "cart", title: "Trip cart", showDivider: false) {
                             activeCenter = .tripCart
                         }
                     }
                 }
                 
-                // Login/Sign Out Button
-                Button(action: {
-                    if session.isAuthenticated {
-                        Task { await session.signOut() }
-                    } else {
-                        showAuthSheet = true
+                // Support Section
+                AirbnbSection(title: "Support") {
+                    AirbnbMenuItem(icon: "questionmark.circle", title: "Visit the Help Centre") {
+                        activeCenter = .helpCenter
                     }
-                }) {
-                    Text(session.isAuthenticated ? "Sign Out" : "Login / Sign In")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(AppTheme.coral)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    AirbnbMenuItem(icon: "bubble.left.and.bubble.right", title: "Get help") {
+                        activeCenter = .supportChat
+                    }
+                    AirbnbMenuItem(icon: "shield.checkerboard", title: "Report a safety issue", showDivider: false) {
+                        activeCenter = .safetyGuidelines
+                    }
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 24)
-                .padding(.bottom, 120)
+                
+                // Discover Section
+                AirbnbSection(title: "Discover") {
+                    AirbnbMenuItem(icon: "newspaper", title: "Travel stories", showDivider: false) {
+                        activeCenter = .helpCenter
+                    }
+                }
+                
+                // Legal Section
+                AirbnbSection(title: "Legal") {
+                    AirbnbMenuItem(icon: "doc.text", title: "Terms of Service") {
+                        activeCenter = .termsConditions
+                    }
+                    AirbnbMenuItem(icon: "hand.raised", title: "Privacy Policy") {
+                        activeCenter = .privacyPolicy
+                    }
+                    AirbnbMenuItem(icon: "arrow.uturn.backward", title: "Refund Policy", showDivider: false) {
+                        activeCenter = .refundPolicy
+                    }
+                }
+                
+                // Log out
+                if session.isAuthenticated {
+                    Button(action: {
+                        Task { await session.signOut() }
+                    }) {
+                        Text("Log out")
+                            .font(.system(size: 16))
+                            .foregroundColor(AppTheme.textPrimary)
+                            .underline()
+                    }
+                    .padding(.top, 32)
+                    .padding(.bottom, 16)
+                }
+                
+                // Version
+                Text("Version 1.0.0")
+                    .font(.system(size: 12))
+                    .foregroundColor(AppTheme.textSecondary)
+                    .padding(.bottom, 100)
             }
         }
-        .background(AppTheme.appBackground)
+        .background(Color(uiColor: .systemGroupedBackground))
         .sheet(isPresented: $showAuthSheet) {
             AuthBottomSheet(isPresented: $showAuthSheet)
                 .presentationDetents([.large])
@@ -409,6 +293,158 @@ struct ProfileView: View {
             Task {
                 await viewModel.load(userId: userId)
             }
+        }
+    }
+    
+    // MARK: - Profile Header (Airbnb Style)
+    
+    private var profileHeader: some View {
+        VStack(spacing: 0) {
+            // Top navigation
+            HStack {
+                Text("Profile")
+                    .font(.system(size: 32, weight: .bold))
+                Spacer()
+                if session.isAuthenticated {
+                    Button(action: { activeCenter = .supportChat }) {
+                        Image(systemName: "bell")
+                            .font(.system(size: 20))
+                            .foregroundColor(AppTheme.textPrimary)
+                    }
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 16)
+            .padding(.bottom, 24)
+            
+            // Profile card
+            if session.isAuthenticated {
+                Button(action: { showPersonalInfoSheet = true }) {
+                    HStack(spacing: 16) {
+                        // Avatar
+                        ZStack {
+                            Circle()
+                                .fill(Color(uiColor: .systemGray5))
+                                .frame(width: 64, height: 64)
+                            
+                            if let avatarURL = viewModel.avatarURL, let url = URL(string: avatarURL) {
+                                AsyncImage(url: url) { image in
+                                    image.resizable().scaledToFill()
+                                } placeholder: {
+                                    Text(String(profileHeaderName.prefix(1)).uppercased())
+                                        .font(.system(size: 26, weight: .semibold))
+                                        .foregroundColor(AppTheme.textPrimary)
+                                }
+                                .frame(width: 64, height: 64)
+                                .clipShape(Circle())
+                            } else {
+                                Text(String(profileHeaderName.prefix(1)).uppercased())
+                                    .font(.system(size: 26, weight: .semibold))
+                                    .foregroundColor(AppTheme.textPrimary)
+                            }
+                        }
+                        
+                        // Name and show profile
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(profileHeaderName)
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundColor(AppTheme.textPrimary)
+                            Text("Show profile")
+                                .font(.system(size: 14))
+                                .foregroundColor(AppTheme.textSecondary)
+                        }
+                        
+                        Spacer()
+                        
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(AppTheme.textSecondary)
+                    }
+                    .padding(16)
+                    .background(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .shadow(color: .black.opacity(0.08), radius: 8, y: 2)
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 24)
+                .padding(.bottom, 24)
+            }
+        }
+        .background(Color(uiColor: .systemGroupedBackground))
+    }
+    
+    // MARK: - Guest Login Card
+    
+    private var guestLoginCard: some View {
+        VStack(spacing: 16) {
+            // Profile placeholder
+            ZStack {
+                Circle()
+                    .fill(Color(uiColor: .systemGray5))
+                    .frame(width: 100, height: 100)
+                Image(systemName: "person.fill")
+                    .font(.system(size: 40))
+                    .foregroundColor(Color(uiColor: .systemGray3))
+            }
+            
+            Text("Log in to start planning your next trip.")
+                .font(.system(size: 17))
+                .foregroundColor(AppTheme.textPrimary)
+                .multilineTextAlignment(.center)
+            
+            Button(action: { showAuthSheet = true }) {
+                Text("Log in")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(AppTheme.coral)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+            
+            HStack(spacing: 4) {
+                Text("Don't have an account?")
+                    .font(.system(size: 14))
+                    .foregroundColor(AppTheme.textSecondary)
+                Button(action: { showAuthSheet = true }) {
+                    Text("Sign up")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(AppTheme.textPrimary)
+                        .underline()
+                }
+            }
+        }
+        .padding(24)
+        .background(.white)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.08), radius: 8, y: 2)
+        .padding(.horizontal, 24)
+        .padding(.bottom, 24)
+    }
+    
+    // MARK: - Helper Functions
+    
+    private func becomeHost() {
+        guard let userId = session.userId, !becomingHost else { return }
+        becomingHost = true
+        hostActionMessage = nil
+        Task {
+            do {
+                let payload: [String: Any] = [
+                    "status": "approved",
+                    "applicant_type": "individual",
+                    "service_types": [],
+                    "profile_complete": false
+                ]
+                if let service = SupabaseService() {
+                    try await service.becomeHost(userId: userId, payload: payload)
+                }
+                await session.refreshRoles()
+                hostActionMessage = "You are now a host!"
+            } catch {
+                hostActionMessage = "Could not become host. Please try again."
+            }
+            becomingHost = false
         }
     }
 
@@ -465,6 +501,81 @@ struct ProfileView: View {
     }
 }
 
+// MARK: - Airbnb Section
+
+private struct AirbnbSection<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: Content
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(title)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(AppTheme.textSecondary)
+                .textCase(.uppercase)
+                .tracking(0.5)
+                .padding(.horizontal, 24)
+                .padding(.top, 24)
+                .padding(.bottom, 8)
+            
+            VStack(spacing: 0) {
+                content
+            }
+            .background(.white)
+        }
+    }
+}
+
+// MARK: - Airbnb Menu Item
+
+private struct AirbnbMenuItem: View {
+    let icon: String
+    let title: String
+    var value: String? = nil
+    var showDivider: Bool = true
+    var action: () -> Void = {}
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            Button(action: action) {
+                HStack(spacing: 16) {
+                    Image(systemName: icon)
+                        .font(.system(size: 20))
+                        .foregroundColor(AppTheme.textPrimary)
+                        .frame(width: 24, height: 24)
+                    
+                    Text(title)
+                        .font(.system(size: 16))
+                        .foregroundColor(AppTheme.textPrimary)
+                    
+                    Spacer()
+                    
+                    if let value {
+                        Text(value)
+                            .font(.system(size: 14))
+                            .foregroundColor(AppTheme.textSecondary)
+                    }
+                    
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14))
+                        .foregroundColor(AppTheme.textSecondary)
+                }
+                .padding(.horizontal, 24)
+                .padding(.vertical, 16)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            
+            if showDivider {
+                Divider()
+                    .padding(.leading, 64)
+            }
+        }
+    }
+}
+
+// MARK: - Settings Sheet
+
 private struct ProfileSettingSheet: View {
     let title: String
     let options: [ProfileSettingOption]
@@ -475,20 +586,28 @@ private struct ProfileSettingSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Header
             HStack {
+                Button(action: { dismiss() }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(AppTheme.textPrimary)
+                        .frame(width: 32, height: 32)
+                        .background(Color(uiColor: .systemGray5))
+                        .clipShape(Circle())
+                }
+                Spacer()
                 Text(title)
-                    .font(.headline)
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(AppTheme.textPrimary)
                 Spacer()
-                Button("Done") {
-                    dismiss()
-                }
-                .font(.subheadline.weight(.semibold))
-                .foregroundColor(AppTheme.coral)
+                Color.clear.frame(width: 32, height: 32)
             }
             .padding(.horizontal, 20)
             .padding(.top, 16)
-            .padding(.bottom, 10)
+            .padding(.bottom, 16)
+
+            Divider()
 
             ScrollView {
                 VStack(spacing: 0) {
@@ -497,10 +616,10 @@ private struct ProfileSettingSheet: View {
                             onSelect(option.key)
                             dismiss()
                         } label: {
-                            HStack(spacing: 10) {
+                            HStack {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(option.title)
-                                        .font(.system(size: 16, weight: .medium))
+                                        .font(.system(size: 16))
                                         .foregroundColor(AppTheme.textPrimary)
                                     if let subtitle = option.subtitle {
                                         Text(subtitle)
@@ -510,138 +629,23 @@ private struct ProfileSettingSheet: View {
                                 }
                                 Spacer()
                                 if option.key == selectedKey {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundColor(AppTheme.coral)
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(AppTheme.textPrimary)
                                 }
                             }
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 14)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 16)
                         }
                         .buttonStyle(.plain)
 
                         Divider()
-                            .padding(.leading, 20)
+                            .padding(.leading, 24)
                     }
                 }
             }
         }
-        .background(AppTheme.appBackground)
-    }
-}
-
-struct ProfileSectionItem: View {
-    let systemName: String
-    let title: String
-    let subtitle: String
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: systemName)
-                .font(.system(size: 20))
-                    .foregroundColor(AppTheme.textSecondary)
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.system(size: 16, weight: .medium))
-                Text(subtitle)
-                    .font(.system(size: 13))
-                    .foregroundColor(AppTheme.textSecondary)
-            }
-            
-            Spacer()
-            
-            Image(systemName: "chevron.right")
-                .foregroundColor(AppTheme.textSecondary)
-                .font(.system(size: 14))
-        }
-        .padding(.vertical, 12)
-    }
-}
-
-struct ProfileSection<Content: View>: View {
-    let title: String
-    @ViewBuilder let content: Content
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(title)
-                .font(.system(size: 16, weight: .bold))
-                .padding(.horizontal, 20)
-                .padding(.top, 20)
-                .padding(.bottom, 8)
-            
-            content
-        }
-    }
-}
-
-struct ProfileMenuItem: View {
-    let systemName: String
-    let title: String
-    var value: String? = nil
-    var action: () -> Void = {}
-    
-    var body: some View {
-        VStack(spacing: 0) {
-            Button(action: action) {
-                HStack(spacing: 12) {
-                    Image(systemName: systemName)
-                        .font(.system(size: 18))
-                        .foregroundColor(AppTheme.textSecondary)
-                        .frame(width: 24)
-
-                    Text(title)
-                        .font(.system(size: 15))
-                        .foregroundColor(AppTheme.textPrimary)
-
-                    Spacer()
-
-                    if let value = value {
-                        Text(value)
-                            .font(.system(size: 15))
-                            .foregroundColor(AppTheme.textSecondary)
-                    }
-
-                    Image(systemName: "chevron.right")
-                        .foregroundColor(AppTheme.textSecondary)
-                        .font(.system(size: 12))
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 14)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            
-            Divider()
-                .padding(.leading, 52)
-        }
-    }
-}
-
-#Preview {
-    NavigationStack { ProfileView() }
-        .environmentObject(AppSessionViewModel())
-}
-
-// MARK: - Quick Stat Card
-
-private struct ProfileStatCard: View {
-    let value: String
-    let label: String
-
-    var body: some View {
-        VStack(spacing: 4) {
-            Text(value)
-                .font(.system(size: 22, weight: .bold))
-                .foregroundColor(AppTheme.textPrimary)
-            Text(label)
-                .font(.system(size: 12))
-                .foregroundColor(AppTheme.textSecondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
-        .background(Color(uiColor: .secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .background(.white)
     }
 }
 
@@ -655,41 +659,18 @@ private struct PersonalInfoSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Name") {
-                    LabeledContent("Full Name") {
-                        TextField("Your name", text: $viewModel.editFullName)
-                            .multilineTextAlignment(.trailing)
-                    }
-                    LabeledContent("Nickname") {
-                        TextField("Shown to guests", text: $viewModel.editNickname)
-                            .multilineTextAlignment(.trailing)
-                    }
+                Section("Basic Info") {
+                    TextField("Full Name", text: $viewModel.editFullName)
+                    TextField("Nickname", text: $viewModel.editNickname)
+                    TextField("Phone Number", text: $viewModel.editPhone)
+                        .keyboardType(.phonePad)
                 }
-                Section("Contact") {
-                    LabeledContent("Phone") {
-                        TextField("+250...", text: $viewModel.editPhone)
-                            .multilineTextAlignment(.trailing)
-                            .keyboardType(.phonePad)
-                    }
-                    LabeledContent("Date of Birth") {
-                        TextField("YYYY-MM-DD", text: $viewModel.editDateOfBirth)
-                            .multilineTextAlignment(.trailing)
-                    }
-                }
-                Section("About You") {
-                    TextEditor(text: $viewModel.editBio)
-                        .frame(minHeight: 80)
-                }
-                if viewModel.saveSuccess {
-                    Section {
-                        Label("Changes saved!", systemImage: "checkmark.circle.fill")
-                            .foregroundColor(.green)
-                    }
-                }
-                if let err = viewModel.saveError {
-                    Section {
-                        Text(err).foregroundColor(.red).font(.caption)
-                    }
+
+                Section("Personal") {
+                    TextField("Date of Birth", text: $viewModel.editDateOfBirth)
+                        .keyboardType(.numbersAndPunctuation)
+                    TextField("Bio", text: $viewModel.editBio, axis: .vertical)
+                        .lineLimit(3...6)
                 }
             }
             .navigationTitle("Personal Info")
@@ -699,14 +680,12 @@ private struct PersonalInfoSheet: View {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(viewModel.saving ? "Saving..." : "Save") {
+                    Button("Save") {
                         Task {
                             await viewModel.saveProfile(userId: userId)
-                            if viewModel.saveSuccess { dismiss() }
+                            dismiss()
                         }
                     }
-                    .disabled(viewModel.saving)
-                    .foregroundColor(AppTheme.coral)
                 }
             }
         }
@@ -723,54 +702,43 @@ private struct SecuritySheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Account Email") {
+                Section("Account") {
                     HStack {
-                        Image(systemName: "envelope")
+                        Text("Email")
+                        Spacer()
+                        Text(email)
                             .foregroundColor(AppTheme.textSecondary)
-                        Text(email.isEmpty ? "—" : email)
+                    }
+                }
+
+                Section("Security") {
+                    HStack {
+                        Image(systemName: "lock.shield")
+                            .foregroundColor(AppTheme.coral)
+                        Text("Password protected")
                             .foregroundColor(AppTheme.textPrimary)
-                    }
-                    Text("To change your email, contact support.")
-                        .font(.caption)
-                        .foregroundColor(AppTheme.textSecondary)
-                }
-                Section("Password Reset") {
-                    Text("A reset link will be sent to your email address.")
-                        .font(.caption)
-                        .foregroundColor(AppTheme.textSecondary)
-                    Button(action: {
-                        guard !email.isEmpty else { return }
-                        Task { await viewModel.requestPasswordReset(email: email) }
-                    }) {
-                        HStack {
-                            Image(systemName: "envelope.badge.shield.half.filled")
-                            Text(viewModel.resettingPassword ? "Sending..." : "Send Password Reset Email")
-                        }
-                        .foregroundColor(AppTheme.coral)
-                    }
-                    .disabled(viewModel.resettingPassword || email.isEmpty)
-                }
-                if viewModel.resetSuccess {
-                    Section {
-                        Label("Reset email sent! Check your inbox.", systemImage: "checkmark.circle.fill")
+                        Spacer()
+                        Image(systemName: "checkmark.circle.fill")
                             .foregroundColor(.green)
-                            .font(.caption)
                     }
                 }
-                if let err = viewModel.resetError {
-                    Section {
-                        Text(err).foregroundColor(.red).font(.caption)
-                    }
+
+                Section(footer: Text("To reset your password, please use the web application or sign out and use 'Forgot Password' on the login screen.")) {
+                    EmptyView()
                 }
             }
-            .navigationTitle("Security")
+            .navigationTitle("Login & security")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
-                        .foregroundColor(AppTheme.coral)
                 }
             }
         }
     }
+}
+
+#Preview {
+    NavigationStack { ProfileView() }
+        .environmentObject(AppSessionViewModel())
 }

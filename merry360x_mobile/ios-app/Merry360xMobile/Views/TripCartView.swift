@@ -1,15 +1,7 @@
 import SwiftUI
 
-enum TripTab: String, CaseIterable {
-    case cart = "Cart"
-    case upcoming = "Upcoming"
-    case completed = "Completed"
-    case cancelled = "Cancelled"
-}
-
 struct TripCartView: View {
     @EnvironmentObject private var session: AppSessionViewModel
-    @State private var selectedTab: TripTab = .cart
     @State private var isLoading = false
     @State private var bookings: [[String: Any]] = []
     @State private var errorMessage: String?
@@ -17,46 +9,26 @@ struct TripCartView: View {
 
     private let service = SupabaseService()
 
-    private var filteredBookings: [[String: Any]] {
-        switch selectedTab {
-        case .cart:
-            return bookings.filter { String(($0["status"] as? String ?? "")).lowercased() == "pending" }
-        case .upcoming:
-            return bookings.filter {
-                let status = String(($0["status"] as? String ?? "")).lowercased()
-                return status == "confirmed" || status == "completed"
-            }
-        case .completed:
-            return bookings.filter { String(($0["status"] as? String ?? "")).lowercased() == "completed" }
-        case .cancelled:
-            return bookings.filter { String(($0["status"] as? String ?? "")).lowercased() == "cancelled" }
-        }
+    private var cartBookings: [[String: Any]] {
+        bookings.filter { String(($0["status"] as? String ?? "")).lowercased() == "pending" }
     }
     
     var body: some View {
         VStack(spacing: 0) {
-            // Tab Row
-            HStack(spacing: 24) {
-                ForEach(TripTab.allCases, id: \.self) { tab in
-                    TripTabButton(
-                        title: tab.rawValue,
-                        isSelected: selectedTab == tab
-                    ) {
-                        selectedTab = tab
-                    }
-                }
-                Spacer()
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 16)
+            // Header
+            Text("Trip Cart")
+                .font(.system(size: 24, weight: .bold))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
             
             Spacer()
             
             // Content
             if isLoading {
                 MerryLoadingStateView(
-                    title: "Loading your trips",
-                    subtitle: "Syncing bookings and checkout status...",
+                    title: "Loading your cart",
+                    subtitle: "Syncing bookings...",
                     showCardSkeletons: true
                 )
                 .padding(.horizontal, 16)
@@ -65,29 +37,36 @@ struct TripCartView: View {
                     .font(.system(size: 14))
                     .foregroundColor(.red)
                     .padding(.horizontal, 20)
-            } else if filteredBookings.isEmpty {
-                TripEmptyState(tab: selectedTab)
+            } else if cartBookings.isEmpty {
+                VStack(spacing: 8) {
+                    Text("Your cart is empty")
+                        .font(.system(size: 18, weight: .semibold))
+                    
+                    Text("Add stays, tours, or transport to see them here")
+                        .font(.system(size: 14))
+                        .foregroundColor(.gray)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.horizontal, 40)
             } else {
                 VStack(spacing: 12) {
-                    if selectedTab == .cart {
-                        Button {
-                            activeCenter = .bookingsCheckout
-                        } label: {
-                            Text("Proceed to checkout")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                                .background(AppTheme.coral)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal, 16)
+                    Button {
+                        activeCenter = .bookingsCheckout
+                    } label: {
+                        Text("Proceed to checkout")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(AppTheme.coral)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 16)
 
                     ScrollView {
                         VStack(spacing: 10) {
-                            ForEach(Array(filteredBookings.enumerated()), id: \.offset) { _, booking in
+                            ForEach(Array(cartBookings.enumerated()), id: \.offset) { _, booking in
                                 BookingRow(booking: booking)
                             }
                         }
@@ -146,62 +125,6 @@ private struct BookingRow: View {
         .padding(12)
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
-    }
-}
-
-struct TripTabButton: View {
-    let title: String
-    let isSelected: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 8) {
-                Text(title)
-                    .font(.system(size: 15, weight: isSelected ? .semibold : .regular))
-                    .foregroundColor(isSelected ? AppTheme.coral : .gray)
-                
-                Rectangle()
-                    .fill(isSelected ? AppTheme.coral : Color.clear)
-                    .frame(height: 2)
-            }
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-struct TripEmptyState: View {
-    let tab: TripTab
-    
-    var title: String {
-        switch tab {
-        case .cart: return "Your cart is empty"
-        case .upcoming: return "No upcoming trips"
-        case .completed: return "No completed trips"
-        case .cancelled: return "No cancelled trips"
-        }
-    }
-    
-    var subtitle: String {
-        switch tab {
-        case .cart: return "Add stays, tours, or transport to see them here"
-        case .upcoming: return "When you book a trip, it will appear here"
-        case .completed: return "Your past trips will appear here"
-        case .cancelled: return "Cancelled bookings will appear here"
-        }
-    }
-    
-    var body: some View {
-        VStack(spacing: 8) {
-            Text(title)
-                .font(.system(size: 18, weight: .semibold))
-            
-            Text(subtitle)
-                .font(.system(size: 14))
-                .foregroundColor(.gray)
-                .multilineTextAlignment(.center)
-        }
-        .padding(.horizontal, 40)
     }
 }
 

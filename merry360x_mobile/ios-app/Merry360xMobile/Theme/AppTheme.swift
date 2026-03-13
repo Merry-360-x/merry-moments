@@ -64,26 +64,60 @@ extension View {
     }
 }
 
+// MARK: - PlayStation-Style Loading Animation
+struct MerryLoadingAnimation: View {
+    @State private var activeIndex = 0
+    
+    private let icons = ["house.fill", "building.2.fill", "car.fill", "airplane"]
+    
+    let timer = Timer.publish(every: 0.4, on: .main, in: .common).autoconnect()
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            ForEach(0..<4, id: \.self) { index in
+                ZStack {
+                    // Glow effect
+                    Circle()
+                        .fill(AppTheme.coral.opacity(0.3))
+                        .frame(width: 32, height: 32)
+                        .blur(radius: 6)
+                        .scaleEffect(activeIndex == index ? 1.3 : 1)
+                        .opacity(activeIndex == index ? 1 : 0)
+                    
+                    // Icon
+                    Image(systemName: icons[index])
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(AppTheme.coral)
+                        .scaleEffect(activeIndex == index ? 1.3 : 1)
+                        .opacity(activeIndex == index ? 1 : 0.4)
+                }
+                .frame(width: 32, height: 32)
+                .animation(.easeInOut(duration: 0.3), value: activeIndex)
+            }
+        }
+        .onReceive(timer) { _ in
+            activeIndex = (activeIndex + 1) % 4
+        }
+    }
+}
+
 struct MerryLoadingStateView: View {
     let title: String
     let subtitle: String
     var showCardSkeletons: Bool = true
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 10) {
-                ProgressView()
-                    .controlSize(.small)
-                    .tint(AppTheme.coral)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(AppTheme.textPrimary)
-                    Text(subtitle)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(AppTheme.textSecondary)
-                }
+        VStack(spacing: 20) {
+            // PlayStation-style animated icons
+            MerryLoadingAnimation()
+            
+            VStack(spacing: 4) {
+                Text(title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(AppTheme.textPrimary)
+                Text(subtitle)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(AppTheme.textSecondary)
             }
 
             if showCardSkeletons {
@@ -96,6 +130,8 @@ struct MerryLoadingStateView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Loading content")
     }

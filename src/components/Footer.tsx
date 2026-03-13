@@ -32,10 +32,10 @@ const TikTokIcon = ({ className }: IconProps) => (
 const socialLinks = [
   { label: "X", href: "https://x.com/merry360x", Icon: XIcon, colorClass: "text-black dark:text-white" },
   { label: "LinkedIn", href: "https://www.linkedin.com/company/merry360x", Icon: Linkedin, colorClass: "text-[#0A66C2]" },
-  { label: "TripAdvisor", href: "https://www.tripadvisor.com", Icon: TripAdvisorIcon, colorClass: "text-[#00AA6C]" },
-  { label: "Facebook", href: "https://www.facebook.com/merry360x", Icon: Facebook, colorClass: "text-[#1877F2]" },
-  { label: "Instagram", href: "https://www.instagram.com/merry360x", Icon: Instagram, colorClass: "text-[#E1306C]" },
-  { label: "YouTube", href: "https://www.youtube.com/@merry360x", Icon: Youtube, colorClass: "text-[#FF0000]" },
+  { label: "TripAdvisor", href: "https://www.tripadvisor.com/profile/merry360x", Icon: TripAdvisorIcon, colorClass: "text-[#00AA6C]" },
+  { label: "Facebook", href: "https://www.facebook.com/share/1QcRpgL6b8/?mibextid=wwXIfr", Icon: Facebook, colorClass: "text-[#1877F2]" },
+  { label: "Instagram", href: "https://www.instagram.com/merry360.x?igsh=MXc5M3NwanltNjRheQ==", Icon: Instagram, colorClass: "text-[#E1306C]" },
+  { label: "YouTube", href: "https://youtube.com/@merry360x?si=C9uORgD72wL1N59V", Icon: Youtube, colorClass: "text-[#FF0000]" },
   { label: "TikTok", href: "https://www.tiktok.com/@merry360x", Icon: TikTokIcon, colorClass: "text-[#111111] dark:text-white" },
 ];
 

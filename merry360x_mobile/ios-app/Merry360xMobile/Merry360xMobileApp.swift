@@ -54,30 +54,101 @@ struct Merry360xMobileApp: App {
 }
 
 private struct BrandedSplashView: View {
-    @State private var logoScale: CGFloat = 0.9
-    @State private var logoOpacity: Double = 0.84
+    @State private var logoScale: CGFloat = 0.8
+    @State private var logoOpacity: Double = 0
+    @State private var textOpacity: Double = 0
+    @State private var showLoading = false
+    @State private var activeIconIndex = 0
+    
+    private let icons = ["house.fill", "building.2.fill", "car.fill", "airplane"]
+    private let timer = Timer.publish(every: 0.35, on: .main, in: .common).autoconnect()
 
     var body: some View {
         ZStack {
+            // Background gradient - coral to white
             LinearGradient(
-                colors: [Color.white, Color(red: 246/255, green: 246/255, blue: 248/255)],
-                startPoint: .top,
-                endPoint: .bottom
+                colors: [
+                    AppTheme.coral.opacity(0.15),
+                    Color.white,
+                    Color(red: 248/255, green: 248/255, blue: 250/255)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
             )
-                .ignoresSafeArea()
-
-            Image("SplashLogo")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 120, height: 120)
-                .scaleEffect(logoScale)
-                .opacity(logoOpacity)
-                .onAppear {
-                    withAnimation(.easeOut(duration: 0.28)) {
-                        logoScale = 1
-                        logoOpacity = 1
-                    }
+            .ignoresSafeArea()
+            
+            VStack(spacing: 24) {
+                Spacer()
+                
+                // Logo with glow
+                ZStack {
+                    // Glow effect
+                    Circle()
+                        .fill(AppTheme.coral.opacity(0.2))
+                        .frame(width: 160, height: 160)
+                        .blur(radius: 30)
+                        .scaleEffect(logoScale)
+                    
+                    Image("SplashLogo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 120, height: 120)
+                        .scaleEffect(logoScale)
+                        .opacity(logoOpacity)
                 }
+                
+                // Brand name
+                VStack(spacing: 4) {
+                    Text("Merry 360x")
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .foregroundColor(AppTheme.coral)
+                    
+                    Text("Your travel companion")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.secondary)
+                }
+                .opacity(textOpacity)
+                
+                Spacer()
+                
+                // Loading animation
+                if showLoading {
+                    HStack(spacing: 12) {
+                        ForEach(0..<4, id: \.self) { index in
+                            Image(systemName: icons[index])
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundColor(AppTheme.coral)
+                                .scaleEffect(activeIconIndex == index ? 1.3 : 1)
+                                .opacity(activeIconIndex == index ? 1 : 0.4)
+                                .animation(.easeInOut(duration: 0.25), value: activeIconIndex)
+                        }
+                    }
+                    .transition(.opacity)
+                }
+                
+                Spacer()
+                    .frame(height: 60)
+            }
+        }
+        .onAppear {
+            // Animate in
+            withAnimation(.easeOut(duration: 0.5)) {
+                logoScale = 1
+                logoOpacity = 1
+            }
+            withAnimation(.easeOut(duration: 0.5).delay(0.2)) {
+                textOpacity = 1
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                withAnimation {
+                    showLoading = true
+                }
+            }
+        }
+        .onReceive(timer) { _ in
+            if showLoading {
+                activeIconIndex = (activeIconIndex + 1) % 4
+            }
         }
     }
 }

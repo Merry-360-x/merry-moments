@@ -587,8 +587,8 @@ export default function SupportCenterLauncher() {
     setAiDraft("");
     const next: ChatMsg[] = [...aiMessages, { role: "user" as const, content: text }];
     const compactHistory = next
-      .slice(-6)
-      .map((m) => ({ role: m.role, content: String(m.content || "").slice(0, 260) }));
+      .slice(-3)
+      .map((m) => ({ role: m.role, content: String(m.content || "").slice(0, 160) }));
     setAiMessages(next);
     setAiSending(true);
     try {

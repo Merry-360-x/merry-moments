@@ -25,8 +25,8 @@ _PRICE_TERMS = [
     "cheap", "cheapest", "lowest", "low cost", "affordable", "budget", "best price", "least expensive",
 ]
 
-_MAX_REPLY_CHARS = 420
-_MAX_REPLY_LINES = 7
+_MAX_REPLY_CHARS = 250
+_MAX_REPLY_LINES = 4
 
 _SESSION_MEMORY: dict[str, dict] = {}
 _SESSION_TTL_SECONDS = 60 * 60 * 8
@@ -690,9 +690,9 @@ def _generate_openai_reply(
 
         # Keep prompt compact but grounded in local retrieval/context.
         conversation = []
-        for m in messages[-4:]:
+        for m in messages[-3:]:
             role = str(m.get("role") or "user")
-            content = str(m.get("content") or "").strip()[:220]
+            content = str(m.get("content") or "").strip()[:160]
             if role in {"user", "assistant"} and content:
                 conversation.append(f"{role.upper()}: {content}")
 
@@ -706,7 +706,7 @@ def _generate_openai_reply(
         prompt = (
             "You are Merry360X AI Trip Advisor for East Africa travel.\n"
             "Be concise, helpful, and non-repetitive.\n"
-            "Reply in <= 80 words and at most 5 short lines.\n"
+            "Reply in <= 45 words and at most 3 short lines.\n"
             "Use the grounding data exactly and do not invent listings.\n"
             "If key details are missing, ask only 1 focused question.\n"
             "When recommendations exist, summarize very briefly and give one next step.\n\n"
@@ -719,7 +719,7 @@ def _generate_openai_reply(
             model=model,
             input=prompt,
             store=False,
-            max_output_tokens=120,
+            max_output_tokens=80,
         )
 
         text = getattr(response, "output_text", None)
