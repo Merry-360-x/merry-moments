@@ -1240,7 +1240,12 @@ export default function AdminDashboard() {
       
       return enrichedData as BookingRow[];
     },
-    enabled: tab === "bookings" || tab === "booking-calculations" || tab === "payments" || tab === "overview",
+    enabled:
+      tab === "bookings" ||
+      tab === "booking-calculations" ||
+      tab === "payments" ||
+      tab === "overview" ||
+      tab === "hosts",
     staleTime: 1000 * 20,
     gcTime: 1000 * 60 * 10,
     refetchOnWindowFocus: true,
@@ -4437,7 +4442,13 @@ For support, contact: support@merry360x.com
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {applications.map((app: any) => (
+                          {applications.map((app: any) => {
+                            const walletEarnings =
+                              walletEarningsByHostId.get(normalizeHostId(app.user_id)) ||
+                              walletEarningsByHostId.get(String(app.user_id || "").trim()) ||
+                              0;
+
+                            return (
                             <TableRow key={app.id} className={app.suspended ? 'bg-red-50' : ''}>
                               <TableCell>
                                 <div>
@@ -4478,13 +4489,8 @@ For support, contact: support@merry360x.com
                                   )}
                                 </div>
                               </TableCell>
-                              <TableCell className="text-right font-semibold text-primary">
-                                {formatMoney(
-                                  walletEarningsByHostId.get(normalizeHostId(app.user_id)) ||
-                                    walletEarningsByHostId.get(String(app.user_id || "").trim()) ||
-                                    0,
-                                  "RWF"
-                                )}
+                              <TableCell className={`text-right font-semibold ${walletEarnings > 0 ? "text-emerald-700" : "text-muted-foreground"}`}>
+                                {formatMoney(walletEarnings, "RWF")}
                               </TableCell>
                               <TableCell className="text-sm">
                                 <div className="flex gap-1 flex-wrap">
@@ -4576,7 +4582,8 @@ For support, contact: support@merry360x.com
                                 </div>
                               </TableCell>
                             </TableRow>
-                          ))}
+                            );
+                          })}
                         </TableBody>
                       </Table>
                     </div>

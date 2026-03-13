@@ -2883,14 +2883,14 @@ export default function HostDashboard() {
   const pendingBookings = pendingBookingGroupKeys.size;
   const publishedProperties = (properties || []).filter((p) => p.is_published).length;
 
-  // Calculate available for payout (confirmed bookings - pending payouts)
+  // Calculate available for payout (confirmed bookings - completed payouts only)
   const pendingPayoutAmount = payoutHistory
     .filter(p => p.status === 'pending' || p.status === 'processing')
     .reduce((sum, p) => sum + toRwfAmount(Number(p.amount), p.currency || 'RWF'), 0);
   const completedPayoutAmount = payoutHistory
     .filter(p => p.status === 'completed')
     .reduce((sum, p) => sum + toRwfAmount(Number(p.amount), p.currency || 'RWF'), 0);
-  const availableForPayout = Math.max(0, totalEarnings - pendingPayoutAmount - completedPayoutAmount);
+  const availableForPayout = Math.max(0, totalEarnings - completedPayoutAmount);
 
   // Handle payout button click - always open combined dialog
   const handlePayoutClick = () => {
@@ -9832,6 +9832,20 @@ END OF REPORT
             </div>
 
             {/* Pending payouts notice */}
+            {completedPayoutAmount > 0 && (
+              <div className="flex items-start gap-2 bg-emerald-50 dark:bg-emerald-950/20 rounded-lg p-3 text-sm">
+                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-emerald-800 dark:text-emerald-200">
+                    Completed payouts: {formatMoney(completedPayoutAmount, 'RWF')}
+                  </p>
+                  <p className="text-emerald-700 dark:text-emerald-300 text-xs">
+                    ≈ {formatMoney(convertAmount(completedPayoutAmount, 'RWF', 'USD', usdRates) ?? 0, 'USD')}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {pendingPayoutAmount > 0 && (
               <div className="flex items-start gap-2 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg p-3 text-sm">
                 <AlertCircle className="w-4 h-4 text-yellow-600 shrink-0 mt-0.5" />
