@@ -60,6 +60,34 @@ function paymentBadgeColor(paymentStatus) {
     : { bg: "#fee2e2", text: "#991b1b" };
 }
 
+/**
+ * Calculate host earnings from total price based on service type
+ * Fee structure:
+ * - Accommodation: guest pays base*1.10, host gets base*0.97 → earnings = total/1.10 * 0.97
+ * - Tour: guest pays base, host gets base*0.90 → earnings = total * 0.90
+ * - Transport: no fees → earnings = total
+ */
+function calculateHostEarnings(totalPrice, bookingType) {
+  const total = Number(totalPrice);
+  if (!Number.isFinite(total) || total <= 0) return 0;
+  
+  const type = String(bookingType || "").toLowerCase();
+  
+  if (type === "property" || type === "accommodation") {
+    // Guest fee 10% added, host fee 3% deducted from base
+    // total = base * 1.10, host_earnings = base * 0.97 = total * 0.97 / 1.10
+    return Math.round(total * 0.97 / 1.10);
+  }
+  
+  if (type === "tour" || type === "tour_package") {
+    // No guest fee, 10% provider fee
+    return Math.round(total * 0.90);
+  }
+  
+  // Transport: no fees
+  return Math.round(total);
+}
+
 async function resolveHostAndItem(supabase, booking) {
   let hostId = null;
   let itemTitle = "Booking";
@@ -140,6 +168,7 @@ async function resolveHostAndItem(supabase, booking) {
 function generateHostPaymentStatusHtml({ resolved, booking, source, effectivePaymentStatus }) {
   const statusLabel = paymentLabel(effectivePaymentStatus);
   const statusColors = paymentBadgeColor(effectivePaymentStatus);
+  const hostEarnings = calculateHostEarnings(booking.total_price, booking.booking_type);
   const bodyHtml = `
     <p style="margin:0 0 12px;color:#374151;font-size:14px;">Hi ${escapeHtml(resolved.hostName)}, the payment state of a booking has changed.</p>
     ${keyValueRows([
@@ -147,7 +176,7 @@ function generateHostPaymentStatusHtml({ resolved, booking, source, effectivePay
       { label: "Booking ID", value: escapeHtml(booking.id) },
       { label: "Order ID", value: escapeHtml(booking.order_id || "—") },
       { label: "Guest", value: escapeHtml(booking.guest_name || "Guest") },
-      { label: "Amount", value: escapeHtml(formatMoney(booking.total_price, booking.currency || "RWF")) },
+      { label: "Your Earnings", value: escapeHtml(formatMoney(hostEarnings, booking.currency || "RWF")) },
       { label: "Dates", value: `${escapeHtml(booking.check_in || "-")} → ${escapeHtml(booking.check_out || "-")}` },
       { label: "Status", value: `<span style="display:inline-block;background:${statusColors.bg};color:${statusColors.text};padding:4px 10px;border-radius:999px;font-weight:600;">${escapeHtml(statusLabel)}</span>` },
       { label: "Source", value: escapeHtml(source || "system") },
@@ -326,12 +355,19 @@ async function resolveHostRecipientsFromItems(supabase, items = []) {
     if (!hostId) continue;
 
     const key = String(hostId);
-    const existing = hostMap.get(key) || { hostId, hostEmail: null, hostName: "Host", items: [] };
+    const existing = hostMap.get(key) || { hostId, hostEmail: null, hostName: "Host", items: [], hostEarnings: 0 };
     existing.items.push({
       title: resolvedTitle,
       type: itemType,
       quantity: Number(item?.quantity || 1),
     });
+    
+    // Calculate host earnings for this item if price is available
+    const itemPrice = Number(item?.total_price || item?.price || 0);
+    if (itemPrice > 0) {
+      existing.hostEarnings += calculateHostEarnings(itemPrice, itemType);
+    }
+    
     hostMap.set(key, existing);
   }
 
@@ -394,7 +430,7 @@ function generatePendingOrderFinanceHtml(payload) {
   });
 }
 
-function generatePendingOrderHostHtml({ hostName, checkoutId, paymentMethod, totalAmount, currency, guestName, items }) {
+function generatePendingOrderHostHtml({ hostName, checkoutId, paymentMethod, hostEarnings, currency, guestName, items }) {
   const listHtml = (items || [])
     .map((item) => `<p style="margin:0 0 6px;color:#374151;font-size:14px;">• ${escapeHtml(item.title || "Listing")} (${escapeHtml(itemTypeLabel(item.type))}) × ${escapeHtml(item.quantity || 1)}</p>`)
     .join("");
@@ -409,7 +445,7 @@ function generatePendingOrderHostHtml({ hostName, checkoutId, paymentMethod, tot
         { label: "Order ID", value: escapeHtml(toOrderRef(checkoutId)) },
         { label: "Guest", value: escapeHtml(guestName || "Guest") },
         { label: "Payment Method", value: escapeHtml(paymentMethodLabel(paymentMethod)) },
-        { label: "Order Total", value: escapeHtml(formatMoney(totalAmount, currency || "RWF")) },
+        { label: "Your Earnings", value: escapeHtml(formatMoney(hostEarnings, currency || "RWF")) },
       ])}
       <div style="margin-top:12px;">${listHtml || ""}</div>
     `,
@@ -580,7 +616,7 @@ export default async function handler(req, res) {
               hostName: recipient.hostName,
               checkoutId: normalizedPayload.checkoutId,
               paymentMethod: normalizedPayload.paymentMethod,
-              totalAmount: normalizedPayload.totalAmount,
+              hostEarnings: recipient.hostEarnings || 0,
               currency: normalizedPayload.currency,
               guestName: normalizedPayload.guestName,
               items: recipient.items,

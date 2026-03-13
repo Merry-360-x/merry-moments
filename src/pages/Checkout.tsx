@@ -1206,6 +1206,7 @@ export default function CheckoutNew() {
                 reference_id: item.reference_id,
                 title: item.title,
                 quantity: item.quantity,
+                total_price: item.calculated_price,
               })),
             }),
           });

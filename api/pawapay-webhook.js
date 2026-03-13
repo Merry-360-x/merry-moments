@@ -397,7 +397,6 @@ async function sendHostNotification(supabase, booking, item) {
     const guestPhone = booking.guest_phone || "";
     const checkIn = formatDate(booking.check_in);
     const checkOut = formatDate(booking.check_out);
-    const totalAmount = formatMoney(booking.total_price, booking.currency);
     const hostReceivesAmount = formatMoney(
       computeHostReceivesAmount(item, booking),
       booking.currency
@@ -417,8 +416,7 @@ async function sendHostNotification(supabase, booking, item) {
         { label: "Check-in", value: escapeHtml(checkIn) },
         { label: "Check-out", value: escapeHtml(checkOut) },
         { label: "Guests", value: escapeHtml(`${booking.guests || 1}`) },
-        { label: "Host Receives", value: escapeHtml(hostReceivesAmount) },
-        { label: "Guest Paid", value: escapeHtml(totalAmount) },
+        { label: "Your Earnings", value: escapeHtml(hostReceivesAmount) },
       ]),
       ctaText: "Open Host Dashboard",
       ctaUrl: "https://merry360x.com/host-dashboard",
