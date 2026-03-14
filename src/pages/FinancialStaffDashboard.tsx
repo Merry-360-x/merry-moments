@@ -20,9 +20,8 @@ import { useFxRates } from "@/hooks/useFxRates";
 import { convertAmount } from "@/lib/fx";
 import {
   PAWAPAY_PROCESSING_FEE_PERCENT,
-  calculateBookingFinancialsFromDiscountedListing,
+  calculateBookingFinancialsFromGuestPaidTotal,
   calculatePawaPayProcessing,
-  getGuestFeePercent,
 } from "@/lib/fees";
 
 type BookingRow = {
@@ -611,7 +610,7 @@ export default function FinancialStaffDashboard() {
     const sourceCurrency = String(fromCurrency || dashboardCurrency).toUpperCase();
     if (!Number.isFinite(amount)) return 0;
     if (sourceCurrency === dashboardCurrency) return amount;
-    return convertAmount(amount, sourceCurrency, dashboardCurrency, usdRates) ?? amount;
+    return convertAmount(amount, sourceCurrency, dashboardCurrency, usdRates) ?? 0;
   }, [dashboardCurrency, usdRates]);
 
   const getBookingDisplayAmount = useCallback((booking: BookingRow) => {
@@ -630,7 +629,7 @@ export default function FinancialStaffDashboard() {
       return sum + convertToDashboardCurrency(Number(item.amount || 0), String(item.currency || dashboardCurrency));
     }, 0);
     return formatMoney(totalInDashboardCurrency, dashboardCurrency);
-  }, [metrics?.revenue_by_currency, dashboardCurrency, usdRates]);
+  }, [metrics?.revenue_by_currency, dashboardCurrency, convertToDashboardCurrency]);
 
   const isPendingBookingStatus = (status: string | null | undefined) =>
     status === 'pending' || status === 'pending_confirmation';
@@ -660,15 +659,7 @@ export default function FinancialStaffDashboard() {
     const paidAmount = Number(booking.checkout_requests?.total_amount || booking.total_price || 0);
     const paidCurrency = String(booking.checkout_requests?.currency || booking.currency || dashboardCurrency).toUpperCase();
     const serviceType = getBookingServiceType(booking);
-    const guestFeePercent = getGuestFeePercent(serviceType);
-    const listingSubtotalAfterDiscount = paidAmount > 0
-      ? Math.max(0, paidAmount / (1 + guestFeePercent / 100))
-      : 0;
-
-    const financials = calculateBookingFinancialsFromDiscountedListing(
-      listingSubtotalAfterDiscount,
-      serviceType,
-    );
+    const financials = calculateBookingFinancialsFromGuestPaidTotal(paidAmount, serviceType);
 
     return {
       paidAmount,
@@ -721,7 +712,7 @@ export default function FinancialStaffDashboard() {
 
   const filteredRevenue = useMemo(() => {
     return completedBookings.reduce((sum, b) => sum + getBookingDisplayAmount(b), 0);
-  }, [completedBookings, dashboardCurrency, usdRates]);
+  }, [completedBookings, getBookingDisplayAmount]);
 
   const realEarningsTotals = useMemo(() => {
     return bookings.reduce(

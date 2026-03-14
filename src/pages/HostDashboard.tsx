@@ -601,7 +601,7 @@ export default function HostDashboard() {
     const normalized = String(currency || 'RWF').toUpperCase();
     if (normalized === 'RWF') return Number(amount) || 0;
     const converted = convertAmount(Number(amount) || 0, normalized, 'RWF', usdRates);
-    return Number(converted ?? amount ?? 0);
+    return Number(converted ?? 0);
   }, [usdRates]);
   
   // Profile completion tracking
@@ -2918,10 +2918,10 @@ export default function HostDashboard() {
   const pendingBookings = pendingBookingGroupKeys.size;
   const publishedProperties = (properties || []).filter((p) => p.is_published).length;
 
-  // Calculate available for payout (confirmed bookings - completed payouts only)
+  // Available for payout = confirmed host net earnings - completed payouts - pending/processing requests
   const pendingPayoutAmount = payoutTotals.pendingRwf;
   const completedPayoutAmount = payoutTotals.completedRwf;
-  const availableForPayout = Math.max(0, totalEarnings - completedPayoutAmount);
+  const availableForPayout = Math.max(0, totalEarnings - completedPayoutAmount - pendingPayoutAmount);
 
   // Handle payout button click - always open combined dialog
   const handlePayoutClick = () => {

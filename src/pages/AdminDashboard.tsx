@@ -31,6 +31,7 @@ import {
 import { getTourPriceSuffix, getTourPricingModel } from "@/lib/tour-pricing";
 import { normalizeAdminMetrics } from "@/lib/admin-metrics";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
+import { convertAmount } from "@/lib/fx";
 import { useLocation, useSearchParams } from "react-router-dom";
 import {
   Users,
@@ -411,9 +412,7 @@ const setRuntimeAdminFxToRwf = (rates: Record<string, number>) => {
 const toRwfAmount = (amount: number, currency: string | null | undefined): number => {
   const safeAmount = Number.isFinite(Number(amount)) ? Number(amount) : 0;
   const code = String(currency || "RWF").toUpperCase();
-  if (code === "RWF") return safeAmount;
-  const rate = runtimeAdminFxToRwf[code] ?? runtimeAdminFxToRwf.USD ?? DEFAULT_ADMIN_FX_TO_RWF.USD;
-  return safeAmount * rate;
+  return convertAmount(safeAmount, code, "RWF", runtimeAdminFxToRwf) ?? 0;
 };
 
 const convertAdminCurrency = (
@@ -424,11 +423,7 @@ const convertAdminCurrency = (
   const from = String(fromCurrency || "RWF").toUpperCase();
   const to = String(toCurrency || "RWF").toUpperCase();
   const safeAmount = Number.isFinite(Number(amount)) ? Number(amount) : 0;
-  if (from === to) return safeAmount;
-  const inRwf = toRwfAmount(safeAmount, from);
-  if (to === "RWF") return inRwf;
-  const toRate = runtimeAdminFxToRwf[to] ?? runtimeAdminFxToRwf.USD ?? DEFAULT_ADMIN_FX_TO_RWF.USD;
-  return inRwf / toRate;
+  return convertAmount(safeAmount, from, to, runtimeAdminFxToRwf) ?? 0;
 };
 
 const normalizeHostId = (value: unknown) => String(value || "").trim().toLowerCase();

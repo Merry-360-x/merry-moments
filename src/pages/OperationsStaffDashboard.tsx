@@ -17,7 +17,7 @@ import { useNotificationBadge, NotificationBadge } from "@/hooks/useNotification
 import { useFxRates } from "@/hooks/useFxRates";
 import { convertAmount } from "@/lib/fx";
 import { formatMoney } from "@/lib/money";
-import { calculateBookingFinancialsFromDiscountedListing, getGuestFeePercent } from "@/lib/fees";
+import { calculateBookingFinancialsFromGuestPaidTotal } from "@/lib/fees";
 import { Banknote, Wallet } from "lucide-react";
 
 type HostApplication = {
@@ -517,18 +517,10 @@ export default function OperationsStaffDashboard() {
         const paidAmount = Number(booking.total_price || 0);
         const paidCurrency = String(booking.currency || 'RWF').toUpperCase();
         const serviceType = getBookingServiceType(booking);
-        const guestFeePercent = getGuestFeePercent(serviceType);
-        const listingSubtotalAfterDiscount = paidAmount > 0
-          ? Math.max(0, paidAmount / (1 + guestFeePercent / 100))
-          : 0;
+        const financials = calculateBookingFinancialsFromGuestPaidTotal(paidAmount, serviceType);
 
-        const financials = calculateBookingFinancialsFromDiscountedListing(
-          listingSubtotalAfterDiscount,
-          serviceType,
-        );
-
-        totals.hostNetEarnings += convertAmount(financials.hostNetEarnings, paidCurrency, 'RWF', usdRates) ?? financials.hostNetEarnings;
-        totals.platformEarnings += convertAmount(financials.platformTotalEarnings, paidCurrency, 'RWF', usdRates) ?? financials.platformTotalEarnings;
+        totals.hostNetEarnings += convertAmount(financials.hostNetEarnings, paidCurrency, 'RWF', usdRates) ?? 0;
+        totals.platformEarnings += convertAmount(financials.platformTotalEarnings, paidCurrency, 'RWF', usdRates) ?? 0;
         return totals;
       },
       {

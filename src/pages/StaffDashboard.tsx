@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { formatMoney } from "@/lib/money";
 import { getTourPriceSuffix, getTourPricingModel } from "@/lib/tour-pricing";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
+import { convertAmount } from "@/lib/fx";
 import { Eye, Download, FileText, DollarSign, AlertCircle } from "lucide-react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
@@ -155,9 +156,7 @@ const STAFF_FX_TO_RWF: Record<string, number> = {
 const toRwfAmount = (amount: number, currency: string | null | undefined): number => {
   const safeAmount = Number.isFinite(Number(amount)) ? Number(amount) : 0;
   const code = String(currency || "RWF").toUpperCase();
-  if (code === "RWF") return safeAmount;
-  const rate = STAFF_FX_TO_RWF[code] ?? STAFF_FX_TO_RWF.USD;
-  return safeAmount * rate;
+  return convertAmount(safeAmount, code, "RWF", STAFF_FX_TO_RWF) ?? 0;
 };
 
 const convertStaffCurrency = (
@@ -168,11 +167,7 @@ const convertStaffCurrency = (
   const from = String(fromCurrency || "RWF").toUpperCase();
   const to = String(toCurrency || "RWF").toUpperCase();
   const safeAmount = Number.isFinite(Number(amount)) ? Number(amount) : 0;
-  if (from === to) return safeAmount;
-  const inRwf = toRwfAmount(safeAmount, from);
-  if (to === "RWF") return inRwf;
-  const toRate = STAFF_FX_TO_RWF[to] ?? STAFF_FX_TO_RWF.USD;
-  return inRwf / toRate;
+  return convertAmount(safeAmount, from, to, STAFF_FX_TO_RWF) ?? 0;
 };
 
 const fetchPending = async () => {

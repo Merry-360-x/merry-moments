@@ -263,6 +263,43 @@ export function calculateBookingFinancialsFromDiscountedListing(
 }
 
 /**
+ * Calculate booking financials when the stored amount is what the guest paid.
+ *
+ * This is the canonical helper for dashboard rollups where booking totals are
+ * generally captured as guest-paid amounts and need a consistent breakdown
+ * (base/listing subtotal, guest fee, host/provider fee, host net, platform).
+ */
+export function calculateBookingFinancialsFromGuestPaidTotal(
+  guestPaidTotal: number,
+  serviceType: 'accommodation' | 'tour' | 'transport'
+): {
+  discountedListingSubtotal: number;
+  guestFee: number;
+  guestTotal: number;
+  hostFee: number;
+  hostNetEarnings: number;
+  platformTotalEarnings: number;
+  guestFeePercent: number;
+  hostFeePercent: number;
+} {
+  const paid = Math.max(0, Number(guestPaidTotal || 0));
+  const breakdown = calculateHostEarningsFromGuestTotal(paid, serviceType);
+  const guestFeePercent = getGuestFeePercent(serviceType);
+  const hostFeePercent = getHostOrProviderFeePercent(serviceType);
+
+  return {
+    discountedListingSubtotal: breakdown.basePrice,
+    guestFee: breakdown.guestFee,
+    guestTotal: paid,
+    hostFee: breakdown.hostFee,
+    hostNetEarnings: breakdown.hostNetEarnings,
+    platformTotalEarnings: breakdown.platformTotalEarnings,
+    guestFeePercent,
+    hostFeePercent,
+  };
+}
+
+/**
  * Calculate PawaPay processing-fee breakdown for a charged amount.
  */
 export function calculatePawaPayProcessing(
