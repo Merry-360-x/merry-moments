@@ -1100,6 +1100,47 @@ export default function HostDashboard() {
     }
   }, [toRwfAmount]);
 
+  const recalculateHostFinancials = useCallback(async () => {
+    if (!user) return;
+
+    // Recompute both booking-derived earnings and payout-derived deductions from source tables.
+    await Promise.all([
+      fetchData(),
+      fetchHostPayoutData(user.id),
+    ]);
+  }, [user, fetchData, fetchHostPayoutData]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const sessionKey = `host_financials_recalculated_${user.id}`;
+    const shouldRunBootstrap = !sessionStorage.getItem(sessionKey);
+
+    if (shouldRunBootstrap) {
+      sessionStorage.setItem(sessionKey, "1");
+      void recalculateHostFinancials();
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void recalculateHostFinancials();
+      }
+    };
+
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void recalculateHostFinancials();
+      }
+    }, 60_000);
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [user, recalculateHostFinancials]);
+
   // Real-time subscriptions for host dashboard data
   useEffect(() => {
     if (!user) return;
