@@ -1468,7 +1468,7 @@ export default function HostDashboard() {
           };
 
       // Insert payout request (pending approval)
-      const { error } = await supabase
+      const { data: createdPayout, error } = await supabase
         .from('host_payouts')
         .insert({
           host_id: user.id,
@@ -1477,7 +1477,9 @@ export default function HostDashboard() {
           status: 'pending',
           payout_method: resolvedPayoutForm.method,
           payout_details: payoutDetails,
-        });
+        })
+        .select('id')
+        .single();
 
       if (error) throw error;
 
@@ -1495,6 +1497,7 @@ export default function HostDashboard() {
           body: JSON.stringify({
             hostName: profileData?.full_name || user.email?.split('@')[0] || 'Host',
             hostEmail: profileData?.email || user.email,
+            payoutId: createdPayout?.id,
             amount,
             currency: 'RWF',
             method: resolvedPayoutForm.method,

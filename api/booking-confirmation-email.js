@@ -40,7 +40,8 @@ function formatMoney(amount, currency = "RWF") {
   if (!amount) return "—";
   const num = Number(amount);
   if (!Number.isFinite(num)) return "—";
-  return `${Math.round(num).toLocaleString("en-US")} RWF`;
+  const code = String(currency || "RWF").toUpperCase();
+  return `${Math.round(num).toLocaleString("en-US")} ${code}`;
 }
 
 function paymentLabel(paymentStatus) {
