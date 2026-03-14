@@ -1423,6 +1423,32 @@ export default function AdminDashboard() {
 
         const payoutStatus = payoutData.status || "processing";
         const payoutAmountLabel = formatMoney(Number(payout.amount ?? 0), String(payout.currency ?? "RWF"));
+
+        if (payoutStatus === "completed") {
+          const notificationPayload = {
+            eventType: "completed",
+            payoutId: payout.id,
+            amount: Number(payout.amount || 0),
+            currency: payout.currency || "RWF",
+            method: payout.payout_method,
+            phone: payout.payout_details?.phone || payout.payout_details?.phone_number,
+            bankName: payout.payout_details?.bankName,
+            bankAccount: payout.payout_details?.bankAccount,
+            accountName: payout.payout_details?.accountName,
+            hostName: payout.profiles?.full_name || "Host",
+            hostEmail: payout.profiles?.email || null,
+            status: payoutStatus,
+          };
+
+          fetch("/api/payout-notification", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(notificationPayload),
+          }).catch((notificationError) => {
+            console.error("Failed to send completed payout notification:", notificationError);
+          });
+        }
+
         toast({
           title: payoutStatus === "completed" ? "Payout Completed" : payoutData?.isEnqueued ? "Payout Queued" : "Payout Sent",
           description:
@@ -1449,6 +1475,31 @@ export default function AdminDashboard() {
         .eq("id", payoutId);
 
       if (error) throw error;
+
+      if (action === "completed") {
+        const notificationPayload = {
+          eventType: "completed",
+          payoutId: payout.id,
+          amount: Number(payout.amount || 0),
+          currency: payout.currency || "RWF",
+          method: payout.payout_method,
+          phone: payout.payout_details?.phone || payout.payout_details?.phone_number,
+          bankName: payout.payout_details?.bankName,
+          bankAccount: payout.payout_details?.bankAccount,
+          accountName: payout.payout_details?.accountName,
+          hostName: payout.profiles?.full_name || "Host",
+          hostEmail: payout.profiles?.email || null,
+          status: "completed",
+        };
+
+        fetch("/api/payout-notification", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(notificationPayload),
+        }).catch((notificationError) => {
+          console.error("Failed to send completed payout notification:", notificationError);
+        });
+      }
 
       toast({
         title: action === "completed" ? "Payout Approved" : "Payout Rejected",

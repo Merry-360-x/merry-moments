@@ -525,7 +525,7 @@ export default function FinancialStaffDashboard() {
         // Fetch payout details
         const { data: payout, error: payoutError } = await supabase
           .from("host_payouts")
-          .select("*")
+          .select("*, profiles:host_id(full_name, email)")
           .eq("id", payoutId)
           .single();
 
@@ -573,6 +573,31 @@ export default function FinancialStaffDashboard() {
 
           if (error) throw error;
 
+          if (payoutStatus === "completed") {
+            const notificationPayload = {
+              eventType: "completed",
+              payoutId: payout.id,
+              amount: Number(payout.amount || 0),
+              currency: payout.currency || "RWF",
+              method: payout.payout_method,
+              phone: payout.payout_details?.phone || payout.payout_details?.phone_number,
+              bankName: payout.payout_details?.bankName,
+              bankAccount: payout.payout_details?.bankAccount,
+              accountName: payout.payout_details?.accountName,
+              hostName: payout.profiles?.full_name || "Host",
+              hostEmail: payout.profiles?.email || null,
+              status: payoutStatus,
+            };
+
+            fetch("/api/payout-notification", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(notificationPayload),
+            }).catch((notificationError) => {
+              console.error("Failed to send completed payout notification:", notificationError);
+            });
+          }
+
           toast({
             title: payoutStatus === "completed" ? "Payout Completed" : pawapayResult?.isEnqueued ? "Payout Queued" : "Payout Sent",
             description:
@@ -601,6 +626,31 @@ export default function FinancialStaffDashboard() {
         .eq("id", payoutId);
 
       if (error) throw error;
+
+      if (action === "completed") {
+        const notificationPayload = {
+          eventType: "completed",
+          payoutId: payout.id,
+          amount: Number(payout.amount || 0),
+          currency: payout.currency || "RWF",
+          method: payout.payout_method,
+          phone: payout.payout_details?.phone || payout.payout_details?.phone_number,
+          bankName: payout.payout_details?.bankName,
+          bankAccount: payout.payout_details?.bankAccount,
+          accountName: payout.payout_details?.accountName,
+          hostName: payout.profiles?.full_name || "Host",
+          hostEmail: payout.profiles?.email || null,
+          status: "completed",
+        };
+
+        fetch("/api/payout-notification", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(notificationPayload),
+        }).catch((notificationError) => {
+          console.error("Failed to send completed payout notification:", notificationError);
+        });
+      }
 
       toast({
         title: action === "completed" ? "Payout Completed" : "Payout Rejected",

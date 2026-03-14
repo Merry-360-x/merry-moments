@@ -10,6 +10,8 @@ import {
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const ADMIN_EMAIL = "support@merry360x.com";
+const FINANCE_EMAIL = process.env.FINANCE_EMAIL || process.env.PAYMENTS_EMAIL || "support@merry360x.com";
+const FINANCE_NAME = process.env.FINANCE_NAME || "Finance Team";
 
 function json(res, status, body) {
   res.statusCode = status;
@@ -37,6 +39,8 @@ function generatePayoutEmailHtml(payout) {
   });
 
   const methodDisplay = payout.method === 'mobile_money' ? 'Mobile Money' : 'Bank Transfer';
+  const isCompletedEvent = payout.eventType === "completed";
+  const payoutStatus = String(payout.status || (isCompletedEvent ? "completed" : "pending")).toLowerCase();
   const detailsTable = keyValueRows([
     { label: "Request ID", value: escapeHtml(payout.payoutId || "N/A") },
     { label: "Host", value: escapeHtml(payout.hostName || "N/A") },
@@ -45,13 +49,16 @@ function generatePayoutEmailHtml(payout) {
     { label: "Method", value: escapeHtml(methodDisplay) },
     { label: payout.method === "mobile_money" ? "Phone" : "Bank", value: escapeHtml(payout.method === "mobile_money" ? (payout.phone || "N/A") : (payout.bankName || "N/A")) },
     { label: payout.method === "mobile_money" ? "Account Name" : "Account", value: escapeHtml(payout.method === "mobile_money" ? (payout.accountName || "N/A") : (payout.bankAccount || "N/A")) },
-    { label: "Requested", value: escapeHtml(createdAt) },
+    { label: isCompletedEvent ? "Processed" : "Requested", value: escapeHtml(createdAt) },
+    { label: "Status", value: escapeHtml(payoutStatus.toUpperCase()) },
   ]);
 
   return renderMinimalEmail({
-    eyebrow: "Payout Request",
-    title: "New payout request",
-    subtitle: "A host has requested a payout and needs review.",
+    eyebrow: isCompletedEvent ? "Payout Completed" : "Payout Request",
+    title: isCompletedEvent ? "Payout processed" : "New payout request",
+    subtitle: isCompletedEvent
+      ? "A payout has been processed and recorded."
+      : "A host has requested a payout and needs review.",
     bodyHtml: detailsTable,
     ctaText: "Open Admin Dashboard",
     ctaUrl: "https://merry360x.com/admin-dashboard",
@@ -69,18 +76,22 @@ function generateHostPayoutConfirmationHtml(payout) {
   });
 
   const methodDisplay = payout.method === "mobile_money" ? "Mobile Money" : "Bank Transfer";
+  const isCompletedEvent = payout.eventType === "completed";
+  const payoutStatus = String(payout.status || (isCompletedEvent ? "completed" : "pending")).toLowerCase();
   const detailsTable = keyValueRows([
     { label: "Request ID", value: escapeHtml(payout.payoutId || "N/A") },
     { label: "Amount", value: escapeHtml(formatMoney(payout.amount, payout.currency)) },
     { label: "Method", value: escapeHtml(methodDisplay) },
-    { label: "Requested", value: escapeHtml(createdAt) },
-    { label: "Status", value: "Pending review" },
+    { label: isCompletedEvent ? "Processed" : "Requested", value: escapeHtml(createdAt) },
+    { label: "Status", value: escapeHtml(payoutStatus.toUpperCase()) },
   ]);
 
   return renderMinimalEmail({
-    eyebrow: "Payout Request",
-    title: "Your payout request was received",
-    subtitle: "Our team will review and process it shortly.",
+    eyebrow: isCompletedEvent ? "Payout Update" : "Payout Request",
+    title: isCompletedEvent ? "Your payout was processed" : "Your payout request was received",
+    subtitle: isCompletedEvent
+      ? "Your payout status has been updated."
+      : "Our team will review and process it shortly.",
     bodyHtml: detailsTable,
     ctaText: "Open Host Dashboard",
     ctaUrl: "https://merry360x.com/host-dashboard",
@@ -140,12 +151,15 @@ async function sendPayoutEmails(payout, previewTo) {
   }
 
   const supportHtml = generatePayoutEmailHtml(payout);
+  const isCompletedEvent = payout.eventType === "completed";
+  const statusLabel = String(payout.status || (isCompletedEvent ? "completed" : "pending")).toUpperCase();
   const supportText = `
-New Payout Request
+${isCompletedEvent ? "Payout Processed" : "New Payout Request"}
 
 Host: ${payout.hostName || 'N/A'} (${payout.hostEmail || 'N/A'})
 Request ID: ${payout.payoutId || 'N/A'}
 Amount: ${formatMoney(payout.amount, payout.currency)}
+Status: ${statusLabel}
 Method: ${payout.method === 'mobile_money' ? 'Mobile Money' : 'Bank Transfer'}
 ${payout.method === 'mobile_money' ? `Phone: ${payout.phone || 'N/A'}` : `Bank: ${payout.bankName || 'N/A'}\nAccount: ${payout.bankAccount || 'N/A'}`}
 Account Name: ${payout.accountName || 'N/A'}
@@ -157,24 +171,30 @@ Process this payout at: https://merry360x.com/admin-dashboard
   const hostText = `
 Hi ${payout.hostName || 'Host'},
 
-Your payout request has been received.
+${isCompletedEvent ? 'Your payout has been processed.' : 'Your payout request has been received.'}
 Request ID: ${payout.payoutId || 'N/A'}
 Amount: ${formatMoney(payout.amount, payout.currency)}
 Method: ${payout.method === 'mobile_money' ? 'Mobile Money' : 'Bank Transfer'}
 
-Current status: Pending review
+Current status: ${statusLabel}
 You can track updates in your host dashboard: https://merry360x.com/host-dashboard
   `.trim();
 
-  const sendTasks = [
+  const adminFinanceRecipients = [
+    { email: ADMIN_EMAIL, name: "Merry 360 Experiences Support" },
+    { email: FINANCE_EMAIL, name: FINANCE_NAME },
+  ].filter((recipient, index, all) => recipient.email && all.findIndex((r) => String(r.email).toLowerCase() === String(recipient.email).toLowerCase()) === index);
+
+  const supportSubjectPrefix = isCompletedEvent ? "Payout Completed" : "Payout Request";
+  const sendTasks = adminFinanceRecipients.map((recipient) =>
     sendBrevoEmail({
-      toEmail: ADMIN_EMAIL,
-      toName: "Merry 360 Experiences Support",
-      subject: `Payout Request ${payout.payoutId ? `#${payout.payoutId}` : ''}: ${formatMoney(payout.amount, payout.currency)} - ${payout.hostName || 'Host'}`,
+      toEmail: recipient.email,
+      toName: recipient.name,
+      subject: `${supportSubjectPrefix} ${payout.payoutId ? `#${payout.payoutId}` : ''}: ${formatMoney(payout.amount, payout.currency)} - ${payout.hostName || 'Host'}`,
       htmlContent: supportHtml,
       textContent: supportText,
-    }),
-  ];
+    })
+  );
 
   const hostEmailValidation = validateRecipientEmail(payout.hostEmail);
   if (hostEmailValidation.ok) {
@@ -182,7 +202,7 @@ You can track updates in your host dashboard: https://merry360x.com/host-dashboa
       sendBrevoEmail({
         toEmail: hostEmailValidation.email,
         toName: payout.hostName || "Host",
-        subject: `Payout Request Received ${payout.payoutId ? `#${payout.payoutId}` : ''}: ${formatMoney(payout.amount, payout.currency)}`,
+        subject: `${isCompletedEvent ? "Payout Update" : "Payout Request Received"} ${payout.payoutId ? `#${payout.payoutId}` : ''}: ${formatMoney(payout.amount, payout.currency)}`,
         htmlContent: hostHtml,
         textContent: hostText,
       })
@@ -192,16 +212,17 @@ You can track updates in your host dashboard: https://merry360x.com/host-dashboa
   }
 
   const results = await Promise.allSettled(sendTasks);
-  const supportFailed = results[0]?.status === "rejected";
-  if (supportFailed) {
-    throw results[0].reason;
+  const firstCritical = results.find((result, idx) => idx < adminFinanceRecipients.length && result.status === "rejected");
+  if (firstCritical?.status === "rejected") {
+    throw firstCritical.reason;
   }
 
-  if (results[1]?.status === "rejected") {
-    console.warn("⚠️ Host payout confirmation email failed:", results[1].reason);
+  const hostResult = results[adminFinanceRecipients.length];
+  if (hostResult?.status === "rejected") {
+    console.warn("⚠️ Host payout email failed:", hostResult.reason);
   }
 
-  console.log("✅ Payout notifications sent (support + host where available)");
+  console.log("✅ Payout notifications sent (admin + finance + host where available)");
 }
 
 async function sendBrevoEmail({ toEmail, toName, subject, htmlContent, textContent }) {
