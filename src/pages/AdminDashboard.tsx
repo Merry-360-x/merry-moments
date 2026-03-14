@@ -690,6 +690,51 @@ export default function AdminDashboard() {
     };
   }, [user, queryClient]);
 
+  useEffect(() => {
+    if (!user) return;
+
+    const sessionKey = `admin_dashboard_recalc_${user.id}`;
+    const recalculate = () => {
+      queryClient.invalidateQueries({ queryKey: ['admin_dashboard_metrics'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-properties'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-tours'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-transport-vehicles'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-bookings-direct'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-host_payouts'] });
+      queryClient.invalidateQueries({ queryKey: ['host_applications', 'admin'] });
+      queryClient.invalidateQueries({ queryKey: ['user_roles', 'admin-dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['admin_list_users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-reviews-direct'] });
+      queryClient.invalidateQueries({ queryKey: ['admin_ad_banners'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-incidents'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-blacklist'] });
+    };
+
+    if (!sessionStorage.getItem(sessionKey)) {
+      sessionStorage.setItem(sessionKey, '1');
+      recalculate();
+    }
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        recalculate();
+      }
+    };
+
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        recalculate();
+      }
+    }, 60000);
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [user, queryClient]);
+
   // Metrics query - always enabled for overview data
   const { data: metrics, refetch: refetchMetrics, isLoading: isMetricsLoading } = useQuery({
     queryKey: ["admin_dashboard_metrics"],

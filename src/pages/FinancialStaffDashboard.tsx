@@ -122,6 +122,41 @@ export default function FinancialStaffDashboard() {
     };
   }, [user, queryClient]);
 
+  useEffect(() => {
+    if (!user) return;
+
+    const sessionKey = `financial_staff_recalc_${user.id}`;
+    const recalculate = () => {
+      queryClient.invalidateQueries({ queryKey: ['financial_metrics'] });
+      queryClient.invalidateQueries({ queryKey: ['financial_bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['financial-support-tickets-refunds'] });
+      queryClient.invalidateQueries({ queryKey: ['host_payouts'] });
+    };
+
+    if (!sessionStorage.getItem(sessionKey)) {
+      sessionStorage.setItem(sessionKey, '1');
+      recalculate();
+    }
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        recalculate();
+      }
+    };
+
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        recalculate();
+      }
+    }, 60000);
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [user, queryClient]);
+
   const { data: metrics, refetch: refetchMetrics } = useQuery({
     queryKey: ["financial_metrics"],
     queryFn: async () => {

@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -195,6 +195,7 @@ const statusColors: Record<string, string> = {
 export default function StaffDashboard() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<
     "overview" | "applications" | "users" | "accommodations" | "tours" | "transport"
   >("overview");
@@ -230,6 +231,45 @@ export default function StaffDashboard() {
     refetchOnWindowFocus: true,
     staleTime: 0,
   });
+
+  useEffect(() => {
+    if (!user) return;
+
+    const sessionKey = `staff_dashboard_recalc_${user.id}`;
+    const recalculate = () => {
+      queryClient.invalidateQueries({ queryKey: ['staff_dashboard_metrics'] });
+      queryClient.invalidateQueries({ queryKey: ['host_applications', 'staff', 'pending'] });
+      queryClient.invalidateQueries({ queryKey: ['staff_list_users'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-properties'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-tours'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-transport-vehicles'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-transport-routes'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-recent-bookings'] });
+    };
+
+    if (!sessionStorage.getItem(sessionKey)) {
+      sessionStorage.setItem(sessionKey, '1');
+      recalculate();
+    }
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        recalculate();
+      }
+    };
+
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        recalculate();
+      }
+    }, 60000);
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [user, queryClient]);
 
   const { data: metrics, refetch: refetchMetrics, isLoading: isMetricsLoading } = useQuery({
     queryKey: ["staff_dashboard_metrics"],

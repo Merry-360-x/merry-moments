@@ -214,6 +214,44 @@ export default function OperationsStaffDashboard() {
     };
   }, [user, queryClient]);
 
+  useEffect(() => {
+    if (!user) return;
+
+    const sessionKey = `operations_staff_recalc_${user.id}`;
+    const recalculate = () => {
+      queryClient.invalidateQueries({ queryKey: ['operations_applications'] });
+      queryClient.invalidateQueries({ queryKey: ['operations_properties'] });
+      queryClient.invalidateQueries({ queryKey: ['operations_profile_users'] });
+      queryClient.invalidateQueries({ queryKey: ['operations_tours'] });
+      queryClient.invalidateQueries({ queryKey: ['operations_transport'] });
+      queryClient.invalidateQueries({ queryKey: ['operations_bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['operations_cart_checkouts'] });
+    };
+
+    if (!sessionStorage.getItem(sessionKey)) {
+      sessionStorage.setItem(sessionKey, '1');
+      recalculate();
+    }
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        recalculate();
+      }
+    };
+
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        recalculate();
+      }
+    }, 60000);
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [user, queryClient]);
+
   const { data: applications = [] } = useQuery({
     queryKey: ["operations_applications"],
     queryFn: async () => {
