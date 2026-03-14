@@ -488,6 +488,10 @@ export default function HostDashboard() {
   const [payoutAmount, setPayoutAmount] = useState('');
   const [requestingPayout, setRequestingPayout] = useState(false);
   const [payoutHistory, setPayoutHistory] = useState<any[]>([]);
+  const [payoutTotals, setPayoutTotals] = useState({
+    pendingRwf: 0,
+    completedRwf: 0,
+  });
   
   // Payout Methods (max 2)
   type PayoutMethod = {
@@ -1065,6 +1069,37 @@ export default function HostDashboard() {
     }
   }, [isHost, user, fetchData, authLoading, rolesLoading]);
 
+  const fetchHostPayoutData = useCallback(async (hostId: string) => {
+    try {
+      const [{ data: recentPayouts }, { data: payoutRows }] = await Promise.all([
+        supabase
+          .from('host_payouts')
+          .select('*')
+          .eq('host_id', hostId)
+          .order('created_at', { ascending: false })
+          .limit(10),
+        supabase
+          .from('host_payouts')
+          .select('amount,currency,status')
+          .eq('host_id', hostId),
+      ]);
+
+      setPayoutHistory(recentPayouts || []);
+
+      const pendingRwf = (payoutRows || [])
+        .filter((p) => p.status === 'pending' || p.status === 'processing')
+        .reduce((sum, p) => sum + toRwfAmount(Number(p.amount || 0), p.currency || 'RWF'), 0);
+
+      const completedRwf = (payoutRows || [])
+        .filter((p) => p.status === 'completed')
+        .reduce((sum, p) => sum + toRwfAmount(Number(p.amount || 0), p.currency || 'RWF'), 0);
+
+      setPayoutTotals({ pendingRwf, completedRwf });
+    } catch (e) {
+      console.error('Failed to fetch payout history/totals:', e);
+    }
+  }, [toRwfAmount]);
+
   // Real-time subscriptions for host dashboard data
   useEffect(() => {
     if (!user) return;
@@ -1121,10 +1156,25 @@ export default function HostDashboard() {
       .subscribe();
     channels.push(vehiclesChannel);
 
+    // Subscribe to payout changes for this host so financial cards auto-recalculate
+    const payoutsChannel = supabase
+      .channel('host-payouts-realtime')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'host_payouts',
+        filter: `host_id=eq.${user.id}`,
+      }, () => {
+        console.log('[HostDashboard] Payout change detected');
+        fetchHostPayoutData(user.id);
+      })
+      .subscribe();
+    channels.push(payoutsChannel);
+
     return () => {
       channels.forEach(channel => supabase.removeChannel(channel));
     };
-  }, [user, fetchData]);
+  }, [user, fetchData, fetchHostPayoutData]);
 
   // Track if we've already checked the profile on this page load
   const [profileChecked, setProfileChecked] = useState(false);
@@ -1250,16 +1300,7 @@ export default function HostDashboard() {
         }
 
         // Fetch payout history
-        const { data: payouts } = await supabase
-          .from('host_payouts')
-          .select('*')
-          .eq('host_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(10);
-        
-        if (payouts) {
-          setPayoutHistory(payouts);
-        }
+        await fetchHostPayoutData(user.id);
 
         // Fetch payout methods
         const { data: methods } = await supabase
@@ -1276,7 +1317,7 @@ export default function HostDashboard() {
       }
     };
     fetchPayoutInfo();
-  }, [user]);
+  }, [user, fetchHostPayoutData]);
 
   useEffect(() => {
     if (!payoutMethods.length) {
@@ -1435,13 +1476,7 @@ export default function HostDashboard() {
       setPayoutAmount('');
       
       // Refresh payout history
-      const { data: payouts } = await supabase
-        .from('host_payouts')
-        .select('*')
-        .eq('host_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(10);
-      if (payouts) setPayoutHistory(payouts);
+      await fetchHostPayoutData(user.id);
     } catch (e) {
       logError('host.payout.request', e);
       toast({ variant: 'destructive', title: 'Failed to submit request', description: uiErrorMessage(e) });
@@ -2884,12 +2919,8 @@ export default function HostDashboard() {
   const publishedProperties = (properties || []).filter((p) => p.is_published).length;
 
   // Calculate available for payout (confirmed bookings - completed payouts only)
-  const pendingPayoutAmount = payoutHistory
-    .filter(p => p.status === 'pending' || p.status === 'processing')
-    .reduce((sum, p) => sum + toRwfAmount(Number(p.amount), p.currency || 'RWF'), 0);
-  const completedPayoutAmount = payoutHistory
-    .filter(p => p.status === 'completed')
-    .reduce((sum, p) => sum + toRwfAmount(Number(p.amount), p.currency || 'RWF'), 0);
+  const pendingPayoutAmount = payoutTotals.pendingRwf;
+  const completedPayoutAmount = payoutTotals.completedRwf;
   const availableForPayout = Math.max(0, totalEarnings - completedPayoutAmount);
 
   // Handle payout button click - always open combined dialog
