@@ -16,7 +16,8 @@ const BREVO_API_KEY = process.env.BREVO_API_KEY;
 // Format currency
 function formatMoney(amount, currency = "RWF") {
   const num = Number(amount) || 0;
-  return `${Math.round(num).toLocaleString("en-US")} RWF`;
+  const code = String(currency || "RWF").toUpperCase();
+  return `${Math.round(num).toLocaleString("en-US")} ${code}`;
 }
 
 // Format date
@@ -404,9 +405,10 @@ async function sendHostNotification(supabase, booking, item) {
     const guestPhone = booking.guest_phone || "";
     const checkIn = formatDate(booking.check_in);
     const checkOut = formatDate(booking.check_out);
+    const hostEarningsCurrency = item?.calculated_price_currency || item?.currency || booking.currency || "RWF";
     const hostReceivesAmount = formatMoney(
       computeHostReceivesAmount(item, booking),
-      booking.currency
+      hostEarningsCurrency
     );
     const bookingRef = `MRY-${booking.id.slice(0, 8).toUpperCase()}`;
 
