@@ -33,7 +33,7 @@ struct WishlistsView: View {
             Spacer()
             Spacer()
         }
-        .background(Color.white)
+        .background(AppTheme.cardBackground)
     }
 }
 

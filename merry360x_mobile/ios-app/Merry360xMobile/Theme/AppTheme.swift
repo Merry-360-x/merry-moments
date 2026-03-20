@@ -41,15 +41,21 @@ struct ProfileSettingOption: Identifiable, Hashable {
 
 enum AppTheme {
     static let coral = Color(red: 226/255, green: 85/255, blue: 90/255)
-    static let appBackground = Color(uiColor: .systemBackground)
-    static let cardBackground = Color(uiColor: .secondarySystemBackground)
+    static let appBackground = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark ? .systemBackground : .white
+    })
+    static let cardBackground = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark ? .secondarySystemBackground : .white
+    })
     static let textPrimary = Color(uiColor: .label)
     static let textSecondary = Color(uiColor: .secondaryLabel)
+    static let placeholderText = Color(uiColor: .placeholderText)
     static let borderSubtle = Color(uiColor: .separator)
     static let destructive = Color(uiColor: .systemRed)
 
     static let cornerRadiusLarge: CGFloat = 20
     static let cornerRadiusMedium: CGFloat = 14
+    static let cornerRadiusSmall: CGFloat = 8
 }
 
 struct SoftShadow: ViewModifier {

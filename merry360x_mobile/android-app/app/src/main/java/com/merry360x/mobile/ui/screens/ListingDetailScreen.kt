@@ -22,12 +22,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.merry360x.mobile.data.Listing
+import com.merry360x.mobile.data.formatDisplayMoney
 import com.merry360x.mobile.theme.CardGray
 import com.merry360x.mobile.theme.Coral
 
 @Composable
 fun ListingDetailScreen(
     listing: Listing,
+    selectedCurrency: String,
+    usdRates: Map<String, Double>,
     onBack: () -> Unit,
     onReserve: () -> Unit,
 ) {
@@ -54,14 +57,14 @@ fun ListingDetailScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(210.dp)
-                    .background(Color(0xFFDDDDDD), RoundedCornerShape(20.dp))
+                    .background(Color.White, RoundedCornerShape(20.dp))
             )
         } else {
             Spacer(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(210.dp)
-                    .background(Color(0xFFDDDDDD), RoundedCornerShape(20.dp))
+                    .background(Color.White, RoundedCornerShape(20.dp))
             )
         }
 
@@ -103,7 +106,7 @@ fun ListingDetailScreen(
                         listing.pricePerNight
                     }
                     val unit = if (isMonthlyOnly) "/ month" else "/ night"
-                    Text("${listing.currency} ${String.format(\"%,.0f\", amount)}", fontWeight = FontWeight.Bold)
+                    Text(formatDisplayMoney(amount, listing.currency, selectedCurrency, usdRates), fontWeight = FontWeight.Bold)
                     Text(unit, color = Color(0xFF9E9E9E))
                 }
                 Card(

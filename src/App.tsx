@@ -33,6 +33,7 @@ const AdminRoles = lazy(() => import("./pages/AdminRoles"));
 const PropertyDetails = lazy(() => import("./pages/PropertyDetails"));
 const TripCart = lazy(() => import("./pages/TripCart"));
 const Checkout = lazy(() => import("./pages/Checkout"));
+const SecureCardHandoff = lazy(() => import("./pages/SecureCardHandoff"));
 const PaymentPending = lazy(() => import("./pages/PaymentPending"));
 const PaymentFailed = lazy(() => import("./pages/PaymentFailed"));
 const BookingSuccess = lazy(() => import("./pages/BookingSuccess"));
@@ -616,6 +617,7 @@ const App = () => (
               <Route path="/favorites" element={<Favorites />} />
               <Route path="/trip-cart" element={<TripCart />} />
               <Route path="/checkout" element={<Checkout />} />
+              <Route path="/secure-card-handoff" element={<SecureCardHandoff />} />
               <Route path="/payment-pending" element={<PaymentPending />} />
               <Route path="/payment-failed" element={<PaymentFailed />} />
               <Route path="/booking-success" element={<BookingSuccess />} />

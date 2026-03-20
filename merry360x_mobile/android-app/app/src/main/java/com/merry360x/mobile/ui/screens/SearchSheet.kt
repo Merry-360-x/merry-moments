@@ -119,7 +119,7 @@ fun SearchSheet(
                         onClick = onDismiss,
                         modifier = Modifier
                             .size(32.dp)
-                            .background(Color(0xFF9E9E9E).copy(alpha = 0.1f), CircleShape)
+                            .background(Color.White, CircleShape)
                     ) {
                         Icon(
                             Icons.Default.Close,
@@ -273,8 +273,8 @@ private fun WhereContent(
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = Color.Black,
             unfocusedBorderColor = Color(0xFF9E9E9E).copy(alpha = 0.3f),
-            focusedContainerColor = Color(0xFF9E9E9E).copy(alpha = 0.05f),
-            unfocusedContainerColor = Color(0xFF9E9E9E).copy(alpha = 0.05f)
+            focusedContainerColor = Color.White,
+            unfocusedContainerColor = Color.White
         ),
         singleLine = true
     )
@@ -308,7 +308,7 @@ private fun WhereContent(
                     modifier = Modifier
                         .size(48.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFF9E9E9E).copy(alpha = 0.1f)),
+                        .background(Color.White),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -375,7 +375,7 @@ private fun WhenContent(
     // Calendar
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF9E9E9E).copy(alpha = 0.05f)),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -563,7 +563,7 @@ private fun DateCard(
 ) {
     Card(
         modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF9E9E9E).copy(alpha = 0.1f)),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -601,7 +601,7 @@ private fun WhoContent(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF9E9E9E).copy(alpha = 0.05f)),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -646,7 +646,7 @@ private fun WhoContent(
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF9E9E9E).copy(alpha = 0.05f)),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
             shape = RoundedCornerShape(12.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {

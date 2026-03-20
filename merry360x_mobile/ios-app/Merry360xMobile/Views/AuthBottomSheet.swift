@@ -33,7 +33,7 @@ struct AuthBottomSheet: View {
                 Spacer()
                 
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(Color.gray.opacity(0.4))
+                    .fill(AppTheme.cardBackground)
                     .frame(width: 40, height: 4)
                 
                 Spacer()
@@ -182,7 +182,10 @@ struct AuthBottomSheet: View {
                             HStack {
                                 Spacer()
                                 Button("Forgot Password?") {
-                                    // Handle forgot password
+                                    if inputTab != .email {
+                                        inputTab = .email
+                                    }
+                                    Task { await viewModel.sendPasswordReset() }
                                 }
                                 .font(.system(size: 13))
                                 .foregroundColor(AppTheme.coral)
@@ -195,6 +198,13 @@ struct AuthBottomSheet: View {
                         Text(error)
                             .font(.system(size: 13))
                             .foregroundColor(.red)
+                            .multilineTextAlignment(.center)
+                    }
+
+                    if let success = viewModel.successMessage {
+                        Text(success)
+                            .font(.system(size: 13))
+                            .foregroundColor(.green)
                             .multilineTextAlignment(.center)
                     }
 
@@ -227,7 +237,7 @@ struct AuthBottomSheet: View {
                     // Divider
                     HStack {
                         Rectangle()
-                            .fill(Color.gray.opacity(0.3))
+                            .fill(AppTheme.cardBackground)
                             .frame(height: 1)
                         
                         Text("or continue with")
@@ -235,7 +245,7 @@ struct AuthBottomSheet: View {
                             .foregroundColor(AppTheme.textSecondary)
                         
                         Rectangle()
-                            .fill(Color.gray.opacity(0.3))
+                            .fill(AppTheme.cardBackground)
                             .frame(height: 1)
                     }
                     

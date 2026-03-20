@@ -17,6 +17,43 @@ class SupabaseApi(
     private val client = OkHttpClient()
     private val apiBaseUrl = "https://merry360x.com"
 
+    suspend fun fetchAdminFxRates(): Map<String, Double> = withContext(Dispatchers.IO) {
+        if (supabaseUrl.isBlank() || anonKey.isBlank()) return@withContext defaultUsdRates()
+
+        val request = Request.Builder()
+            .url("$supabaseUrl/rest/v1/admin_fx_rates?select=currency_code,rate_to_rwf,is_active&is_active=eq.true")
+            .addHeader("apikey", anonKey)
+            .addHeader("Authorization", "Bearer $anonKey")
+            .get()
+            .build()
+
+        return@withContext try {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@use defaultUsdRates()
+                val body = response.body?.string().orEmpty()
+                val rows = JSONArray(body)
+                val loaded = mutableMapOf<String, Double>()
+                for (i in 0 until rows.length()) {
+                    val row = rows.optJSONObject(i) ?: continue
+                    val code = row.optString("currency_code", "").trim().uppercase()
+                    val rate = row.optDouble("rate_to_rwf", 0.0)
+                    if (code.isNotBlank() && rate > 0.0) {
+                        loaded[code] = rate
+                    }
+                }
+
+                if (loaded.isEmpty()) {
+                    defaultUsdRates()
+                } else {
+                    loaded.putIfAbsent("RWF", 1.0)
+                    defaultUsdRates() + loaded
+                }
+            }
+        } catch (_: Exception) {
+            defaultUsdRates()
+        }
+    }
+
     suspend fun signIn(email: String, password: String): Result<AuthSession> = withContext(Dispatchers.IO) {
         if (supabaseUrl.isBlank() || anonKey.isBlank()) {
             return@withContext Result.failure(IllegalStateException("Missing Supabase config"))
@@ -188,7 +225,7 @@ class SupabaseApi(
     suspend fun fetchFeaturedListings(limit: Int = 20): List<Listing> = withContext(Dispatchers.IO) {
         if (supabaseUrl.isBlank() || anonKey.isBlank()) return@withContext emptyList()
 
-        val url = "$supabaseUrl/rest/v1/properties?select=id,host_id,title,name,location,price_per_night,price_per_month,currency,is_published,monthly_only_listing,images,main_image,rating&order=created_at.desc&limit=$limit"
+        val url = "$supabaseUrl/rest/v1/properties?select=id,host_id,title,name,location,price_per_night,price_per_month,currency,is_published,monthly_only_listing,images,main_image,rating&is_published=eq.true&order=created_at.desc&limit=$limit"
         val request = Request.Builder()
             .url(url)
             .addHeader("apikey", anonKey)
@@ -1661,9 +1698,556 @@ class SupabaseApi(
             client.newCall(request).execute().close()
         }
     }
+
+    // ── Accommodations Browse (filtered) ──
+    suspend fun fetchAccommodations(
+        search: String? = null,
+        propertyType: String? = null,
+        minPrice: Double? = null,
+        maxPrice: Double? = null,
+        minRating: Double? = null,
+        monthlyOnly: Boolean? = null,
+        limit: Int = 20,
+        offset: Int = 0
+    ): List<Listing> = withContext(Dispatchers.IO) {
+        val urlBuilder = ("$supabaseUrl/rest/v1/properties?select=id,host_id,title,name,location,price_per_night,price_per_month,currency,is_published,monthly_only_listing,images,main_image,rating,property_type&is_published=eq.true&order=created_at.desc&limit=$limit&offset=$offset").toHttpUrlOrNull()?.newBuilder() ?: return@withContext emptyList()
+        search?.takeIf { it.isNotBlank() }?.let { urlBuilder.addQueryParameter("or", "(title.ilike.*$it*,location.ilike.*$it*,name.ilike.*$it*)") }
+        propertyType?.takeIf { it.isNotBlank() }?.let { urlBuilder.addQueryParameter("property_type", "eq.$it") }
+        minPrice?.let { urlBuilder.addQueryParameter("price_per_night", "gte.$it") }
+        maxPrice?.let { urlBuilder.addQueryParameter("price_per_night", "lte.$it") }
+        minRating?.let { urlBuilder.addQueryParameter("rating", "gte.$it") }
+        monthlyOnly?.let { if (it) urlBuilder.addQueryParameter("monthly_only_listing", "eq.true") }
+
+        val request = Request.Builder()
+            .url(urlBuilder.build())
+            .addHeader("apikey", anonKey)
+            .addHeader("Authorization", "Bearer $anonKey")
+            .get().build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) return@withContext emptyList()
+            val arr = JSONArray(response.body?.string().orEmpty())
+            (0 until arr.length()).map { i ->
+                val obj = arr.getJSONObject(i)
+                Listing(
+                    id = obj.optString("id"),
+                    hostId = obj.optString("host_id").ifBlank { null },
+                    title = obj.optString("title").ifBlank { obj.optString("name", "Untitled") },
+                    location = obj.optString("location", "Unknown"),
+                    pricePerNight = obj.optDouble("price_per_night", 0.0),
+                    pricePerMonth = obj.optDouble("price_per_month", Double.NaN).takeIf { !it.isNaN() },
+                    currency = obj.optString("currency", "RWF"),
+                    isPublished = if (obj.has("is_published") && !obj.isNull("is_published")) obj.optBoolean("is_published") else null,
+                    monthlyOnlyListing = if (obj.has("monthly_only_listing") && !obj.isNull("monthly_only_listing")) obj.optBoolean("monthly_only_listing") else null,
+                    images = obj.optJSONArray("images")?.let { a -> (0 until a.length()).mapNotNull { a.optString(it).takeIf { s -> s.isNotBlank() } } },
+                    mainImage = obj.optString("main_image").takeIf { it.isNotBlank() },
+                    rating = obj.optDouble("rating", 0.0).takeIf { !it.isNaN() }
+                )
+            }
+        }
+    }
+
+    // ── Tours Browse (filtered) ──
+    suspend fun fetchToursFiltered(
+        search: String? = null,
+        category: String? = null,
+        duration: String? = null,
+        limit: Int = 20
+    ): List<TourItem> = withContext(Dispatchers.IO) {
+        val urlBuilder = ("$supabaseUrl/rest/v1/tours?select=id,title,description,location,category,duration,price,currency,images,main_image,rating,is_published&is_published=eq.true&order=created_at.desc&limit=$limit").toHttpUrlOrNull()?.newBuilder() ?: return@withContext emptyList()
+        search?.takeIf { it.isNotBlank() }?.let { urlBuilder.addQueryParameter("or", "(title.ilike.*$it*,location.ilike.*$it*)") }
+        category?.takeIf { it.isNotBlank() }?.let { urlBuilder.addQueryParameter("category", "eq.$it") }
+        duration?.takeIf { it.isNotBlank() }?.let { urlBuilder.addQueryParameter("duration", "ilike.*$it*") }
+
+        val request = Request.Builder()
+            .url(urlBuilder.build())
+            .addHeader("apikey", anonKey)
+            .addHeader("Authorization", "Bearer $anonKey")
+            .get().build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) return@withContext emptyList()
+            val arr = JSONArray(response.body?.string().orEmpty())
+            (0 until arr.length()).map { i ->
+                val obj = arr.getJSONObject(i)
+                TourItem(
+                    id = obj.optString("id"),
+                    title = obj.optString("title", "Untitled Tour"),
+                    description = obj.optString("description").ifBlank { null },
+                    location = obj.optString("location", ""),
+                    category = obj.optString("category").ifBlank { null },
+                    duration = obj.optString("duration").ifBlank { null },
+                    price = obj.optDouble("price", 0.0),
+                    currency = obj.optString("currency", "USD"),
+                    mainImage = obj.optString("main_image").takeIf { it.isNotBlank() },
+                    rating = obj.optDouble("rating", 0.0).takeIf { !it.isNaN() }
+                )
+            }
+        }
+    }
+
+    // ── Transport Browse (filtered) ──
+    suspend fun fetchTransportVehicles(
+        serviceType: String? = null,
+        search: String? = null,
+        vehicleType: String? = null,
+        limit: Int = 20
+    ): List<TransportItem> = withContext(Dispatchers.IO) {
+        val urlBuilder = ("$supabaseUrl/rest/v1/transport_vehicles?select=id,vehicle_name,vehicle_type,service_type,price_per_day,price_per_km,currency,seats,transmission,fuel_type,brand,model,year,images,main_image,is_verified,is_published&is_published=eq.true&order=created_at.desc&limit=$limit").toHttpUrlOrNull()?.newBuilder() ?: return@withContext emptyList()
+        serviceType?.takeIf { it.isNotBlank() }?.let { urlBuilder.addQueryParameter("service_type", "eq.$it") }
+        search?.takeIf { it.isNotBlank() }?.let { urlBuilder.addQueryParameter("or", "(vehicle_name.ilike.*$it*,brand.ilike.*$it*,model.ilike.*$it*)") }
+        vehicleType?.takeIf { it.isNotBlank() }?.let { urlBuilder.addQueryParameter("vehicle_type", "eq.$it") }
+
+        val request = Request.Builder()
+            .url(urlBuilder.build())
+            .addHeader("apikey", anonKey)
+            .addHeader("Authorization", "Bearer $anonKey")
+            .get().build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) return@withContext emptyList()
+            val arr = JSONArray(response.body?.string().orEmpty())
+            (0 until arr.length()).map { i ->
+                val obj = arr.getJSONObject(i)
+                TransportItem(
+                    id = obj.optString("id"),
+                    vehicleName = obj.optString("vehicle_name", "Vehicle"),
+                    vehicleType = obj.optString("vehicle_type").ifBlank { null },
+                    serviceType = obj.optString("service_type", "rental"),
+                    pricePerDay = obj.optDouble("price_per_day", 0.0),
+                    pricePerKm = obj.optDouble("price_per_km", Double.NaN).takeIf { !it.isNaN() },
+                    currency = obj.optString("currency", "USD"),
+                    seats = obj.optInt("seats", 0),
+                    transmission = obj.optString("transmission").ifBlank { null },
+                    fuelType = obj.optString("fuel_type").ifBlank { null },
+                    brand = obj.optString("brand").ifBlank { null },
+                    model = obj.optString("model").ifBlank { null },
+                    year = obj.optInt("year", 0).takeIf { it > 0 },
+                    mainImage = obj.optString("main_image").takeIf { it.isNotBlank() },
+                    isVerified = obj.optBoolean("is_verified", false)
+                )
+            }
+        }
+    }
+
+    // ── Airport Transfer Routes ──
+    suspend fun fetchAirportTransferRoutes(limit: Int = 20): List<AirportRoute> = withContext(Dispatchers.IO) {
+        val url = "$supabaseUrl/rest/v1/airport_transfer_routes?select=id,from_location,to_location,price,currency,duration_minutes,vehicle_type&order=created_at.desc&limit=$limit"
+        val request = Request.Builder()
+            .url(url)
+            .addHeader("apikey", anonKey)
+            .addHeader("Authorization", "Bearer $anonKey")
+            .get().build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) return@withContext emptyList()
+            val arr = JSONArray(response.body?.string().orEmpty())
+            (0 until arr.length()).map { i ->
+                val obj = arr.getJSONObject(i)
+                AirportRoute(
+                    id = obj.optString("id"),
+                    from = obj.optString("from_location", ""),
+                    to = obj.optString("to_location", ""),
+                    price = obj.optDouble("price", 0.0),
+                    currency = obj.optString("currency", "USD"),
+                    durationMinutes = obj.optInt("duration_minutes", 0),
+                    vehicleType = obj.optString("vehicle_type").ifBlank { null }
+                )
+            }
+        }
+    }
+
+    // ── Unified Search ──
+    suspend fun searchAll(query: String, limit: Int = 10): SearchResults = withContext(Dispatchers.IO) {
+        val propertiesUrl = "$supabaseUrl/rest/v1/properties?select=id,title,name,location,price_per_night,currency,main_image,rating&is_published=eq.true&or=(title.ilike.*$query*,location.ilike.*$query*,name.ilike.*$query*)&limit=$limit"
+        val toursUrl = "$supabaseUrl/rest/v1/tours?select=id,title,location,price,currency,main_image,rating&is_published=eq.true&or=(title.ilike.*$query*,location.ilike.*$query*)&limit=$limit"
+        val transportUrl = "$supabaseUrl/rest/v1/transport_vehicles?select=id,vehicle_name,brand,model,price_per_day,currency,main_image&is_published=eq.true&or=(vehicle_name.ilike.*$query*,brand.ilike.*$query*)&limit=$limit"
+
+        fun buildReq(u: String) = Request.Builder().url(u).addHeader("apikey", anonKey).addHeader("Authorization", "Bearer $anonKey").get().build()
+
+        val pResp = client.newCall(buildReq(propertiesUrl)).execute()
+        val tResp = client.newCall(buildReq(toursUrl)).execute()
+        val vResp = client.newCall(buildReq(transportUrl)).execute()
+
+        val properties = pResp.use { r ->
+            if (!r.isSuccessful) emptyList()
+            else {
+                val arr = JSONArray(r.body?.string().orEmpty())
+                (0 until arr.length()).map { i ->
+                    val o = arr.getJSONObject(i)
+                    SearchResultItem(o.optString("id"), o.optString("title").ifBlank { o.optString("name") }, "property", o.optString("location"), o.optDouble("price_per_night", 0.0), o.optString("currency", "RWF"), o.optString("main_image").takeIf { it.isNotBlank() })
+                }
+            }
+        }
+        val tours = tResp.use { r ->
+            if (!r.isSuccessful) emptyList()
+            else {
+                val arr = JSONArray(r.body?.string().orEmpty())
+                (0 until arr.length()).map { i ->
+                    val o = arr.getJSONObject(i)
+                    SearchResultItem(o.optString("id"), o.optString("title"), "tour", o.optString("location"), o.optDouble("price", 0.0), o.optString("currency", "USD"), o.optString("main_image").takeIf { it.isNotBlank() })
+                }
+            }
+        }
+        val transport = vResp.use { r ->
+            if (!r.isSuccessful) emptyList()
+            else {
+                val arr = JSONArray(r.body?.string().orEmpty())
+                (0 until arr.length()).map { i ->
+                    val o = arr.getJSONObject(i)
+                    SearchResultItem(o.optString("id"), o.optString("vehicle_name"), "transport", null, o.optDouble("price_per_day", 0.0), o.optString("currency", "USD"), o.optString("main_image").takeIf { it.isNotBlank() })
+                }
+            }
+        }
+        SearchResults(properties, tours, transport)
+    }
+
+    // ── Wishlist ──
+    suspend fun addToWishlist(userId: String, propertyId: String, accessToken: String?): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val bearer = accessToken?.takeIf { it.isNotBlank() } ?: anonKey
+            val payload = JSONObject().apply { put("user_id", userId); put("property_id", propertyId) }
+            val request = Request.Builder()
+                .url("$supabaseUrl/rest/v1/favorites")
+                .addHeader("apikey", anonKey)
+                .addHeader("Authorization", "Bearer $bearer")
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Prefer", "return=minimal")
+                .post(payload.toString().toRequestBody("application/json".toMediaType()))
+                .build()
+            client.newCall(request).execute().close()
+        }
+    }
+
+    suspend fun removeFromWishlist(userId: String, propertyId: String, accessToken: String?): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val bearer = accessToken?.takeIf { it.isNotBlank() } ?: anonKey
+            val request = Request.Builder()
+                .url("$supabaseUrl/rest/v1/favorites?user_id=eq.$userId&property_id=eq.$propertyId")
+                .addHeader("apikey", anonKey)
+                .addHeader("Authorization", "Bearer $bearer")
+                .delete()
+                .build()
+            client.newCall(request).execute().close()
+        }
+    }
+
+    // ── Booking Actions ──
+    suspend fun cancelBooking(bookingId: String, accessToken: String?): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val bearer = accessToken?.takeIf { it.isNotBlank() } ?: anonKey
+            val payload = JSONObject().apply { put("status", "cancelled") }
+            val request = Request.Builder()
+                .url("$supabaseUrl/rest/v1/bookings?id=eq.$bookingId")
+                .addHeader("apikey", anonKey)
+                .addHeader("Authorization", "Bearer $bearer")
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Prefer", "return=minimal")
+                .patch(payload.toString().toRequestBody("application/json".toMediaType()))
+                .build()
+            client.newCall(request).execute().close()
+        }
+    }
+
+    suspend fun requestDateChange(bookingId: String, newCheckIn: String, newCheckOut: String, reason: String, accessToken: String?): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val bearer = accessToken?.takeIf { it.isNotBlank() } ?: anonKey
+            val payload = JSONObject().apply {
+                put("booking_id", bookingId)
+                put("new_check_in", newCheckIn)
+                put("new_check_out", newCheckOut)
+                put("reason", reason)
+                put("status", "pending")
+            }
+            val request = Request.Builder()
+                .url("$supabaseUrl/rest/v1/booking_date_change_requests")
+                .addHeader("apikey", anonKey)
+                .addHeader("Authorization", "Bearer $bearer")
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Prefer", "return=minimal")
+                .post(payload.toString().toRequestBody("application/json".toMediaType()))
+                .build()
+            client.newCall(request).execute().close()
+        }
+    }
+
+    suspend fun requestRefund(bookingId: String, reason: String, accessToken: String?): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val bearer = accessToken?.takeIf { it.isNotBlank() } ?: anonKey
+            val payload = JSONObject().apply {
+                put("booking_id", bookingId)
+                put("subject", "Refund Request")
+                put("message", reason)
+                put("category", "refund")
+                put("status", "open")
+            }
+            val request = Request.Builder()
+                .url("$supabaseUrl/rest/v1/support_tickets")
+                .addHeader("apikey", anonKey)
+                .addHeader("Authorization", "Bearer $bearer")
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Prefer", "return=minimal")
+                .post(payload.toString().toRequestBody("application/json".toMediaType()))
+                .build()
+            client.newCall(request).execute().close()
+        }
+    }
+
+    // ── Guest Review ──
+    suspend fun submitGuestReview(
+        bookingId: String,
+        propertyId: String,
+        userId: String,
+        rating: Int,
+        comment: String,
+        serviceRating: Int?,
+        accessToken: String?
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val bearer = accessToken?.takeIf { it.isNotBlank() } ?: anonKey
+            val payload = JSONObject().apply {
+                put("booking_id", bookingId)
+                put("property_id", propertyId)
+                put("user_id", userId)
+                put("rating", rating)
+                put("review_text", comment)
+                put("status", "published")
+                serviceRating?.let { put("service_rating", it) }
+            }
+            val request = Request.Builder()
+                .url("$supabaseUrl/rest/v1/property_reviews")
+                .addHeader("apikey", anonKey)
+                .addHeader("Authorization", "Bearer $bearer")
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Prefer", "return=minimal")
+                .post(payload.toString().toRequestBody("application/json".toMediaType()))
+                .build()
+            client.newCall(request).execute().close()
+        }
+    }
+
+    // ── Token Review ──
+    suspend fun submitTokenReview(
+        token: String,
+        accommodationRating: Int,
+        serviceRating: Int,
+        comment: String
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val payload = JSONObject().apply {
+                put("token", token)
+                put("accommodation_rating", accommodationRating)
+                put("service_rating", serviceRating)
+                put("comment", comment)
+            }
+            val request = Request.Builder()
+                .url("$apiBaseUrl/api/review")
+                .addHeader("Content-Type", "application/json")
+                .post(payload.toString().toRequestBody("application/json".toMediaType()))
+                .build()
+            val resp = client.newCall(request).execute()
+            if (!resp.isSuccessful) throw IllegalStateException("Review submission failed (${resp.code})")
+            resp.close()
+        }
+    }
+
+    // ── Complete Profile ──
+    suspend fun completeProfile(userId: String, fullName: String, phone: String, isOver18: Boolean, accessToken: String?): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val bearer = accessToken?.takeIf { it.isNotBlank() } ?: anonKey
+            val payload = JSONObject().apply {
+                put("full_name", fullName)
+                put("phone", phone)
+                put("is_over_18", isOver18)
+                put("profile_completed", true)
+            }
+            val request = Request.Builder()
+                .url("$supabaseUrl/rest/v1/profiles?id=eq.$userId")
+                .addHeader("apikey", anonKey)
+                .addHeader("Authorization", "Bearer $bearer")
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Prefer", "return=minimal")
+                .patch(payload.toString().toRequestBody("application/json".toMediaType()))
+                .build()
+            client.newCall(request).execute().close()
+        }
+    }
+
+    // ── Favorites List (with property join) ──
+    suspend fun fetchFavoriteListings(userId: String, accessToken: String?): List<Listing> = withContext(Dispatchers.IO) {
+        val bearer = accessToken?.takeIf { it.isNotBlank() } ?: anonKey
+        val url = "$supabaseUrl/rest/v1/favorites?select=property_id,properties(id,title,name,location,price_per_night,currency,main_image,rating,images)&user_id=eq.$userId"
+        val request = Request.Builder()
+            .url(url)
+            .addHeader("apikey", anonKey)
+            .addHeader("Authorization", "Bearer $bearer")
+            .get().build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) return@withContext emptyList()
+            val arr = JSONArray(response.body?.string().orEmpty())
+            (0 until arr.length()).mapNotNull { i ->
+                val fav = arr.getJSONObject(i)
+                val obj = fav.optJSONObject("properties") ?: return@mapNotNull null
+                Listing(
+                    id = obj.optString("id"),
+                    hostId = null,
+                    title = obj.optString("title").ifBlank { obj.optString("name", "Untitled") },
+                    location = obj.optString("location", "Unknown"),
+                    pricePerNight = obj.optDouble("price_per_night", 0.0),
+                    pricePerMonth = null,
+                    currency = obj.optString("currency", "RWF"),
+                    isPublished = null,
+                    monthlyOnlyListing = null,
+                    images = obj.optJSONArray("images")?.let { a -> (0 until a.length()).mapNotNull { a.optString(it).takeIf { s -> s.isNotBlank() } } },
+                    mainImage = obj.optString("main_image").takeIf { it.isNotBlank() },
+                    rating = obj.optDouble("rating", 0.0).takeIf { !it.isNaN() }
+                )
+            }
+        }
+    }
+
+    // ── Profile Details ──
+    suspend fun fetchProfileDetails(userId: String?, accessToken: String?): Result<UserProfileDetails> = withContext(Dispatchers.IO) {
+        if (userId.isNullOrBlank()) return@withContext Result.failure(IllegalStateException("Missing userId"))
+        runCatching {
+            val bearer = accessToken?.takeIf { it.isNotBlank() } ?: anonKey
+            val url = "$supabaseUrl/rest/v1/profiles?select=full_name,nickname,phone,bio,loyalty_points,profile_completed,avatar_url&id=eq.$userId"
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("apikey", anonKey)
+                .addHeader("Authorization", "Bearer $bearer")
+                .get().build()
+            client.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                val arr = JSONArray(body)
+                if (arr.length() == 0) throw IllegalStateException("Profile not found")
+                val obj = arr.getJSONObject(0)
+                UserProfileDetails(
+                    fullName = obj.optString("full_name").ifBlank { null },
+                    nickname = obj.optString("nickname").ifBlank { null },
+                    phone = obj.optString("phone").ifBlank { null },
+                    bio = obj.optString("bio").ifBlank { null },
+                    loyaltyPoints = if (obj.has("loyalty_points") && !obj.isNull("loyalty_points")) obj.optInt("loyalty_points") else null,
+                    profileCompleted = if (obj.has("profile_completed") && !obj.isNull("profile_completed")) obj.optBoolean("profile_completed") else null,
+                    avatarUrl = obj.optString("avatar_url").ifBlank { null },
+                )
+            }
+        }
+    }
+
+    // ── Detailed Bookings (with property data) ──
+    suspend fun fetchUserBookingsDetailed(userId: String, accessToken: String?): List<DetailedBooking> = withContext(Dispatchers.IO) {
+        val bearer = accessToken?.takeIf { it.isNotBlank() } ?: anonKey
+        val url = "$supabaseUrl/rest/v1/bookings?select=id,status,payment_status,total_price,currency,check_in,check_out,created_at,cancellation_policy,property_id,properties(title,name,location,main_image)&guest_id=eq.$userId&order=created_at.desc"
+        val request = Request.Builder()
+            .url(url)
+            .addHeader("apikey", anonKey)
+            .addHeader("Authorization", "Bearer $bearer")
+            .get().build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) return@withContext emptyList()
+            val arr = JSONArray(response.body?.string().orEmpty())
+            (0 until arr.length()).map { i ->
+                val obj = arr.getJSONObject(i)
+                val prop = obj.optJSONObject("properties")
+                DetailedBooking(
+                    id = obj.optString("id"),
+                    status = obj.optString("status", "pending"),
+                    paymentStatus = obj.optString("payment_status", "pending"),
+                    totalPrice = obj.optDouble("total_price", 0.0),
+                    currency = obj.optString("currency", "RWF"),
+                    checkIn = obj.optString("check_in"),
+                    checkOut = obj.optString("check_out"),
+                    createdAt = obj.optString("created_at"),
+                    cancellationPolicy = obj.optString("cancellation_policy").ifBlank { null },
+                    propertyId = obj.optString("property_id"),
+                    propertyTitle = prop?.optString("title")?.ifBlank { prop.optString("name") },
+                    propertyLocation = prop?.optString("location"),
+                    propertyImage = prop?.optString("main_image")?.takeIf { it.isNotBlank() }
+                )
+            }
+        }
+    }
 }
 
-data class SupportTicketData(
+data class TourItem(
+    val id: String,
+    val title: String,
+    val description: String?,
+    val location: String,
+    val category: String?,
+    val duration: String?,
+    val price: Double,
+    val currency: String,
+    val mainImage: String?,
+    val rating: Double?,
+)
+
+data class TransportItem(
+    val id: String,
+    val vehicleName: String,
+    val vehicleType: String?,
+    val serviceType: String,
+    val pricePerDay: Double,
+    val pricePerKm: Double?,
+    val currency: String,
+    val seats: Int,
+    val transmission: String?,
+    val fuelType: String?,
+    val brand: String?,
+    val model: String?,
+    val year: Int?,
+    val mainImage: String?,
+    val isVerified: Boolean,
+)
+
+data class AirportRoute(
+    val id: String,
+    val from: String,
+    val to: String,
+    val price: Double,
+    val currency: String,
+    val durationMinutes: Int,
+    val vehicleType: String?,
+)
+
+data class SearchResultItem(
+    val id: String,
+    val title: String,
+    val type: String,
+    val location: String?,
+    val price: Double,
+    val currency: String,
+    val mainImage: String?,
+)
+
+data class SearchResults(
+    val properties: List<SearchResultItem>,
+    val tours: List<SearchResultItem>,
+    val transport: List<SearchResultItem>,
+)
+
+data class DetailedBooking(
+    val id: String,
+    val status: String,
+    val paymentStatus: String,
+    val totalPrice: Double,
+    val currency: String,
+    val checkIn: String,
+    val checkOut: String,
+    val createdAt: String,
+    val cancellationPolicy: String?,
+    val propertyId: String,
+    val propertyTitle: String?,
+    val propertyLocation: String?,
+    val propertyImage: String?,
+)
+
+data class UserProfileDetails(
+    val fullName: String?,
+    val nickname: String?,
+    val phone: String?,
+    val bio: String?,
+    val loyaltyPoints: Int?,
+    val profileCompleted: Boolean?,
+    val avatarUrl: String?,
+)
     val id: String,
     val subject: String,
     val status: String,

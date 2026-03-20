@@ -16,6 +16,7 @@ enum SearchStep: Int, CaseIterable {
 
 struct SearchSheet: View {
     @Binding var isPresented: Bool
+    var onSearch: (_ destination: String, _ checkInDate: Date?, _ checkOutDate: Date?, _ guests: Int) -> Void = { _, _, _, _ in }
     @State private var currentStep: SearchStep = .where_
     @State private var destination: String = ""
     @State private var checkInDate: Date? = nil
@@ -42,7 +43,7 @@ struct SearchSheet: View {
                         .font(.system(size: 16, weight: .medium))
                         .foregroundColor(.black)
                         .frame(width: 32, height: 32)
-                        .background(Color.gray.opacity(0.1))
+                        .background(AppTheme.cardBackground)
                         .clipShape(Circle())
                 }
                 
@@ -128,9 +129,9 @@ struct SearchSheet: View {
                 .padding(.horizontal, 20)
                 .padding(.vertical, 16)
             }
-            .background(Color.white)
+            .background(AppTheme.cardBackground)
         }
-        .background(Color.white)
+        .background(AppTheme.cardBackground)
     }
     
     // MARK: - Where Content
@@ -142,7 +143,7 @@ struct SearchSheet: View {
             // Search input
             HStack(spacing: 12) {
                 Image(systemName: "magnifyingglass")
-                    .foregroundColor(.gray)
+                    .foregroundColor(AppTheme.placeholderText)
                 
                 TextField("Search destinations", text: $destination)
                     .font(.system(size: 16))
@@ -150,12 +151,12 @@ struct SearchSheet: View {
                 if !destination.isEmpty {
                     Button(action: { destination = "" }) {
                         Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.gray)
+                            .foregroundColor(AppTheme.placeholderText)
                     }
                 }
             }
             .padding(16)
-            .background(Color.gray.opacity(0.1))
+            .background(AppTheme.cardBackground)
             .clipShape(RoundedRectangle(cornerRadius: 12))
             
             // Popular destinations
@@ -171,11 +172,11 @@ struct SearchSheet: View {
                     }) {
                         HStack(spacing: 16) {
                             RoundedRectangle(cornerRadius: 8)
-                                .fill(Color.gray.opacity(0.2))
+                                .fill(AppTheme.cardBackground)
                                 .frame(width: 48, height: 48)
                                 .overlay(
                                     Image(systemName: "mappin.circle.fill")
-                                        .foregroundColor(.gray)
+                                        .foregroundColor(AppTheme.placeholderText)
                                         .font(.system(size: 20))
                                 )
                             
@@ -308,7 +309,7 @@ struct SearchSheet: View {
                 )
             }
             .padding(20)
-            .background(Color.gray.opacity(0.05))
+            .background(AppTheme.cardBackground)
             .clipShape(RoundedRectangle(cornerRadius: 16))
             
             // Summary
@@ -342,7 +343,7 @@ struct SearchSheet: View {
                 }
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.gray.opacity(0.05))
+                .background(AppTheme.cardBackground)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
             }
         }
@@ -370,7 +371,8 @@ struct SearchSheet: View {
     }
     
     private func search() {
-        // TODO: Implement search navigation
+        let normalizedDestination = destination.trimmingCharacters(in: .whitespacesAndNewlines)
+        onSearch(normalizedDestination, checkInDate, checkOutDate, totalGuests)
         isPresented = false
     }
     
@@ -423,12 +425,12 @@ struct DateCard: View {
                 } else {
                     Text(placeholder)
                         .font(.system(size: 16))
-                        .foregroundColor(.gray)
+                        .foregroundColor(AppTheme.placeholderText)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
-            .background(Color.gray.opacity(0.1))
+            .background(AppTheme.cardBackground)
             .clipShape(RoundedRectangle(cornerRadius: 12))
         }
     }
@@ -452,7 +454,7 @@ struct FlexibleDateChip: View {
                 .foregroundColor(isSelected ? .white : .black)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 10)
-                .background(isSelected ? Color.black : Color.gray.opacity(0.1))
+                .background(isSelected ? Color.black : AppTheme.cardBackground)
                 .clipShape(Capsule())
                 .overlay(
                     Capsule()
@@ -574,7 +576,7 @@ struct CalendarView: View {
             }
         }
         .padding(16)
-        .background(Color.gray.opacity(0.05))
+        .background(AppTheme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
     

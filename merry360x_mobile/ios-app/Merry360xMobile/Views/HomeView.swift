@@ -13,6 +13,8 @@ struct HomeView: View {
     @EnvironmentObject private var session: AppSessionViewModel
     @StateObject private var viewModel = HomeViewModel()
     @State private var showSearchSheet = false
+    @State private var navigateToSearchResults = false
+    @State private var searchResultsQuery = ""
     @State private var showCreateStorySheet = false
     @State private var storyInfoMessage: String?
 
@@ -69,7 +71,15 @@ struct HomeView: View {
             await viewModel.load()
         }
         .fullScreenCover(isPresented: $showSearchSheet) {
-            SearchSheet(isPresented: $showSearchSheet)
+            SearchSheet(isPresented: $showSearchSheet) { destination, _, _, _ in
+                let query = destination.trimmingCharacters(in: .whitespacesAndNewlines)
+                searchResultsQuery = query.isEmpty ? "Rwanda" : query
+                navigateToSearchResults = true
+            }
+        }
+        .navigationDestination(isPresented: $navigateToSearchResults) {
+            SearchResultsView(initialQuery: searchResultsQuery)
+                .environmentObject(session)
         }
         .sheet(isPresented: $showCreateStorySheet) {
             NavigationStack {
@@ -214,7 +224,7 @@ struct HomeView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                     } else {
                         Rectangle()
-                            .fill(Color.gray.opacity(0.3))
+                            .fill(AppTheme.cardBackground)
                             .frame(width: 200, height: 140)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
@@ -386,7 +396,7 @@ private struct HomeCreateStorySheet: View {
                     TextEditor(text: $storyBody)
                         .frame(minHeight: 140)
                         .padding(8)
-                        .background(Color.white)
+                        .background(AppTheme.cardBackground)
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
 
@@ -398,7 +408,7 @@ private struct HomeCreateStorySheet: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                         .foregroundColor(.black)
-                        .background(Color.white)
+                        .background(AppTheme.cardBackground)
                         .overlay(
                             RoundedRectangle(cornerRadius: 999, style: .continuous)
                                 .stroke(AppTheme.borderSubtle, lineWidth: 1)
@@ -442,7 +452,7 @@ private struct HomeCreateStorySheet: View {
             TextField(placeholder, text: text)
                 .textInputAutocapitalization(.sentences)
                 .padding(12)
-                .background(Color.white)
+                .background(AppTheme.cardBackground)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
     }
@@ -703,7 +713,7 @@ private struct OptimizedRemoteImage: View {
                     .aspectRatio(contentMode: .fill)
             } else {
                 Rectangle()
-                    .fill(Color.gray.opacity(0.3))
+                    .fill(AppTheme.cardBackground)
             }
         }
         .onAppear {
@@ -734,7 +744,7 @@ private struct ListingCollectionView: View {
                                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                             } else {
                                 Rectangle()
-                                    .fill(Color.gray.opacity(0.3))
+                                    .fill(AppTheme.cardBackground)
                                     .frame(height: 180)
                                     .frame(maxWidth: .infinity)
                                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))

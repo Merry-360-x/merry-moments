@@ -1,6 +1,11 @@
 import SwiftUI
 
 struct ProfileView: View {
+    private enum ProfileMode: String {
+        case traveler
+        case host
+    }
+
     @EnvironmentObject private var session: AppSessionViewModel
     @StateObject private var viewModel = ProfileViewModel()
     @State private var showAuthSheet = false
@@ -10,6 +15,7 @@ struct ProfileView: View {
     @State private var activeSettingSheet: ProfileSettingKind?
     @State private var showPersonalInfoSheet = false
     @State private var showSecuritySheet = false
+    @State private var profileMode: ProfileMode = .traveler
 
     @AppStorage("merry_mobile_region") private var selectedRegion = "Rwanda"
     @AppStorage("merry_mobile_language") private var selectedLanguage = "English"
@@ -81,7 +87,18 @@ struct ProfileView: View {
         }
         return entries
     }
-    
+
+    private var canUseHostMode: Bool {
+        session.isAuthenticated && (
+            normalizedRoles.contains("host") ||
+            normalizedRoles.contains("admin") ||
+            normalizedRoles.contains("financial_staff") ||
+            normalizedRoles.contains("operations_staff") ||
+            normalizedRoles.contains("customer_support") ||
+            normalizedRoles.contains("affiliate")
+        )
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
@@ -101,126 +118,17 @@ struct ProfileView: View {
                         .padding(.horizontal, 24)
                         .padding(.top, 8)
                 }
-                
-                // Settings Section (only show when logged in)
-                if session.isAuthenticated {
-                    AirbnbSection(title: "Settings") {
-                        AirbnbMenuItem(icon: "person", title: "Personal information") {
-                            showPersonalInfoSheet = true
-                        }
-                        AirbnbMenuItem(icon: "lock.shield", title: "Login & security") {
-                            showSecuritySheet = true
-                        }
-                        AirbnbMenuItem(icon: "creditcard", title: "Payments and payouts") {
-                            activeCenter = .bookingsCheckout
-                        }
-                        AirbnbMenuItem(icon: "bell", title: "Notifications") {
-                            activeCenter = .supportChat
-                        }
-                        AirbnbMenuItem(icon: "eye.slash", title: "Privacy and sharing", showDivider: false) {
-                            activeCenter = .privacyPolicy
-                        }
-                    }
+
+                if canUseHostMode {
+                    profileModeSwitcher
+                        .padding(.horizontal, 24)
+                        .padding(.top, 8)
                 }
                 
-                // Preferences Section
-                AirbnbSection(title: "Preferences") {
-                    AirbnbMenuItem(icon: "globe", title: "Region", value: selectedRegion) {
-                        activeSettingSheet = .region
-                    }
-                    AirbnbMenuItem(icon: "character.bubble", title: "Language", value: selectedLanguage) {
-                        activeSettingSheet = .language
-                    }
-                    AirbnbMenuItem(icon: "dollarsign.circle", title: "Currency", value: selectedCurrency) {
-                        activeSettingSheet = .currency
-                    }
-                    AirbnbMenuItem(icon: "moon", title: "Appearance", value: selectedModeLabel, showDivider: false) {
-                        activeSettingSheet = .mode
-                    }
-                }
-                
-                // Hosting Section (if host or can become host)
-                if session.isAuthenticated {
-                    AirbnbSection(title: "Hosting") {
-                        if normalizedRoles.contains("host") {
-                            AirbnbMenuItem(icon: "house", title: "Switch to hosting") {
-                                activeCenter = .hostStudio
-                            }
-                            AirbnbMenuItem(icon: "list.bullet", title: "Manage your listings") {
-                                activeCenter = .hostStudio
-                            }
-                            AirbnbMenuItem(icon: "calendar", title: "Your reservations", showDivider: false) {
-                                activeCenter = .hostStudio
-                            }
-                        } else {
-                            AirbnbMenuItem(icon: "house", title: "Become a Host", showDivider: false) {
-                                becomeHost()
-                            }
-                        }
-                    }
-                }
-                
-                // Your Dashboards Section (role-based)
-                if session.isAuthenticated && !dashboardEntries.isEmpty {
-                    AirbnbSection(title: "Your dashboards") {
-                        ForEach(Array(dashboardEntries.enumerated()), id: \.element.title) { index, item in
-                            AirbnbMenuItem(
-                                icon: item.systemName,
-                                title: item.title,
-                                showDivider: index < dashboardEntries.count - 1
-                            ) {
-                                activeCenter = item.destination
-                            }
-                        }
-                    }
-                }
-                
-                // Bookings Section
-                if session.isAuthenticated {
-                    AirbnbSection(title: "Bookings") {
-                        AirbnbMenuItem(icon: "calendar.badge.clock", title: "Your trips") {
-                            activeCenter = .bookingsCheckout
-                        }
-                        AirbnbMenuItem(icon: "heart", title: "Wishlists") {
-                            activeCenter = .favorites
-                        }
-                        AirbnbMenuItem(icon: "cart", title: "Trip cart", showDivider: false) {
-                            activeCenter = .tripCart
-                        }
-                    }
-                }
-                
-                // Support Section
-                AirbnbSection(title: "Support") {
-                    AirbnbMenuItem(icon: "questionmark.circle", title: "Visit the Help Centre") {
-                        activeCenter = .helpCenter
-                    }
-                    AirbnbMenuItem(icon: "bubble.left.and.bubble.right", title: "Get help") {
-                        activeCenter = .supportChat
-                    }
-                    AirbnbMenuItem(icon: "shield.checkerboard", title: "Report a safety issue", showDivider: false) {
-                        activeCenter = .safetyGuidelines
-                    }
-                }
-                
-                // Discover Section
-                AirbnbSection(title: "Discover") {
-                    AirbnbMenuItem(icon: "newspaper", title: "Travel stories", showDivider: false) {
-                        activeCenter = .helpCenter
-                    }
-                }
-                
-                // Legal Section
-                AirbnbSection(title: "Legal") {
-                    AirbnbMenuItem(icon: "doc.text", title: "Terms of Service") {
-                        activeCenter = .termsConditions
-                    }
-                    AirbnbMenuItem(icon: "hand.raised", title: "Privacy Policy") {
-                        activeCenter = .privacyPolicy
-                    }
-                    AirbnbMenuItem(icon: "arrow.uturn.backward", title: "Refund Policy", showDivider: false) {
-                        activeCenter = .refundPolicy
-                    }
+                if profileMode == .host && canUseHostMode {
+                    hostWorkspaceSections
+                } else {
+                    travelerSections
                 }
                 
                 // Log out
@@ -244,7 +152,7 @@ struct ProfileView: View {
                     .padding(.bottom, 100)
             }
         }
-        .background(Color(uiColor: .systemGroupedBackground))
+        .background(AppTheme.appBackground)
         .sheet(isPresented: $showAuthSheet) {
             AuthBottomSheet(isPresented: $showAuthSheet)
                 .presentationDetents([.large])
@@ -289,6 +197,9 @@ struct ProfileView: View {
             }
         }
         .onChange(of: session.roles) { _ in
+            if !canUseHostMode {
+                profileMode = .traveler
+            }
             guard let userId = session.userId else { return }
             Task {
                 await viewModel.load(userId: userId)
@@ -306,7 +217,7 @@ struct ProfileView: View {
                     .font(.system(size: 32, weight: .bold))
                 Spacer()
                 if session.isAuthenticated {
-                    Button(action: { activeCenter = .supportChat }) {
+                    Button(action: { activeCenter = .notificationsCenter }) {
                         Image(systemName: "bell")
                             .font(.system(size: 20))
                             .foregroundColor(AppTheme.textPrimary)
@@ -324,7 +235,7 @@ struct ProfileView: View {
                         // Avatar
                         ZStack {
                             Circle()
-                                .fill(Color(uiColor: .systemGray5))
+                                .fill(AppTheme.cardBackground)
                                 .frame(width: 64, height: 64)
                             
                             if let avatarURL = viewModel.avatarURL, let url = URL(string: avatarURL) {
@@ -361,16 +272,71 @@ struct ProfileView: View {
                             .foregroundColor(AppTheme.textSecondary)
                     }
                     .padding(16)
-                    .background(.white)
+                    .background(AppTheme.cardBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                     .shadow(color: .black.opacity(0.08), radius: 8, y: 2)
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 24)
-                .padding(.bottom, 24)
+                .padding(.bottom, 10)
+
+                // Profile completion bar
+                profileCompletionBar
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 20)
             }
         }
-        .background(Color(uiColor: .systemGroupedBackground))
+        .background(AppTheme.appBackground)
+    }
+
+    // MARK: - Profile Completion Bar
+
+    private var profileCompletionFields: [Bool] {
+        [
+            !viewModel.editFullName.isEmpty,
+            !viewModel.editPhone.isEmpty,
+            viewModel.avatarURL != nil && !(viewModel.avatarURL ?? "").isEmpty,
+            !viewModel.editBio.isEmpty,
+            !viewModel.editDateOfBirth.isEmpty
+        ]
+    }
+
+    private var profileCompletionBar: some View {
+        let filled = profileCompletionFields.filter { $0 }.count
+        let total = profileCompletionFields.count
+        let pct = total > 0 ? Double(filled) / Double(total) : 0
+
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Profile \(Int(pct * 100))% complete")
+                    .font(.caption.weight(.medium))
+                    .foregroundColor(pct == 1 ? .green : AppTheme.textSecondary)
+                Spacer()
+                if pct < 1 {
+                    Button(action: { showPersonalInfoSheet = true }) {
+                        Text("Complete")
+                            .font(.caption.weight(.semibold))
+                            .foregroundColor(AppTheme.coral)
+                    }
+                } else {
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.caption)
+                        .foregroundColor(.green)
+                }
+            }
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(AppTheme.cardBackground)
+                        .frame(height: 5)
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(pct == 1 ? Color.green : AppTheme.coral)
+                        .frame(width: geo.size.width * pct, height: 5)
+                        .animation(.easeInOut(duration: 0.4), value: pct)
+                }
+            }
+            .frame(height: 5)
+        }
     }
     
     // MARK: - Guest Login Card
@@ -380,7 +346,7 @@ struct ProfileView: View {
             // Profile placeholder
             ZStack {
                 Circle()
-                    .fill(Color(uiColor: .systemGray5))
+                    .fill(AppTheme.cardBackground)
                     .frame(width: 100, height: 100)
                 Image(systemName: "person.fill")
                     .font(.system(size: 40))
@@ -415,11 +381,168 @@ struct ProfileView: View {
             }
         }
         .padding(24)
-        .background(.white)
+        .background(AppTheme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.08), radius: 8, y: 2)
         .padding(.horizontal, 24)
         .padding(.bottom, 24)
+    }
+
+    private var profileModeSwitcher: some View {
+        HStack(spacing: 0) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    profileMode = .traveler
+                }
+            } label: {
+                Text("Traveler")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(profileMode == .traveler ? AppTheme.textPrimary : AppTheme.textSecondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(profileMode == .traveler ? Color.white : Color.clear)
+            }
+
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    profileMode = .host
+                }
+            } label: {
+                Text("Host Mode")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(profileMode == .host ? AppTheme.textPrimary : AppTheme.textSecondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(profileMode == .host ? Color.white : Color.clear)
+            }
+        }
+        .padding(4)
+        .background(AppTheme.cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var travelerSections: some View {
+        Group {
+            if session.isAuthenticated {
+                AirbnbSection(title: "Settings") {
+                    AirbnbMenuItem(icon: "person", title: "Personal information") {
+                        showPersonalInfoSheet = true
+                    }
+                    AirbnbMenuItem(icon: "lock.shield", title: "Login & security") {
+                        showSecuritySheet = true
+                    }
+                    AirbnbMenuItem(icon: "creditcard", title: "Payments and payouts") {
+                        activeCenter = .paymentsPayouts
+                    }
+                    AirbnbMenuItem(icon: "bell", title: "Notifications", showDivider: false) {
+                        activeCenter = .notificationsCenter
+                    }
+                }
+            }
+
+            AirbnbSection(title: "Preferences") {
+                AirbnbMenuItem(icon: "dollarsign.circle", title: "Currency", value: selectedCurrency) {
+                    activeSettingSheet = .currency
+                }
+                AirbnbMenuItem(icon: "moon", title: "Appearance", value: selectedModeLabel, showDivider: false) {
+                    activeSettingSheet = .mode
+                }
+            }
+
+            if session.isAuthenticated {
+                AirbnbSection(title: "Trips") {
+                    AirbnbMenuItem(icon: "calendar.badge.clock", title: "Your trips") {
+                        activeCenter = .myBookings
+                    }
+                    AirbnbMenuItem(icon: "heart", title: "Wishlists") {
+                        activeCenter = .favorites
+                    }
+                    AirbnbMenuItem(icon: "nav.tripCart", title: "Trip cart", showDivider: false) {
+                        activeCenter = .tripCart
+                    }
+                }
+            }
+
+            AirbnbSection(title: "Support") {
+                AirbnbMenuItem(icon: "questionmark.circle", title: "Visit the Help Centre") {
+                    activeCenter = .helpCenter
+                }
+                AirbnbMenuItem(icon: "bubble.left.and.bubble.right", title: "Get help") {
+                    activeCenter = .supportChat
+                }
+                AirbnbMenuItem(icon: "shield.checkerboard", title: "Report a safety issue", showDivider: false) {
+                    activeCenter = .safetyGuidelines
+                }
+            }
+
+            AirbnbSection(title: "Discover") {
+                AirbnbMenuItem(icon: "newspaper", title: "Travel stories", showDivider: false) {
+                    activeCenter = .travelStories
+                }
+            }
+
+            AirbnbSection(title: "Legal") {
+                AirbnbMenuItem(icon: "doc.text", title: "Terms of Service") {
+                    activeCenter = .termsConditions
+                }
+                AirbnbMenuItem(icon: "hand.raised", title: "Privacy Policy") {
+                    activeCenter = .privacyPolicy
+                }
+                AirbnbMenuItem(icon: "arrow.uturn.backward", title: "Refund Policy", showDivider: false) {
+                    activeCenter = .refundPolicy
+                }
+            }
+        }
+    }
+
+    private var hostWorkspaceSections: some View {
+        Group {
+            AirbnbSection(title: "Workspace") {
+                if normalizedRoles.contains("host") {
+                    AirbnbMenuItem(icon: "house", title: "Host Studio") {
+                        activeCenter = .hostStudio
+                    }
+                    AirbnbMenuItem(icon: "list.bullet", title: "Manage your listings") {
+                        activeCenter = .manageListings
+                    }
+                    AirbnbMenuItem(icon: "calendar", title: "Your reservations") {
+                        activeCenter = .hostReservations
+                    }
+                } else {
+                    AirbnbMenuItem(icon: "house", title: "Become a Host") {
+                        becomeHost()
+                    }
+                }
+
+                if !dashboardEntries.isEmpty {
+                    ForEach(Array(dashboardEntries.enumerated()), id: \.element.title) { index, item in
+                        AirbnbMenuItem(
+                            icon: item.systemName,
+                            title: item.title,
+                            showDivider: index < dashboardEntries.count - 1
+                        ) {
+                            activeCenter = item.destination
+                        }
+                    }
+                } else {
+                    AirbnbMenuItem(icon: "chart.bar.xaxis", title: "Traveler dashboard", showDivider: false) {
+                        activeCenter = .userDashboard
+                    }
+                }
+            }
+
+            AirbnbSection(title: "Host Quick Access") {
+                AirbnbMenuItem(icon: "creditcard", title: "Payments and payouts") {
+                    activeCenter = .paymentsPayouts
+                }
+                AirbnbMenuItem(icon: "bell", title: "Notifications") {
+                    activeCenter = .notificationsCenter
+                }
+                AirbnbMenuItem(icon: "newspaper", title: "Create or manage stories", showDivider: false) {
+                    activeCenter = .travelStories
+                }
+            }
+        }
     }
     
     // MARK: - Helper Functions
@@ -521,7 +644,7 @@ private struct AirbnbSection<Content: View>: View {
             VStack(spacing: 0) {
                 content
             }
-            .background(.white)
+            .background(AppTheme.cardBackground)
         }
     }
 }
@@ -539,10 +662,15 @@ private struct AirbnbMenuItem: View {
         VStack(spacing: 0) {
             Button(action: action) {
                 HStack(spacing: 16) {
-                    Image(systemName: icon)
-                        .font(.system(size: 20))
-                        .foregroundColor(AppTheme.textPrimary)
-                        .frame(width: 24, height: 24)
+                    if icon == "nav.tripCart" {
+                        NavVectorIcon(icon: .tripCart, color: AppTheme.textPrimary)
+                            .frame(width: 24, height: 24)
+                    } else {
+                        Image(systemName: icon)
+                            .font(.system(size: 20))
+                            .foregroundColor(AppTheme.textPrimary)
+                            .frame(width: 24, height: 24)
+                    }
                     
                     Text(title)
                         .font(.system(size: 16))
@@ -593,7 +721,7 @@ private struct ProfileSettingSheet: View {
                         .font(.system(size: 16, weight: .medium))
                         .foregroundColor(AppTheme.textPrimary)
                         .frame(width: 32, height: 32)
-                        .background(Color(uiColor: .systemGray5))
+                        .background(AppTheme.cardBackground)
                         .clipShape(Circle())
                 }
                 Spacer()
@@ -645,7 +773,7 @@ private struct ProfileSettingSheet: View {
                 }
             }
         }
-        .background(.white)
+        .background(AppTheme.cardBackground)
     }
 }
 

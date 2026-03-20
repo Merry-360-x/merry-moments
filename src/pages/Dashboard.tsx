@@ -14,7 +14,7 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
-import { CalendarDays, Camera, Heart, LogOut, Mail, Shield, Star, Bell, PlusCircle } from "lucide-react";
+import { CalendarDays, Camera, Heart, LogOut, Mail, Shield, Star, PlusCircle, LayoutDashboard, UserRound, LockKeyhole, Compass, ShoppingCart, CircleHelp, ChevronRight } from "lucide-react";
 import { formatMoney } from "@/lib/money";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { extractNeighborhood } from "@/lib/location";
@@ -295,20 +295,91 @@ export default function Dashboard() {
       <Navbar />
 
       <div className="container mx-auto px-4 lg:px-8 py-10">
-        <div className="mb-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-            <div>
-              <h1 className="text-2xl lg:text-3xl font-bold text-foreground">My Profile</h1>
-              <p className="text-muted-foreground">Manage your account information and preferences</p>
+        <div className="mb-8 space-y-4">
+          <Card className="overflow-hidden border-border/70">
+            <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-background px-6 py-6 lg:px-8 lg:py-7">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Website Profile</h1>
+                  <p className="text-muted-foreground mt-1">Your account, trips, saved places, and security in one place.</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center rounded-full bg-background/90 border border-border px-3 py-1 text-xs font-medium text-foreground">
+                    {trips.upcoming} upcoming trips
+                  </span>
+                  <span className="inline-flex items-center rounded-full bg-background/90 border border-border px-3 py-1 text-xs font-medium text-foreground">
+                    {favoritesCount} saved places
+                  </span>
+                  {canCreateStory ? (
+                    <Link to="/create-story">
+                      <Button className="gap-2">
+                        <PlusCircle className="w-4 h-4" />
+                        Add Story
+                      </Button>
+                    </Link>
+                  ) : null}
+                </div>
+              </div>
             </div>
-            {canCreateStory ? (
-              <Link to="/create-story">
-                <Button className="gap-2">
-                  <PlusCircle className="w-4 h-4" />
-                  Add Story
-                </Button>
-              </Link>
-            ) : null}
+          </Card>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <Link to="/my-bookings">
+              <Card className="p-3 hover:bg-muted/40 transition-colors">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-medium text-foreground flex items-center gap-2">
+                      <CalendarDays className="w-4 h-4 text-muted-foreground" />
+                      My Bookings
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">Track trip status</div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground mt-0.5" />
+                </div>
+              </Card>
+            </Link>
+            <Link to="/favorites">
+              <Card className="p-3 hover:bg-muted/40 transition-colors">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-medium text-foreground flex items-center gap-2">
+                      <Heart className="w-4 h-4 text-muted-foreground" />
+                      Wishlists
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">Saved stays and tours</div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground mt-0.5" />
+                </div>
+              </Card>
+            </Link>
+            <Link to="/trip-cart">
+              <Card className="p-3 hover:bg-muted/40 transition-colors">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-medium text-foreground flex items-center gap-2">
+                      <ShoppingCart className="w-4 h-4 text-muted-foreground" />
+                      Trip Cart
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">{cartCount} items in cart</div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground mt-0.5" />
+                </div>
+              </Card>
+            </Link>
+            <Link to="/help-center">
+              <Card className="p-3 hover:bg-muted/40 transition-colors">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-medium text-foreground flex items-center gap-2">
+                      <CircleHelp className="w-4 h-4 text-muted-foreground" />
+                      Help Center
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">Get support fast</div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground mt-0.5" />
+                </div>
+              </Card>
+            </Link>
           </div>
         </div>
 
@@ -406,10 +477,16 @@ export default function Dashboard() {
 
             <div className="mt-6 grid grid-cols-2 gap-3">
               <Link to="/my-bookings">
-                <Button variant="outline" className="w-full">My Bookings</Button>
+                <Button variant="outline" className="w-full gap-2">
+                  <CalendarDays className="w-4 h-4" />
+                  My Bookings
+                </Button>
               </Link>
               <Link to="/favorites">
-                <Button variant="outline" className="w-full">Favorites</Button>
+                <Button variant="outline" className="w-full gap-2">
+                  <Heart className="w-4 h-4" />
+                  Favorites
+                </Button>
               </Link>
             </div>
 
@@ -429,14 +506,17 @@ export default function Dashboard() {
           {/* Right content */}
           <div className="lg:col-span-8">
             <Tabs defaultValue="trips" className="w-full">
-              <TabsList className="w-full justify-start bg-card rounded-xl p-1 border border-border">
-                <TabsTrigger value="trips" className="px-5">
+              <TabsList className="w-full justify-start bg-card rounded-xl p-1 border border-border overflow-x-auto">
+                <TabsTrigger value="trips" className="px-4 sm:px-5 gap-2 whitespace-nowrap">
+                  <LayoutDashboard className="w-4 h-4" />
                   My Trips
                 </TabsTrigger>
-                <TabsTrigger value="personal" className="px-5">
+                <TabsTrigger value="personal" className="px-4 sm:px-5 gap-2 whitespace-nowrap">
+                  <UserRound className="w-4 h-4" />
                   Personal Info
                 </TabsTrigger>
-                <TabsTrigger value="security" className="px-5">
+                <TabsTrigger value="security" className="px-4 sm:px-5 gap-2 whitespace-nowrap">
+                  <LockKeyhole className="w-4 h-4" />
                   Security
                 </TabsTrigger>
               </TabsList>
@@ -511,7 +591,7 @@ export default function Dashboard() {
                       </div>
                     ) : */ upcomingBookings.length === 0 ? (
                       <Card className="p-10 text-center">
-                        <CalendarDays className="w-14 h-14 text-muted-foreground mx-auto mb-4" />
+                        <Compass className="w-14 h-14 text-muted-foreground mx-auto mb-4" />
                         <div className="text-lg font-semibold text-foreground mb-1">No upcoming trips</div>
                         <div className="text-muted-foreground mb-6">Start planning your next adventure!</div>
                         <Link to="/accommodations">

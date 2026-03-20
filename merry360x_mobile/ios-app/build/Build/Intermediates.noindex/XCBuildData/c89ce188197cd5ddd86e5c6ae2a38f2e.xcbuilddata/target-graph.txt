@@ -1,2 +1,0 @@
-Target dependency graph (1 target)
-Target 'Merry360xMobile' in project 'Merry360xMobile' (no dependencies)

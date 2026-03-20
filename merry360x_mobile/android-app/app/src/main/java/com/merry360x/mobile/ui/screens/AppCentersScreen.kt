@@ -81,8 +81,10 @@ fun AppCentersScreen(
     api: SupabaseApi,
     userId: String?,
     accessToken: String?,
+    roles: List<String> = emptyList(),
+    initialModule: String? = null,
 ) {
-    var activeModule by remember(destination) { mutableStateOf<String?>(null) }
+    val normalizedRoles = remember(roles) { roles.map { it.trim().lowercase() }.toSet() }
 
     val title = when (destination) {
         AppCenterDestination.BACKOFFICE -> "Backoffice Center"
@@ -135,6 +137,32 @@ fun AppCentersScreen(
             "Payment Failed",
             "Booking Success",
         )
+    }
+
+    val allowedModules = remember(destination, modules, normalizedRoles) {
+        when (destination) {
+            AppCenterDestination.BACKOFFICE -> {
+                when {
+                    normalizedRoles.contains("admin") -> modules
+                    normalizedRoles.contains("financial_staff") -> modules.filter { it == "Financial Summary" }
+                    normalizedRoles.contains("operations_staff") -> modules.filter { it == "Operations Summary" }
+                    normalizedRoles.contains("customer_support") -> modules.filter { it == "Support Summary" }
+                    else -> emptyList()
+                }
+            }
+            AppCenterDestination.HOST_STUDIO -> {
+                if (normalizedRoles.contains("host") || normalizedRoles.contains("admin")) modules else emptyList()
+            }
+            AppCenterDestination.AFFILIATE -> {
+                if (normalizedRoles.contains("affiliate") || normalizedRoles.contains("admin")) modules else emptyList()
+            }
+            AppCenterDestination.SUPPORT_LEGAL,
+            AppCenterDestination.BOOKINGS_CHECKOUT -> modules
+        }
+    }
+
+    var activeModule by remember(destination, initialModule, allowedModules) {
+        mutableStateOf(initialModule?.takeIf { allowedModules.contains(it) })
     }
 
     AnimatedContent(
@@ -197,7 +225,25 @@ fun AppCentersScreen(
                     )
                 }
 
-                items(modules) { moduleItem ->
+                if (allowedModules.isEmpty()) {
+                    item {
+                        Card(
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = CardGray)
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("No modules available", fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    "Your current role does not have access to this center.",
+                                    color = Color(0xFF9E9E9E),
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+                    }
+                }
+
+                items(allowedModules) { moduleItem ->
                     Card(
                         shape = RoundedCornerShape(14.dp),
                         colors = CardDefaults.cardColors(containerColor = Color.White)

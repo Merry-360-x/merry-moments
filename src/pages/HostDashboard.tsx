@@ -675,6 +675,7 @@ export default function HostDashboard() {
   const [wizardStep, setWizardStep] = useState(1);
   const createDefaultPropertyForm = () => ({
     title: "",
+    hotel_id: "",
     location: "",
     address: "",
     listing_mode: "standard" as "standard" | "monthly_only",
@@ -716,6 +717,7 @@ export default function HostDashboard() {
   const mapPropertyToForm = (property: Property | Record<string, any>) => ({
     ...createDefaultPropertyForm(),
     title: String((property as any).title || (property as any).name || ""),
+    hotel_id: String((property as any).hotel_id || ""),
     location: String((property as any).location || ""),
     address: String((property as any).address || ""),
     listing_mode: Boolean((property as any).monthly_only_listing)
@@ -5653,6 +5655,11 @@ export default function HostDashboard() {
   // Room Creation Form - Minimalistic
   if (showRoomWizard) {
     const isConferenceRoomSelected = propertyForm.amenities.includes("conference_room");
+    const hostHotels = (properties || []).filter(
+      (property) =>
+        String(property.property_type || "").toLowerCase() === "hotel" &&
+        property.id !== editingPropertyId
+    );
     const roomTotalSteps = 4;
     const roomStepTitles = ["Basic Info", "Photos & Pricing", "Details & Amenities", "Review"];
 
@@ -5692,6 +5699,14 @@ export default function HostDashboard() {
                   toast({ variant: "destructive", title: "Missing info", description: "Please fill in all required fields." });
                   return;
                 }
+                if (hostHotels.length > 0 && !String(propertyForm.hotel_id || "").trim()) {
+                  toast({
+                    variant: "destructive",
+                    title: "Select a hotel",
+                    description: "Choose the hotel this room belongs to so guests can view all rooms under that hotel.",
+                  });
+                  return;
+                }
 
                 const nightlyPrice = Number(propertyForm.price_per_night || 0);
                 const monthlyPrice = Number(propertyForm.price_per_month || 0);
@@ -5726,6 +5741,7 @@ export default function HostDashboard() {
                     ...propertyForm,
                     name: propertyName,
                     title: propertyName,
+                    hotel_id: String(propertyForm.hotel_id || "").trim() || null,
                     property_type: propertyForm.property_type || "Room in Apartment",
                     price_per_night: normalizedNightlyPrice,
                     available_for_monthly_rental: isMonthlyOnly ? true : Boolean(propertyForm.available_for_monthly_rental),
@@ -5797,6 +5813,39 @@ export default function HostDashboard() {
                   required
                   className="mt-1.5"
                 />
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium">Hotel *</Label>
+                <Select
+                  value={String(propertyForm.hotel_id || "")}
+                  onValueChange={(value) => {
+                    const selectedHotel = hostHotels.find((hotel) => hotel.id === value);
+                    setPropertyForm((f) => ({
+                      ...f,
+                      hotel_id: value,
+                      location: selectedHotel?.location || f.location,
+                      address: selectedHotel?.address || f.address,
+                      currency: selectedHotel?.currency || f.currency,
+                    }));
+                  }}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder={hostHotels.length > 0 ? "Select hotel" : "Create a hotel first"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {hostHotels.map((hotel) => (
+                      <SelectItem key={hotel.id} value={hotel.id}>
+                        {hotel.title} - {hotel.location}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {hostHotels.length === 0 ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    No hotel found on your account yet. Add a hotel first, then create rooms under it.
+                  </p>
+                ) : null}
               </div>
 
               <div>
@@ -7869,6 +7918,61 @@ export default function HostDashboard() {
               </Button>
               </div>
           </div>
+                        {(() => {
+              const hotels = (properties || []).filter((property) => String(property.property_type || "").toLowerCase() === "hotel");
+              if (hotels.length === 0) return null;
+
+              const rooms = (properties || []).filter((property) => {
+                const t = String(property.property_type || "").toLowerCase();
+                const n = String(property.title || "").toLowerCase();
+                return t !== "hotel" && (t.includes("room") || t.includes("suite") || t.includes("studio") || n.includes(" room") || n.includes("suite") || n.includes("studio"));
+              });
+
+              return (
+                <Card className="p-4 mb-4">
+                  <h3 className="font-semibold text-foreground mb-1">Hotels and rooms</h3>
+                  <p className="text-xs text-muted-foreground mb-3">Edit opens the creation wizard with existing data prefilled.</p>
+                  <div className="space-y-3">
+                    {hotels.map((hotel) => {
+                      const linkedRooms = rooms.filter((room) => String((room as any).hotel_id || "") === hotel.id || (String((room as any).hotel_id || "") === "" && String(room.location || "").trim().toLowerCase() === String(hotel.location || "").trim().toLowerCase()));
+                      return (
+                        <div key={hotel.id} className="rounded-md border border-border p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <div>
+                              <p className="font-medium text-sm text-foreground">{hotel.title}</p>
+                              <p className="text-xs text-muted-foreground">{hotel.location}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="secondary">{linkedRooms.length} room{linkedRooms.length === 1 ? "" : "s"}</Badge>
+                              <Button size="sm" variant="outline" onClick={() => openPropertyWizardForEdit(hotel)}>
+                                <Edit className="w-3 h-3 mr-1" /> Edit
+                              </Button>
+                            </div>
+                          </div>
+
+                          {linkedRooms.length > 0 ? (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {linkedRooms.map((room) => (
+                                <div key={room.id} className="flex items-center gap-2 rounded-full border border-border px-2 py-1">
+                                  <Link to={`/properties/${room.id}`} className="text-xs text-primary hover:underline">
+                                    {room.title}
+                                  </Link>
+                                  <Button size="sm" variant="ghost" className="h-5 px-1 text-xs" onClick={() => openPropertyWizardForEdit(room)}>
+                                    Edit
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground mt-2">No rooms linked yet.</p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Card>
+              );
+            })()}
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {(properties || []).map((p) => <PropertyCard key={p.id} property={p} />)}
               {(properties || []).length === 0 && (

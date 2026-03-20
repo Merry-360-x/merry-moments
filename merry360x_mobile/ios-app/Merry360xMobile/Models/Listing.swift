@@ -1,6 +1,8 @@
 import Foundation
 
-struct Listing: Identifiable, Decodable {
+struct Listing: Identifiable, Decodable, Hashable {
+    static func == (lhs: Listing, rhs: Listing) -> Bool { lhs.id == rhs.id }
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
     let id: String
     let hostId: String?
     let title: String

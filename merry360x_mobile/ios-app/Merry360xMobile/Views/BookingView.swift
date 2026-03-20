@@ -124,7 +124,7 @@ struct BookingView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
-        .background(Color.white)
+        .background(AppTheme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 

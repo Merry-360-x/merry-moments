@@ -88,7 +88,7 @@ struct MerryAIView: View {
             HStack(spacing: 12) {
                 TextField("Ask about places, tours, packages...", text: $inputText)
                     .padding(12)
-                    .background(Color.white)
+                    .background(AppTheme.cardBackground)
                     .overlay(
                         RoundedRectangle(cornerRadius: 24)
                             .stroke(Color.gray.opacity(0.3), lineWidth: 1)
@@ -114,7 +114,7 @@ struct MerryAIView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
         }
-        .background(Color.white)
+        .background(AppTheme.cardBackground)
     }
 }
 

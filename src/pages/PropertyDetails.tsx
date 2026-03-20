@@ -68,6 +68,20 @@ type PropertyRow = {
   conference_room_equipment?: string[] | null;
   breakfast_available?: boolean | null;
   breakfast_price_per_night?: number | null;
+  hotel_id?: string | null;
+};
+
+type LinkedRoomRow = {
+  id: string;
+  title: string;
+  location: string;
+  price_per_night: number;
+  price_per_month?: number | null;
+  monthly_only_listing?: boolean | null;
+  currency: string | null;
+  property_type: string | null;
+  images: string[] | null;
+  max_guests?: number | null;
 };
 
 const fetchProperty = async (id: string) => {
@@ -202,6 +216,72 @@ export default function PropertyDetails() {
     staleTime: 1000 * 60 * 3, // 3 minutes for property details
     gcTime: 1000 * 60 * 15, // 15 minutes cache
     refetchOnWindowFocus: true,
+  });
+
+  const isHotelListing = useMemo(
+    () => String(data?.property_type || "").trim().toLowerCase() === "hotel",
+    [data?.property_type]
+  );
+
+  const { data: linkedRooms = [], isLoading: isLoadingLinkedRooms } = useQuery({
+    queryKey: ["property-linked-rooms", data?.id, data?.host_id, data?.location],
+    enabled: Boolean(data?.id && data?.host_id && isHotelListing),
+    staleTime: 1000 * 60 * 2,
+    gcTime: 1000 * 60 * 10,
+    queryFn: async () => {
+      const property = data as PropertyRow;
+      const baseSelect =
+        "id, title, location, price_per_night, price_per_month, monthly_only_listing, currency, property_type, images, max_guests, is_published, host_id, created_at";
+
+      const fallbackToHostRooms = async () => {
+        const { data: fallbackRows, error: fallbackError } = await supabase
+          .from("properties")
+          .select(baseSelect)
+          .eq("is_published", true)
+          .eq("host_id", property.host_id)
+          .eq("location", property.location)
+          .neq("id", property.id)
+          .order("created_at", { ascending: false })
+          .limit(24);
+
+        if (fallbackError) throw fallbackError;
+
+        const roomHints = ["room", "suite", "studio"];
+        return ((fallbackRows ?? []) as any[])
+          .filter((row) => {
+            const propertyType = String(row?.property_type || "").toLowerCase();
+            const title = String(row?.title || "").toLowerCase();
+            return (
+              propertyType.includes("room") ||
+              propertyType.includes("suite") ||
+              roomHints.some((hint) => title.includes(hint))
+            );
+          })
+          .slice(0, 12) as LinkedRoomRow[];
+      };
+
+      const { data: byHotelIdRows, error: byHotelIdError } = await supabase
+        .from("properties")
+        .select(`${baseSelect}, hotel_id`)
+        .eq("is_published", true)
+        .eq("hotel_id", property.id)
+        .neq("id", property.id)
+        .order("created_at", { ascending: false })
+        .limit(24);
+
+      if (!byHotelIdError) {
+        return ((byHotelIdRows ?? []) as LinkedRoomRow[]).slice(0, 12);
+      }
+
+      const msg = String(byHotelIdError?.message || "").toLowerCase();
+      const details = String(byHotelIdError?.details || "").toLowerCase();
+      const missingHotelIdColumn =
+        msg.includes("hotel_id") || details.includes("hotel_id") || String(byHotelIdError?.code || "") === "42703";
+
+      if (!missingHotelIdColumn) throw byHotelIdError;
+
+      return fallbackToHostRooms();
+    },
   });
 
   const { data: hostProfile } = useQuery({
@@ -1630,6 +1710,42 @@ export default function PropertyDetails() {
                         <p>Equipment: {conferenceEquipmentLabels.join(", ")}</p>
                       ) : null}
                     </div>
+                  </div>
+                ) : null}
+
+                {isHotelListing ? (
+                  <div className="mt-4 rounded-lg border border-border p-3">
+                    <div className="text-sm font-semibold text-foreground">Rooms in this hotel</div>
+                    {isLoadingLinkedRooms ? (
+                      <p className="mt-2 text-xs text-muted-foreground">Loading hotel rooms...</p>
+                    ) : linkedRooms.length > 0 ? (
+                      <div className="mt-3 space-y-2">
+                        {linkedRooms.map((room) => {
+                          const monthlyOnly = Boolean(room.monthly_only_listing);
+                          return (
+                            <Link
+                              key={room.id}
+                              to={`/properties/${room.id}`}
+                              className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 hover:bg-accent/40 transition-colors"
+                            >
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-foreground truncate">{room.title}</p>
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {room.max_guests ? `Up to ${room.max_guests} guests` : room.location}
+                                </p>
+                              </div>
+                              <p className="text-xs font-semibold text-primary whitespace-nowrap">
+                                {monthlyOnly
+                                  ? `${displayMoney(Number(room.price_per_month ?? 0), String(room.currency ?? "RWF"))} / month`
+                                  : `${displayMoney(Number(room.price_per_night ?? 0), String(room.currency ?? "RWF"))} / night`}
+                              </p>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-xs text-muted-foreground">No rooms linked to this hotel yet.</p>
+                    )}
                   </div>
                 ) : null}
 

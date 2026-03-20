@@ -41,6 +41,7 @@ import com.merry360x.mobile.data.SupabaseApi
 import com.merry360x.mobile.data.FeatureApi
 import com.merry360x.mobile.data.Listing
 import com.merry360x.mobile.data.UserProfileDetails
+import com.merry360x.mobile.data.defaultUsdRates
 import com.merry360x.mobile.ui.screens.LoginScreenNew
 import com.merry360x.mobile.theme.Coral
 import com.merry360x.mobile.theme.Merry360xTheme
@@ -67,6 +68,14 @@ import com.merry360x.mobile.ui.screens.RegionPickerScreen
 import com.merry360x.mobile.ui.screens.ResetPasswordScreen
 import com.merry360x.mobile.ui.screens.SafetyGuidelinesScreen
 import com.merry360x.mobile.ui.screens.SearchResultsScreen
+import com.merry360x.mobile.ui.screens.ToursBrowseScreen
+import com.merry360x.mobile.ui.screens.TransportBrowseScreen
+import com.merry360x.mobile.ui.screens.AccommodationsBrowseScreen
+import com.merry360x.mobile.ui.screens.UnifiedSearchResultsScreen
+import com.merry360x.mobile.ui.screens.MyBookingsScreen
+import com.merry360x.mobile.ui.screens.FavoritesScreen
+import com.merry360x.mobile.ui.screens.UserDashboardScreen
+import com.merry360x.mobile.ui.screens.TokenReviewScreen
 import com.merry360x.mobile.viewmodel.AuthViewModel
 import com.merry360x.mobile.viewmodel.BookingViewModel
 import com.merry360x.mobile.viewmodel.FeatureViewModel
@@ -99,6 +108,14 @@ private enum class GlobalScreen {
     APP_MODE,
     NOTIFICATIONS,
     CHAT,
+    TOURS_BROWSE,
+    TRANSPORT_BROWSE,
+    ACCOMMODATIONS_BROWSE,
+    UNIFIED_SEARCH,
+    MY_BOOKINGS,
+    FAVORITES,
+    USER_DASHBOARD,
+    TOKEN_REVIEW,
 }
 
 class MainActivity : ComponentActivity() {
@@ -139,10 +156,12 @@ class MainActivity : ComponentActivity() {
                 // Auth sheet state
                 var showAuthSheet by remember { mutableStateOf(false) }
                 var activeCenter by rememberSaveable { mutableStateOf<AppCenterDestination?>(null) }
+                var activeCenterModule by rememberSaveable { mutableStateOf<String?>(null) }
                 var selectedRegion by rememberSaveable { mutableStateOf("Rwanda") }
                 var selectedLanguage by rememberSaveable { mutableStateOf("English") }
                 var selectedCurrency by rememberSaveable { mutableStateOf("RWF") }
                 var selectedMode by rememberSaveable { mutableStateOf("Light") }
+                var usdRates by remember { mutableStateOf(defaultUsdRates()) }
                 var profileDetails by remember { mutableStateOf<UserProfileDetails?>(null) }
                 var profileDetailsLoading by remember { mutableStateOf(false) }
                 val authSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -197,6 +216,10 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                LaunchedEffect(Unit) {
+                    usdRates = api.fetchAdminFxRates()
+                }
+
                 LaunchedEffect(launchCallbackUrl) {
                     if (!launchCallbackUrl.isNullOrBlank()) {
                         globalScreen = GlobalScreen.AUTH_CALLBACK
@@ -223,6 +246,7 @@ class MainActivity : ComponentActivity() {
                                             tab = index
                                             if (index != 4) {
                                                 activeCenter = null
+                                                activeCenterModule = null
                                             }
                                             if (index == 0 && exploreFlow != ExploreFlow.HOME) {
                                                 exploreFlow = ExploreFlow.HOME
@@ -298,7 +322,7 @@ class MainActivity : ComponentActivity() {
                                     )
                                     GlobalScreen.FORGOT_PASSWORD -> ForgotPasswordScreen(
                                         onBack = { globalScreen = null },
-                                        onContinueToReset = { globalScreen = GlobalScreen.FORGOT_PASSWORD },
+                                        onContinueToReset = { globalScreen = GlobalScreen.RESET_PASSWORD },
                                     )
                                     GlobalScreen.RESET_PASSWORD -> ResetPasswordScreen(
                                         onBack = { globalScreen = GlobalScreen.FORGOT_PASSWORD },
@@ -347,6 +371,83 @@ class MainActivity : ComponentActivity() {
                                         },
                                         onBack = { globalScreen = null }
                                     )
+                                    GlobalScreen.TOURS_BROWSE -> ToursBrowseScreen(
+                                        api = api,
+                                        selectedCurrency = selectedCurrency,
+                                        usdRates = usdRates,
+                                        onBack = { globalScreen = null }
+                                    )
+                                    GlobalScreen.TRANSPORT_BROWSE -> TransportBrowseScreen(
+                                        api = api,
+                                        selectedCurrency = selectedCurrency,
+                                        usdRates = usdRates,
+                                        onBack = { globalScreen = null }
+                                    )
+                                    GlobalScreen.ACCOMMODATIONS_BROWSE -> AccommodationsBrowseScreen(
+                                        api = api,
+                                        userId = authState.userId,
+                                        accessToken = authState.accessToken,
+                                        selectedCurrency = selectedCurrency,
+                                        usdRates = usdRates,
+                                        onBack = { globalScreen = null },
+                                        onSelectListing = { listing ->
+                                            selectedListing = listing
+                                            bookingViewModel.selectedListingId = listing.id
+                                            bookingViewModel.selectedListingTitle = listing.title
+                                            globalScreen = null
+                                            exploreFlow = ExploreFlow.DETAIL
+                                            tab = 0
+                                        }
+                                    )
+                                    GlobalScreen.UNIFIED_SEARCH -> UnifiedSearchResultsScreen(
+                                        api = api,
+                                        initialQuery = searchDestination,
+                                        selectedCurrency = selectedCurrency,
+                                        usdRates = usdRates,
+                                        onBack = { globalScreen = null }
+                                    )
+                                    GlobalScreen.MY_BOOKINGS -> MyBookingsScreen(
+                                        api = api,
+                                        userId = authState.userId,
+                                        accessToken = authState.accessToken,
+                                        selectedCurrency = selectedCurrency,
+                                        usdRates = usdRates,
+                                        onBack = { globalScreen = null }
+                                    )
+                                    GlobalScreen.FAVORITES -> FavoritesScreen(
+                                        api = api,
+                                        userId = authState.userId,
+                                        accessToken = authState.accessToken,
+                                        selectedCurrency = selectedCurrency,
+                                        usdRates = usdRates,
+                                        onBack = { globalScreen = null },
+                                        onSelectListing = { listing ->
+                                            selectedListing = listing
+                                            bookingViewModel.selectedListingId = listing.id
+                                            bookingViewModel.selectedListingTitle = listing.title
+                                            globalScreen = null
+                                            exploreFlow = ExploreFlow.DETAIL
+                                            tab = 0
+                                        }
+                                    )
+                                    GlobalScreen.USER_DASHBOARD -> UserDashboardScreen(
+                                        api = api,
+                                        userId = authState.userId,
+                                        accessToken = authState.accessToken,
+                                        profileDetails = profileDetails,
+                                        onBack = { globalScreen = null },
+                                        onNavigate = { target ->
+                                            when (target) {
+                                                "my_bookings" -> globalScreen = GlobalScreen.MY_BOOKINGS
+                                                "favorites" -> globalScreen = GlobalScreen.FAVORITES
+                                            }
+                                        }
+                                    )
+                                    GlobalScreen.TOKEN_REVIEW -> TokenReviewScreen(
+                                        api = api,
+                                        token = "",
+                                        onBack = { globalScreen = null }
+                                    )
                                     null -> Unit
                                 }
                             } else when (tab) {
@@ -354,6 +455,8 @@ class MainActivity : ComponentActivity() {
                                     ExploreFlow.HOME -> HomeScreen(
                                         uiState = homeState,
                                         onRefresh = { homeViewModel.load() },
+                                        selectedCurrency = selectedCurrency,
+                                        usdRates = usdRates,
                                         api = api,
                                         userId = authState.userId,
                                         accessToken = authState.accessToken,
@@ -371,6 +474,13 @@ class MainActivity : ComponentActivity() {
                                         onSearchSubmit = { destination, _, _, _ ->
                                             searchDestination = destination
                                             exploreFlow = ExploreFlow.SEARCH_RESULTS
+                                        },
+                                        onNavigate = { target ->
+                                            when (target) {
+                                                "tours" -> globalScreen = GlobalScreen.TOURS_BROWSE
+                                                "transport" -> globalScreen = GlobalScreen.TRANSPORT_BROWSE
+                                                "accommodations" -> globalScreen = GlobalScreen.ACCOMMODATIONS_BROWSE
+                                            }
                                         },
                                     )
                                     ExploreFlow.SEARCH_RESULTS -> {
@@ -392,6 +502,8 @@ class MainActivity : ComponentActivity() {
                                         if (listing != null) {
                                             ListingDetailScreen(
                                                 listing = listing,
+                                                selectedCurrency = selectedCurrency,
+                                                usdRates = usdRates,
                                                 onBack = { exploreFlow = ExploreFlow.HOME },
                                                 onReserve = { exploreFlow = ExploreFlow.BOOKING }
                                             )
@@ -413,7 +525,9 @@ class MainActivity : ComponentActivity() {
                                 3 -> TripCartScreen(
                                     bookings = tripsState.bookings,
                                     isLoading = tripsState.loading || bookingState.submitting,
-                                    errorMessage = tripsState.error
+                                    errorMessage = tripsState.error,
+                                    selectedCurrency = selectedCurrency,
+                                    usdRates = usdRates,
                                 )
                                 4 -> AnimatedContent(
                                     targetState = activeCenter,
@@ -448,11 +562,51 @@ class MainActivity : ComponentActivity() {
                                             onSignOut = { authViewModel.signOut() },
                                             onBecomeHost = { authViewModel.becomeHost() },
                                             onOpenDashboard = { path ->
-                                                activeCenter = when {
-                                                    path.contains("admin") || path.contains("financial") || path.contains("operations") || path.contains("support") -> AppCenterDestination.BACKOFFICE
-                                                    path.contains("host") -> AppCenterDestination.HOST_STUDIO
-                                                    path.contains("affiliate") -> AppCenterDestination.AFFILIATE
-                                                    else -> AppCenterDestination.BACKOFFICE
+                                                when (path) {
+                                                    "/admin" -> {
+                                                        activeCenter = AppCenterDestination.BACKOFFICE
+                                                        activeCenterModule = "Admin Overview"
+                                                    }
+                                                    "/financial-dashboard" -> {
+                                                        activeCenter = AppCenterDestination.BACKOFFICE
+                                                        activeCenterModule = "Financial Summary"
+                                                    }
+                                                    "/operations-dashboard" -> {
+                                                        activeCenter = AppCenterDestination.BACKOFFICE
+                                                        activeCenterModule = "Operations Summary"
+                                                    }
+                                                    "/customer-support-dashboard" -> {
+                                                        activeCenter = AppCenterDestination.BACKOFFICE
+                                                        activeCenterModule = "Support Summary"
+                                                    }
+                                                    "/host-dashboard" -> {
+                                                        activeCenter = AppCenterDestination.HOST_STUDIO
+                                                        activeCenterModule = "Host Dashboard"
+                                                    }
+                                                    "/affiliate-dashboard" -> {
+                                                        activeCenter = AppCenterDestination.AFFILIATE
+                                                        activeCenterModule = "Affiliate Dashboard"
+                                                    }
+                                                    "/affiliate" -> {
+                                                        activeCenter = AppCenterDestination.AFFILIATE
+                                                        activeCenterModule = "Affiliate Portal"
+                                                    }
+                                                    "/center/backoffice" -> {
+                                                        activeCenter = AppCenterDestination.BACKOFFICE
+                                                        activeCenterModule = null
+                                                    }
+                                                    "/center/host" -> {
+                                                        activeCenter = AppCenterDestination.HOST_STUDIO
+                                                        activeCenterModule = null
+                                                    }
+                                                    "/center/affiliate" -> {
+                                                        activeCenter = AppCenterDestination.AFFILIATE
+                                                        activeCenterModule = null
+                                                    }
+                                                    else -> {
+                                                        activeCenter = AppCenterDestination.BACKOFFICE
+                                                        activeCenterModule = null
+                                                    }
                                                 }
                                             },
                                             onNavigate = { target ->
@@ -474,7 +628,13 @@ class MainActivity : ComponentActivity() {
                                                             tab = 0
                                                             exploreFlow = ExploreFlow.HOME
                                                         }
-                                                        "bookings", "checkout", "my_bookings" -> activeCenter = AppCenterDestination.BOOKINGS_CHECKOUT
+                                                        "my_bookings" -> globalScreen = GlobalScreen.MY_BOOKINGS
+                                                        "favorites" -> globalScreen = GlobalScreen.FAVORITES
+                                                        "dashboard" -> globalScreen = GlobalScreen.USER_DASHBOARD
+                                                        "tours" -> globalScreen = GlobalScreen.TOURS_BROWSE
+                                                        "transport" -> globalScreen = GlobalScreen.TRANSPORT_BROWSE
+                                                        "accommodations" -> globalScreen = GlobalScreen.ACCOMMODATIONS_BROWSE
+                                                        "bookings", "checkout" -> activeCenter = AppCenterDestination.BOOKINGS_CHECKOUT
                                                         "affiliate" -> activeCenter = AppCenterDestination.AFFILIATE
                                                         "app_store", "google_play" -> {
                                                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.merry360x.mobile"))
@@ -488,10 +648,15 @@ class MainActivity : ComponentActivity() {
                                     } else {
                                         AppCentersScreen(
                                             destination = center,
-                                            onBackToProfile = { activeCenter = null },
+                                            onBackToProfile = {
+                                                activeCenter = null
+                                                activeCenterModule = null
+                                            },
                                             api = api,
                                             userId = authState.userId,
                                             accessToken = authState.accessToken,
+                                            roles = authState.roles,
+                                            initialModule = activeCenterModule,
                                         )
                                     }
                                 }

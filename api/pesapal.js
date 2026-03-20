@@ -9,6 +9,8 @@ const PESAPAL_BASE_URL = process.env.PESAPAL_BASE_URL || "https://pay.pesapal.co
 const PESAPAL_IPN_ID = process.env.PESAPAL_IPN_ID;
 const APP_BASE_URL = process.env.APP_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://merry360x.com";
 
+let resolvedPesapalIpnId = safeStr(PESAPAL_IPN_ID, 120) || null;
+
 function json(res, status, body) {
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -57,6 +59,60 @@ async function getPesapalToken() {
   }
 
   return authData.token;
+}
+
+function extractIpnId(payload) {
+  return (
+    safeStr(payload?.ipn_id, 120) ||
+    safeStr(payload?.notification_id, 120) ||
+    safeStr(payload?.ipnId, 120) ||
+    safeStr(payload?.id, 120) ||
+    null
+  );
+}
+
+async function registerPesapalIpn(token) {
+  const listenerUrl = `${APP_BASE_URL}/api/pesapal-ipn`;
+  const registerRes = await fetch(`${PESAPAL_BASE_URL}/api/URLSetup/RegisterIPN`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      url: listenerUrl,
+      ipn_notification_type: "POST",
+    }),
+  });
+
+  const registerData = await registerRes.json().catch(() => ({}));
+  if (!registerRes.ok) {
+    const message = registerData?.message || "Unable to register Pesapal IPN URL";
+    const err = new Error(message);
+    err.providerResponse = registerData;
+    throw err;
+  }
+
+  const ipnId = extractIpnId(registerData);
+  if (!ipnId) {
+    const err = new Error("Pesapal IPN registration succeeded but no IPN ID was returned");
+    err.providerResponse = registerData;
+    throw err;
+  }
+
+  return {
+    ipnId,
+    listenerUrl,
+    providerResponse: registerData,
+  };
+}
+
+async function ensurePesapalIpnId(token) {
+  if (resolvedPesapalIpnId) return resolvedPesapalIpnId;
+  const registration = await registerPesapalIpn(token);
+  resolvedPesapalIpnId = registration.ipnId;
+  return resolvedPesapalIpnId;
 }
 
 function mapPesapalStatus(statusDescription) {
@@ -148,10 +204,6 @@ async function createBookingsForPaidCheckout(supabase, checkoutData) {
 }
 
 async function handleCreatePayment(req, res) {
-  if (!PESAPAL_IPN_ID) {
-    return json(res, 500, { error: "Pesapal IPN ID is not configured" });
-  }
-
   const {
     checkoutId,
     amount,
@@ -159,6 +211,7 @@ async function handleCreatePayment(req, res) {
     payerName,
     payerEmail,
     phoneNumber,
+    billingAddress,
     description,
     redirectUrl,
     metadata,
@@ -199,9 +252,28 @@ async function handleCreatePayment(req, res) {
     `${APP_BASE_URL}/payment-pending?checkoutId=${encodeURIComponent(checkoutId)}&provider=pesapal`;
 
   const token = await getPesapalToken();
+  const notificationId = await ensurePesapalIpnId(token);
 
   const [firstName, ...rest] = safeStr(payerName, 80).split(/\s+/).filter(Boolean);
   const lastName = rest.join(" ") || "Customer";
+  const sourceBilling =
+    (billingAddress && typeof billingAddress === "object" ? billingAddress : null) ||
+    (checkout?.metadata?.billing_address && typeof checkout.metadata.billing_address === "object"
+      ? checkout.metadata.billing_address
+      : null) ||
+    (checkout?.metadata?.guest_info?.billing_address && typeof checkout.metadata.guest_info.billing_address === "object"
+      ? checkout.metadata.guest_info.billing_address
+      : null) ||
+    {};
+
+  const billingCountry = safeStr(sourceBilling.countryCode || sourceBilling.country_code, 3).toUpperCase();
+  const billingAddressLine1 = safeStr(sourceBilling.line1 || sourceBilling.address_line_1 || sourceBilling.addressLine1, 120);
+  const billingAddressLine2 = safeStr(sourceBilling.line2 || sourceBilling.address_line_2 || sourceBilling.addressLine2, 120);
+  const billingCity = safeStr(sourceBilling.city, 80);
+  const billingPostalCode = safeStr(sourceBilling.postalCode || sourceBilling.postal_code, 40);
+  const billingPhone = safeStr(sourceBilling.phoneNumber || sourceBilling.phone_number, 30);
+  const billingFirstName = safeStr(sourceBilling.firstName || sourceBilling.first_name, 80);
+  const billingLastName = safeStr(sourceBilling.lastName || sourceBilling.last_name, 80);
 
   const orderPayload = {
     id: merchantReference,
@@ -209,12 +281,17 @@ async function handleCreatePayment(req, res) {
     amount: total,
     description: safeStr(description, 100) || "Payment for booking",
     callback_url: callbackUrl,
-    notification_id: PESAPAL_IPN_ID,
+    notification_id: notificationId,
     billing_address: {
       email_address: email,
-      phone_number: safeStr(phoneNumber, 30) || undefined,
-      first_name: firstName || "Customer",
-      last_name: lastName,
+      phone_number: billingPhone || safeStr(phoneNumber, 30) || undefined,
+      first_name: billingFirstName || firstName || "Customer",
+      last_name: billingLastName || lastName,
+      country_code: billingCountry || undefined,
+      address_line_1: billingAddressLine1 || undefined,
+      address_line_2: billingAddressLine2 || undefined,
+      city: billingCity || undefined,
+      postal_code: billingPostalCode || undefined,
     },
   };
 
@@ -408,12 +485,41 @@ export default async function handler(req, res) {
     const action = safeStr(req.body?.action, 40);
 
     if (action === "health") {
-      await getPesapalToken();
+      const token = await getPesapalToken();
+      let ipnStatus = "configured";
+      let ipnId = resolvedPesapalIpnId;
+      if (!ipnId) {
+        try {
+          ipnId = await ensurePesapalIpnId(token);
+          ipnStatus = "auto-registered";
+        } catch (ipnError) {
+          ipnStatus = "missing";
+          console.warn("Pesapal IPN check warning", ipnError?.providerResponse || ipnError);
+        }
+      }
+
       return json(res, 200, {
         success: true,
         provider: "pesapal",
         status: "ok",
         baseUrl: PESAPAL_BASE_URL,
+        ipnStatus,
+        ipnId,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    if (action === "register-ipn") {
+      const token = await getPesapalToken();
+      const registration = await registerPesapalIpn(token);
+      resolvedPesapalIpnId = registration.ipnId;
+      return json(res, 200, {
+        success: true,
+        provider: "pesapal",
+        status: "ipn-registered",
+        ipnId: registration.ipnId,
+        listenerUrl: registration.listenerUrl,
+        providerResponse: registration.providerResponse,
         timestamp: new Date().toISOString(),
       });
     }

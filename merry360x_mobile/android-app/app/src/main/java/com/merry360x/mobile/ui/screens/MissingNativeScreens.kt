@@ -324,7 +324,7 @@ fun CompleteProfileScreen(
             }
 
             if (success) {
-                Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9))) {
+                Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
                     Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Check, contentDescription = null, tint = Color(0xFF43A047))
                         Spacer(modifier = Modifier.width(8.dp))
@@ -781,7 +781,7 @@ fun NativeSupportChatScreen(
                         modifier = Modifier
                             .size(56.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFF4F4F4)),
+                            .background(Color.White),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFF9E9E9E), modifier = Modifier.size(28.dp))
@@ -801,7 +801,7 @@ fun NativeSupportChatScreen(
                     item {
                         Card(
                             shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F7F7)),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(

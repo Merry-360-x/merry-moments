@@ -219,17 +219,17 @@ fun ProfileScreen(
                     ProfileSectionHeader("Account Centers")
                     if (normalizedRoles.contains("host")) {
                         ProfileMenuItem(icon = Icons.Default.Home, title = "Host Studio") {
-                            onOpenDashboard("/host-dashboard")
+                            onOpenDashboard("/center/host")
                         }
                     }
                     if (normalizedRoles.contains("admin") || normalizedRoles.contains("financial_staff") || normalizedRoles.contains("operations_staff") || normalizedRoles.contains("customer_support")) {
                         ProfileMenuItem(icon = Icons.Default.AdminPanelSettings, title = "Backoffice Center") {
-                            onOpenDashboard("/admin")
+                            onOpenDashboard("/center/backoffice")
                         }
                     }
                     if (normalizedRoles.contains("affiliate")) {
                         ProfileMenuItem(icon = Icons.Default.Payments, title = "Affiliate Center") {
-                            onOpenDashboard("/affiliate")
+                            onOpenDashboard("/center/affiliate")
                         }
                     }
                 }
@@ -258,13 +258,13 @@ fun ProfileScreen(
             
             Spacer(modifier = Modifier.height(20.dp))
             
-            // Explore Section
-            ProfileSectionHeader("Explore")
+            // Discover Section
+            ProfileSectionHeader("Discover")
             
-            ProfileMenuItem(icon = Icons.Default.CameraAlt, title = "Travel Stories") {
+            ProfileMenuItem(icon = Icons.Default.CameraAlt, title = "Travel Stories & Inspiration") {
                 onNavigate("travel_stories")
             }
-            ProfileMenuItem(icon = Icons.Default.Payments, title = "Affiliate Program") {
+            ProfileMenuItem(icon = Icons.Default.Payments, title = "Earn with Affiliate Program") {
                 onNavigate("affiliate")
             }
 
@@ -276,7 +276,7 @@ fun ProfileScreen(
             ProfileMenuItem(icon = Icons.Default.Home, title = "My Bookings") {
                 onNavigate("my_bookings")
             }
-            ProfileMenuItem(icon = Icons.Default.Payments, title = "Checkout & Payment Status") {
+            ProfileMenuItem(icon = Icons.Default.Payments, title = "Payments & Checkout Status") {
                 onNavigate("checkout")
             }
             
@@ -300,13 +300,13 @@ fun ProfileScreen(
             
             Spacer(modifier = Modifier.height(20.dp))
             
-            // Help Section
-            ProfileSectionHeader("Help")
+            // Support Section
+            ProfileSectionHeader("Support")
             
-            ProfileMenuItem(icon = Icons.AutoMirrored.Default.Chat, title = "Let's Chat") {
+            ProfileMenuItem(icon = Icons.AutoMirrored.Default.Chat, title = "Live Chat Support") {
                 onNavigate("chat")
             }
-            ProfileMenuItem(icon = Icons.AutoMirrored.Default.Help, title = "Help Center") {
+            ProfileMenuItem(icon = Icons.AutoMirrored.Default.Help, title = "Support Center") {
                 onNavigate("help_center")
             }
             ProfileMenuItem(icon = Icons.Default.Star, title = "App Store") {

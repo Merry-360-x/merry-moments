@@ -66,11 +66,25 @@ final class ProfileViewModel: ObservableObject {
 
             let nickname = (profile?["nickname"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
             let fullName = (profile?["full_name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
-            displayName = (nickname?.isEmpty == false ? nickname : fullName)
+            var resolvedDisplayName = (nickname?.isEmpty == false ? nickname : fullName)
 
             let avatar = (profile?["avatar_url"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
             avatarURL = avatar?.isEmpty == true ? nil : avatar
-            email = profile?["email"] as? String
+            var resolvedEmail = (profile?["email"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if (resolvedDisplayName?.isEmpty != false) || (resolvedEmail?.isEmpty != false) {
+                if let identity = try? await service.fetchAuthenticatedUserIdentity() {
+                    if resolvedDisplayName?.isEmpty != false {
+                        resolvedDisplayName = identity.displayName
+                    }
+                    if resolvedEmail?.isEmpty != false {
+                        resolvedEmail = identity.email
+                    }
+                }
+            }
+
+            displayName = resolvedDisplayName
+            email = resolvedEmail
 
             // Populate editor fields
             editFullName = fullName ?? ""

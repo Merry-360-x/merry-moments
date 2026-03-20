@@ -68,6 +68,7 @@ import com.merry360x.mobile.data.Listing
 import com.merry360x.mobile.data.StoryPreview
 import com.merry360x.mobile.data.SupabaseApi
 import com.merry360x.mobile.data.CloudinaryUploader
+import com.merry360x.mobile.data.formatDisplayMoney
 import com.merry360x.mobile.theme.Coral
 import com.merry360x.mobile.viewmodel.CitySection
 import com.merry360x.mobile.viewmodel.HomeUiState
@@ -81,8 +82,11 @@ private val SoftGray = Color(0xFFF9F9F9)
 fun HomeScreen(
     uiState: HomeUiState,
     onRefresh: () -> Unit,
+    selectedCurrency: String,
+    usdRates: Map<String, Double>,
     onSelectListing: (Listing) -> Unit,
     onSearchSubmit: (destination: String, checkIn: LocalDate?, checkOut: LocalDate?, guests: Int) -> Unit = { _, _, _, _ -> },
+    onNavigate: (String) -> Unit = {},
     api: SupabaseApi? = null,
     userId: String? = null,
     accessToken: String? = null,
@@ -173,7 +177,12 @@ fun HomeScreen(
 
                 if (selectedCategory == 0 || selectedCategory == 1) {
                     uiState.citySections.forEach { section ->
-                        CitySectionComponent(section = section, onSelectListing = onSelectListing)
+                        CitySectionComponent(
+                            section = section,
+                            selectedCurrency = selectedCurrency,
+                            usdRates = usdRates,
+                            onSelectListing = onSelectListing
+                        )
                     }
                     if (uiState.citySections.isEmpty() && !uiState.loading && uiState.listings.isNotEmpty()) {
                         ContentSection(
@@ -181,6 +190,8 @@ fun HomeScreen(
                             title = "Stays",
                             listings = uiState.listings,
                             emptyText = "",
+                            selectedCurrency = selectedCurrency,
+                            usdRates = usdRates,
                             onSelectListing = onSelectListing
                         )
                     }
@@ -192,6 +203,8 @@ fun HomeScreen(
                         title = "Tours",
                         listings = uiState.tours,
                         emptyText = "No tours available yet",
+                        selectedCurrency = selectedCurrency,
+                        usdRates = usdRates,
                         onSelectListing = onSelectListing
                     )
                 }
@@ -202,6 +215,8 @@ fun HomeScreen(
                         title = "Tour Packages",
                         listings = uiState.events,
                         emptyText = "No packages available yet",
+                        selectedCurrency = selectedCurrency,
+                        usdRates = usdRates,
                         onSelectListing = onSelectListing
                     )
                 }
@@ -212,6 +227,8 @@ fun HomeScreen(
                         title = "Get Around",
                         listings = uiState.cars,
                         emptyText = "No transport available yet",
+                        selectedCurrency = selectedCurrency,
+                        usdRates = usdRates,
                         onSelectListing = onSelectListing
                     )
                 }
@@ -253,7 +270,8 @@ fun HomeScreen(
                                 .background(
                                     Brush.verticalGradient(
                                         listOf(Color.Black.copy(alpha = 0.45f), Color.Transparent, Color.Black.copy(alpha = 0.75f))
-                                    )
+                                    selectedCurrency: String,
+                                    usdRates: Map<String, Double>,
                                 )
                         )
                     } else {
@@ -358,7 +376,7 @@ fun HomeScreen(
                                 modifier = Modifier
                                     .size(36.dp)
                                     .clip(CircleShape)
-                                    .background(Color(0xFFF9F9F9))
+                                    .background(Color.White)
                                     .clickable { showCreateStory = false },
                                 contentAlignment = Alignment.Center
                             ) {
@@ -405,7 +423,7 @@ fun HomeScreen(
                             enabled = !uploadingImage && !submitting,
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF2F2F2), contentColor = Color.Black),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
                         ) {
                             if (uploadingImage) {
                                 CircularProgressIndicator(color = Color.Black, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
@@ -622,7 +640,10 @@ private fun ContentSection(
     title: String,
     listings: List<Listing>,
     emptyText: String,
-    onSelectListing: (Listing) -> Unit
+    selectedCurrency: String,
+    usdRates: Map<String, Double>,
+    onSelectListing: (Listing) -> Unit,
+    onSeeAll: () -> Unit = {}
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Row(
@@ -649,7 +670,12 @@ private fun ContentSection(
                 )
             }
             if (listings.isNotEmpty()) {
-                Text("See all", fontSize = 13.sp, color = TextSecondary)
+                Text(
+                    "See all",
+                    fontSize = 13.sp,
+                    color = TextSecondary,
+                    modifier = Modifier.clickable { onSeeAll() }
+                )
             }
         }
         if (listings.isEmpty() && emptyText.isNotBlank()) {
@@ -665,7 +691,12 @@ private fun ContentSection(
                 contentPadding = PaddingValues(horizontal = 24.dp)
             ) {
                 items(listings) { listing ->
-                    ListingCard(listing = listing, onClick = { onSelectListing(listing) })
+                    ListingCard(
+                        listing = listing,
+                        selectedCurrency = selectedCurrency,
+                        usdRates = usdRates,
+                        onClick = { onSelectListing(listing) }
+                    )
                 }
             }
         }
@@ -726,6 +757,8 @@ private fun SearchBarHero(onClick: () -> Unit) {
 @Composable
 private fun CitySectionComponent(
     section: CitySection,
+    selectedCurrency: String,
+    usdRates: Map<String, Double>,
     onSelectListing: (Listing) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -763,14 +796,24 @@ private fun CitySectionComponent(
             contentPadding = PaddingValues(horizontal = 24.dp)
         ) {
             items(section.listings) { listing ->
-                ListingCard(listing = listing, onClick = { onSelectListing(listing) })
+                ListingCard(
+                    listing = listing,
+                    selectedCurrency = selectedCurrency,
+                    usdRates = usdRates,
+                    onClick = { onSelectListing(listing) }
+                )
             }
         }
     }
 }
 
 @Composable
-private fun ListingCard(listing: Listing, onClick: () -> Unit) {
+private fun ListingCard(
+    listing: Listing,
+    selectedCurrency: String,
+    usdRates: Map<String, Double>,
+    onClick: () -> Unit,
+) {
     Box(
         modifier = Modifier
             .width(195.dp)
@@ -819,7 +862,7 @@ private fun ListingCard(listing: Listing, onClick: () -> Unit) {
                 .padding(horizontal = 8.dp, vertical = 4.dp)
         ) {
             Text(
-                "${listing.currency} ${listing.pricePerNight.toInt()}",
+                formatDisplayMoney(listing.pricePerNight, listing.currency, selectedCurrency, usdRates),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF1A1A1A)

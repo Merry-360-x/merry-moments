@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.merry360x.mobile.data.BookingRecord
+import com.merry360x.mobile.data.formatDisplayMoney
 import com.merry360x.mobile.theme.CardGray
 import com.merry360x.mobile.theme.Coral
 
@@ -45,6 +46,8 @@ fun TripCartScreen(
     bookings: List<BookingRecord> = emptyList(),
     isLoading: Boolean = false,
     errorMessage: String? = null,
+    selectedCurrency: String = "RWF",
+    usdRates: Map<String, Double> = emptyMap(),
 ) {
     var selectedTab by remember { mutableStateOf(TripTab.CART) }
     val filteredBookings = remember(selectedTab, bookings) {
@@ -112,7 +115,7 @@ fun TripCartScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(filteredBookings) { booking ->
-                            BookingTripRow(booking)
+                            BookingTripRow(booking = booking, selectedCurrency = selectedCurrency, usdRates = usdRates)
                         }
                     }
                 }
@@ -125,13 +128,13 @@ fun TripCartScreen(
 }
 
 @Composable
-private fun BookingTripRow(booking: BookingRecord) {
+private fun BookingTripRow(booking: BookingRecord, selectedCurrency: String, usdRates: Map<String, Double>) {
     Card(shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = CardGray)) {
         Column(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("Booking ${booking.id.take(8)}", fontWeight = FontWeight.SemiBold)
             Text("Status: ${booking.status}", color = Color(0xFF9E9E9E), fontSize = 13.sp)
             Row {
-                Text("${booking.currency} ${String.format(\"%,.0f\", booking.totalPrice)}", fontWeight = FontWeight.Medium)
+                Text(formatDisplayMoney(booking.totalPrice, booking.currency, selectedCurrency, usdRates), fontWeight = FontWeight.Medium)
                 Spacer(modifier = Modifier.weight(1f))
                 Text(booking.paymentStatus, color = Color(0xFF9E9E9E), fontSize = 12.sp)
             }

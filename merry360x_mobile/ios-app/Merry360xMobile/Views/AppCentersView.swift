@@ -1,4 +1,8 @@
 import SwiftUI
+import PhotosUI
+#if canImport(Charts)
+import Charts
+#endif
 
 enum AppCenterDestination: String, Identifiable {
     case backoffice
@@ -20,6 +24,14 @@ enum AppCenterDestination: String, Identifiable {
     case favorites
     case tripCart
     case completeProfile
+    case myBookings
+    case userDashboard
+    case paymentsPayouts
+    case notificationsCenter
+    case hostingSwitch
+    case manageListings
+    case hostReservations
+    case travelStories
 
     var id: String { rawValue }
 
@@ -44,38 +56,86 @@ enum AppCenterDestination: String, Identifiable {
         case .favorites: return "Favorites"
         case .tripCart: return "Trip Cart"
         case .completeProfile: return "Complete Profile"
+        case .myBookings: return "My Bookings"
+        case .userDashboard: return "Dashboard"
+        case .paymentsPayouts: return "Payments & Payouts"
+        case .notificationsCenter: return "Notifications"
+        case .hostingSwitch: return "Switch to Hosting"
+        case .manageListings: return "Manage Listings"
+        case .hostReservations: return "Your Reservations"
+        case .travelStories: return "Travel Stories"
         }
     }
 }
 
 struct AppCentersView: View {
+    @EnvironmentObject private var session: AppSessionViewModel
     let destination: AppCenterDestination
+
+    private var normalizedRoles: Set<String> {
+        Set(session.roles.map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() })
+    }
+
+    private func hasAnyRole(_ roles: [String]) -> Bool {
+        roles.contains { normalizedRoles.contains($0) }
+    }
 
     var body: some View {
         NavigationStack {
             switch destination {
             case .backoffice:
-                BackofficeCenterView()
+                if hasAnyRole(["admin", "financial_staff", "operations_staff", "customer_support"]) {
+                    BackofficeCenterView()
+                        .environmentObject(session)
+                } else {
+                    NativeAccessDeniedView(message: "You do not have access to Backoffice Center.")
+                }
             case .adminDashboard:
-                NativeAdminOverviewView()
-                    .navigationTitle("Admin Dashboard")
-                    .navigationBarTitleDisplayMode(.inline)
+                if hasAnyRole(["admin"]) {
+                    NativeAdminOverviewView()
+                        .navigationTitle("Admin Dashboard")
+                        .navigationBarTitleDisplayMode(.inline)
+                } else {
+                    NativeAccessDeniedView(message: "Admin role required.")
+                }
             case .financialDashboard:
-                NativeFinancialSummaryView()
-                    .navigationTitle("Financial Dashboard")
-                    .navigationBarTitleDisplayMode(.inline)
+                if hasAnyRole(["admin", "financial_staff"]) {
+                    NativeFinancialSummaryView()
+                        .navigationTitle("Financial Dashboard")
+                        .navigationBarTitleDisplayMode(.inline)
+                } else {
+                    NativeAccessDeniedView(message: "Financial staff role required.")
+                }
             case .operationsDashboard:
-                NativeOperationsSummaryView()
-                    .navigationTitle("Operations Dashboard")
-                    .navigationBarTitleDisplayMode(.inline)
+                if hasAnyRole(["admin", "operations_staff"]) {
+                    NativeOperationsSummaryView()
+                        .navigationTitle("Operations Dashboard")
+                        .navigationBarTitleDisplayMode(.inline)
+                } else {
+                    NativeAccessDeniedView(message: "Operations staff role required.")
+                }
             case .supportDashboard:
-                NativeSupportSummaryView()
-                    .navigationTitle("Support Dashboard")
-                    .navigationBarTitleDisplayMode(.inline)
+                if hasAnyRole(["admin", "customer_support"]) {
+                    NativeSupportSummaryView()
+                        .navigationTitle("Support Dashboard")
+                        .navigationBarTitleDisplayMode(.inline)
+                } else {
+                    NativeAccessDeniedView(message: "Customer support role required.")
+                }
             case .hostStudio:
-                HostStudioCenterView()
+                if hasAnyRole(["admin", "host"]) {
+                    HostStudioCenterView()
+                        .environmentObject(session)
+                } else {
+                    NativeAccessDeniedView(message: "Host role required.")
+                }
             case .affiliateCenter:
-                AffiliateCenterView()
+                if hasAnyRole(["admin", "affiliate"]) {
+                    AffiliateCenterView()
+                        .environmentObject(session)
+                } else {
+                    NativeAccessDeniedView(message: "Affiliate role required.")
+                }
             case .supportLegal:
                 SupportLegalCenterView()
             case .helpCenter:
@@ -148,13 +208,86 @@ struct AppCentersView: View {
                     .navigationTitle("Trip Cart")
                     .navigationBarTitleDisplayMode(.inline)
             case .completeProfile:
-                NativeCompleteProfileCenterView()
+                CompleteProfileView()
+                    .navigationTitle("Complete Profile")
+                    .navigationBarTitleDisplayMode(.inline)
+            case .myBookings:
+                MyBookingsView()
+                    .navigationTitle("My Bookings")
+                    .navigationBarTitleDisplayMode(.inline)
+            case .userDashboard:
+                UserDashboardView()
+                    .navigationTitle("Dashboard")
+                    .navigationBarTitleDisplayMode(.inline)
             case .websiteRoutes:
                 NativeWebsiteRoutesView()
                     .navigationTitle("Website Routes")
                     .navigationBarTitleDisplayMode(.inline)
+            case .paymentsPayouts:
+                BookingsCheckoutCenterView()
+                    .navigationTitle("Payments & Payouts")
+                    .navigationBarTitleDisplayMode(.inline)
+            case .notificationsCenter:
+                NativeSimpleRouteView(
+                    icon: "bell.badge",
+                    title: "Notifications",
+                    subtitle: "Manage reminders, booking updates, and system alerts from your profile."
+                )
+                .navigationTitle("Notifications")
+                .navigationBarTitleDisplayMode(.inline)
+            case .hostingSwitch:
+                if hasAnyRole(["admin", "host"]) {
+                    HostStudioCenterView()
+                        .environmentObject(session)
+                        .navigationTitle("Switch to Hosting")
+                        .navigationBarTitleDisplayMode(.inline)
+                } else {
+                    NativeAccessDeniedView(message: "Host role required.")
+                }
+            case .manageListings:
+                if hasAnyRole(["admin", "host"]) {
+                    NativeHostDashboardDetailView()
+                        .navigationTitle("Manage Listings")
+                        .navigationBarTitleDisplayMode(.inline)
+                } else {
+                    NativeAccessDeniedView(message: "Host role required.")
+                }
+            case .hostReservations:
+                if hasAnyRole(["admin", "host"]) {
+                    MyBookingsView()
+                        .navigationTitle("Your Reservations")
+                        .navigationBarTitleDisplayMode(.inline)
+                } else {
+                    NativeAccessDeniedView(message: "Host role required.")
+                }
+            case .travelStories:
+                NativeStoriesRouteView()
+                    .navigationTitle("Travel Stories")
+                    .navigationBarTitleDisplayMode(.inline)
             }
         }
+    }
+}
+
+private struct NativeAccessDeniedView: View {
+    let message: String
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "lock.shield")
+                .font(.system(size: 28, weight: .semibold))
+                .foregroundColor(AppTheme.coral)
+            Text("Access Restricted")
+                .font(.headline)
+                .foregroundColor(AppTheme.textPrimary)
+            Text(message)
+                .font(.subheadline)
+                .foregroundColor(AppTheme.textSecondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 20)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(AppTheme.appBackground)
     }
 }
 
@@ -213,6 +346,15 @@ private struct NativeWebsiteRoute: Identifiable, Hashable {
         case cookiesPage
         case connectionTest
         case placeholder
+        case accommodations
+        case toursBrowse
+        case transportBrowse
+        case searchResults
+        case myBookings
+        case favoritesList
+        case userDashboard
+        case completeProfileForm
+        case tokenReview
     }
 
     let path: String
@@ -243,18 +385,18 @@ private struct NativeWebsiteRoutesView: View {
 
         .init(path: "/auth", title: "Auth", group: "Authentication", destination: .auth, note: "Open login/signup flow."),
         .init(path: "/auth/callback", title: "Auth Callback", group: "Authentication", destination: .authCallback, note: "Handled by OAuth deep-link callback."),
-        .init(path: "/complete-profile", title: "Complete Profile", group: "Authentication", destination: .auth, note: "Shown after account creation."),
+        .init(path: "/complete-profile", title: "Complete Profile", group: "Authentication", destination: .completeProfileForm, note: "Functional profile completion with name, phone, 18+ check."),
         .init(path: "/forgot-password", title: "Forgot Password", group: "Authentication", destination: .auth, note: "Password reset request screen."),
         .init(path: "/reset-password", title: "Reset Password", group: "Authentication", destination: .auth, note: "Password reset confirmation screen."),
         .init(path: "/login", title: "Login", group: "Authentication", destination: .auth, note: "Alias to auth mode login."),
         .init(path: "/signup", title: "Signup", group: "Authentication", destination: .auth, note: "Alias to auth mode signup."),
 
-        .init(path: "/accommodations", title: "Accommodations", group: "Explore", destination: .home, note: "Rendered in Explore home feed."),
-        .init(path: "/stays", title: "Stays", group: "Explore", destination: .home, note: "Redirects to /accommodations."),
-        .init(path: "/tours", title: "Tours", group: "Explore", destination: .home, note: "Rendered in Explore category sections."),
+        .init(path: "/accommodations", title: "Accommodations", group: "Explore", destination: .accommodations, note: "Dedicated accommodations browse with filters."),
+        .init(path: "/stays", title: "Stays", group: "Explore", destination: .accommodations, note: "Redirects to /accommodations."),
+        .init(path: "/tours", title: "Tours", group: "Explore", destination: .toursBrowse, note: "Dedicated tours browse with category/duration filters."),
         .init(path: "/tours/:id", title: "Tour Details", group: "Explore", destination: .tourDetails, note: "Open from a selected tour card."),
-        .init(path: "/search", title: "Search Results", group: "Explore", destination: .home, note: "Use Explore search sheet."),
-        .init(path: "/transport", title: "Transport", group: "Explore", destination: .home, note: "Rendered in Explore transport section."),
+        .init(path: "/search", title: "Search Results", group: "Explore", destination: .searchResults, note: "Unified search across properties, tours, transport."),
+        .init(path: "/transport", title: "Transport", group: "Explore", destination: .transportBrowse, note: "Dedicated transport browse with categories."),
         .init(path: "/services", title: "Services", group: "Explore", destination: .home, note: "Redirects to home on web."),
         .init(path: "/stories", title: "Stories", group: "Explore", destination: .stories, note: "Travel stories timeline."),
         .init(path: "/create-story", title: "Create Story", group: "Explore", destination: .stories, note: "Host/admin story publishing form."),
@@ -286,10 +428,10 @@ private struct NativeWebsiteRoutesView: View {
         .init(path: "/payment-pending", title: "Payment Pending", group: "Booking", destination: .paymentPending, note: "Payment status sheet state."),
         .init(path: "/payment-failed", title: "Payment Failed", group: "Booking", destination: .paymentFailed, note: "Payment status sheet state."),
         .init(path: "/booking-success", title: "Booking Success", group: "Booking", destination: .paymentSuccess, note: "Payment status sheet state."),
-        .init(path: "/my-bookings", title: "My Bookings", group: "Booking", destination: .tripCart, note: "Upcoming/completed bookings live in Trip Cart tabs."),
+        .init(path: "/my-bookings", title: "My Bookings", group: "Booking", destination: .myBookings, note: "Full booking management with cancel, review, date change, refund."),
 
-        .init(path: "/favorites", title: "Favorites", group: "Account", destination: .wishlists, note: nil),
-        .init(path: "/dashboard", title: "User Dashboard", group: "Account", destination: .tripCart, note: "Account dashboard maps to profile + booking tabs."),
+        .init(path: "/favorites", title: "Favorites", group: "Account", destination: .favoritesList, note: "Full favorites list with remove action."),
+        .init(path: "/dashboard", title: "User Dashboard", group: "Account", destination: .userDashboard, note: "Full profile editing, stats, quick links."),
         .init(path: "/dashboard/watchlist", title: "Dashboard Watchlist", group: "Account", destination: .wishlists, note: "Redirects to /favorites."),
         .init(path: "/dashboard/trip-cart", title: "Dashboard Trip Cart", group: "Account", destination: .tripCart, note: "Redirects to /trip-cart."),
         .init(path: "/profile", title: "Profile", group: "Account", destination: .tripCart, note: "Profile/account surface in mobile tab nav."),
@@ -458,11 +600,7 @@ private struct NativeWebsiteRoutesView: View {
                 subtitle: "Host review timeline route is available as a native screen destination."
             )
         case .reviewToken:
-            NativeSimpleRouteView(
-                icon: "checkmark.seal",
-                title: "Review Submission",
-                subtitle: "Token-based review route is mapped and can be completed after booking confirmation flows."
-            )
+            TokenReviewView(token: route.path.components(separatedBy: "/").last ?? "")
         case .paymentPending:
             NativePaymentStateRouteView(
                 icon: "clock.fill",
@@ -495,6 +633,24 @@ private struct NativeWebsiteRoutesView: View {
             )
         case .placeholder:
             NativeRoutePlaceholderView(route: route)
+        case .accommodations:
+            AccommodationsBrowseView()
+        case .toursBrowse:
+            ToursBrowseView()
+        case .transportBrowse:
+            TransportBrowseView()
+        case .searchResults:
+            SearchResultsView(initialQuery: "")
+        case .myBookings:
+            MyBookingsView()
+        case .favoritesList:
+            FavoritesListView()
+        case .userDashboard:
+            UserDashboardView()
+        case .completeProfileForm:
+            CompleteProfileView()
+        case .tokenReview:
+            TokenReviewView(token: "")
         }
     }
 }
@@ -535,33 +691,78 @@ private struct NativeStoriesRouteView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 12) {
-                centerCard(title: "Travel Stories", subtitle: "Native stories feed aligned with website route structure.")
-
-                NativeInfoView(
-                    title: "Stories",
-                    subtitle: "Story publishing is fully native and uses the same backend payload as web.",
-                    bullets: [
-                        "Route parity: /stories",
-                        "Route parity: /create-story",
-                        "Shared Supabase contract"
-                    ]
+            VStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Travel Stories")
+                        .font(.title3.weight(.bold))
+                        .foregroundColor(.white)
+                    Text("Inspiration from real trips across Rwanda and beyond.")
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.92))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(18)
+                .background(
+                    LinearGradient(
+                        colors: [AppTheme.coral, Color.orange.opacity(0.85)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
                 )
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("What you will find")
+                        .font(.headline)
+                        .foregroundColor(AppTheme.textPrimary)
+
+                    storyFeatureRow(icon: "photo.stack.fill", title: "Daily highlights", subtitle: "Fresh photos and stories from recent bookings")
+                    storyFeatureRow(icon: "map.fill", title: "Local tips", subtitle: "Routes, timing, and practical notes from travelers")
+                    storyFeatureRow(icon: "sparkles", title: "Host picks", subtitle: "Best experiences recommended by trusted hosts")
+                }
+                .padding(14)
+                .background(AppTheme.cardBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Before you post")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(AppTheme.textPrimary)
+                    Text("Keep stories useful and authentic: include location details, budget hints, and respectful photos.")
+                        .font(.caption)
+                        .foregroundColor(AppTheme.textSecondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(14)
+                .background(AppTheme.cardBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
                 if canCreateStory {
-                    Button("Create Story") {
+                    Button {
                         showCreateStory = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "square.and.pencil")
+                                .font(.subheadline.weight(.semibold))
+                            Text("Create Story")
+                                .font(.headline)
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(AppTheme.coral)
+                        .clipShape(Capsule())
                     }
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .foregroundColor(.white)
-                    .background(AppTheme.coral)
-                    .clipShape(Capsule())
-                    .padding(.horizontal, 16)
+                    .buttonStyle(.plain)
+                } else {
+                    Text("Story publishing is currently available for hosts and admins.")
+                        .font(.caption)
+                        .foregroundColor(AppTheme.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 2)
                 }
             }
-            .padding(.vertical, 12)
+            .padding(16)
         }
         .background(AppTheme.appBackground)
         .sheet(isPresented: $showCreateStory) {
@@ -570,6 +771,24 @@ private struct NativeStoriesRouteView: View {
                     .environmentObject(session)
                     .navigationTitle("Create Story")
                     .navigationBarTitleDisplayMode(.inline)
+            }
+        }
+    }
+
+    private func storyFeatureRow(icon: String, title: String, subtitle: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: icon)
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(AppTheme.coral)
+                .frame(width: 20)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(AppTheme.textPrimary)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundColor(AppTheme.textSecondary)
             }
         }
     }
@@ -757,6 +976,7 @@ private struct NativeRoutePlaceholderView: View {
 }
 
 private struct BackofficeCenterView: View {
+    @EnvironmentObject private var session: AppSessionViewModel
     @State private var tab = 0
     @State private var selectedModule: BackofficeModule?
 
@@ -782,6 +1002,25 @@ private struct BackofficeCenterView: View {
         }
     }
 
+    private var normalizedRoles: Set<String> {
+        Set(session.roles.map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() })
+    }
+
+    private var dashboardModules: [BackofficeModule] {
+        if normalizedRoles.contains("admin") {
+            return [.adminOverview, .financialSummary, .operationsSummary, .supportSummary]
+        }
+        var result: [BackofficeModule] = []
+        if normalizedRoles.contains("financial_staff") { result.append(.financialSummary) }
+        if normalizedRoles.contains("operations_staff") { result.append(.operationsSummary) }
+        if normalizedRoles.contains("customer_support") { result.append(.supportSummary) }
+        return result
+    }
+
+    private var adminControlModules: [BackofficeModule] {
+        normalizedRoles.contains("admin") ? [.roles, .integrations] : []
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 14) {
@@ -793,18 +1032,21 @@ private struct BackofficeCenterView: View {
 
                 if tab == 0 {
                     centerCard(title: "Dashboards", subtitle: "Native backoffice surface for admin + staff workflows")
-                    moduleList(items: [
-                        BackofficeModule.adminOverview.title,
-                        BackofficeModule.financialSummary.title,
-                        BackofficeModule.operationsSummary.title,
-                        BackofficeModule.supportSummary.title,
-                    ]) { title in
-                        selectedModule = BackofficeModule.allCases.first(where: { $0.title == title })
+                    if dashboardModules.isEmpty {
+                        centerCard(title: "No modules available", subtitle: "Your role has no dashboard modules in this center.")
+                    } else {
+                        moduleList(items: dashboardModules.map(\.title)) { title in
+                            selectedModule = dashboardModules.first(where: { $0.title == title })
+                        }
                     }
                 } else {
                     centerCard(title: "Admin Controls", subtitle: "Native role and integration management modules")
-                    moduleList(items: [BackofficeModule.roles.title, BackofficeModule.integrations.title]) { title in
-                        selectedModule = BackofficeModule.allCases.first(where: { $0.title == title })
+                    if adminControlModules.isEmpty {
+                        centerCard(title: "Admin only", subtitle: "Role and integration controls require admin access.")
+                    } else {
+                        moduleList(items: adminControlModules.map(\.title)) { title in
+                            selectedModule = adminControlModules.first(where: { $0.title == title })
+                        }
                     }
                 }
             }
@@ -908,8 +1150,13 @@ private struct HostStudioCenterView: View {
     }
 
     var body: some View {
+        if !normalizedRoles.contains("host") && !normalizedRoles.contains("admin") {
+            NativeAccessDeniedView(message: "Host role required.")
+        } else {
         ScrollView {
             VStack(spacing: 14) {
+                centerCard(title: "Host Studio", subtitle: "Manage listings, bookings, payouts, and creation flows from one place")
+
                 Picker("Host", selection: $tab) {
                     Text("Overview").tag(0)
                     Text("Financial").tag(1)
@@ -918,39 +1165,91 @@ private struct HostStudioCenterView: View {
                 .pickerStyle(.segmented)
 
                 if tab == 0 {
-                    centerCard(title: "Host Overview", subtitle: "Listings, bookings, moderation and review operations")
-                    metricRow(label: "Listings", value: "\(model.propertiesCount)")
-                    metricRow(label: "Bookings", value: "\(model.bookingsCount)")
-                    moduleList(items: [
-                        HostStudioModule.hostDashboard.title,
-                        HostStudioModule.bookings.title,
-                        HostStudioModule.hostReviews.title,
-                    ]) { title in
-                        selectedModule = HostStudioModule.allCases.first(where: { $0.title == title })
+                    centerCard(title: "Host Overview", subtitle: "Track your operations and jump straight into daily tasks")
+
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                        DashboardStatTile(title: "Listings", value: "\(model.propertiesCount)", caption: "Published and draft")
+                        DashboardStatTile(title: "Bookings", value: "\(model.bookingsCount)", caption: "All reservations")
+                        DashboardStatTile(title: "Payouts", value: "\(model.payoutsCount)", caption: "Request records")
+                        DashboardStatTile(title: "Action", value: "Open", caption: "Manage your host tasks")
                     }
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Quick actions")
+                            .font(.headline)
+                            .foregroundColor(AppTheme.textPrimary)
+
+                        HStack(spacing: 10) {
+                            hostQuickActionButton(title: "Manage Listings", icon: "house") {
+                                selectedModule = .hostDashboard
+                            }
+                            hostQuickActionButton(title: "Bookings", icon: "calendar") {
+                                selectedModule = .bookings
+                            }
+                        }
+
+                        HStack(spacing: 10) {
+                            hostQuickActionButton(title: "Host Reviews", icon: "star.bubble") {
+                                selectedModule = .hostReviews
+                            }
+                            hostQuickActionButton(title: "Request Payout", icon: "banknote") {
+                                selectedModule = .payoutRequests
+                            }
+                        }
+                    }
+                    .padding(14)
+                    .background(AppTheme.cardBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 } else if tab == 1 {
-                    centerCard(title: "Financial", subtitle: "Host financial reports, payout workflows and reconciliations")
+                    centerCard(title: "Financial", subtitle: "Review revenue and submit payouts with fewer steps")
                     metricRow(label: "Payout Records", value: "\(model.payoutsCount)")
-                    moduleList(items: [
-                        HostStudioModule.financialReports.title,
-                        HostStudioModule.payoutRequests.title,
-                        HostStudioModule.payoutHistory.title,
-                    ]) { title in
-                        selectedModule = HostStudioModule.allCases.first(where: { $0.title == title })
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Financial tools")
+                            .font(.headline)
+                            .foregroundColor(AppTheme.textPrimary)
+
+                        moduleList(items: [
+                            HostStudioModule.financialReports.title,
+                            HostStudioModule.payoutRequests.title,
+                            HostStudioModule.payoutHistory.title,
+                        ]) { title in
+                            selectedModule = HostStudioModule.allCases.first(where: { $0.title == title })
+                        }
                     }
                 } else {
-                    centerCard(title: "Creation Flows", subtitle: "Native create flows mirrored from website routes")
-                    moduleList(items: [
-                        HostStudioModule.createProperty.title,
-                        HostStudioModule.createRoom.title,
-                        HostStudioModule.createTour.title,
-                        HostStudioModule.createTourPackage.title,
-                        HostStudioModule.createTransport.title,
-                        HostStudioModule.createCarRental.title,
-                        HostStudioModule.createAirportTransfer.title,
-                        HostStudioModule.createStory.title,
-                    ]) { title in
-                        selectedModule = HostStudioModule.allCases.first(where: { $0.title == title })
+                    centerCard(title: "Creation Flows", subtitle: "Create listings and content using the same backend contracts as web")
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Stays & Experiences")
+                            .font(.headline)
+                            .foregroundColor(AppTheme.textPrimary)
+                        moduleList(items: [
+                            HostStudioModule.createProperty.title,
+                            HostStudioModule.createRoom.title,
+                            HostStudioModule.createTour.title,
+                            HostStudioModule.createTourPackage.title,
+                        ]) { title in
+                            selectedModule = HostStudioModule.allCases.first(where: { $0.title == title })
+                        }
+
+                        Text("Transport")
+                            .font(.headline)
+                            .foregroundColor(AppTheme.textPrimary)
+                        moduleList(items: [
+                            HostStudioModule.createTransport.title,
+                            HostStudioModule.createCarRental.title,
+                            HostStudioModule.createAirportTransfer.title,
+                        ]) { title in
+                            selectedModule = HostStudioModule.allCases.first(where: { $0.title == title })
+                        }
+
+                        Text("Community")
+                            .font(.headline)
+                            .foregroundColor(AppTheme.textPrimary)
+                        moduleList(items: [HostStudioModule.createStory.title]) { title in
+                            selectedModule = HostStudioModule.allCases.first(where: { $0.title == title })
+                        }
                     }
                 }
             }
@@ -962,7 +1261,7 @@ private struct HostStudioCenterView: View {
             NavigationStack {
                 switch module {
                 case .bookings:
-                    TripCartView()
+                    MyBookingsView()
                         .environmentObject(session)
                         .navigationTitle(module.title)
                         .navigationBarTitleDisplayMode(.inline)
@@ -1038,11 +1337,43 @@ private struct HostStudioCenterView: View {
             guard let userId = session.userId else { return }
             await model.load(hostId: userId)
         }
+        }
+    }
+
+    private var normalizedRoles: Set<String> {
+        Set(session.roles.map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() })
+    }
+
+    @ViewBuilder
+    private func hostQuickActionButton(title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(AppTheme.coral)
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(AppTheme.textPrimary)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 }
 
 private struct AffiliateCenterView: View {
+    @EnvironmentObject private var session: AppSessionViewModel
+
     var body: some View {
+        if !normalizedRoles.contains("affiliate") && !normalizedRoles.contains("admin") {
+            NativeAccessDeniedView(message: "Affiliate role required.")
+        } else {
         ScrollView {
             VStack(spacing: 14) {
                 centerCard(title: "Affiliate", subtitle: "Native affiliate signup, dashboard and portal modules")
@@ -1060,6 +1391,11 @@ private struct AffiliateCenterView: View {
         }
         .background(AppTheme.appBackground)
         .navigationTitle("Affiliate Center")
+        }
+    }
+
+    private var normalizedRoles: Set<String> {
+        Set(session.roles.map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() })
     }
 }
 
@@ -1210,8 +1546,13 @@ private struct BookingsCheckoutCenterView: View {
         .sheet(item: $selectedModule) { module in
             NavigationStack {
                 switch module {
-                case .tripCart, .myBookings:
+                case .tripCart:
                     TripCartView()
+                        .environmentObject(session)
+                        .navigationTitle(module.title)
+                        .navigationBarTitleDisplayMode(.inline)
+                case .myBookings:
+                    MyBookingsView()
                         .environmentObject(session)
                         .navigationTitle(module.title)
                         .navigationBarTitleDisplayMode(.inline)
@@ -1302,7 +1643,7 @@ private func moduleList(items: [String], onTap: @escaping (String) -> Void) -> s
                 .padding(.leading, 14)
         }
     }
-    .background(Color.white)
+    .background(AppTheme.cardBackground)
     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 }
 
@@ -1318,7 +1659,7 @@ private func metricRow(label: String, value: String) -> some View {
     }
     .padding(.horizontal, 14)
     .padding(.vertical, 10)
-    .background(Color.white)
+    .background(AppTheme.cardBackground)
     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 }
 
@@ -1339,7 +1680,7 @@ private struct NativeInfoView: View {
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.white)
+            .background(AppTheme.cardBackground)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .padding(16)
@@ -1382,14 +1723,28 @@ private struct DashboardStatTile: View {
     let title: String
     let value: String
     let caption: String
+    var icon: String? = nil
+    var accentColor: Color = AppTheme.coral
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.caption)
-                .foregroundColor(AppTheme.textSecondary)
+        VStack(alignment: .leading, spacing: 8) {
+            if let icon {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(accentColor.opacity(0.12))
+                        .frame(width: 34, height: 34)
+                    Image(systemName: icon)
+                        .font(.system(size: 15))
+                        .foregroundColor(accentColor)
+                }
+            }
             Text(value)
-                .font(.headline.weight(.semibold))
+                .font(.title3.weight(.bold))
+                .foregroundColor(AppTheme.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text(title)
+                .font(.caption.weight(.medium))
                 .foregroundColor(AppTheme.textPrimary)
             Text(caption)
                 .font(.caption2)
@@ -1397,8 +1752,12 @@ private struct DashboardStatTile: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(Color.white)
+        .background(AppTheme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(accentColor.opacity(0.12), lineWidth: 1)
+        )
     }
 }
 
@@ -1436,7 +1795,7 @@ private struct DashboardSectionCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .background(Color.white)
+        .background(AppTheme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
@@ -1455,6 +1814,65 @@ private extension View {
 }
 
 private struct NativeAdminOverviewView: View {
+    private struct RevenueTrendPoint: Identifiable {
+        let id: String
+        let label: String
+        let amount: Double
+    }
+
+    private struct TrafficTrendPoint: Identifiable {
+        let id: String
+        let label: String
+        let pageViews: Double
+        let failedAttempts: Double
+    }
+
+    private struct BreakdownRow: Identifiable {
+        let id: String
+        let label: String
+        let count: Int
+        let share: Double
+    }
+
+    private struct AdminAdvancedAnalytics {
+        let confirmationRate: Double
+        let cancellationRate: Double
+        let avgLeadDays: Double
+        let repeatGuestRate: Double
+        let bookingTypeBreakdown: [BreakdownRow]
+        let paymentMethodBreakdown: [BreakdownRow]
+
+        static let empty = AdminAdvancedAnalytics(
+            confirmationRate: 0,
+            cancellationRate: 0,
+            avgLeadDays: 0,
+            repeatGuestRate: 0,
+            bookingTypeBreakdown: [],
+            paymentMethodBreakdown: []
+        )
+    }
+
+    private enum TrafficRange: String, CaseIterable {
+        case oneHour = "1h"
+        case day = "24h"
+        case week = "7d"
+        case month = "30d"
+
+        var title: String { rawValue }
+    }
+
+    private enum RevenueRange: String, CaseIterable {
+        case twelveWeeks = "12w"
+        case twelveMonths = "12m"
+
+        var title: String { rawValue }
+    }
+
+    private enum AnalyticsChart: String, CaseIterable {
+        case traffic = "traffic"
+        case revenue = "revenue"
+    }
+
     private enum AdminTab: String, CaseIterable {
         case overview = "Overview"
         case ads = "Ads"
@@ -1495,6 +1913,11 @@ private struct NativeAdminOverviewView: View {
     @State private var adminTours: [[String: Any]] = []
     @State private var adminTransport: [[String: Any]] = []
     @State private var adminAds: [[String: Any]] = []
+    @State private var analyticsChart: AnalyticsChart = .traffic
+    @State private var trafficRange: TrafficRange = .day
+    @State private var revenueRange: RevenueRange = .twelveWeeks
+    @State private var liveWebAnalytics: MobileLiveWebAnalytics?
+    @State private var webAnalyticsSeries: [MobileWebAnalyticsSeriesPoint] = []
     @State private var actionMessage: String?
     @State private var actionInFlight = false
     private let service = SupabaseService()
@@ -1550,6 +1973,8 @@ private struct NativeAdminOverviewView: View {
                     DashboardStatTile(title: "Discount Amount", value: "\(metrics.revenueCurrency) \(formatAmount(metrics.discountAmount))", caption: "Applied discounts")
                 }
                 .padding(.horizontal, 16)
+                adminOverviewAnalyticsCard
+                adminOverviewAdvancedAnalyticsCard
             case .ads:
                 contentSection(
                     title: "Banner Ad Management",
@@ -1687,6 +2112,7 @@ private struct NativeAdminOverviewView: View {
                     let id = text(row["id"], fallback: "")
                     let title = text(row["title"], fallback: "Tour")
                     let published = (row["is_published"] as? Bool) == true
+                    let source = text(row["source"], fallback: "tours")
                     return AnyView(
                         HStack(spacing: 10) {
                             Text(title)
@@ -1694,7 +2120,7 @@ private struct NativeAdminOverviewView: View {
                                 .foregroundColor(AppTheme.textPrimary)
                             Spacer()
                             Button(published ? "Unpublish" : "Publish") {
-                                Task { await updateTourPublishStatus(id: id, publish: !published) }
+                                Task { await updateTourPublishStatus(id: id, publish: !published, source: source) }
                             }
                             .dashboardActionStyle(prominent: !published)
                         }
@@ -1950,14 +2376,14 @@ private struct NativeAdminOverviewView: View {
                 )
                 liveRowsCard(items: affiliateRows.prefix(12).map { row in
                     let affiliateId = text(row["id"], fallback: "Affiliate")
-                    let code = text(row["affiliate_code"], fallback: "-")
+                    let code = text(row["referral_code"], fallback: text(row["affiliate_code"], fallback: "-"))
                     let status = text(row["status"], fallback: "active").capitalized
                     let date = prettyDate(row["created_at"] as? String)
                     return "\(affiliateId.prefix(8))... • \(code) • \(status) • \(date)"
                 }, empty: "No affiliate rows found.")
                 actionRowsCard(title: "Affiliate Actions", rows: affiliateRows.prefix(6).map { row in
                     let id = text(row["id"], fallback: "")
-                    let code = text(row["affiliate_code"], fallback: "-")
+                    let code = text(row["referral_code"], fallback: text(row["affiliate_code"], fallback: "-"))
                     let status = text(row["status"], fallback: "active").lowercased()
                     return AnyView(
                         HStack(spacing: 10) {
@@ -1991,25 +2417,42 @@ private struct NativeAdminOverviewView: View {
     }
 
     private func liveRowsCard(items: [String], empty: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 0) {
             if items.isEmpty {
-                Text(empty)
-                    .font(.caption)
-                    .foregroundColor(AppTheme.textSecondary)
-            } else {
-                ForEach(Array(items.enumerated()), id: \.offset) { _, line in
-                    Text(line)
+                HStack(spacing: 8) {
+                    Image(systemName: "tray")
                         .font(.caption)
-                        .foregroundColor(AppTheme.textPrimary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.vertical, 6)
-                    Divider()
+                        .foregroundColor(AppTheme.textSecondary)
+                    Text(empty)
+                        .font(.caption)
+                        .foregroundColor(AppTheme.textSecondary)
+                }
+                .padding(14)
+            } else {
+                ForEach(Array(items.enumerated()), id: \.offset) { index, line in
+                    HStack(alignment: .top, spacing: 10) {
+                        Text("\(index + 1)")
+                            .font(.caption2.weight(.bold))
+                            .foregroundColor(AppTheme.textSecondary)
+                            .frame(width: 20, height: 20)
+                            .background(Color(uiColor: .systemGray6))
+                            .clipShape(Circle())
+                        Text(line)
+                            .font(.caption)
+                            .foregroundColor(AppTheme.textPrimary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(index % 2 == 0 ? Color.white : Color(uiColor: .systemGray6).opacity(0.4))
+                    if index < items.count - 1 {
+                        Divider().padding(.leading, 14)
+                    }
                 }
             }
         }
-        .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
+        .background(AppTheme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .padding(.horizontal, 16)
     }
@@ -2033,7 +2476,7 @@ private struct NativeAdminOverviewView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
+        .background(AppTheme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .padding(.horizontal, 16)
     }
@@ -2063,53 +2506,387 @@ private struct NativeAdminOverviewView: View {
         loading = true
         errorMessage = nil
         do {
-            async let adminTask = service.fetchAdminOverviewMetrics()
-            async let financialTask = service.fetchFinancialSummary()
-            async let operationsTask = service.fetchOperationsSummary()
-            async let supportTask = service.fetchSupportSummary()
-            async let usersTask = service.fetchAdminUsers()
-            async let applicationsTask = service.fetchAdminHostApplications()
-            async let bookingsTask = service.fetchAdminBookings()
-            async let paymentsTask = service.fetchAdminPayments()
-            async let payoutsTask = service.fetchAdminPayouts()
-            async let supportRowsTask = service.fetchAdminSupportTickets()
-            async let reviewsTask = service.fetchAdminPropertyReviews()
-            async let legalTask = service.fetchAdminLegalContent()
-            async let affiliatesTask = service.fetchAdminAffiliates()
-            async let propertiesTask = service.fetchAdminProperties()
-            async let toursTask = service.fetchAdminTours()
-            async let transportTask = service.fetchAdminTransportServices()
-            metrics = try await adminTask
-            financial = try await financialTask
-            operations = try await operationsTask
-            support = try await supportTask
-            adminUsers = try await usersTask
-            hostApplications = try await applicationsTask
-            recentBookings = try await bookingsTask
-            recentPayments = try await paymentsTask
-            recentPayouts = try await payoutsTask
-            recentSupportTickets = try await supportRowsTask
-            recentReviews = try await reviewsTask
-            legalContentRows = try await legalTask
-            affiliateRows = try await affiliatesTask
-            adminProperties = try await propertiesTask
-            adminTours = try await toursTask
-            adminTransport = try await transportTask
-
-            // Keep ads optional because some deployments do not have banner table.
-            do {
-                adminAds = try await service.fetchAdminAds()
-            } catch {
-                adminAds = []
-            }
+            metrics = try await service.fetchAdminOverviewMetrics()
         } catch {
+            metrics = .empty
             errorMessage = error.localizedDescription
         }
+
+        financial = try? await service.fetchFinancialSummary()
+        operations = try? await service.fetchOperationsSummary()
+        support = try? await service.fetchSupportSummary()
+        adminUsers = (try? await service.fetchAdminUsers()) ?? []
+        hostApplications = (try? await service.fetchAdminHostApplications()) ?? []
+        recentBookings = (try? await service.fetchAdminBookings()) ?? []
+        recentPayments = (try? await service.fetchAdminPayments()) ?? []
+        recentPayouts = (try? await service.fetchAdminPayouts()) ?? []
+        recentSupportTickets = (try? await service.fetchAdminSupportTickets()) ?? []
+        recentReviews = (try? await service.fetchAdminPropertyReviews()) ?? []
+        legalContentRows = (try? await service.fetchAdminLegalContent()) ?? []
+        affiliateRows = (try? await service.fetchAdminAffiliates()) ?? []
+        adminProperties = (try? await service.fetchAdminProperties()) ?? []
+        adminTours = (try? await service.fetchAdminTours()) ?? []
+        adminTransport = (try? await service.fetchAdminTransportServices()) ?? []
+        adminAds = (try? await service.fetchAdminAds()) ?? []
+        liveWebAnalytics = try? await service.fetchAdminWebAnalyticsLive(windowMinutes: 15)
+        webAnalyticsSeries = (try? await service.fetchAdminWebAnalyticsSeries(range: trafficRange.rawValue)) ?? []
         loading = false
     }
 
     private func formatAmount(_ value: Double) -> String {
         NumberFormatter.localizedString(from: NSNumber(value: value), number: .decimal)
+    }
+
+    private var revenueTrendPoints: [RevenueTrendPoint] {
+        let calendar = Calendar.current
+        let now = Date()
+        var buckets: [(key: Date, label: String, amount: Double)] = []
+
+        if revenueRange == .twelveMonths {
+            for offset in stride(from: 11, through: 0, by: -1) {
+                guard let monthDate = calendar.date(byAdding: .month, value: -offset, to: now),
+                      let startOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: monthDate)) else {
+                    continue
+                }
+                let label = DateFormatter.localizedString(from: startOfMonth, dateStyle: .short, timeStyle: .none)
+                buckets.append((key: startOfMonth, label: label, amount: 0))
+            }
+        } else {
+            for offset in stride(from: 11, through: 0, by: -1) {
+                guard let weekDate = calendar.date(byAdding: .weekOfYear, value: -offset, to: now),
+                      let startOfWeek = calendar.dateInterval(of: .weekOfYear, for: weekDate)?.start else {
+                    continue
+                }
+                let label = DateFormatter.localizedString(from: startOfWeek, dateStyle: .short, timeStyle: .none)
+                buckets.append((key: startOfWeek, label: label, amount: 0))
+            }
+        }
+
+        for row in recentBookings {
+            let paymentStatus = text(row["payment_status"], fallback: "").lowercased()
+            if paymentStatus != "paid" { continue }
+
+            guard let createdAt = row["created_at"] as? String,
+                  let date = parseISODate(createdAt) else {
+                continue
+            }
+
+            let normalizedDate: Date?
+            if revenueRange == .twelveMonths {
+                normalizedDate = calendar.date(from: calendar.dateComponents([.year, .month], from: date))
+            } else {
+                normalizedDate = calendar.dateInterval(of: .weekOfYear, for: date)?.start
+            }
+            guard let normalizedDate else { continue }
+
+            guard let index = buckets.firstIndex(where: {
+                if revenueRange == .twelveMonths {
+                    return calendar.isDate($0.key, equalTo: normalizedDate, toGranularity: .month)
+                }
+                return calendar.isDate($0.key, equalTo: normalizedDate, toGranularity: .weekOfYear)
+            }) else {
+                continue
+            }
+            buckets[index].amount += number(row["total_price"])
+        }
+
+        return buckets.map { bucket in
+            RevenueTrendPoint(id: "\(bucket.key.timeIntervalSince1970)", label: bucket.label, amount: bucket.amount)
+        }
+    }
+
+    private var trafficTrendPoints: [TrafficTrendPoint] {
+        webAnalyticsSeries.enumerated().map { index, point in
+            let label = formattedTrafficBucket(point.bucket)
+            return TrafficTrendPoint(
+                id: "\(point.bucket)-\(index)",
+                label: label,
+                pageViews: Double(point.pageViews),
+                failedAttempts: Double(point.failedAttempts)
+            )
+        }
+    }
+
+    private var adminAdvancedAnalytics: AdminAdvancedAnalytics {
+        if recentBookings.isEmpty {
+            return .empty
+        }
+
+        var totalBookings = 0
+        var confirmedOrCompleted = 0
+        var cancelled = 0
+
+        var leadDaysSum: Double = 0
+        var leadDaysCount = 0
+
+        var guestBookingCounts: [String: Int] = [:]
+        var bookingTypeCounts: [String: Int] = [:]
+        var paymentMethodCounts: [String: Int] = [:]
+        var paidBookings = 0
+
+        for booking in recentBookings {
+            totalBookings += 1
+
+            let status = text(booking["status"], fallback: "").lowercased()
+            let paymentStatus = text(booking["payment_status"], fallback: "").lowercased()
+            if status == "confirmed" || status == "completed" {
+                confirmedOrCompleted += 1
+            }
+            if status == "cancelled" {
+                cancelled += 1
+            }
+
+            if let createdAtRaw = booking["created_at"] as? String,
+               let checkInRaw = booking["check_in"] as? String,
+               let createdAt = parseISODate(createdAtRaw),
+               let checkIn = parseISODate(checkInRaw) {
+                let diff = checkIn.timeIntervalSince(createdAt) / 86_400
+                if diff >= 0 {
+                    leadDaysSum += diff
+                    leadDaysCount += 1
+                }
+            }
+
+            let guestKey = text(booking["guest_id"], fallback: "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if !guestKey.isEmpty {
+                guestBookingCounts[guestKey, default: 0] += 1
+            }
+
+            var bookingType = text(booking["booking_type"], fallback: "").lowercased()
+            if bookingType.isEmpty {
+                if booking["property_id"] != nil {
+                    bookingType = "property"
+                } else if booking["tour_id"] != nil {
+                    bookingType = "tour"
+                } else if booking["transport_id"] != nil {
+                    bookingType = "transport"
+                } else {
+                    bookingType = "other"
+                }
+            }
+            bookingTypeCounts[bookingType, default: 0] += 1
+
+            if paymentStatus == "paid" {
+                paidBookings += 1
+                let method = text(booking["payment_method"], fallback: "unknown").lowercased()
+                paymentMethodCounts[method, default: 0] += 1
+            }
+        }
+
+        let uniqueGuests = guestBookingCounts.count
+        let repeatGuests = guestBookingCounts.values.filter { $0 > 1 }.count
+
+        let bookingTypeBreakdown = bookingTypeCounts
+            .map { key, value in
+                BreakdownRow(
+                    id: "type-\(key)",
+                    label: key,
+                    count: value,
+                    share: totalBookings > 0 ? (Double(value) / Double(totalBookings)) * 100 : 0
+                )
+            }
+            .sorted { $0.count > $1.count }
+
+        let paymentMethodBreakdown = paymentMethodCounts
+            .map { key, value in
+                BreakdownRow(
+                    id: "pay-\(key)",
+                    label: key,
+                    count: value,
+                    share: paidBookings > 0 ? (Double(value) / Double(paidBookings)) * 100 : 0
+                )
+            }
+            .sorted { $0.count > $1.count }
+
+        return AdminAdvancedAnalytics(
+            confirmationRate: totalBookings > 0 ? (Double(confirmedOrCompleted) / Double(totalBookings)) * 100 : 0,
+            cancellationRate: totalBookings > 0 ? (Double(cancelled) / Double(totalBookings)) * 100 : 0,
+            avgLeadDays: leadDaysCount > 0 ? leadDaysSum / Double(leadDaysCount) : 0,
+            repeatGuestRate: uniqueGuests > 0 ? (Double(repeatGuests) / Double(uniqueGuests)) * 100 : 0,
+            bookingTypeBreakdown: bookingTypeBreakdown,
+            paymentMethodBreakdown: paymentMethodBreakdown
+        )
+    }
+
+    @ViewBuilder
+    private var adminOverviewAnalyticsCard: some View {
+#if canImport(Charts)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Live Traffic")
+                        .font(.headline)
+                        .foregroundColor(AppTheme.textPrimary)
+                    Text("Switch between traffic and revenue analytics")
+                        .font(.caption)
+                        .foregroundColor(AppTheme.textSecondary)
+                }
+                Spacer()
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    Button("Traffic") {
+                        analyticsChart = .traffic
+                    }
+                    .dashboardActionStyle(prominent: analyticsChart == .traffic)
+
+                    Button("Revenue") {
+                        analyticsChart = .revenue
+                    }
+                    .dashboardActionStyle(prominent: analyticsChart == .revenue)
+                }
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    if analyticsChart == .traffic {
+                        ForEach(TrafficRange.allCases, id: \.self) { range in
+                            Button(range.title) {
+                                Task {
+                                    trafficRange = range
+                                    if let service {
+                                        webAnalyticsSeries = (try? await service.fetchAdminWebAnalyticsSeries(range: range.rawValue)) ?? []
+                                    } else {
+                                        webAnalyticsSeries = []
+                                    }
+                                }
+                            }
+                            .dashboardActionStyle(prominent: trafficRange == range)
+                        }
+                    } else {
+                        ForEach(RevenueRange.allCases, id: \.self) { range in
+                            Button(range.title) {
+                                revenueRange = range
+                            }
+                            .dashboardActionStyle(prominent: revenueRange == range)
+                        }
+                    }
+                }
+            }
+
+            if analyticsChart == .traffic {
+                let visitors = liveWebAnalytics?.liveVisitors ?? 0
+                let hosts = liveWebAnalytics?.liveHosts ?? 0
+                let guests = liveWebAnalytics?.liveGuests ?? 0
+                let failures = liveWebAnalytics?.failedAttempts ?? 0
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                    DashboardStatTile(title: "Visitors", value: "\(visitors)", caption: "Last 15 minutes")
+                    DashboardStatTile(title: "Hosts", value: "\(hosts)", caption: "Last 15 minutes")
+                    DashboardStatTile(title: "Guests", value: "\(guests)", caption: "Last 15 minutes")
+                    DashboardStatTile(title: "Failed Attempts", value: "\(failures)", caption: "Last 15 minutes")
+                }
+
+                if trafficTrendPoints.isEmpty {
+                    Text("No traffic analytics yet for this range.")
+                        .font(.caption)
+                        .foregroundColor(AppTheme.textSecondary)
+                } else {
+                    Chart(trafficTrendPoints) { point in
+                        AreaMark(
+                            x: .value("Bucket", point.label),
+                            y: .value("Page Views", point.pageViews)
+                        )
+                        .foregroundStyle(AppTheme.coral.opacity(0.2))
+
+                        LineMark(
+                            x: .value("Bucket", point.label),
+                            y: .value("Page Views", point.pageViews)
+                        )
+                        .foregroundStyle(AppTheme.coral)
+
+                        AreaMark(
+                            x: .value("Bucket", point.label),
+                            y: .value("Failed Attempts", point.failedAttempts)
+                        )
+                        .foregroundStyle(Color.red.opacity(0.12))
+
+                        LineMark(
+                            x: .value("Bucket", point.label),
+                            y: .value("Failed Attempts", point.failedAttempts)
+                        )
+                        .foregroundStyle(Color.red.opacity(0.9))
+                    }
+                    .frame(height: 190)
+                }
+            } else {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                    DashboardStatTile(title: "Revenue (Gross)", value: "\(metrics.revenueCurrency) \(formatAmount(metrics.revenueGross))", caption: "Paid bookings")
+                    DashboardStatTile(title: "Platform Earnings", value: "\(metrics.revenueCurrency) \(formatAmount(metrics.platformCharges))", caption: "Charges")
+                    DashboardStatTile(title: "Host Earnings", value: "\(metrics.revenueCurrency) \(formatAmount(metrics.hostNet))", caption: "Net")
+                    DashboardStatTile(title: "Discount Total", value: "\(metrics.revenueCurrency) \(formatAmount(metrics.discountAmount))", caption: "Applied")
+                }
+
+                Chart(revenueTrendPoints) { point in
+                    AreaMark(
+                        x: .value("Bucket", point.label),
+                        y: .value("Revenue", point.amount)
+                    )
+                    .foregroundStyle(AppTheme.coral.opacity(0.2))
+
+                    LineMark(
+                        x: .value("Bucket", point.label),
+                        y: .value("Revenue", point.amount)
+                    )
+                    .foregroundStyle(AppTheme.coral)
+                }
+                .frame(height: 190)
+            }
+        }
+        .padding(14)
+        .background(AppTheme.cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(.horizontal, 16)
+#else
+        EmptyView()
+#endif
+    }
+
+    @ViewBuilder
+    private var adminOverviewAdvancedAnalyticsCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Advanced Business Analytics")
+                .font(.headline)
+                .foregroundColor(AppTheme.textPrimary)
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                DashboardStatTile(title: "Confirmation Rate", value: "\(String(format: "%.1f", adminAdvancedAnalytics.confirmationRate))%", caption: "Confirmed/completed")
+                DashboardStatTile(title: "Cancellation Rate", value: "\(String(format: "%.1f", adminAdvancedAnalytics.cancellationRate))%", caption: "Cancelled")
+                DashboardStatTile(title: "Avg Lead Time", value: "\(String(format: "%.1f", adminAdvancedAnalytics.avgLeadDays))d", caption: "Days")
+                DashboardStatTile(title: "Repeat Guest Rate", value: "\(String(format: "%.1f", adminAdvancedAnalytics.repeatGuestRate))%", caption: "Returning guests")
+            }
+
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Booking Type Mix")
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(AppTheme.textSecondary)
+                    ForEach(adminAdvancedAnalytics.bookingTypeBreakdown.prefix(4)) { row in
+                        Text("\(row.label.capitalized): \(row.count) (\(String(format: "%.1f", row.share))%)")
+                            .font(.caption2)
+                            .foregroundColor(AppTheme.textPrimary)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Paid Method Mix")
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(AppTheme.textSecondary)
+                    ForEach(adminAdvancedAnalytics.paymentMethodBreakdown.prefix(4)) { row in
+                        Text("\(row.label.capitalized): \(row.count) (\(String(format: "%.1f", row.share))%)")
+                            .font(.caption2)
+                            .foregroundColor(AppTheme.textPrimary)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(14)
+        .background(AppTheme.cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(.horizontal, 16)
     }
 
     private func text(_ any: Any?, fallback: String) -> String {
@@ -2136,6 +2913,27 @@ private struct NativeAdminOverviewView: View {
     private func prettyDate(_ value: String?) -> String {
         guard let value, let date = ISO8601DateFormatter().date(from: value) else { return "-" }
         return DateFormatter.localizedString(from: date, dateStyle: .short, timeStyle: .none)
+    }
+
+    private func formattedTrafficBucket(_ value: String) -> String {
+        guard let date = parseISODate(value) else { return value }
+        switch trafficRange {
+        case .oneHour:
+            return DateFormatter.localizedString(from: date, dateStyle: .none, timeStyle: .short)
+        case .day:
+            return DateFormatter.localizedString(from: date, dateStyle: .none, timeStyle: .short)
+        case .week, .month:
+            return DateFormatter.localizedString(from: date, dateStyle: .short, timeStyle: .none)
+        }
+    }
+
+    private func parseISODate(_ value: String) -> Date? {
+        let formatterWithFractional = ISO8601DateFormatter()
+        formatterWithFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatterWithFractional.date(from: value) {
+            return date
+        }
+        return ISO8601DateFormatter().date(from: value)
     }
 
     private func updateApplicationStatus(id: String, status: String) async {
@@ -2216,13 +3014,18 @@ private struct NativeAdminOverviewView: View {
         }
     }
 
-    private func updateTourPublishStatus(id: String, publish: Bool) async {
+    private func updateTourPublishStatus(id: String, publish: Bool, source: String) async {
         guard !id.isEmpty, let service else { return }
         actionInFlight = true
         defer { actionInFlight = false }
         do {
-            try await service.setTourPublished(tourId: id, isPublished: publish)
-            actionMessage = publish ? "Tour published." : "Tour unpublished."
+            if source == "tour_packages" {
+                try await service.setTourPackagePublished(packageId: id, isPublished: publish)
+                actionMessage = publish ? "Tour package published." : "Tour package unpublished."
+            } else {
+                try await service.setTourPublished(tourId: id, isPublished: publish)
+                actionMessage = publish ? "Tour published." : "Tour unpublished."
+            }
             await load()
         } catch {
             actionMessage = error.localizedDescription
@@ -2283,6 +3086,44 @@ private struct NativeAdminOverviewView: View {
 }
 
 private struct NativeFinancialSummaryView: View {
+    private struct RevenueTrendPoint: Identifiable {
+        let id: String
+        let label: String
+        let revenue: Double
+    }
+
+    private struct StatusBreakdownRow: Identifiable {
+        let id: String
+        let title: String
+        let count: Int
+        let share: Double
+    }
+
+    private enum RevenueRange: String, CaseIterable {
+        case twelveWeeks = "12w"
+        case twelveMonths = "12m"
+
+        var title: String { rawValue }
+    }
+
+    private enum BookingFilter: String, CaseIterable {
+        case all = "all"
+        case pending = "pending"
+        case confirmed = "confirmed"
+        case paid = "paid"
+        case cancelled = "cancelled"
+
+        var title: String {
+            switch self {
+            case .all: return "All"
+            case .pending: return "Pending"
+            case .confirmed: return "Confirmed"
+            case .paid: return "Paid"
+            case .cancelled: return "Cancelled"
+            }
+        }
+    }
+
     private enum FinancialTab: String, CaseIterable {
         case overview = "Overview"
         case bookings = "All Bookings"
@@ -2294,6 +3135,9 @@ private struct NativeFinancialSummaryView: View {
     @State private var loading = false
     @State private var errorMessage: String?
     @State private var summary: MobileFinancialSummary?
+    @State private var revenueRange: RevenueRange = .twelveWeeks
+    @State private var bookingFilter: BookingFilter = .all
+    @State private var bookingSearch: String = ""
     @State private var recentBookings: [[String: Any]] = []
     @State private var recentPayouts: [[String: Any]] = []
     private let service = SupabaseService()
@@ -2325,20 +3169,25 @@ private struct NativeFinancialSummaryView: View {
                             DashboardStatTile(title: "Paid Bookings", value: "\(summary.paid)", caption: "Successfully paid")
                             DashboardStatTile(title: "Pending Payments", value: "\(summary.pending)", caption: "Awaiting payment")
                             DashboardStatTile(title: "Confirmed", value: "\(summary.confirmed)", caption: "Confirmed bookings")
+                            DashboardStatTile(title: "Revenue Gross", value: money(summary.revenueGross, currency: summary.revenueByCurrency.first?.currency ?? "RWF"), caption: "Total" )
+                            DashboardStatTile(title: "Refunded", value: "\(summary.refundedCheckoutRequests)", caption: "Refund records")
                         }
                         .padding(.horizontal, 16)
+                        financialRevenueAnalyticsCard
+                        financialPaymentStatusBreakdownCard
                         DashboardSectionCard(title: "Recent Paid Bookings", subtitle: "Latest successful payments", columns: ["Date", "Amount", "Status"])
                             .padding(.horizontal, 16)
                         rowsList(items: recentBookings.filter { text($0["payment_status"]).lowercased() == "paid" }.prefix(5).map { row in
                             "\(prettyDate(row["created_at"] as? String)) • \(money(row["total_price"], currency: text(row["currency"]))) • \(text(row["status"]).capitalized)"
                         }, empty: "No paid bookings yet.")
                     case .bookings:
+                        financialBookingsFilterBar
                         DashboardSectionCard(title: "All Bookings", subtitle: "Complete booking history with status filters", columns: ["Booking ID", "Amount", "Payment", "Status", "Date"])
                             .padding(.horizontal, 16)
-                        rowsList(items: recentBookings.prefix(15).map { row in
+                        rowsList(items: filteredBookings.prefix(30).map { row in
                             let booking = text(row["order_id"]).isEmpty ? text(row["id"]) : text(row["order_id"])
                             return "\(booking) • \(money(row["total_price"], currency: text(row["currency"]))) • \(text(row["payment_status"]).capitalized) • \(text(row["status"]).capitalized) • \(prettyDate(row["created_at"] as? String))"
-                        }, empty: "No bookings found.")
+                        }, empty: "No bookings found for current filters.")
                     case .payouts:
                         DashboardSectionCard(title: "Host Payouts", subtitle: "Pending and completed host payout requests", columns: ["Host", "Amount", "Method", "Status", "Requested"])
                             .padding(.horizontal, 16)
@@ -2352,6 +3201,9 @@ private struct NativeFinancialSummaryView: View {
                             columns: ["Currency", "Gross", "Charges", "Net", "Bookings"]
                         )
                         .padding(.horizontal, 16)
+                        rowsList(items: summary.revenueByCurrency.map { row in
+                            "\(row.currency) • \(money(row.amount, currency: row.currency))"
+                        }, empty: "No revenue totals available.")
                     }
                 }
             }
@@ -2373,25 +3225,268 @@ private struct NativeFinancialSummaryView: View {
         }
     }
 
-    private func rowsList(items: [String], empty: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if items.isEmpty {
-                Text(empty)
-                    .font(.caption)
-                    .foregroundColor(AppTheme.textSecondary)
+    private var filteredBookings: [[String: Any]] {
+        let search = bookingSearch.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return recentBookings.filter { row in
+            let status = text(row["status"]).lowercased()
+            let paymentStatus = text(row["payment_status"]).lowercased()
+
+            let matchesFilter: Bool
+            switch bookingFilter {
+            case .all:
+                matchesFilter = true
+            case .pending:
+                matchesFilter = status == "pending" || status == "pending_confirmation" || paymentStatus == "unpaid"
+            case .confirmed:
+                matchesFilter = status == "confirmed"
+            case .paid:
+                matchesFilter = paymentStatus == "paid"
+            case .cancelled:
+                matchesFilter = status == "cancelled" || paymentStatus == "refunded"
+            }
+
+            if !matchesFilter { return false }
+            if search.isEmpty { return true }
+
+            let bookingId = text(row["id"]).lowercased()
+            let orderId = text(row["order_id"]).lowercased()
+            let email = text(row["guest_email"]).lowercased()
+            let name = text(row["guest_name"]).lowercased()
+            return bookingId.contains(search) || orderId.contains(search) || email.contains(search) || name.contains(search)
+        }
+    }
+
+    private var paymentStatusBreakdown: [StatusBreakdownRow] {
+        let total = recentBookings.count
+        if total == 0 { return [] }
+
+        let paid = recentBookings.filter { text($0["payment_status"]).lowercased() == "paid" }.count
+        let unpaid = recentBookings.filter { text($0["payment_status"]).lowercased() == "unpaid" }.count
+        let refunded = recentBookings.filter { text($0["payment_status"]).lowercased() == "refunded" }.count
+        let pending = recentBookings.filter {
+            let status = text($0["status"]).lowercased()
+            return status == "pending" || status == "pending_confirmation"
+        }.count
+
+        let rows = [
+            ("Paid", paid),
+            ("Unpaid", unpaid),
+            ("Refunded", refunded),
+            ("Pending", pending)
+        ]
+
+        return rows.map { title, count in
+            StatusBreakdownRow(
+                id: title.lowercased(),
+                title: title,
+                count: count,
+                share: total > 0 ? (Double(count) / Double(total)) * 100 : 0
+            )
+        }
+    }
+
+    private var revenueTrendPoints: [RevenueTrendPoint] {
+        let calendar = Calendar.current
+        let now = Date()
+        var buckets: [(key: Date, label: String, amount: Double)] = []
+
+        if revenueRange == .twelveMonths {
+            for offset in stride(from: 11, through: 0, by: -1) {
+                guard let monthDate = calendar.date(byAdding: .month, value: -offset, to: now),
+                      let startOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: monthDate)) else {
+                    continue
+                }
+                let label = DateFormatter.localizedString(from: startOfMonth, dateStyle: .short, timeStyle: .none)
+                buckets.append((key: startOfMonth, label: label, amount: 0))
+            }
+        } else {
+            for offset in stride(from: 11, through: 0, by: -1) {
+                guard let weekDate = calendar.date(byAdding: .weekOfYear, value: -offset, to: now),
+                      let startOfWeek = calendar.dateInterval(of: .weekOfYear, for: weekDate)?.start else {
+                    continue
+                }
+                let label = DateFormatter.localizedString(from: startOfWeek, dateStyle: .short, timeStyle: .none)
+                buckets.append((key: startOfWeek, label: label, amount: 0))
+            }
+        }
+
+        for row in recentBookings {
+            let paymentStatus = text(row["payment_status"]).lowercased()
+            if paymentStatus != "paid" { continue }
+
+            guard let createdAt = row["created_at"] as? String,
+                  let date = parseISODate(createdAt) else {
+                continue
+            }
+
+            let normalized: Date?
+            if revenueRange == .twelveMonths {
+                normalized = calendar.date(from: calendar.dateComponents([.year, .month], from: date))
             } else {
-                ForEach(Array(items.enumerated()), id: \.offset) { _, line in
-                    Text(line)
-                        .font(.caption)
-                        .foregroundColor(AppTheme.textPrimary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.vertical, 6)
-                    Divider()
+                normalized = calendar.dateInterval(of: .weekOfYear, for: date)?.start
+            }
+            guard let normalized else { continue }
+
+            guard let index = buckets.firstIndex(where: {
+                if revenueRange == .twelveMonths {
+                    return calendar.isDate($0.key, equalTo: normalized, toGranularity: .month)
+                }
+                return calendar.isDate($0.key, equalTo: normalized, toGranularity: .weekOfYear)
+            }) else {
+                continue
+            }
+
+            buckets[index].amount += number(row["total_price"])
+        }
+
+        return buckets.map { point in
+            RevenueTrendPoint(id: "\(point.key.timeIntervalSince1970)", label: point.label, revenue: point.amount)
+        }
+    }
+
+    private var financialBookingsFilterBar: some View {
+        VStack(spacing: 8) {
+            TextField("Search booking id, order id, email, guest", text: $bookingSearch)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled(true)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(AppTheme.cardBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(BookingFilter.allCases, id: \.self) { filter in
+                        Button(filter.title) {
+                            bookingFilter = filter
+                        }
+                        .dashboardActionStyle(prominent: bookingFilter == filter)
+                    }
                 }
             }
         }
+        .padding(.horizontal, 16)
+    }
+
+    @ViewBuilder
+    private var financialRevenueAnalyticsCard: some View {
+#if canImport(Charts)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Revenue Analytics")
+                        .font(.headline)
+                        .foregroundColor(AppTheme.textPrimary)
+                    Text("Paid-booking trend aligned with web dashboard ranges")
+                        .font(.caption)
+                        .foregroundColor(AppTheme.textSecondary)
+                }
+                Spacer()
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(RevenueRange.allCases, id: \.self) { range in
+                        Button(range.title) {
+                            revenueRange = range
+                        }
+                        .dashboardActionStyle(prominent: revenueRange == range)
+                    }
+                }
+            }
+
+            Chart(revenueTrendPoints) { point in
+                AreaMark(
+                    x: .value("Bucket", point.label),
+                    y: .value("Revenue", point.revenue)
+                )
+                .foregroundStyle(AppTheme.coral.opacity(0.2))
+
+                LineMark(
+                    x: .value("Bucket", point.label),
+                    y: .value("Revenue", point.revenue)
+                )
+                .foregroundStyle(AppTheme.coral)
+            }
+            .frame(height: 180)
+        }
         .padding(14)
-        .background(Color.white)
+        .background(AppTheme.cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(.horizontal, 16)
+#else
+        EmptyView()
+#endif
+    }
+
+    private var financialPaymentStatusBreakdownCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Payment Status Breakdown")
+                .font(.headline)
+                .foregroundColor(AppTheme.textPrimary)
+            ForEach(paymentStatusBreakdown) { row in
+                HStack(spacing: 10) {
+                    Text(row.title)
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(AppTheme.textPrimary)
+                    Spacer()
+                    Text("\(row.count)")
+                        .font(.caption)
+                        .foregroundColor(AppTheme.textPrimary)
+                    Text("(\(String(format: "%.1f", row.share))%)")
+                        .font(.caption2)
+                        .foregroundColor(AppTheme.textSecondary)
+                }
+            }
+            if paymentStatusBreakdown.isEmpty {
+                Text("No booking payment records available yet.")
+                    .font(.caption)
+                    .foregroundColor(AppTheme.textSecondary)
+            }
+        }
+        .padding(14)
+        .background(AppTheme.cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(.horizontal, 16)
+    }
+
+    private func rowsList(items: [String], empty: String) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if items.isEmpty {
+                HStack(spacing: 8) {
+                    Image(systemName: "tray")
+                        .font(.caption)
+                        .foregroundColor(AppTheme.textSecondary)
+                    Text(empty)
+                        .font(.caption)
+                        .foregroundColor(AppTheme.textSecondary)
+                }
+                .padding(14)
+            } else {
+                ForEach(Array(items.enumerated()), id: \.offset) { index, line in
+                    HStack(alignment: .top, spacing: 10) {
+                        Text("\(index + 1)")
+                            .font(.caption2.weight(.bold))
+                            .foregroundColor(AppTheme.textSecondary)
+                            .frame(width: 20, height: 20)
+                            .background(Color(uiColor: .systemGray6))
+                            .clipShape(Circle())
+                        Text(line)
+                            .font(.caption)
+                            .foregroundColor(AppTheme.textPrimary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(index % 2 == 0 ? Color.white : Color(uiColor: .systemGray6).opacity(0.4))
+                    if index < items.count - 1 {
+                        Divider().padding(.leading, 14)
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .padding(.horizontal, 16)
     }
@@ -2399,17 +3494,10 @@ private struct NativeFinancialSummaryView: View {
     private func load() async {
         guard let service else { return }
         loading = true
-        do {
-            async let summaryTask = service.fetchFinancialSummary()
-            async let bookingsTask = service.fetchAdminBookings()
-            async let payoutsTask = service.fetchAdminPayouts()
-            summary = try await summaryTask
-            recentBookings = try await bookingsTask
-            recentPayouts = try await payoutsTask
-            errorMessage = nil
-        } catch {
-            errorMessage = error.localizedDescription
-        }
+        summary = try? await service.fetchFinancialSummary()
+        recentBookings = (try? await service.fetchAdminBookings()) ?? []
+        recentPayouts = (try? await service.fetchAdminPayouts()) ?? []
+        errorMessage = nil
         loading = false
     }
 
@@ -2435,9 +3523,71 @@ private struct NativeFinancialSummaryView: View {
         guard let value, let date = ISO8601DateFormatter().date(from: value) else { return "-" }
         return DateFormatter.localizedString(from: date, dateStyle: .short, timeStyle: .none)
     }
+
+    private func parseISODate(_ value: String) -> Date? {
+        let formatterWithFractional = ISO8601DateFormatter()
+        formatterWithFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatterWithFractional.date(from: value) {
+            return date
+        }
+        return ISO8601DateFormatter().date(from: value)
+    }
 }
 
 private struct NativeOperationsSummaryView: View {
+    private struct StatusBreakdownRow: Identifiable {
+        let id: String
+        let title: String
+        let count: Int
+        let share: Double
+    }
+
+    private enum BookingFilter: String, CaseIterable {
+        case all = "all"
+        case pending = "pending"
+        case confirmed = "confirmed"
+        case paid = "paid"
+        case cancelled = "cancelled"
+
+        var title: String {
+            switch self {
+            case .all: return "All"
+            case .pending: return "Pending"
+            case .confirmed: return "Confirmed"
+            case .paid: return "Paid"
+            case .cancelled: return "Cancelled"
+            }
+        }
+    }
+
+    private enum UserDataFilter: String, CaseIterable {
+        case all = "all"
+        case collected = "collected"
+        case missing = "missing"
+
+        var title: String {
+            switch self {
+            case .all: return "All"
+            case .collected: return "Collected"
+            case .missing: return "Missing"
+            }
+        }
+    }
+
+    private enum UserDataScope: String, CaseIterable {
+        case all = "all"
+        case users = "users"
+        case hosts = "hosts"
+
+        var title: String {
+            switch self {
+            case .all: return "All"
+            case .users: return "Users"
+            case .hosts: return "Hosts"
+            }
+        }
+    }
+
     private enum OperationsTab: String, CaseIterable {
         case overview = "Overview"
         case applications = "Applications"
@@ -2453,10 +3603,16 @@ private struct NativeOperationsSummaryView: View {
     @State private var errorMessage: String?
     @State private var summary: MobileOperationsSummary?
     @State private var applications: [[String: Any]] = []
+    @State private var users: [[String: Any]] = []
     @State private var bookings: [[String: Any]] = []
     @State private var properties: [[String: Any]] = []
     @State private var tours: [[String: Any]] = []
     @State private var transport: [[String: Any]] = []
+    @State private var bookingSearch: String = ""
+    @State private var bookingFilter: BookingFilter = .all
+    @State private var userDataSearch: String = ""
+    @State private var userDataFilter: UserDataFilter = .all
+    @State private var userDataScope: UserDataScope = .all
     @State private var actionMessage: String?
     @State private var actionInFlight = false
     private let service = SupabaseService()
@@ -2494,8 +3650,14 @@ private struct NativeOperationsSummaryView: View {
                             DashboardStatTile(title: "Pending Applications", value: "\(summary.hostApplicationsPending)", caption: "Need review")
                             DashboardStatTile(title: "Properties", value: "\(summary.propertiesTotal)", caption: "Accommodation listings")
                             DashboardStatTile(title: "Tours", value: "\(summary.toursTotal)", caption: "Tour inventory")
+                            DashboardStatTile(title: "Pending Bookings", value: "\(pendingBookingsCount)", caption: "Need operations action")
+                            DashboardStatTile(title: "Confirmed Bookings", value: "\(confirmedBookingsCount)", caption: "Operationally ready")
+                            DashboardStatTile(title: "Published Stays", value: "\(publishedPropertiesCount)", caption: "Live accommodations")
+                            DashboardStatTile(title: "Published Tours", value: "\(publishedToursCount)", caption: "Live tours")
                         }
                         .padding(.horizontal, 16)
+                        operationsBookingStatusBreakdownCard
+                        operationsInventoryMixCard
                         DashboardSectionCard(
                             title: "Pending Hosts",
                             subtitle: "New hosts requiring review",
@@ -2549,20 +3711,35 @@ private struct NativeOperationsSummaryView: View {
                             columns: ["User", "Type", "Profile Pic", "ID", "Selfie", "Status", "Actions"]
                         )
                         .padding(.horizontal, 16)
+                        operationsUserDataFilterBar
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                            DashboardStatTile(title: "Rows", value: "\(userDataRows.count)", caption: "Filtered")
+                            DashboardStatTile(title: "Collected", value: "\(userDataRows.filter { (($0["is_collected"] as? Bool) == true) }.count)", caption: "Complete KYC")
+                        }
+                        .padding(.horizontal, 16)
+                        rowsList(items: userDataRows.prefix(30).map { row in
+                            let name = text(row["full_name"])
+                            let email = text(row["email"]) 
+                            let type = text(row["user_type"]).capitalized
+                            let collected = ((row["is_collected"] as? Bool) == true) ? "Collected" : "Missing"
+                            let count = Int(number(row["collected_count"]))
+                            return "\(name.isEmpty ? "User" : name) • \(email) • \(type) • \(collected) • \(count)/5 docs"
+                        }, empty: "No user data rows found for current filters.")
                     case .bookings:
+                        operationsBookingsFilterBar
                         DashboardSectionCard(
                             title: "Bookings",
                             subtitle: "Operational booking monitoring",
                             columns: ["Booking", "Guest", "Service", "Dates", "Amount", "Status", "Actions"]
                         )
                         .padding(.horizontal, 16)
-                        rowsList(items: bookings.prefix(15).map { row in
+                        rowsList(items: filteredBookings.prefix(30).map { row in
                             let booking = text(row["order_id"]).isEmpty ? text(row["id"]) : text(row["order_id"])
                             let status = text(row["status"]).capitalized
                             let amount = money(row["total_price"], currency: text(row["currency"]))
                             let date = prettyDate(row["created_at"] as? String)
                             return "\(booking) • \(status) • \(amount) • \(date)"
-                        }, empty: "No bookings found.")
+                        }, empty: "No bookings found for current filters.")
                         actionRowsCard(title: "Booking Actions", rows: bookings.prefix(6).map { row in
                             let id = text(row["id"])
                             let orderId = text(row["order_id"]) 
@@ -2633,6 +3810,7 @@ private struct NativeOperationsSummaryView: View {
                             let id = text(row["id"])
                             let title = text(row["title"])
                             let isPublished = (row["is_published"] as? Bool) == true
+                            let source = text(row["source"])
                             return AnyView(
                                 HStack {
                                     Text(title.isEmpty ? "Tour" : title)
@@ -2640,7 +3818,7 @@ private struct NativeOperationsSummaryView: View {
                                         .foregroundColor(AppTheme.textPrimary)
                                     Spacer()
                                     Button(isPublished ? "Unpublish" : "Publish") {
-                                        Task { await updateTourPublished(id: id, publish: !isPublished) }
+                                        Task { await updateTourPublished(id: id, publish: !isPublished, source: source) }
                                     }
                                     .dashboardActionStyle(prominent: !isPublished)
                                 }
@@ -2694,54 +3872,316 @@ private struct NativeOperationsSummaryView: View {
         case .applications:
             return summary.hostApplicationsPending
         case .bookings:
-            return summary.bookingsTotal
+            return pendingBookingsCount
         default:
             return nil
         }
     }
 
+    private var pendingBookingsCount: Int {
+        bookings.filter {
+            let status = text($0["status"]).lowercased()
+            return status == "pending" || status == "pending_confirmation"
+        }.count
+    }
+
+    private var confirmedBookingsCount: Int {
+        bookings.filter {
+            let status = text($0["status"]).lowercased()
+            return status == "confirmed" || status == "completed"
+        }.count
+    }
+
+    private var publishedPropertiesCount: Int {
+        properties.filter { ($0["is_published"] as? Bool) == true }.count
+    }
+
+    private var publishedToursCount: Int {
+        tours.filter { ($0["is_published"] as? Bool) == true }.count
+    }
+
+    private var publishedTransportCount: Int {
+        transport.filter { ($0["is_published"] as? Bool) == true }.count
+    }
+
+    private var filteredBookings: [[String: Any]] {
+        let query = bookingSearch.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return bookings.filter { row in
+            let status = text(row["status"]).lowercased()
+            let paymentStatus = text(row["payment_status"]).lowercased()
+
+            let matchesFilter: Bool
+            switch bookingFilter {
+            case .all:
+                matchesFilter = true
+            case .pending:
+                matchesFilter = status == "pending" || status == "pending_confirmation" || paymentStatus == "unpaid"
+            case .confirmed:
+                matchesFilter = status == "confirmed" || status == "completed"
+            case .paid:
+                matchesFilter = paymentStatus == "paid"
+            case .cancelled:
+                matchesFilter = status == "cancelled" || paymentStatus == "refunded"
+            }
+
+            if !matchesFilter { return false }
+            if query.isEmpty { return true }
+
+            let bookingId = text(row["id"]).lowercased()
+            let orderId = text(row["order_id"]).lowercased()
+            let email = text(row["guest_email"]).lowercased()
+            let name = text(row["guest_name"]).lowercased()
+            return bookingId.contains(query) || orderId.contains(query) || email.contains(query) || name.contains(query)
+        }
+    }
+
+    private var bookingStatusBreakdownRows: [StatusBreakdownRow] {
+        let total = bookings.count
+        if total == 0 { return [] }
+
+        let rows = [
+            ("Pending", pendingBookingsCount),
+            ("Confirmed", confirmedBookingsCount),
+            ("Cancelled", bookings.filter { text($0["status"]).lowercased() == "cancelled" }.count),
+            ("Paid", bookings.filter { text($0["payment_status"]).lowercased() == "paid" }.count),
+        ]
+
+        return rows.map { title, count in
+            StatusBreakdownRow(
+                id: title.lowercased(),
+                title: title,
+                count: count,
+                share: total > 0 ? (Double(count) / Double(total)) * 100 : 0
+            )
+        }
+    }
+
+    private var userDataRows: [[String: Any]] {
+        var userIndex: [String: [String: Any]] = [:]
+        for row in users {
+            let userId = text(row["user_id"])
+            if !userId.isEmpty {
+                userIndex[userId] = row
+            }
+        }
+
+        var rows: [[String: Any]] = []
+        let allUserIds = Set(userIndex.keys).union(Set(applications.map { text($0["user_id"]) }.filter { !$0.isEmpty }))
+
+        for userId in allUserIds {
+            let profile = userIndex[userId]
+            let app = applications.first { text($0["user_id"]) == userId }
+
+            let fullName = text(profile?["full_name"]) .isEmpty ? text(app?["full_name"]) : text(profile?["full_name"])
+            let email = text(profile?["email"])
+            let userType = app == nil ? "user" : "host"
+
+            let avatar = text(profile?["avatar_url"])
+            let idPhoto = text(app?["national_id_photo_url"])
+            let selfie = text(app?["selfie_photo_url"])
+            let tourLicense = text(app?["tour_license_url"])
+            let rdb = text(app?["rdb_certificate_url"])
+            let collectedCount = [avatar, idPhoto, selfie, tourLicense, rdb].filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.count
+            let isCollected = !avatar.isEmpty && !idPhoto.isEmpty && !selfie.isEmpty
+
+            rows.append([
+                "user_id": userId,
+                "full_name": fullName,
+                "email": email,
+                "user_type": userType,
+                "is_collected": isCollected,
+                "collected_count": collectedCount,
+            ])
+        }
+
+        let query = userDataSearch.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return rows.filter { row in
+            let type = text(row["user_type"]).lowercased()
+            let isCollected = (row["is_collected"] as? Bool) == true
+
+            if userDataScope == .hosts && type != "host" { return false }
+            if userDataScope == .users && type != "user" { return false }
+            if userDataFilter == .collected && !isCollected { return false }
+            if userDataFilter == .missing && isCollected { return false }
+
+            if query.isEmpty { return true }
+            let name = text(row["full_name"]).lowercased()
+            let email = text(row["email"]).lowercased()
+            let userId = text(row["user_id"]).lowercased()
+            return name.contains(query) || email.contains(query) || userId.contains(query)
+        }
+        .sorted { text($0["full_name"]).lowercased() < text($1["full_name"]).lowercased() }
+    }
+
     private func load() async {
         guard let service else { return }
         loading = true
-        do {
-            async let summaryTask = service.fetchOperationsSummary()
-            async let applicationsTask = service.fetchAdminHostApplications()
-            async let bookingsTask = service.fetchAdminBookings()
-            async let propertiesTask = service.fetchAdminProperties()
-            async let toursTask = service.fetchAdminTours()
-            async let transportTask = service.fetchAdminTransportServices()
-            summary = try await summaryTask
-            applications = try await applicationsTask
-            bookings = try await bookingsTask
-            properties = try await propertiesTask
-            tours = try await toursTask
-            transport = try await transportTask
-            errorMessage = nil
-        } catch {
-            errorMessage = error.localizedDescription
-        }
+        summary = try? await service.fetchOperationsSummary()
+        applications = (try? await service.fetchAdminHostApplications()) ?? []
+        users = (try? await service.fetchAdminUsers()) ?? []
+        bookings = (try? await service.fetchAdminBookings()) ?? []
+        properties = (try? await service.fetchAdminProperties()) ?? []
+        tours = (try? await service.fetchAdminTours()) ?? []
+        transport = (try? await service.fetchAdminTransportServices()) ?? []
+        errorMessage = nil
         loading = false
     }
 
-    private func rowsList(items: [String], empty: String) -> some View {
+    private var operationsBookingsFilterBar: some View {
+        VStack(spacing: 8) {
+            TextField("Search booking id, order id, email, guest", text: $bookingSearch)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled(true)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(AppTheme.cardBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(BookingFilter.allCases, id: \.self) { filter in
+                        Button(filter.title) {
+                            bookingFilter = filter
+                        }
+                        .dashboardActionStyle(prominent: bookingFilter == filter)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+    }
+
+    private var operationsUserDataFilterBar: some View {
+        VStack(spacing: 8) {
+            TextField("Search by user id, name, email", text: $userDataSearch)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled(true)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(AppTheme.cardBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(UserDataScope.allCases, id: \.self) { scope in
+                        Button(scope.title) {
+                            userDataScope = scope
+                        }
+                        .dashboardActionStyle(prominent: userDataScope == scope)
+                    }
+                }
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(UserDataFilter.allCases, id: \.self) { filter in
+                        Button(filter.title) {
+                            userDataFilter = filter
+                        }
+                        .dashboardActionStyle(prominent: userDataFilter == filter)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+    }
+
+    private var operationsBookingStatusBreakdownCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if items.isEmpty {
-                Text(empty)
+            Text("Booking Status Breakdown")
+                .font(.headline)
+                .foregroundColor(AppTheme.textPrimary)
+
+            if bookingStatusBreakdownRows.isEmpty {
+                Text("No bookings available yet.")
                     .font(.caption)
                     .foregroundColor(AppTheme.textSecondary)
             } else {
-                ForEach(Array(items.enumerated()), id: \.offset) { _, line in
-                    Text(line)
-                        .font(.caption)
-                        .foregroundColor(AppTheme.textPrimary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.vertical, 6)
-                    Divider()
+                ForEach(bookingStatusBreakdownRows) { row in
+                    HStack(spacing: 10) {
+                        Text(row.title)
+                            .font(.caption.weight(.semibold))
+                            .foregroundColor(AppTheme.textPrimary)
+                        Spacer()
+                        Text("\(row.count)")
+                            .font(.caption)
+                            .foregroundColor(AppTheme.textPrimary)
+                        Text("(\(String(format: "%.1f", row.share))%)")
+                            .font(.caption2)
+                            .foregroundColor(AppTheme.textSecondary)
+                    }
                 }
             }
         }
         .padding(14)
-        .background(Color.white)
+        .background(AppTheme.cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(.horizontal, 16)
+    }
+
+    private var operationsInventoryMixCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Inventory Mix")
+                .font(.headline)
+                .foregroundColor(AppTheme.textPrimary)
+
+            HStack(spacing: 10) {
+                Text("Live Stays: \(publishedPropertiesCount)")
+                    .font(.caption)
+                    .foregroundColor(AppTheme.textPrimary)
+                Spacer()
+                Text("Live Tours: \(publishedToursCount)")
+                    .font(.caption)
+                    .foregroundColor(AppTheme.textPrimary)
+                Spacer()
+                Text("Live Transport: \(publishedTransportCount)")
+                    .font(.caption)
+                    .foregroundColor(AppTheme.textPrimary)
+            }
+        }
+        .padding(14)
+        .background(AppTheme.cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(.horizontal, 16)
+    }
+
+    private func rowsList(items: [String], empty: String) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if items.isEmpty {
+                HStack(spacing: 8) {
+                    Image(systemName: "tray")
+                        .font(.caption)
+                        .foregroundColor(AppTheme.textSecondary)
+                    Text(empty)
+                        .font(.caption)
+                        .foregroundColor(AppTheme.textSecondary)
+                }
+                .padding(14)
+            } else {
+                ForEach(Array(items.enumerated()), id: \.offset) { index, line in
+                    HStack(alignment: .top, spacing: 10) {
+                        Text("\(index + 1)")
+                            .font(.caption2.weight(.bold))
+                            .foregroundColor(AppTheme.textSecondary)
+                            .frame(width: 20, height: 20)
+                            .background(Color(uiColor: .systemGray6))
+                            .clipShape(Circle())
+                        Text(line)
+                            .font(.caption)
+                            .foregroundColor(AppTheme.textPrimary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(index % 2 == 0 ? Color.white : Color(uiColor: .systemGray6).opacity(0.4))
+                    if index < items.count - 1 {
+                        Divider().padding(.leading, 14)
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .padding(.horizontal, 16)
     }
@@ -2763,7 +4203,7 @@ private struct NativeOperationsSummaryView: View {
             }
         }
         .padding(14)
-        .background(Color.white)
+        .background(AppTheme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .padding(.horizontal, 16)
     }
@@ -2834,13 +4274,18 @@ private struct NativeOperationsSummaryView: View {
         }
     }
 
-    private func updateTourPublished(id: String, publish: Bool) async {
+    private func updateTourPublished(id: String, publish: Bool, source: String) async {
         guard !id.isEmpty, let service else { return }
         actionInFlight = true
         defer { actionInFlight = false }
         do {
-            try await service.setTourPublished(tourId: id, isPublished: publish)
-            actionMessage = publish ? "Tour published." : "Tour unpublished."
+            if source == "tour_packages" {
+                try await service.setTourPackagePublished(packageId: id, isPublished: publish)
+                actionMessage = publish ? "Tour package published." : "Tour package unpublished."
+            } else {
+                try await service.setTourPublished(tourId: id, isPublished: publish)
+                actionMessage = publish ? "Tour published." : "Tour unpublished."
+            }
             await load()
         } catch {
             actionMessage = error.localizedDescription
@@ -2862,6 +4307,49 @@ private struct NativeOperationsSummaryView: View {
 }
 
 private struct NativeSupportSummaryView: View {
+    private struct StatusBreakdownRow: Identifiable {
+        let id: String
+        let title: String
+        let count: Int
+        let share: Double
+    }
+
+    private enum BookingFilter: String, CaseIterable {
+        case all = "all"
+        case pending = "pending"
+        case confirmed = "confirmed"
+        case cancelled = "cancelled"
+        case refunded = "refunded"
+
+        var title: String {
+            switch self {
+            case .all: return "All"
+            case .pending: return "Pending"
+            case .confirmed: return "Confirmed"
+            case .cancelled: return "Cancelled"
+            case .refunded: return "Refunded"
+            }
+        }
+    }
+
+    private enum TicketFilter: String, CaseIterable {
+        case all = "all"
+        case open = "open"
+        case inProgress = "in_progress"
+        case resolved = "resolved"
+        case high = "high"
+
+        var title: String {
+            switch self {
+            case .all: return "All"
+            case .open: return "Open"
+            case .inProgress: return "In Progress"
+            case .resolved: return "Resolved"
+            case .high: return "High Priority"
+            }
+        }
+    }
+
     private enum SupportTab: String, CaseIterable {
         case overview = "Overview"
         case users = "Users"
@@ -2877,6 +4365,11 @@ private struct NativeSupportSummaryView: View {
     @State private var users: [[String: Any]] = []
     @State private var bookings: [[String: Any]] = []
     @State private var tickets: [[String: Any]] = []
+    @State private var userSearch: String = ""
+    @State private var bookingSearch: String = ""
+    @State private var bookingFilter: BookingFilter = .all
+    @State private var ticketSearch: String = ""
+    @State private var ticketFilter: TicketFilter = .all
     @State private var actionMessage: String?
     @State private var actionInFlight = false
     private let service = SupabaseService()
@@ -2914,8 +4407,11 @@ private struct NativeSupportSummaryView: View {
                             DashboardStatTile(title: "Open", value: "\(summary.ticketsOpen)", caption: "Urgent issues")
                             DashboardStatTile(title: "In Progress", value: "\(summary.ticketsInProgress)", caption: "Being worked")
                             DashboardStatTile(title: "Resolved", value: "\(summary.ticketsResolved)", caption: "Completed")
+                            DashboardStatTile(title: "Users", value: "\(users.count)", caption: "Registered profiles")
+                            DashboardStatTile(title: "New This Week", value: "\(newUsersThisWeek)", caption: "Recent signups")
                         }
                         .padding(.horizontal, 16)
+                        supportTicketStatusBreakdownCard
                         DashboardSectionCard(
                             title: "Recent Users",
                             subtitle: "Latest user registrations",
@@ -2948,13 +4444,14 @@ private struct NativeSupportSummaryView: View {
                             columns: ["User ID", "Name", "Phone", "Joined", "Actions"]
                         )
                         .padding(.horizontal, 16)
-                        rowsList(items: users.prefix(15).map { row in
+                        supportUsersSearchBar
+                        rowsList(items: filteredUsers.prefix(30).map { row in
                             let id = text(row["user_id"])
                             let name = text(row["full_name"])
                             let phone = text(row["phone"])
                             return "\(id.prefix(8))... • \(name.isEmpty ? "N/A" : name) • \(phone.isEmpty ? "N/A" : phone)"
-                        }, empty: "No users found.")
-                        actionRowsCard(title: "User Actions", rows: users.prefix(6).map { row in
+                        }, empty: "No users found for current search.")
+                        actionRowsCard(title: "User Actions", rows: filteredUsers.prefix(8).map { row in
                             let userId = text(row["user_id"])
                             let name = text(row["full_name"])
                             let suspended = (row["is_suspended"] as? Bool) == true
@@ -2972,33 +4469,48 @@ private struct NativeSupportSummaryView: View {
                             )
                         })
                     case .bookings:
+                        supportBookingsFilterBar
                         DashboardSectionCard(
                             title: "Bookings",
                             subtitle: "View and assist with customer bookings",
                             columns: ["Booking", "Customer", "Service", "Dates", "Status", "Actions"]
                         )
                         .padding(.horizontal, 16)
-                        rowsList(items: bookings.prefix(15).map { row in
+                        rowsList(items: filteredBookings.prefix(30).map { row in
                             let booking = text(row["order_id"]).isEmpty ? text(row["id"]) : text(row["order_id"])
                             let status = text(row["status"]).capitalized
                             let payment = text(row["payment_status"]).capitalized
-                            return "\(booking) • \(status) • \(payment)"
-                        }, empty: "No bookings found.")
-                        actionRowsCard(title: "Booking Actions", rows: bookings.prefix(6).map { row in
+                            let guest = text(row["guest_name"]).isEmpty ? text(row["guest_email"]) : text(row["guest_name"])
+                            let refundFlag = isRefundRequested(for: row) ? " • Refund Requested" : ""
+                            return "\(booking) • \(guest) • \(status) • \(payment)\(refundFlag)"
+                        }, empty: "No bookings found for current filters.")
+                        actionRowsCard(title: "Booking Actions", rows: filteredBookings.prefix(8).map { row in
                             let id = text(row["id"])
                             let orderId = text(row["order_id"])
                             let status = text(row["status"]).lowercased()
+                            let paymentStatus = text(row["payment_status"]).lowercased()
+                            let refundActionable = isRefundRequested(for: row) && status == "cancelled" && paymentStatus == "paid"
                             return AnyView(
                                 HStack {
                                     Text(orderId.isEmpty ? String(id.prefix(8)) : orderId)
                                         .font(.caption.weight(.semibold))
                                         .foregroundColor(AppTheme.textPrimary)
                                     Spacer()
-                                    if status != "confirmed" {
+                                    if refundActionable {
+                                        Button("Approve Refund") {
+                                            Task { await processRefundDecision(for: row, approve: true) }
+                                        }
+                                        .dashboardActionStyle(prominent: true)
+
+                                        Button("Decline") {
+                                            Task { await processRefundDecision(for: row, approve: false) }
+                                        }
+                                        .dashboardActionStyle(prominent: false)
+                                    } else if status != "confirmed" {
                                         Button("Confirm") { Task { await updateBookingStatus(id: id, status: "confirmed") } }
                                             .dashboardActionStyle(prominent: false)
                                     }
-                                    if status != "cancelled" {
+                                    if !refundActionable && status != "cancelled" {
                                         Button("Cancel") { Task { await updateBookingStatus(id: id, status: "cancelled") } }
                                             .dashboardActionStyle(prominent: false)
                                     }
@@ -3006,20 +4518,21 @@ private struct NativeSupportSummaryView: View {
                             )
                         })
                     case .tickets:
+                        supportTicketsFilterBar
                         DashboardSectionCard(
                             title: "Support Tickets",
                             subtitle: "Ticket queue and state transitions",
                             columns: ["Subject", "User", "Priority", "Status", "Created", "Actions"]
                         )
                         .padding(.horizontal, 16)
-                        rowsList(items: tickets.prefix(15).map { row in
+                        rowsList(items: filteredTickets.prefix(30).map { row in
                             let subject = text(row["subject"])
                             let user = text(row["user_email"]).isEmpty ? text(row["user_id"]) : text(row["user_email"])
                             let priority = text(row["priority"]).capitalized
                             let status = text(row["status"]).capitalized
                             return "\(subject) • \(user) • \(priority) • \(status)"
-                        }, empty: "No support tickets found.")
-                        actionRowsCard(title: "Ticket Actions", rows: tickets.prefix(6).map { row in
+                        }, empty: "No support tickets found for current filters.")
+                        actionRowsCard(title: "Ticket Actions", rows: filteredTickets.prefix(10).map { row in
                             let id = text(row["id"])
                             let subject = text(row["subject"])
                             let status = text(row["status"]).lowercased()
@@ -3029,6 +4542,10 @@ private struct NativeSupportSummaryView: View {
                                         .font(.caption.weight(.semibold))
                                         .foregroundColor(AppTheme.textPrimary)
                                     Spacer()
+                                    if status != "open" {
+                                        Button("Open") { Task { await updateTicketStatus(id: id, status: "open") } }
+                                            .dashboardActionStyle(prominent: false)
+                                    }
                                     if status != "in_progress" {
                                         Button("In Progress") { Task { await updateTicketStatus(id: id, status: "in_progress") } }
                                             .dashboardActionStyle(prominent: false)
@@ -3036,6 +4553,10 @@ private struct NativeSupportSummaryView: View {
                                     if status != "resolved" {
                                         Button("Resolve") { Task { await updateTicketStatus(id: id, status: "resolved") } }
                                             .dashboardActionStyle(prominent: true)
+                                    }
+                                    if status != "closed" {
+                                        Button("Close") { Task { await updateTicketStatus(id: id, status: "closed") } }
+                                            .dashboardActionStyle(prominent: false)
                                     }
                                 }
                             )
@@ -3054,52 +4575,329 @@ private struct NativeSupportSummaryView: View {
         case .bookings:
             return operations?.bookingsTotal
         case .tickets:
-            return summary?.ticketsOpen
+            return filteredTickets.filter { text($0["status"]).lowercased() == "open" }.count
         default:
             return nil
+        }
+    }
+
+    private var newUsersThisWeek: Int {
+        let weekAgo = Date().addingTimeInterval(-7 * 24 * 60 * 60)
+        return users.filter { row in
+            guard let created = row["created_at"] as? String,
+                  let date = ISO8601DateFormatter().date(from: created) else { return false }
+            return date >= weekAgo
+        }.count
+    }
+
+    private var filteredUsers: [[String: Any]] {
+        let query = userSearch.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !query.isEmpty else { return users }
+        return users.filter { row in
+            let id = text(row["user_id"]).lowercased()
+            let name = text(row["full_name"]).lowercased()
+            let phone = text(row["phone"]).lowercased()
+            let email = text(row["email"]).lowercased()
+            return id.contains(query) || name.contains(query) || phone.contains(query) || email.contains(query)
+        }
+    }
+
+    private var filteredBookings: [[String: Any]] {
+        let query = bookingSearch.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return bookings.filter { row in
+            let status = text(row["status"]).lowercased()
+            let paymentStatus = text(row["payment_status"]).lowercased()
+
+            let filterMatch: Bool
+            switch bookingFilter {
+            case .all:
+                filterMatch = true
+            case .pending:
+                filterMatch = status == "pending" || status == "pending_confirmation"
+            case .confirmed:
+                filterMatch = status == "confirmed" || status == "completed"
+            case .cancelled:
+                filterMatch = status == "cancelled"
+            case .refunded:
+                filterMatch = paymentStatus == "refunded"
+            }
+            if !filterMatch { return false }
+            if query.isEmpty { return true }
+
+            let bookingId = text(row["id"]).lowercased()
+            let orderId = text(row["order_id"]).lowercased()
+            let guest = text(row["guest_name"]).lowercased()
+            let email = text(row["guest_email"]).lowercased()
+            return bookingId.contains(query) || orderId.contains(query) || guest.contains(query) || email.contains(query)
+        }
+    }
+
+    private var filteredTickets: [[String: Any]] {
+        let query = ticketSearch.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return tickets.filter { row in
+            let status = text(row["status"]).lowercased()
+            let priority = text(row["priority"]).lowercased()
+
+            let filterMatch: Bool
+            switch ticketFilter {
+            case .all:
+                filterMatch = true
+            case .open:
+                filterMatch = status == "open"
+            case .inProgress:
+                filterMatch = status == "in_progress"
+            case .resolved:
+                filterMatch = status == "resolved" || status == "closed"
+            case .high:
+                filterMatch = priority == "high"
+            }
+            if !filterMatch { return false }
+            if query.isEmpty { return true }
+
+            let subject = text(row["subject"]).lowercased()
+            let user = text(row["user_email"]).lowercased()
+            let userId = text(row["user_id"]).lowercased()
+            return subject.contains(query) || user.contains(query) || userId.contains(query)
+        }
+    }
+
+    private var ticketStatusBreakdownRows: [StatusBreakdownRow] {
+        let total = tickets.count
+        if total == 0 { return [] }
+        let open = tickets.filter { text($0["status"]).lowercased() == "open" }.count
+        let inProgress = tickets.filter { text($0["status"]).lowercased() == "in_progress" }.count
+        let resolved = tickets.filter {
+            let s = text($0["status"]).lowercased()
+            return s == "resolved" || s == "closed"
+        }.count
+        let high = tickets.filter { text($0["priority"]).lowercased() == "high" }.count
+
+        let rows = [
+            ("Open", open),
+            ("In Progress", inProgress),
+            ("Resolved", resolved),
+            ("High Priority", high)
+        ]
+        return rows.map { title, count in
+            StatusBreakdownRow(
+                id: title.lowercased().replacingOccurrences(of: " ", with: "_"),
+                title: title,
+                count: count,
+                share: total > 0 ? (Double(count) / Double(total)) * 100 : 0
+            )
+        }
+    }
+
+    private func extractRefundRefs(from ticket: [String: Any]) -> Set<String> {
+        var refs = Set<String>()
+        let status = text(ticket["status"]).lowercased()
+        if status == "resolved" || status == "closed" {
+            return refs
+        }
+
+        let subject = text(ticket["subject"])
+        let category = text(ticket["category"]).lowercased()
+        let isRefundTicket = subject.lowercased().contains("refund request") || category == "payment"
+        if !isRefundTicket {
+            return refs
+        }
+
+        let subjectPattern = "refund request for booking\\s+(.+)$"
+        if let regex = try? NSRegularExpression(pattern: subjectPattern, options: [.caseInsensitive]) {
+            let nsSubject = subject as NSString
+            let range = NSRange(location: 0, length: nsSubject.length)
+            if let match = regex.firstMatch(in: subject, options: [], range: range), match.numberOfRanges > 1 {
+                let raw = nsSubject.substring(with: match.range(at: 1)).trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                if !raw.isEmpty { refs.insert(raw) }
+            }
+        }
+
+        let bodyText = "\(text(ticket["message"]))\n\(text(ticket["response"]))"
+        let patterns = [
+            "booking\\s*id\\s*[:#-]?\\s*([a-z0-9-]{6,})",
+            "order\\s*id\\s*[:#-]?\\s*([a-z0-9-]{6,})",
+            "refund request for booking\\s+([a-z0-9-]{6,})"
+        ]
+
+        for pattern in patterns {
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { continue }
+            let nsBody = bodyText as NSString
+            let range = NSRange(location: 0, length: nsBody.length)
+            let matches = regex.matches(in: bodyText, options: [], range: range)
+            for match in matches where match.numberOfRanges > 1 {
+                let value = nsBody.substring(with: match.range(at: 1)).trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                if !value.isEmpty { refs.insert(value) }
+            }
+        }
+
+        return refs
+    }
+
+    private var refundRequestRefs: Set<String> {
+        var refs = Set<String>()
+        for ticket in tickets {
+            refs.formUnion(extractRefundRefs(from: ticket))
+        }
+        return refs
+    }
+
+    private func isRefundRequested(for booking: [String: Any]) -> Bool {
+        let bookingRef = text(booking["id"]).lowercased()
+        let orderRef = text(booking["order_id"]).lowercased()
+        return refundRequestRefs.contains(bookingRef) || (!orderRef.isEmpty && refundRequestRefs.contains(orderRef))
+    }
+
+    private func findOpenRefundTicket(for booking: [String: Any]) -> [String: Any]? {
+        let bookingRef = text(booking["id"]).lowercased()
+        let orderRef = text(booking["order_id"]).lowercased()
+
+        return tickets.first { ticket in
+            let refs = extractRefundRefs(from: ticket)
+            return refs.contains(bookingRef) || (!orderRef.isEmpty && refs.contains(orderRef))
         }
     }
 
     private func load() async {
         guard let service else { return }
         loading = true
-        do {
-            async let supportTask = service.fetchSupportSummary()
-            async let operationsTask = service.fetchOperationsSummary()
-            async let usersTask = service.fetchAdminUsers()
-            async let bookingsTask = service.fetchAdminBookings()
-            async let ticketsTask = service.fetchAdminSupportTickets()
-            summary = try await supportTask
-            operations = try await operationsTask
-            users = try await usersTask
-            bookings = try await bookingsTask
-            tickets = try await ticketsTask
-            errorMessage = nil
-        } catch {
-            errorMessage = error.localizedDescription
-        }
+        summary = try? await service.fetchSupportSummary()
+        operations = try? await service.fetchOperationsSummary()
+        users = (try? await service.fetchAdminUsers()) ?? []
+        bookings = (try? await service.fetchAdminBookings()) ?? []
+        tickets = (try? await service.fetchAdminSupportTickets()) ?? []
+        errorMessage = nil
         loading = false
     }
 
-    private func rowsList(items: [String], empty: String) -> some View {
+    private var supportUsersSearchBar: some View {
+        TextField("Search by user id, name, phone, email", text: $userSearch)
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled(true)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(AppTheme.cardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .padding(.horizontal, 16)
+    }
+
+    private var supportBookingsFilterBar: some View {
+        VStack(spacing: 8) {
+            TextField("Search booking id, order id, guest, email", text: $bookingSearch)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled(true)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(AppTheme.cardBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(BookingFilter.allCases, id: \.self) { filter in
+                        Button(filter.title) {
+                            bookingFilter = filter
+                        }
+                        .dashboardActionStyle(prominent: bookingFilter == filter)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+    }
+
+    private var supportTicketsFilterBar: some View {
+        VStack(spacing: 8) {
+            TextField("Search subject, user email, user id", text: $ticketSearch)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled(true)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(AppTheme.cardBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(TicketFilter.allCases, id: \.self) { filter in
+                        Button(filter.title) {
+                            ticketFilter = filter
+                        }
+                        .dashboardActionStyle(prominent: ticketFilter == filter)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+    }
+
+    private var supportTicketStatusBreakdownCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if items.isEmpty {
-                Text(empty)
+            Text("Ticket Status Breakdown")
+                .font(.headline)
+                .foregroundColor(AppTheme.textPrimary)
+
+            if ticketStatusBreakdownRows.isEmpty {
+                Text("No support tickets available yet.")
                     .font(.caption)
                     .foregroundColor(AppTheme.textSecondary)
             } else {
-                ForEach(Array(items.enumerated()), id: \.offset) { _, line in
-                    Text(line)
-                        .font(.caption)
-                        .foregroundColor(AppTheme.textPrimary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.vertical, 6)
-                    Divider()
+                ForEach(ticketStatusBreakdownRows) { row in
+                    HStack(spacing: 10) {
+                        Text(row.title)
+                            .font(.caption.weight(.semibold))
+                            .foregroundColor(AppTheme.textPrimary)
+                        Spacer()
+                        Text("\(row.count)")
+                            .font(.caption)
+                            .foregroundColor(AppTheme.textPrimary)
+                        Text("(\(String(format: "%.1f", row.share))%)")
+                            .font(.caption2)
+                            .foregroundColor(AppTheme.textSecondary)
+                    }
                 }
             }
         }
         .padding(14)
-        .background(Color.white)
+        .background(AppTheme.cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(.horizontal, 16)
+    }
+
+    private func rowsList(items: [String], empty: String) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if items.isEmpty {
+                HStack(spacing: 8) {
+                    Image(systemName: "tray")
+                        .font(.caption)
+                        .foregroundColor(AppTheme.textSecondary)
+                    Text(empty)
+                        .font(.caption)
+                        .foregroundColor(AppTheme.textSecondary)
+                }
+                .padding(14)
+            } else {
+                ForEach(Array(items.enumerated()), id: \.offset) { index, line in
+                    HStack(alignment: .top, spacing: 10) {
+                        Text("\(index + 1)")
+                            .font(.caption2.weight(.bold))
+                            .foregroundColor(AppTheme.textSecondary)
+                            .frame(width: 20, height: 20)
+                            .background(Color(uiColor: .systemGray6))
+                            .clipShape(Circle())
+                        Text(line)
+                            .font(.caption)
+                            .foregroundColor(AppTheme.textPrimary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(index % 2 == 0 ? Color.white : Color(uiColor: .systemGray6).opacity(0.4))
+                    if index < items.count - 1 {
+                        Divider().padding(.leading, 14)
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .padding(.horizontal, 16)
     }
@@ -3121,7 +4919,7 @@ private struct NativeSupportSummaryView: View {
             }
         }
         .padding(14)
-        .background(Color.white)
+        .background(AppTheme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .padding(.horizontal, 16)
     }
@@ -3163,6 +4961,38 @@ private struct NativeSupportSummaryView: View {
         }
     }
 
+    private func processRefundDecision(for booking: [String: Any], approve: Bool) async {
+        guard let service else { return }
+        let bookingId = text(booking["id"])
+        if bookingId.isEmpty { return }
+
+        actionInFlight = true
+        defer { actionInFlight = false }
+
+        do {
+            try await service.applySupportRefundDecision(
+                bookingId: bookingId,
+                orderId: text(booking["order_id"]),
+                approve: approve
+            )
+
+            if let ticket = findOpenRefundTicket(for: booking) {
+                let ticketId = text(ticket["id"])
+                if !ticketId.isEmpty {
+                    let response = approve
+                        ? "Support: Refund approved and completed."
+                        : "Support: Refund declined. Booking restored to confirmed/paid."
+                    try? await service.updateSupportTicket(ticketId: ticketId, status: "resolved", response: response)
+                }
+            }
+
+            actionMessage = approve ? "Refund approved and booking updated." : "Refund declined and booking reactivated."
+            await load()
+        } catch {
+            actionMessage = error.localizedDescription
+        }
+    }
+
     private func updateTicketStatus(id: String, status: String) async {
         guard !id.isEmpty, let service else { return }
         actionInFlight = true
@@ -3177,160 +5007,1563 @@ private struct NativeSupportSummaryView: View {
     }
 }
 
-private struct NativeCreateTourView: View {
-    @EnvironmentObject private var session: AppSessionViewModel
-    @State private var title = ""
-    @State private var description = ""
-    @State private var location = ""
-    @State private var category = "Adventure"
-    @State private var durationDays = "1"
-    @State private var maxGroupSize = "2"
-    @State private var price = ""
-    @State private var currency = "RWF"
-    @State private var saving = false
-    @State private var message: String?
-    private let service = SupabaseService()
+// MARK: - Cloudinary uploader shared across creation forms
 
-    var body: some View {
-        ScrollView {
-            VStack(spacing: 10) {
-                labeledField("Title", text: $title)
-                labeledField("Description", text: $description)
-                labeledField("Location", text: $location)
-                labeledField("Category", text: $category)
-                labeledField("Duration Days", text: $durationDays)
-                labeledField("Max Group Size", text: $maxGroupSize)
-                labeledField("Price Per Person", text: $price)
-                labeledField("Currency", text: $currency)
-                submitButton(title: "Publish Tour", saving: saving) { await submit() }
-                if let message { Text(message).font(.caption).foregroundColor(.secondary) }
-            }.padding(16)
+private extension Data {
+    mutating func appendCFField(name: String, value: String, boundary: String) {
+        append("--\(boundary)\r\n".data(using: .utf8) ?? Data())
+        append("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n".data(using: .utf8) ?? Data())
+        append("\(value)\r\n".data(using: .utf8) ?? Data())
+    }
+    mutating func appendCFFile(name: String, fileName: String, jpeg: Data, boundary: String) {
+        append("--\(boundary)\r\n".data(using: .utf8) ?? Data())
+        append("Content-Disposition: form-data; name=\"\(name)\"; filename=\"\(fileName)\"\r\n".data(using: .utf8) ?? Data())
+        append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8) ?? Data())
+        append(jpeg)
+        append("\r\n".data(using: .utf8) ?? Data())
+    }
+}
+
+private enum ListingCloudinaryUploader {
+    private static var didRunPreflight = false
+    private static var cachedPreflightIssue: String?
+
+    static func preflightIssue() async -> String? {
+        if didRunPreflight { return cachedPreflightIssue }
+        didRunPreflight = true
+
+        let cloud  = MobileConfig.cloudinaryCloudName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let preset = MobileConfig.cloudinaryUploadPreset.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cloud.isEmpty, !preset.isEmpty,
+              let endpoint = URL(string: "https://api.cloudinary.com/v1_1/\(cloud)/image/upload")
+        else {
+            cachedPreflightIssue = "Cloudinary is not configured."
+            return cachedPreflightIssue
         }
-        .background(AppTheme.appBackground)
+
+        // Tiny 1x1 PNG used only to verify Cloudinary account/preset validity.
+        let probeData = Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO6P4+0AAAAASUVORK5CYII=") ?? Data()
+        let boundary = "Boundary-\(UUID().uuidString)"
+        var body = Data()
+        body.appendCFField(name: "upload_preset", value: preset, boundary: boundary)
+        body.appendCFField(name: "folder", value: "mobile-preflight", boundary: boundary)
+        body.append("--\(boundary)\r\n".data(using: .utf8) ?? Data())
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"probe.png\"\r\n".data(using: .utf8) ?? Data())
+        body.append("Content-Type: image/png\r\n\r\n".data(using: .utf8) ?? Data())
+        body.append(probeData)
+        body.append("\r\n".data(using: .utf8) ?? Data())
+        body.append("--\(boundary)--\r\n".data(using: .utf8) ?? Data())
+
+        var req = URLRequest(url: endpoint)
+        req.httpMethod = "POST"
+        req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        req.httpBody = body
+
+        guard let (respData, resp) = try? await URLSession.shared.data(for: req),
+              let http = resp as? HTTPURLResponse else {
+            cachedPreflightIssue = "Cloudinary preflight failed. Check network connection."
+            return cachedPreflightIssue
+        }
+
+        if (200...299).contains(http.statusCode) {
+            cachedPreflightIssue = nil
+            return nil
+        }
+
+        if let json = try? JSONSerialization.jsonObject(with: respData) as? [String: Any],
+           let error = json["error"] as? [String: Any],
+           let message = error["message"] as? String {
+            cachedPreflightIssue = "Cloudinary error: \(message)"
+            return cachedPreflightIssue
+        }
+
+        cachedPreflightIssue = "Cloudinary upload check failed (HTTP \(http.statusCode))."
+        return cachedPreflightIssue
     }
 
-    private func submit() async {
-        guard let service, let hostId = session.userId else { return }
-        saving = true
-        defer { saving = false }
-        do {
-            let payload: [String: Any] = [
-                "title": title,
-                "description": description,
-                "location": location,
-                "category": category,
-                "categories": [category],
-                "duration_days": Int(durationDays) ?? 1,
-                "max_group_size": Int(maxGroupSize) ?? 2,
-                "price_per_person": Double(price) ?? 0,
-                "currency": currency,
-            ]
-            try await service.createTour(hostId: hostId, payload: payload)
-            message = "Tour created successfully."
-        } catch {
-            message = "Could not create tour: \(error.localizedDescription)"
+    static func upload(_ items: [PhotosPickerItem], folder: String) async -> [String] {
+        let cloud  = MobileConfig.cloudinaryCloudName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let preset = MobileConfig.cloudinaryUploadPreset.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cloud.isEmpty, !preset.isEmpty,
+              let endpoint = URL(string: "https://api.cloudinary.com/v1_1/\(cloud)/image/upload")
+        else { return [] }
+        var result: [String] = []
+        for item in items {
+            guard let raw  = try? await item.loadTransferable(type: Data.self),
+                  let img  = UIImage(data: raw),
+                  let jpeg = img.jpegData(compressionQuality: 0.82) else { continue }
+            let boundary = "Boundary-\(UUID().uuidString)"
+            var body = Data()
+            body.appendCFField(name: "upload_preset", value: preset, boundary: boundary)
+            body.appendCFField(name: "folder",        value: folder, boundary: boundary)
+            body.appendCFFile(name: "file", fileName: "photo-\(UUID().uuidString).jpg", jpeg: jpeg, boundary: boundary)
+            body.append("--\(boundary)--\r\n".data(using: .utf8) ?? Data())
+            var req = URLRequest(url: endpoint)
+            req.httpMethod = "POST"
+            req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+            req.httpBody = body
+            guard let (respData, _) = try? await URLSession.shared.data(for: req),
+                  let json  = try? JSONSerialization.jsonObject(with: respData) as? [String: Any],
+                  let url   = json["secure_url"] as? String else { continue }
+            result.append(url)
+        }
+        return result
+    }
+}
+
+// MARK: - Shared creation form UI helpers
+
+private func cfProgressBar(step: Int, total: Int, title: String) -> some View {
+    VStack(alignment: .leading, spacing: 6) {
+        HStack {
+            Text("Step \(step) of \(total): \(title)")
+                .font(.caption).foregroundColor(AppTheme.textSecondary)
+            Spacer()
+        }
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 3).fill(AppTheme.cardBackground).frame(height: 5)
+                RoundedRectangle(cornerRadius: 3).fill(AppTheme.coral)
+                    .frame(width: geo.size.width * CGFloat(step) / CGFloat(total), height: 5)
+            }
+        }.frame(height: 5)
+    }
+}
+
+private func cfSectionHeader(_ text: String) -> some View {
+    Text(text)
+        .font(.system(size: 15, weight: .semibold))
+        .foregroundColor(AppTheme.textPrimary)
+        .frame(maxWidth: .infinity, alignment: .leading)
+}
+
+private func cfChipRow(_ label: String, options: [String], selected: Binding<String>) -> some View {
+    VStack(alignment: .leading, spacing: 6) {
+        Text(label).font(.caption).foregroundColor(AppTheme.textSecondary)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(options, id: \.self) { opt in
+                    Button(opt) { selected.wrappedValue = opt }
+                        .font(.caption.weight(selected.wrappedValue == opt ? .semibold : .regular))
+                        .padding(.horizontal, 12).padding(.vertical, 6)
+                        .background(selected.wrappedValue == opt ? AppTheme.coral : Color.white)
+                        .foregroundColor(selected.wrappedValue == opt ? .white : AppTheme.textSecondary)
+                        .clipShape(Capsule())
+                        .overlay(Capsule().stroke(selected.wrappedValue == opt ? AppTheme.coral : AppTheme.borderSubtle, lineWidth: 1))
+                }
+            }
         }
     }
 }
 
-private struct NativeCreateTourPackageView: View {
+private func cfTextArea(_ label: String, text: Binding<String>, minHeight: CGFloat = 90) -> some View {
+    VStack(alignment: .leading, spacing: 6) {
+        Text(label).font(.caption).foregroundColor(AppTheme.textSecondary)
+        TextEditor(text: text)
+            .frame(minHeight: minHeight)
+            .padding(8)
+            .background(AppTheme.cardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+private func cfPhotoGrid(_ urls: [String]) -> some View {
+    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+        ForEach(Array(urls.enumerated()), id: \.offset) { _, url in
+            if let imgUrl = URL(string: url) {
+                AsyncImage(url: imgUrl) { img in img.resizable().scaledToFill() }
+                    placeholder: { Color.gray.opacity(0.15).overlay(ProgressView().scaleEffect(0.6)) }
+                    .frame(height: 88)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            }
+        }
+    }
+}
+
+private func cfNavButtons(step: Binding<Int>, total: Int, canAdvance: Bool, saving: Bool, finalLabel: String, onSubmit: @escaping () -> Void) -> some View {
+    HStack(spacing: 12) {
+        if step.wrappedValue > 1 {
+            Button("← Back") { step.wrappedValue -= 1 }
+                .font(.system(size: 15, weight: .medium))
+                .frame(maxWidth: .infinity).padding(.vertical, 13)
+                .foregroundColor(AppTheme.textPrimary)
+                .background(AppTheme.cardBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(AppTheme.borderSubtle, lineWidth: 1))
+        }
+        if step.wrappedValue < total {
+            Button("Next →") { step.wrappedValue += 1 }
+                .font(.system(size: 15, weight: .semibold))
+                .frame(maxWidth: .infinity).padding(.vertical, 13)
+                .foregroundColor(.white)
+                .background(canAdvance ? AppTheme.coral : Color.gray.opacity(0.4))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .disabled(!canAdvance)
+        } else {
+            Button(saving ? "Publishing..." : finalLabel, action: onSubmit)
+                .font(.system(size: 15, weight: .semibold))
+                .frame(maxWidth: .infinity).padding(.vertical, 13)
+                .foregroundColor(.white)
+                .background(saving ? Color.gray.opacity(0.4) : AppTheme.coral)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .disabled(saving)
+        }
+    }
+}
+
+private func cfWarningCard(_ text: String) -> some View {
+    HStack(spacing: 8) {
+        Image(systemName: "exclamationmark.triangle.fill")
+            .foregroundColor(.orange)
+        Text(text)
+            .font(.caption)
+            .foregroundColor(AppTheme.textSecondary)
+        Spacer(minLength: 0)
+    }
+    .padding(10)
+    .background(Color.orange.opacity(0.12))
+    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+}
+
+// MARK: - Create Tour (4 steps)
+
+private struct NativeCreateTourView: View {
     @EnvironmentObject private var session: AppSessionViewModel
+    private let service = SupabaseService()
+
+    @State private var step = 1
+    private let totalSteps = 4
+
+    // Step 1
     @State private var title = ""
-    @State private var category = "Culture"
-    @State private var city = "Kigali"
-    @State private var duration = "1 day"
     @State private var description = ""
-    @State private var pricePerAdult = ""
-    @State private var minGuests = "1"
-    @State private var maxGuests = "8"
+    @State private var location = ""
+
+    // Step 2
+    @State private var category = "Adventure"
+    @State private var durationDays = "1"
+    @State private var maxGroupSize = "10"
+    @State private var pricingModel = "per_person"
+    @State private var selectedPricingModels: [String] = ["per_person"]
+    @State private var pricePerPerson = ""
+    @State private var pricePerGroup = ""
+    @State private var pricePerHour = ""
+    @State private var pricePerMinute = ""
+    @State private var pricePerGroupSize = "2"
+    @State private var timeTierDurationValue = ""
+    @State private var timeTierDurationUnit = "hour"
+    @State private var timeTierPrice = ""
+    @State private var timePricingTiers: [[String: Any]] = []
+    @State private var tierMinGroupSize = ""
+    @State private var tierMaxGroupSize = ""
+    @State private var tierPrice = ""
+    @State private var groupPricingTiers: [[String: Any]] = []
     @State private var currency = "RWF"
+
+    // Step 3
+    @State private var selectedPhotos: [PhotosPickerItem] = []
+    @State private var uploadedUrls: [String] = []
+    @State private var uploadingImages = false
+
     @State private var saving = false
     @State private var message: String?
-    private let service = SupabaseService()
+    @State private var cloudinaryIssue: String?
+
+    private let categoryOptions = ["Nature", "Adventure", "Cultural", "Wildlife", "Historical", "City Tours", "Eco-Tourism", "Photography"]
+    private let currencyOptions  = ["RWF", "USD", "EUR", "KES", "UGX", "TZS"]
+    private let pricingModelOptions = ["per_person", "per_group", "per_hour", "per_minute"]
+
+    private var stepTitles: [String] { ["Basic Info", "Pricing", "Media", "Review"] }
+
+    private func pricingModelDisplay(_ model: String) -> String {
+        switch model {
+        case "per_group": return "Per group"
+        case "per_hour": return "Per hour"
+        case "per_minute": return "Per minute"
+        default: return "Per person"
+        }
+    }
+
+    private func priceForModel(_ model: String) -> Double {
+        switch model {
+        case "per_group": return Double(pricePerGroup) ?? 0
+        case "per_hour": return Double(pricePerHour) ?? 0
+        case "per_minute": return Double(pricePerMinute) ?? 0
+        default: return Double(pricePerPerson) ?? 0
+        }
+    }
+
+    private var selectedPrice: Double {
+        priceForModel(pricingModel)
+    }
+
+    private func hasTimeTier(for unit: String) -> Bool {
+        timePricingTiers.contains { tier in
+            let duration = tier["duration_value"] as? Double ?? 0
+            let price = tier["price"] as? Double ?? 0
+            let tierUnit = tier["duration_unit"] as? String ?? ""
+            return tierUnit == unit && duration > 0 && price > 0
+        }
+    }
+
+    private var hasValidPricing: Bool {
+        guard !selectedPricingModels.isEmpty else { return false }
+        for model in selectedPricingModels {
+            switch model {
+            case "per_group":
+                if !(priceForModel(model) > 0 || !groupPricingTiers.isEmpty) { return false }
+            case "per_hour":
+                if !(priceForModel(model) > 0 || hasTimeTier(for: "hour")) { return false }
+            case "per_minute":
+                if !(priceForModel(model) > 0 || hasTimeTier(for: "minute")) { return false }
+            default:
+                if !(priceForModel(model) > 0) { return false }
+            }
+        }
+        return true
+    }
+
+    private var canAdvance: Bool {
+        switch step {
+        case 1:
+            return !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && !description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && !location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case 2:
+            return hasValidPricing
+        default:
+            return true
+        }
+    }
+
+    private var pricingModelLabel: String {
+        pricingModelDisplay(pricingModel)
+    }
+
+    private var effectivePriceLabel: String {
+        switch pricingModel {
+        case "per_group": return "Price Per Group"
+        case "per_hour": return "Price Per Hour"
+        case "per_minute": return "Price Per Minute"
+        default: return "Price Per Person"
+        }
+    }
+
+    private var pricingModelBinding: Binding<String> {
+        Binding(
+            get: { pricingModel },
+            set: { next in
+                if selectedPricingModels.contains(next) {
+                    pricingModel = next
+                }
+            }
+        )
+    }
+
+    private var timeTierUnitOptions: [String] {
+        var options: [String] = []
+        if selectedPricingModels.contains("per_hour") { options.append("hour") }
+        if selectedPricingModels.contains("per_minute") { options.append("minute") }
+        return options
+    }
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 10) {
-                labeledField("Title", text: $title)
-                labeledField("Category", text: $category)
-                labeledField("City", text: $city)
-                labeledField("Duration", text: $duration)
-                labeledField("Description", text: $description)
-                labeledField("Price Per Adult", text: $pricePerAdult)
-                labeledField("Min Guests", text: $minGuests)
-                labeledField("Max Guests", text: $maxGuests)
-                labeledField("Currency", text: $currency)
-                submitButton(title: "Publish Package", saving: saving) { await submit() }
-                if let message { Text(message).font(.caption).foregroundColor(.secondary) }
-            }.padding(16)
+            VStack(spacing: 16) {
+                cfProgressBar(step: step, total: totalSteps, title: stepTitles[step - 1])
+                if let cloudinaryIssue { cfWarningCard(cloudinaryIssue) }
+
+                switch step {
+                case 1:
+                    VStack(spacing: 12) {
+                        cfSectionHeader("Basic Information")
+                        labeledField("Tour Name *", text: $title)
+                        cfTextArea("Description *", text: $description)
+                        labeledField("Location *", text: $location)
+                    }
+                case 2:
+                    VStack(spacing: 12) {
+                        cfSectionHeader("Details & Pricing")
+                        cfChipRow("Category", options: categoryOptions, selected: $category)
+                        labeledField("Duration (days)", text: $durationDays)
+                        labeledField("Max Group Size", text: $maxGroupSize)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Pricing Models")
+                                .font(.caption)
+                                .foregroundColor(AppTheme.textSecondary)
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(pricingModelOptions, id: \.self) { model in
+                                        let active = selectedPricingModels.contains(model)
+                                        Button(action: {
+                                            togglePricingModel(model)
+                                        }) {
+                                            HStack(spacing: 6) {
+                                                Image(systemName: active ? "checkmark.circle.fill" : "circle")
+                                                    .font(.caption)
+                                                Text(pricingModelDisplay(model))
+                                                    .font(.caption.weight(.semibold))
+                                            }
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 8)
+                                            .foregroundColor(active ? .white : AppTheme.textSecondary)
+                                            .background(active ? AppTheme.coral : Color.white)
+                                            .clipShape(Capsule())
+                                            .overlay(Capsule().stroke(active ? AppTheme.coral : AppTheme.borderSubtle, lineWidth: 1))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        cfChipRow("Primary Pricing Model", options: selectedPricingModels, selected: pricingModelBinding)
+                        Text("Use multiple models to match web behavior. Primary model is stored as pricing_model.")
+                            .font(.caption)
+                            .foregroundColor(AppTheme.textSecondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        if selectedPricingModels.contains("per_person") {
+                            labeledField("Price Per Person", text: $pricePerPerson)
+                        }
+
+                        if selectedPricingModels.contains("per_group") {
+                            labeledField("Price Per Group", text: $pricePerGroup)
+                            labeledField("Price Per Group Size", text: $pricePerGroupSize)
+
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Group Pricing Tiers (optional)")
+                                    .font(.caption)
+                                    .foregroundColor(AppTheme.textSecondary)
+
+                                labeledField("Min Group Size", text: $tierMinGroupSize)
+                                labeledField("Max Group Size", text: $tierMaxGroupSize)
+                                labeledField("Tier Price", text: $tierPrice)
+
+                                Button(action: addGroupPricingTier) {
+                                    Text("Add Group Tier")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(AppTheme.coral)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 10)
+                                        .background(AppTheme.coral.opacity(0.08))
+                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                }
+
+                                if !groupPricingTiers.isEmpty {
+                                    VStack(spacing: 6) {
+                                        ForEach(Array(groupPricingTiers.enumerated()), id: \.offset) { idx, tier in
+                                            HStack(spacing: 8) {
+                                                Text("\(Int(tier["min_group_size"] as? Double ?? 0)) - \(Int(tier["max_group_size"] as? Double ?? 0)) people")
+                                                    .font(.caption)
+                                                    .foregroundColor(AppTheme.textPrimary)
+                                                Spacer()
+                                                Text("\(tier["price"] as? Double ?? 0, specifier: "%.2f") \(currency)")
+                                                    .font(.caption)
+                                                    .foregroundColor(AppTheme.textSecondary)
+                                                Button("Remove") {
+                                                    groupPricingTiers.remove(at: idx)
+                                                }
+                                                .font(.caption)
+                                                .foregroundColor(.red)
+                                            }
+                                            .padding(10)
+                                            .background(AppTheme.cardBackground)
+                                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if selectedPricingModels.contains("per_hour") {
+                            labeledField("Price Per Hour", text: $pricePerHour)
+                        }
+
+                        if selectedPricingModels.contains("per_minute") {
+                            labeledField("Price Per Minute", text: $pricePerMinute)
+                        }
+
+                        if selectedPricingModels.contains("per_hour") || selectedPricingModels.contains("per_minute") {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Time Pricing Tiers (optional)")
+                                    .font(.caption)
+                                    .foregroundColor(AppTheme.textSecondary)
+
+                                labeledField("Duration Value", text: $timeTierDurationValue)
+                                cfChipRow("Duration Unit", options: timeTierUnitOptions, selected: Binding(
+                                    get: { timeTierDurationUnit },
+                                    set: { next in
+                                        if timeTierUnitOptions.contains(next) { timeTierDurationUnit = next }
+                                    }
+                                ))
+                                labeledField("Tier Price", text: $timeTierPrice)
+
+                                Button(action: addTimePricingTier) {
+                                    Text("Add Time Tier")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(AppTheme.coral)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 10)
+                                        .background(AppTheme.coral.opacity(0.08))
+                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                }
+
+                                if !timePricingTiers.isEmpty {
+                                    VStack(spacing: 6) {
+                                        ForEach(Array(timePricingTiers.enumerated()), id: \.offset) { idx, tier in
+                                            HStack(spacing: 8) {
+                                                let duration = tier["duration_value"] as? Double ?? 0
+                                                let unit = tier["duration_unit"] as? String ?? "hour"
+                                                let price = tier["price"] as? Double ?? 0
+                                                Text("\(duration, specifier: "%.2f") \(unit)")
+                                                    .font(.caption)
+                                                    .foregroundColor(AppTheme.textPrimary)
+                                                Spacer()
+                                                Text("\(price, specifier: "%.2f") \(currency)")
+                                                    .font(.caption)
+                                                    .foregroundColor(AppTheme.textSecondary)
+                                                Button("Remove") {
+                                                    timePricingTiers.remove(at: idx)
+                                                }
+                                                .font(.caption)
+                                                .foregroundColor(.red)
+                                            }
+                                            .padding(10)
+                                            .background(AppTheme.cardBackground)
+                                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        cfChipRow("Currency", options: currencyOptions, selected: $currency)
+                    }
+                case 3:
+                    VStack(spacing: 12) {
+                        cfSectionHeader("Media")
+                        Text("At least one photo recommended for better bookings.")
+                            .font(.caption).foregroundColor(AppTheme.textSecondary)
+                        PhotosPicker(selection: $selectedPhotos, maxSelectionCount: 10, matching: .images) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "photo.on.rectangle.angled")
+                                Text(uploadingImages ? "Uploading…" : "Select Photos")
+                            }
+                            .font(.system(size: 15, weight: .semibold))
+                            .frame(maxWidth: .infinity).padding(.vertical, 12)
+                            .foregroundColor(AppTheme.coral)
+                            .background(AppTheme.coral.opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        }
+                        .disabled(uploadingImages)
+                        .onChange(of: selectedPhotos) { items in Task { await uploadPhotos(items) } }
+                        if !uploadedUrls.isEmpty { cfPhotoGrid(uploadedUrls) }
+                    }
+                default:
+                    VStack(spacing: 12) {
+                        cfSectionHeader("Review & Publish")
+                        reviewRow("Tour Name", title)
+                        reviewRow("Location", location)
+                        reviewRow("Category", category)
+                        reviewRow("Duration", "\(Int(durationDays) ?? 1) day(s)")
+                        reviewRow("Max Group Size", "\(Int(maxGroupSize) ?? 10)")
+                        reviewRow("Pricing Models", selectedPricingModels.map(pricingModelDisplay).joined(separator: ", "))
+                        reviewRow("Pricing Model", pricingModelLabel)
+                        reviewRow(effectivePriceLabel, String(format: "%.2f %@", selectedPrice, currency))
+                        if selectedPricingModels.contains("per_person") {
+                            reviewRow("Price Per Person", String(format: "%.2f %@", Double(pricePerPerson) ?? 0, currency))
+                        }
+                        if selectedPricingModels.contains("per_group") {
+                            reviewRow("Price Per Group", String(format: "%.2f %@", Double(pricePerGroup) ?? 0, currency))
+                            reviewRow("Price Per Group Size", "\(Int(pricePerGroupSize) ?? 2)")
+                            reviewRow("Group Pricing Tiers", "\(groupPricingTiers.count)")
+                        }
+                        if selectedPricingModels.contains("per_hour") {
+                            reviewRow("Price Per Hour", String(format: "%.2f %@", Double(pricePerHour) ?? 0, currency))
+                        }
+                        if selectedPricingModels.contains("per_minute") {
+                            reviewRow("Price Per Minute", String(format: "%.2f %@", Double(pricePerMinute) ?? 0, currency))
+                        }
+                        if selectedPricingModels.contains("per_hour") || selectedPricingModels.contains("per_minute") {
+                            reviewRow("Time Pricing Tiers", "\(timePricingTiers.count)")
+                        }
+                        reviewRow("Photos", "\(uploadedUrls.count)")
+                    }
+                }
+
+                cfNavButtons(step: $step, total: totalSteps, canAdvance: canAdvance, saving: saving || uploadingImages, finalLabel: "Publish Tour") {
+                    Task { await submit() }
+                }
+
+                if let message { Text(message).font(.caption).foregroundColor(.secondary).frame(maxWidth: .infinity, alignment: .leading) }
+            }
+            .padding(16)
         }
         .background(AppTheme.appBackground)
+        .task {
+            cloudinaryIssue = await ListingCloudinaryUploader.preflightIssue()
+        }
+    }
+
+    private func uploadPhotos(_ items: [PhotosPickerItem]) async {
+        uploadingImages = true
+        uploadedUrls = await ListingCloudinaryUploader.upload(items, folder: "tours/mobile")
+        uploadingImages = false
+        if !items.isEmpty, uploadedUrls.isEmpty {
+            message = cloudinaryIssue ?? "Cloudinary upload failed. Please check account configuration and try again."
+        }
+    }
+
+    private func addGroupPricingTier() {
+        let minSize = max(1, Int(tierMinGroupSize) ?? 0)
+        let maxSize = max(minSize, Int(tierMaxGroupSize) ?? 0)
+        let price = Double(tierPrice) ?? 0
+        guard price > 0 else { return }
+
+        groupPricingTiers.append([
+            "min_group_size": Double(minSize),
+            "max_group_size": Double(maxSize),
+            "price": price
+        ])
+
+        tierMinGroupSize = ""
+        tierMaxGroupSize = ""
+        tierPrice = ""
+    }
+
+    private func addTimePricingTier() {
+        let duration = Double(timeTierDurationValue) ?? 0
+        let price = Double(timeTierPrice) ?? 0
+        guard duration > 0, price > 0 else { return }
+        guard timeTierUnitOptions.contains(timeTierDurationUnit) else { return }
+
+        timePricingTiers.append([
+            "duration_value": duration,
+            "duration_unit": timeTierDurationUnit,
+            "price": price
+        ])
+
+        timeTierDurationValue = ""
+        timeTierPrice = ""
+    }
+
+    private func togglePricingModel(_ model: String) {
+        if selectedPricingModels.contains(model) {
+            if selectedPricingModels.count == 1 { return }
+            selectedPricingModels.removeAll { $0 == model }
+            if pricingModel == model {
+                pricingModel = selectedPricingModels.first ?? "per_person"
+            }
+            if model == "per_hour" && timeTierDurationUnit == "hour" && !selectedPricingModels.contains("per_hour") {
+                timeTierDurationUnit = selectedPricingModels.contains("per_minute") ? "minute" : "hour"
+            }
+            if model == "per_minute" && timeTierDurationUnit == "minute" && !selectedPricingModels.contains("per_minute") {
+                timeTierDurationUnit = selectedPricingModels.contains("per_hour") ? "hour" : "minute"
+            }
+            return
+        }
+
+        selectedPricingModels.append(model)
+        if selectedPricingModels.count == 1 {
+            pricingModel = model
+        }
+        if (model == "per_hour" || model == "per_minute") && !timeTierUnitOptions.contains(timeTierDurationUnit) {
+            timeTierDurationUnit = model == "per_minute" ? "minute" : "hour"
+        }
+    }
+
+    private func reviewRow(_ label: String, _ value: String) -> some View {
+        HStack(spacing: 8) {
+            Text(label)
+                .font(.caption)
+                .foregroundColor(AppTheme.textSecondary)
+            Spacer()
+            Text(value.isEmpty ? "-" : value)
+                .font(.caption)
+                .foregroundColor(AppTheme.textPrimary)
+                .multilineTextAlignment(.trailing)
+        }
+        .padding(10)
+        .background(AppTheme.cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     private func submit() async {
         guard let service, let hostId = session.userId else { return }
-        saving = true
-        defer { saving = false }
+        guard !uploadedUrls.isEmpty else {
+            message = "Upload at least one photo before publishing."
+            return
+        }
+        saving = true; defer { saving = false }
         do {
-            let payload: [String: Any] = [
-                "title": title,
-                "category": category,
-                "tour_type": category,
-                "city": city,
-                "duration": duration,
-                "description": description,
+            var payload: [String: Any] = [
+                "title": title, "description": description, "location": location,
+                "category": category, "categories": [category],
+                "duration_days": Int(durationDays) ?? 1,
+                "max_group_size": Int(maxGroupSize) ?? 10,
+                "price_per_person": Double(pricePerPerson) ?? selectedPrice,
+                "currency": currency, "is_published": true
+            ]
+
+            var pricingTiers: [String: Any] = [
+                "pricing_model": pricingModel,
+                "pricing_models": selectedPricingModels
+            ]
+
+            if selectedPricingModels.contains("per_group") {
+                pricingTiers["price_per_group_size"] = max(1, Int(pricePerGroupSize) ?? 2)
+                pricingTiers["group_pricing_tiers"] = groupPricingTiers
+            }
+
+            if selectedPricingModels.contains("per_hour") || selectedPricingModels.contains("per_minute") {
+                pricingTiers["pricing_duration_value"] = 1
+                pricingTiers["time_pricing_tiers"] = timePricingTiers
+            }
+
+            payload["pricing_tiers"] = pricingTiers
+            if !uploadedUrls.isEmpty { payload["images"] = uploadedUrls }
+            try await service.createTour(hostId: hostId, payload: payload)
+            message = "Tour published successfully ✓"
+        } catch { message = "Error: \(error.localizedDescription)" }
+    }
+}
+
+// MARK: - Create Tour Package (5 steps)
+
+private struct NativeCreateTourPackageView: View {
+    @EnvironmentObject private var session: AppSessionViewModel
+    private let service = SupabaseService()
+
+    @State private var step = 1
+    private let totalSteps = 5
+
+    // Step 1
+    @State private var title = ""
+    @State private var category = "Cultural"
+    @State private var description = ""
+    @State private var city = "Kigali"
+    @State private var duration = "1 day"
+
+    // Step 2
+    @State private var dailyItinerary = ""
+    @State private var includedServices = ""
+    @State private var excludedServices = ""
+    @State private var meetingPoint = ""
+
+    // Step 3
+    @State private var pricePerAdult = ""
+    @State private var pricingModel = "per_person"
+    @State private var selectedPricingModels: [String] = ["per_person"]
+    @State private var pricePerGroup = ""
+    @State private var pricePerHour = ""
+    @State private var pricePerMinute = ""
+    @State private var timeTierDurationValue = ""
+    @State private var timeTierDurationUnit = "hour"
+    @State private var timeTierPrice = ""
+    @State private var timePricingTiers: [[String: Any]] = []
+    @State private var tierMinGroupSize = ""
+    @State private var tierMaxGroupSize = ""
+    @State private var tierPrice = ""
+    @State private var groupPricingTiers: [[String: Any]] = []
+    @State private var minGuests = "1"
+    @State private var maxGuests = "8"
+    @State private var currency = "RWF"
+
+    // Step 4
+    @State private var selectedPhotos: [PhotosPickerItem] = []
+    @State private var uploadedUrls: [String] = []
+    @State private var uploadingImages = false
+
+    @State private var saving = false
+    @State private var message: String?
+    @State private var cloudinaryIssue: String?
+
+    private let categoryOptions = ["Cultural", "Adventure", "Wildlife", "City Tours", "Hiking", "Photography", "Historical", "Eco-Tourism"]
+    private let currencyOptions  = ["RWF", "USD", "EUR", "KES", "UGX", "TZS"]
+    private let pricingModelOptions = ["per_person", "per_group", "per_hour", "per_minute"]
+
+    private var stepTitles: [String] { ["Basic Info", "Itinerary", "Pricing", "Photos", "Review"] }
+
+    private var primarySelectedPrice: Double {
+        priceForModel(pricingModel)
+    }
+
+    private func pricingModelDisplay(_ model: String) -> String {
+        switch model {
+        case "per_group": return "Per group"
+        case "per_hour": return "Per hour"
+        case "per_minute": return "Per minute"
+        default: return "Per person"
+        }
+    }
+
+    private func priceForModel(_ model: String) -> Double {
+        switch model {
+        case "per_group": return Double(pricePerGroup) ?? 0
+        case "per_hour": return Double(pricePerHour) ?? 0
+        case "per_minute": return Double(pricePerMinute) ?? 0
+        default: return Double(pricePerAdult) ?? 0
+        }
+    }
+
+    private func hasTimeTier(for unit: String) -> Bool {
+        timePricingTiers.contains { tier in
+            let duration = tier["duration_value"] as? Double ?? 0
+            let price = tier["price"] as? Double ?? 0
+            let tierUnit = tier["duration_unit"] as? String ?? ""
+            return tierUnit == unit && duration > 0 && price > 0
+        }
+    }
+
+    private var timeTierUnitOptions: [String] {
+        var options: [String] = []
+        if selectedPricingModels.contains("per_hour") { options.append("hour") }
+        if selectedPricingModels.contains("per_minute") { options.append("minute") }
+        return options
+    }
+
+    private var pricingModelBinding: Binding<String> {
+        Binding(
+            get: { pricingModel },
+            set: { next in
+                if selectedPricingModels.contains(next) {
+                    pricingModel = next
+                }
+            }
+        )
+    }
+
+    private var hasValidPricing: Bool {
+        guard !selectedPricingModels.isEmpty else { return false }
+        for model in selectedPricingModels {
+            switch model {
+            case "per_group":
+                if !(priceForModel(model) > 0 || !groupPricingTiers.isEmpty) { return false }
+            case "per_hour":
+                if !(priceForModel(model) > 0 || hasTimeTier(for: "hour")) { return false }
+            case "per_minute":
+                if !(priceForModel(model) > 0 || hasTimeTier(for: "minute")) { return false }
+            default:
+                if !(priceForModel(model) > 0) { return false }
+            }
+        }
+        return true
+    }
+
+    private var canAdvance: Bool {
+        switch step {
+        case 1: return !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !city.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case 2: return !dailyItinerary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case 3: return hasValidPricing
+        default: return true
+        }
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                cfProgressBar(step: step, total: totalSteps, title: stepTitles[step - 1])
+                if let cloudinaryIssue { cfWarningCard(cloudinaryIssue) }
+
+                switch step {
+                case 1:
+                    VStack(spacing: 12) {
+                        cfSectionHeader("Basic Information")
+                        labeledField("Package Title *", text: $title)
+                        cfChipRow("Category", options: categoryOptions, selected: $category)
+                        cfTextArea("Description *", text: $description)
+                        labeledField("City *", text: $city)
+                        labeledField("Duration (e.g. 3 Days, 2 Nights)", text: $duration)
+                    }
+                case 2:
+                    VStack(spacing: 12) {
+                        cfSectionHeader("Itinerary")
+                        cfTextArea("Daily Itinerary *", text: $dailyItinerary, minHeight: 120)
+                        cfTextArea("Included Services", text: $includedServices)
+                        cfTextArea("Excluded Services", text: $excludedServices)
+                        labeledField("Meeting Point *", text: $meetingPoint)
+                    }
+                case 3:
+                    VStack(spacing: 12) {
+                        cfSectionHeader("Pricing")
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Pricing Models")
+                                .font(.caption)
+                                .foregroundColor(AppTheme.textSecondary)
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(pricingModelOptions, id: \.self) { model in
+                                        let active = selectedPricingModels.contains(model)
+                                        Button(action: { togglePricingModel(model) }) {
+                                            HStack(spacing: 6) {
+                                                Image(systemName: active ? "checkmark.circle.fill" : "circle")
+                                                    .font(.caption)
+                                                Text(pricingModelDisplay(model))
+                                                    .font(.caption.weight(.semibold))
+                                            }
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 8)
+                                            .foregroundColor(active ? .white : AppTheme.textSecondary)
+                                            .background(active ? AppTheme.coral : Color.white)
+                                            .clipShape(Capsule())
+                                            .overlay(Capsule().stroke(active ? AppTheme.coral : AppTheme.borderSubtle, lineWidth: 1))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        cfChipRow("Primary Pricing Model", options: selectedPricingModels, selected: pricingModelBinding)
+                        labeledField("Price Per Adult", text: $pricePerAdult)
+                        if selectedPricingModels.contains("per_group") {
+                            labeledField("Price Per Group", text: $pricePerGroup)
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Group Pricing Tiers (optional)")
+                                    .font(.caption)
+                                    .foregroundColor(AppTheme.textSecondary)
+                                labeledField("Min Group Size", text: $tierMinGroupSize)
+                                labeledField("Max Group Size", text: $tierMaxGroupSize)
+                                labeledField("Tier Price", text: $tierPrice)
+                                Button(action: addGroupPricingTier) {
+                                    Text("Add Group Tier")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(AppTheme.coral)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 10)
+                                        .background(AppTheme.coral.opacity(0.08))
+                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                }
+                                if !groupPricingTiers.isEmpty {
+                                    VStack(spacing: 6) {
+                                        ForEach(Array(groupPricingTiers.enumerated()), id: \.offset) { idx, tier in
+                                            HStack(spacing: 8) {
+                                                Text("\(Int(tier["min_group_size"] as? Double ?? 0)) - \(Int(tier["max_group_size"] as? Double ?? 0)) people")
+                                                    .font(.caption)
+                                                    .foregroundColor(AppTheme.textPrimary)
+                                                Spacer()
+                                                Text("\(tier["price"] as? Double ?? 0, specifier: "%.2f") \(currency)")
+                                                    .font(.caption)
+                                                    .foregroundColor(AppTheme.textSecondary)
+                                                Button("Remove") { groupPricingTiers.remove(at: idx) }
+                                                    .font(.caption)
+                                                    .foregroundColor(.red)
+                                            }
+                                            .padding(10)
+                                            .background(AppTheme.cardBackground)
+                                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if selectedPricingModels.contains("per_hour") {
+                            labeledField("Price Per Hour", text: $pricePerHour)
+                        }
+                        if selectedPricingModels.contains("per_minute") {
+                            labeledField("Price Per Minute", text: $pricePerMinute)
+                        }
+                        if selectedPricingModels.contains("per_hour") || selectedPricingModels.contains("per_minute") {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Time Pricing Tiers (optional)")
+                                    .font(.caption)
+                                    .foregroundColor(AppTheme.textSecondary)
+                                labeledField("Duration Value", text: $timeTierDurationValue)
+                                cfChipRow("Duration Unit", options: timeTierUnitOptions, selected: Binding(
+                                    get: { timeTierDurationUnit },
+                                    set: { next in
+                                        if timeTierUnitOptions.contains(next) { timeTierDurationUnit = next }
+                                    }
+                                ))
+                                labeledField("Tier Price", text: $timeTierPrice)
+                                Button(action: addTimePricingTier) {
+                                    Text("Add Time Tier")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(AppTheme.coral)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 10)
+                                        .background(AppTheme.coral.opacity(0.08))
+                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                }
+                                if !timePricingTiers.isEmpty {
+                                    VStack(spacing: 6) {
+                                        ForEach(Array(timePricingTiers.enumerated()), id: \.offset) { idx, tier in
+                                            HStack(spacing: 8) {
+                                                let duration = tier["duration_value"] as? Double ?? 0
+                                                let unit = tier["duration_unit"] as? String ?? "hour"
+                                                let price = tier["price"] as? Double ?? 0
+                                                Text("\(duration, specifier: "%.2f") \(unit)")
+                                                    .font(.caption)
+                                                    .foregroundColor(AppTheme.textPrimary)
+                                                Spacer()
+                                                Text("\(price, specifier: "%.2f") \(currency)")
+                                                    .font(.caption)
+                                                    .foregroundColor(AppTheme.textSecondary)
+                                                Button("Remove") { timePricingTiers.remove(at: idx) }
+                                                    .font(.caption)
+                                                    .foregroundColor(.red)
+                                            }
+                                            .padding(10)
+                                            .background(AppTheme.cardBackground)
+                                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        labeledField("Min Guests", text: $minGuests)
+                        labeledField("Max Guests", text: $maxGuests)
+                        cfChipRow("Currency", options: currencyOptions, selected: $currency)
+                    }
+                case 4:
+                    VStack(spacing: 12) {
+                        cfSectionHeader("Photos")
+                        Text("Upload tour package photos.")
+                            .font(.caption).foregroundColor(AppTheme.textSecondary)
+                        PhotosPicker(selection: $selectedPhotos, maxSelectionCount: 10, matching: .images) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "photo.on.rectangle.angled")
+                                Text(uploadingImages ? "Uploading…" : "Select Photos")
+                            }
+                            .font(.system(size: 15, weight: .semibold))
+                            .frame(maxWidth: .infinity).padding(.vertical, 12)
+                            .foregroundColor(AppTheme.coral)
+                            .background(AppTheme.coral.opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        }
+                        .disabled(uploadingImages)
+                        .onChange(of: selectedPhotos) { items in Task { await uploadPhotos(items) } }
+                        if !uploadedUrls.isEmpty { cfPhotoGrid(uploadedUrls) }
+                    }
+                default:
+                    VStack(spacing: 12) {
+                        cfSectionHeader("Review & Publish")
+                        if uploadedUrls.isEmpty {
+                            HStack(spacing: 8) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.orange)
+                                Text("No photos added yet. Listings with photos usually perform better.")
+                                    .font(.caption)
+                                    .foregroundColor(AppTheme.textSecondary)
+                                Spacer(minLength: 0)
+                            }
+                            .padding(10)
+                            .background(Color.orange.opacity(0.12))
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        }
+                        reviewRow("Package Title", title)
+                        reviewRow("Category", category)
+                        reviewRow("City", city)
+                        reviewRow("Duration", duration)
+                        reviewRow("Meeting Point", meetingPoint)
+                        reviewRow("Min Guests", "\(Int(minGuests) ?? 1)")
+                        reviewRow("Max Guests", "\(Int(maxGuests) ?? 8)")
+                        reviewRow("Pricing Models", selectedPricingModels.map(pricingModelDisplay).joined(separator: ", "))
+                        reviewRow("Primary Pricing", pricingModelDisplay(pricingModel))
+                        reviewRow("Primary Price", String(format: "%.2f %@", primarySelectedPrice, currency))
+                        if selectedPricingModels.contains("per_person") {
+                            reviewRow("Price Per Adult", String(format: "%.2f %@", Double(pricePerAdult) ?? 0, currency))
+                        }
+                        if selectedPricingModels.contains("per_group") {
+                            reviewRow("Price Per Group", String(format: "%.2f %@", Double(pricePerGroup) ?? 0, currency))
+                            reviewRow("Group Pricing Tiers", "\(groupPricingTiers.count)")
+                        }
+                        if selectedPricingModels.contains("per_hour") {
+                            reviewRow("Price Per Hour", String(format: "%.2f %@", Double(pricePerHour) ?? 0, currency))
+                        }
+                        if selectedPricingModels.contains("per_minute") {
+                            reviewRow("Price Per Minute", String(format: "%.2f %@", Double(pricePerMinute) ?? 0, currency))
+                        }
+                        if selectedPricingModels.contains("per_hour") || selectedPricingModels.contains("per_minute") {
+                            reviewRow("Time Pricing Tiers", "\(timePricingTiers.count)")
+                        }
+                        reviewRow("Photos", "\(uploadedUrls.count)")
+                    }
+                }
+
+                cfNavButtons(step: $step, total: totalSteps, canAdvance: canAdvance, saving: saving || uploadingImages, finalLabel: "Publish Package") {
+                    Task { await submit() }
+                }
+
+                if let message { Text(message).font(.caption).foregroundColor(.secondary).frame(maxWidth: .infinity, alignment: .leading) }
+            }
+            .padding(16)
+        }
+        .background(AppTheme.appBackground)
+        .task {
+            cloudinaryIssue = await ListingCloudinaryUploader.preflightIssue()
+        }
+    }
+
+    private func uploadPhotos(_ items: [PhotosPickerItem]) async {
+        uploadingImages = true
+        uploadedUrls = await ListingCloudinaryUploader.upload(items, folder: "tour-packages/mobile")
+        uploadingImages = false
+        if !items.isEmpty, uploadedUrls.isEmpty {
+            message = cloudinaryIssue ?? "Cloudinary upload failed. Please check account configuration and try again."
+        }
+    }
+
+    private func togglePricingModel(_ model: String) {
+        if selectedPricingModels.contains(model) {
+            if selectedPricingModels.count == 1 { return }
+            selectedPricingModels.removeAll { $0 == model }
+            if pricingModel == model {
+                pricingModel = selectedPricingModels.first ?? "per_person"
+            }
+            if model == "per_hour" && timeTierDurationUnit == "hour" && !selectedPricingModels.contains("per_hour") {
+                timeTierDurationUnit = selectedPricingModels.contains("per_minute") ? "minute" : "hour"
+            }
+            if model == "per_minute" && timeTierDurationUnit == "minute" && !selectedPricingModels.contains("per_minute") {
+                timeTierDurationUnit = selectedPricingModels.contains("per_hour") ? "hour" : "minute"
+            }
+            return
+        }
+
+        selectedPricingModels.append(model)
+        if selectedPricingModels.count == 1 {
+            pricingModel = model
+        }
+        if (model == "per_hour" || model == "per_minute") && !timeTierUnitOptions.contains(timeTierDurationUnit) {
+            timeTierDurationUnit = model == "per_minute" ? "minute" : "hour"
+        }
+    }
+
+    private func addGroupPricingTier() {
+        let minSize = max(1, Int(tierMinGroupSize) ?? 0)
+        let maxSize = max(minSize, Int(tierMaxGroupSize) ?? 0)
+        let price = Double(tierPrice) ?? 0
+        guard price > 0 else { return }
+
+        groupPricingTiers.append([
+            "min_group_size": Double(minSize),
+            "max_group_size": Double(maxSize),
+            "price": price
+        ])
+
+        tierMinGroupSize = ""
+        tierMaxGroupSize = ""
+        tierPrice = ""
+    }
+
+    private func addTimePricingTier() {
+        let duration = Double(timeTierDurationValue) ?? 0
+        let price = Double(timeTierPrice) ?? 0
+        guard duration > 0, price > 0 else { return }
+        guard timeTierUnitOptions.contains(timeTierDurationUnit) else { return }
+
+        timePricingTiers.append([
+            "duration_value": duration,
+            "duration_unit": timeTierDurationUnit,
+            "price": price
+        ])
+
+        timeTierDurationValue = ""
+        timeTierPrice = ""
+    }
+
+    private func reviewRow(_ label: String, _ value: String) -> some View {
+        HStack(spacing: 8) {
+            Text(label)
+                .font(.caption)
+                .foregroundColor(AppTheme.textSecondary)
+            Spacer()
+            Text(value.isEmpty ? "-" : value)
+                .font(.caption)
+                .foregroundColor(AppTheme.textPrimary)
+                .multilineTextAlignment(.trailing)
+        }
+        .padding(10)
+        .background(AppTheme.cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private func submit() async {
+        guard let service, let hostId = session.userId else { return }
+        guard !uploadedUrls.isEmpty else {
+            message = "Upload at least one photo before publishing."
+            return
+        }
+        saving = true; defer { saving = false }
+        do {
+            var payload: [String: Any] = [
+                "title": title, "category": category, "tour_type": "Group",
+                "city": city, "duration": duration, "description": description,
+                "daily_itinerary": dailyItinerary,
+                "meeting_point": meetingPoint,
                 "price_per_adult": Double(pricePerAdult) ?? 0,
                 "currency": currency,
                 "min_guests": Int(minGuests) ?? 1,
                 "max_guests": Int(maxGuests) ?? 8,
-                "categories": [category],
+                "categories": [category], "status": "approved"
             ]
+
+            var pricingTiers: [String: Any] = [
+                "tiers": [[
+                    "group_size": 1,
+                    "price_per_person": Double(pricePerAdult) ?? 0
+                ]],
+                "pricing_model": pricingModel,
+                "pricing_models": selectedPricingModels
+            ]
+            if selectedPricingModels.contains("per_group") {
+                pricingTiers["group_pricing_tiers"] = groupPricingTiers
+            }
+            if selectedPricingModels.contains("per_hour") || selectedPricingModels.contains("per_minute") {
+                pricingTiers["pricing_duration_value"] = 1
+                pricingTiers["time_pricing_tiers"] = timePricingTiers
+            }
+            payload["pricing_tiers"] = pricingTiers
+
+            if !includedServices.isEmpty { payload["included_services"] = includedServices }
+            if !excludedServices.isEmpty { payload["excluded_services"] = excludedServices }
+            if !uploadedUrls.isEmpty { payload["gallery_images"] = uploadedUrls; payload["cover_image"] = uploadedUrls[0] }
             try await service.createTourPackage(hostId: hostId, payload: payload)
-            message = "Tour package created successfully."
-        } catch {
-            message = "Could not create tour package: \(error.localizedDescription)"
-        }
+            message = "Tour package published successfully ✓"
+        } catch { message = "Error: \(error.localizedDescription)" }
     }
 }
+
+// MARK: - Create Property / Room (3 steps)
 
 private struct NativeCreatePropertyView: View {
     @EnvironmentObject private var session: AppSessionViewModel
     let listingType: String
+    private let service = SupabaseService()
+
+    @State private var step = 1
+    private let totalSteps = 3
+
+    // Step 1
     @State private var title = ""
     @State private var location = "Kigali"
     @State private var description = ""
     @State private var propertyType = "Apartment"
+
+    // Step 2
     @State private var bedrooms = "1"
     @State private var bathrooms = "1"
     @State private var maxGuests = "2"
     @State private var pricePerNight = ""
     @State private var currency = "RWF"
+
+    // Step 3
+    @State private var selectedPhotos: [PhotosPickerItem] = []
+    @State private var uploadedUrls: [String] = []
+    @State private var uploadingImages = false
+
     @State private var saving = false
     @State private var message: String?
-    private let service = SupabaseService()
+    @State private var cloudinaryIssue: String?
+
+    private let propertyTypes = ["Apartment", "House", "Villa", "Studio", "Guesthouse", "Hotel Room", "Hostel", "Other"]
+    private let currencyOptions = ["RWF", "USD", "EUR", "KES", "UGX", "TZS"]
+
+    private var stepTitles: [String] { ["Basic Info", "Details & Pricing", "Photos"] }
+    private var canAdvance: Bool {
+        step == 1 ? (!title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) : true
+    }
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 10) {
-                labeledField("Title", text: $title)
-                labeledField("Location", text: $location)
-                labeledField("Description", text: $description)
-                labeledField("Property Type", text: $propertyType)
-                labeledField("Bedrooms", text: $bedrooms)
-                labeledField("Bathrooms", text: $bathrooms)
-                labeledField("Max Guests", text: $maxGuests)
-                labeledField("Price Per Night", text: $pricePerNight)
-                labeledField("Currency", text: $currency)
+            VStack(spacing: 16) {
+                cfProgressBar(step: step, total: totalSteps, title: stepTitles[step - 1])
+                if let cloudinaryIssue { cfWarningCard(cloudinaryIssue) }
 
-                submitButton(title: listingType == "room" ? "Publish Room" : "Publish Property", saving: saving) {
-                    await submit()
+                switch step {
+                case 1:
+                    VStack(spacing: 12) {
+                        cfSectionHeader("Basic Information")
+                        labeledField(listingType == "room" ? "Room Title *" : "Property Title *", text: $title)
+                        labeledField("Location *", text: $location)
+                        cfTextArea("Description", text: $description)
+                        if listingType != "room" {
+                            cfChipRow("Property Type", options: propertyTypes, selected: $propertyType)
+                        }
+                    }
+                case 2:
+                    VStack(spacing: 12) {
+                        cfSectionHeader("Details & Pricing")
+                        labeledField("Bedrooms", text: $bedrooms)
+                        labeledField("Bathrooms", text: $bathrooms)
+                        labeledField("Max Guests", text: $maxGuests)
+                        labeledField("Price Per Night *", text: $pricePerNight)
+                        cfChipRow("Currency", options: currencyOptions, selected: $currency)
+                    }
+                default:
+                    VStack(spacing: 12) {
+                        cfSectionHeader("Photos")
+                        Text("Upload photos to attract more guests.")
+                            .font(.caption).foregroundColor(AppTheme.textSecondary)
+                        PhotosPicker(selection: $selectedPhotos, maxSelectionCount: 15, matching: .images) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "photo.on.rectangle.angled")
+                                Text(uploadingImages ? "Uploading…" : "Select Photos")
+                            }
+                            .font(.system(size: 15, weight: .semibold))
+                            .frame(maxWidth: .infinity).padding(.vertical, 12)
+                            .foregroundColor(AppTheme.coral)
+                            .background(AppTheme.coral.opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        }
+                        .disabled(uploadingImages)
+                        .onChange(of: selectedPhotos) { items in Task { await uploadPhotos(items) } }
+                        if !uploadedUrls.isEmpty { cfPhotoGrid(uploadedUrls) }
+                    }
                 }
 
-                if let message {
-                    Text(message)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                cfNavButtons(step: $step, total: totalSteps, canAdvance: canAdvance, saving: saving || uploadingImages,
+                             finalLabel: listingType == "room" ? "Publish Room" : "Publish Property") {
+                    Task { await submit() }
                 }
+
+                if let message { Text(message).font(.caption).foregroundColor(.secondary).frame(maxWidth: .infinity, alignment: .leading) }
+            }
+            .padding(16)
+        }
+        .background(AppTheme.appBackground)
+        .task {
+            cloudinaryIssue = await ListingCloudinaryUploader.preflightIssue()
+        }
+    }
+
+    private func uploadPhotos(_ items: [PhotosPickerItem]) async {
+        uploadingImages = true
+        uploadedUrls = await ListingCloudinaryUploader.upload(items, folder: "properties/mobile")
+        uploadingImages = false
+        if !items.isEmpty, uploadedUrls.isEmpty {
+            message = cloudinaryIssue ?? "Cloudinary upload failed. Please check account configuration and try again."
+        }
+    }
+
+    private func submit() async {
+        guard let service, let hostId = session.userId else { message = "Please sign in as host first."; return }
+        let safeTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !safeTitle.isEmpty else { message = "Title is required."; return }
+        guard !uploadedUrls.isEmpty else { message = "Upload at least one photo before publishing."; return }
+        saving = true; defer { saving = false }
+        do {
+            var payload: [String: Any] = [
+                "title": safeTitle, "location": location, "description": description,
+                "property_type": listingType == "room" ? "Room" : propertyType,
+                "bedrooms": Int(bedrooms) ?? 1, "bathrooms": Int(bathrooms) ?? 1,
+                "max_guests": Int(maxGuests) ?? 2,
+                "price_per_night": Double(pricePerNight) ?? 0,
+                "currency": currency, "is_published": true,
+                "monthly_only_listing": false, "available_for_monthly_rental": false
+            ]
+            if !uploadedUrls.isEmpty { payload["images"] = uploadedUrls; payload["main_image"] = uploadedUrls[0] }
+            _ = try await service.createProperty(hostId: hostId, payload: payload)
+            message = listingType == "room" ? "Room listed successfully ✓" : "Property listed successfully ✓"
+        } catch { message = "Could not publish listing: \(error.localizedDescription)" }
+    }
+}
+
+// MARK: - Create Transport Vehicle (3 steps)
+
+private struct NativeCreateTransportVehicleView: View {
+    @EnvironmentObject private var session: AppSessionViewModel
+    let serviceType: String
+    private let service = SupabaseService()
+
+    @State private var step = 1
+    private let totalSteps = 3
+
+    // Step 1
+    @State private var title = ""
+    @State private var providerName = ""
+    @State private var carBrand = ""
+    @State private var carModel = ""
+    @State private var carYear = "2024"
+    @State private var vehicleType = "Sedan"
+    @State private var seats = "4"
+
+    // Step 2
+    @State private var dailyPrice = ""
+    @State private var weeklyPrice = ""
+    @State private var monthlyPrice = ""
+    @State private var currency = "RWF"
+
+    // Step 3
+    @State private var selectedPhotos: [PhotosPickerItem] = []
+    @State private var uploadedUrls: [String] = []
+    @State private var uploadingImages = false
+
+    @State private var saving = false
+    @State private var message: String?
+    @State private var cloudinaryIssue: String?
+
+    private let vehicleTypes  = ["Sedan", "SUV", "Hatchback", "Van", "Minibus", "Luxury Car", "Pickup Truck", "Other"]
+    private let carBrands     = ["Toyota", "Honda", "Nissan", "Mazda", "Mitsubishi", "Suzuki", "Hyundai", "Mercedes-Benz", "BMW", "Land Rover", "Other"]
+    private let currencyOptions = ["RWF", "USD", "EUR", "KES", "UGX", "TZS"]
+
+    private var stepTitles: [String] { ["Vehicle Details", "Pricing", "Photos"] }
+    private var canAdvance: Bool {
+        step == 1 ? (!carBrand.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !carModel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) : true
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                cfProgressBar(step: step, total: totalSteps, title: stepTitles[step - 1])
+                if let cloudinaryIssue { cfWarningCard(cloudinaryIssue) }
+
+                switch step {
+                case 1:
+                    VStack(spacing: 12) {
+                        cfSectionHeader("Vehicle Details")
+                        cfChipRow("Car Brand *", options: carBrands, selected: $carBrand)
+                        labeledField("Car Model *", text: $carModel)
+                        labeledField("Year (e.g. 2023)", text: $carYear)
+                        cfChipRow("Vehicle Type", options: vehicleTypes, selected: $vehicleType)
+                        labeledField("Seats", text: $seats)
+                        labeledField("Provider / Company Name", text: $providerName)
+                        labeledField("Listing Title (optional — auto-generated if empty)", text: $title)
+                    }
+                case 2:
+                    VStack(spacing: 12) {
+                        cfSectionHeader("Rental Pricing")
+                        labeledField("Daily Price *", text: $dailyPrice)
+                        labeledField("Weekly Price (optional)", text: $weeklyPrice)
+                        labeledField("Monthly Price (optional)", text: $monthlyPrice)
+                        cfChipRow("Currency", options: currencyOptions, selected: $currency)
+                    }
+                default:
+                    VStack(spacing: 12) {
+                        cfSectionHeader("Vehicle Photos")
+                        Text("Upload exterior and interior photos.")
+                            .font(.caption).foregroundColor(AppTheme.textSecondary)
+                        PhotosPicker(selection: $selectedPhotos, maxSelectionCount: 12, matching: .images) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "car.fill")
+                                Text(uploadingImages ? "Uploading…" : "Select Photos")
+                            }
+                            .font(.system(size: 15, weight: .semibold))
+                            .frame(maxWidth: .infinity).padding(.vertical, 12)
+                            .foregroundColor(AppTheme.coral)
+                            .background(AppTheme.coral.opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        }
+                        .disabled(uploadingImages)
+                        .onChange(of: selectedPhotos) { items in Task { await uploadPhotos(items) } }
+                        if !uploadedUrls.isEmpty { cfPhotoGrid(uploadedUrls) }
+                    }
+                }
+
+                cfNavButtons(step: $step, total: totalSteps, canAdvance: canAdvance, saving: saving || uploadingImages, finalLabel: "Publish Vehicle") {
+                    Task { await submit() }
+                }
+
+                if let message { Text(message).font(.caption).foregroundColor(.secondary).frame(maxWidth: .infinity, alignment: .leading) }
+            }
+            .padding(16)
+        }
+        .background(AppTheme.appBackground)
+        .task {
+            cloudinaryIssue = await ListingCloudinaryUploader.preflightIssue()
+        }
+    }
+
+    private func uploadPhotos(_ items: [PhotosPickerItem]) async {
+        uploadingImages = true
+        uploadedUrls = await ListingCloudinaryUploader.upload(items, folder: "transport/mobile")
+        uploadingImages = false
+        if !items.isEmpty, uploadedUrls.isEmpty {
+            message = cloudinaryIssue ?? "Cloudinary upload failed. Please check account configuration and try again."
+        }
+    }
+
+    private func submit() async {
+        guard let service, let hostId = session.userId else { return }
+        guard !uploadedUrls.isEmpty else {
+            message = "Upload at least one vehicle photo before publishing."
+            return
+        }
+        saving = true; defer { saving = false }
+        do {
+            let listingTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? "\(carBrand) \(carModel) \(carYear)".trimmingCharacters(in: .whitespacesAndNewlines)
+                : title
+            var payload: [String: Any] = [
+                "title": listingTitle, "provider_name": providerName,
+                "vehicle_type": vehicleType, "car_type": vehicleType,
+                "car_brand": carBrand, "car_model": carModel,
+                "car_year": Int(carYear) ?? 2024, "seats": Int(seats) ?? 4,
+                "daily_price": Double(dailyPrice) ?? 0,
+                "weekly_price": Double(weeklyPrice) ?? 0,
+                "monthly_price": Double(monthlyPrice) ?? 0,
+                "currency": currency, "is_published": true
+            ]
+            if !uploadedUrls.isEmpty {
+                payload["exterior_images"] = uploadedUrls
+                payload["media"] = uploadedUrls
+                payload["image_url"] = uploadedUrls[0]
+            }
+            _ = try await service.createTransportVehicle(hostId: hostId, payload: payload, serviceType: serviceType)
+            message = "Vehicle published successfully ✓"
+        } catch { message = "Error: \(error.localizedDescription)" }
+    }
+}
+
+// MARK: - Create Airport Transfer (2 steps)
+
+private struct NativeCreateAirportTransferView: View {
+    @EnvironmentObject private var session: AppSessionViewModel
+    private let service = SupabaseService()
+
+    @State private var step = 1
+    private let totalSteps = 2
+
+    // Step 1
+    @State private var providerName = ""
+    @State private var carBrand = ""
+    @State private var carModel = ""
+    @State private var carYear = "2024"
+    @State private var seats = "4"
+
+    // Step 2
+    @State private var routeId = ""
+    @State private var routePrice = ""
+    @State private var currency = "RWF"
+
+    @State private var saving = false
+    @State private var message: String?
+
+    private let currencyOptions = ["RWF", "USD", "EUR", "KES"]
+
+    private var stepTitles: [String] { ["Vehicle", "Route & Pricing"] }
+    private var canAdvance: Bool {
+        step == 1 ? (!carBrand.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !carModel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) : true
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                cfProgressBar(step: step, total: totalSteps, title: stepTitles[step - 1])
+
+                switch step {
+                case 1:
+                    VStack(spacing: 12) {
+                        cfSectionHeader("Vehicle Details")
+                        labeledField("Provider / Company Name", text: $providerName)
+                        labeledField("Car Brand *", text: $carBrand)
+                        labeledField("Car Model *", text: $carModel)
+                        labeledField("Car Year", text: $carYear)
+                        labeledField("Seats", text: $seats)
+                    }
+                default:
+                    VStack(spacing: 12) {
+                        cfSectionHeader("Route & Pricing")
+                        labeledField("Route (e.g. Airport → Kigali City Center)", text: $routeId)
+                        labeledField("Route Price", text: $routePrice)
+                        cfChipRow("Currency", options: currencyOptions, selected: $currency)
+                    }
+                }
+
+                cfNavButtons(step: $step, total: totalSteps, canAdvance: canAdvance, saving: saving, finalLabel: "Publish Airport Transfer") {
+                    Task { await submit() }
+                }
+
+                if let message { Text(message).font(.caption).foregroundColor(.secondary).frame(maxWidth: .infinity, alignment: .leading) }
             }
             .padding(16)
         }
@@ -3338,175 +6571,25 @@ private struct NativeCreatePropertyView: View {
     }
 
     private func submit() async {
-        guard let service, let hostId = session.userId else {
-            message = "Please sign in as host first."
-            return
-        }
-
-        let safeTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        if safeTitle.isEmpty {
-            message = "Title is required."
-            return
-        }
-
-        saving = true
-        defer { saving = false }
-
-        do {
-            let payload: [String: Any] = [
-                "title": safeTitle,
-                "location": location,
-                "description": description,
-                "property_type": listingType == "room" ? "Room" : propertyType,
-                "bedrooms": Int(bedrooms) ?? 1,
-                "bathrooms": Int(bathrooms) ?? 1,
-                "max_guests": Int(maxGuests) ?? 2,
-                "price_per_night": Double(pricePerNight) ?? 0,
-                "currency": currency,
-                "is_published": true,
-                "monthly_only_listing": false,
-                "available_for_monthly_rental": false
-            ]
-            _ = try await service.createProperty(hostId: hostId, payload: payload)
-            message = listingType == "room" ? "Room listed successfully." : "Property listed successfully."
-        } catch {
-            message = "Could not publish listing: \(error.localizedDescription)"
-        }
-    }
-}
-
-private struct NativeCreateTransportVehicleView: View {
-    @EnvironmentObject private var session: AppSessionViewModel
-    let serviceType: String
-    @State private var title = ""
-    @State private var providerName = ""
-    @State private var vehicleType = "Sedan"
-    @State private var carBrand = ""
-    @State private var carModel = ""
-    @State private var carYear = "2024"
-    @State private var seats = "4"
-    @State private var dailyPrice = ""
-    @State private var weeklyPrice = ""
-    @State private var monthlyPrice = ""
-    @State private var currency = "RWF"
-    @State private var saving = false
-    @State private var message: String?
-    private let service = SupabaseService()
-
-    var body: some View {
-        ScrollView {
-            VStack(spacing: 10) {
-                labeledField("Title", text: $title)
-                labeledField("Provider Name", text: $providerName)
-                labeledField("Vehicle Type", text: $vehicleType)
-                labeledField("Car Brand", text: $carBrand)
-                labeledField("Car Model", text: $carModel)
-                labeledField("Car Year", text: $carYear)
-                labeledField("Seats", text: $seats)
-                labeledField("Daily Price", text: $dailyPrice)
-                labeledField("Weekly Price", text: $weeklyPrice)
-                labeledField("Monthly Price", text: $monthlyPrice)
-                labeledField("Currency", text: $currency)
-                submitButton(title: "Publish Vehicle", saving: saving) { await submit() }
-                if let message { Text(message).font(.caption).foregroundColor(.secondary) }
-            }.padding(16)
-        }
-        .background(AppTheme.appBackground)
-    }
-
-    private func submit() async {
         guard let service, let hostId = session.userId else { return }
-        saving = true
-        defer { saving = false }
+        saving = true; defer { saving = false }
         do {
+            let listingTitle = "Airport Transfer · \(carBrand) \(carModel) \(carYear)".trimmingCharacters(in: .whitespacesAndNewlines)
             let payload: [String: Any] = [
-                "title": title,
-                "provider_name": providerName,
-                "vehicle_type": vehicleType,
-                "car_type": vehicleType,
-                "car_brand": carBrand,
-                "car_model": carModel,
-                "car_year": Int(carYear) ?? 2024,
-                "seats": Int(seats) ?? 4,
-                "daily_price": Double(dailyPrice) ?? 0,
-                "weekly_price": Double(weeklyPrice) ?? 0,
-                "monthly_price": Double(monthlyPrice) ?? 0,
-                "currency": currency,
-                "media": [],
-                "exterior_images": [],
-                "interior_images": [],
-            ]
-            _ = try await service.createTransportVehicle(hostId: hostId, payload: payload, serviceType: serviceType)
-            message = "Vehicle created successfully."
-        } catch {
-            message = "Could not create vehicle: \(error.localizedDescription)"
-        }
-    }
-}
-
-private struct NativeCreateAirportTransferView: View {
-    @EnvironmentObject private var session: AppSessionViewModel
-    @State private var title = "Airport Transfer"
-    @State private var providerName = ""
-    @State private var carBrand = ""
-    @State private var carModel = ""
-    @State private var carYear = "2024"
-    @State private var seats = "4"
-    @State private var routeId = ""
-    @State private var routePrice = ""
-    @State private var currency = "RWF"
-    @State private var saving = false
-    @State private var message: String?
-    private let service = SupabaseService()
-
-    var body: some View {
-        ScrollView {
-            VStack(spacing: 10) {
-                labeledField("Title", text: $title)
-                labeledField("Provider Name", text: $providerName)
-                labeledField("Car Brand", text: $carBrand)
-                labeledField("Car Model", text: $carModel)
-                labeledField("Car Year", text: $carYear)
-                labeledField("Seats", text: $seats)
-                labeledField("Route ID", text: $routeId)
-                labeledField("Route Price", text: $routePrice)
-                labeledField("Currency", text: $currency)
-                submitButton(title: "Publish Airport Transfer", saving: saving) { await submit() }
-                if let message { Text(message).font(.caption).foregroundColor(.secondary) }
-            }.padding(16)
-        }
-        .background(AppTheme.appBackground)
-    }
-
-    private func submit() async {
-        guard let service, let hostId = session.userId else { return }
-        saving = true
-        defer { saving = false }
-        do {
-            let payload: [String: Any] = [
-                "title": title,
-                "provider_name": providerName,
-                "vehicle_type": "Airport Transfer",
-                "car_type": "Airport Transfer",
-                "car_brand": carBrand,
-                "car_model": carModel,
-                "car_year": Int(carYear) ?? 2024,
-                "seats": Int(seats) ?? 4,
-                "currency": currency,
-                "price_per_day": 0,
-                "media": [],
-                "exterior_images": [],
-                "interior_images": [],
+                "title": listingTitle, "provider_name": providerName,
+                "vehicle_type": "Airport Transfer", "car_type": "Airport Transfer",
+                "car_brand": carBrand, "car_model": carModel,
+                "car_year": Int(carYear) ?? 2024, "seats": Int(seats) ?? 4,
+                "currency": currency, "price_per_day": 0,
+                "media": [], "exterior_images": [], "interior_images": []
             ]
             if let vehicleId = try await service.createTransportVehicle(hostId: hostId, payload: payload, serviceType: "airport_transfer"),
                !routeId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                let routePriceValue = Double(routePrice) {
                 try await service.createAirportTransferPricing(vehicleId: vehicleId, routeId: routeId, price: routePriceValue, currency: currency)
             }
-            message = "Airport transfer created successfully."
-        } catch {
-            message = "Could not create airport transfer: \(error.localizedDescription)"
-        }
+            message = "Airport transfer published successfully ✓"
+        } catch { message = "Error: \(error.localizedDescription)" }
     }
 }
 
@@ -3518,7 +6601,7 @@ private func labeledField(_ label: String, text: Binding<String>) -> some View {
         TextField(label, text: text)
             .textInputAutocapitalization(.sentences)
             .padding(12)
-            .background(Color.white)
+            .background(AppTheme.cardBackground)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
@@ -3562,7 +6645,7 @@ private struct NativeCreateStoryView: View {
                     TextEditor(text: $storyBody)
                         .frame(minHeight: 140)
                         .padding(8)
-                        .background(Color.white)
+                        .background(AppTheme.cardBackground)
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
 
@@ -3599,7 +6682,7 @@ private struct NativeCreateStoryView: View {
             TextField(placeholder, text: text)
                 .textInputAutocapitalization(.sentences)
                 .padding(12)
-                .background(Color.white)
+                .background(AppTheme.cardBackground)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
     }
@@ -3667,7 +6750,7 @@ private struct NativeHostDashboardDetailView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)
-                    .background(Color.white)
+                    .background(AppTheme.cardBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
             }
@@ -3726,7 +6809,7 @@ private struct NativeHostReviewsView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)
-                    .background(Color.white)
+                    .background(AppTheme.cardBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
             }
@@ -3908,7 +6991,7 @@ private struct NativeHostPayoutHistoryView: View {
                             .foregroundColor(AppTheme.textSecondary)
                     }
                     .padding(12)
-                    .background(Color.white)
+                    .background(AppTheme.cardBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
             }
@@ -4051,7 +7134,7 @@ private struct NativeAffiliatePortalView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)
-                    .background(Color.white)
+                    .background(AppTheme.cardBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
             }
@@ -4080,16 +7163,75 @@ private struct NativeAffiliatePortalView: View {
 
 private struct NativeCheckoutFlowView: View {
     @EnvironmentObject private var session: AppSessionViewModel
+    @Environment(\.openURL) private var openURL
+
+    private enum CheckoutPaymentMethod: String, CaseIterable, Identifiable {
+        case mtnRwa
+        case airtelRwa
+        case mpesaKen
+        case mtnUga
+        case airtelUga
+        case mtnZmb
+        case zamtelZmb
+        case cardPesapal
+
+        var id: String { rawValue }
+
+        var label: String {
+            switch self {
+            case .mtnRwa: return "MTN Mobile Money (Rwanda)"
+            case .airtelRwa: return "Airtel Money (Rwanda)"
+            case .mpesaKen: return "M-Pesa (Kenya)"
+            case .mtnUga: return "MTN Mobile Money (Uganda)"
+            case .airtelUga: return "Airtel Money (Uganda)"
+            case .mtnZmb: return "MTN Mobile Money (Zambia)"
+            case .zamtelZmb: return "Zamtel Money (Zambia)"
+            case .cardPesapal: return "Card (Pesapal)"
+            }
+        }
+
+        var provider: String {
+            switch self {
+            case .mtnRwa, .mtnUga, .mtnZmb: return "MTN"
+            case .airtelRwa, .airtelUga: return "AIRTEL"
+            case .mpesaKen: return "MPESA"
+            case .zamtelZmb: return "ZAMTEL"
+            case .cardPesapal: return "PESAPAL"
+            }
+        }
+
+        var currency: String {
+            switch self {
+            case .mtnRwa, .airtelRwa, .cardPesapal: return "RWF"
+            case .mpesaKen: return "KES"
+            case .mtnUga, .airtelUga: return "UGX"
+            case .mtnZmb, .zamtelZmb: return "ZMW"
+            }
+        }
+
+        var isCard: Bool {
+            self == .cardPesapal
+        }
+
+        var checkoutPaymentMethod: String {
+            isCard ? "card" : "mobile_money"
+        }
+    }
+
     @State private var checkIn = "2026-03-15"
     @State private var checkOut = "2026-03-17"
     @State private var guests = "2"
     @State private var amount = "199500"
     @State private var currency = "RWF"
+    @State private var paymentMethod: CheckoutPaymentMethod = .mtnRwa
     @State private var phone = ""
     @State private var note = ""
     @State private var statusMessage: String?
     @State private var checkoutId: String?
     @State private var bookingId: String?
+    @State private var depositId: String?
+    @State private var orderTrackingId: String?
+    @State private var activeProvider: String?
     @State private var polling = false
     @State private var saving = false
     private let service = SupabaseService()
@@ -4101,8 +7243,20 @@ private struct NativeCheckoutFlowView: View {
                 labeledField("Check Out", text: $checkOut)
                 labeledField("Guests", text: $guests)
                 labeledField("Amount", text: $amount)
+                Picker("Payment Method", selection: $paymentMethod) {
+                    ForEach(CheckoutPaymentMethod.allCases) { method in
+                        Text(method.label).tag(method)
+                    }
+                }
+                .pickerStyle(.menu)
+                .padding(12)
+                .background(AppTheme.cardBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
                 labeledField("Currency", text: $currency)
-                labeledField("Phone", text: $phone)
+                if !paymentMethod.isCard {
+                    labeledField("Phone", text: $phone)
+                }
                 labeledField("Message (optional)", text: $note)
 
                 submitButton(title: "Start Checkout", saving: saving) { await startCheckout() }
@@ -4120,6 +7274,20 @@ private struct NativeCheckoutFlowView: View {
 
                 if let checkoutId {
                     Text("Checkout id: \(checkoutId)")
+                        .font(.caption2)
+                        .foregroundColor(AppTheme.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                if let orderTrackingId {
+                    Text("Pesapal tracking id: \(orderTrackingId)")
+                        .font(.caption2)
+                        .foregroundColor(AppTheme.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                if let depositId {
+                    Text("PawaPay deposit id: \(depositId)")
                         .font(.caption2)
                         .foregroundColor(AppTheme.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -4147,13 +7315,25 @@ private struct NativeCheckoutFlowView: View {
             return
         }
 
+        let selectedCurrency = paymentMethod.currency
+        currency = selectedCurrency
+        depositId = nil
+        orderTrackingId = nil
+        activeProvider = nil
+
         saving = true
         defer { saving = false }
         do {
             let profile = try await service.fetchProfileBasics(userId: userId)
             let fullName = (profile?["full_name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
             let email = (profile?["email"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
-            let phoneValue = phone.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? ((profile?["phone"] as? String) ?? "") : phone
+            let profilePhone = (profile?["phone"] as? String) ?? ""
+            let phoneValue = phone.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? profilePhone : phone
+
+            if !paymentMethod.isCard && phoneValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                statusMessage = "Phone is required for mobile money payments."
+                return
+            }
 
             let draft = BookingDraft(
                 guestId: userId,
@@ -4161,12 +7341,12 @@ private struct NativeCheckoutFlowView: View {
                 guestEmail: email?.isEmpty == false ? email! : "noreply@merry360x.com",
                 propertyId: session.selectedListingId ?? "replace-with-real-property-id",
                 specialRequests: note,
-                paymentMethod: "mobile_money",
+                paymentMethod: paymentMethod.checkoutPaymentMethod,
                 checkIn: checkIn,
                 checkOut: checkOut,
                 guests: Int(guests) ?? 1,
                 totalPrice: total,
-                currency: currency
+                currency: selectedCurrency
             )
 
             bookingId = try await service.submitBookingReturningId(draft)
@@ -4178,8 +7358,8 @@ private struct NativeCheckoutFlowView: View {
                 phone: phoneValue,
                 message: note,
                 totalAmount: total,
-                currency: currency,
-                paymentMethod: "mobile_money",
+                currency: selectedCurrency,
+                paymentMethod: paymentMethod.checkoutPaymentMethod,
                 items: [[
                     "type": "property",
                     "reference_id": session.selectedListingId ?? "replace-with-real-property-id",
@@ -4189,18 +7369,47 @@ private struct NativeCheckoutFlowView: View {
             )
             checkoutId = checkout.id
 
-            let paymentResponse = try await service.createFlutterwavePayment(payload: [
-                "email": email?.isEmpty == false ? email! : "noreply@merry360x.com",
+            if paymentMethod.isCard {
+                let cardResponse = try await service.createPesapalPayment(payload: [
+                    "action": "create-payment",
+                    "checkoutId": checkout.id,
+                    "amount": total,
+                    "currency": selectedCurrency,
+                    "payerName": fullName?.isEmpty == false ? fullName! : "Guest",
+                    "payerEmail": email?.isEmpty == false ? email! : "noreply@merry360x.com",
+                    "phoneNumber": phoneValue,
+                    "description": "Merry360x Booking (Mobile)",
+                    "metadata": [
+                        "platform": "ios_native"
+                    ]
+                ])
+
+                activeProvider = "pesapal"
+                orderTrackingId = cardResponse["orderTrackingId"] as? String
+                if let redirectUrl = cardResponse["redirectUrl"] as? String,
+                   let url = URL(string: redirectUrl) {
+                    openURL(url)
+                    statusMessage = "Pesapal checkout opened. Complete card payment, then tap Refresh Payment Status."
+                } else {
+                    statusMessage = "Pesapal initialized. Complete payment and refresh status."
+                }
+                return
+            }
+
+            let pawaResponse = try await service.createPawaPayPayment(payload: [
+                "checkoutId": checkout.id,
                 "amount": total,
-                "currency": currency,
-                "checkoutId": checkout.id
+                "currency": selectedCurrency,
+                "phoneNumber": phoneValue,
+                "description": "Merry360x Booking (Mobile)",
+                "payerEmail": email?.isEmpty == false ? email! : "noreply@merry360x.com",
+                "payerName": fullName?.isEmpty == false ? fullName! : "Guest",
+                "provider": paymentMethod.provider,
             ])
 
-            if let link = paymentResponse["paymentLink"] as? String, !link.isEmpty {
-                statusMessage = "Checkout started. Payment link: \(link)"
-            } else {
-                statusMessage = "Checkout started. Waiting for payment confirmation."
-            }
+            activeProvider = "pawapay"
+            depositId = pawaResponse["depositId"] as? String
+            statusMessage = "PawaPay prompt sent. Approve payment on your phone, then tap Refresh Payment Status."
         } catch {
             statusMessage = "Checkout failed: \(error.localizedDescription)"
         }
@@ -4211,6 +7420,16 @@ private struct NativeCheckoutFlowView: View {
         polling = true
         defer { polling = false }
         do {
+            var providerStatus: String?
+
+            if activeProvider == "pesapal" {
+                let status = try await service.checkPesapalStatus(checkoutId: checkoutId, orderTrackingId: orderTrackingId)
+                providerStatus = status["providerStatus"] as? String
+            } else if activeProvider == "pawapay", let depositId {
+                let status = try await service.checkPawaPayStatus(depositId: depositId, checkoutId: checkoutId)
+                providerStatus = status["pawapayStatus"] as? String
+            }
+
             guard let checkout = try await service.fetchCheckoutRequest(id: checkoutId) else {
                 statusMessage = "Checkout request not found."
                 return
@@ -4228,7 +7447,11 @@ private struct NativeCheckoutFlowView: View {
                 }
                 statusMessage = "Payment failed. You can retry checkout."
             } else {
-                statusMessage = "Payment is still pending: \(checkout.paymentStatus)."
+                if let providerStatus, !providerStatus.isEmpty {
+                    statusMessage = "Payment is pending: \(checkout.paymentStatus) (provider: \(providerStatus))."
+                } else {
+                    statusMessage = "Payment is still pending: \(checkout.paymentStatus)."
+                }
             }
         } catch {
             statusMessage = "Could not refresh payment status: \(error.localizedDescription)"
@@ -4265,25 +7488,68 @@ private struct NativeHelpCenterView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                centerCard(title: "Help Center", subtitle: "Native support content mirroring website guidance.")
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Help Center")
+                        .font(.title3.weight(.bold))
+                        .foregroundColor(.white)
+                    Text("Find answers fast, then reach our support team with one tap.")
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.92))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(18)
+                .background(
+                    LinearGradient(
+                        colors: [Color(red: 0.1, green: 0.42, blue: 0.78), Color(red: 0.05, green: 0.56, blue: 0.62)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Quick actions")
+                        .font(.headline)
+                        .foregroundColor(AppTheme.textPrimary)
+
+                    HStack(spacing: 10) {
+                        Link(destination: URL(string: "mailto:support@merry360x.com")!) {
+                            helpActionPill(icon: "envelope.fill", title: "Email")
+                        }
+
+                        Link(destination: URL(string: "tel:+250796214719")!) {
+                            helpActionPill(icon: "phone.fill", title: "Call")
+                        }
+                    }
+                }
+                .padding(14)
+                .background(AppTheme.cardBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+
                 ForEach(sections, id: \.title) { section in
                     VStack(alignment: .leading, spacing: 8) {
                         Text(section.title)
                             .font(.headline)
+                            .foregroundColor(AppTheme.textPrimary)
                         ForEach(section.items, id: \.question) { item in
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(item.question)
                                     .font(.subheadline.weight(.semibold))
+                                    .foregroundColor(AppTheme.textPrimary)
                                 Text(item.answer)
                                     .font(.caption)
                                     .foregroundColor(AppTheme.textSecondary)
                             }
+                            .padding(10)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.white.opacity(0.72))
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                         }
                     }
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.white)
+                    .background(AppTheme.cardBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
 
@@ -4296,6 +7562,24 @@ private struct NativeHelpCenterView: View {
             .padding(16)
         }
         .background(AppTheme.appBackground)
+    }
+
+    private func helpActionPill(icon: String, title: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.caption.weight(.bold))
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+        }
+        .foregroundColor(AppTheme.textPrimary)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(Color.white)
+        .clipShape(Capsule())
+        .overlay(
+            Capsule()
+                .stroke(AppTheme.coral.opacity(0.35), lineWidth: 1)
+        )
     }
 }
 
@@ -4465,7 +7749,7 @@ private struct NativeSupportChatView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
+        .background(AppTheme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
@@ -4521,7 +7805,7 @@ private struct NativeSupportChatView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
+        .background(AppTheme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
@@ -4590,7 +7874,7 @@ private struct NativeSupportChatView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
+        .background(AppTheme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 

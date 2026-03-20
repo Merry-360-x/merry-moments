@@ -134,7 +134,10 @@ struct LoginView: View {
                     HStack {
                         Spacer()
                         Button("Forgot Password?") {
-                            // Navigate to forgot password
+                            if selectedTab != 0 {
+                                selectedTab = 0
+                            }
+                            Task { await viewModel.sendPasswordReset() }
                         }
                         .font(.system(size: 14))
                         .foregroundColor(AppTheme.coral)
@@ -147,6 +150,13 @@ struct LoginView: View {
                     Text(error)
                         .font(.system(size: 14))
                         .foregroundColor(.red)
+                        .padding(.horizontal, 20)
+                }
+
+                if let success = viewModel.successMessage, !success.isEmpty {
+                    Text(success)
+                        .font(.system(size: 14))
+                        .foregroundColor(.green)
                         .padding(.horizontal, 20)
                 }
                 
@@ -179,7 +189,7 @@ struct LoginView: View {
                 // Divider
                 HStack {
                     Rectangle()
-                        .fill(Color.gray.opacity(0.3))
+                        .fill(AppTheme.cardBackground)
                         .frame(height: 1)
                     
                     Text("or continue with")
@@ -187,7 +197,7 @@ struct LoginView: View {
                         .foregroundColor(.gray)
                     
                     Rectangle()
-                        .fill(Color.gray.opacity(0.3))
+                        .fill(AppTheme.cardBackground)
                         .frame(height: 1)
                 }
                 .padding(.horizontal, 20)
@@ -227,7 +237,7 @@ struct LoginView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(Color.white)
+                        .background(AppTheme.cardBackground)
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
                                 .stroke(Color.gray.opacity(0.3), lineWidth: 1)
@@ -253,7 +263,7 @@ struct LoginView: View {
                 .padding(.bottom, 32)
             }
         }
-        .background(Color.white)
+        .background(AppTheme.cardBackground)
     }
 
     private func handleOAuth(provider: String) {

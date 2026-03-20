@@ -277,14 +277,14 @@ private struct AndroidStyleBottomNav: View {
     }
 }
 
-private enum NavIconType {
+enum NavIconType {
     case explore
     case ai
     case tripCart
     case profile
 }
 
-private struct NavVectorIcon: View {
+struct NavVectorIcon: View {
     let icon: NavIconType
     let color: Color
 
