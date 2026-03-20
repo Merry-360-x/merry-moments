@@ -297,6 +297,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         },
       },
     });
+
+    if (!error) {
+      // Send welcome email as a best-effort async task for every successful signup.
+      const targetEmail = data.user?.email || email;
+      const name = options?.firstName || fullName || "there";
+      void fetch("/api/welcome-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: targetEmail,
+          fullName,
+          firstName: options?.firstName,
+          name,
+        }),
+      }).catch((err) => {
+        console.warn("[AuthContext] Welcome email send failed:", err);
+      });
+    }
     
     // If email confirmation is disabled, user is signed in immediately
     if (!error && data.session) {
