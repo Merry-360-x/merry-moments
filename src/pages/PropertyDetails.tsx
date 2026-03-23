@@ -1721,9 +1721,10 @@ export default function PropertyDetails() {
                     {isLoadingLinkedRooms ? (
                       <p className="mt-2 text-xs text-muted-foreground">Loading hotel rooms...</p>
                     ) : linkedRooms.length > 0 ? (
-                      <div className="mt-3 space-y-2">
+                      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {linkedRooms.map((room) => {
                           const monthlyOnly = Boolean(room.monthly_only_listing);
+                          const roomImage = (room.images || []).find(Boolean) || null;
                           const roomBeds = room.beds ?? room.bedrooms ?? null;
                           const roomMeta = [
                             roomBeds ? `Each unit has: ${roomBeds} ${roomBeds > 1 ? "beds" : "bed"}` : null,
@@ -1731,24 +1732,52 @@ export default function PropertyDetails() {
                           ]
                             .filter(Boolean)
                             .join(" • ");
+                          const roomPriceLabel = monthlyOnly
+                            ? `${displayMoney(Number(room.price_per_month ?? 0), String(room.currency ?? "RWF"))} / month`
+                            : `${displayMoney(Number(room.price_per_night ?? 0), String(room.currency ?? "RWF"))} / night`;
 
                           return (
                             <Link
                               key={room.id}
                               to={`/properties/${room.id}`}
-                              className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 hover:bg-accent/40 transition-colors"
+                              className="group overflow-hidden rounded-xl border border-border bg-background hover:border-primary/30 hover:shadow-sm transition-all"
                             >
-                              <div className="min-w-0">
-                                <p className="text-sm font-medium text-foreground truncate">{room.title}</p>
-                                <p className="text-xs text-muted-foreground truncate">
-                                  {roomMeta || room.location}
-                                </p>
+                              <div className="relative aspect-[16/10] w-full bg-muted/50 overflow-hidden">
+                                {roomImage ? (
+                                  <img
+                                    src={optimizedImageUrl(roomImage, 720, 450)}
+                                    alt={room.title}
+                                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <div className="h-full w-full flex items-center justify-center text-xs text-muted-foreground">
+                                    No image available
+                                  </div>
+                                )}
+                                <div className="absolute top-2 left-2 rounded-full border border-border/60 bg-background/90 backdrop-blur px-2 py-0.5 text-[10px] font-medium text-foreground">
+                                  {room.property_type || "Room"}
+                                </div>
                               </div>
-                              <p className="text-xs font-semibold text-primary whitespace-nowrap">
-                                {monthlyOnly
-                                  ? `${displayMoney(Number(room.price_per_month ?? 0), String(room.currency ?? "RWF"))} / month`
-                                  : `${displayMoney(Number(room.price_per_night ?? 0), String(room.currency ?? "RWF"))} / night`}
-                              </p>
+                              <div className="p-3">
+                                <p className="text-sm font-semibold text-foreground truncate">{room.title}</p>
+                                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                  {roomBeds ? (
+                                    <span className="inline-flex items-center gap-1">
+                                      <BedDouble className="w-3.5 h-3.5" />
+                                      {roomBeds} {roomBeds > 1 ? "beds" : "bed"}
+                                    </span>
+                                  ) : null}
+                                  {room.max_guests ? (
+                                    <span className="inline-flex items-center gap-1">
+                                      <User className="w-3.5 h-3.5" />
+                                      Up to {room.max_guests} guests
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <p className="mt-2 text-[11px] text-muted-foreground truncate">{roomMeta || room.location}</p>
+                                <p className="mt-2 text-sm font-semibold text-primary">{roomPriceLabel}</p>
+                              </div>
                             </Link>
                           );
                         })}
