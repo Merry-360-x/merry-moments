@@ -63,7 +63,8 @@ const getCurrencySymbol = (code: string) => {
   return symbols[code] || code;
 };
 
-const BOOKING_DECISION_SEEN_KEY = "guest_booking_decision_seen_at";
+const bookingDecisionSeenKey = (userId?: string | null) =>
+  `guest_booking_decision_seen_at_${String(userId || "anonymous")}`;
 
 const Navbar = () => {
   const location = useLocation();
@@ -71,10 +72,12 @@ const Navbar = () => {
   const { user, signOut, roles, isHost, isAdmin, isStaff, isFinancialStaff, isOperationsStaff, isCustomerSupport } = useAuth();
   const { guestCart } = useTripCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [decisionSeenAt, setDecisionSeenAt] = useState<string>(() => {
-    if (typeof window === "undefined") return "";
-    return localStorage.getItem(BOOKING_DECISION_SEEN_KEY) || "";
-  });
+  const [decisionSeenAt, setDecisionSeenAt] = useState<string>("");
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !user?.id) return;
+    setDecisionSeenAt(localStorage.getItem(bookingDecisionSeenKey(user.id)) || "");
+  }, [user?.id]);
   const { t } = useTranslation();
   const { language, setLanguage, currency, setCurrency, resolvedTheme, setTheme } = usePreferences();
 
@@ -212,7 +215,8 @@ const Navbar = () => {
 
   useEffect(() => {
     const syncSeenAt = () => {
-      setDecisionSeenAt(localStorage.getItem(BOOKING_DECISION_SEEN_KEY) || "");
+      if (!user?.id) return;
+      setDecisionSeenAt(localStorage.getItem(bookingDecisionSeenKey(user.id)) || "");
     };
 
     syncSeenAt();
@@ -222,7 +226,7 @@ const Navbar = () => {
       window.removeEventListener("storage", syncSeenAt);
       window.removeEventListener("focus", syncSeenAt);
     };
-  }, [location.pathname]);
+  }, [location.pathname, user?.id]);
 
   const unreadBookingDecisionCount = useMemo(() => {
     if (!bookingDecisions.length) return 0;

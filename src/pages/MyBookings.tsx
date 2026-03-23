@@ -25,7 +25,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { BookingDateChangeDialog } from "@/components/BookingDateChangeDialog";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
-const BOOKING_DECISION_SEEN_KEY = "guest_booking_decision_seen_at";
+const bookingDecisionSeenKey = (userId?: string | null) =>
+  `guest_booking_decision_seen_at_${String(userId || "anonymous")}`;
 
 interface Booking {
   id: string;
@@ -122,11 +123,13 @@ const MyBookings = () => {
   const [bookingHostId, setBookingHostId] = useState<string>("");
   const [requestingRefundKey, setRequestingRefundKey] = useState<string | null>(null);
   const [requestedRefundKeys, setRequestedRefundKeys] = useState<Set<string>>(new Set());
-  const [decisionSeenAt, setDecisionSeenAt] = useState<string>(() => {
-    if (typeof window === "undefined") return "";
-    return localStorage.getItem(BOOKING_DECISION_SEEN_KEY) || "";
-  });
+  const [decisionSeenAt, setDecisionSeenAt] = useState<string>("");
   const lastDecisionToastRef = useRef<string>("");
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !user?.id) return;
+    setDecisionSeenAt(localStorage.getItem(bookingDecisionSeenKey(user.id)) || "");
+  }, [user?.id]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -907,13 +910,25 @@ const MyBookings = () => {
     });
   }, [recentDecisionBookings, toast]);
 
-  const markDecisionUpdatesAsRead = () => {
-    const now = new Date().toISOString();
-    setDecisionSeenAt(now);
-    if (typeof window !== "undefined") {
-      localStorage.setItem(BOOKING_DECISION_SEEN_KEY, now);
-    }
-  };
+  useEffect(() => {
+    if (typeof window === "undefined" || !user?.id || isLoading || bookings.length === 0) return;
+
+    const latestDecision = bookings
+      .filter((booking) => booking.confirmation_status === "approved" || booking.confirmation_status === "rejected")
+      .map((booking) => booking.confirmed_at || booking.rejected_at || "")
+      .filter(Boolean)
+      .sort()
+      .at(-1);
+
+    if (!latestDecision) return;
+
+    const seenDate = decisionSeenAt ? new Date(decisionSeenAt) : new Date(0);
+    const latestDate = new Date(latestDecision);
+    if (!Number.isFinite(latestDate.getTime()) || latestDate <= seenDate) return;
+
+    localStorage.setItem(bookingDecisionSeenKey(user.id), latestDecision);
+    setDecisionSeenAt(latestDecision);
+  }, [bookings, decisionSeenAt, isLoading, user?.id]);
 
   if (authLoading || !user || isLoading) {
     return (
