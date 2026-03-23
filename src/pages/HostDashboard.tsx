@@ -673,6 +673,7 @@ export default function HostDashboard() {
   const [showRoomWizard, setShowRoomWizard] = useState(false);
   const [roomWizardStep, setRoomWizardStep] = useState(1);
   const [wizardStep, setWizardStep] = useState(1);
+  const [selectedHotelRoomIds, setSelectedHotelRoomIds] = useState<string[]>([]);
   const createDefaultPropertyForm = () => ({
     title: "",
     hotel_id: "",
@@ -1828,6 +1829,7 @@ export default function HostDashboard() {
   const resetPropertyForm = () => {
     localStorage.removeItem(PROPERTY_FORM_KEY); // Clear draft
     setPropertyForm(createDefaultPropertyForm());
+    setSelectedHotelRoomIds([]);
   };
 
   const discardPropertyDraft = () => {
@@ -3318,6 +3320,7 @@ export default function HostDashboard() {
   // Helper functions to open wizards and notify about drafts
   const openPropertyWizard = () => {
     setPropertyWizardEditId(null);
+    setSelectedHotelRoomIds([]);
     const hasDraft = localStorage.getItem(PROPERTY_FORM_KEY);
     if (hasDraft) {
       try {
@@ -3343,6 +3346,7 @@ export default function HostDashboard() {
   const openRoomWizard = (hotel?: Property | null) => {
     resetPropertyForm();
     setPropertyWizardEditId(null);
+    setSelectedHotelRoomIds([]);
     setShowPropertyWizard(false);
     setWizardStep(1);
     setRoomWizardStep(1);
@@ -3364,6 +3368,15 @@ export default function HostDashboard() {
     setPropertyWizardEditId(property.id);
     setWizardStep(1);
     setPropertyForm(mapPropertyToForm(property));
+    const isHotel = String(property.property_type || "").toLowerCase() === "hotel";
+    if (isHotel) {
+      const prefilledRoomIds = (properties || [])
+        .filter((room) => String((room as any).hotel_id || "") === property.id)
+        .map((room) => room.id);
+      setSelectedHotelRoomIds(prefilledRoomIds);
+    } else {
+      setSelectedHotelRoomIds([]);
+    }
     setShowPropertyWizard(true);
 
     let sourceProperty: Property | Record<string, any> = property;
@@ -3384,11 +3397,56 @@ export default function HostDashboard() {
     setPropertyForm(mapPropertyToForm(sourceProperty));
   };
 
+  const syncHotelRoomLinks = async (hotelId: string, relatedRoomIds: string[]) => {
+    if (!user) return;
+
+    const hostRoomCandidates = (properties || []).filter((room) => {
+      if (room.id === hotelId) return false;
+      const roomType = String(room.property_type || "").toLowerCase();
+      const roomTitle = String(room.title || "").toLowerCase();
+      return roomType !== "hotel" && (
+        roomType.includes("room") ||
+        roomType.includes("suite") ||
+        roomType.includes("studio") ||
+        roomTitle.includes(" room") ||
+        roomTitle.includes("suite") ||
+        roomTitle.includes("studio")
+      );
+    });
+
+    const currentlyLinkedIds = hostRoomCandidates
+      .filter((room) => String((room as any).hotel_id || "") === hotelId)
+      .map((room) => room.id);
+
+    const selectedSet = new Set(relatedRoomIds);
+    const toLink = relatedRoomIds.filter((id) => !currentlyLinkedIds.includes(id));
+    const toUnlink = currentlyLinkedIds.filter((id) => !selectedSet.has(id));
+
+    if (toLink.length > 0) {
+      const { error: linkError } = await (supabase as any)
+        .from("properties")
+        .update({ hotel_id: hotelId })
+        .in("id", toLink)
+        .eq("host_id", user.id);
+      if (linkError) throw linkError;
+    }
+
+    if (toUnlink.length > 0) {
+      const { error: unlinkError } = await (supabase as any)
+        .from("properties")
+        .update({ hotel_id: null })
+        .in("id", toUnlink)
+        .eq("host_id", user.id);
+      if (unlinkError) throw unlinkError;
+    }
+  };
+
   const submitPropertyWizard = async () => {
     const monthlyPrice = Number(propertyForm.price_per_month || 0);
     const normalizedNightlyPrice = propertyForm.listing_mode === "monthly_only"
       ? 0
       : Number(propertyForm.price_per_night || 0);
+    const isHotelType = String(propertyForm.property_type || "").toLowerCase() === "hotel";
 
     if (propertyWizardEditId) {
       const success = await updateProperty(propertyWizardEditId, {
@@ -3428,15 +3486,41 @@ export default function HostDashboard() {
       } as Partial<Property>);
 
       if (success) {
+        if (isHotelType) {
+          try {
+            await syncHotelRoomLinks(propertyWizardEditId, selectedHotelRoomIds);
+          } catch (error) {
+            logError("host.hotel.linkRooms", error);
+            toast({
+              variant: "destructive",
+              title: "Hotel saved, room links failed",
+              description: uiErrorMessage(error, "Could not update related room links."),
+            });
+          }
+        }
         setShowPropertyWizard(false);
         setWizardStep(1);
         setPropertyWizardEditId(null);
         resetPropertyForm();
+        setSelectedHotelRoomIds([]);
       }
       return;
     }
 
-    await createProperty();
+    const created = await createProperty();
+    if (created && isHotelType) {
+      try {
+        await syncHotelRoomLinks(created.id, selectedHotelRoomIds);
+      } catch (error) {
+        logError("host.hotel.linkRooms", error);
+        toast({
+          variant: "destructive",
+          title: "Hotel created, room links failed",
+          description: uiErrorMessage(error, "Could not update related room links."),
+        });
+      }
+    }
+    setSelectedHotelRoomIds([]);
   };
 
 
@@ -6428,6 +6512,19 @@ export default function HostDashboard() {
     const editingHotel = isHotelType && propertyWizardEditId
       ? (properties || []).find((p) => p.id === propertyWizardEditId)
       : null;
+    const selectableHotelRooms = (properties || []).filter((room) => {
+      if (room.id === propertyWizardEditId) return false;
+      const roomType = String(room.property_type || "").toLowerCase();
+      const roomTitle = String(room.title || "").toLowerCase();
+      return roomType !== "hotel" && (
+        roomType.includes("room") ||
+        roomType.includes("suite") ||
+        roomType.includes("studio") ||
+        roomTitle.includes(" room") ||
+        roomTitle.includes("suite") ||
+        roomTitle.includes("studio")
+      );
+    });
     const hotelLinkedRooms = editingHotel
       ? (properties || []).filter((room) => {
           const roomType = String(room.property_type || "").toLowerCase();
@@ -6608,6 +6705,48 @@ export default function HostDashboard() {
                       ))}
                     </div>
                   </div>
+
+                  {isHotelType && (
+                    <div className="rounded-xl border border-border p-4 space-y-3">
+                      <div>
+                        <Label className="text-base font-medium">Related Rooms</Label>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Select existing room listings that belong to this hotel.
+                        </p>
+                      </div>
+                      {selectableHotelRooms.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {selectableHotelRooms.map((room) => {
+                            const selected = selectedHotelRoomIds.includes(room.id);
+                            return (
+                              <button
+                                key={room.id}
+                                type="button"
+                                onClick={() =>
+                                  setSelectedHotelRoomIds((prev) =>
+                                    prev.includes(room.id)
+                                      ? prev.filter((id) => id !== room.id)
+                                      : [...prev, room.id]
+                                  )
+                                }
+                                className={`px-3 py-1.5 rounded-full border text-xs transition-all ${
+                                  selected
+                                    ? "border-primary bg-primary/10 text-primary"
+                                    : "border-border hover:border-primary/50"
+                                }`}
+                              >
+                                {room.title}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          No room listings found yet. Use Create Room to add rooms first.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
