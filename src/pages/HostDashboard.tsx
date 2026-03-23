@@ -5802,7 +5802,11 @@ export default function HostDashboard() {
                   toast({ variant: "destructive", title: "Missing info", description: "Please fill in all required fields." });
                   return;
                 }
-                if (hostHotels.length > 0 && !String(propertyForm.hotel_id || "").trim()) {
+                if (
+                  isHotelPropertyType(propertyForm.property_type) &&
+                  hostHotels.length > 0 &&
+                  !String(propertyForm.hotel_id || "").trim()
+                ) {
                   toast({
                     variant: "destructive",
                     title: "Select a hotel",
@@ -5844,7 +5848,9 @@ export default function HostDashboard() {
                     ...propertyForm,
                     name: propertyName,
                     title: propertyName,
-                    hotel_id: String(propertyForm.hotel_id || "").trim() || null,
+                    ...(isHotelPropertyType(propertyForm.property_type) && String(propertyForm.hotel_id || "").trim()
+                      ? { hotel_id: String(propertyForm.hotel_id || "").trim() }
+                      : {}),
                     property_type: propertyForm.property_type || "Room in Apartment",
                     price_per_night: normalizedNightlyPrice,
                     available_for_monthly_rental: isMonthlyOnly ? true : Boolean(propertyForm.available_for_monthly_rental),
@@ -5918,7 +5924,7 @@ export default function HostDashboard() {
                 />
               </div>
 
-              <div>
+              <div className={isHotelPropertyType(propertyForm.property_type) ? "" : "hidden"}>
                 <Label className="text-sm font-medium">Hotel *</Label>
                 <Select
                   value={String(propertyForm.hotel_id || "")}
@@ -5958,7 +5964,13 @@ export default function HostDashboard() {
                     <button
                       key={typeOption.value}
                       type="button"
-                      onClick={() => setPropertyForm((f) => ({ ...f, property_type: typeOption.value }))}
+                      onClick={() =>
+                        setPropertyForm((f) => ({
+                          ...f,
+                          property_type: typeOption.value,
+                          ...(isHotelPropertyType(typeOption.value) ? {} : ({ hotel_id: null } as any)),
+                        }))
+                      }
                       className={`px-3 py-2 rounded-lg border text-sm text-center transition-all ${
                         propertyForm.property_type === typeOption.value
                           ? "border-primary bg-primary/10 text-primary"
