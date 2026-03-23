@@ -441,7 +441,7 @@ const Accommodations = () => {
       // Get popular/highly-rated properties
       const { data: popular, error } = await supabase
         .from("properties")
-        .select("id, title, location, price_per_night, price_per_month, monthly_only_listing, currency, property_type, rating, review_count, images, bedrooms, bathrooms, max_guests")
+        .select("id, title, location, price_per_night, price_per_month, monthly_only_listing, currency, property_type, rating, review_count, images, bedrooms, bathrooms, beds, max_guests")
         .eq("is_published", true)
         .gte("rating", 4.0)
         .gte("review_count", 3)
@@ -1138,7 +1138,7 @@ const Accommodations = () => {
                           type={property.property_type}
                           bedrooms={(property as any).bedrooms ?? null}
                           bathrooms={(property as any).bathrooms ?? null}
-                          beds={null}
+                          beds={(property as any).beds ?? null}
                           maxGuests={(property as any).max_guests ?? null}
                           checkInTime={null}
                           checkOutTime={null}
@@ -1177,7 +1177,7 @@ const Accommodations = () => {
                       type={property.property_type}
                       bedrooms={(property as any).bedrooms ?? null}
                       bathrooms={(property as any).bathrooms ?? null}
-                      beds={null}
+                      beds={(property as any).beds ?? null}
                       maxGuests={(property as any).max_guests ?? null}
                       checkInTime={null}
                       checkOutTime={null}

@@ -81,6 +81,8 @@ type LinkedRoomRow = {
   currency: string | null;
   property_type: string | null;
   images: string[] | null;
+  bedrooms?: number | null;
+  beds?: number | null;
   max_guests?: number | null;
 };
 
@@ -231,7 +233,7 @@ export default function PropertyDetails() {
     queryFn: async () => {
       const property = data as PropertyRow;
       const baseSelect =
-        "id, title, location, price_per_night, price_per_month, monthly_only_listing, currency, property_type, images, max_guests, is_published, host_id, created_at";
+        "id, title, location, price_per_night, price_per_month, monthly_only_listing, currency, property_type, images, bedrooms, beds, max_guests, is_published, host_id, created_at";
 
       const fallbackToHostRooms = async () => {
         const { data: fallbackRows, error: fallbackError } = await supabase
@@ -1722,6 +1724,14 @@ export default function PropertyDetails() {
                       <div className="mt-3 space-y-2">
                         {linkedRooms.map((room) => {
                           const monthlyOnly = Boolean(room.monthly_only_listing);
+                          const roomBeds = room.beds ?? room.bedrooms ?? null;
+                          const roomMeta = [
+                            roomBeds ? `Each unit has: ${roomBeds} ${roomBeds > 1 ? "beds" : "bed"}` : null,
+                            room.max_guests ? `Up to ${room.max_guests} guests` : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" • ");
+
                           return (
                             <Link
                               key={room.id}
@@ -1731,7 +1741,7 @@ export default function PropertyDetails() {
                               <div className="min-w-0">
                                 <p className="text-sm font-medium text-foreground truncate">{room.title}</p>
                                 <p className="text-xs text-muted-foreground truncate">
-                                  {room.max_guests ? `Up to ${room.max_guests} guests` : room.location}
+                                  {roomMeta || room.location}
                                 </p>
                               </div>
                               <p className="text-xs font-semibold text-primary whitespace-nowrap">
