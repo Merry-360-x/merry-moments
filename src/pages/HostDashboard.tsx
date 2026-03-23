@@ -437,6 +437,9 @@ export default function HostDashboard() {
     }
   }, []);
   const [isLoading, setIsLoading] = useState(true);
+  const fetchInFlightRef = useRef(false);
+  const queuedFetchRef = useRef(false);
+  const realtimeRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const urlTab = new URLSearchParams(location.search).get("tab");
@@ -876,12 +879,19 @@ export default function HostDashboard() {
     }
   }, [vehicleForm, vehicleWizardStep, showVehicleWizard]);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (options?: { silent?: boolean }) => {
     if (!user) {
-      setIsLoading(false);
+      if (!options?.silent) setIsLoading(false);
       return;
     }
-    setIsLoading(true);
+
+    if (fetchInFlightRef.current) {
+      queuedFetchRef.current = true;
+      return;
+    }
+
+    fetchInFlightRef.current = true;
+    if (!options?.silent) setIsLoading(true);
     
     try {
       // Fetch host application to get service_types and profile completion status
@@ -1112,9 +1122,22 @@ export default function HostDashboard() {
     } catch (e) {
       logError("host.fetchData", e);
     } finally {
-      setIsLoading(false);
+      fetchInFlightRef.current = false;
+      if (!options?.silent) setIsLoading(false);
+      if (queuedFetchRef.current) {
+        queuedFetchRef.current = false;
+        void fetchData({ silent: true });
+      }
     }
   }, [user]);
+
+  const queueRealtimeRefresh = useCallback(() => {
+    if (realtimeRefreshTimerRef.current) return;
+    realtimeRefreshTimerRef.current = setTimeout(() => {
+      realtimeRefreshTimerRef.current = null;
+      void fetchData({ silent: true });
+    }, 1200);
+  }, [fetchData]);
 
   useEffect(() => {
     if (authLoading || rolesLoading) return;
@@ -1195,7 +1218,7 @@ export default function HostDashboard() {
 
     // Recompute both booking-derived earnings and payout-derived deductions from source tables.
     await Promise.all([
-      fetchData(),
+      fetchData({ silent: true }),
       fetchHostPayoutSnapshot(user.id),
     ]);
   }, [user, fetchData, fetchHostPayoutSnapshot]);
