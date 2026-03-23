@@ -15,7 +15,7 @@ function json(res, status, body) {
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   res.end(JSON.stringify(body));
 }
@@ -459,17 +459,136 @@ async function handleCheckStatus(req, res) {
   });
 }
 
+async function handleIpn(req, res) {
+  const payload = req.method === "POST" ? (req.body || {}) : (req.query || {});
+
+  const trackingId = safeStr(payload?.OrderTrackingId || payload?.orderTrackingId, 80);
+  const merchantRef = safeStr(payload?.OrderMerchantReference || payload?.orderMerchantReference, 80);
+
+  if (!trackingId && !merchantRef) {
+    return json(res, 400, { error: "Missing OrderTrackingId/OrderMerchantReference" });
+  }
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+  let checkoutData = null;
+
+  if (merchantRef) {
+    const { data } = await supabase
+      .from("checkout_requests")
+      .select("id, user_id, name, email, phone, total_amount, currency, payment_status, metadata")
+      .contains("metadata", { pesapal: { merchant_reference: merchantRef } })
+      .limit(1);
+
+    checkoutData = Array.isArray(data) && data.length > 0 ? data[0] : null;
+  }
+
+  if (!checkoutData && trackingId) {
+    const { data } = await supabase
+      .from("checkout_requests")
+      .select("id, user_id, name, email, phone, total_amount, currency, payment_status, metadata")
+      .contains("metadata", { pesapal: { order_tracking_id: trackingId } })
+      .limit(1);
+
+    checkoutData = Array.isArray(data) && data.length > 0 ? data[0] : null;
+  }
+
+  const token = await getPesapalToken();
+  const statusRes = await fetch(
+    `${PESAPAL_BASE_URL}/api/Transactions/GetTransactionStatus?orderTrackingId=${encodeURIComponent(trackingId)}`,
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  const statusData = await statusRes.json().catch(() => ({}));
+  if (!statusRes.ok) {
+    return json(res, 502, { error: "Unable to fetch transaction status", providerResponse: statusData });
+  }
+
+  const mappedStatus = mapPesapalStatus(statusData?.payment_status_description);
+
+  if (!checkoutData) {
+    return json(res, 200, {
+      success: true,
+      acknowledged: true,
+      skipped: "Checkout not found",
+      orderTrackingId: trackingId,
+      merchantReference: merchantRef || null,
+      paymentStatus: mappedStatus,
+    });
+  }
+
+  const expectedAmount = toNumber(checkoutData.total_amount);
+  const txAmount = toNumber(statusData.amount);
+  const expectedCurrency = String(checkoutData.currency || "RWF").toUpperCase();
+  const txCurrency = String(statusData.currency || "").toUpperCase();
+
+  const amountMatches = expectedAmount !== null && txAmount !== null && Math.round(expectedAmount) === Math.round(txAmount);
+  const currencyMatches = expectedCurrency === txCurrency;
+
+  const paymentStatus = mappedStatus === "paid" && amountMatches && currencyMatches ? "paid" : (mappedStatus === "paid" ? "failed" : mappedStatus);
+
+  const nextMetadata = {
+    ...(checkoutData.metadata || {}),
+    payment_provider: "PESAPAL",
+    pesapal: {
+      ...((checkoutData.metadata || {}).pesapal || {}),
+      order_tracking_id: trackingId,
+      merchant_reference: merchantRef || (checkoutData.metadata || {})?.pesapal?.merchant_reference || null,
+      payment_status_description: statusData.payment_status_description || null,
+      status_code: statusData.status_code ?? null,
+      amount: statusData.amount ?? null,
+      currency: statusData.currency ?? null,
+      confirmation_code: statusData.confirmation_code ?? null,
+      payment_method: statusData.payment_method ?? null,
+      amount_matches: amountMatches,
+      currency_matches: currencyMatches,
+      ipn_received_at: new Date().toISOString(),
+    },
+  };
+
+  await supabase
+    .from("checkout_requests")
+    .update({
+      payment_status: paymentStatus,
+      payment_method: "pesapal",
+      metadata: nextMetadata,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", checkoutData.id);
+
+  if (paymentStatus === "paid" && checkoutData.payment_status !== "paid") {
+    await createBookingsForPaidCheckout(supabase, checkoutData);
+  }
+
+  return json(res, 200, {
+    success: true,
+    acknowledged: true,
+    checkoutId: checkoutData.id,
+    orderTrackingId: trackingId,
+    paymentStatus,
+    providerStatus: statusData.payment_status_description || null,
+    amountMatches,
+    currencyMatches,
+  });
+}
+
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") {
     res.statusCode = 200;
     res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     res.end();
     return;
   }
 
-  if (req.method !== "POST") {
+  if (req.method !== "POST" && req.method !== "GET") {
     return json(res, 405, { error: "Method not allowed" });
   }
 
@@ -482,7 +601,12 @@ export default async function handler(req, res) {
   }
 
   try {
-    const action = safeStr(req.body?.action, 40);
+    const source = req.method === "POST" ? req.body : req.query;
+    const action = safeStr(source?.action, 40);
+
+    if (action === "ipn") {
+      return await handleIpn(req, res);
+    }
 
     if (action === "health") {
       const token = await getPesapalToken();

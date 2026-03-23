@@ -18,6 +18,7 @@
   "rewrites": [
     { "source": "/index-:hash.js", "destination": "/assets/index-:hash.js" },
     { "source": "/index-:hash.css", "destination": "/assets/index-:hash.css" },
+    { "source": "/api/pesapal-ipn", "destination": "/api/pesapal?action=ipn" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/((?!assets/).*)", "destination": "/index.html" }
   ],
