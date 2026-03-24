@@ -818,7 +818,7 @@ export default function AdminDashboard() {
 
   const webAnalyticsChartConfig = useMemo<ChartConfig>(
     () => ({
-      page_views: { label: "Page views", color: "hsl(var(--primary))" },
+      page_views: { label: "Page views", color: "#16a34a" },
       failed_attempts: { label: "Failed attempts", color: "hsl(var(--destructive))" },
     }),
     [],

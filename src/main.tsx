@@ -33,7 +33,11 @@ if (typeof window !== "undefined") {
   };
 
   const writeReloadGuard = (guard: ChunkReloadGuard) => {
-    sessionStorage.setItem(CHUNK_RELOAD_GUARD_KEY, JSON.stringify(guard));
+    try {
+      sessionStorage.setItem(CHUNK_RELOAD_GUARD_KEY, JSON.stringify(guard));
+    } catch {
+      // Ignore storage failures in restricted browsing modes.
+    }
   };
 
   const isDynamicImportFailure = (reason: unknown) => {

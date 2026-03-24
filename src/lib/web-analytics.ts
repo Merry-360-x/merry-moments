@@ -20,9 +20,27 @@ const safeParseJson = <T,>(raw: string | null): T | null => {
   }
 };
 
+const safeLocalStorageGet = (key: string): string | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+const safeLocalStorageSet = (key: string, value: string) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Ignore storage write failures so analytics never disrupts UX.
+  }
+};
+
 const getSessionId = (): string => {
   if (typeof window === "undefined") return "";
-  const existing = window.localStorage.getItem(SESSION_ID_KEY);
+  const existing = safeLocalStorageGet(SESSION_ID_KEY);
   if (existing) return existing;
 
   const newId =
@@ -30,7 +48,7 @@ const getSessionId = (): string => {
       ? crypto.randomUUID()
       : `sess_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 
-  window.localStorage.setItem(SESSION_ID_KEY, newId);
+  safeLocalStorageSet(SESSION_ID_KEY, newId);
   return newId;
 };
 
@@ -40,16 +58,52 @@ export const setWebAnalyticsContext = (ctx: AnalyticsContext) => {
     userId: ctx.userId ?? null,
     roleCategory: ctx.roleCategory ?? "visitor",
   };
-  window.localStorage.setItem(CONTEXT_KEY, JSON.stringify(next));
+  safeLocalStorageSet(CONTEXT_KEY, JSON.stringify(next));
 };
 
 const getWebAnalyticsContext = (): AnalyticsContext => {
   if (typeof window === "undefined") return {};
-  return safeParseJson<AnalyticsContext>(window.localStorage.getItem(CONTEXT_KEY)) ?? {};
+  return safeParseJson<AnalyticsContext>(safeLocalStorageGet(CONTEXT_KEY)) ?? {};
 };
 
 let lastErrorAt = 0;
 let heartbeatTimer: number | null = null;
+
+const shouldIgnoreClientError = (error: Error, source: string) => {
+  const message = (error.message || "").toLowerCase();
+  const name = (error.name || "").toLowerCase();
+  const sourceLower = (source || "").toLowerCase();
+
+  if (
+    name === "aborterror" ||
+    message.includes("aborterror") ||
+    message.includes("aborted") ||
+    message.includes("signal is aborted")
+  ) {
+    return true;
+  }
+
+  if (
+    sourceLower.includes("chunk_load") ||
+    message.includes("failed to fetch dynamically imported module") ||
+    message.includes("importing a module script failed") ||
+    message.includes("loading chunk") ||
+    message.includes("loading css chunk")
+  ) {
+    return true;
+  }
+
+  if (
+    name === "securityerror" ||
+    message.includes("the operation is insecure") ||
+    message.includes("access is denied") ||
+    message.includes("storage")
+  ) {
+    return true;
+  }
+
+  return false;
+};
 
 const canSend = () => {
   if (typeof window === "undefined") return false;
@@ -105,6 +159,8 @@ export const trackClientError = async (error: unknown, source: string) => {
   lastErrorAt = now;
 
   const err = error instanceof Error ? error : new Error(typeof error === "string" ? error : String(error ?? "Unknown error"));
+
+  if (shouldIgnoreClientError(err, source)) return;
 
   await trackWebEvent("client_error", {
     error_message: err.message?.slice(0, 500) ?? "Unknown error",
