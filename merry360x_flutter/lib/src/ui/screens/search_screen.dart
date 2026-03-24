@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app.dart';
+
 import '../../services/mobile_api.dart';
 import '../../session_controller.dart';
 import 'explore_screen.dart' show resolveListingImageUrl;
@@ -42,12 +44,13 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8FA),
+      backgroundColor: AppColors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.white,
         elevation: 0,
+        surfaceTintColor: Colors.transparent,
         titleSpacing: 0,
-        leading: const BackButton(color: Color(0xFF1A1A2E)),
+        leading: const BackButton(color: AppColors.black),
         title: TextField(
           controller: _ctrl,
           autofocus: true,
@@ -56,13 +59,13 @@ class _SearchScreenState extends State<SearchScreen> {
           decoration: const InputDecoration(
             hintText: 'Search stays, tours, transport…',
             border: InputBorder.none,
-            hintStyle: TextStyle(color: Color(0xFFB0B0BC), fontSize: 15),
+            hintStyle: TextStyle(color: AppColors.hackberry, fontSize: 15),
           ),
-          style: const TextStyle(fontSize: 15, color: Color(0xFF1A1A2E)),
+          style: const TextStyle(fontSize: 15, color: AppColors.black),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.search, color: Color(0xFFE2555A)),
+            icon: const Icon(Icons.search, color: AppColors.rausch),
             onPressed: _search,
           ),
         ],
@@ -80,7 +83,7 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _body() {
-    if (_loading) return const Center(child: CircularProgressIndicator(color: Color(0xFFE2555A)));
+    if (_loading) return const Center(child: CircularProgressIndicator(color: AppColors.rausch));
     if (!_searched) return _emptyPrompt('Search for stays, tours & transport');
     if (_results.isEmpty) return _emptyPrompt('No results for "${_ctrl.text}"');
     return ListView.builder(
@@ -94,9 +97,9 @@ class _SearchScreenState extends State<SearchScreen> {
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.search, size: 48, color: Color(0xFFD0D0D8)),
-        const SizedBox(height: 12),
-        Text(text, style: const TextStyle(color: Color(0xFF8A8A99), fontSize: 14)),
+        const Icon(Icons.search, size: 52, color: AppColors.hackberry),
+        const SizedBox(height: 16),
+        Text(text, style: const TextStyle(color: AppColors.foggy, fontSize: 14)),
       ],
     ),
   );
@@ -111,10 +114,10 @@ class _CategoryBar extends StatelessWidget {
   Widget build(BuildContext context) {
     const cats = [('all', 'All'), ('stays', 'Stays'), ('tours', 'Tours'), ('transport', 'Transport')];
     return Container(
-      color: Colors.white,
+      color: AppColors.white,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
         child: Row(
           children: cats.map((c) {
             final active = c.$1 == selected;
@@ -126,11 +129,11 @@ class _CategoryBar extends StatelessWidget {
                   duration: const Duration(milliseconds: 180),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
                   decoration: BoxDecoration(
-                    color: active ? const Color(0xFFE2555A) : const Color(0xFFF2F2F5),
+                    color: active ? AppColors.rausch : const Color(0xFFF2F2F5),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(c.$2, style: TextStyle(
-                    color: active ? Colors.white : const Color(0xFF5A5A6B),
+                    color: active ? Colors.white : AppColors.hof,
                     fontWeight: active ? FontWeight.w600 : FontWeight.w400,
                     fontSize: 13,
                   )),
@@ -166,9 +169,9 @@ class _ResultTile extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 8, offset: Offset(0, 2))],
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFEBEBEB)),
         ),
         child: Row(
           children: [
@@ -188,16 +191,16 @@ class _ResultTile extends StatelessWidget {
                     _TypePill(type: type),
                     const SizedBox(height: 4),
                     Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF1A1A2E))),
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.black)),
                     if (location.isNotEmpty) ...[
                       const SizedBox(height: 2),
                       Text(location, maxLines: 1, overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 11, color: Color(0xFF8A8A99))),
+                          style: const TextStyle(fontSize: 11, color: AppColors.foggy)),
                     ],
                     if (price != null) ...[
                       const SizedBox(height: 4),
                       Text('$currency ${price.toString()}',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFFE2555A))),
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.rausch)),
                     ],
                   ],
                 ),
@@ -227,7 +230,7 @@ class _TypePill extends StatelessWidget {
       'tour' => ('Tour', const Color(0xFF4CAF50)),
       'tour_package' => ('Package', const Color(0xFF9C27B0)),
       'transport' => ('Transport', const Color(0xFF2196F3)),
-      _ => ('Stay', const Color(0xFFE2555A)),
+      _ => ('Stay', AppColors.rausch),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app.dart';
 import '../../services/mobile_api.dart';
 import '../../session_controller.dart';
 
@@ -39,24 +40,26 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8FA),
+      backgroundColor: AppColors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.white,
         elevation: 0,
-        leading: const BackButton(color: Color(0xFF1A1A2E)),
+        surfaceTintColor: Colors.transparent,
+        leading: const BackButton(color: AppColors.black),
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Notifications', style: TextStyle(color: Color(0xFF1A1A2E), fontWeight: FontWeight.w700, fontSize: 17)),
+          const Text('Notifications', style: TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 22)),
           if (_unreadCount > 0)
-            Text('$_unreadCount unread', style: const TextStyle(color: Color(0xFFE2555A), fontSize: 11)),
+            Text('$_unreadCount unread', style: const TextStyle(color: AppColors.rausch, fontSize: 12)),
         ]),
         actions: [
           if (_unreadCount > 0)
             TextButton(
               onPressed: _markAllRead,
-              child: const Text('Mark all read', style: TextStyle(color: Color(0xFFE2555A), fontSize: 13)),
+              child: const Text('Mark all read', style: TextStyle(color: AppColors.black, fontSize: 13,
+                  decoration: TextDecoration.underline)),
             ),
           IconButton(
-            icon: const Icon(Icons.refresh_outlined, color: Color(0xFF8A8A99)),
+            icon: const Icon(Icons.refresh_outlined, color: AppColors.foggy),
             onPressed: _load,
           ),
         ],
@@ -66,22 +69,22 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Widget _body() {
-    if (_loading) return const Center(child: CircularProgressIndicator(color: Color(0xFFE2555A)));
+    if (_loading) return const Center(child: CircularProgressIndicator(color: AppColors.rausch));
     if (_notifs.isEmpty) return Center(
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Icon(Icons.notifications_none_outlined, size: 52, color: Color(0xFFD0D0D8)),
-        const SizedBox(height: 12),
-        const Text('All caught up!', style: TextStyle(color: Color(0xFF8A8A99), fontSize: 16, fontWeight: FontWeight.w600)),
+        const Icon(Icons.notifications_none_outlined, size: 56, color: AppColors.hackberry),
+        const SizedBox(height: 16),
+        const Text('All caught up!', style: TextStyle(color: AppColors.hof, fontSize: 17, fontWeight: FontWeight.w700)),
         const SizedBox(height: 4),
-        const Text('No notifications yet', style: TextStyle(color: Color(0xFFB0B0BC), fontSize: 13)),
+        const Text('No notifications yet', style: TextStyle(color: AppColors.foggy, fontSize: 14)),
       ]),
     );
 
     return RefreshIndicator(
-      color: const Color(0xFFE2555A),
+      color: AppColors.rausch,
       onRefresh: _load,
       child: ListView.builder(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(20),
         itemCount: _notifs.length,
         itemBuilder: (_, i) => _NotifTile(
           notif: _notifs[i],
@@ -119,30 +122,29 @@ class _NotifTile extends StatelessWidget {
     };
 
     final color = switch (type) {
-      'booking' => const Color(0xFF4CAF50),
+      'booking' => const Color(0xFF008489),
       'payment' => const Color(0xFF2196F3),
-      'review' => const Color(0xFFFFB800),
+      'review' => const Color(0xFFFFB400),
       'support' => const Color(0xFF9C27B0),
-      _ => const Color(0xFFE2555A),
+      _ => AppColors.rausch,
     };
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
+        margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
-          color: isRead ? Colors.white : const Color(0xFFFFF5F5),
-          borderRadius: BorderRadius.circular(14),
-          border: isRead ? null : Border.all(color: const Color(0xFFFFD5D5)),
-          boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 6, offset: Offset(0, 2))],
+          color: isRead ? AppColors.white : const Color(0xFFFFF5F5),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: isRead ? const Color(0xFFEBEBEB) : const Color(0xFFFFD5D5)),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(16),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Container(
-              width: 38, height: 38,
-              decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
-              child: Icon(icon, size: 18, color: color),
+              width: 40, height: 40,
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, size: 20, color: color),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -151,7 +153,7 @@ class _NotifTile extends StatelessWidget {
                   Expanded(
                     child: Text(title, style: TextStyle(
                       fontWeight: isRead ? FontWeight.w500 : FontWeight.w700,
-                      fontSize: 13, color: const Color(0xFF1A1A2E),
+                      fontSize: 14, color: AppColors.black,
                     )),
                   ),
                   if (!isRead)
@@ -161,11 +163,11 @@ class _NotifTile extends StatelessWidget {
                 if (body.isNotEmpty) ...[
                   const SizedBox(height: 3),
                   Text(body, maxLines: 2, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF8A8A99))),
+                      style: const TextStyle(fontSize: 13, color: AppColors.foggy)),
                 ],
                 if (createdAt.isNotEmpty) ...[
                   const SizedBox(height: 5),
-                  Text(_fmtDate(createdAt), style: const TextStyle(fontSize: 11, color: Color(0xFFB0B0BC))),
+                  Text(_fmtDate(createdAt), style: const TextStyle(fontSize: 11, color: AppColors.hackberry)),
                 ],
               ]),
             ),

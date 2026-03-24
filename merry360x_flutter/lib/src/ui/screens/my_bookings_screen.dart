@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app.dart';
 import '../../session_controller.dart';
 
 class MyBookingsScreen extends StatefulWidget {
@@ -40,19 +41,22 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> with SingleTickerPr
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8FA),
+      backgroundColor: AppColors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.white,
         elevation: 0,
-        leading: const BackButton(color: Color(0xFF1A1A2E)),
+        surfaceTintColor: Colors.transparent,
+        leading: const BackButton(color: AppColors.black),
         title: const Text('My Bookings',
-            style: TextStyle(color: Color(0xFF1A1A2E), fontWeight: FontWeight.w700, fontSize: 17)),
+            style: TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 22)),
         bottom: TabBar(
           controller: _tabs,
-          indicatorColor: const Color(0xFFE2555A),
-          labelColor: const Color(0xFFE2555A),
-          unselectedLabelColor: const Color(0xFF8A8A99),
-          labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+          indicatorColor: AppColors.black,
+          indicatorWeight: 2,
+          labelColor: AppColors.black,
+          unselectedLabelColor: AppColors.foggy,
+          dividerColor: const Color(0xFFEBEBEB),
+          labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
           tabs: const [Tab(text: 'Upcoming'), Tab(text: 'Past')],
         ),
       ),
@@ -79,18 +83,18 @@ class _BookingList extends StatelessWidget {
     if (bookings.isEmpty) {
       return Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(isPast ? Icons.history : Icons.luggage_outlined, size: 48, color: const Color(0xFFD0D0D8)),
-          const SizedBox(height: 12),
+          Icon(isPast ? Icons.history : Icons.luggage_outlined, size: 56, color: AppColors.hackberry),
+          const SizedBox(height: 16),
           Text(isPast ? 'No past bookings' : 'No upcoming bookings',
-              style: const TextStyle(color: Color(0xFF8A8A99), fontSize: 14)),
+              style: const TextStyle(color: AppColors.foggy, fontSize: 15)),
         ]),
       );
     }
     return RefreshIndicator(
-      color: const Color(0xFFE2555A),
+      color: AppColors.rausch,
       onRefresh: () async => onRefresh(),
       child: ListView.builder(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         itemCount: bookings.length,
         itemBuilder: (_, i) => _BookingTile(booking: bookings[i], session: session, isPast: isPast, onRefresh: onRefresh),
       ),
@@ -117,26 +121,26 @@ class _BookingTile extends StatelessWidget {
     final hasReview = booking['has_review'] == true;
 
     final (statusColor, statusBg) = switch (status) {
-      'confirmed' => (const Color(0xFF4CAF50), const Color(0xFFE8F5E9)),
+      'confirmed' => (const Color(0xFF008489), const Color(0xFFE6F6F5)),
       'completed' => (const Color(0xFF2196F3), const Color(0xFFE3F2FD)),
-      'cancelled' => (const Color(0xFFE2555A), const Color(0xFFFFEBEE)),
-      _ => (const Color(0xFFFF9800), const Color(0xFFFFF3E0)),
+      'cancelled' => (AppColors.rausch, const Color(0xFFFFF0F1)),
+      _ => (const Color(0xFFFFB400), const Color(0xFFFFF8E1)),
     };
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 8, offset: Offset(0, 2))],
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFEBEBEB)),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Expanded(
               child: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: Color(0xFF1A1A2E))),
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: AppColors.black)),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -148,25 +152,25 @@ class _BookingTile extends StatelessWidget {
           const SizedBox(height: 10),
           if (checkIn.isNotEmpty) ...[
             Row(children: [
-              const Icon(Icons.calendar_today_outlined, size: 14, color: Color(0xFF8A8A99)),
+              const Icon(Icons.calendar_today_outlined, size: 14, color: AppColors.foggy),
               const SizedBox(width: 6),
-              Text('${_fmt(checkIn)}${checkOut.isNotEmpty ? ' → ${_fmt(checkOut)}' : ''}',
-                  style: const TextStyle(fontSize: 13, color: Color(0xFF5A5A6B))),
+              Text('${_fmt(checkIn)}${checkOut.isNotEmpty ? ' \u2192 ${_fmt(checkOut)}' : ''}',
+                  style: const TextStyle(fontSize: 13, color: AppColors.hof)),
             ]),
             const SizedBox(height: 6),
           ],
           Row(children: [
-            const Icon(Icons.payment_outlined, size: 14, color: Color(0xFF8A8A99)),
+            const Icon(Icons.payment_outlined, size: 14, color: AppColors.foggy),
             const SizedBox(width: 6),
             Text('$currency ${amount.toStringAsFixed(2)}',
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1A1A2E))),
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.black)),
           ]),
           const SizedBox(height: 12),
           Row(children: [
             if (!isPast && status == 'pending' || status == 'confirmed') ...[
               _ActionBtn(
                 label: 'Cancel',
-                color: const Color(0xFFE2555A),
+                color: AppColors.rausch,
                 icon: Icons.cancel_outlined,
                 onTap: () => _confirmCancel(context, bookingId),
               ),
@@ -208,7 +212,7 @@ class _BookingTile extends StatelessWidget {
               await session.cancelBooking(bookingId);
               onRefresh();
             },
-            child: const Text('Cancel Booking', style: TextStyle(color: Color(0xFFE2555A))),
+            child: const Text('Cancel Booking', style: TextStyle(color: AppColors.rausch)),
           ),
         ],
       ),
@@ -304,45 +308,48 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8FA),
+      backgroundColor: AppColors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.white,
         elevation: 0,
-        leading: const BackButton(color: Color(0xFF1A1A2E)),
+        surfaceTintColor: Colors.transparent,
+        leading: const BackButton(color: AppColors.black),
         title: const Text('Write a Review',
-            style: TextStyle(color: Color(0xFF1A1A2E), fontWeight: FontWeight.w700, fontSize: 17)),
+            style: TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 22)),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(widget.listingTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF1A1A2E))),
+          Text(widget.listingTitle, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.black)),
           const SizedBox(height: 24),
           _ratingSection('Accommodation Rating', _accomRating, (v) => setState(() => _accomRating = v)),
           const SizedBox(height: 20),
           _ratingSection('Service Rating', _serviceRating, (v) => setState(() => _serviceRating = v)),
           const SizedBox(height: 20),
-          const Text('Your Review', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1A1A2E))),
+          const Text('Your Review', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.black)),
           const SizedBox(height: 8),
           TextField(
             controller: _commentCtrl,
             maxLines: 5,
             decoration: InputDecoration(
-              hintText: 'Share your experience…',
-              filled: true, fillColor: Colors.white,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE7E7EC))),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE7E7EC))),
+              hintText: 'Share your experience\u2026',
+              hintStyle: const TextStyle(color: AppColors.foggy),
+              filled: true, fillColor: AppColors.white,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFEBEBEB))),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFEBEBEB))),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.black, width: 2)),
             ),
           ),
           const SizedBox(height: 28),
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton(
+            child: FilledButton(
               onPressed: _saving ? null : _submit,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFE2555A),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 15),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.rausch,
+                foregroundColor: AppColors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
               child: _saving
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
@@ -357,9 +364,9 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
   Widget _ratingSection(String label, double value, ValueChanged<double> onChange) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1A1A2E))),
+        Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.black)),
         const Spacer(),
-        Text(value.toStringAsFixed(1), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFFE2555A))),
+        Text(value.toStringAsFixed(1), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.rausch)),
       ]),
       const SizedBox(height: 8),
       Row(

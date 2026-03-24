@@ -8,9 +8,10 @@ import 'package:table_calendar/table_calendar.dart';
 import '../../services/cloudinary_service.dart';
 import '../../services/mobile_api.dart';
 import '../../session_controller.dart';
+import '../../app.dart';
 import 'explore_screen.dart' show resolveListingImageUrl;
 
-const _kRed = Color(0xFFE2555A);
+const _kRed = AppColors.rausch;
 
 // ── Host Form Constants ──
 const _kCurrencies = ['RWF', 'USD', 'EUR', 'GBP', 'KES', 'UGX', 'TZS'];
@@ -127,28 +128,31 @@ class _HostDashboardScreenState extends State<HostDashboardScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8FA),
+      backgroundColor: AppColors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.white,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         title: const Text('Host Dashboard',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 22, color: AppColors.black)),
         actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
+          IconButton(icon: const Icon(Icons.refresh, color: AppColors.hof), onPressed: _load),
         ],
         bottom: TabBar(
           controller: _tabs,
           isScrollable: true,
-          labelColor: _kRed,
-          unselectedLabelColor: Colors.black54,
-          indicatorColor: _kRed,
-          labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+          labelColor: AppColors.black,
+          unselectedLabelColor: AppColors.foggy,
+          indicatorColor: AppColors.black,
+          indicatorWeight: 2,
+          dividerColor: const Color(0xFFEBEBEB),
+          labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w400, fontSize: 13),
           tabs: _tabLabels.map((t) => Tab(text: t)).toList(),
         ),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: _kRed))
+          ? const Center(child: CircularProgressIndicator(color: AppColors.rausch))
           : TabBarView(
               controller: _tabs,
               children: [
@@ -229,11 +233,11 @@ class _PropertiesTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8FA),
+      backgroundColor: AppColors.white,
       body: items.isEmpty
           ? const _EmptyState(label: 'No properties yet', icon: Icons.home_outlined)
           : ListView.builder(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               itemCount: items.length,
               itemBuilder: (ctx, i) => _ListingCard(
                 item: items[i],
@@ -246,7 +250,8 @@ class _PropertiesTab extends StatelessWidget {
               ),
             ),
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: _kRed,
+        backgroundColor: AppColors.rausch,
+        foregroundColor: AppColors.white,
         icon: const Icon(Icons.add),
         label: const Text('Add Property'),
         onPressed: () => _showPropertySheet(context, api, userId, onRefresh),
@@ -524,11 +529,11 @@ class _ToursTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8FA),
+      backgroundColor: AppColors.white,
       body: items.isEmpty
           ? const _EmptyState(label: 'No tours yet', icon: Icons.explore_outlined)
           : ListView.builder(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               itemCount: items.length,
               itemBuilder: (ctx, i) => _ListingCard(
                 item: items[i], priceLabel: 'per person', priceField: 'price_per_person',
@@ -538,7 +543,8 @@ class _ToursTab extends StatelessWidget {
               ),
             ),
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: _kRed, icon: const Icon(Icons.add), label: const Text('Add Tour'),
+        backgroundColor: AppColors.rausch, foregroundColor: AppColors.white,
+        icon: const Icon(Icons.add), label: const Text('Add Tour'),
         onPressed: () => _showTourSheet(context, api, userId, onRefresh),
       ),
     );
@@ -724,11 +730,11 @@ class _TransportTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8FA),
+      backgroundColor: AppColors.white,
       body: items.isEmpty
           ? const _EmptyState(label: 'No vehicles yet', icon: Icons.directions_car_outlined)
           : ListView.builder(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               itemCount: items.length,
               itemBuilder: (ctx, i) => _ListingCard(
                 item: items[i], priceLabel: 'per day', priceField: 'daily_price',
@@ -738,7 +744,8 @@ class _TransportTab extends StatelessWidget {
               ),
             ),
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: _kRed, icon: const Icon(Icons.add), label: const Text('Add Vehicle'),
+        backgroundColor: AppColors.rausch, foregroundColor: AppColors.white,
+        icon: const Icon(Icons.add), label: const Text('Add Vehicle'),
         onPressed: () => _showTransportSheet(context, api, userId, onRefresh),
       ),
     );
@@ -1178,11 +1185,11 @@ class _DiscountsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8FA),
+      backgroundColor: AppColors.white,
       body: items.isEmpty
           ? const _EmptyState(label: 'No discount codes yet', icon: Icons.local_offer_outlined)
           : ListView.builder(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               itemCount: items.length,
               itemBuilder: (ctx, i) {
                 final d = items[i];
@@ -1191,26 +1198,31 @@ class _DiscountsTab extends StatelessWidget {
                 final value = (d['discount_value'] as num?) ?? 0;
                 final uses = (d['uses_count'] as num?)?.toInt() ?? 0;
                 final maxUses = (d['max_uses'] as num?)?.toInt();
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFEBEBEB)),
+                  ),
                   child: ListTile(
                     leading: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                          color: isActive ? _kRed.withValues(alpha: 0.1) : Colors.grey.shade100,
+                          color: isActive ? AppColors.rausch.withValues(alpha: 0.08) : Colors.grey.shade100,
                           borderRadius: BorderRadius.circular(6)),
                       child: Text(d['code'] as String? ?? '',
-                          style: TextStyle(fontWeight: FontWeight.w700, color: isActive ? _kRed : Colors.grey)),
+                          style: TextStyle(fontWeight: FontWeight.w700, color: isActive ? AppColors.rausch : AppColors.foggy)),
                     ),
                     title: Text(type == 'percentage' ? '${value.toStringAsFixed(0)}% off' : '\$${value.toStringAsFixed(2)} off',
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text('Used $uses${maxUses != null ? " / $maxUses" : ""} times'),
+                        style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.black)),
+                    subtitle: Text('Used $uses${maxUses != null ? " / $maxUses" : ""} times',
+                        style: const TextStyle(color: AppColors.foggy)),
                     trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Switch(value: isActive, activeThumbColor: _kRed, onChanged: (v) async {
+                      Switch(value: isActive, activeColor: const Color(0xFF008489), onChanged: (v) async {
                         await api.toggleDiscount(id: d['id'], active: v); onRefresh();
                       }),
-                      IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red), onPressed: () async {
+                      IconButton(icon: const Icon(Icons.delete_outline, color: AppColors.rausch), onPressed: () async {
                         await api.deleteDiscount(id: d['id']); onRefresh();
                       }),
                     ]),
@@ -1219,7 +1231,8 @@ class _DiscountsTab extends StatelessWidget {
               },
             ),
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: _kRed, icon: const Icon(Icons.add), label: const Text('Add Code'),
+        backgroundColor: AppColors.rausch, foregroundColor: AppColors.white,
+        icon: const Icon(Icons.add), label: const Text('Add Code'),
         onPressed: () => _showDiscountSheet(context, api, userId, onRefresh),
       ),
     );
@@ -1360,10 +1373,12 @@ class _FinancialTab extends StatelessWidget {
         const SizedBox(height: 16),
         SizedBox(
           width: double.infinity,
-          child: ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: _kRed, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14)),
+          child: FilledButton.icon(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.rausch, foregroundColor: AppColors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
             icon: const Icon(Icons.send),
-            label: const Text('Request Payout'),
+            label: const Text('Request Payout', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
             onPressed: () => _showRequestPayoutSheet(context, api, userId, payoutMethods, pending.toDouble(), onRefresh),
           ),
         ),
@@ -1454,37 +1469,42 @@ class _PayoutMethodsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8FA),
+      backgroundColor: AppColors.white,
       body: methods.isEmpty
           ? const _EmptyState(label: 'No payout methods added', icon: Icons.account_balance_outlined)
           : ListView.builder(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               itemCount: methods.length,
               itemBuilder: (ctx, i) {
                 final m = methods[i];
                 final isPrimary = m['is_primary'] == true;
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFEBEBEB)),
+                  ),
                   child: ListTile(
                     leading: Icon(
                       m['method_type'] == 'mobile_money' ? Icons.phone_android : Icons.account_balance,
-                      color: _kRed,
+                      color: AppColors.rausch,
                     ),
                     title: Text('${m['account_name'] ?? ''} (${(m['method_type'] as String? ?? '').replaceAll('_', ' ')})',
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                        style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.black)),
                     subtitle: Text(
                       m['method_type'] == 'mobile_money'
-                          ? '${m['mobile_provider'] ?? ''} · ${m['phone_number'] ?? ''}'
-                          : '${m['bank_name'] ?? ''} · ${m['bank_account_number'] ?? ''}',
+                          ? '${m['mobile_provider'] ?? ''} \u00b7 ${m['phone_number'] ?? ''}'
+                          : '${m['bank_name'] ?? ''} \u00b7 ${m['bank_account_number'] ?? ''}',
+                      style: const TextStyle(color: AppColors.foggy),
                     ),
                     trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                      if (isPrimary) const Icon(Icons.star, color: Colors.amber, size: 18),
+                      if (isPrimary) const Icon(Icons.star, color: Color(0xFFFFB400), size: 18),
                       if (!isPrimary) TextButton(
-                        child: const Text('Set Primary'),
+                        child: const Text('Set Primary', style: TextStyle(color: AppColors.black)),
                         onPressed: () async { await api.setPrimaryPayoutMethod(id: m['id'], userId: userId); onRefresh(); },
                       ),
-                      IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red), onPressed: () async {
+                      IconButton(icon: const Icon(Icons.delete_outline, color: AppColors.rausch), onPressed: () async {
                         await api.deletePayoutMethod(id: m['id']); onRefresh();
                       }),
                     ]),
@@ -1493,7 +1513,8 @@ class _PayoutMethodsTab extends StatelessWidget {
               },
             ),
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: _kRed, icon: const Icon(Icons.add), label: const Text('Add Method'),
+        backgroundColor: AppColors.rausch, foregroundColor: AppColors.white,
+        icon: const Icon(Icons.add), label: const Text('Add Method'),
         onPressed: () => _showPayoutMethodSheet(context, api, userId, onRefresh),
       ),
     );
@@ -1583,52 +1604,66 @@ class _ListingCard extends StatelessWidget {
     final imgUrl = resolveListingImageUrl(item);
     final published = item['is_published'] == true;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFEBEBEB)),
+      ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (imgUrl != null)
           ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            child: Image.network(imgUrl, height: 140, width: double.infinity, fit: BoxFit.cover,
+            child: Image.network(imgUrl, height: 160, width: double.infinity, fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) => const SizedBox(height: 60)),
           ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
           child: Row(children: [
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(item['title'] as String? ?? '—',
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: AppColors.black),
                   maxLines: 1, overflow: TextOverflow.ellipsis),
               if (item['location'] != null)
-                Text(item['location'].toString(), style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                Text(item['location'].toString(), style: const TextStyle(color: AppColors.foggy, fontSize: 13)),
               if (item[priceField] != null)
-                Text('\$${(item[priceField] as num).toStringAsFixed(2)} $priceLabel',
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: _kRed)),
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text('\$${(item[priceField] as num).toStringAsFixed(2)} $priceLabel',
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.black)),
+                ),
             ])),
             Row(mainAxisSize: MainAxisSize.min, children: [
-              Text(published ? 'Live' : 'Draft',
-                  style: TextStyle(fontSize: 11, color: published ? Colors.green : Colors.grey,
-                      fontWeight: FontWeight.w600)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: published ? const Color(0xFF008489).withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(published ? 'Live' : 'Draft',
+                    style: TextStyle(fontSize: 11, color: published ? const Color(0xFF008489) : AppColors.foggy,
+                        fontWeight: FontWeight.w600)),
+              ),
               const SizedBox(width: 4),
-              Switch(value: published, activeThumbColor: Colors.green, onChanged: onToggle),
+              Switch(value: published, activeColor: const Color(0xFF008489), onChanged: onToggle),
             ]),
           ]),
         ),
         Padding(
-          padding: const EdgeInsets.only(left: 4, right: 4, bottom: 8),
+          padding: const EdgeInsets.only(left: 8, right: 8, bottom: 10),
           child: Row(children: [
-            TextButton.icon(icon: const Icon(Icons.edit_outlined, size: 16), label: const Text('Edit'), onPressed: onEdit),
+            TextButton.icon(icon: const Icon(Icons.edit_outlined, size: 16, color: AppColors.black), label: const Text('Edit', style: TextStyle(color: AppColors.black)), onPressed: onEdit),
             TextButton.icon(
-              icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
-              label: const Text('Delete', style: TextStyle(color: Colors.red)),
+              icon: const Icon(Icons.delete_outline, size: 16, color: AppColors.rausch),
+              label: const Text('Delete', style: TextStyle(color: AppColors.rausch)),
               onPressed: () => showDialog(context: context, builder: (dCtx) => AlertDialog(
                 title: const Text('Delete listing?'),
                 content: const Text('This cannot be undone.'),
                 actions: [
                   TextButton(onPressed: () => Navigator.pop(dCtx), child: const Text('Cancel')),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                  FilledButton(
+                    style: FilledButton.styleFrom(backgroundColor: AppColors.rausch),
                     onPressed: () { Navigator.pop(dCtx); onDelete(); },
                     child: const Text('Delete'),
                   ),
@@ -1651,19 +1686,23 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6)]),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFEBEBEB)),
+      ),
       child: Row(children: [
         Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-          child: Icon(icon, color: color, size: 18),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
+          child: Icon(icon, color: color, size: 20),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
-          Text(title, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20, color: AppColors.black)),
+          const SizedBox(height: 2),
+          Text(title, style: const TextStyle(color: AppColors.foggy, fontSize: 12)),
         ])),
       ]),
     );
@@ -1701,16 +1740,20 @@ class _BookingSummaryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final status = booking['status'] as String? ?? 'pending';
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4)]),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFEBEBEB)),
+      ),
       child: Row(children: [
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(booking['listing_title'] ?? booking['item_title'] ?? '—',
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: AppColors.black)),
+          const SizedBox(height: 2),
           Text(booking['guest_name'] ?? booking['user_name'] ?? '—',
-              style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+              style: const TextStyle(color: AppColors.foggy, fontSize: 13)),
         ])),
         _StatusChip(status: status),
       ]),
@@ -1728,18 +1771,20 @@ class _PayoutRow extends StatelessWidget {
     final amount = (payout['amount'] as num?) ?? 0;
     final currency = payout['currency'] as String? ?? 'USD';
     return Container(
-      margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4)]),
+      margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.white, borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFEBEBEB)),
+      ),
       child: Row(children: [
-        const Icon(Icons.send, size: 18, color: _kRed),
+        const Icon(Icons.send, size: 18, color: AppColors.rausch),
         const SizedBox(width: 10),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('$currency ${amount.toStringAsFixed(2)}',
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: AppColors.black)),
           if (payout['created_at'] != null)
             Text(payout['created_at'].toString().substring(0, 10),
-                style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                style: const TextStyle(color: AppColors.foggy, fontSize: 12)),
         ])),
         _StatusChip(status: status),
       ]),
@@ -1754,9 +1799,9 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-    Icon(icon, size: 52, color: Colors.black12),
-    const SizedBox(height: 12),
-    Text(label, style: const TextStyle(color: Colors.black38, fontSize: 15), textAlign: TextAlign.center),
+    Icon(icon, size: 56, color: AppColors.hackberry),
+    const SizedBox(height: 16),
+    Text(label, style: const TextStyle(color: AppColors.foggy, fontSize: 16), textAlign: TextAlign.center),
   ]));
 }
 
@@ -1768,18 +1813,19 @@ class _SaveButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SizedBox(
     width: double.infinity,
-    child: ElevatedButton(
-      style: ElevatedButton.styleFrom(backgroundColor: _kRed, foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 14)),
+    child: FilledButton(
+      style: FilledButton.styleFrom(backgroundColor: AppColors.rausch, foregroundColor: AppColors.white,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
       onPressed: onPressed,
-      child: Text(label),
+      child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
     ),
   );
 }
 
 // ── Helpers ──
 Widget _sectionTitle(String text) =>
-    Text(text, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16));
+    Text(text, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: AppColors.black));
 
 Widget _countRow(String label, int value, VoidCallback dec, VoidCallback inc) => Padding(
   padding: const EdgeInsets.symmetric(vertical: 4),
@@ -1793,8 +1839,10 @@ Widget _countRow(String label, int value, VoidCallback dec, VoidCallback inc) =>
 
 InputDecoration _inputDecoration(String label) => InputDecoration(
   labelText: label,
-  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+  labelStyle: const TextStyle(color: AppColors.foggy),
+  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.black, width: 2)),
+  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
 );
 
 class _Field extends StatelessWidget {

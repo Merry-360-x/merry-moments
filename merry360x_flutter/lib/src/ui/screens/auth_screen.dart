@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../../app.dart';
+
 import '../../session_controller.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -126,7 +128,7 @@ class _AuthScreenState extends State<AuthScreen> {
             ),
           ]),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: Color(0xFF8A8A99)))),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: AppColors.foggy))),
             FilledButton(
               onPressed: sending ? null : () async {
                 final email = emailCtrl.text.trim();
@@ -146,7 +148,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   if (ctx.mounted) setLocal(() => sending = false);
                 }
               },
-              style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE2555A)),
+              style: FilledButton.styleFrom(backgroundColor: AppColors.rausch),
               child: sending
                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                   : const Text('Send Reset Link'),
@@ -195,8 +197,8 @@ class _AuthScreenState extends State<AuthScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: isTablet ? 28 : 24,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF222222),
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.black,
                 ),
               ),
               const SizedBox(height: 6),
@@ -254,9 +256,9 @@ class _AuthScreenState extends State<AuthScreen> {
                 child: FilledButton(
                   onPressed: _busy ? null : _submit,
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF385C),
+                    backgroundColor: AppColors.rausch,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   child: _busy
                       ? const SizedBox(
@@ -277,7 +279,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   child: TextButton(
                     onPressed: _busy ? null : _showForgotPassword,
                     child: const Text('Forgot password?',
-                        style: TextStyle(color: Color(0xFFE2555A), fontSize: 13)),
+                        style: TextStyle(color: AppColors.rausch, fontSize: 13)),
                   ),
                 ),
               Center(
@@ -382,7 +384,7 @@ class _AuthScreenState extends State<AuthScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F7F8),
+      backgroundColor: AppColors.linnen,
       body: SafeArea(child: form),
     );
   }
@@ -403,8 +405,8 @@ class _AuthScreenState extends State<AuthScreen> {
         borderSide: const BorderSide(color: Color(0xFFD4D4D8)),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFF222222), width: 1.4),
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: AppColors.black, width: 2),
       ),
     );
   }

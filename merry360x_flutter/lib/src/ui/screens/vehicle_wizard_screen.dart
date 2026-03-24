@@ -1,12 +1,14 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+
+import '../../app.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../services/cloudinary_service.dart';
 import '../../services/mobile_api.dart';
 
-const _kRed = Color(0xFFE2555A);
+const _kRed = AppColors.rausch;
 
 const _kCarBrands = [
   'Toyota', 'Suzuki', 'Hyundai', 'Kia', 'Nissan', 'Mazda', 'Honda',
@@ -180,7 +182,7 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8FA),
+      backgroundColor: AppColors.white,
       body: SafeArea(
         child: Column(children: [
           Padding(
@@ -487,7 +489,7 @@ class _VehicleBottomNav extends StatelessWidget {
     padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
     decoration: const BoxDecoration(
       color: Colors.white,
-      border: Border(top: BorderSide(color: Color(0xFFEEEEEE))),
+      border: Border(top: BorderSide(color: Color(0xFFEBEBEB))),
     ),
     child: SizedBox(
       width: double.infinity, height: 52,
@@ -496,7 +498,7 @@ class _VehicleBottomNav extends StatelessWidget {
           backgroundColor: canProceed ? _kRed : Colors.grey.shade300,
           foregroundColor: Colors.white,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         onPressed: saving ? null : (canProceed ? (step < totalSteps ? onNext : () { onSubmit(); }) : null),
         child: saving
@@ -618,8 +620,7 @@ class _VReviewCard extends StatelessWidget {
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6)],
+      borderRadius: BorderRadius.circular(8),
     ),
     child: Column(children: children),
   );

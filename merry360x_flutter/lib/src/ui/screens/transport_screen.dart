@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app.dart';
+
 import '../../services/mobile_api.dart';
 import '../../session_controller.dart';
 import 'property_details_screen.dart';
@@ -57,13 +59,13 @@ class _TransportScreenState extends State<TransportScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8FA),
+      backgroundColor: AppColors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
         elevation: 0,
-        leading: const BackButton(color: Color(0xFF1A1A2E)),
+        leading: const BackButton(color: AppColors.black),
         title: const Text('Transport & Transfers',
-            style: TextStyle(color: Color(0xFF1A1A2E), fontWeight: FontWeight.w700, fontSize: 17)),
+            style: TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 18)),
         centerTitle: false,
       ),
       body: Column(
@@ -76,9 +78,9 @@ class _TransportScreenState extends State<TransportScreen> {
               onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
                 hintText: 'Search vehicles…',
-                prefixIcon: const Icon(Icons.search, size: 20, color: Color(0xFF8A8A99)),
+                prefixIcon: const Icon(Icons.search, size: 20, color: AppColors.foggy),
                 filled: true,
-                fillColor: const Color(0xFFF2F2F5),
+                fillColor: AppColors.linnen,
                 contentPadding: const EdgeInsets.symmetric(vertical: 10),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
               ),
@@ -98,11 +100,11 @@ class _TransportScreenState extends State<TransportScreen> {
                       duration: const Duration(milliseconds: 180),
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: active ? const Color(0xFFE2555A) : const Color(0xFFF2F2F5),
+                        color: active ? AppColors.rausch : AppColors.linnen,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(c.$2, style: TextStyle(
-                        color: active ? Colors.white : const Color(0xFF5A5A6B),
+                        color: active ? Colors.white : AppColors.hof,
                         fontWeight: active ? FontWeight.w600 : FontWeight.w400,
                         fontSize: 13,
                       )),
@@ -119,10 +121,10 @@ class _TransportScreenState extends State<TransportScreen> {
   }
 
   Widget _body() {
-    if (_loading) return const Center(child: CircularProgressIndicator(color: Color(0xFFE2555A)));
+    if (_loading) return const Center(child: CircularProgressIndicator(color: AppColors.rausch));
     final items = _filtered;
     if (items.isEmpty) return const Center(
-      child: Text('No vehicles found', style: TextStyle(color: Color(0xFF8A8A99))),
+      child: Text('No vehicles found', style: TextStyle(color: AppColors.foggy)),
     );
     return ListView.builder(
       padding: const EdgeInsets.all(16),
@@ -155,7 +157,6 @@ class _TransportTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 10, offset: Offset(0, 3))],
         ),
         child: Row(children: [
           ClipRRect(
@@ -182,18 +183,18 @@ class _TransportTile extends StatelessWidget {
                   ),
                 const SizedBox(height: 6),
                 Text(title, maxLines: 2, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF1A1A2E))),
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppColors.black)),
                 const SizedBox(height: 8),
                 Row(children: [
                   if (capacity != null) ...[
-                    const Icon(Icons.people_alt_outlined, size: 14, color: Color(0xFF8A8A99)),
+                    const Icon(Icons.people_alt_outlined, size: 14, color: AppColors.foggy),
                     const SizedBox(width: 4),
-                    Text('$capacity seats', style: const TextStyle(fontSize: 12, color: Color(0xFF8A8A99))),
+                    Text('$capacity seats', style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
                     const SizedBox(width: 12),
                   ],
                   if (price != null)
                     Text('$currency $price/day', style: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFFE2555A),
+                      fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.rausch,
                     )),
                 ]),
               ]),
@@ -201,13 +202,13 @@ class _TransportTile extends StatelessWidget {
           ),
           const Padding(
             padding: EdgeInsets.only(right: 12),
-            child: Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFFD0D0D8)),
+            child: Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.hackberry),
           ),
         ]),
       ),
     );
   }
 
-  Widget _ph() => Container(width: 110, height: 100, color: const Color(0xFFEEF0F5),
-      child: const Center(child: Icon(Icons.directions_car_outlined, color: Color(0xFFCCCCD8), size: 32)));
+  Widget _ph() => Container(width: 110, height: 100, color: AppColors.linnen,
+      child: const Center(child: Icon(Icons.directions_car_outlined, color: AppColors.hackberry, size: 32)));
 }

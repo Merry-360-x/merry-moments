@@ -99,6 +99,46 @@ const PAWAPAY_METHODS: PaymentMethodInfo[] = [
   // Zambia (+260) - ZMW — MTN_MOMO_ZMB, ZAMTEL_ZMB
   { id: 'mtn_zmb', name: 'MTN Mobile Money', shortName: 'MTN', provider: 'MTN', countryCode: '+260', country: 'Zambia', flag: '🇿🇲', currency: 'ZMW', color: 'bg-yellow-400', textColor: 'text-black' },
   { id: 'zamtel_zmb', name: 'Zamtel Money', shortName: 'Zamtel', provider: 'ZAMTEL', countryCode: '+260', country: 'Zambia', flag: '🇿🇲', currency: 'ZMW', color: 'bg-green-600', textColor: 'text-white' },
+
+  // Tanzania (+255) - TZS — VODACOM_TZN, TIGO_TZN, AIRTEL_TZN
+  { id: 'vodacom_tzn', name: 'Vodacom M-Pesa', shortName: 'M-Pesa', provider: 'VODACOM', countryCode: '+255', country: 'Tanzania', flag: '🇹🇿', currency: 'TZS', color: 'bg-red-600', textColor: 'text-white' },
+  { id: 'tigo_tzn', name: 'Tigo Pesa', shortName: 'Tigo', provider: 'TIGO', countryCode: '+255', country: 'Tanzania', flag: '🇹🇿', currency: 'TZS', color: 'bg-blue-600', textColor: 'text-white' },
+  { id: 'airtel_tzn', name: 'Airtel Money', shortName: 'Airtel', provider: 'AIRTEL', countryCode: '+255', country: 'Tanzania', flag: '🇹🇿', currency: 'TZS', color: 'bg-red-500', textColor: 'text-white' },
+
+  // Ghana (+233) - GHS — MTN_MOMO_GHA, VODAFONE_GHA
+  { id: 'mtn_gha', name: 'MTN Mobile Money', shortName: 'MTN', provider: 'MTN', countryCode: '+233', country: 'Ghana', flag: '🇬🇭', currency: 'GHS', color: 'bg-yellow-400', textColor: 'text-black' },
+  { id: 'vodafone_gha', name: 'Vodafone Cash', shortName: 'Vodafone', provider: 'VODAFONE', countryCode: '+233', country: 'Ghana', flag: '🇬🇭', currency: 'GHS', color: 'bg-red-600', textColor: 'text-white' },
+
+  // DRC (+243) - CDF — VODACOM_MPESA_COD, AIRTEL_COD, ORANGE_COD
+  { id: 'vodacom_cod', name: 'Vodacom M-Pesa', shortName: 'M-Pesa', provider: 'VODACOM', countryCode: '+243', country: 'DR Congo', flag: '🇨🇩', currency: 'CDF', color: 'bg-red-600', textColor: 'text-white' },
+  { id: 'airtel_cod', name: 'Airtel Money', shortName: 'Airtel', provider: 'AIRTEL', countryCode: '+243', country: 'DR Congo', flag: '🇨🇩', currency: 'CDF', color: 'bg-red-500', textColor: 'text-white' },
+  { id: 'orange_cod', name: 'Orange Money', shortName: 'Orange', provider: 'ORANGE', countryCode: '+243', country: 'DR Congo', flag: '🇨🇩', currency: 'CDF', color: 'bg-orange-500', textColor: 'text-white' },
+
+  // Cameroon (+237) - XAF — MTN_MOMO_CMR, ORANGE_CMR
+  { id: 'mtn_cmr', name: 'MTN Mobile Money', shortName: 'MTN', provider: 'MTN', countryCode: '+237', country: 'Cameroon', flag: '🇨🇲', currency: 'XAF', color: 'bg-yellow-400', textColor: 'text-black' },
+  { id: 'orange_cmr', name: 'Orange Money', shortName: 'Orange', provider: 'ORANGE', countryCode: '+237', country: 'Cameroon', flag: '🇨🇲', currency: 'XAF', color: 'bg-orange-500', textColor: 'text-white' },
+
+  // Senegal (+221) - XOF — ORANGE_SEN, FREE_SEN
+  { id: 'orange_sen', name: 'Orange Money', shortName: 'Orange', provider: 'ORANGE', countryCode: '+221', country: 'Senegal', flag: '🇸🇳', currency: 'XOF', color: 'bg-orange-500', textColor: 'text-white' },
+  { id: 'free_sen', name: 'Free Money', shortName: 'Free', provider: 'FREE', countryCode: '+221', country: 'Senegal', flag: '🇸🇳', currency: 'XOF', color: 'bg-teal-500', textColor: 'text-white' },
+
+  // Ivory Coast (+225) - XOF — MTN_MOMO_CIV, ORANGE_CIV
+  { id: 'mtn_civ', name: 'MTN Mobile Money', shortName: 'MTN', provider: 'MTN', countryCode: '+225', country: 'Ivory Coast', flag: '🇨🇮', currency: 'XOF', color: 'bg-yellow-400', textColor: 'text-black' },
+  { id: 'orange_civ', name: 'Orange Money', shortName: 'Orange', provider: 'ORANGE', countryCode: '+225', country: 'Ivory Coast', flag: '🇨🇮', currency: 'XOF', color: 'bg-orange-500', textColor: 'text-white' },
+
+  // Mozambique (+258) - MZN — VODACOM_MOZ, MPESA_MOZ
+  { id: 'vodacom_moz', name: 'Vodacom M-Pesa', shortName: 'M-Pesa', provider: 'VODACOM', countryCode: '+258', country: 'Mozambique', flag: '🇲🇿', currency: 'MZN', color: 'bg-red-600', textColor: 'text-white' },
+
+  // Malawi (+265) - MWK — AIRTEL_MWI, TNM_MWI
+  { id: 'airtel_mwi', name: 'Airtel Money', shortName: 'Airtel', provider: 'AIRTEL', countryCode: '+265', country: 'Malawi', flag: '🇲🇼', currency: 'MWK', color: 'bg-red-500', textColor: 'text-white' },
+  { id: 'tnm_mwi', name: 'TNM Mpamba', shortName: 'TNM', provider: 'TNM', countryCode: '+265', country: 'Malawi', flag: '🇲🇼', currency: 'MWK', color: 'bg-blue-500', textColor: 'text-white' },
+
+  // Burundi (+257) - BIF — ECONET_BDI
+  { id: 'econet_bdi', name: 'Econet Leo', shortName: 'Econet', provider: 'ECONET', countryCode: '+257', country: 'Burundi', flag: '🇧🇮', currency: 'BIF', color: 'bg-blue-700', textColor: 'text-white' },
+
+  // Congo-Brazzaville (+242) - XAF — MTN_MOMO_COG, AIRTEL_COG
+  { id: 'mtn_cog', name: 'MTN Mobile Money', shortName: 'MTN', provider: 'MTN', countryCode: '+242', country: 'Congo', flag: '🇨🇬', currency: 'XAF', color: 'bg-yellow-400', textColor: 'text-black' },
+  { id: 'airtel_cog', name: 'Airtel Money', shortName: 'Airtel', provider: 'AIRTEL', countryCode: '+242', country: 'Congo', flag: '🇨🇬', currency: 'XAF', color: 'bg-red-500', textColor: 'text-white' },
 ];
 
 // Group methods by country
@@ -116,6 +156,16 @@ const COUNTRY_BY_CODE: Record<string, string> = {
   '+256': 'Uganda',
   '+254': 'Kenya',
   '+260': 'Zambia',
+  '+255': 'Tanzania',
+  '+233': 'Ghana',
+  '+243': 'DR Congo',
+  '+237': 'Cameroon',
+  '+221': 'Senegal',
+  '+225': 'Ivory Coast',
+  '+258': 'Mozambique',
+  '+265': 'Malawi',
+  '+257': 'Burundi',
+  '+242': 'Congo',
 };
 
 const BILLING_COUNTRY_OPTIONS = [
@@ -124,7 +174,15 @@ const BILLING_COUNTRY_OPTIONS = [
   { code: "UG", label: "Uganda" },
   { code: "ZM", label: "Zambia" },
   { code: "TZ", label: "Tanzania" },
+  { code: "GH", label: "Ghana" },
+  { code: "CD", label: "DR Congo" },
+  { code: "CM", label: "Cameroon" },
+  { code: "SN", label: "Senegal" },
+  { code: "CI", label: "Ivory Coast" },
+  { code: "MZ", label: "Mozambique" },
+  { code: "MW", label: "Malawi" },
   { code: "BI", label: "Burundi" },
+  { code: "CG", label: "Congo" },
   { code: "ZA", label: "South Africa" },
 ];
 
@@ -160,10 +218,27 @@ export default function CheckoutNew() {
       KE: { method: 'mpesa_ken', code: '+254' },
       UG: { method: 'mtn_uga', code: '+256' },
       ZM: { method: 'mtn_zmb', code: '+260' },
+      TZ: { method: 'vodacom_tzn', code: '+255' },
+      GH: { method: 'mtn_gha', code: '+233' },
+      CD: { method: 'vodacom_cod', code: '+243' },
+      CM: { method: 'mtn_cmr', code: '+237' },
+      SN: { method: 'orange_sen', code: '+221' },
+      CI: { method: 'mtn_civ', code: '+225' },
+      MZ: { method: 'vodacom_moz', code: '+258' },
+      MW: { method: 'airtel_mwi', code: '+265' },
+      BI: { method: 'econet_bdi', code: '+257' },
+      CG: { method: 'mtn_cog', code: '+242' },
     };
-    return map[detectedCountry || ''] ?? { method: 'mtn_rwa', code: '+250' };
+    return map[detectedCountry || ''] ?? null;
   }, [detectedCountry]);
-  
+
+  // Countries with PawaPay mobile money support
+  const AFRICAN_PAWAPAY_COUNTRIES = new Set([
+    'RW', 'KE', 'UG', 'ZM', 'TZ', 'GH', 'CD', 'CM',
+    'SN', 'CI', 'MZ', 'MW', 'BI', 'CG',
+  ]);
+  const isAfricanRegion = detectedCountry ? AFRICAN_PAWAPAY_COUNTRIES.has(detectedCountry.toUpperCase()) : null;
+
   // State
   const [currentStep, setCurrentStep] = useState<Step>('details');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -187,12 +262,12 @@ export default function CheckoutNew() {
   
   // Payment state — defaults from geo-detection
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [countryCode, setCountryCode] = useState(geoDefaults.code);
-  const [paymentMethod, setPaymentMethod] = useState<string>(geoDefaults.method);
+  const [countryCode, setCountryCode] = useState(geoDefaults?.code ?? '+250');
+  const [paymentMethod, setPaymentMethod] = useState<string>(geoDefaults?.method ?? 'card');
   const [geoApplied, setGeoApplied] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
   const [showPriceBreakdown, setShowPriceBreakdown] = useState(false);
-  const [lastMobileMethod, setLastMobileMethod] = useState<string>(geoDefaults.method);
+  const [lastMobileMethod, setLastMobileMethod] = useState<string>(geoDefaults?.method ?? 'mtn_rwa');
   const mode = searchParams.get("mode");
   const isDirectPropertyCheckout = mode === "booking" && Boolean(searchParams.get("propertyId"));
   const checkInParam = searchParams.get("checkIn") || "";
@@ -219,8 +294,15 @@ export default function CheckoutNew() {
   // When geo-detection resolves, update payment defaults (only once, before user interacts)
   useEffect(() => {
     if (detectedCountry && !geoApplied) {
-      setCountryCode(geoDefaults.code);
-      setPaymentMethod(geoDefaults.method);
+      if (geoDefaults) {
+        // African PawaPay country — default to local mobile money
+        setCountryCode(geoDefaults.code);
+        setPaymentMethod(geoDefaults.method);
+        setLastMobileMethod(geoDefaults.method);
+      } else {
+        // Outside Africa — default to card payment
+        setPaymentMethod('card');
+      }
       setGeoApplied(true);
     }
   }, [detectedCountry, geoDefaults, geoApplied]);
@@ -1485,6 +1567,13 @@ export default function CheckoutNew() {
                         paymentCurrency === 'KES' ? 10 :
                         paymentCurrency === 'UGX' ? 500 :
                         paymentCurrency === 'TZS' ? 500 :
+                        paymentCurrency === 'GHS' ? 1 :
+                        paymentCurrency === 'CDF' ? 500 :
+                        paymentCurrency === 'XAF' ? 100 :
+                        paymentCurrency === 'XOF' ? 100 :
+                        paymentCurrency === 'MZN' ? 10 :
+                        paymentCurrency === 'MWK' ? 100 :
+                        paymentCurrency === 'BIF' ? 500 :
                         paymentCurrency === 'ZMW' ? 1 : 100;
       const maxAmount = paymentCurrency === 'RWF' ? 2_000_000 : Number.POSITIVE_INFINITY;
       
@@ -1805,11 +1894,13 @@ export default function CheckoutNew() {
                     <p className="text-xs md:text-sm text-muted-foreground">{t("checkout.payment.subtitle")}</p>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 md:gap-3">
+                  <div className={cn("grid gap-2 md:gap-3", isAfricanRegion === false ? "grid-cols-2" : "grid-cols-3")}>
+                    {/* Mobile Money tab — only shown in African PawaPay regions */}
+                    {isAfricanRegion !== false && (
                     <button
                       onClick={() => {
                         const nextMethod = isMobileMoneyMethod ? paymentMethod : lastMobileMethod;
-                        setPaymentMethod(nextMethod || geoDefaults.method);
+                        setPaymentMethod(nextMethod || geoDefaults?.method || 'mtn_rwa');
                         setShowContactModal(false);
                       }}
                       className={cn(
@@ -1827,6 +1918,7 @@ export default function CheckoutNew() {
                         </div>
                       </div>
                     </button>
+                    )}
 
                     <button
                       onClick={() => {

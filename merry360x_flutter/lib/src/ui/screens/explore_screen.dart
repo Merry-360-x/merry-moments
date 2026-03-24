@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app.dart';
+
 import '../../session_controller.dart';
 import 'property_details_screen.dart';
 import 'search_screen.dart';
@@ -115,7 +117,7 @@ class ExploreScreen extends StatelessWidget {
           isTablet ? 28 : 16,
           isTablet ? 20 : 14,
           isTablet ? 28 : 16,
-          isTablet ? 138 : 120,
+          isTablet ? 24 : 16,
         ),
         children: [
           // ── Header ──
@@ -204,7 +206,7 @@ class ExploreScreen extends StatelessWidget {
                 _QuickNavChip(
                   label: 'Stories',
                   icon: Icons.auto_stories_outlined,
-                  color: const Color(0xFFE2555A),
+                  color: AppColors.rausch,
                   onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => StoriesScreen(session: session))),
                   isTablet: isTablet,
                 ),
@@ -605,7 +607,7 @@ class _CategoryChips extends StatelessWidget {
               style: TextStyle(
                 fontSize: isTablet ? 16 : 12,
                 fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                color: active ? const Color(0xFFE2555A) : const Color(0xFF565660),
+                color: active ? AppColors.rausch : const Color(0xFF565660),
               ),
             ),
           );

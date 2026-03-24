@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+
+import '../../app.dart';
 import 'package:http/http.dart' as http;
 
 import '../../config.dart';
@@ -128,16 +130,16 @@ class _AiScreenState extends State<AiScreen> {
               constraints: BoxConstraints(maxWidth: maxContentWidth),
               child: Row(
                 children: [
-                  const Text('Merry AI', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w700, color: Color(0xFF202025))),
+                  const Text('Merry AI', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.black)),
                   const Spacer(),
                   Container(
-                    width: 36,
-                    height: 36,
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
-                      color: const Color(0x1AE2555A),
-                      borderRadius: BorderRadius.circular(18),
+                      color: AppColors.rausch.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Icon(Icons.auto_awesome, color: Color(0xFFE2555A), size: 18),
+                    child: const Icon(Icons.auto_awesome, color: AppColors.rausch, size: 18),
                   ),
                 ],
               ),
@@ -152,9 +154,7 @@ class _AiScreenState extends State<AiScreen> {
         ),
 
         // Input bar
-        SafeArea(
-          top: false,
-          child: Padding(
+        Padding(
             padding: EdgeInsets.fromLTRB(isWide ? 24 : 12, 8, isWide ? 24 : 12, 8),
             child: Center(
               child: ConstrainedBox(
@@ -168,7 +168,7 @@ class _AiScreenState extends State<AiScreen> {
                         _consentedToAi
                             ? 'AI consent granted. You can ask travel questions.'
                             : 'Before first use, you will be asked to consent to AI processing.',
-                        style: const TextStyle(fontSize: 11, color: Color(0xFF7B7B86)),
+                        style: const TextStyle(fontSize: 11, color: AppColors.foggy),
                       ),
                     ),
                     Container(
@@ -176,7 +176,7 @@ class _AiScreenState extends State<AiScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: const Color(0xFFE7E7EC)),
+                        border: Border.all(color: const Color(0xFFEBEBEB)),
                         boxShadow: const [
                           BoxShadow(color: Color(0x10000000), blurRadius: 10, offset: Offset(0, 4)),
                         ],
@@ -188,7 +188,7 @@ class _AiScreenState extends State<AiScreen> {
                               controller: _controller,
                               decoration: const InputDecoration(
                                 hintText: 'Ask about places, tours, packages...',
-                                hintStyle: TextStyle(color: Color(0xFF91919C), fontSize: 14),
+                                hintStyle: TextStyle(color: AppColors.foggy, fontSize: 14),
                                 border: InputBorder.none,
                                 contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                               ),
@@ -202,7 +202,7 @@ class _AiScreenState extends State<AiScreen> {
                             onTap: () => _send(_controller.text),
                             child: CircleAvatar(
                               radius: 18,
-                              backgroundColor: _busy ? const Color(0xFFCCCCD0) : const Color(0xFFE2555A),
+                              backgroundColor: _busy ? AppColors.hackberry : AppColors.rausch,
                               child: _busy
                                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                                   : const Icon(Icons.arrow_upward, color: Colors.white, size: 18),
@@ -215,7 +215,6 @@ class _AiScreenState extends State<AiScreen> {
                 ),
               ),
             ),
-          ),
         ),
       ],
     );
@@ -232,10 +231,10 @@ class _AiScreenState extends State<AiScreen> {
             children: [
               const Text(
                 'Travel assistant for stays, tours and transport',
-                style: TextStyle(color: Color(0xFF7B7B86), fontSize: 13),
+                style: TextStyle(color: AppColors.foggy, fontSize: 13),
               ),
               const SizedBox(height: 14),
-              const Text('Try asking:', style: TextStyle(fontSize: 13, color: Color(0xFF7B7B86), fontWeight: FontWeight.w500)),
+              const Text('Try asking:', style: TextStyle(fontSize: 13, color: AppColors.foggy, fontWeight: FontWeight.w500)),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -253,7 +252,7 @@ class _AiScreenState extends State<AiScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: const Color(0xFFE7E7EC)),
+                  border: Border.all(color: const Color(0xFFEBEBEB)),
                   boxShadow: const [
                     BoxShadow(color: Color(0x10000000), blurRadius: 10, offset: Offset(0, 4)),
                   ],
@@ -298,14 +297,14 @@ class _AiScreenState extends State<AiScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 constraints: BoxConstraints(maxWidth: maxWidth * 0.8),
                 decoration: BoxDecoration(
-                  color: isUser ? const Color(0xFFE2555A) : Colors.white,
+                  color: isUser ? AppColors.rausch : Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: isUser ? null : Border.all(color: const Color(0xFFE7E7EC)),
+                  border: isUser ? null : Border.all(color: const Color(0xFFEBEBEB)),
                 ),
                 child: Text(
                   msg.content,
                   style: TextStyle(
-                    color: isUser ? Colors.white : const Color(0xFF202025),
+                        color: isUser ? Colors.white : AppColors.black,
                     fontSize: 14,
                   ),
                 ),

@@ -28,7 +28,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import {
   PAWAPAY_PROCESSING_FEE_PERCENT,
   calculatePawaPayProcessing,
@@ -86,6 +86,8 @@ import {
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 type HostApplicationStatus = "draft" | "pending" | "approved" | "rejected";
+const REGION_CHART_COLORS = ["#2563eb", "#06b6d4", "#f97316", "#22c55e", "#eab308", "#ef4444"];
+
 type HostApplicationRow = {
   id: string;
   user_id: string;
@@ -464,6 +466,43 @@ const Thumb = ({ src, alt }: { src: string | null | undefined; alt: string }) =>
 
 const isPendingBookingStatus = (status: string | null | undefined) =>
   status === "pending" || status === "pending_confirmation";
+
+const AFRICAN_BOOKING_COUNTRY_BY_CODE: Record<string, string> = {
+  "250": "Rwanda",
+  "254": "Kenya",
+  "256": "Uganda",
+  "260": "Zambia",
+  "255": "Tanzania",
+  "233": "Ghana",
+  "243": "DR Congo",
+  "237": "Cameroon",
+  "221": "Senegal",
+  "225": "Ivory Coast",
+  "258": "Mozambique",
+  "265": "Malawi",
+  "257": "Burundi",
+  "242": "Congo",
+};
+
+const extractCountryCodeFromPhone = (phone: string | null | undefined): string | null => {
+  const digits = String(phone ?? "").replace(/\D/g, "");
+  if (!digits) return null;
+  const prefixes = Object.keys(AFRICAN_BOOKING_COUNTRY_BY_CODE).sort((a, b) => b.length - a.length);
+  const prefix = prefixes.find((p) => digits.startsWith(p));
+  return prefix ?? null;
+};
+
+const getBookingRegionLabel = (booking: BookingRow): string => {
+  const rawPhone =
+    booking.guest_phone ||
+    booking.profiles?.phone ||
+    booking.checkout_requests?.metadata?.phoneNumber ||
+    booking.checkout_requests?.metadata?.phone ||
+    null;
+  const countryCode = extractCountryCodeFromPhone(rawPhone ? String(rawPhone) : null);
+  if (!countryCode) return "Outside Africa / Unknown";
+  return AFRICAN_BOOKING_COUNTRY_BY_CODE[countryCode] ?? "Outside Africa / Unknown";
+};
 
 export default function AdminDashboard() {
   const { toast } = useToast();
@@ -1483,6 +1522,7 @@ export default function AdminDashboard() {
     const guestBookingCounts = new Map<string, number>();
     const bookingTypeCounts = new Map<string, { count: number; revenueRwf: number }>();
     const paymentMethodCounts = new Map<string, { count: number; revenueRwf: number }>();
+    const regionCounts = new Map<string, number>();
 
     for (const booking of rows) {
       totalBookings += 1;
@@ -1528,6 +1568,9 @@ export default function AdminDashboard() {
         booking?.booking_type ||
           (booking?.property_id ? "property" : booking?.tour_id ? "tour" : booking?.transport_id ? "transport" : "other")
       ).toLowerCase();
+
+      const regionLabel = getBookingRegionLabel(booking as BookingRow);
+      regionCounts.set(regionLabel, (regionCounts.get(regionLabel) || 0) + 1);
 
       const amount = Number(booking?.checkout_requests?.total_amount || booking?.total_price || 0);
       const amountCurrency = String(
@@ -1581,6 +1624,14 @@ export default function AdminDashboard() {
       }))
       .sort((a, b) => b.count - a.count);
 
+    const regionBreakdown = Array.from(regionCounts.entries())
+      .map(([region, count]) => ({
+        region,
+        count,
+        share: totalBookings > 0 ? (count / totalBookings) * 100 : 0,
+      }))
+      .sort((a, b) => b.count - a.count);
+
     return {
       totalBookings,
       confirmationRate: totalBookings > 0 ? (confirmedOrCompleted / totalBookings) * 100 : 0,
@@ -1593,11 +1644,20 @@ export default function AdminDashboard() {
       realizedRevenueRwf: Math.round(realizedRevenueRwf),
       bookingTypeBreakdown,
       paymentMethodBreakdown,
+      regionBreakdown,
     };
   }, [bookings]);
 
   const analyticsConfig = analyticsChart === "revenue" ? revenueChartConfig : webAnalyticsChartConfig;
   const analyticsChartData = analyticsChart === "revenue" ? analyticsRevenueSeries : webAnalyticsSeries;
+  const regionChartData = useMemo(
+    () =>
+      adminAdvancedAnalytics.regionBreakdown.slice(0, 6).map((row, index) => ({
+        ...row,
+        fill: REGION_CHART_COLORS[index % REGION_CHART_COLORS.length],
+      })),
+    [adminAdvancedAnalytics.regionBreakdown]
+  );
   const isAnalyticsLoading =
     analyticsChart === "revenue"
       ? isBookingsLoading
@@ -4180,7 +4240,7 @@ For support, contact: support@merry360x.com
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="rounded-lg border p-3">
                   <p className="text-sm font-medium mb-2">Booking Type Mix</p>
                   <div className="space-y-2">
@@ -4213,6 +4273,48 @@ For support, contact: support@merry360x.com
                       </div>
                     ))}
                   </div>
+                </div>
+
+                <div className="rounded-lg border p-3">
+                  <p className="text-sm font-medium mb-2">Booking Region Mix</p>
+                  {regionChartData.length > 0 ? (
+                    <>
+                      <div className="h-44">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={regionChartData}
+                              dataKey="count"
+                              nameKey="region"
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={42}
+                              outerRadius={72}
+                              strokeWidth={2}
+                            >
+                              {regionChartData.map((entry) => (
+                                <Cell key={`region-pie-${entry.region}`} fill={entry.fill} />
+                              ))}
+                            </Pie>
+                            <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="space-y-2 mt-2">
+                        {regionChartData.map((row) => (
+                          <div key={`region-${row.region}`} className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: row.fill }} />
+                              <span className="truncate">{row.region}</span>
+                            </div>
+                            <span>{row.count} ({row.share.toFixed(1)}%)</span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">No region data yet.</p>
+                  )}
                 </div>
               </div>
 

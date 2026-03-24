@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
+import '../../app.dart';
 import '../../services/mobile_api.dart';
 import '../../session_controller.dart';
 import 'checkout_screen.dart';
@@ -37,6 +39,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
   DateTime? _checkOut;
   int _guests = 1;
   int _currentImage = 0;
+  bool _liked = false;
 
   @override
   void initState() {
@@ -145,7 +148,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
           colorScheme: const ColorScheme.light(
-            primary: Color(0xFFFF385C),
+            primary: AppColors.rausch,
             onPrimary: Colors.white,
           ),
         ),
@@ -166,7 +169,13 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
       return;
     }
     try {
-      await widget.session.addListingToTripCart(item);
+      final metadata = <String, dynamic>{
+        if (_checkIn != null) 'check_in': _checkIn!.toIso8601String().split('T').first,
+        if (_checkOut != null) 'check_out': _checkOut!.toIso8601String().split('T').first,
+        'guests': _guests,
+        if (_nights > 0) 'nights': _nights,
+      };
+      await widget.session.addListingToTripCart(item, metadata: metadata);
       if (mounted) _showSnack('Added to trip cart ✓');
     } catch (e) {
       if (mounted) _showSnack('Could not add: $e');
@@ -199,6 +208,37 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
     ));
   }
 
+  void _toggleLike() async {
+    final session = widget.session;
+    if (!session.isAuthenticated) {
+      _showSnack('Sign in to save to wishlist');
+      return;
+    }
+    setState(() => _liked = !_liked);
+    try {
+      if (_liked) {
+        await session.addListingToWishlist(item);
+        if (mounted) _showSnack('Saved to wishlist');
+      } else {
+        await session.removeWishlistItem((item['id'] ?? '').toString());
+        if (mounted) _showSnack('Removed from wishlist');
+      }
+    } catch (e) {
+      setState(() => _liked = !_liked);
+      if (mounted) _showSnack('Could not update wishlist');
+    }
+  }
+
+  void _shareListing() {
+    final title = (item['title'] ?? item['name'] ?? 'Listing').toString();
+    final location = (item['location'] ?? item['city'] ?? '').toString();
+    final id = (item['id'] ?? '').toString();
+    final url = 'https://merry360x.com/listing/$id';
+    SharePlus.instance.share(
+      ShareParams(text: '$title${location.isNotEmpty ? ' in $location' : ''}\n$url'),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final images = _allImages;
@@ -211,314 +251,277 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
     final bedrooms = item['bedrooms']?.toString();
     final bathrooms = item['bathrooms']?.toString();
     final beds = item['beds']?.toString();
+    final bottomPad = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Stack(
-        children: [
-          CustomScrollView(
-            slivers: [
-              // ── Image gallery SliverAppBar ──
-              SliverAppBar(
-                expandedHeight: 300,
-                pinned: true,
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.white,
-                leading: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: CircleAvatar(
-                    backgroundColor: Colors.white,
-                    child: IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Color(0xFF222222), size: 20),
-                      onPressed: () => Navigator.pop(context),
-                      padding: EdgeInsets.zero,
-                    ),
-                  ),
-                ),
-                flexibleSpace: FlexibleSpaceBar(
-                  background: _loading
-                      ? Container(color: const Color(0xFFF0F0F3))
-                      : _GalleryView(
-                          images: images,
-                          onPageChanged: (i) => setState(() => _currentImage = i),
-                        ),
-                ),
-              ),
-
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(18, 18, 18, 160),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate([
-                    if (_error != null)
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        margin: const EdgeInsets.only(bottom: 12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFF3CD),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text('Some details may be unavailable.', style: const TextStyle(fontSize: 13)),
-                      ),
-
-                    // ── Image dots ──
-                    if (images.length > 1)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _DotIndicator(count: images.length, current: _currentImage),
-                      ),
-
-                    // ── Type badge ──
-                    _TypeBadge(type: itemType),
-                    const SizedBox(height: 8),
-
-                    // ── Title ──
-                    Text(
-                      title,
-                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: Color(0xFF222222)),
-                    ),
-                    const SizedBox(height: 6),
-
-                    // ── Location ──
-                    if (location.isNotEmpty)
-                      Row(
-                        children: [
-                          const Icon(Icons.location_on_outlined, size: 16, color: Color(0xFF717171)),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              location,
-                              style: const TextStyle(fontSize: 15, color: Color(0xFF717171)),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                    // ── Rating ──
-                    if (rating != null && rating != 'null') ...[
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Icon(Icons.star, size: 16, color: Color(0xFF222222)),
-                          const SizedBox(width: 4),
-                          Text(
-                            rating,
-                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-                          ),
-                          if (reviewCount != null && reviewCount != 'null') ...[
-                            const SizedBox(width: 4),
-                            Text('($reviewCount reviews)', style: const TextStyle(color: Color(0xFF717171), fontSize: 14)),
-                          ],
-                        ],
-                      ),
-                    ],
-
-                    const SizedBox(height: 16),
-                    const Divider(height: 1),
-                    const SizedBox(height: 16),
-
-                    // ── Property specs ──
-                    if (itemType == 'property') ...[
-                      Wrap(
-                        spacing: 20,
-                        runSpacing: 6,
-                        children: [
-                          if (beds != null && beds != 'null') _SpecChip(icon: Icons.bed_outlined, label: '$beds beds'),
-                          if (bedrooms != null && bedrooms != 'null') _SpecChip(icon: Icons.door_front_door_outlined, label: '$bedrooms bedrooms'),
-                          if (bathrooms != null && bathrooms != 'null') _SpecChip(icon: Icons.bathtub_outlined, label: '$bathrooms bathrooms'),
-                          _SpecChip(icon: Icons.people_outline, label: 'Up to $maxGuests guests'),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      const Divider(height: 1),
-                      const SizedBox(height: 16),
-                    ],
-
-                    // ── Description ──
-                    if (description.isNotEmpty) ...[
-                      const Text('About this place', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 8),
-                      _ExpandableText(text: description),
-                      const SizedBox(height: 16),
-                      const Divider(height: 1),
-                      const SizedBox(height: 16),
-                    ],
-
-                    // ── Amenities ──
-                    if (_amenities.isNotEmpty) ...[
-                      const Text('Amenities', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 8,
-                        children: _amenities
-                            .take(12)
-                            .map((a) => _AmenityChip(amenity: a))
-                            .toList(),
-                      ),
-                      const SizedBox(height: 16),
-                      const Divider(height: 1),
-                      const SizedBox(height: 16),
-                    ],
-
-                    // ── Date & Guests picker ──
-                    const Text('Your trip', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 12),
-
-                    // Dates
-                    GestureDetector(
-                      onTap: _pickDates,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: const Color(0xFFD4D4D8)),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.calendar_today_outlined, size: 18, color: Color(0xFF222222)),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('Dates', style: TextStyle(fontSize: 12, color: Color(0xFF717171))),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    (_checkIn != null && _checkOut != null)
-                                        ? '${_fmtDate(_checkIn!)} → ${_fmtDate(_checkOut!)}'
-                                        : 'Select dates',
-                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Icon(Icons.chevron_right, color: Color(0xFF717171)),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    // Guests
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: const Color(0xFFD4D4D8)),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.people_outline, size: 18, color: Color(0xFF222222)),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text('Guests', style: TextStyle(fontSize: 12, color: Color(0xFF717171))),
-                                const SizedBox(height: 2),
-                                Text('$_guests guest${_guests > 1 ? 's' : ''}',
-                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-                              ],
-                            ),
-                          ),
-                          _CounterButton(
-                            value: _guests,
-                            min: 1,
-                            max: maxGuests,
-                            onChanged: (v) => setState(() => _guests = v),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    if (_nights > 0) ...[
-                      const SizedBox(height: 16),
-                      _PriceSummaryCard(
-                        pricePerUnit: _pricePerUnit,
-                        currency: _currency,
-                        nights: _nights,
-                        guests: _guests,
-                        subtotal: _subtotal,
-                        itemType: itemType,
-                      ),
-                    ],
-                  ]),
-                ),
-              ),
-            ],
-          ),
-
-          // ── Loading overlay ──
-          if (_loading)
-            const Positioned(
-              top: 320,
-              left: 0,
-              right: 0,
-              child: Center(child: CircularProgressIndicator()),
-            ),
-
-          // ── Bottom action bar ──
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: EdgeInsets.fromLTRB(
-                16,
-                12,
-                16,
-                MediaQuery.of(context).padding.bottom + 12,
-              ),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(top: BorderSide(color: Color(0xFFE7E7EC))),
-              ),
-              child: Row(
+      // ── Fixed bottom action bar ──
+      bottomNavigationBar: Container(
+        padding: EdgeInsets.fromLTRB(16, 12, 16, bottomPad + 10),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: Color(0xFFEBEBEB), width: 0.5)),
+        ),
+        child: Row(
+          children: [
+            // Price
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Price summary
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '$_currency ${_pricePerUnit.toStringAsFixed(0)}',
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                        ),
-                        Text(
-                          _unitLabel,
-                          style: const TextStyle(fontSize: 13, color: Color(0xFF717171)),
-                        ),
-                      ],
-                    ),
+                  Text(
+                    '$_currency ${_pricePerUnit.toStringAsFixed(0)}',
+                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.black),
                   ),
-                  const SizedBox(width: 10),
-
-                  // Add to cart
-                  OutlinedButton(
-                    onPressed: _addToCart,
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-                      side: const BorderSide(color: Color(0xFF222222)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: const Text('Save', style: TextStyle(color: Color(0xFF222222), fontWeight: FontWeight.w600)),
-                  ),
-                  const SizedBox(width: 8),
-
-                  // Book now
-                  FilledButton(
-                    onPressed: _bookNow,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFFFF385C),
-                      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: const Text('Reserve', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                  ),
+                  Text(_unitLabel, style: const TextStyle(fontSize: 13, color: AppColors.foggy)),
                 ],
               ),
+            ),
+            // Reserve button
+            FilledButton(
+              onPressed: _bookNow,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.rausch,
+                minimumSize: const Size(0, 48),
+                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text('Reserve', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+      // ── Scrollable body ──
+      body: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          // ── Image gallery with overlay buttons ──
+          SizedBox(
+            height: 260,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (_loading)
+                  Container(color: const Color(0xFFF0F0F3))
+                else
+                  _GalleryView(
+                    images: images,
+                    onPageChanged: (i) => setState(() => _currentImage = i),
+                  ),
+                // Top bar: back, like, share
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + 6,
+                  left: 12,
+                  right: 12,
+                  child: Row(
+                    children: [
+                      _CircleBtn(
+                        icon: Icons.arrow_back,
+                        onTap: () => Navigator.pop(context),
+                      ),
+                      const Spacer(),
+                      _CircleBtn(
+                        icon: _liked ? Icons.favorite : Icons.favorite_border,
+                        color: _liked ? AppColors.rausch : AppColors.black,
+                        onTap: _toggleLike,
+                      ),
+                      const SizedBox(width: 10),
+                      _CircleBtn(
+                        icon: Icons.ios_share,
+                        onTap: _shareListing,
+                      ),
+                    ],
+                  ),
+                ),
+                // Dot indicators
+                if (images.length > 1)
+                  Positioned(
+                    bottom: 10,
+                    left: 0,
+                    right: 0,
+                    child: _DotIndicator(count: images.length, current: _currentImage),
+                  ),
+              ],
+            ),
+          ),
+
+          // ── Content ──
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_error != null)
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF3CD),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text('Some details may be unavailable.', style: TextStyle(fontSize: 13)),
+                  ),
+
+                // Type badge
+                _TypeBadge(type: itemType),
+                const SizedBox(height: 8),
+
+                // Title
+                Text(title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.black)),
+                const SizedBox(height: 6),
+
+                // Location
+                if (location.isNotEmpty)
+                  Row(children: [
+                    const Icon(Icons.location_on_outlined, size: 16, color: AppColors.foggy),
+                    const SizedBox(width: 4),
+                    Expanded(child: Text(location, style: const TextStyle(fontSize: 15, color: AppColors.foggy))),
+                  ]),
+
+                // Rating
+                if (rating != null && rating != 'null') ...[
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    const Icon(Icons.star, size: 16, color: AppColors.black),
+                    const SizedBox(width: 4),
+                    Text(rating, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                    if (reviewCount != null && reviewCount != 'null') ...[
+                      const SizedBox(width: 4),
+                      Text('($reviewCount reviews)', style: const TextStyle(color: AppColors.foggy, fontSize: 14)),
+                    ],
+                  ]),
+                ],
+
+                const SizedBox(height: 16),
+                const Divider(height: 1),
+                const SizedBox(height: 16),
+
+                // Property specs
+                if (itemType == 'property') ...[
+                  Wrap(spacing: 20, runSpacing: 6, children: [
+                    if (beds != null && beds != 'null') _SpecChip(icon: Icons.bed_outlined, label: '$beds beds'),
+                    if (bedrooms != null && bedrooms != 'null') _SpecChip(icon: Icons.door_front_door_outlined, label: '$bedrooms bedrooms'),
+                    if (bathrooms != null && bathrooms != 'null') _SpecChip(icon: Icons.bathtub_outlined, label: '$bathrooms bathrooms'),
+                    _SpecChip(icon: Icons.people_outline, label: 'Up to $maxGuests guests'),
+                  ]),
+                  const SizedBox(height: 16),
+                  const Divider(height: 1),
+                  const SizedBox(height: 16),
+                ],
+
+                // Description
+                if (description.isNotEmpty) ...[
+                  const Text('About this place', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 8),
+                  _ExpandableText(text: description),
+                  const SizedBox(height: 16),
+                  const Divider(height: 1),
+                  const SizedBox(height: 16),
+                ],
+
+                // Amenities
+                if (_amenities.isNotEmpty) ...[
+                  const Text('Amenities', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 8,
+                    children: _amenities.take(12).map((a) => _AmenityChip(amenity: a)).toList(),
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(height: 1),
+                  const SizedBox(height: 16),
+                ],
+
+                // ── Your Trip ──
+                const Text('Your trip', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 12),
+
+                // Dates
+                GestureDetector(
+                  onTap: _pickDates,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFFD4D4D8)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(children: [
+                      const Icon(Icons.calendar_today_outlined, size: 18, color: AppColors.black),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          const Text('Dates', style: TextStyle(fontSize: 12, color: AppColors.foggy)),
+                          const SizedBox(height: 2),
+                          Text(
+                            (_checkIn != null && _checkOut != null)
+                                ? '${_fmtDate(_checkIn!)} → ${_fmtDate(_checkOut!)}'
+                                : 'Select dates',
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                          ),
+                        ]),
+                      ),
+                      const Icon(Icons.chevron_right, color: AppColors.foggy),
+                    ]),
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+
+                // Guests
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color(0xFFD4D4D8)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(children: [
+                    const Icon(Icons.people_outline, size: 18, color: AppColors.black),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        const Text('Guests', style: TextStyle(fontSize: 12, color: AppColors.foggy)),
+                        const SizedBox(height: 2),
+                        Text('$_guests guest${_guests > 1 ? 's' : ''}',
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                      ]),
+                    ),
+                    _CounterButton(value: _guests, min: 1, max: maxGuests, onChanged: (v) => setState(() => _guests = v)),
+                  ]),
+                ),
+
+                if (_nights > 0) ...[
+                  const SizedBox(height: 16),
+                  _PriceSummaryCard(
+                    pricePerUnit: _pricePerUnit,
+                    currency: _currency,
+                    nights: _nights,
+                    guests: _guests,
+                    subtotal: _subtotal,
+                    itemType: itemType,
+                  ),
+                ],
+
+                const SizedBox(height: 20),
+
+                // ── Add to Trip Cart button ──
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _addToCart,
+                    icon: const Icon(Icons.luggage_outlined, size: 18),
+                    label: const Text('Add to Trip Cart'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      side: const BorderSide(color: AppColors.black),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -592,7 +595,7 @@ class _DotIndicator extends StatelessWidget {
           height: 6,
           margin: const EdgeInsets.symmetric(horizontal: 2),
           decoration: BoxDecoration(
-            color: i == current ? const Color(0xFFFF385C) : const Color(0xFFD4D4D8),
+            color: i == current ? AppColors.rausch : const Color(0xFFD4D4D8),
             borderRadius: BorderRadius.circular(3),
           ),
         );
@@ -604,6 +607,31 @@ class _DotIndicator extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
+
+class _CircleBtn extends StatelessWidget {
+  const _CircleBtn({required this.icon, required this.onTap, this.color});
+
+  final IconData icon;
+  final VoidCallback onTap;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          boxShadow: [BoxShadow(color: Color(0x22000000), blurRadius: 6)],
+        ),
+        child: Icon(icon, size: 18, color: color ?? AppColors.black),
+      ),
+    );
+  }
+}
 
 class _TypeBadge extends StatelessWidget {
   const _TypeBadge({required this.type});
@@ -631,7 +659,7 @@ class _TypeBadge extends StatelessWidget {
         color: const Color(0xFFFFE8E9),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(_label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFFE2555A))),
+      child: Text(_label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.rausch)),
     );
   }
 }

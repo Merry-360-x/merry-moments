@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../app.dart';
+
 import '../../services/mobile_api.dart';
 import '../../session_controller.dart';
 
-const _kRed = Color(0xFFE2555A);
+const _kRed = AppColors.rausch;
 
 class BecomeHostScreen extends StatefulWidget {
   const BecomeHostScreen({super.key, required this.session});
@@ -79,13 +81,13 @@ class _BecomeHostScreenState extends State<BecomeHostScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8FA),
+      backgroundColor: AppColors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         title: const Text('Become a Host',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: _kRed))
@@ -219,7 +221,8 @@ class _BecomeHostScreenState extends State<BecomeHostScreen> {
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                     backgroundColor: _kRed, foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
                 onPressed: _submitting ? null : () {
                   if (_step == 1 && _serviceTypes.isEmpty) return; // guard: must pick at least one
                   if (_step < 2) { setState(() => _step += 1); }
@@ -267,7 +270,8 @@ class _SuccessView extends StatelessWidget {
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: _kRed, foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14)),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
             onPressed: () => Navigator.pop(context),
             child: const Text('Back to Profile'),
           ),

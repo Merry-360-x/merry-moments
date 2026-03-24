@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app.dart';
+
 import '../../services/mobile_api.dart';
 import '../../session_controller.dart';
 
@@ -32,21 +34,21 @@ class _StoriesScreenState extends State<StoriesScreen> {
   Widget build(BuildContext context) {
     final canAdd = widget.session.isHost || widget.session.isAdmin;
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8FA),
+      backgroundColor: AppColors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
         elevation: 0,
-        leading: const BackButton(color: Color(0xFF1A1A2E)),
+        leading: const BackButton(color: AppColors.black),
         title: const Text('Stories',
-            style: TextStyle(color: Color(0xFF1A1A2E), fontWeight: FontWeight.w700, fontSize: 17)),
+            style: TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 18)),
         actions: [
-          IconButton(icon: const Icon(Icons.refresh_outlined, color: Color(0xFF8A8A99)), onPressed: _load),
+          IconButton(icon: const Icon(Icons.refresh_outlined, color: AppColors.foggy), onPressed: _load),
         ],
       ),
       floatingActionButton: canAdd
           ? FloatingActionButton.extended(
               onPressed: () => _showCreateStorySheet(),
-              backgroundColor: const Color(0xFFE2555A),
+              backgroundColor: AppColors.rausch,
               icon: const Icon(Icons.add),
               label: const Text('Add Story'),
             )
@@ -56,12 +58,12 @@ class _StoriesScreenState extends State<StoriesScreen> {
   }
 
   Widget _body() {
-    if (_loading) return const Center(child: CircularProgressIndicator(color: Color(0xFFE2555A)));
+    if (_loading) return const Center(child: CircularProgressIndicator(color: AppColors.rausch));
     if (_stories.isEmpty) return Center(
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         const Icon(Icons.auto_stories_outlined, size: 48, color: Color(0xFFD0D0D8)),
         const SizedBox(height: 12),
-        const Text('No stories yet', style: TextStyle(color: Color(0xFF8A8A99), fontSize: 14)),
+        const Text('No stories yet', style: TextStyle(color: AppColors.foggy, fontSize: 14)),
       ]),
     );
     return GridView.builder(
@@ -149,9 +151,9 @@ class _StoryViewerScreenState extends State<_StoryViewerScreen> {
             children: [
               if (imgUrl.isNotEmpty)
                 Image.network(imgUrl, fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(color: const Color(0xFF1A1A2E)))
+                    errorBuilder: (_, __, ___) => Container(color: AppColors.black))
               else
-                Container(color: const Color(0xFF1A1A2E)),
+                Container(color: AppColors.black),
               Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
@@ -316,8 +318,8 @@ class _CreateStorySheetState extends State<_CreateStorySheet> {
       child: SingleChildScrollView(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            const Expanded(child: Text('Share a Story', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF1A1A2E)))),
-            IconButton(icon: const Icon(Icons.close, color: Color(0xFF8A8A99)), onPressed: () => Navigator.pop(context)),
+            const Expanded(child: Text('Share a Story', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.black))),
+            IconButton(icon: const Icon(Icons.close, color: AppColors.foggy), onPressed: () => Navigator.pop(context)),
           ]),
           const SizedBox(height: 16),
           _field(_titleCtrl, 'Title *', Icons.title),
@@ -333,7 +335,7 @@ class _CreateStorySheetState extends State<_CreateStorySheet> {
             child: ElevatedButton(
               onPressed: _saving ? null : _submit,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFE2555A),
+                backgroundColor: AppColors.rausch,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -354,9 +356,9 @@ class _CreateStorySheetState extends State<_CreateStorySheet> {
       maxLines: maxLines,
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon, size: 18, color: const Color(0xFF8A8A99)),
+        prefixIcon: Icon(icon, size: 18, color: AppColors.foggy),
         filled: true,
-        fillColor: const Color(0xFFF8F8FA),
+        fillColor: AppColors.white,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       ),

@@ -99,30 +99,107 @@ export default async function handler(req, res) {
       return json(res, 400, { error: "Phone number is required" });
     }
 
-    // PawaPay correspondents — only those ACTIVE on our merchant account
-    // Rwanda (RWA) - RWF: MTN_MOMO_RWA, AIRTEL_RWA
-    // Kenya (KEN) - KES: MPESA_KEN only
-    // Uganda (UGA) - UGX: MTN_MOMO_UGA, AIRTEL_OAPI_UGA
-    // Zambia (ZMB) - ZMW: MTN_MOMO_ZMB, ZAMTEL_ZMB
+    // PawaPay correspondents — all active countries on our merchant account
     const correspondentMap = {
-      // Rwanda (+250)
+      // Rwanda (+250) — RWF
       "MTN_250": "MTN_MOMO_RWA",
       "AIRTEL_250": "AIRTEL_RWA",
       "mtn_momo_250": "MTN_MOMO_RWA",
       "airtel_money_250": "AIRTEL_RWA",
-      // Kenya (+254) — only M-Pesa active
+      // Kenya (+254) — KES
       "MPESA_254": "MPESA_KEN",
       "mpesa_254": "MPESA_KEN",
-      // Uganda (+256) — Airtel uses OAPI variant
+      // Uganda (+256) — UGX
       "MTN_256": "MTN_MOMO_UGA",
       "AIRTEL_256": "AIRTEL_OAPI_UGA",
       "mtn_momo_256": "MTN_MOMO_UGA",
       "airtel_money_256": "AIRTEL_OAPI_UGA",
-      // Zambia (+260) — MTN + Zamtel only
+      // Zambia (+260) — ZMW
       "MTN_260": "MTN_MOMO_ZMB",
       "ZAMTEL_260": "ZAMTEL_ZMB",
       "mtn_momo_260": "MTN_MOMO_ZMB",
       "zamtel_260": "ZAMTEL_ZMB",
+      // Tanzania (+255) — TZS
+      "VODACOM_255": "VODACOM_TZN",
+      "vodacom_255": "VODACOM_TZN",
+      "TIGO_255": "TIGO_TZN",
+      "tigo_255": "TIGO_TZN",
+      "AIRTEL_255": "AIRTEL_TZN",
+      "airtel_money_255": "AIRTEL_TZN",
+      // Ghana (+233) — GHS
+      "MTN_233": "MTN_MOMO_GHA",
+      "mtn_momo_233": "MTN_MOMO_GHA",
+      "VODAFONE_233": "VODAFONE_GHA",
+      "vodafone_233": "VODAFONE_GHA",
+      // DRC (+243) — CDF
+      "VODACOM_243": "VODACOM_MPESA_COD",
+      "vodacom_243": "VODACOM_MPESA_COD",
+      "AIRTEL_243": "AIRTEL_COD",
+      "airtel_money_243": "AIRTEL_COD",
+      "ORANGE_243": "ORANGE_COD",
+      "orange_243": "ORANGE_COD",
+      // Cameroon (+237) — XAF
+      "MTN_237": "MTN_MOMO_CMR",
+      "mtn_momo_237": "MTN_MOMO_CMR",
+      "ORANGE_237": "ORANGE_CMR",
+      "orange_237": "ORANGE_CMR",
+      // Senegal (+221) — XOF
+      "ORANGE_221": "ORANGE_SEN",
+      "orange_221": "ORANGE_SEN",
+      "FREE_221": "FREE_SEN",
+      "free_221": "FREE_SEN",
+      // Ivory Coast (+225) — XOF
+      "MTN_225": "MTN_MOMO_CIV",
+      "mtn_momo_225": "MTN_MOMO_CIV",
+      "ORANGE_225": "ORANGE_CIV",
+      "orange_225": "ORANGE_CIV",
+      // Mozambique (+258) — MZN
+      "VODACOM_258": "VODACOM_MOZ",
+      "vodacom_258": "VODACOM_MOZ",
+      "MPESA_258": "MPESA_MOZ",
+      "mpesa_258": "MPESA_MOZ",
+      // Malawi (+265) — MWK
+      "AIRTEL_265": "AIRTEL_MWI",
+      "airtel_money_265": "AIRTEL_MWI",
+      "TNM_265": "TNM_MWI",
+      "tnm_265": "TNM_MWI",
+      // Burundi (+257) — BIF
+      "ECONET_257": "ECONET_BDI",
+      "econet_257": "ECONET_BDI",
+      // Congo-Brazzaville (+242) — XAF
+      "MTN_242": "MTN_MOMO_COG",
+      "mtn_momo_242": "MTN_MOMO_COG",
+      "AIRTEL_242": "AIRTEL_COG",
+      "airtel_money_242": "AIRTEL_COG",
+      // Direct correspondent identity mappings (Flutter sends these directly)
+      "MTN_MOMO_RWA": "MTN_MOMO_RWA",
+      "AIRTEL_RWA": "AIRTEL_RWA",
+      "MPESA_KEN": "MPESA_KEN",
+      "MTN_MOMO_UGA": "MTN_MOMO_UGA",
+      "AIRTEL_OAPI_UGA": "AIRTEL_OAPI_UGA",
+      "MTN_MOMO_ZMB": "MTN_MOMO_ZMB",
+      "ZAMTEL_ZMB": "ZAMTEL_ZMB",
+      "VODACOM_TZN": "VODACOM_TZN",
+      "TIGO_TZN": "TIGO_TZN",
+      "AIRTEL_TZN": "AIRTEL_TZN",
+      "MTN_MOMO_GHA": "MTN_MOMO_GHA",
+      "VODAFONE_GHA": "VODAFONE_GHA",
+      "VODACOM_MPESA_COD": "VODACOM_MPESA_COD",
+      "AIRTEL_COD": "AIRTEL_COD",
+      "ORANGE_COD": "ORANGE_COD",
+      "MTN_MOMO_CMR": "MTN_MOMO_CMR",
+      "ORANGE_CMR": "ORANGE_CMR",
+      "ORANGE_SEN": "ORANGE_SEN",
+      "FREE_SEN": "FREE_SEN",
+      "MTN_MOMO_CIV": "MTN_MOMO_CIV",
+      "ORANGE_CIV": "ORANGE_CIV",
+      "VODACOM_MOZ": "VODACOM_MOZ",
+      "MPESA_MOZ": "MPESA_MOZ",
+      "AIRTEL_MWI": "AIRTEL_MWI",
+      "TNM_MWI": "TNM_MWI",
+      "ECONET_BDI": "ECONET_BDI",
+      "MTN_MOMO_COG": "MTN_MOMO_COG",
+      "AIRTEL_COG": "AIRTEL_COG",
       // Legacy fallback (Rwanda)
       "MTN": "MTN_MOMO_RWA",
       "AIRTEL": "AIRTEL_RWA",
@@ -135,14 +212,14 @@ export default async function handler(req, res) {
     let countryCode = "250"; // Default to Rwanda
     
     // Detect country from phone prefix
-    if (cleanPhone.startsWith("254")) {
-      countryCode = "254"; // Kenya
-    } else if (cleanPhone.startsWith("256")) {
-      countryCode = "256"; // Uganda
-    } else if (cleanPhone.startsWith("260")) {
-      countryCode = "260"; // Zambia
-    } else if (cleanPhone.startsWith("250")) {
-      countryCode = "250"; // Rwanda
+    const prefixMap = [
+      ["221", "221"], ["225", "225"], ["233", "233"], ["237", "237"],
+      ["242", "242"], ["243", "243"], ["250", "250"], ["254", "254"],
+      ["255", "255"], ["256", "256"], ["257", "257"], ["258", "258"],
+      ["260", "260"], ["265", "265"],
+    ];
+    for (const [prefix, code] of prefixMap) {
+      if (cleanPhone.startsWith(prefix)) { countryCode = code; break; }
     }
     
     const correspondentKey = `${provider}_${countryCode}`;
@@ -168,10 +245,20 @@ export default async function handler(req, res) {
 
     // Phone number validation by country - define this early so we can get the currency
     const countryPhoneInfo = {
+      "221": { name: "Senegal", length: 12, localLength: 9, example: "7XXXXXXXX", currency: "XOF" },
+      "225": { name: "Ivory Coast", length: 13, localLength: 10, example: "0XXXXXXXXX", currency: "XOF" },
+      "233": { name: "Ghana", length: 12, localLength: 9, example: "2XXXXXXXX", currency: "GHS" },
+      "237": { name: "Cameroon", length: 12, localLength: 9, example: "6XXXXXXXX", currency: "XAF" },
+      "242": { name: "Congo", length: 12, localLength: 9, example: "0XXXXXXXX", currency: "XAF" },
+      "243": { name: "DR Congo", length: 12, localLength: 9, example: "8XXXXXXXX", currency: "CDF" },
       "250": { name: "Rwanda", length: 12, localLength: 9, example: "78XXXXXXX", currency: "RWF" },
       "254": { name: "Kenya", length: 12, localLength: 9, example: "7XXXXXXXX", currency: "KES" },
+      "255": { name: "Tanzania", length: 12, localLength: 9, example: "7XXXXXXXX", currency: "TZS" },
       "256": { name: "Uganda", length: 12, localLength: 9, example: "7XXXXXXXX", currency: "UGX" },
+      "257": { name: "Burundi", length: 11, localLength: 8, example: "7XXXXXXX", currency: "BIF" },
+      "258": { name: "Mozambique", length: 12, localLength: 9, example: "8XXXXXXXX", currency: "MZN" },
       "260": { name: "Zambia", length: 12, localLength: 9, example: "9XXXXXXXX", currency: "ZMW" },
+      "265": { name: "Malawi", length: 12, localLength: 9, example: "9XXXXXXXX", currency: "MWK" },
     };
     
     const phoneInfo = countryPhoneInfo[countryCode] || countryPhoneInfo["250"];

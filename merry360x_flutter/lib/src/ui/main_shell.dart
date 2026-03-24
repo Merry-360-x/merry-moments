@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../app.dart';
 import '../session_controller.dart';
 import 'screens/ai_screen.dart';
 import 'screens/auth_screen.dart';
@@ -108,96 +109,52 @@ class _MainShellState extends State<MainShell> {
 
     return Scaffold(
       body: SafeArea(bottom: false, child: IndexedStack(index: _tab, children: tabs)),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
-          child: Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFFFCFCFD),
-              borderRadius: BorderRadius.circular(26),
-              border: Border.all(color: const Color(0xFFE7E7EC)),
-              boxShadow: const [
-                BoxShadow(color: Color(0x14000000), blurRadius: 18, offset: Offset(0, 6)),
-              ],
-            ),
-            padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          color: AppColors.white,
+          border: Border(top: BorderSide(color: Color(0xFFEBEBEB), width: 0.5)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 8, bottom: 2),
             child: Row(
               children: [
                 _NavItem(
-                  label: 'Home',
+                  icon: Icons.search,
+                  label: 'Explore',
                   selected: _tab == 0,
                   onTap: () => _openTab(0),
-                  child: const Icon(Icons.home_outlined, size: 22),
                 ),
                 _NavItem(
+                  icon: Icons.favorite_border,
+                  activeIcon: Icons.favorite,
                   label: 'Wishlists',
                   selected: _tab == 1,
                   onTap: () => _openTab(1),
-                  child: const Icon(Icons.favorite_border, size: 21),
                 ),
                 _NavItem(
+                  icon: Icons.auto_awesome_outlined,
+                  activeIcon: Icons.auto_awesome,
                   label: 'AI',
                   selected: _tab == 2,
                   onTap: () => _openTab(2),
-                  child: const Icon(Icons.auto_awesome_outlined, size: 22),
                 ),
                 _NavItem(
+                  icon: Icons.luggage_outlined,
+                  activeIcon: Icons.luggage,
                   label: 'Trips',
                   selected: _tab == 3,
                   onTap: () => _openTab(3),
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      const Icon(Icons.luggage_outlined, size: 22),
-                      if (cartCount > 0)
-                        Positioned(
-                          right: -8,
-                          top: -8,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE2555A),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              '$cartCount',
-                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
+                  badge: cartCount > 0 ? cartCount : null,
                 ),
                 _NavItem(
+                  icon: Icons.person_outline,
+                  activeIcon: Icons.person,
                   label: 'Profile',
                   selected: _tab == 4,
                   onTap: () => _openTab(4),
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      const Icon(Icons.person_outline, size: 22),
-                      if (unreadCount > 0)
-                        Positioned(
-                          right: -6,
-                          top: -6,
-                          child: Container(
-                            width: 14,
-                            height: 14,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE2555A),
-                              borderRadius: BorderRadius.circular(7),
-                            ),
-                            child: Center(
-                              child: Text(
-                                unreadCount > 9 ? '9+' : '$unreadCount',
-                                style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w700),
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
+                  badge: unreadCount > 0 ? unreadCount : null,
                 ),
               ],
             ),
@@ -210,55 +167,66 @@ class _MainShellState extends State<MainShell> {
 
 class _NavItem extends StatelessWidget {
   const _NavItem({
+    required this.icon,
+    this.activeIcon,
     required this.label,
     required this.selected,
     required this.onTap,
-    required this.child,
+    this.badge,
   });
 
+  final IconData icon;
+  final IconData? activeIcon;
   final String label;
   final bool selected;
   final VoidCallback onTap;
-  final Widget child;
+  final int? badge;
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? const Color(0xFFE2555A) : const Color(0xFF7D7D86);
+    final color = selected ? AppColors.rausch : AppColors.foggy;
+    final displayIcon = selected ? (activeIcon ?? icon) : icon;
 
     return Expanded(
-      child: InkWell(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-          margin: const EdgeInsets.symmetric(horizontal: 1),
-          padding: const EdgeInsets.symmetric(vertical: 7),
-          decoration: BoxDecoration(
-            color: selected ? const Color(0x1AE2555A) : Colors.transparent,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconTheme(
-                data: IconThemeData(color: color),
-                child: DefaultTextStyle.merge(
-                  style: TextStyle(color: color),
-                  child: child,
-                ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(displayIcon, size: 24, color: color),
+                if (badge != null)
+                  Positioned(
+                    right: -8,
+                    top: -4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: AppColors.rausch,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.white, width: 1.5),
+                      ),
+                      child: Text(
+                        badge! > 9 ? '9+' : '$badge',
+                        style: const TextStyle(color: AppColors.white, fontSize: 9, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 10,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
               ),
-              const SizedBox(height: 3),
-              Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 11,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

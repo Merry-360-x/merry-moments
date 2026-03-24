@@ -11,6 +11,7 @@ const PAWAPAY_API_KEY = process.env.PAWAPAY_API_KEY;
 
 // PawaPay correspondents by provider and country code.
 const PAYOUT_CORRESPONDENTS = {
+  // Direct correspondent names
   MTN_MOMO_RWA: "MTN_MOMO_RWA",
   AIRTEL_RWA: "AIRTEL_RWA",
   MPESA_KEN: "MPESA_KEN",
@@ -18,6 +19,28 @@ const PAYOUT_CORRESPONDENTS = {
   AIRTEL_OAPI_UGA: "AIRTEL_OAPI_UGA",
   MTN_MOMO_ZMB: "MTN_MOMO_ZMB",
   ZAMTEL_ZMB: "ZAMTEL_ZMB",
+  VODACOM_TZN: "VODACOM_TZN",
+  TIGO_TZN: "TIGO_TZN",
+  AIRTEL_TZN: "AIRTEL_TZN",
+  MTN_MOMO_GHA: "MTN_MOMO_GHA",
+  VODAFONE_GHA: "VODAFONE_GHA",
+  VODACOM_MPESA_COD: "VODACOM_MPESA_COD",
+  AIRTEL_COD: "AIRTEL_COD",
+  ORANGE_COD: "ORANGE_COD",
+  MTN_MOMO_CMR: "MTN_MOMO_CMR",
+  ORANGE_CMR: "ORANGE_CMR",
+  ORANGE_SEN: "ORANGE_SEN",
+  FREE_SEN: "FREE_SEN",
+  MTN_MOMO_CIV: "MTN_MOMO_CIV",
+  ORANGE_CIV: "ORANGE_CIV",
+  VODACOM_MOZ: "VODACOM_MOZ",
+  MPESA_MOZ: "MPESA_MOZ",
+  AIRTEL_MWI: "AIRTEL_MWI",
+  TNM_MWI: "TNM_MWI",
+  ECONET_BDI: "ECONET_BDI",
+  MTN_MOMO_COG: "MTN_MOMO_COG",
+  AIRTEL_COG: "AIRTEL_COG",
+  // Provider + country code shorthand
   MTN_250: "MTN_MOMO_RWA",
   AIRTEL_250: "AIRTEL_RWA",
   mtn_momo_250: "MTN_MOMO_RWA",
@@ -32,6 +55,49 @@ const PAYOUT_CORRESPONDENTS = {
   ZAMTEL_260: "ZAMTEL_ZMB",
   mtn_momo_260: "MTN_MOMO_ZMB",
   zamtel_260: "ZAMTEL_ZMB",
+  VODACOM_255: "VODACOM_TZN",
+  vodacom_255: "VODACOM_TZN",
+  TIGO_255: "TIGO_TZN",
+  tigo_255: "TIGO_TZN",
+  AIRTEL_255: "AIRTEL_TZN",
+  airtel_money_255: "AIRTEL_TZN",
+  MTN_233: "MTN_MOMO_GHA",
+  mtn_momo_233: "MTN_MOMO_GHA",
+  VODAFONE_233: "VODAFONE_GHA",
+  vodafone_233: "VODAFONE_GHA",
+  VODACOM_243: "VODACOM_MPESA_COD",
+  vodacom_243: "VODACOM_MPESA_COD",
+  AIRTEL_243: "AIRTEL_COD",
+  airtel_money_243: "AIRTEL_COD",
+  ORANGE_243: "ORANGE_COD",
+  orange_243: "ORANGE_COD",
+  MTN_237: "MTN_MOMO_CMR",
+  mtn_momo_237: "MTN_MOMO_CMR",
+  ORANGE_237: "ORANGE_CMR",
+  orange_237: "ORANGE_CMR",
+  ORANGE_221: "ORANGE_SEN",
+  orange_221: "ORANGE_SEN",
+  FREE_221: "FREE_SEN",
+  free_221: "FREE_SEN",
+  MTN_225: "MTN_MOMO_CIV",
+  mtn_momo_225: "MTN_MOMO_CIV",
+  ORANGE_225: "ORANGE_CIV",
+  orange_225: "ORANGE_CIV",
+  VODACOM_258: "VODACOM_MOZ",
+  vodacom_258: "VODACOM_MOZ",
+  MPESA_258: "MPESA_MOZ",
+  mpesa_258: "MPESA_MOZ",
+  AIRTEL_265: "AIRTEL_MWI",
+  airtel_money_265: "AIRTEL_MWI",
+  TNM_265: "TNM_MWI",
+  tnm_265: "TNM_MWI",
+  ECONET_257: "ECONET_BDI",
+  econet_257: "ECONET_BDI",
+  MTN_242: "MTN_MOMO_COG",
+  mtn_momo_242: "MTN_MOMO_COG",
+  AIRTEL_242: "AIRTEL_COG",
+  airtel_money_242: "AIRTEL_COG",
+  // Legacy fallback (Rwanda)
   MTN: "MTN_MOMO_RWA",
   AIRTEL: "AIRTEL_RWA",
   mtn_momo: "MTN_MOMO_RWA",
@@ -44,16 +110,23 @@ function normalizePhone(phoneNumber) {
   if (normalized.startsWith("0")) {
     normalized = `250${normalized.substring(1)}`;
   }
-  if (!["250", "254", "256", "260"].some((prefix) => normalized.startsWith(prefix))) {
+  if (![
+    "221", "225", "233", "237", "242", "243", "250", "254",
+    "255", "256", "257", "258", "260", "265",
+  ].some((prefix) => normalized.startsWith(prefix))) {
     normalized = `250${normalized}`;
   }
   return normalized;
 }
 
 function detectCountryCode(phoneNumber) {
-  if (phoneNumber.startsWith("254")) return "254";
-  if (phoneNumber.startsWith("256")) return "256";
-  if (phoneNumber.startsWith("260")) return "260";
+  const prefixes = [
+    "221", "225", "233", "237", "242", "243",
+    "254", "255", "256", "257", "258", "260", "265",
+  ];
+  for (const p of prefixes) {
+    if (phoneNumber.startsWith(p)) return p;
+  }
   return "250";
 }
 

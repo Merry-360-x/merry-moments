@@ -1,7 +1,112 @@
 import 'package:flutter/material.dart';
 
+import '../../app.dart';
+
 import '../../services/mobile_api.dart';
 import '../../session_controller.dart';
+
+class _RegionCount {
+  const _RegionCount({required this.region, required this.count, required this.share});
+  final String region;
+  final int count;
+  final double share;
+}
+
+class _BookingAnalyticsSummary {
+  const _BookingAnalyticsSummary({
+    required this.total,
+    required this.confirmedOrCompleted,
+    required this.paid,
+    required this.regionBreakdown,
+  });
+
+  final int total;
+  final int confirmedOrCompleted;
+  final int paid;
+  final List<_RegionCount> regionBreakdown;
+}
+
+const List<Color> _regionPalette = [
+  Color(0xFF2563EB),
+  Color(0xFF06B6D4),
+  Color(0xFFF97316),
+  Color(0xFF22C55E),
+  Color(0xFFEAB308),
+  Color(0xFFEF4444),
+];
+
+const Map<String, String> _africanBookingCountryByCode = {
+  '250': 'Rwanda',
+  '254': 'Kenya',
+  '256': 'Uganda',
+  '260': 'Zambia',
+  '255': 'Tanzania',
+  '233': 'Ghana',
+  '243': 'DR Congo',
+  '237': 'Cameroon',
+  '221': 'Senegal',
+  '225': 'Ivory Coast',
+  '258': 'Mozambique',
+  '265': 'Malawi',
+  '257': 'Burundi',
+  '242': 'Congo',
+};
+
+String? _extractPhoneCountryCode(String? phone) {
+  final digits = (phone ?? '').replaceAll(RegExp(r'\D'), '');
+  if (digits.isEmpty) return null;
+  final prefixes = _africanBookingCountryByCode.keys.toList()
+    ..sort((a, b) => b.length.compareTo(a.length));
+  for (final prefix in prefixes) {
+    if (digits.startsWith(prefix)) return prefix;
+  }
+  return null;
+}
+
+String _bookingRegionLabel(Map<String, dynamic> booking) {
+  final rawPhone = (booking['guest_phone'] ?? booking['phone'] ?? booking['guestPhone'])?.toString();
+  final code = _extractPhoneCountryCode(rawPhone);
+  if (code == null) return 'Outside Africa / Unknown';
+  return _africanBookingCountryByCode[code] ?? 'Outside Africa / Unknown';
+}
+
+_BookingAnalyticsSummary _computeBookingAnalytics(List<Map<String, dynamic>> bookings) {
+  int confirmedOrCompleted = 0;
+  int paid = 0;
+  final regionCounts = <String, int>{};
+
+  for (final booking in bookings) {
+    final status = (booking['status'] ?? '').toString().toLowerCase();
+    final paymentStatus = (booking['payment_status'] ?? '').toString().toLowerCase();
+
+    if (status == 'confirmed' || status == 'completed') {
+      confirmedOrCompleted += 1;
+    }
+    if (paymentStatus == 'paid') {
+      paid += 1;
+    }
+
+    final region = _bookingRegionLabel(booking);
+    regionCounts.update(region, (v) => v + 1, ifAbsent: () => 1);
+  }
+
+  final total = bookings.length;
+  final regionBreakdown = regionCounts.entries
+      .map((entry) => _RegionCount(
+            region: entry.key,
+            count: entry.value,
+            share: total > 0 ? (entry.value / total) * 100 : 0,
+          ))
+      .toList()
+    ..sort((a, b) => b.count.compareTo(a.count));
+
+  return _BookingAnalyticsSummary(
+    total: total,
+    confirmedOrCompleted: confirmedOrCompleted,
+    paid: paid,
+    regionBreakdown: regionBreakdown,
+  );
+}
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key, required this.session});
@@ -59,23 +164,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8FA),
+      backgroundColor: AppColors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
         elevation: 0,
-        leading: const BackButton(color: Color(0xFF1A1A2E)),
+        leading: const BackButton(color: AppColors.black),
         title: const Text('Admin Dashboard',
-            style: TextStyle(color: Color(0xFF1A1A2E), fontWeight: FontWeight.w700, fontSize: 17)),
+            style: TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 18)),
         actions: [
-          IconButton(icon: const Icon(Icons.refresh_outlined, color: Color(0xFF8A8A99)), onPressed: _load),
+          IconButton(icon: const Icon(Icons.refresh_outlined, color: AppColors.foggy), onPressed: _load),
         ],
         bottom: TabBar(
           controller: _tabs,
           isScrollable: true,
           tabAlignment: TabAlignment.start,
-          indicatorColor: const Color(0xFFE2555A),
-          labelColor: const Color(0xFFE2555A),
-          unselectedLabelColor: const Color(0xFF8A8A99),
+          indicatorColor: AppColors.rausch,
+          labelColor: AppColors.rausch,
+          unselectedLabelColor: AppColors.foggy,
           labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
           tabs: [
             const Tab(text: 'Overview'),
@@ -87,11 +192,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
         ),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFFE2555A)))
+          ? const Center(child: CircularProgressIndicator(color: AppColors.rausch))
           : TabBarView(
               controller: _tabs,
               children: [
-                _AdminOverview(stats: _stats ?? {}),
+                _AdminOverview(stats: _stats ?? {}, bookings: _bookings),
                 _AdminUsersTab(users: _users),
                 _AdminBookingsTab(bookings: _bookings),
                 _AdminApplicationsTab(applications: _applications, api: _api, onRefresh: _load),
@@ -104,16 +209,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
 
 // ── Overview ─────────────────────────────────────────────────
 class _AdminOverview extends StatelessWidget {
-  const _AdminOverview({required this.stats});
+  const _AdminOverview({required this.stats, required this.bookings});
   final Map<String, dynamic> stats;
+  final List<Map<String, dynamic>> bookings;
 
   @override
   Widget build(BuildContext context) {
     final revenue = (stats['total_revenue'] as num?)?.toDouble() ?? 0;
+    final analytics = _computeBookingAnalytics(bookings);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Platform Overview', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF1A1A2E))),
+        const Text('Platform Overview', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.black)),
         const SizedBox(height: 16),
         GridView(
           shrinkWrap: true,
@@ -124,7 +231,7 @@ class _AdminOverview extends StatelessWidget {
           children: [
             _AdminStatCard(icon: Icons.people_alt_outlined, label: 'Total Users', value: '${stats['total_users'] ?? 0}', color: const Color(0xFF2196F3)),
             _AdminStatCard(icon: Icons.luggage_outlined, label: 'Total Bookings', value: '${stats['total_bookings'] ?? 0}', color: const Color(0xFF4CAF50)),
-            _AdminStatCard(icon: Icons.home_outlined, label: 'Active Listings', value: '${stats['active_properties'] ?? 0}', color: const Color(0xFFE2555A)),
+            _AdminStatCard(icon: Icons.home_outlined, label: 'Active Listings', value: '${stats['active_properties'] ?? 0}', color: AppColors.rausch),
             _AdminStatCard(icon: Icons.pending_actions_outlined, label: 'Pending Apps', value: '${stats['pending_applications'] ?? 0}', color: const Color(0xFFFF9800)),
           ],
         ),
@@ -132,7 +239,7 @@ class _AdminOverview extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xFF1A1A2E), Color(0xFF2D2D44)]),
+            gradient: const LinearGradient(colors: [AppColors.black, Color(0xFF2D2D44)]),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(children: [
@@ -145,7 +252,50 @@ class _AdminOverview extends StatelessWidget {
                 style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
           ]),
         ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Bookings Analytics', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.black)),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(child: _miniMetric('Total', '${analytics.total}')),
+                const SizedBox(width: 10),
+                Expanded(child: _miniMetric('Confirmed/Completed', '${analytics.confirmedOrCompleted}')),
+                const SizedBox(width: 10),
+                Expanded(child: _miniMetric('Paid', '${analytics.paid}')),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const Text('Top Booking Regions', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.hof)),
+            const SizedBox(height: 8),
+            _RegionDistributionBars(regions: analytics.regionBreakdown, maxItems: 4),
+          ]),
+        ),
       ]),
+    );
+  }
+
+  Widget _miniMetric(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.linnen,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, color: AppColors.foggy)),
+          const SizedBox(height: 4),
+          Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.black)),
+        ],
+      ),
     );
   }
 }
@@ -162,14 +312,14 @@ class _AdminStatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14),
-          boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 8)]),
+          ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Container(padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
           child: Icon(icon, size: 18, color: color)),
         const Spacer(),
-        Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Color(0xFF1A1A2E))),
-        Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF8A8A99))),
+        Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.black)),
+        Text(label, style: const TextStyle(fontSize: 11, color: AppColors.foggy)),
       ]),
     );
   }
@@ -182,7 +332,7 @@ class _AdminUsersTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (users.isEmpty) return const Center(child: Text('No users found', style: TextStyle(color: Color(0xFF8A8A99))));
+    if (users.isEmpty) return const Center(child: Text('No users found', style: TextStyle(color: AppColors.foggy)));
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: users.length,
@@ -194,20 +344,20 @@ class _AdminUsersTab extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
-              boxShadow: const [BoxShadow(color: Color(0x06000000), blurRadius: 6)]),
+              ),
           child: Row(children: [
             CircleAvatar(
-              radius: 20, backgroundColor: const Color(0xFFF2F2F5),
+              radius: 20, backgroundColor: AppColors.linnen,
               backgroundImage: avatar.isNotEmpty ? NetworkImage(avatar) : null,
               child: avatar.isEmpty ? Text(name.isNotEmpty ? name[0].toUpperCase() : 'U',
-                  style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF5A5A6B))) : null,
+                  style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.hof)) : null,
             ),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF1A1A2E))),
+              Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.black)),
               Text((u['bio'] ?? '').toString().isEmpty ? 'No bio' : (u['bio'] ?? '').toString(),
                   maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF8A8A99))),
+                  style: const TextStyle(fontSize: 11, color: AppColors.foggy)),
             ])),
           ]),
         );
@@ -223,44 +373,159 @@ class _AdminBookingsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (bookings.isEmpty) return const Center(child: Text('No bookings', style: TextStyle(color: Color(0xFF8A8A99))));
-    return ListView.builder(
+    if (bookings.isEmpty) return const Center(child: Text('No bookings', style: TextStyle(color: AppColors.foggy)));
+    final analytics = _computeBookingAnalytics(bookings);
+
+    return ListView(
       padding: const EdgeInsets.all(16),
-      itemCount: bookings.length,
-      itemBuilder: (_, i) {
-        final b = bookings[i];
-        final title = (b['title'] ?? 'Booking').toString();
-        final status = (b['status'] ?? 'pending').toString();
-        final amount = (b['total_amount'] as num?)?.toDouble() ?? 0;
-        final currency = (b['currency'] ?? 'USD').toString();
-
-        final statusColor = switch (status) {
-          'confirmed' => const Color(0xFF4CAF50),
-          'completed' => const Color(0xFF2196F3),
-          'cancelled' => const Color(0xFFE2555A),
-          _ => const Color(0xFFFF9800),
-        };
-
-        return Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
-              boxShadow: const [BoxShadow(color: Color(0x06000000), blurRadius: 6)]),
-          child: Row(children: [
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF1A1A2E))),
-              Text('$currency ${amount.toStringAsFixed(2)}',
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF5A5A6B))),
-            ])),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
-              child: Text(status, style: TextStyle(fontSize: 11, color: statusColor, fontWeight: FontWeight.w600)),
+      children: [
+        Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Bookings Analytics', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.black)),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(child: _AnalyticsBadge(label: 'Total', value: '${analytics.total}')),
+                const SizedBox(width: 8),
+                Expanded(child: _AnalyticsBadge(label: 'Confirmed/Completed', value: '${analytics.confirmedOrCompleted}')),
+                const SizedBox(width: 8),
+                Expanded(child: _AnalyticsBadge(label: 'Paid', value: '${analytics.paid}')),
+              ],
             ),
+            const SizedBox(height: 12),
+            const Text('Top Regions', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.hof)),
+            const SizedBox(height: 6),
+            _RegionDistributionBars(regions: analytics.regionBreakdown, maxItems: 5),
           ]),
-        );
-      },
+        ),
+        ...bookings.map((b) {
+          final title = (b['title'] ?? 'Booking').toString();
+          final status = (b['status'] ?? 'pending').toString();
+          final amount = (b['total_amount'] as num?)?.toDouble() ?? 0;
+          final currency = (b['currency'] ?? 'USD').toString();
+
+          final statusColor = switch (status) {
+            'confirmed' => const Color(0xFF4CAF50),
+            'completed' => const Color(0xFF2196F3),
+            'cancelled' => AppColors.rausch,
+            _ => const Color(0xFFFF9800),
+          };
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+            child: Row(children: [
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.black)),
+                Text('$currency ${amount.toStringAsFixed(2)}',
+                    style: const TextStyle(fontSize: 12, color: AppColors.hof)),
+              ])),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
+                child: Text(status, style: TextStyle(fontSize: 11, color: statusColor, fontWeight: FontWeight.w600)),
+              ),
+            ]),
+          );
+        }),
+      ],
+    );
+  }
+}
+
+class _AnalyticsBadge extends StatelessWidget {
+  const _AnalyticsBadge({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.linnen,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, color: AppColors.foggy)),
+          const SizedBox(height: 4),
+          Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.black)),
+        ],
+      ),
+    );
+  }
+}
+
+class _RegionDistributionBars extends StatelessWidget {
+  const _RegionDistributionBars({required this.regions, this.maxItems = 4});
+
+  final List<_RegionCount> regions;
+  final int maxItems;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = regions.take(maxItems).toList();
+    if (items.isEmpty) {
+      return const Text('No region data yet.', style: TextStyle(fontSize: 11, color: AppColors.foggy));
+    }
+
+    return Column(
+      children: [
+        for (var i = 0; i < items.length; i++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: _regionPalette[i % _regionPalette.length],
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        items[i].region,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12, color: AppColors.black),
+                      ),
+                    ),
+                    Text(
+                      '${items[i].count} (${items[i].share.toStringAsFixed(1)}%)',
+                      style: const TextStyle(fontSize: 11, color: AppColors.foggy, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: Container(
+                    height: 8,
+                    color: AppColors.linnen,
+                    child: FractionallySizedBox(
+                      alignment: Alignment.centerLeft,
+                      widthFactor: (items[i].share / 100).clamp(0.0, 1.0),
+                      child: Container(color: _regionPalette[i % _regionPalette.length]),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }
@@ -278,7 +543,7 @@ class _AdminApplicationsTab extends StatelessWidget {
     final others = applications.where((a) => (a['status'] ?? '') != 'pending').toList();
     final all = [...pending, ...others];
 
-    if (all.isEmpty) return const Center(child: Text('No applications', style: TextStyle(color: Color(0xFF8A8A99))));
+    if (all.isEmpty) return const Center(child: Text('No applications', style: TextStyle(color: AppColors.foggy)));
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
@@ -296,11 +561,10 @@ class _AdminApplicationsTab extends StatelessWidget {
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: isPending ? Border.all(color: const Color(0xFFFFE0B2)) : null,
-            boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 6)],
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF1A1A2E)))),
+              Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.black))),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -323,8 +587,8 @@ class _AdminApplicationsTab extends StatelessWidget {
                       onRefresh();
                     },
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFE2555A),
-                      side: const BorderSide(color: Color(0xFFE2555A)),
+                      foregroundColor: AppColors.rausch,
+                      side: const BorderSide(color: AppColors.rausch),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       padding: const EdgeInsets.symmetric(vertical: 8),
                     ),
@@ -365,7 +629,7 @@ class _AdminReviewsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (reviews.isEmpty) return const Center(child: Text('No reviews', style: TextStyle(color: Color(0xFF8A8A99))));
+    if (reviews.isEmpty) return const Center(child: Text('No reviews', style: TextStyle(color: AppColors.foggy)));
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: reviews.length,
@@ -379,18 +643,18 @@ class _AdminReviewsTab extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
-              boxShadow: const [BoxShadow(color: Color(0x06000000), blurRadius: 6)]),
+              ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
               Expanded(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF1A1A2E)))),
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.black))),
               Row(children: [
                 const Icon(Icons.star, size: 14, color: Color(0xFFFFB800)),
                 const SizedBox(width: 3),
                 Text(rating.toStringAsFixed(1), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
               ]),
               IconButton(
-                icon: const Icon(Icons.delete_outlined, size: 18, color: Color(0xFFE2555A)),
+                icon: const Icon(Icons.delete_outlined, size: 18, color: AppColors.rausch),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
                 onPressed: () async {
@@ -401,7 +665,7 @@ class _AdminReviewsTab extends StatelessWidget {
             ]),
             if (comment.isNotEmpty)
               Text(comment, maxLines: 2, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF8A8A99))),
+                  style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
           ]),
         );
       },

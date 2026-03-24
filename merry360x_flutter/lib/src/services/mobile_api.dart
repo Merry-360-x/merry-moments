@@ -174,23 +174,102 @@ class MobileApi {
   Future<void> addToTripCart({
     required String userId,
     required String itemType,
+    required String referenceId,
     int quantity = 1,
-    String? propertyId,
-    String? tourId,
-    String? transportId,
+    Map<String, dynamic>? metadata,
   }) async {
     await _sb.from('trip_cart_items').insert({
       'user_id': userId,
       'item_type': itemType,
+      'reference_id': referenceId,
       'quantity': quantity,
-      if (propertyId != null) 'property_id': propertyId,
-      if (tourId != null) 'tour_id': tourId,
-      if (transportId != null) 'transport_id': transportId,
+      if (metadata != null) 'metadata': metadata,
     });
   }
 
   Future<void> removeFromTripCart({required String userId, required String id}) async {
     await _sb.from('trip_cart_items').delete().eq('id', id).eq('user_id', userId);
+  }
+
+  // ── Checkout requests ──
+
+  /// Create a checkout_requests row (needed for card / bank transfer payments)
+  Future<String> createCheckoutRequest({
+    required String userId,
+    required String name,
+    required String email,
+    String? phone,
+    required double totalAmount,
+    required double basePriceAmount,
+    required double serviceFeeAmount,
+    required String currency,
+    required String paymentMethod,
+    String? paymentProvider,
+    required List<Map<String, dynamic>> items,
+    String? specialRequests,
+    Map<String, dynamic>? metadata,
+  }) async {
+    final row = <String, dynamic>{
+      'user_id': userId,
+      'name': name,
+      'email': email,
+      if (phone != null) 'phone': phone,
+      'total_amount': totalAmount,
+      'base_price_amount': basePriceAmount,
+      'service_fee_amount': serviceFeeAmount,
+      'currency': currency,
+      'payment_method': paymentMethod,
+      if (paymentProvider != null) 'dpo_token': paymentProvider,
+      'payment_status': 'pending',
+      'status': 'pending',
+      'items': items,
+      if (specialRequests != null) 'message': specialRequests,
+      if (metadata != null) 'metadata': metadata,
+    };
+    final result = await _sb.from('checkout_requests').insert(row).select('id').single();
+    return (result as Map)['id'].toString();
+  }
+
+  /// Initiate PesaPal card payment via serverless function
+  Future<Map<String, dynamic>> initPesapalPayment({
+    required String checkoutId,
+    required double amount,
+    required String currency,
+    required String payerName,
+    required String payerEmail,
+    String? phoneNumber,
+    Map<String, String>? billingAddress,
+    String? description,
+  }) async {
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/pesapal');
+    final body = <String, dynamic>{
+      'action': 'create-payment',
+      'checkoutId': checkoutId,
+      'amount': amount,
+      'currency': currency,
+      'payerName': payerName,
+      'payerEmail': payerEmail,
+      if (phoneNumber != null) 'phoneNumber': phoneNumber,
+      if (billingAddress != null) 'billingAddress': billingAddress,
+      'description': description ?? 'Merry360x Mobile Booking',
+      'redirectUrl': 'https://merry360x.com/payment-pending?checkoutId=$checkoutId&provider=pesapal',
+    };
+    final resp = await _http.post(uri, headers: {'Content-Type': 'application/json'}, body: jsonEncode(body));
+    if (resp.statusCode != 200) throw Exception('PesaPal init failed: ${resp.body}');
+    return jsonDecode(resp.body) as Map<String, dynamic>;
+  }
+
+  /// Check PesaPal payment status
+  Future<String> checkPesapalStatus(String checkoutId) async {
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/pesapal');
+    final resp = await _http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'action': 'check-status', 'checkoutId': checkoutId}),
+    );
+    if (resp.statusCode != 200) return 'pending';
+    final data = jsonDecode(resp.body) as Map<String, dynamic>;
+    return (data['paymentStatus'] ?? data['status'] ?? 'pending').toString();
   }
 
   // ── Listing detail (full fetch) ──
@@ -248,6 +327,8 @@ class MobileApi {
     String? paymentPhone,
     String? paymentProvider,
     String? specialRequests,
+    String? discountCode,
+    double? discountAmount,
   }) async {
     final row = <String, dynamic>{
       'guest_id': userId,
@@ -267,6 +348,7 @@ class MobileApi {
       if (paymentProvider != null) 'payment_method': paymentProvider,
       if (specialRequests != null && specialRequests.isNotEmpty) 'special_requests': specialRequests,
     };
+    // Note: discount is already reflected in totalAmount; discount_code tracked via usage increment
 
     try {
       final result = await _sb.from('bookings').insert(row).select('id').single();
@@ -661,17 +743,68 @@ class MobileApi {
 
   // ── Promo code ──
 
-  Future<Map<String, dynamic>?> validatePromoCode({required String code}) async {
+  /// Validate a promo code with full checks: active, expiry, max uses, minimum amount, applies_to.
+  /// Returns the discount row if valid, or null + error message.
+  Future<({Map<String, dynamic>? data, String? error})> validatePromoCode({
+    required String code,
+    double subtotal = 0,
+    String currency = 'USD',
+    String itemType = 'all',
+  }) async {
     try {
       final data = await _sb
           .from('discount_codes')
           .select('*')
-          .eq('code', code)
+          .eq('code', code.toUpperCase().trim())
           .eq('is_active', true)
           .maybeSingle();
-      return data;
+      if (data == null) return (data: null, error: 'Invalid or expired promo code.');
+
+      // Expiry check
+      final validUntil = data['valid_until'];
+      if (validUntil != null) {
+        final expiry = DateTime.tryParse(validUntil.toString());
+        if (expiry != null && DateTime.now().isAfter(expiry)) {
+          return (data: null, error: 'This promo code has expired.');
+        }
+      }
+
+      // Max uses check
+      final maxUses = (data['max_uses'] as num?)?.toInt();
+      final currentUses = (data['current_uses'] as num?)?.toInt() ?? 0;
+      if (maxUses != null && currentUses >= maxUses) {
+        return (data: null, error: 'This promo code has reached its usage limit.');
+      }
+
+      // Minimum amount check
+      final minAmount = (data['minimum_amount'] as num?)?.toDouble() ?? 0;
+      if (minAmount > 0 && subtotal < minAmount) {
+        return (data: null, error: 'Minimum spend of ${data['currency'] ?? currency} ${minAmount.toStringAsFixed(0)} required.');
+      }
+
+      // Applies-to check
+      final appliesTo = (data['applies_to'] ?? 'all').toString();
+      if (appliesTo != 'all') {
+        final normalised = itemType == 'tour_package' ? 'tours' : '${itemType}s';
+        if (appliesTo != normalised) {
+          return (data: null, error: 'This code only applies to $appliesTo.');
+        }
+      }
+
+      return (data: data, error: null);
     } catch (_) {
-      return null;
+      return (data: null, error: 'Error validating code.');
+    }
+  }
+
+  /// Increment current_uses on a discount code after a successful booking.
+  Future<void> incrementPromoCodeUsage({required String codeId}) async {
+    try {
+      final row = await _sb.from('discount_codes').select('current_uses').eq('id', codeId).maybeSingle();
+      final current = ((row as Map?)?['current_uses'] as num?)?.toInt() ?? 0;
+      await _sb.from('discount_codes').update({'current_uses': current + 1}).eq('id', codeId);
+    } catch (_) {
+      // Best-effort — don't block the booking flow
     }
   }
 

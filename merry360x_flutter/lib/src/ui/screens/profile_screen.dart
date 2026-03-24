@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../app.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../services/mobile_api.dart';
@@ -86,8 +88,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           SnackBar(
             content: const Text('Could not complete account deletion in-app.'),
             action: SnackBarAction(
-              label: 'Open Website',
-              onPressed: () => _openUrl('https://merry360x.com/profile'),
+              label: 'Retry',
+              onPressed: _confirmDeleteAccount,
             ),
           ),
         );
@@ -111,7 +113,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     return ListView(
-      padding: EdgeInsets.fromLTRB(isWide ? 24 : 16, 16, isWide ? 24 : 16, 120),
+      padding: EdgeInsets.fromLTRB(isWide ? 24 : 16, 16, isWide ? 24 : 16, 16),
       children: [
         Center(
           child: ConstrainedBox(
@@ -180,7 +182,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [Color(0xFFE2555A), Color(0xFFFF8A70)],
+                        colors: [AppColors.rausch, Color(0xFFFF8A70)],
                         begin: Alignment.centerLeft, end: Alignment.centerRight,
                       ),
                       borderRadius: BorderRadius.circular(14),
@@ -246,12 +248,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     );
                                     if (context.mounted) {
                                       ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Profile synced to website.')),
+                                        const SnackBar(content: Text('Profile saved.')),
                                       );
                                     }
                                   }
                                 : null,
-                            child: const Text('Save to website'),
+                            child: const Text('Save'),
                           ),
                         ),
                       ],
@@ -323,11 +325,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             child: const Text('Delete Account'),
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        TextButton(
-                          onPressed: () => _openUrl('https://merry360x.com/profile'),
-                          child: const Text('Delete Account on Website'),
-                        ),
+
                       ],
                     ),
                   ),
@@ -370,7 +368,7 @@ class _ProfileRow extends StatelessWidget {
         child: Row(
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 18, color: const Color(0xFFE2555A)),
+              Icon(icon, size: 18, color: AppColors.rausch),
               const SizedBox(width: 8),
             ],
             Expanded(child: Text(title, style: const TextStyle(fontSize: 15))),
@@ -532,7 +530,7 @@ class _BookingsSection extends StatelessWidget {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(Icons.receipt_long_outlined,
-                          size: 20, color: Color(0xFFE2555A)),
+                          size: 20, color: AppColors.rausch),
                     ),
                     const SizedBox(width: 10),
                     Expanded(

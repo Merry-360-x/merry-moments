@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app.dart';
+
 import '../../services/mobile_api.dart';
 import '../../session_controller.dart';
 import 'explore_screen.dart' show resolveListingImageUrl;
@@ -43,13 +45,13 @@ class _ToursScreenState extends State<ToursScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8FA),
+      backgroundColor: AppColors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
         elevation: 0,
-        leading: const BackButton(color: Color(0xFF1A1A2E)),
+        leading: const BackButton(color: AppColors.black),
         title: const Text('Tours & Experiences',
-            style: TextStyle(color: Color(0xFF1A1A2E), fontWeight: FontWeight.w700, fontSize: 17)),
+            style: TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 18)),
         centerTitle: false,
       ),
       body: Column(
@@ -65,9 +67,9 @@ class _ToursScreenState extends State<ToursScreen> {
   }
 
   Widget _body() {
-    if (_loading) return const Center(child: CircularProgressIndicator(color: Color(0xFFE2555A)));
+    if (_loading) return const Center(child: CircularProgressIndicator(color: AppColors.rausch));
     if (_tours.isEmpty) return const Center(
-      child: Text('No tours available', style: TextStyle(color: Color(0xFF8A8A99))),
+      child: Text('No tours available', style: TextStyle(color: AppColors.foggy)),
     );
     return GridView.builder(
       padding: const EdgeInsets.all(16),
@@ -104,11 +106,11 @@ class _CategoryChips extends StatelessWidget {
                   duration: const Duration(milliseconds: 180),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: active ? const Color(0xFFE2555A) : const Color(0xFFF2F2F5),
+                    color: active ? AppColors.rausch : AppColors.linnen,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(c.$2, style: TextStyle(
-                    color: active ? Colors.white : const Color(0xFF5A5A6B),
+                    color: active ? Colors.white : AppColors.hof,
                     fontWeight: active ? FontWeight.w600 : FontWeight.w400,
                     fontSize: 13,
                   )),
@@ -144,7 +146,6 @@ class _TourCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 8, offset: Offset(0, 2))],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -164,15 +165,15 @@ class _TourCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title, maxLines: 2, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF1A1A2E))),
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.black)),
                   if (location.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 3),
                       child: Row(children: [
-                        const Icon(Icons.location_on_outlined, size: 11, color: Color(0xFF8A8A99)),
+                        const Icon(Icons.location_on_outlined, size: 11, color: AppColors.foggy),
                         const SizedBox(width: 2),
                         Expanded(child: Text(location, maxLines: 1, overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 11, color: Color(0xFF8A8A99)))),
+                            style: const TextStyle(fontSize: 11, color: AppColors.foggy))),
                       ]),
                     ),
                   const SizedBox(height: 6),
@@ -180,9 +181,9 @@ class _TourCard extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(price != null ? '$currency $price/pp' : '',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFFE2555A))),
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.rausch)),
                       if (duration != null)
-                        Text('${duration}d', style: const TextStyle(fontSize: 11, color: Color(0xFF8A8A99))),
+                        Text('${duration}d', style: const TextStyle(fontSize: 11, color: AppColors.foggy)),
                     ],
                   ),
                 ],
@@ -195,7 +196,7 @@ class _TourCard extends StatelessWidget {
   }
 
   Widget _imgPlaceholder() => Container(
-    color: const Color(0xFFEEF0F5),
-    child: const Center(child: Icon(Icons.landscape_outlined, color: Color(0xFFCCCCD8), size: 32)),
+    color: AppColors.linnen,
+    child: const Center(child: Icon(Icons.landscape_outlined, color: AppColors.hackberry, size: 32)),
   );
 }

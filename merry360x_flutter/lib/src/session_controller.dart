@@ -188,50 +188,88 @@ class SessionController extends ChangeNotifier {
     }
   }
 
+  /// Fire-and-forget background refresh (doesn't block UI).
+  void _backgroundRefresh() {
+    refresh(); // ignore the Future
+  }
+
   Future<void> upsertProfile({
     required String fullName,
     required String phone,
     required String bio,
   }) async {
     if (!isAuthenticated) return;
+    // Optimistic local update
+    if (_payload != null && _payload!.profile != null) {
+      _payload!.profile!['full_name'] = fullName;
+      _payload!.profile!['phone'] = phone;
+      _payload!.profile!['bio'] = bio;
+      notifyListeners();
+    }
     await _api.upsertProfile(
       userId: _userId,
       fullName: fullName,
       phone: phone,
       bio: bio,
     );
-    await refresh();
+    _backgroundRefresh();
   }
 
   Future<void> addListingToWishlist(Map<String, dynamic> listing) async {
     if (!isAuthenticated) return;
+    // Optimistic: add a placeholder to local wishlists
+    final placeholder = <String, dynamic>{
+      'id': 'temp_${DateTime.now().millisecondsSinceEpoch}',
+      'user_id': _userId,
+      'title': (listing['title'] ?? listing['name'] ?? 'Saved Item').toString(),
+      'item_type': 'property',
+      'property_id': (listing['id'] ?? '').toString(),
+      'created_at': DateTime.now().toUtc().toIso8601String(),
+    };
+    _payload?.wishlists.insert(0, placeholder);
+    notifyListeners();
     await _api.addToWishlist(
       userId: _userId,
-      title: (listing['title'] ?? listing['name'] ?? 'Saved Item').toString(),
+      title: placeholder['title'] as String,
       itemType: 'property',
       propertyId: (listing['id'] ?? '').toString(),
     );
-    await refresh();
+    _backgroundRefresh();
   }
 
   Future<void> removeWishlistItem(String id) async {
     if (!isAuthenticated || id.isEmpty) return;
+    // Optimistic: remove locally
+    _payload?.wishlists.removeWhere((w) => w['id'].toString() == id || w['property_id'].toString() == id);
+    notifyListeners();
     await _api.removeFromWishlist(userId: _userId, id: id);
-    await refresh();
+    _backgroundRefresh();
   }
 
-  Future<void> addListingToTripCart(Map<String, dynamic> listing) async {
+  Future<void> addListingToTripCart(Map<String, dynamic> listing, {Map<String, dynamic>? metadata}) async {
     if (!isAuthenticated) return;
     final type = (listing['item_type'] ?? 'property').toString();
+    final refId = (listing['id'] ?? '').toString();
+    // Optimistic: add placeholder
+    final placeholder = <String, dynamic>{
+      'id': 'temp_${DateTime.now().millisecondsSinceEpoch}',
+      'user_id': _userId,
+      'item_type': type,
+      'reference_id': refId,
+      'quantity': 1,
+      'metadata': metadata,
+      'created_at': DateTime.now().toUtc().toIso8601String(),
+    };
+    _payload?.tripCart.insert(0, placeholder);
+    notifyListeners();
     await _api.addToTripCart(
       userId: _userId,
       itemType: type,
+      referenceId: refId,
       quantity: 1,
-      propertyId: type == 'property' ? (listing['id'] ?? '').toString() : null,
-      tourId: type == 'tour' || type == 'tour_package' ? (listing['id'] ?? '').toString() : null,
-      transportId: type == 'transport' ? (listing['id'] ?? '').toString() : null,
+      metadata: metadata,
     );
-    await refresh();
+    _backgroundRefresh();
   }
 
   Future<String?> createBooking({
@@ -244,10 +282,12 @@ class SessionController extends ChangeNotifier {
     String? paymentPhone,
     String? paymentProvider,
     String? specialRequests,
+    String? discountCode,
+    double? discountAmount,
   }) async {
     if (!isAuthenticated) throw Exception('Sign in to book');
     final type = (item['item_type'] ?? 'property').toString();
-    return _api.createBooking(
+    final result = await _api.createBooking(
       userId: _userId,
       itemType: type,
       referenceId: (item['id'] ?? '').toString(),
@@ -260,13 +300,20 @@ class SessionController extends ChangeNotifier {
       paymentPhone: paymentPhone,
       paymentProvider: paymentProvider,
       specialRequests: specialRequests,
+      discountCode: discountCode,
+      discountAmount: discountAmount,
     );
+    _backgroundRefresh();
+    return result;
   }
 
   Future<void> removeTripCartItem(String id) async {
     if (!isAuthenticated || id.isEmpty) return;
+    // Optimistic: remove locally
+    _payload?.tripCart.removeWhere((c) => c['id'].toString() == id);
+    notifyListeners();
     await _api.removeFromTripCart(userId: _userId, id: id);
-    await refresh();
+    _backgroundRefresh();
   }
 
   Future<void> forgotPassword(String email) async {
@@ -275,8 +322,17 @@ class SessionController extends ChangeNotifier {
 
   Future<void> cancelBooking(String bookingId) async {
     if (!isAuthenticated) return;
+    // Optimistic: mark as cancelled locally
+    final booking = _payload?.bookings.firstWhere(
+      (b) => b['id'].toString() == bookingId,
+      orElse: () => <String, dynamic>{},
+    );
+    if (booking != null && booking.isNotEmpty) {
+      booking['status'] = 'cancelled';
+      notifyListeners();
+    }
     await _api.cancelBooking(bookingId: bookingId, userId: _userId);
-    await refresh();
+    _backgroundRefresh();
   }
 
   Future<void> submitReview({
@@ -295,18 +351,32 @@ class SessionController extends ChangeNotifier {
       serviceRating: serviceRating,
       comment: comment,
     );
-    await refresh();
+    _backgroundRefresh();
   }
 
   Future<void> markNotificationRead(String id) async {
     if (!isAuthenticated) return;
+    // Optimistic
+    final n = _payload?.notifications.firstWhere(
+      (n) => n['id'].toString() == id,
+      orElse: () => <String, dynamic>{},
+    );
+    if (n != null && n.isNotEmpty) {
+      n['read'] = true;
+      notifyListeners();
+    }
     await _api.markNotificationRead(id: id);
   }
 
   Future<void> markAllNotificationsRead() async {
     if (!isAuthenticated) return;
+    // Optimistic
+    for (final n in _payload?.notifications ?? <Map<String, dynamic>>[]) {
+      n['read'] = true;
+    }
+    notifyListeners();
     await _api.markAllNotificationsRead(userId: _userId);
-    await refresh();
+    _backgroundRefresh();
   }
 
   Future<String?> createSupportTicket({

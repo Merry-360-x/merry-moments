@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app.dart';
+
 import '../../services/mobile_api.dart';
 import '../../session_controller.dart';
 
@@ -33,20 +35,20 @@ class _SupportScreenState extends State<SupportScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8FA),
+      backgroundColor: AppColors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
         elevation: 0,
-        leading: const BackButton(color: Color(0xFF1A1A2E)),
+        leading: const BackButton(color: AppColors.black),
         title: const Text('Support',
-            style: TextStyle(color: Color(0xFF1A1A2E), fontWeight: FontWeight.w700, fontSize: 17)),
+            style: TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 18)),
         actions: [
-          IconButton(icon: const Icon(Icons.refresh_outlined, color: Color(0xFF8A8A99)), onPressed: _load),
+          IconButton(icon: const Icon(Icons.refresh_outlined, color: AppColors.foggy), onPressed: _load),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showNewTicketSheet,
-        backgroundColor: const Color(0xFFE2555A),
+        backgroundColor: AppColors.rausch,
         icon: const Icon(Icons.add),
         label: const Text('New Ticket'),
       ),
@@ -55,19 +57,19 @@ class _SupportScreenState extends State<SupportScreen> {
   }
 
   Widget _body() {
-    if (_loading) return const Center(child: CircularProgressIndicator(color: Color(0xFFE2555A)));
+    if (_loading) return const Center(child: CircularProgressIndicator(color: AppColors.rausch));
     if (_tickets.isEmpty) return Center(
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         const Icon(Icons.support_agent_outlined, size: 52, color: Color(0xFFD0D0D8)),
         const SizedBox(height: 12),
-        const Text('No support tickets', style: TextStyle(color: Color(0xFF8A8A99), fontSize: 14)),
+        const Text('No support tickets', style: TextStyle(color: AppColors.foggy, fontSize: 14)),
         const SizedBox(height: 6),
-        const Text('Tap + New Ticket to contact us', style: TextStyle(color: Color(0xFFB0B0BC), fontSize: 12)),
+        const Text('Tap + New Ticket to contact us', style: TextStyle(color: AppColors.hackberry, fontSize: 12)),
       ]),
     );
 
     return RefreshIndicator(
-      color: const Color(0xFFE2555A),
+      color: AppColors.rausch,
       onRefresh: _load,
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
@@ -104,7 +106,7 @@ class _TicketTile extends StatelessWidget {
     final status = (ticket['status'] ?? 'open').toString();
     final msgs = (ticket['support_messages'] as List?) ?? [];
     final (statusColor, statusBg) = switch (status) {
-      'closed' => (const Color(0xFF8A8A99), const Color(0xFFF2F2F5)),
+      'closed' => (AppColors.foggy, const Color(0xFFF2F2F5)),
       'resolved' => (const Color(0xFF4CAF50), const Color(0xFFE8F5E9)),
       _ => (const Color(0xFFFF9800), const Color(0xFFFFF3E0)),
     };
@@ -116,22 +118,22 @@ class _TicketTile extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14),
-            boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 8, offset: Offset(0, 2))]),
+            ),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Row(children: [
             Container(
               width: 40, height: 40,
               decoration: BoxDecoration(color: const Color(0xFFF2F2F5), borderRadius: BorderRadius.circular(12)),
-              child: const Icon(Icons.support_agent_outlined, size: 20, color: Color(0xFF5A5A6B)),
+              child: const Icon(Icons.support_agent_outlined, size: 20, color: AppColors.hof),
             ),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(subject, maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF1A1A2E))),
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.black)),
               const SizedBox(height: 3),
               Text('${msgs.length} message${msgs.length == 1 ? '' : 's'}',
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF8A8A99))),
+                  style: const TextStyle(fontSize: 11, color: AppColors.foggy)),
             ])),
             const SizedBox(width: 8),
             Container(
@@ -204,12 +206,12 @@ class _TicketThreadScreenState extends State<_TicketThreadScreen> {
   Widget build(BuildContext context) {
     final subject = (widget.ticket['subject'] ?? 'Support').toString();
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8FA),
+      backgroundColor: AppColors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
         elevation: 0,
-        leading: const BackButton(color: Color(0xFF1A1A2E)),
-        title: Text(subject, style: const TextStyle(color: Color(0xFF1A1A2E), fontWeight: FontWeight.w600, fontSize: 15)),
+        leading: const BackButton(color: AppColors.black),
+        title: Text(subject, style: const TextStyle(color: AppColors.black, fontWeight: FontWeight.w600, fontSize: 15)),
       ),
       body: Column(children: [
         Expanded(
@@ -227,17 +229,16 @@ class _TicketThreadScreenState extends State<_TicketThreadScreen> {
                   constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: isMe ? const Color(0xFFE2555A) : Colors.white,
+                    color: isMe ? AppColors.rausch : Colors.white,
                     borderRadius: BorderRadius.only(
                       topLeft: const Radius.circular(14),
                       topRight: const Radius.circular(14),
                       bottomLeft: Radius.circular(isMe ? 14 : 2),
                       bottomRight: Radius.circular(isMe ? 2 : 14),
                     ),
-                    boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 4)],
                   ),
                   child: Text(body, style: TextStyle(
-                    color: isMe ? Colors.white : const Color(0xFF1A1A2E),
+                    color: isMe ? Colors.white : AppColors.black,
                     fontSize: 13,
                   )),
                 ),
@@ -267,7 +268,7 @@ class _TicketThreadScreenState extends State<_TicketThreadScreen> {
               child: Container(
                 width: 44, height: 44,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE2555A),
+                  color: AppColors.rausch,
                   borderRadius: BorderRadius.circular(22),
                 ),
                 child: _sending
@@ -336,15 +337,15 @@ class _NewTicketSheetState extends State<_NewTicketSheet> {
       child: SingleChildScrollView(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            const Expanded(child: Text('Contact Support', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF1A1A2E)))),
-            IconButton(icon: const Icon(Icons.close, color: Color(0xFF8A8A99)), onPressed: () => Navigator.pop(context)),
+            const Expanded(child: Text('Contact Support', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.black))),
+            IconButton(icon: const Icon(Icons.close, color: AppColors.foggy), onPressed: () => Navigator.pop(context)),
           ]),
           const SizedBox(height: 16),
           TextField(
             controller: _subjectCtrl,
             decoration: InputDecoration(
               labelText: 'Subject',
-              filled: true, fillColor: const Color(0xFFF8F8FA),
+              filled: true, fillColor: AppColors.white,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
             ),
           ),
@@ -355,7 +356,7 @@ class _NewTicketSheetState extends State<_NewTicketSheet> {
             decoration: InputDecoration(
               labelText: 'Describe your issue',
               alignLabelWithHint: true,
-              filled: true, fillColor: const Color(0xFFF8F8FA),
+              filled: true, fillColor: AppColors.white,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
             ),
           ),
@@ -365,7 +366,7 @@ class _NewTicketSheetState extends State<_NewTicketSheet> {
             child: ElevatedButton(
               onPressed: _saving ? null : _submit,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFE2555A),
+                backgroundColor: AppColors.rausch,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

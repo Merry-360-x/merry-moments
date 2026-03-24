@@ -1,17 +1,28 @@
 import 'package:flutter/material.dart';
 
+import '../../app.dart';
+
 import '../../services/mobile_api.dart';
 import '../../session_controller.dart';
 import 'checkout_screen.dart';
 import 'explore_screen.dart' show resolveListingImageUrl;
 
-class TripCartScreen extends StatelessWidget {
+class TripCartScreen extends StatefulWidget {
   const TripCartScreen({super.key, required this.session});
 
   final SessionController session;
 
   @override
+  State<TripCartScreen> createState() => _TripCartScreenState();
+}
+
+class _TripCartScreenState extends State<TripCartScreen> {
+  String? _discountCode;
+  Map<String, dynamic>? _discountData;
+
+  @override
   Widget build(BuildContext context) {
+    final session = widget.session;
     final items = session.payload?.tripCart ?? const <Map<String, dynamic>>[];
     final listings = session.payload?.homeListings ?? const <Map<String, dynamic>>[];
 
@@ -26,14 +37,14 @@ class TripCartScreen extends StatelessWidget {
     }).toList();
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 120),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
       children: [
         Row(
           children: [
             const Expanded(
               child: Text(
                 'Trip cart',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: Color(0xFF202025)),
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: AppColors.black),
               ),
             ),
             if (items.isNotEmpty)
@@ -47,7 +58,7 @@ class TripCartScreen extends StatelessWidget {
                       actions: [
                         TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
                         FilledButton(
-                          style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE2555A)),
+                          style: FilledButton.styleFrom(backgroundColor: AppColors.rausch),
                           onPressed: () => Navigator.pop(ctx, true),
                           child: const Text('Clear'),
                         ),
@@ -60,14 +71,14 @@ class TripCartScreen extends StatelessWidget {
                     }
                   }
                 },
-                child: const Text('Clear', style: TextStyle(color: Color(0xFFE2555A))),
+                child: const Text('Clear', style: TextStyle(color: AppColors.rausch)),
               ),
           ],
         ),
         const SizedBox(height: 4),
         if (session.isAuthenticated)
           Text('${items.length} item${items.length != 1 ? 's' : ''}',
-              style: const TextStyle(color: Color(0xFF7A7A84))),
+              style: const TextStyle(color: AppColors.foggy)),
         const SizedBox(height: 16),
 
         if (!session.isAuthenticated)
@@ -87,7 +98,12 @@ class TripCartScreen extends StatelessWidget {
             (ci) => _CartItemTile(cartItem: ci, session: session),
           ),
           const SizedBox(height: 8),
-          _TotalBar(items: enriched),
+          _TotalBar(
+            items: enriched,
+            onDiscountChanged: (code, data) {
+              setState(() { _discountCode = code; _discountData = data; });
+            },
+          ),
           const SizedBox(height: 14),
           SizedBox(
             height: 52,
@@ -102,13 +118,15 @@ class TripCartScreen extends StatelessWidget {
                       item: first,
                       guests: int.tryParse('${first['quantity'] ?? 1}') ?? 1,
                       session: session,
+                      initialDiscountCode: _discountCode,
+                      initialDiscount: _discountData,
                     ),
                   ),
                 );
               },
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFFF385C),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                backgroundColor: AppColors.rausch,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
               child: const Text(
                 'Proceed to checkout',
@@ -159,7 +177,7 @@ class _CartItemTile extends StatelessWidget {
           color: const Color(0xFFFFEEEE),
           borderRadius: BorderRadius.circular(16),
         ),
-        child: const Icon(Icons.delete_outline, color: Color(0xFFE2555A)),
+        child: const Icon(Icons.delete_outline, color: AppColors.rausch),
       ),
       onDismissed: (_) async {
         await session.removeTripCartItem(id);
@@ -174,8 +192,7 @@ class _CartItemTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE7E7EC)),
-          boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 10, offset: Offset(0, 3))],
+          border: Border.all(color: const Color(0xFFEBEBEB)),
         ),
         child: Row(
           children: [
@@ -190,12 +207,12 @@ class _CartItemTile extends StatelessWidget {
                 child: imageUrl != null
                     ? Image.network(imageUrl, fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => Container(
-                          color: const Color(0xFFF0F0F3),
-                          child: const Icon(Icons.image_outlined, color: Color(0xFF9E9EA8)),
+                          color: AppColors.linnen,
+                          child: const Icon(Icons.image_outlined, color: AppColors.hackberry),
                         ))
                     : Container(
-                        color: const Color(0xFFF0F0F3),
-                        child: const Icon(Icons.image_outlined, color: Color(0xFF9E9EA8)),
+                        color: AppColors.linnen,
+                        child: const Icon(Icons.image_outlined, color: AppColors.hackberry),
                       ),
               ),
             ),
@@ -214,16 +231,16 @@ class _CartItemTile extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(priceStr,
                         style: const TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFFE2555A))),
+                            fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.rausch)),
                     if (quantity > 1)
                       Text('Qty: $quantity',
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF717171))),
+                          style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
                   ],
                 ),
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.close, size: 18, color: Color(0xFF9E9EA8)),
+              icon: const Icon(Icons.close, size: 18, color: AppColors.hackberry),
               onPressed: () async {
                 await session.removeTripCartItem(id);
                 if (context.mounted) {
@@ -242,8 +259,9 @@ class _CartItemTile extends StatelessWidget {
 }
 
 class _TotalBar extends StatefulWidget {
-  const _TotalBar({required this.items});
+  const _TotalBar({required this.items, this.onDiscountChanged});
   final List<Map<String, dynamic>> items;
+  final void Function(String? code, Map<String, dynamic>? data)? onDiscountChanged;
 
   @override
   State<_TotalBar> createState() => _TotalBarState();
@@ -255,6 +273,8 @@ class _TotalBarState extends State<_TotalBar> {
   bool _applying = false;
   double _discount = 0;
   String? _promoMsg;
+  bool _promoSuccess = false;
+  Map<String, dynamic>? _appliedData;
 
   @override
   void dispose() {
@@ -287,28 +307,55 @@ class _TotalBarState extends State<_TotalBar> {
   Future<void> _applyPromo() async {
     final code = _promoCtrl.text.trim();
     if (code.isEmpty) return;
-    setState(() { _applying = true; _promoMsg = null; });
+    setState(() { _applying = true; _promoMsg = null; _promoSuccess = false; });
     try {
-      final result = await _api.validatePromoCode(code: code);
+      final totals = _computeTotals();
+      final firstTotal = totals.values.isNotEmpty ? totals.values.first : 0.0;
+      final firstCurrency = totals.keys.isNotEmpty ? totals.keys.first : 'USD';
+      final firstItem = widget.items.isNotEmpty ? widget.items.first : null;
+      final itemType = (firstItem?['item_type'] ?? 'property').toString();
+
+      final result = await _api.validatePromoCode(
+        code: code,
+        subtotal: firstTotal,
+        currency: firstCurrency,
+        itemType: itemType,
+      );
       if (!mounted) return;
-      if (result == null) {
-        setState(() { _discount = 0; _promoMsg = 'Invalid or expired promo code.'; });
+      if (result.data == null) {
+        setState(() { _discount = 0; _promoMsg = result.error ?? 'Invalid promo code.'; _appliedData = null; });
+        widget.onDiscountChanged?.call(null, null);
       } else {
-        final type = (result['discount_type'] ?? 'fixed').toString();
-        final value = ((result['discount_value'] ?? 0) as num).toDouble();
-        final totals = _computeTotals();
-        final firstTotal = totals.values.isNotEmpty ? totals.values.first : 0.0;
+        final type = (result.data!['discount_type'] ?? 'fixed').toString();
+        final value = ((result.data!['discount_value'] ?? 0) as num).toDouble();
         final disc = type == 'percentage' ? firstTotal * value / 100 : value;
         setState(() {
           _discount = disc;
-          _promoMsg = 'Code applied! You save \$${disc.toStringAsFixed(2)}';
+          _promoMsg = 'Code applied! You save $firstCurrency ${disc.toStringAsFixed(0)}';
+          _promoSuccess = true;
+          _appliedData = result.data;
         });
+        widget.onDiscountChanged?.call(code.toUpperCase().trim(), result.data);
       }
     } catch (_) {
-      if (mounted) setState(() { _promoMsg = 'Error validating code.'; _discount = 0; });
+      if (mounted) {
+        setState(() { _promoMsg = 'Error validating code.'; _discount = 0; _appliedData = null; });
+        widget.onDiscountChanged?.call(null, null);
+      }
     } finally {
       if (mounted) setState(() => _applying = false);
     }
+  }
+
+  void _removePromo() {
+    setState(() {
+      _discount = 0;
+      _promoMsg = null;
+      _promoSuccess = false;
+      _appliedData = null;
+      _promoCtrl.clear();
+    });
+    widget.onDiscountChanged?.call(null, null);
   }
 
   @override
@@ -317,69 +364,90 @@ class _TotalBarState extends State<_TotalBar> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F7F8),
+        color: AppColors.linnen,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Promo code input
-          Row(children: [
-            Expanded(
-              child: TextField(
-                controller: _promoCtrl,
-                decoration: InputDecoration(
-                  hintText: 'Promo code',
-                  hintStyle: const TextStyle(fontSize: 13),
-                  filled: true, fillColor: Colors.white,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
+          if (_promoSuccess && _appliedData != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8F5E9),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF4CAF50).withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle, size: 16, color: Color(0xFF4CAF50)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${_appliedData!['code']}  •  Save ${totals.keys.isNotEmpty ? totals.keys.first : ''} ${_discount.toStringAsFixed(0)}',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF2E7D32)),
+                    ),
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                ),
-                style: const TextStyle(fontSize: 13),
+                  GestureDetector(onTap: _removePromo, child: const Icon(Icons.close, size: 16, color: Color(0xFF757575))),
+                ],
               ),
             ),
-            const SizedBox(width: 8),
-            SizedBox(
-              height: 40,
-              child: ElevatedButton(
-                onPressed: _applying ? null : _applyPromo,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFE2555A),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  elevation: 0,
+          ] else ...[
+            Row(children: [
+              Expanded(
+                child: TextField(
+                  controller: _promoCtrl,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: InputDecoration(
+                    hintText: 'Promo code',
+                    hintStyle: const TextStyle(fontSize: 13),
+                    filled: true, fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                  ),
+                  style: const TextStyle(fontSize: 13, letterSpacing: 1.2),
                 ),
-                child: _applying
-                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Text('Apply', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
               ),
-            ),
-          ]),
-          if (_promoMsg != null) ...[
-            const SizedBox(height: 6),
-            Text(_promoMsg!,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: _discount > 0 ? const Color(0xFF4CAF50) : const Color(0xFFE2555A),
-                )),
+              const SizedBox(width: 8),
+              SizedBox(
+                height: 40,
+                child: ElevatedButton(
+                  onPressed: _applying ? null : _applyPromo,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.rausch,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    elevation: 0,
+                  ),
+                  child: _applying
+                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Text('Apply', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ]),
+            if (_promoMsg != null && !_promoSuccess) ...[
+              const SizedBox(height: 6),
+              Text(_promoMsg!, style: const TextStyle(fontSize: 12, color: AppColors.rausch)),
+            ],
           ],
           const SizedBox(height: 12),
-          const Text('Estimated total', style: TextStyle(fontSize: 13, color: Color(0xFF717171))),
+          const Text('Estimated total', style: TextStyle(fontSize: 13, color: AppColors.foggy)),
           const SizedBox(height: 6),
           ...totals.entries.map((e) {
             if (_discount > 0) {
               final discounted = e.value - _discount;
               return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('${e.key} ${e.value.toStringAsFixed(0)}',
-                    style: const TextStyle(fontSize: 15, decoration: TextDecoration.lineThrough, color: Color(0xFF9E9EA8))),
+                    style: const TextStyle(fontSize: 15, decoration: TextDecoration.lineThrough, color: AppColors.hackberry)),
                 Text('${e.key} ${discounted.toStringAsFixed(0)}',
                     style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF4CAF50))),
               ]);
@@ -388,7 +456,7 @@ class _TotalBarState extends State<_TotalBar> {
                 style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700));
           }),
           const SizedBox(height: 4),
-          const Text('Excluding service fees', style: TextStyle(fontSize: 11, color: Color(0xFF9E9EA8))),
+          const Text('Excluding service fees', style: TextStyle(fontSize: 11, color: AppColors.hackberry)),
         ],
       ),
     );
@@ -423,7 +491,7 @@ class _TypePill extends StatelessWidget {
       ),
       child: Text(_label,
           style: const TextStyle(
-              fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFFE2555A))),
+              fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.rausch)),
     );
   }
 }
@@ -442,21 +510,18 @@ class _InfoCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE7E7EC)),
-        boxShadow: const [
-          BoxShadow(color: Color(0x0A000000), blurRadius: 10, offset: Offset(0, 3)),
-        ],
+        border: Border.all(color: const Color(0xFFEBEBEB)),
       ),
       child: Column(
         children: [
-          Icon(icon, size: 36, color: const Color(0xFF9E9EA8)),
+          Icon(icon, size: 36, color: AppColors.hackberry),
           const SizedBox(height: 12),
           Text(title,
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
               textAlign: TextAlign.center),
           const SizedBox(height: 6),
           Text(subtitle,
-              style: const TextStyle(color: Color(0xFF777780), fontSize: 14),
+              style: const TextStyle(color: AppColors.foggy, fontSize: 14),
               textAlign: TextAlign.center),
         ],
       ),
