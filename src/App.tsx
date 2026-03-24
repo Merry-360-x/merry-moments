@@ -557,6 +557,7 @@ const App = () => (
                   </RequireRole>
                 }
               />
+              <Route path="/admin-dashboard" element={<Navigate to="/admin" replace />} />
               <Route
                 path="/admin/roles"
                 element={
@@ -583,6 +584,7 @@ const App = () => (
                   </RequireRole>
                 }
               />
+              <Route path="/financial-staff-dashboard" element={<Navigate to="/financial-dashboard" replace />} />
               <Route
                 path="/operations-dashboard"
                 element={
@@ -593,6 +595,7 @@ const App = () => (
                   </RequireRole>
                 }
               />
+              <Route path="/operations-staff-dashboard" element={<Navigate to="/operations-dashboard" replace />} />
               <Route
                 path="/customer-support-dashboard"
                 element={
@@ -603,6 +606,7 @@ const App = () => (
                   </RequireRole>
                 }
               />
+              <Route path="/customer-support" element={<Navigate to="/customer-support-dashboard" replace />} />
               <Route
                 path="/bookings"
                 element={
@@ -643,6 +647,7 @@ const App = () => (
               <Route path="/hosts/:id" element={<HostAbout />} />
               <Route path="/hosts/:id/reviews" element={<HostReviews />} />
               <Route path="/review/:token" element={<ReviewPage />} />
+              <Route path="/home" element={<Navigate to="/" replace />} />
               <Route path="/about" element={<InfoPage kind="about" />} />
               <Route path="/contact" element={<InfoPage kind="contact" />} />
               <Route path="/help" element={<Navigate to="/help-center" replace />} />
