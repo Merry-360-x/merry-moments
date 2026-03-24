@@ -24,6 +24,21 @@ type ReviewRow = {
   reviewer_name?: string;
 };
 
+const parseReviewedByPrefix = (comment: string | null | undefined) => {
+  const text = String(comment || "").trim();
+  const match = text.match(/^reviewed\s+by\s+([^.!?:\n]+)[.!?:\-\s]*/i);
+  if (!match) {
+    return { inferredName: "", cleanedComment: text || null };
+  }
+
+  const inferredName = (match[1] || "").trim();
+  const cleaned = text.slice(match[0].length).trim();
+  return {
+    inferredName,
+    cleanedComment: cleaned || null,
+  };
+};
+
 export default function HostReviews() {
   const params = useParams();
   const hostId = params.id ? String(params.id) : "";
@@ -103,9 +118,11 @@ export default function HostReviews() {
       return base.map((r) => {
         const profile = r.reviewer_id ? profilesByKey.get(String(r.reviewer_id)) : undefined;
         const firstName = (profile?.full_name || "").trim().split(/\s+/).filter(Boolean)[0] || "";
-        const reviewerName = firstName || profile?.nickname || "Guest";
+        const { inferredName, cleanedComment } = parseReviewedByPrefix(r.comment);
+        const reviewerName = firstName || profile?.nickname || inferredName || "Guest";
         return {
           ...r,
+          comment: cleanedComment,
           reviewer_name: reviewerName,
         };
       });
