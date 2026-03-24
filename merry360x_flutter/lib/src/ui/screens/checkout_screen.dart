@@ -196,6 +196,41 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     'BI': 'ECONET_BDI', 'CG': 'MTN_MOMO_COG',
   };
 
+  static const _geoCountryName = <String, String>{
+    'RW': 'Rwanda',
+    'KE': 'Kenya',
+    'UG': 'Uganda',
+    'ZM': 'Zambia',
+    'TZ': 'Tanzania',
+    'GH': 'Ghana',
+    'CD': 'DR Congo',
+    'CM': 'Cameroon',
+    'SN': 'Senegal',
+    'CI': 'Ivory Coast',
+    'MZ': 'Mozambique',
+    'MW': 'Malawi',
+    'BI': 'Burundi',
+    'CG': 'Congo',
+  };
+
+  List<_PayMethod> get _regionPayMethods {
+    final iso = _detectedCountryISO;
+    if (iso != null) {
+      final countryName = _geoCountryName[iso.toUpperCase()];
+      if (countryName != null) {
+        final methods = _kPayMethods.where((m) => m.country == countryName).toList();
+        if (methods.isNotEmpty) return methods;
+      }
+    }
+
+    if (_selectedMethod != null) {
+      final methods = _kPayMethods.where((m) => m.country == _selectedMethod!.country).toList();
+      if (methods.isNotEmpty) return methods;
+    }
+
+    return _kPayMethods.where((m) => m.country == 'Rwanda').toList();
+  }
+
   Future<void> _detectRegion() async {
     // 1. Try IP-based geolocation (fast, 3s timeout)
     String? iso;
@@ -903,7 +938,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           padding: const EdgeInsets.all(4),
           child: Row(
             children: [
-              _PayTabButton(label: 'Mobile Money', assetPath: 'assets/payment/mtn-momo.png', selected: _payTab == 0, onTap: () => setState(() => _payTab = 0)),
+              if (_showMobileMoney)
+                _PayTabButton(label: 'Mobile Money', assetPath: 'assets/payment/mtn-momo.png', selected: _payTab == 0, onTap: () => setState(() => _payTab = 0)),
               _PayTabButton(label: 'Card', assetPath: 'assets/payment/card.png', selected: _payTab == 1, onTap: () => setState(() => _payTab = 1)),
               _PayTabButton(label: 'Bank Transfer', assetPath: 'assets/payment/bank-transfer.png', selected: _payTab == 2, onTap: () => setState(() => _payTab = 2)),
             ],
@@ -912,7 +948,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
         const SizedBox(height: 20),
 
-        if (_payTab == 0) _buildMobileMoneySection(),
+        if (_showMobileMoney && _payTab == 0) _buildMobileMoneySection(),
         if (_payTab == 1) _buildCardSection(),
         if (_payTab == 2) _buildBankTransferSection(),
       ],
@@ -921,43 +957,44 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   // ── Mobile Money Tab ──
   Widget _buildMobileMoneySection() {
+    final regionMethods = _regionPayMethods;
+    if (regionMethods.isEmpty) {
+      return const Text(
+        'Mobile money providers are not available for your detected region.',
+        style: TextStyle(fontSize: 13, color: AppColors.foggy),
+      );
+    }
+
+    final country = regionMethods.first.country;
+    final flag = regionMethods.first.flag;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SectionTitle(label: 'Select provider'),
         const SizedBox(height: 12),
-
-        ...['Rwanda', 'Kenya', 'Uganda', 'Zambia'].map((country) {
-          final methods = _kPayMethods.where((m) => m.country == country).toList();
-          if (methods.isEmpty) return const SizedBox.shrink();
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  '${methods.first.flag}  $country',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.hof),
-                ),
-              ),
-              Wrap(
-                spacing: 10,
-                runSpacing: 8,
-                children: methods.map((m) => _MethodChip(
-                      method: m,
-                      selected: _selectedMethod?.id == m.id,
-                      onTap: () {
-                        setState(() {
-                          _selectedMethod = m;
-                          _phoneCtrl.text = '${m.countryCode} ';
-                        });
-                      },
-                    )).toList(),
-              ),
-              const SizedBox(height: 16),
-            ],
-          );
-        }),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            '$flag  $country',
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.hof),
+          ),
+        ),
+        Wrap(
+          spacing: 10,
+          runSpacing: 8,
+          children: regionMethods.map((m) => _MethodChip(
+                method: m,
+                selected: _selectedMethod?.id == m.id,
+                onTap: () {
+                  setState(() {
+                    _selectedMethod = m;
+                    _phoneCtrl.text = '${m.countryCode} ';
+                  });
+                },
+              )).toList(),
+        ),
+        const SizedBox(height: 16),
 
         // ── Phone number ──
         _SectionTitle(label: 'Mobile money number'),

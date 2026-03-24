@@ -168,6 +168,23 @@ const COUNTRY_BY_CODE: Record<string, string> = {
   '+242': 'Congo',
 };
 
+const PAWAPAY_COUNTRY_BY_ISO: Record<string, string> = {
+  RW: 'Rwanda',
+  KE: 'Kenya',
+  UG: 'Uganda',
+  ZM: 'Zambia',
+  TZ: 'Tanzania',
+  GH: 'Ghana',
+  CD: 'DR Congo',
+  CM: 'Cameroon',
+  SN: 'Senegal',
+  CI: 'Ivory Coast',
+  MZ: 'Mozambique',
+  MW: 'Malawi',
+  BI: 'Burundi',
+  CG: 'Congo',
+};
+
 const BILLING_COUNTRY_OPTIONS = [
   { code: "RW", label: "Rwanda" },
   { code: "KE", label: "Kenya" },
@@ -185,21 +202,6 @@ const BILLING_COUNTRY_OPTIONS = [
   { code: "CG", label: "Congo" },
   { code: "ZA", label: "South Africa" },
 ];
-
-// Get sorted countries based on user's phone country code
-function getSortedCountries(userCountryCode: string): [string, typeof METHODS_BY_COUNTRY[string]][] {
-  const userCountry = COUNTRY_BY_CODE[userCountryCode];
-  const entries = Object.entries(METHODS_BY_COUNTRY);
-  
-  if (!userCountry) return entries;
-  
-  // Put user's country first
-  return entries.sort((a, b) => {
-    if (a[0] === userCountry) return -1;
-    if (b[0] === userCountry) return 1;
-    return 0;
-  });
-}
 
 export default function CheckoutNew() {
   const { t } = useTranslation();
@@ -1091,6 +1093,43 @@ export default function CheckoutNew() {
   // Check if payment method is a mobile money method (not card or bank)
   const isMobileMoneyMethod = paymentMethod !== 'card' && paymentMethod !== 'bank';
 
+  // Only show methods relevant to detected region (single-country fallback when region is unavailable)
+  const visibleMobileMoneyCountries = useMemo(() => {
+    const singleCountry = (countryName?: string) => {
+      if (!countryName || !METHODS_BY_COUNTRY[countryName]) return [] as [string, typeof METHODS_BY_COUNTRY[string]][];
+      return [[countryName, METHODS_BY_COUNTRY[countryName]]] as [string, typeof METHODS_BY_COUNTRY[string]][];
+    };
+
+    const detectedName = detectedCountry ? PAWAPAY_COUNTRY_BY_ISO[detectedCountry.toUpperCase()] : undefined;
+    const detected = singleCountry(detectedName);
+    if (detected.length > 0) return detected;
+
+    const selectedName = PAWAPAY_METHODS.find((method) => method.id === paymentMethod)?.country;
+    const selected = singleCountry(selectedName);
+    if (selected.length > 0) return selected;
+
+    const codeFallbackName = COUNTRY_BY_CODE[countryCode];
+    const codeFallback = singleCountry(codeFallbackName);
+    if (codeFallback.length > 0) return codeFallback;
+
+    return [] as [string, typeof METHODS_BY_COUNTRY[string]][];
+  }, [detectedCountry, paymentMethod, countryCode]);
+
+  useEffect(() => {
+    if (!isMobileMoneyMethod) return;
+    const availableMethodIds = visibleMobileMoneyCountries.flatMap(([, entry]) => entry.methods.map((method) => method.id));
+    if (availableMethodIds.length === 0 || availableMethodIds.includes(paymentMethod)) return;
+
+    const nextMethodId = availableMethodIds[0];
+    const nextMethod = PAWAPAY_METHODS.find((method) => method.id === nextMethodId);
+    setLastMobileMethod(nextMethodId);
+    setPaymentMethod(nextMethodId);
+    if (nextMethod) {
+      setCountryCode(nextMethod.countryCode);
+      setCurrency(nextMethod.currency as any);
+    }
+  }, [isMobileMoneyMethod, visibleMobileMoneyCountries, paymentMethod, setCurrency]);
+
   const isBankValid = true;
   
   // Step validation
@@ -1971,7 +2010,7 @@ export default function CheckoutNew() {
 
                   {/* Payment Methods by Country */}
                   {isMobileMoneyMethod && <div className="space-y-4">
-                    {getSortedCountries(countryCode).map(([country, { flag, countryCode: cc, currency, methods }]) => {
+                    {visibleMobileMoneyCountries.map(([country, { flag, countryCode: cc, currency, methods }]) => {
                       const selectedMethod = PAWAPAY_METHODS.find(m => m.id === paymentMethod);
                       const isCountrySelected = selectedMethod?.country === country;
                       const convertedTotal = currency === displayCurrency 
@@ -2037,6 +2076,11 @@ export default function CheckoutNew() {
                         </div>
                       );
                     })}
+                    {visibleMobileMoneyCountries.length === 0 && (
+                      <div className="rounded-lg border border-border bg-muted/20 p-3 text-sm text-muted-foreground">
+                        Mobile money providers are not available for your detected region.
+                      </div>
+                    )}
                   </div>}
 
                   {/* Card checkout redirect info */}
