@@ -508,8 +508,18 @@ const Index = () => {
       <Dialog open={showUpdatesPopup} onOpenChange={(open) => !open && closeUpdatesPopup()}>
         <DialogContent className="max-w-md border-primary/20 bg-background/85 backdrop-blur-xl p-0 overflow-hidden shadow-2xl">
           <div className="relative bg-gradient-to-br from-primary/20 via-background/95 to-background/90 p-6">
-            <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-primary/15 blur-2xl" />
-            <div className="pointer-events-none absolute -left-10 bottom-0 h-24 w-24 rounded-full bg-emerald-300/20 blur-2xl" />
+            <div
+              className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-primary/20 blur-2xl animate-pulse"
+              style={{ animationDuration: "5.5s" }}
+            />
+            <div
+              className="pointer-events-none absolute -left-10 bottom-0 h-24 w-24 rounded-full bg-emerald-300/25 blur-2xl animate-pulse"
+              style={{ animationDuration: "7s" }}
+            />
+            <div
+              className="pointer-events-none absolute left-1/2 top-1/2 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-3xl animate-pulse"
+              style={{ animationDuration: "8.5s" }}
+            />
 
             <div className="mb-5 flex items-start justify-between gap-3">
               <div className="flex items-start gap-3">
