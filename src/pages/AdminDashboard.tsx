@@ -1721,7 +1721,6 @@ export default function AdminDashboard() {
         });
 
         const payoutData = await payoutResponse.json();
-        console.log('PawaPay payout response:', payoutData);
 
         if (!payoutData.success) {
           // Update status to rejected and log failure reason
@@ -2154,7 +2153,6 @@ export default function AdminDashboard() {
                 review_count: 0,
               };
 
-              console.log("[AdminDashboard] Creating property with payload:", propertyPayload);
 
               const { data: createdProperty, error: propErr } = await supabase
                 .from("properties")
@@ -2166,7 +2164,6 @@ export default function AdminDashboard() {
                 console.error("[AdminDashboard] Property creation error:", propErr);
                 throw propErr;
               }
-              console.log("[AdminDashboard] ✅ Property created successfully:", createdProperty);
               createdListings.push(`Property "${createdProperty.title}"`);
               
             } else if (serviceType === "tour") {
@@ -2190,7 +2187,6 @@ export default function AdminDashboard() {
                 review_count: 0,
               };
 
-              console.log("[AdminDashboard] Creating tour with payload:", tourPayload);
 
               const { data: createdTour, error: tourErr } = await supabase
                 .from("tours")
@@ -2202,7 +2198,6 @@ export default function AdminDashboard() {
                 console.error("[AdminDashboard] Tour creation error:", tourErr);
                 throw tourErr;
               }
-              console.log("[AdminDashboard] ✅ Tour created successfully:", createdTour);
               createdListings.push(`Tour "${createdTour.title}"`);
               
             } else if (serviceType === "transport") {
@@ -2223,7 +2218,6 @@ export default function AdminDashboard() {
                 is_published: true,
               };
 
-              console.log("[AdminDashboard] Creating transport vehicle with payload:", vehiclePayload);
 
               const { data: createdVehicle, error: vehicleErr } = await supabase
                 .from("transport_vehicles")
@@ -2235,7 +2229,6 @@ export default function AdminDashboard() {
                 console.error("[AdminDashboard] Transport vehicle creation error:", vehicleErr);
                 throw vehicleErr;
               }
-              console.log("[AdminDashboard] ✅ Transport vehicle created successfully:", createdVehicle);
               createdListings.push(`Transport "${createdVehicle.title}"`);
             }
           } catch (listingErr: any) {
@@ -2428,7 +2421,6 @@ export default function AdminDashboard() {
     try {
       // For tours, use the source to determine which table to delete from
       const targetTable = source || table;
-      console.log('[AdminDashboard] Deep deleting from table:', targetTable, 'ID:', id);
       
       const { error } = await supabase.from(targetTable as never).delete().eq("id", id);
       if (error) throw error;

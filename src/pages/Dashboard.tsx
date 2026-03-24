@@ -154,7 +154,6 @@ export default function Dashboard() {
     const bookingsChannel = supabase
       .channel('user-bookings-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings', filter: `guest_id=eq.${user.id}` }, () => {
-        console.log('[Dashboard] Bookings change detected - refetching...');
         queryClient.invalidateQueries({ queryKey: ['bookings', 'list', user.id] });
         queryClient.invalidateQueries({ queryKey: ['bookings', 'counts', user.id] });
       })
@@ -165,7 +164,6 @@ export default function Dashboard() {
     const favoritesChannel = supabase
       .channel('user-favorites-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'favorites', filter: `user_id=eq.${user.id}` }, () => {
-        console.log('[Dashboard] Favorites change detected - refetching...');
         queryClient.invalidateQueries({ queryKey: ['favorites', 'list', user.id] });
         queryClient.invalidateQueries({ queryKey: ['favorites', 'count', user.id] });
       })
@@ -176,7 +174,6 @@ export default function Dashboard() {
     const cartChannel = supabase
       .channel('user-cart-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_cart_items', filter: `user_id=eq.${user.id}` }, () => {
-        console.log('[Dashboard] Cart change detected - refetching...');
         queryClient.invalidateQueries({ queryKey: ['trip_cart_items', 'count', user.id] });
       })
       .subscribe();

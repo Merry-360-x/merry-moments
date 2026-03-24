@@ -104,7 +104,6 @@ const AffiliateDashboard = () => {
     const referralsChannel = supabase
       .channel('affiliate-referrals-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'affiliate_referrals' }, () => {
-        console.log('[AffiliateDashboard] Referrals change detected - refetching...');
         queryClient.invalidateQueries({ queryKey: ['affiliate-referrals', affiliate.id] });
       })
       .subscribe();
@@ -114,7 +113,6 @@ const AffiliateDashboard = () => {
     const commissionsChannel = supabase
       .channel('affiliate-commissions-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'affiliate_commissions' }, () => {
-        console.log('[AffiliateDashboard] Commissions change detected - refetching...');
         queryClient.invalidateQueries({ queryKey: ['affiliate-commissions', affiliate.id] });
       })
       .subscribe();

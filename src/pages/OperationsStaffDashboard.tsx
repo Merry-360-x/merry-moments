@@ -163,7 +163,6 @@ export default function OperationsStaffDashboard() {
     const applicationsChannel = supabase
       .channel('operations-applications-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'host_applications' }, () => {
-        console.log('[OperationsStaff] Applications change detected - refetching...');
         queryClient.invalidateQueries({ queryKey: ['operations_applications'] });
       })
       .subscribe();
@@ -173,7 +172,6 @@ export default function OperationsStaffDashboard() {
     const propertiesChannel = supabase
       .channel('operations-properties-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'properties' }, () => {
-        console.log('[OperationsStaff] Properties change detected - refetching...');
         queryClient.invalidateQueries({ queryKey: ['operations_properties'] });
       })
       .subscribe();
@@ -183,7 +181,6 @@ export default function OperationsStaffDashboard() {
     const toursChannel = supabase
       .channel('operations-tours-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tour_packages' }, () => {
-        console.log('[OperationsStaff] Tours change detected - refetching...');
         queryClient.invalidateQueries({ queryKey: ['operations_tours'] });
       })
       .subscribe();
@@ -193,7 +190,6 @@ export default function OperationsStaffDashboard() {
     const transportChannel = supabase
       .channel('operations-transport-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'transport_vehicles' }, () => {
-        console.log('[OperationsStaff] Transport change detected - refetching...');
         queryClient.invalidateQueries({ queryKey: ['operations_transport'] });
       })
       .subscribe();
@@ -203,7 +199,6 @@ export default function OperationsStaffDashboard() {
     const bookingsChannel = supabase
       .channel('operations-bookings-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => {
-        console.log('[OperationsStaff] Bookings change detected - refetching...');
         queryClient.invalidateQueries({ queryKey: ['operations_bookings'] });
       })
       .subscribe();

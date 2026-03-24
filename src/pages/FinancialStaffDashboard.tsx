@@ -99,7 +99,6 @@ export default function FinancialStaffDashboard() {
     const bookingsChannel = supabase
       .channel('financial-bookings-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => {
-        console.log('[FinancialStaff] Bookings change detected - refetching...');
         queryClient.invalidateQueries({ queryKey: ['financial_bookings'] });
         queryClient.invalidateQueries({ queryKey: ['financial_metrics'] });
       })
@@ -110,7 +109,6 @@ export default function FinancialStaffDashboard() {
     const checkoutChannel = supabase
       .channel('financial-checkout-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'checkout_requests' }, () => {
-        console.log('[FinancialStaff] Checkout request change detected');
         queryClient.invalidateQueries({ queryKey: ['financial_bookings'] });
         queryClient.invalidateQueries({ queryKey: ['financial_metrics'] });
       })
@@ -685,7 +683,6 @@ export default function FinancialStaffDashboard() {
     const payoutsChannel = supabase
       .channel('financial-payouts-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'host_payouts' }, () => {
-        console.log('[FinancialStaff] Payouts change detected');
         queryClient.invalidateQueries({ queryKey: ['host_payouts'] });
       })
       .subscribe();

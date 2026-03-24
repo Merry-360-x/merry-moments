@@ -98,7 +98,6 @@ export default function CustomerSupportDashboard() {
     const profilesChannel = supabase
       .channel('support-profiles-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-        console.log('[CustomerSupport] Profiles change detected - refetching...');
         queryClient.invalidateQueries({ queryKey: ['support_users'] });
       })
       .subscribe();
@@ -108,7 +107,6 @@ export default function CustomerSupportDashboard() {
     const bookingsChannel = supabase
       .channel('support-bookings-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => {
-        console.log('[CustomerSupport] Bookings change detected - refetching...');
         queryClient.invalidateQueries({ queryKey: ['support_bookings'] });
       })
       .subscribe();
@@ -118,7 +116,6 @@ export default function CustomerSupportDashboard() {
     const ticketsChannel = supabase
       .channel('support-tickets-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, () => {
-        console.log('[CustomerSupport] Tickets change detected - refetching...');
         queryClient.invalidateQueries({ queryKey: ['support_tickets'] });
       })
       .subscribe();
@@ -128,7 +125,6 @@ export default function CustomerSupportDashboard() {
     const reviewsChannel = supabase
       .channel('support-reviews-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'property_reviews' }, () => {
-        console.log('[CustomerSupport] Reviews change detected');
         queryClient.invalidateQueries({ queryKey: ['support_reviews'] });
       })
       .subscribe();
@@ -142,7 +138,6 @@ export default function CustomerSupportDashboard() {
   const { data: users = [], isLoading: isUsersLoading } = useQuery({
     queryKey: ["support_users"],
     queryFn: async () => {
-      console.log('[CustomerSupport] Fetching profiles...');
       const { data, error } = await supabase
         .from("profiles")
         .select("user_id, full_name, phone, created_at")
@@ -152,7 +147,6 @@ export default function CustomerSupportDashboard() {
         console.error('[CustomerSupport] Profiles error:', error);
         throw error;
       }
-      console.log('[CustomerSupport] Profiles fetched:', data?.length || 0);
       return (data ?? []) as Profile[];
     },
     refetchInterval: 30000,
@@ -163,7 +157,6 @@ export default function CustomerSupportDashboard() {
   const { data: bookings = [], isLoading: isBookingsLoading } = useQuery({
     queryKey: ["support_bookings"],
     queryFn: async () => {
-      console.log('[CustomerSupport] Fetching bookings...');
       const { data, error } = await supabase
         .from("bookings")
         .select("id, order_id, property_id, guest_id, guest_name, guest_email, guest_phone, check_in, check_out, guests, total_price, currency, status, payment_status, created_at")
@@ -173,7 +166,6 @@ export default function CustomerSupportDashboard() {
         console.error('[CustomerSupport] Bookings error:', error);
         throw error;
       }
-      console.log('[CustomerSupport] Bookings fetched:', data?.length || 0);
       return (data ?? []) as Booking[];
     },
     refetchInterval: 30000,

@@ -200,7 +200,6 @@ const MyBookings = () => {
     const channel = supabase
       .channel('mybookings-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings', filter: `guest_id=eq.${user.id}` }, () => {
-        console.log('[MyBookings] Booking change detected - invalidating...');
         qc.invalidateQueries({ queryKey: ["bookings", user.id] });
       })
       .subscribe();

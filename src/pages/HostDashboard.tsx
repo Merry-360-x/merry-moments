@@ -1264,7 +1264,6 @@ export default function HostDashboard() {
     const bookingsChannel = supabase
       .channel('host-bookings-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, (payload) => {
-        console.log('[HostDashboard] Booking change detected - refetching...', payload);
         fetchData();
       })
       .subscribe();
@@ -1274,7 +1273,6 @@ export default function HostDashboard() {
     const reviewsChannel = supabase
       .channel('host-reviews-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'property_reviews' }, () => {
-        console.log('[HostDashboard] Review change detected');
         fetchData();
       })
       .subscribe();
@@ -1284,7 +1282,6 @@ export default function HostDashboard() {
     const propertiesChannel = supabase
       .channel('host-properties-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'properties' }, () => {
-        console.log('[HostDashboard] Properties change detected');
         fetchData();
       })
       .subscribe();
@@ -1294,7 +1291,6 @@ export default function HostDashboard() {
     const toursChannel = supabase
       .channel('host-tours-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tour_packages' }, () => {
-        console.log('[HostDashboard] Tour packages change detected');
         fetchData();
       })
       .subscribe();
@@ -1304,7 +1300,6 @@ export default function HostDashboard() {
     const vehiclesChannel = supabase
       .channel('host-vehicles-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'transport_vehicles' }, () => {
-        console.log('[HostDashboard] Vehicles change detected');
         fetchData();
       })
       .subscribe();
@@ -1319,7 +1314,6 @@ export default function HostDashboard() {
         table: 'host_payouts',
         filter: `host_id=eq.${user.id}`,
       }, () => {
-        console.log('[HostDashboard] Payout change detected');
         fetchHostPayoutSnapshot(user.id);
       })
       .subscribe();
@@ -1334,7 +1328,6 @@ export default function HostDashboard() {
         table: 'host_earnings_adjustments',
         filter: `host_id=eq.${user.id}`,
       }, () => {
-        console.log('[HostDashboard] Earnings adjustment change detected');
         fetchHostPayoutSnapshot(user.id);
       })
       .subscribe();
@@ -1803,7 +1796,6 @@ export default function HostDashboard() {
       ? (propertyForm.breakfast_price_per_night ? Number(propertyForm.breakfast_price_per_night) : null)
       : null;
 
-    console.log("[createProperty] Attempting insert with payload:", payload);
 
     try {
       const { error, data: newProp } = await runPropertiesMutationWithFallback(
@@ -1934,7 +1926,6 @@ export default function HostDashboard() {
         ? ["host_id", "guide_id", "created_by", "user_id"]
         : ["created_by", "host_id", "guide_id", "user_id"];
       
-      console.log('[HostDashboard] Deleting from table:', tableName, 'ID:', id);
 
       let deletedCount = 0;
       let lastError: any = null;
@@ -1981,7 +1972,6 @@ export default function HostDashboard() {
         return;
       }
       
-      console.log('[HostDashboard] Tour deleted successfully, count:', deletedCount);
       
       // Update local state
       setTours((prev) => prev.filter((t) => t.id !== id));
