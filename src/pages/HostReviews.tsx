@@ -119,7 +119,9 @@ export default function HostReviews() {
         const profile = r.reviewer_id ? profilesByKey.get(String(r.reviewer_id)) : undefined;
         const firstName = (profile?.full_name || "").trim().split(/\s+/).filter(Boolean)[0] || "";
         const { inferredName, cleanedComment } = parseReviewedByPrefix(r.comment);
-        const reviewerName = firstName || profile?.nickname || inferredName || "Guest";
+        const nickname = (profile?.nickname || "").trim();
+        const usableNickname = /^(guest|anonymous)$/i.test(nickname) ? "" : nickname;
+        const reviewerName = firstName || usableNickname || inferredName || "Guest";
         return {
           ...r,
           comment: cleanedComment,
