@@ -201,7 +201,7 @@ const Footer = () => {
                   Updates
                 </button>
               </HoverCardTrigger>
-              <HoverCardContent align="center" side="top" className="w-72 p-3">
+              <HoverCardContent align="center" side="top" className="w-72 border-primary/20 bg-background/85 backdrop-blur-xl p-3 shadow-xl">
                 {renderUpdatesContent(true)}
               </HoverCardContent>
             </HoverCard>
@@ -335,7 +335,7 @@ const Footer = () => {
                   Updates
                 </button>
               </HoverCardTrigger>
-              <HoverCardContent align="end" side="top" className="w-80 p-3">
+              <HoverCardContent align="end" side="top" className="w-80 border-primary/20 bg-background/85 backdrop-blur-xl p-3 shadow-xl">
                 {renderUpdatesContent(false)}
               </HoverCardContent>
             </HoverCard>
