@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -163,23 +165,23 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
     }
   }
 
-  Future<void> _addToCart() async {
+  void _addToCart() {
     if (!widget.session.isAuthenticated) {
       _showSnack('Sign in to save to trip cart');
       return;
     }
-    try {
-      final metadata = <String, dynamic>{
-        if (_checkIn != null) 'check_in': _checkIn!.toIso8601String().split('T').first,
-        if (_checkOut != null) 'check_out': _checkOut!.toIso8601String().split('T').first,
-        'guests': _guests,
-        if (_nights > 0) 'nights': _nights,
-      };
-      await widget.session.addListingToTripCart(item, metadata: metadata);
-      if (mounted) _showSnack('Added to trip cart ✓');
-    } catch (e) {
-      if (mounted) _showSnack('Could not add: $e');
-    }
+    final metadata = <String, dynamic>{
+      if (_checkIn != null) 'check_in': _checkIn!.toIso8601String().split('T').first,
+      if (_checkOut != null) 'check_out': _checkOut!.toIso8601String().split('T').first,
+      'guests': _guests,
+      if (_nights > 0) 'nights': _nights,
+    };
+    if (mounted) _showSnack('Added to trip cart ✓');
+    unawaited(
+      widget.session.addListingToTripCart(item, metadata: metadata).catchError((e) {
+        if (mounted) _showSnack('Could not add: $e');
+      }),
+    );
   }
 
   void _bookNow() {

@@ -316,6 +316,15 @@ class SessionController extends ChangeNotifier {
     _backgroundRefresh();
   }
 
+  Future<void> clearTripCart() async {
+    if (!isAuthenticated) return;
+    // Optimistic: clear locally in one update to keep UI snappy.
+    _payload?.tripCart.clear();
+    notifyListeners();
+    await _api.clearTripCart(userId: _userId);
+    _backgroundRefresh();
+  }
+
   Future<void> forgotPassword(String email) async {
     await _api.forgotPassword(email);
   }

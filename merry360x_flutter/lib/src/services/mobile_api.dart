@@ -191,6 +191,10 @@ class MobileApi {
     await _sb.from('trip_cart_items').delete().eq('id', id).eq('user_id', userId);
   }
 
+  Future<void> clearTripCart({required String userId}) async {
+    await _sb.from('trip_cart_items').delete().eq('user_id', userId);
+  }
+
   // ── Checkout requests ──
 
   /// Create a checkout_requests row (needed for card / bank transfer payments)

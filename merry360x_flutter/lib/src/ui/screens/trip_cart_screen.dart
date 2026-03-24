@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
@@ -65,10 +67,26 @@ class _TripCartScreenState extends State<TripCartScreen> {
                       ],
                     ),
                   );
+                  if (!context.mounted) return;
                   if (confirmed == true) {
-                    for (final item in items) {
-                      await session.removeTripCartItem((item['id'] ?? '').toString());
-                    }
+                    final itemCount = items.length;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Clearing $itemCount item${itemCount == 1 ? '' : 's'}...'),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                    unawaited(
+                      session.clearTripCart().catchError((_) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Could not clear cart. Please try again.'),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      }),
+                    );
                   }
                 },
                 child: const Text('Clear', style: TextStyle(color: AppColors.rausch)),
@@ -179,13 +197,23 @@ class _CartItemTile extends StatelessWidget {
         ),
         child: const Icon(Icons.delete_outline, color: AppColors.rausch),
       ),
-      onDismissed: (_) async {
-        await session.removeTripCartItem(id);
+      onDismissed: (_) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Removed from cart'), behavior: SnackBarBehavior.floating),
           );
         }
+        unawaited(
+          session.removeTripCartItem(id).catchError((_) {
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Could not remove item. Pull to refresh and retry.'),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }),
+        );
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
@@ -241,14 +269,24 @@ class _CartItemTile extends StatelessWidget {
             ),
             IconButton(
               icon: const Icon(Icons.close, size: 18, color: AppColors.hackberry),
-              onPressed: () async {
-                await session.removeTripCartItem(id);
+              onPressed: () {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                         content: Text('Removed'), behavior: SnackBarBehavior.floating),
                   );
                 }
+                unawaited(
+                  session.removeTripCartItem(id).catchError((_) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Could not remove item. Pull to refresh and retry.'),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }),
+                );
               },
             ),
           ],
