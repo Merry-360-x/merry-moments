@@ -66,5 +66,11 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Merry360x needs access to your photo library to upload listing images.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Merry360x needs camera access to take photos for your listings.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Merry360x needs access to save photos to your library.</string>
 </dict>
 </plist>

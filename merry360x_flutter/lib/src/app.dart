@@ -29,7 +29,7 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp> {
   @override
   Widget build(BuildContext context) {
     const accent = Color(0xFFE2555A);
-    const bg = Color(0xFFFFFFFF);
+    const bg = Color(0xFFF7F7F8);
 
     return AnimatedBuilder(
       animation: _session,
@@ -68,14 +68,14 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp> {
             ),
             inputDecorationTheme: InputDecorationTheme(
               filled: true,
-              fillColor: Colors.white,
+              fillColor: const Color(0xFFFFFFFF),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: Color(0xFFE6E6EB)),
+                borderSide: const BorderSide(color: Color(0xFFE1E1E6)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: Color(0xFFE6E6EB)),
+                borderSide: const BorderSide(color: Color(0xFFE1E1E6)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),

@@ -1,7 +1,9 @@
 import { Link } from "react-router-dom";
 import Logo from "./Logo";
 import { useTranslation } from "react-i18next";
-import { Facebook, Instagram, Linkedin, Youtube } from "lucide-react";
+import { Bell, Facebook, Instagram, Linkedin, Mail, Youtube } from "lucide-react";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { FormEvent, useState } from "react";
 
 type IconProps = { className?: string };
 
@@ -39,8 +41,93 @@ const socialLinks = [
   { label: "TikTok", href: "https://www.tiktok.com/@merry360x", Icon: TikTokIcon, colorClass: "text-[#111111] dark:text-white" },
 ];
 
+const updatesLinks = [
+  {
+    label: "Announcements",
+    description: "See product updates and new launches.",
+    to: "/stories",
+    Icon: Bell,
+  },
+];
+
+const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+
 const Footer = () => {
   const { t } = useTranslation();
+  const [newsletterEmail, setNewsletterEmail] = useState("");
+  const [newsletterError, setNewsletterError] = useState<string | null>(null);
+  const [isSubscribed, setIsSubscribed] = useState(false);
+
+  const handleNewsletterSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!isValidEmail(newsletterEmail)) {
+      setNewsletterError("Enter a valid email address.");
+      return;
+    }
+
+    setNewsletterError(null);
+    setIsSubscribed(true);
+    setNewsletterEmail("");
+  };
+
+  const renderUpdatesContent = (compact = false) => (
+    <div className="space-y-3">
+      <div className="rounded-md border border-border/70 bg-muted/30 p-2.5">
+        <div className="mb-2 flex items-start gap-2">
+          <Mail className="mt-0.5 h-4 w-4 text-primary" />
+          <div>
+            <p className="text-sm font-medium text-foreground">Newsletter</p>
+            <p className="text-xs text-muted-foreground">Get travel drops and limited offers.</p>
+          </div>
+        </div>
+        {isSubscribed ? (
+          <p className="text-xs font-medium text-green-600">Thanks for subscribing.</p>
+        ) : (
+          <form onSubmit={handleNewsletterSubmit} className="space-y-1.5">
+            <label htmlFor="footer-newsletter-email" className="sr-only">
+              Email address
+            </label>
+            <input
+              id="footer-newsletter-email"
+              type="email"
+              value={newsletterEmail}
+              onChange={(event) => {
+                setNewsletterEmail(event.target.value);
+                if (newsletterError) setNewsletterError(null);
+              }}
+              placeholder="you@example.com"
+              className="h-8 w-full rounded-md border border-border bg-background px-2.5 text-xs text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+              autoComplete="email"
+              required
+            />
+            {newsletterError && <p className="text-[11px] text-destructive">{newsletterError}</p>}
+            <button
+              type="submit"
+              className="inline-flex h-8 items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              Subscribe
+            </button>
+          </form>
+        )}
+      </div>
+
+      {updatesLinks.map((item) => (
+        <Link
+          key={item.label}
+          to={item.to}
+          className={`flex items-start ${compact ? "gap-2" : "gap-3"} rounded-md p-2 transition-colors hover:bg-muted`}
+        >
+          <item.Icon className="mt-0.5 h-4 w-4 text-primary" />
+          <div>
+            <p className="text-sm font-medium text-foreground">{item.label}</p>
+            <p className="text-xs text-muted-foreground">{item.description}</p>
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
+
   return (
     <footer className="bg-background border-t border-border">
       <div className="container mx-auto px-4 lg:px-8 py-6 md:py-12">
@@ -94,6 +181,22 @@ const Footer = () => {
                 <social.Icon className="h-4 w-4" />
               </a>
             ))}
+          </div>
+          <div className="mb-4 flex justify-center">
+            <HoverCard openDelay={120} closeDelay={120}>
+              <HoverCardTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border/70 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground hover:border-primary/50"
+                >
+                  <Bell className="h-3.5 w-3.5" />
+                  Updates
+                </button>
+              </HoverCardTrigger>
+              <HoverCardContent align="center" side="top" className="w-72 p-3">
+                {renderUpdatesContent(true)}
+              </HoverCardContent>
+            </HoverCard>
           </div>
           {/* Copyright */}
           <div className="text-center text-xs text-muted-foreground pt-4 border-t border-border">
@@ -214,6 +317,20 @@ const Footer = () => {
             {t("footer.copyright", { year: new Date().getFullYear() })}
           </p>
           <div className="flex items-center gap-6">
+            <HoverCard openDelay={120} closeDelay={120}>
+              <HoverCardTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-primary"
+                >
+                  <Bell className="h-4 w-4" />
+                  Updates
+                </button>
+              </HoverCardTrigger>
+              <HoverCardContent align="end" side="top" className="w-80 p-3">
+                {renderUpdatesContent(false)}
+              </HoverCardContent>
+            </HoverCard>
             <Link to="/privacy-policy" className="text-sm text-muted-foreground hover:text-primary transition-colors">
               Privacy
             </Link>

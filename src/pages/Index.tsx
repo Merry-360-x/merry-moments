@@ -15,8 +15,12 @@ import TourPromoCard from "@/components/TourPromoCard";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getTourPricingModel } from "@/lib/tour-pricing";
-import { ChevronLeft, ChevronRight, TrendingUp, X } from "lucide-react";
+import { Bell, ChevronLeft, ChevronRight, Mail, TrendingUp, X } from "lucide-react";
 import heroVideo from "@/assets/merry.mp4";
+
+const HOME_UPDATES_DISMISS_KEY = "home-updates-popup-dismissed-at";
+
+const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
 type HomeTour = {
   id: string;
@@ -77,6 +81,10 @@ const Index = () => {
   const [activeStoryModalIndex, setActiveStoryModalIndex] = useState<number | null>(null);
   const [stayCityInput, setStayCityInput] = useState("");
   const [stayCity, setStayCity] = useState("");
+  const [showUpdatesPopup, setShowUpdatesPopup] = useState(false);
+  const [newsletterEmail, setNewsletterEmail] = useState("");
+  const [newsletterError, setNewsletterError] = useState<string | null>(null);
+  const [isSubscribed, setIsSubscribed] = useState(false);
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -84,6 +92,35 @@ const Index = () => {
     }, 250);
     return () => window.clearTimeout(handle);
   }, [stayCityInput]);
+
+  useEffect(() => {
+    const dismissedAt = Number(window.localStorage.getItem(HOME_UPDATES_DISMISS_KEY) || "0");
+    const oneDayMs = 24 * 60 * 60 * 1000;
+    if (dismissedAt > 0 && Date.now() - dismissedAt < oneDayMs) return;
+
+    const timer = window.setTimeout(() => {
+      setShowUpdatesPopup(true);
+    }, 900);
+
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const closeUpdatesPopup = () => {
+    setShowUpdatesPopup(false);
+    window.localStorage.setItem(HOME_UPDATES_DISMISS_KEY, String(Date.now()));
+  };
+
+  const handleNewsletterSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!isValidEmail(newsletterEmail)) {
+      setNewsletterError("Enter a valid email address.");
+      return;
+    }
+
+    setNewsletterError(null);
+    setIsSubscribed(true);
+    setNewsletterEmail("");
+  };
 
   const { data: popularTours = [], isLoading: isPopularToursLoading } = useQuery({
     queryKey: ["home-popular-tours"],
@@ -451,6 +488,70 @@ const Index = () => {
       <HostingCTA />
 
       <Footer />
+
+      <Dialog open={showUpdatesPopup} onOpenChange={(open) => !open && closeUpdatesPopup()}>
+        <DialogContent className="max-w-md border-border/60 p-0 overflow-hidden">
+          <div className="bg-gradient-to-br from-primary/12 via-background to-background p-6">
+            <div className="mb-5 flex items-start gap-3">
+              <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-primary">
+                <Bell className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">Newsletters & Announcements</h3>
+                <p className="mt-1 text-sm text-muted-foreground">Get platform updates and travel offers in one place.</p>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border/70 bg-background p-4">
+              <div className="mb-3 flex items-start gap-2">
+                <Mail className="mt-0.5 h-4 w-4 text-primary" />
+                <div>
+                  <p className="text-sm font-medium text-foreground">Newsletter</p>
+                  <p className="text-xs text-muted-foreground">Receive curated deals and destination highlights.</p>
+                </div>
+              </div>
+
+              {isSubscribed ? (
+                <p className="text-xs font-medium text-green-600">Thanks for subscribing.</p>
+              ) : (
+                <form onSubmit={handleNewsletterSubmit} className="space-y-2">
+                  <label htmlFor="home-newsletter-email" className="sr-only">Email address</label>
+                  <input
+                    id="home-newsletter-email"
+                    type="email"
+                    value={newsletterEmail}
+                    onChange={(event) => {
+                      setNewsletterEmail(event.target.value);
+                      if (newsletterError) setNewsletterError(null);
+                    }}
+                    placeholder="you@example.com"
+                    className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+                    autoComplete="email"
+                    required
+                  />
+                  {newsletterError && <p className="text-xs text-destructive">{newsletterError}</p>}
+                  <Button type="submit" className="h-9 w-full">Subscribe</Button>
+                </form>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                closeUpdatesPopup();
+                navigate("/stories");
+              }}
+              className="mt-4 flex w-full items-start gap-3 rounded-lg border border-border/70 bg-background p-3 text-left transition-colors hover:bg-muted"
+            >
+              <Bell className="mt-0.5 h-4 w-4 text-primary" />
+              <span>
+                <span className="block text-sm font-medium text-foreground">Announcements</span>
+                <span className="block text-xs text-muted-foreground">Open latest product and community updates.</span>
+              </span>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={activeStoryModalIndex !== null} onOpenChange={(open) => !open && closeStoryModal()}>
         <DialogContent className="max-w-xl p-0 overflow-hidden border-border/40 bg-black">
