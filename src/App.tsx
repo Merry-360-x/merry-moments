@@ -664,6 +664,7 @@ const App = () => (
               <Route path="/affiliate-signup" element={<AffiliateSignup />} />
               <Route path="/affiliate-dashboard" element={<AffiliateDashboard />} />
               <Route path="/affiliate" element={<RequireAuth><AffiliatePortal /></RequireAuth>} />
+              <Route path="/not-found" element={<NotFound />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

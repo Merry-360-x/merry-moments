@@ -71,7 +71,7 @@ export default function RequireRole({
 
   const hasAllowedRole = allowed.some((r) => roles.includes(r));
   if (!hasAllowedRole) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/not-found" replace />;
   }
 
   return children;
