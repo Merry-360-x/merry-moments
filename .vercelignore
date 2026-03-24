@@ -1,14 +1,27 @@
 # Large/non-production folders
+merry360x_flutter/
 merry360x_mobile/
+merry360x_mobile_design_preview/
 archive/
 playwright-report/
 test-results/
 tmp/
+.tmp/
+.venv/
+dist/
+
+# Flutter build artifacts (defensive in case folder exists elsewhere)
+**/build/
+**/.dart_tool/
+**/ios/Pods/
+**/macos/Pods/
 
 # Dev artifacts
 node_modules/
 .vscode/
 .DS_Store
+.git/
+.vercel/
 
 # Local environment
 .env
