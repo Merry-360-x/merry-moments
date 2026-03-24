@@ -467,9 +467,18 @@ export default function PropertyDetails() {
       return base.map((r) => {
         const profile = r.reviewer_id ? profilesByKey.get(String(r.reviewer_id)) : undefined;
         const firstName = (profile?.full_name || "").trim().split(/\s+/).filter(Boolean)[0] || "";
-        const reviewerName = firstName || profile?.nickname || "Guest";
+        const nickname = (profile?.nickname || "").trim();
+        const usableNickname = /^(guest|anonymous)$/i.test(nickname) ? "" : nickname;
+        const rawComment = String(r.comment || "").trim();
+        const reviewedByMatch = rawComment.match(/reviewed\s+by\s+([^.!?:\n]+)[.!?:\-\s]*/i);
+        const inferredName = reviewedByMatch ? String(reviewedByMatch[1] || "").trim() : "";
+        const cleanedComment = reviewedByMatch
+          ? (rawComment.replace(reviewedByMatch[0], "").trim() || null)
+          : (rawComment || null);
+        const reviewerName = firstName || usableNickname || inferredName || "Guest";
         return {
           ...r,
+          comment: cleanedComment,
           reviewer_name: reviewerName,
         };
       }) as Array<{ id: string; reviewer_id: string | null; rating: number; comment: string | null; created_at: string; reviewer_name: string }>;
@@ -1921,14 +1930,14 @@ export default function PropertyDetails() {
                                 />
                               ))}
                             </div>
-                            <span className="text-sm font-medium text-foreground">{r.reviewer_name}</span>
+                            <span className="text-sm font-medium text-foreground">{(() => { const raw = String(r.comment || "").trim(); const m = raw.match(/reviewed\s+by\s+([^.!?:\n]+)[.!?:\-\s]*/i); const inferred = m ? String(m[1] || "").trim() : ""; const current = String(r.reviewer_name || "").trim(); return /^(guest|anonymous)$/i.test(current) ? (inferred || "Guest") : (r.reviewer_name || "Guest"); })()}</span>
                           </div>
                           <div className="text-xs text-muted-foreground">
                             {new Date(r.created_at).toLocaleDateString()}
                           </div>
                         </div>
                         {r.comment ? (
-                          <p className="mt-2 text-sm text-foreground/90 leading-relaxed">{r.comment}</p>
+                          <p className="mt-2 text-sm text-foreground/90 leading-relaxed">{(() => { const raw = String(r.comment || "").trim(); const m = raw.match(/reviewed\s+by\s+([^.!?:\n]+)[.!?:\-\s]*/i); return m ? (raw.replace(m[0], "").trim() || null) : r.comment; })()}</p>
                         ) : null}
                       </div>
                     ))}
