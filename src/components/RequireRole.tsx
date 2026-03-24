@@ -71,7 +71,8 @@ export default function RequireRole({
 
   const hasAllowedRole = allowed.some((r) => roles.includes(r));
   if (!hasAllowedRole) {
-    return <Navigate to="/not-found" replace />;
+    const next = `${location.pathname}${location.search}`;
+    return <Navigate to={`/access-denied?from=${encodeURIComponent(next)}`} replace />;
   }
 
   return children;

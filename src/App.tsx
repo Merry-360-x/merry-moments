@@ -27,6 +27,7 @@ const HostDashboard = lazy(() => import("./pages/HostDashboard"));
 const MyBookings = lazy(() => import("./pages/MyBookings"));
 const Favorites = lazy(() => import("./pages/Favorites"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const AccessDenied = lazy(() => import("./pages/AccessDenied"));
 const BecomeHost = lazy(() => import("./pages/BecomeHost"));
 const BookingsPage = lazy(() => import("./pages/BookingsPage"));
 const AdminRoles = lazy(() => import("./pages/AdminRoles"));
@@ -664,6 +665,7 @@ const App = () => (
               <Route path="/affiliate-signup" element={<AffiliateSignup />} />
               <Route path="/affiliate-dashboard" element={<AffiliateDashboard />} />
               <Route path="/affiliate" element={<RequireAuth><AffiliatePortal /></RequireAuth>} />
+              <Route path="/access-denied" element={<AccessDenied />} />
               <Route path="/not-found" element={<NotFound />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
