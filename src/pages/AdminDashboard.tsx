@@ -28,7 +28,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
   PAWAPAY_PROCESSING_FEE_PERCENT,
   calculatePawaPayProcessing,
@@ -4296,7 +4296,12 @@ For support, contact: support@merry360x.com
                                 <Cell key={`region-pie-${entry.region}`} fill={entry.fill} />
                               ))}
                             </Pie>
-                            <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+                            <Tooltip
+                              formatter={(value: number, _name, item) => {
+                                const row = item?.payload as { region: string; share: number };
+                                return [`${value} bookings (${row?.share?.toFixed(1) ?? "0.0"}%)`, row?.region ?? "Region"];
+                              }}
+                            />
                           </PieChart>
                         </ResponsiveContainer>
                       </div>
