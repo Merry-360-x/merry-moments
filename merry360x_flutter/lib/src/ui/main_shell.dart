@@ -36,6 +36,9 @@ class _MainShellState extends State<MainShell> {
   }
 
   void _handleSessionChange() {
+    if (mounted) {
+      setState(() {});
+    }
     if (!mounted || _authSheetOpen || _hasPromptedAuth) {
       return;
     }

@@ -23,6 +23,32 @@ class _TripCartScreenState extends State<TripCartScreen> {
   Map<String, dynamic>? _discountData;
 
   @override
+  void initState() {
+    super.initState();
+    widget.session.addListener(_onSessionChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant TripCartScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.session != widget.session) {
+      oldWidget.session.removeListener(_onSessionChanged);
+      widget.session.addListener(_onSessionChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.session.removeListener(_onSessionChanged);
+    super.dispose();
+  }
+
+  void _onSessionChanged() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
     final session = widget.session;
     final items = session.payload?.tripCart ?? const <Map<String, dynamic>>[];

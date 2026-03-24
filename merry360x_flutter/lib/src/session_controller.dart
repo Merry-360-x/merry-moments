@@ -309,20 +309,18 @@ class SessionController extends ChangeNotifier {
 
   Future<void> removeTripCartItem(String id) async {
     if (!isAuthenticated || id.isEmpty) return;
-    // Optimistic: remove locally
+    // Optimistic: remove locally first — no re-fetch so the UI stays stable.
     _payload?.tripCart.removeWhere((c) => c['id'].toString() == id);
     notifyListeners();
-    await _api.removeFromTripCart(userId: _userId, id: id);
-    _backgroundRefresh();
+    unawaited(_api.removeFromTripCart(userId: _userId, id: id));
   }
 
   Future<void> clearTripCart() async {
     if (!isAuthenticated) return;
-    // Optimistic: clear locally in one update to keep UI snappy.
+    // Optimistic: clear locally — no re-fetch so the UI stays stable.
     _payload?.tripCart.clear();
     notifyListeners();
-    await _api.clearTripCart(userId: _userId);
-    _backgroundRefresh();
+    unawaited(_api.clearTripCart(userId: _userId));
   }
 
   Future<void> forgotPassword(String email) async {
