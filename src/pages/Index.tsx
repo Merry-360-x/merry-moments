@@ -15,7 +15,7 @@ import TourPromoCard from "@/components/TourPromoCard";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getTourPricingModel } from "@/lib/tour-pricing";
-import { Bell, ChevronLeft, ChevronRight, Mail, TrendingUp, X } from "lucide-react";
+import { ArrowRight, Bell, CheckCircle2, ChevronLeft, ChevronRight, Mail, Sparkles, TrendingUp, X } from "lucide-react";
 import heroVideo from "@/assets/merry.mp4";
 
 const HOME_UPDATES_DISMISS_KEY = "home-updates-popup-dismissed-at";
@@ -507,18 +507,30 @@ const Index = () => {
 
       <Dialog open={showUpdatesPopup} onOpenChange={(open) => !open && closeUpdatesPopup()}>
         <DialogContent className="max-w-md border-border/60 p-0 overflow-hidden">
-          <div className="bg-gradient-to-br from-primary/12 via-background to-background p-6">
-            <div className="mb-5 flex items-start gap-3">
-              <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-primary">
-                <Bell className="h-5 w-5" />
+          <div className="relative bg-gradient-to-br from-primary/15 via-background to-background p-6">
+            <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-primary/15 blur-2xl" />
+
+            <div className="mb-5 flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">Travel Insider Updates</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">Exclusive offers, fresh stories, and release notes in one digest.</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-semibold text-foreground">Newsletters & Announcements</h3>
-                <p className="mt-1 text-sm text-muted-foreground">Get platform updates and travel offers in one place.</p>
-              </div>
+              <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                Weekly
+              </span>
             </div>
 
-            <div className="rounded-lg border border-border/70 bg-background p-4">
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              <div className="rounded-md border border-border/70 bg-background/90 px-2.5 py-2 text-[11px] text-muted-foreground">Deals before public launch</div>
+              <div className="rounded-md border border-border/70 bg-background/90 px-2.5 py-2 text-[11px] text-muted-foreground">Stories from local hosts</div>
+            </div>
+
+            <div className="rounded-xl border border-border/70 bg-background p-4 shadow-sm">
               <div className="mb-3 flex items-start gap-2">
                 <Mail className="mt-0.5 h-4 w-4 text-primary" />
                 <div>
@@ -528,7 +540,10 @@ const Index = () => {
               </div>
 
               {isSubscribed ? (
-                <p className="text-xs font-medium text-green-600">Thanks for subscribing.</p>
+                <div className="flex items-center gap-2 rounded-md bg-emerald-50 px-2.5 py-2 text-xs font-medium text-emerald-700">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Thanks for subscribing.
+                </div>
               ) : (
                 <form onSubmit={handleNewsletterSubmit} className="space-y-2">
                   <label htmlFor="home-newsletter-email" className="sr-only">Email address</label>
@@ -541,12 +556,15 @@ const Index = () => {
                       if (newsletterError) setNewsletterError(null);
                     }}
                     placeholder="you@example.com"
-                    className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
                     autoComplete="email"
                     required
                   />
                   {newsletterError && <p className="text-xs text-destructive">{newsletterError}</p>}
-                  <Button type="submit" className="h-9 w-full">Subscribe</Button>
+                  <Button type="submit" className="h-10 w-full justify-between rounded-lg px-4">
+                    <span>Join newsletter</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
                 </form>
               )}
             </div>
@@ -557,13 +575,16 @@ const Index = () => {
                 closeUpdatesPopup();
                 navigate("/stories");
               }}
-              className="mt-4 flex w-full items-start gap-3 rounded-lg border border-border/70 bg-background p-3 text-left transition-colors hover:bg-muted"
+              className="mt-4 flex w-full items-center justify-between rounded-xl border border-border/70 bg-background p-3 text-left transition-colors hover:bg-muted"
             >
-              <Bell className="mt-0.5 h-4 w-4 text-primary" />
-              <span>
-                <span className="block text-sm font-medium text-foreground">Announcements</span>
-                <span className="block text-xs text-muted-foreground">Open latest product and community updates.</span>
+              <span className="flex items-start gap-3">
+                <Bell className="mt-0.5 h-4 w-4 text-primary" />
+                <span>
+                  <span className="block text-sm font-medium text-foreground">Announcements</span>
+                  <span className="block text-xs text-muted-foreground">Open latest product and community updates.</span>
+                </span>
               </span>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
             </button>
           </div>
         </DialogContent>

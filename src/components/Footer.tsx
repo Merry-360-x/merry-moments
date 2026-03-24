@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import Logo from "./Logo";
 import { useTranslation } from "react-i18next";
-import { Bell, Facebook, Instagram, Linkedin, Mail, Youtube } from "lucide-react";
+import { ArrowRight, Bell, CheckCircle2, Facebook, Instagram, Linkedin, Mail, Sparkles, Youtube } from "lucide-react";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { FormEvent, useState } from "react";
 
@@ -73,16 +73,23 @@ const Footer = () => {
 
   const renderUpdatesContent = (compact = false) => (
     <div className="space-y-3">
-      <div className="rounded-md border border-border/70 bg-muted/30 p-2.5">
+      <div className="rounded-lg border border-border/70 bg-gradient-to-br from-primary/10 via-background to-background p-3">
+        <div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+          <Sparkles className="h-3 w-3" />
+          Newsletter
+        </div>
         <div className="mb-2 flex items-start gap-2">
           <Mail className="mt-0.5 h-4 w-4 text-primary" />
           <div>
             <p className="text-sm font-medium text-foreground">Newsletter</p>
-            <p className="text-xs text-muted-foreground">Get travel drops and limited offers.</p>
+            <p className="text-xs text-muted-foreground">Get travel drops, launch updates, and limited offers.</p>
           </div>
         </div>
         {isSubscribed ? (
-          <p className="text-xs font-medium text-green-600">Thanks for subscribing.</p>
+          <p className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            Thanks for subscribing.
+          </p>
         ) : (
           <form onSubmit={handleNewsletterSubmit} className="space-y-1.5">
             <label htmlFor="footer-newsletter-email" className="sr-only">
@@ -104,9 +111,10 @@ const Footer = () => {
             {newsletterError && <p className="text-[11px] text-destructive">{newsletterError}</p>}
             <button
               type="submit"
-              className="inline-flex h-8 items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
             >
               Subscribe
+              <ArrowRight className="h-3.5 w-3.5" />
             </button>
           </form>
         )}
