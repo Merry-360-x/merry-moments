@@ -54,6 +54,8 @@ class _TripCartScreenState extends State<TripCartScreen> {
     final items = session.payload?.tripCart ?? const <Map<String, dynamic>>[];
     final listings = session.payload?.homeListings ?? const <Map<String, dynamic>>[];
 
+    // IMPORTANT: spread matched first, then ci, so cart-specific fields (id,
+    // item_type, quantity, etc.) are never overwritten by listing data.
     final enriched = items.map((ci) {
       final ref = (ci['property_id'] ?? ci['tour_id'] ?? ci['transport_id'] ?? ci['reference_id'] ?? '').toString();
       final type = (ci['item_type'] ?? 'property').toString();
@@ -61,124 +63,134 @@ class _TripCartScreenState extends State<TripCartScreen> {
         (l) => l['id']?.toString() == ref && l['item_type']?.toString() == type,
         orElse: () => const {},
       );
-      return <String, dynamic>{...ci, ...matched};
+      return <String, dynamic>{...matched, ...ci}; // ci wins — preserves cart id
     }).toList();
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
-      children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'Trip cart',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: AppColors.black),
-              ),
-            ),
-            if (items.isNotEmpty)
-              TextButton(
-                onPressed: () async {
-                  final confirmed = await showDialog<bool>(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text('Clear cart?'),
-                      content: const Text('Remove all items from your trip cart?'),
-                      actions: [
-                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                        FilledButton(
-                          style: FilledButton.styleFrom(backgroundColor: AppColors.rausch),
-                          onPressed: () => Navigator.pop(ctx, true),
-                          child: const Text('Clear'),
-                        ),
-                      ],
-                    ),
-                  );
-                  if (!context.mounted) return;
-                  if (confirmed == true) {
-                    final itemCount = items.length;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Clearing $itemCount item${itemCount == 1 ? '' : 's'}...'),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                    unawaited(
-                      session.clearTripCart().catchError((_) {
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Could not clear cart. Please try again.'),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      }),
-                    );
-                  }
-                },
-                child: const Text('Clear', style: TextStyle(color: AppColors.rausch)),
-              ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        if (session.isAuthenticated)
-          Text('${items.length} item${items.length != 1 ? 's' : ''}',
-              style: const TextStyle(color: AppColors.foggy)),
-        const SizedBox(height: 16),
+    final bool hasItems = session.isAuthenticated && items.isNotEmpty;
 
-        if (!session.isAuthenticated)
-          _InfoCard(
-            icon: Icons.person_outline,
-            title: 'Sign in to view your cart',
-            subtitle: 'Your trip cart will sync with your account across all devices.',
-          )
-        else if (items.isEmpty)
-          _InfoCard(
-            icon: Icons.luggage_outlined,
-            title: 'Your trip cart is empty',
-            subtitle: 'Explore stays, tours, or transport and add them to your trip.',
-          )
-        else ...[
-          ...enriched.map(
-            (ci) => _CartItemTile(cartItem: ci, session: session),
-          ),
-          const SizedBox(height: 8),
-          _TotalBar(
-            items: enriched,
-            onDiscountChanged: (code, data) {
-              setState(() { _discountCode = code; _discountData = data; });
-            },
-          ),
-          const SizedBox(height: 14),
-          SizedBox(
-            height: 52,
-            child: FilledButton(
-              onPressed: () {
-                if (enriched.isEmpty) return;
-                final first = enriched.first;
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => CheckoutScreen(
-                      item: first,
-                      guests: int.tryParse('${first['quantity'] ?? 1}') ?? 1,
-                      session: session,
-                      initialDiscountCode: _discountCode,
-                      initialDiscount: _discountData,
+    return Column(
+      children: [
+        // ── Scrollable content ──
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Trip cart',
+                      style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: AppColors.black),
                     ),
                   ),
-                );
-              },
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.rausch,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  if (items.isNotEmpty)
+                    TextButton(
+                      onPressed: () async {
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Clear cart?'),
+                            content: const Text('Remove all items from your trip cart?'),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                              FilledButton(
+                                style: FilledButton.styleFrom(backgroundColor: AppColors.rausch),
+                                onPressed: () => Navigator.pop(ctx, true),
+                                child: const Text('Clear'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (!context.mounted) return;
+                        if (confirmed == true) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Clearing ${items.length} item${items.length == 1 ? '' : 's'}...'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                          unawaited(session.clearTripCart());
+                        }
+                      },
+                      child: const Text('Clear', style: TextStyle(color: AppColors.rausch)),
+                    ),
+                ],
               ),
-              child: const Text(
-                'Proceed to checkout',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+              const SizedBox(height: 4),
+              if (session.isAuthenticated)
+                Text('${items.length} item${items.length != 1 ? 's' : ''}',
+                    style: const TextStyle(color: AppColors.foggy)),
+              const SizedBox(height: 16),
+
+              if (!session.isAuthenticated)
+                _InfoCard(
+                  icon: Icons.person_outline,
+                  title: 'Sign in to view your cart',
+                  subtitle: 'Your trip cart will sync with your account across all devices.',
+                )
+              else if (items.isEmpty)
+                _InfoCard(
+                  icon: Icons.luggage_outlined,
+                  title: 'Your trip cart is empty',
+                  subtitle: 'Explore stays, tours, or transport and add them to your trip.',
+                )
+              else ...[
+                ...enriched.map((ci) => _CartItemTile(cartItem: ci, session: session)),
+                const SizedBox(height: 8),
+                _TotalBar(
+                  items: enriched,
+                  onDiscountChanged: (code, data) {
+                    setState(() { _discountCode = code; _discountData = data; });
+                  },
+                ),
+                const SizedBox(height: 8),
+              ],
+            ],
+          ),
+        ),
+
+        // ── Pinned checkout button ──
+        if (hasItems)
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+            decoration: const BoxDecoration(
+              color: AppColors.white,
+              border: Border(top: BorderSide(color: Color(0xFFEBEBEB), width: 0.5)),
+            ),
+            child: SafeArea(
+              top: false,
+              child: SizedBox(
+                height: 52,
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () {
+                    if (enriched.isEmpty) return;
+                    final first = enriched.first;
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => CheckoutScreen(
+                          item: first,
+                          guests: int.tryParse('${first['quantity'] ?? 1}') ?? 1,
+                          session: session,
+                          initialDiscountCode: _discountCode,
+                          initialDiscount: _discountData,
+                        ),
+                      ),
+                    );
+                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.rausch,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: const Text(
+                    'Proceed to checkout',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                  ),
+                ),
               ),
             ),
           ),
-        ],
       ],
     );
   }
