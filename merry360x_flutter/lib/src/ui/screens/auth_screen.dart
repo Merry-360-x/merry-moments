@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
+import '../utils/app_snackbar.dart';
 
 import '../../session_controller.dart';
 
@@ -66,9 +67,7 @@ class _AuthScreenState extends State<AuthScreen> {
         final name = _nameController.text.trim();
         await widget.session.signUpWithEmail(email, password, fullName: name.isEmpty ? null : name);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Account created. Check your email to verify.')),
-          );
+          AppSnackBar.success(context, 'Account created. Check your email to verify.');
         }
       }
     } catch (e) {
@@ -138,11 +137,11 @@ class _AuthScreenState extends State<AuthScreen> {
                   await widget.session.forgotPassword(email);
                   if (ctx.mounted) {
                     Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Reset link sent! Check your email.')));
+                    AppSnackBar.success(context, 'Reset link sent! Check your email.');
                   }
                 } catch (e) {
                   if (ctx.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+                    AppSnackBar.error(context, 'Error: ${e.toString()}');
                   }
                 } finally {
                   if (ctx.mounted) setLocal(() => sending = false);
@@ -313,9 +312,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     onTap: _busy
                         ? null
                         : () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Google sign in coming soon.')),
-                            );
+                            AppSnackBar.info(context, 'Google sign in coming soon.');
                           },
                     iconUrl: 'https://www.gstatic.com/images/branding/product/1x/googleg_64dp.png',
                     child: const Text(''),

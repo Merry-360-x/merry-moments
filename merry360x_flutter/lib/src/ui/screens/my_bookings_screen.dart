@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
+import '../utils/app_snackbar.dart';
 import '../../session_controller.dart';
 
 class MyBookingsScreen extends StatefulWidget {
@@ -282,7 +283,7 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
 
   Future<void> _submit() async {
     if (_commentCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please add a comment')));
+      AppSnackBar.error(context, 'Please add a comment');
       return;
     }
     setState(() => _saving = true);
@@ -295,11 +296,11 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
         comment: _commentCtrl.text.trim(),
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Review submitted. Thank you!')));
+        AppSnackBar.success(context, 'Review submitted. Thank you!');
         Navigator.pop(context);
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) AppSnackBar.error(context, 'Error: $e');
     } finally {
       if (mounted) setState(() => _saving = false);
     }

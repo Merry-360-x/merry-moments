@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
+import '../utils/app_snackbar.dart';
 
 import '../../session_controller.dart';
 import 'property_details_screen.dart';
@@ -503,16 +504,12 @@ class ListingCard extends StatelessWidget {
                   child: GestureDetector(
                     onTap: () async {
                       if (!session.isAuthenticated) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Sign in to save to wishlist')),
-                        );
+                        AppSnackBar.info(context, 'Sign in to save to wishlist');
                         return;
                       }
                       await session.addListingToWishlist(item);
                       if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Saved to wishlist')),
-                        );
+                        AppSnackBar.success(context, 'Saved to wishlist');
                       }
                     },
                     child: Container(

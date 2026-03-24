@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../../app.dart';
+import '../utils/app_snackbar.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -538,11 +539,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
-  void _showSnack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating),
-    );
-  }
+  void _showSnack(String msg) => AppSnackBar.error(context, msg);
 
   @override
   Widget build(BuildContext context) {

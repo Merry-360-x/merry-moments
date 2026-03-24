@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
+import '../utils/app_snackbar.dart';
 import 'package:flutter/services.dart';
 
 import '../../services/mobile_api.dart';
@@ -94,7 +95,7 @@ class _AffiliatesScreenState extends State<AffiliatesScreen> {
                 GestureDetector(
                   onTap: () {
                     Clipboard.setData(ClipboardData(text: referralLink));
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Copied!')));
+                    AppSnackBar.success(context, 'Copied!');
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

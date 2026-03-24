@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
+import '../utils/app_snackbar.dart';
 
 import '../../session_controller.dart';
 
@@ -72,9 +73,7 @@ class WishlistsScreen extends StatelessWidget {
                     onPressed: () async {
                       await session.removeWishlistItem(id);
                       if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Removed from wishlist.')),
-                        );
+                        AppSnackBar.success(context, 'Removed from wishlist.');
                       }
                     },
                   ),

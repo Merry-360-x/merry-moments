@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
+import '../utils/app_snackbar.dart';
 
 import '../../services/mobile_api.dart';
 import '../../session_controller.dart';
@@ -196,7 +197,7 @@ class _TicketThreadScreenState extends State<_TicketThreadScreen> {
       });
       widget.onRefresh();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) AppSnackBar.error(context, 'Error: $e');
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -307,7 +308,7 @@ class _NewTicketSheetState extends State<_NewTicketSheet> {
 
   Future<void> _submit() async {
     if (_subjectCtrl.text.trim().isEmpty || _messageCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill in all fields')));
+      AppSnackBar.error(context, 'Please fill in all fields');
       return;
     }
     setState(() => _saving = true);
@@ -321,7 +322,7 @@ class _NewTicketSheetState extends State<_NewTicketSheet> {
         widget.onCreated();
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) AppSnackBar.error(context, 'Error: $e');
     } finally {
       if (mounted) setState(() => _saving = false);
     }

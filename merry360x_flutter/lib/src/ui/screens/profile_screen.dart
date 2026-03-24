@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
+import '../utils/app_snackbar.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../services/mobile_api.dart';
@@ -78,20 +79,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       await widget.session.deleteAccount();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Your account has been deleted.')),
-        );
+        AppSnackBar.success(context, 'Your account has been deleted.');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Could not complete account deletion in-app.'),
-            action: SnackBarAction(
-              label: 'Retry',
-              onPressed: _confirmDeleteAccount,
-            ),
-          ),
+        AppSnackBar.error(
+          context,
+          'Could not complete account deletion in-app.',
+          action: SnackBarAction(label: 'Retry', onPressed: _confirmDeleteAccount),
         );
       }
     }
@@ -247,9 +242,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       bio: _bioController.text,
                                     );
                                     if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Profile saved.')),
-                                      );
+                                      AppSnackBar.success(context, 'Profile saved.');
                                     }
                                   }
                                 : null,

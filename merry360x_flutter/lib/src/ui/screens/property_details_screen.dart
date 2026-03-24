@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../app.dart';
+import '../utils/app_snackbar.dart';
 import '../../services/mobile_api.dart';
 import '../../session_controller.dart';
 import 'checkout_screen.dart';
@@ -176,10 +177,10 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
       'guests': _guests,
       if (_nights > 0) 'nights': _nights,
     };
-    if (mounted) _showSnack('Added to trip cart ✓');
+    if (mounted) _showSnack('Added to trip cart ✓', isSuccess: true);
     unawaited(
       widget.session.addListingToTripCart(item, metadata: metadata).catchError((e) {
-        if (mounted) _showSnack('Could not add: $e');
+        if (mounted) _showSnack('Could not add: $e', isError: true);
       }),
     );
   }
@@ -203,11 +204,14 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
     );
   }
 
-  void _showSnack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg),
-      behavior: SnackBarBehavior.floating,
-    ));
+  void _showSnack(String msg, {bool isError = false, bool isSuccess = false}) {
+    if (isError) {
+      AppSnackBar.error(context, msg);
+    } else if (isSuccess) {
+      AppSnackBar.success(context, msg);
+    } else {
+      AppSnackBar.info(context, msg);
+    }
   }
 
   void _toggleLike() async {
@@ -220,14 +224,14 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
     try {
       if (_liked) {
         await session.addListingToWishlist(item);
-        if (mounted) _showSnack('Saved to wishlist');
+        if (mounted) _showSnack('Saved to wishlist', isSuccess: true);
       } else {
         await session.removeWishlistItem((item['id'] ?? '').toString());
-        if (mounted) _showSnack('Removed from wishlist');
+        if (mounted) _showSnack('Removed from wishlist', isSuccess: true);
       }
     } catch (e) {
       setState(() => _liked = !_liked);
-      if (mounted) _showSnack('Could not update wishlist');
+      if (mounted) _showSnack('Could not update wishlist', isError: true);
     }
   }
 

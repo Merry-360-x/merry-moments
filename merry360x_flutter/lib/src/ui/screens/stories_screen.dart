@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
+import '../utils/app_snackbar.dart';
 
 import '../../services/mobile_api.dart';
 import '../../session_controller.dart';
@@ -284,7 +285,7 @@ class _CreateStorySheetState extends State<_CreateStorySheet> {
 
   Future<void> _submit() async {
     if (_titleCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Title is required')));
+      AppSnackBar.error(context, 'Title is required');
       return;
     }
     setState(() => _saving = true);
@@ -301,7 +302,7 @@ class _CreateStorySheetState extends State<_CreateStorySheet> {
         widget.onCreated();
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) AppSnackBar.error(context, 'Error: $e');
     } finally {
       if (mounted) setState(() => _saving = false);
     }

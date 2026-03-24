@@ -156,6 +156,15 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp> {
                 borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
               ),
             ),
+            snackBarTheme: const SnackBarThemeData(
+              backgroundColor: AppColors.white,
+              behavior: SnackBarBehavior.floating,
+              elevation: 4,
+              actionTextColor: AppColors.rausch,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.all(Radius.circular(10)),
+              ),
+            ),
           ),
           home: MainShell(session: _session),
         );
