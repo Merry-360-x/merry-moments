@@ -143,14 +143,16 @@ class _SearchScreenState extends State<SearchScreen> {
     final suggestions = _suggestions;
     return Scaffold(
       backgroundColor: Colors.white,
-      // ── Pinned footer outside the scroll ──
+      // ── Pinned footer ──────────────────────────────────────────────
       bottomNavigationBar: SafeArea(
         top: false,
         child: Container(
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
           decoration: const BoxDecoration(
             color: Colors.white,
-            border: Border(top: BorderSide(color: Color(0xFFEBEBEB), width: 0.5)),
+            border: Border(
+              top: BorderSide(color: Color(0xFFEBEBEB), width: 0.5),
+            ),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -170,229 +172,344 @@ class _SearchScreenState extends State<SearchScreen> {
               FilledButton.icon(
                 onPressed: _doSearch,
                 icon: const Icon(Icons.search, size: 18),
-                label: const Text('Search', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                label: const Text(
+                  'Search',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                ),
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.rausch,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 14,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(50),
+                  ),
                 ),
               ),
             ],
           ),
         ),
       ),
-      body: Column(
-        children: [
-          // ── Category tabs row with X button overlaid ──
-          SafeArea(
-            bottom: false,
-            child: Stack(
-              alignment: Alignment.centerRight,
-              children: [
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.fromLTRB(12, 12, 56, 10),
-                  child: Row(
-                    children: [
-                      _TabChip(
-                        label: 'Accommodations',
-                        icon: Icons.apartment_outlined,
-                        active: _category == 'accommodations',
-                        onTap: () => setState(() => _category = 'accommodations'),
-                      ),
-                      const SizedBox(width: 8),
-                      _TabChip(
-                        label: 'Tours',
-                        icon: Icons.map_outlined,
-                        active: _category == 'tours',
-                        onTap: () => setState(() => _category = 'tours'),
-                      ),
-                      const SizedBox(width: 8),
-                      _TabChip(
-                        label: 'Transport',
-                        icon: Icons.directions_car_outlined,
-                        active: _category == 'transport',
-                        onTap: () => setState(() => _category = 'transport'),
-                      ),
-                    ],
-                  ),
-                ),
-                Positioned(
-                  right: 12,
-                  child: GestureDetector(
-                    onTap: () => Navigator.of(context).pop(),
-                    child: Container(
-                      width: 36, height: 36,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border.all(color: const Color(0xFFDDDDDD)),
-                        shape: BoxShape.circle,
-                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 4)],
-                      ),
-                      child: const Icon(Icons.close, size: 18, color: Color(0xFF444444)),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1, color: Color(0xFFEEEEEE)),
-
-          // ── Scrollable body ──
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      // ── Body ────────────────────────────────────────────────────────
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // -- Tab row with X button -----------------------------------
+            SizedBox(
+              height: 52,
+              child: Stack(
                 children: [
-                  // ── Where? card ──
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFFE0E0E0)),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, 3)),
-                      ],
-                    ),
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.fromLTRB(12, 8, 56, 8),
+                    child: Row(
                       children: [
-                        const Text('Where?', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: Color(0xFF1A1A1A))),
-                        const SizedBox(height: 12),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF7F7F7),
-                            borderRadius: BorderRadius.circular(50),
-                            border: Border.all(color: const Color(0xFFE0E0E0)),
-                          ),
-                          child: Row(
-                            children: [
-                              const Padding(
-                                padding: EdgeInsets.only(left: 16),
-                                child: Icon(Icons.search, size: 20, color: Color(0xFF999999)),
-                              ),
-                              Expanded(
-                                child: TextField(
-                                  controller: _whereCtrl,
-                                  autofocus: false,
-                                  decoration: const InputDecoration(
-                                    hintText: 'Search destinations',
-                                    hintStyle: TextStyle(color: Color(0xFF999999), fontSize: 15),
-                                    border: InputBorder.none,
-                                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                                  ),
-                                  style: const TextStyle(fontSize: 15, color: Color(0xFF1A1A1A)),
-                                  textInputAction: TextInputAction.search,
-                                  onSubmitted: (_) => _doSearch(),
-                                ),
-                              ),
-                              if (_where.isNotEmpty)
-                                GestureDetector(
-                                  onTap: () => _whereCtrl.clear(),
-                                  child: const Padding(
-                                    padding: EdgeInsets.only(right: 12),
-                                    child: Icon(Icons.cancel, size: 18, color: Color(0xFF999999)),
-                                  ),
-                                ),
-                            ],
-                          ),
+                        _TabChip(
+                          label: 'Accommodations',
+                          icon: Icons.apartment_outlined,
+                          active: _category == 'accommodations',
+                          onTap: () =>
+                              setState(() => _category = 'accommodations'),
                         ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'Suggested destinations',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1A1A1A)),
+                        const SizedBox(width: 8),
+                        _TabChip(
+                          label: 'Tours',
+                          icon: Icons.map_outlined,
+                          active: _category == 'tours',
+                          onTap: () => setState(() => _category = 'tours'),
                         ),
-                        const SizedBox(height: 6),
-                        ...suggestions.map((loc) => _DestRow(
-                          label: loc,
-                          subtitle: loc == _kNearbyLabel ? 'Use your current location' : 'Suggested destination',
-                          onTap: () {
-                            if (loc != _kNearbyLabel) {
-                              _whereCtrl.text = loc;
-                              FocusScope.of(context).unfocus();
-                            }
-                          },
-                        )),
+                        const SizedBox(width: 8),
+                        _TabChip(
+                          label: 'Transport',
+                          icon: Icons.directions_car_outlined,
+                          active: _category == 'transport',
+                          onTap: () =>
+                              setState(() => _category = 'transport'),
+                        ),
                       ],
                     ),
                   ),
-
-                  const SizedBox(height: 12),
-
-                  // ── When row ──
-                  GestureDetector(
-                    onTap: _pickDates,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFE0E0E0)),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('When', style: TextStyle(fontSize: 15, color: Color(0xFF999999))),
-                          Text(_dateLabel, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF1A1A1A))),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 10),
-
-                  // ── Who row ──
-                  GestureDetector(
-                    onTap: _pickGuests,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFE0E0E0)),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Who', style: TextStyle(fontSize: 15, color: Color(0xFF999999))),
-                          Text(_guestLabel, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF1A1A1A))),
-                        ],
+                  Positioned(
+                    right: 12,
+                    top: 8,
+                    child: GestureDetector(
+                      onTap: () => Navigator.of(context).pop(),
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(color: const Color(0xFFDDDDDD)),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.06),
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          size: 18,
+                          color: Color(0xFF444444),
+                        ),
                       ),
                     ),
                   ),
-
-                  // ── Results ──
-                  if (_loading) ...[  
-                    const SizedBox(height: 36),
-                    const Center(child: CircularProgressIndicator(color: AppColors.rausch)),
-                  ] else if (_searched && _results.isEmpty) ...[  
-                    const SizedBox(height: 36),
-                    Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.search_off, size: 44, color: Color(0xFFCCCCCC)),
-                          const SizedBox(height: 12),
-                          Text(
-                            _where.isEmpty ? 'No listings found' : 'No results for "$_where"',
-                            style: const TextStyle(color: Color(0xFF999999), fontSize: 14),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ] else if (_results.isNotEmpty) ...[  
-                    const SizedBox(height: 20),
-                    Text(
-                      '${_results.length} result${_results.length == 1 ? '' : 's'}',
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF555555)),
-                    ),
-                    const SizedBox(height: 10),
-                    ..._results.map((item) => _ResultTile(item: item, session: widget.session)),
-                  ],
                 ],
               ),
             ),
-        ],
+            const Divider(height: 1, color: Color(0xFFEEEEEE)),
+            // -- Scrollable content ---------------------------------------
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Where? card
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFFE0E0E0)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.06),
+                            blurRadius: 12,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Where?',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF1A1A1A),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF7F7F7),
+                              borderRadius: BorderRadius.circular(50),
+                              border:
+                                  Border.all(color: const Color(0xFFE0E0E0)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Padding(
+                                  padding: EdgeInsets.only(left: 16),
+                                  child: Icon(
+                                    Icons.search,
+                                    size: 20,
+                                    color: Color(0xFF999999),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: TextField(
+                                    controller: _whereCtrl,
+                                    autofocus: false,
+                                    decoration: const InputDecoration(
+                                      hintText: 'Search destinations',
+                                      hintStyle: TextStyle(
+                                        color: Color(0xFF999999),
+                                        fontSize: 15,
+                                      ),
+                                      border: InputBorder.none,
+                                      contentPadding:
+                                          EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 14,
+                                      ),
+                                    ),
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      color: Color(0xFF1A1A1A),
+                                    ),
+                                    textInputAction: TextInputAction.search,
+                                    onSubmitted: (_) => _doSearch(),
+                                  ),
+                                ),
+                                if (_where.isNotEmpty)
+                                  GestureDetector(
+                                    onTap: () => _whereCtrl.clear(),
+                                    child: const Padding(
+                                      padding: EdgeInsets.only(right: 12),
+                                      child: Icon(
+                                        Icons.cancel,
+                                        size: 18,
+                                        color: Color(0xFF999999),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Suggested destinations',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF1A1A1A),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          ...suggestions.map(
+                            (loc) => _DestRow(
+                              label: loc,
+                              subtitle: loc == _kNearbyLabel
+                                  ? 'Use your current location'
+                                  : 'Suggested destination',
+                              onTap: () {
+                                if (loc != _kNearbyLabel) {
+                                  _whereCtrl.text = loc;
+                                  FocusScope.of(context).unfocus();
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // When row
+                    GestureDetector(
+                      onTap: _pickDates,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFE0E0E0)),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 18,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'When',
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: Color(0xFF999999),
+                              ),
+                            ),
+                            Text(
+                              _dateLabel,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF1A1A1A),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    // Who row
+                    GestureDetector(
+                      onTap: _pickGuests,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFE0E0E0)),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 18,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Who',
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: Color(0xFF999999),
+                              ),
+                            ),
+                            Text(
+                              _guestLabel,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF1A1A1A),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // Results
+                    if (_loading) ...[
+                      const SizedBox(height: 36),
+                      const Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.rausch,
+                        ),
+                      ),
+                    ] else if (_searched && _results.isEmpty) ...[
+                      const SizedBox(height: 36),
+                      Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.search_off,
+                              size: 44,
+                              color: Color(0xFFCCCCCC),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              _where.isEmpty
+                                  ? 'No listings found'
+                                  : 'No results for "$_where"',
+                              style: const TextStyle(
+                                color: Color(0xFF999999),
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ] else if (_results.isNotEmpty) ...[
+                      const SizedBox(height: 20),
+                      Text(
+                        '${_results.length} result${_results.length == 1 ? '' : 's'}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF555555),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      ..._results.map(
+                        (item) => _ResultTile(
+                          item: item,
+                          session: widget.session,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
