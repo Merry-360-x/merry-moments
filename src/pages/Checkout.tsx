@@ -1100,6 +1100,10 @@ export default function CheckoutNew() {
       return [[countryName, METHODS_BY_COUNTRY[countryName]]] as [string, typeof METHODS_BY_COUNTRY[string]][];
     };
 
+    if (isAfricanRegion !== true) {
+      return [] as [string, typeof METHODS_BY_COUNTRY[string]][];
+    }
+
     const detectedName = detectedCountry ? PAWAPAY_COUNTRY_BY_ISO[detectedCountry.toUpperCase()] : undefined;
     const detected = singleCountry(detectedName);
     if (detected.length > 0) return detected;
@@ -1113,7 +1117,7 @@ export default function CheckoutNew() {
     if (codeFallback.length > 0) return codeFallback;
 
     return [] as [string, typeof METHODS_BY_COUNTRY[string]][];
-  }, [detectedCountry, paymentMethod, countryCode]);
+  }, [detectedCountry, paymentMethod, countryCode, isAfricanRegion]);
 
   useEffect(() => {
     if (!isMobileMoneyMethod) return;
@@ -1935,7 +1939,7 @@ export default function CheckoutNew() {
 
                   <div className={cn("grid gap-2 md:gap-3", isAfricanRegion === false ? "grid-cols-2" : "grid-cols-3")}>
                     {/* Mobile Money tab — only shown in African PawaPay regions */}
-                    {isAfricanRegion !== false && (
+                    {isAfricanRegion === true && (
                     <button
                       onClick={() => {
                         const nextMethod = isMobileMoneyMethod ? paymentMethod : lastMobileMethod;

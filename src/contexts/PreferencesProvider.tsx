@@ -40,9 +40,23 @@ async function detectCountryFromIP(): Promise<string | null> {
   if (cached) return cached;
   try {
     const res = await fetch("https://ipapi.co/json/", { signal: AbortSignal.timeout(3000) });
+    if (res.ok) {
+      const data = await res.json();
+      const cc = data.country_code || null;
+      if (cc) {
+        sessionStorage.setItem("merry360_geo_country", cc);
+        return cc;
+      }
+    }
+  } catch {
+    // Fallback below
+  }
+
+  try {
+    const res = await fetch("https://ipinfo.io/json", { signal: AbortSignal.timeout(3000) });
     if (!res.ok) return null;
     const data = await res.json();
-    const cc = data.country_code || null;
+    const cc = (data.country as string | undefined)?.toUpperCase() || null;
     if (cc) sessionStorage.setItem("merry360_geo_country", cc);
     return cc;
   } catch {

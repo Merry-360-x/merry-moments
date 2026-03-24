@@ -228,7 +228,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (methods.isNotEmpty) return methods;
     }
 
-    return _kPayMethods.where((m) => m.country == 'Rwanda').toList();
+    return const <_PayMethod>[];
   }
 
   Future<void> _detectRegion() async {
@@ -243,10 +243,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         iso = (data['country_code'] as String?)?.toUpperCase();
       }
     } catch (_) {
-      // Fallback: device locale
+      // Fallback below
     }
 
-    // 2. Fallback to device locale country
+    // 2. Fallback to secondary IP API
+    if (iso == null || iso.isEmpty) {
+      try {
+        final res = await http.get(
+          Uri.parse('https://ipinfo.io/json'),
+        ).timeout(const Duration(seconds: 3));
+        if (res.statusCode == 200) {
+          final data = jsonDecode(res.body) as Map<String, dynamic>;
+          iso = (data['country'] as String?)?.toUpperCase();
+        }
+      } catch (_) {
+        // Fallback below
+      }
+    }
+
+    // 3. Fallback to device locale country
     iso ??= Platform.localeName.split('_').lastOrNull?.toUpperCase();
 
     if (!mounted) return;
