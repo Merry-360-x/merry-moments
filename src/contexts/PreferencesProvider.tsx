@@ -33,18 +33,32 @@ const COUNTRY_CURRENCY_MAP: Record<string, AppCurrency> = {
   CN: "CNY",
 };
 
-// Detect country from IP using free API (cached in sessionStorage)
+const GEO_CACHE_COUNTRY_KEY = "merry360_geo_country";
+const GEO_CACHE_TS_KEY = "merry360_geo_country_ts";
+const GEO_CACHE_TTL_MS = 5 * 60 * 1000;
+
+// Detect country from IP using free APIs (short-lived cache to respect VPN/location changes)
 async function detectCountryFromIP(): Promise<string | null> {
   if (typeof window === "undefined") return null;
-  const cached = sessionStorage.getItem("merry360_geo_country");
-  if (cached) return cached;
+
+  const cached = sessionStorage.getItem(GEO_CACHE_COUNTRY_KEY);
+  const cachedTsRaw = sessionStorage.getItem(GEO_CACHE_TS_KEY);
+  const cachedTs = cachedTsRaw ? Number(cachedTsRaw) : NaN;
+  const cacheFresh = Number.isFinite(cachedTs) && Date.now() - cachedTs < GEO_CACHE_TTL_MS;
+  if (cached && cacheFresh) return cached;
+
+  const persist = (cc: string) => {
+    sessionStorage.setItem(GEO_CACHE_COUNTRY_KEY, cc);
+    sessionStorage.setItem(GEO_CACHE_TS_KEY, String(Date.now()));
+  };
+
   try {
     const res = await fetch("https://ipapi.co/json/", { signal: AbortSignal.timeout(3000) });
     if (res.ok) {
       const data = await res.json();
       const cc = data.country_code || null;
       if (cc) {
-        sessionStorage.setItem("merry360_geo_country", cc);
+        persist(cc);
         return cc;
       }
     }
@@ -57,11 +71,33 @@ async function detectCountryFromIP(): Promise<string | null> {
     if (!res.ok) return null;
     const data = await res.json();
     const cc = (data.country as string | undefined)?.toUpperCase() || null;
-    if (cc) sessionStorage.setItem("merry360_geo_country", cc);
-    return cc;
+    if (cc) {
+      persist(cc);
+      return cc;
+    }
   } catch {
-    return null;
+    // Fallback below
   }
+
+  try {
+    const res = await fetch("https://www.cloudflare.com/cdn-cgi/trace", { signal: AbortSignal.timeout(3000) });
+    if (res.ok) {
+      const text = await res.text();
+      const locLine = text
+        .split("\n")
+        .find((line) => line.startsWith("loc="));
+      const cc = locLine?.split("=")[1]?.trim().toUpperCase() || null;
+      if (cc) {
+        persist(cc);
+        return cc;
+      }
+    }
+  } catch {
+    // Return stale cache if available, else null
+    if (cached) return cached;
+  }
+
+  return cached ?? null;
 }
 
 export const PreferencesProvider = ({ children }: { children: ReactNode }) => {

@@ -261,7 +261,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       }
     }
 
-    // 3. Fallback to device locale country
+    // 3. Fallback to Cloudflare trace endpoint
+    if (iso == null || iso.isEmpty) {
+      try {
+        final res = await http.get(
+          Uri.parse('https://www.cloudflare.com/cdn-cgi/trace'),
+        ).timeout(const Duration(seconds: 3));
+        if (res.statusCode == 200) {
+          final line = res.body
+              .split('\n')
+              .firstWhere((l) => l.startsWith('loc='), orElse: () => '');
+          if (line.isNotEmpty) {
+            iso = line.split('=').last.trim().toUpperCase();
+          }
+        }
+      } catch (_) {
+        // Fallback below
+      }
+    }
+
+    // 4. Fallback to device locale country
     iso ??= Platform.localeName.split('_').lastOrNull?.toUpperCase();
 
     if (!mounted) return;
