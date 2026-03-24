@@ -22,6 +22,22 @@ const HOME_UPDATES_DISMISS_KEY = "home-updates-popup-dismissed-at";
 
 const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
+const readDismissedAt = (): number => {
+  try {
+    return Number(window.localStorage.getItem(HOME_UPDATES_DISMISS_KEY) || "0");
+  } catch {
+    return 0;
+  }
+};
+
+const persistDismissedAt = () => {
+  try {
+    window.localStorage.setItem(HOME_UPDATES_DISMISS_KEY, String(Date.now()));
+  } catch {
+    // Ignore storage errors so Home always remains accessible.
+  }
+};
+
 type HomeTour = {
   id: string;
   title: string;
@@ -94,7 +110,7 @@ const Index = () => {
   }, [stayCityInput]);
 
   useEffect(() => {
-    const dismissedAt = Number(window.localStorage.getItem(HOME_UPDATES_DISMISS_KEY) || "0");
+    const dismissedAt = readDismissedAt();
     const oneDayMs = 24 * 60 * 60 * 1000;
     if (dismissedAt > 0 && Date.now() - dismissedAt < oneDayMs) return;
 
@@ -107,7 +123,7 @@ const Index = () => {
 
   const closeUpdatesPopup = () => {
     setShowUpdatesPopup(false);
-    window.localStorage.setItem(HOME_UPDATES_DISMISS_KEY, String(Date.now()));
+    persistDismissedAt();
   };
 
   const handleNewsletterSubmit = (event: React.FormEvent<HTMLFormElement>) => {
