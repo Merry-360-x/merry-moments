@@ -121,35 +121,6 @@ class ExploreScreen extends StatelessWidget {
           isTablet ? 24 : 16,
         ),
         children: [
-          // ── Header ──
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Good morning', style: TextStyle(fontSize: isTablet ? 15 : 12, color: const Color(0xFF7A7A84))),
-                    SizedBox(height: isTablet ? 4 : 2),
-                    Text(
-                      'Discover Rwanda',
-                      style: TextStyle(fontSize: isTablet ? 42 : 24, fontWeight: FontWeight.w700, color: const Color(0xFF202025)),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                width: isTablet ? 48 : 36,
-                height: isTablet ? 48 : 36,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F1F4),
-                  borderRadius: BorderRadius.circular(isTablet ? 24 : 18),
-                ),
-                child: Icon(Icons.person, size: isTablet ? 22 : 18, color: const Color(0xFF4D4D54)),
-              ),
-            ],
-          ),
-          SizedBox(height: isTablet ? 16 : 12),
-
           // ── Search bar (taps to SearchScreen) ──
           GestureDetector(
             onTap: () => Navigator.push(context, MaterialPageRoute(
@@ -180,40 +151,6 @@ class ExploreScreen extends StatelessWidget {
           ),
           SizedBox(height: isTablet ? 14 : 10),
           _CategoryChips(isTablet: isTablet),
-          SizedBox(height: isTablet ? 14 : 10),
-
-          // ── Quick nav row: Tours / Transport / Stories ──
-          SizedBox(
-            height: isTablet ? 90 : 72,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                _QuickNavChip(
-                  label: 'Tours',
-                  icon: Icons.tour_outlined,
-                  color: const Color(0xFF5C6BC0),
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ToursScreen(session: session))),
-                  isTablet: isTablet,
-                ),
-                SizedBox(width: isTablet ? 10 : 8),
-                _QuickNavChip(
-                  label: 'Transport',
-                  icon: Icons.directions_car_outlined,
-                  color: const Color(0xFF26A69A),
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TransportScreen(session: session))),
-                  isTablet: isTablet,
-                ),
-                SizedBox(width: isTablet ? 10 : 8),
-                _QuickNavChip(
-                  label: 'Stories',
-                  icon: Icons.auto_stories_outlined,
-                  color: AppColors.rausch,
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => StoriesScreen(session: session))),
-                  isTablet: isTablet,
-                ),
-              ],
-            ),
-          ),
           SizedBox(height: isTablet ? 16 : 12),
 
           // ── Content ──

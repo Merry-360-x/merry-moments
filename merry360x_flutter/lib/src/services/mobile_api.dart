@@ -385,33 +385,33 @@ class MobileApi {
         var req = _sb
             .from('properties')
             .select('id, title, location, price_per_night, currency, images')
-            .eq('is_published', true)
-            .ilike('title', '%$q%');
+            .eq('is_published', true);
+        if (q.isNotEmpty) req = req.or('title.ilike.%$q%,location.ilike.%$q%');
         if (minPrice != null) req = req.gte('price_per_night', minPrice);
         if (maxPrice != null) req = req.lte('price_per_night', maxPrice);
-        final data = await req.limit(20);
+        final data = await req.limit(30);
         for (final r in (data as List).cast<Map<String, dynamic>>()) {
           results.add({...r, 'item_type': 'property'});
         }
       }
       if (category == 'all' || category == 'tours') {
-        final data = await _sb
+        var req2 = _sb
             .from('tours')
             .select('id, title, location, price_per_person, currency, images')
-            .eq('is_published', true)
-            .ilike('title', '%$q%')
-            .limit(20);
+            .eq('is_published', true);
+        if (q.isNotEmpty) req2 = req2.or('title.ilike.%$q%,location.ilike.%$q%');
+        final data = await req2.limit(30);
         for (final r in (data as List).cast<Map<String, dynamic>>()) {
           results.add({...r, 'item_type': 'tour'});
         }
       }
       if (category == 'all' || category == 'transport') {
-        final data = await _sb
+        var req3 = _sb
             .from('transport_vehicles')
             .select('id, title, vehicle_type, price_per_day, currency, image_url')
-            .eq('is_published', true)
-            .ilike('title', '%$q%')
-            .limit(20);
+            .eq('is_published', true);
+        if (q.isNotEmpty) req3 = req3.ilike('title', '%$q%');
+        final data = await req3.limit(30);
         for (final r in (data as List).cast<Map<String, dynamic>>()) {
           results.add({...r, 'item_type': 'transport', 'images': [r['image_url']]});
         }
