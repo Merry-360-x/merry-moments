@@ -151,7 +151,7 @@ const Index = () => {
           .limit(12),
         supabase
           .from("tour_packages")
-          .select("id, title, city, country, price_per_adult, currency, cover_image, gallery_images, rating, review_count, category, duration, host_id, pricing_tiers")
+          .select("id, title, city, country, price_per_adult, currency, cover_image, gallery_images, rating, review_count, category, duration, host_id")
           .eq("status", "approved")
           .order("rating", { ascending: false, nullsFirst: false })
           .order("created_at", { ascending: false })
@@ -194,12 +194,12 @@ const Index = () => {
         durationDays: parsePackageDurationDays(pkg.duration),
         source: "tour_packages",
         hostId: pkg.host_id,
-        pricingModel: getTourPricingModel(pkg.pricing_tiers),
-        pricingDurationValue: Number(pkg.pricing_tiers?.pricing_duration_value || 0) || null,
+        pricingModel: getTourPricingModel(null),
+        pricingDurationValue: null,
         pricingDurationUnit:
-          getTourPricingModel(pkg.pricing_tiers) === "per_hour"
+          getTourPricingModel(null) === "per_hour"
             ? "hour"
-            : getTourPricingModel(pkg.pricing_tiers) === "per_minute"
+            : getTourPricingModel(null) === "per_minute"
               ? "minute"
               : null,
       }));

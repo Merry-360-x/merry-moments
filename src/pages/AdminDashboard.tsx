@@ -1278,8 +1278,6 @@ export default function AdminDashboard() {
         from += pageSize;
       }
 
-      console.log("Bookings fetched:", allRows.length, "records");
-
       // Fetch property, tour, transport, profile, and checkout details separately
       const propertyIds = [...new Set(allRows.filter((b) => b.property_id).map((b) => b.property_id))];
       const tourIds = [...new Set(allRows.filter((b) => b.tour_id).map((b) => b.tour_id))];
