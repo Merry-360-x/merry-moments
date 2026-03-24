@@ -143,65 +143,105 @@ class _SearchScreenState extends State<SearchScreen> {
     final suggestions = _suggestions;
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            // ── Category tabs + X close ──
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          _TabChip(
-                            label: 'Accommodations',
-                            icon: Icons.apartment_outlined,
-                            active: _category == 'accommodations',
-                            onTap: () => setState(() => _category = 'accommodations'),
-                          ),
-                          const SizedBox(width: 8),
-                          _TabChip(
-                            label: 'Tours',
-                            icon: Icons.map_outlined,
-                            active: _category == 'tours',
-                            onTap: () => setState(() => _category = 'tours'),
-                          ),
-                          const SizedBox(width: 8),
-                          _TabChip(
-                            label: 'Transport',
-                            icon: Icons.directions_car_outlined,
-                            active: _category == 'transport',
-                            onTap: () => setState(() => _category = 'transport'),
-                          ),
-                        ],
-                      ),
-                    ),
+      // ── Pinned footer outside the scroll ──
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: Color(0xFFEBEBEB), width: 0.5)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              GestureDetector(
+                onTap: _clearAll,
+                child: const Text(
+                  'Clear all',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF555555),
+                    decoration: TextDecoration.underline,
+                    decorationColor: Color(0xFF555555),
                   ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
+                ),
+              ),
+              FilledButton.icon(
+                onPressed: _doSearch,
+                icon: const Icon(Icons.search, size: 18),
+                label: const Text('Search', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.rausch,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      body: Column(
+        children: [
+          // ── Category tabs row with X button overlaid ──
+          SafeArea(
+            bottom: false,
+            child: Stack(
+              alignment: Alignment.centerRight,
+              children: [
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.fromLTRB(12, 12, 56, 10),
+                  child: Row(
+                    children: [
+                      _TabChip(
+                        label: 'Accommodations',
+                        icon: Icons.apartment_outlined,
+                        active: _category == 'accommodations',
+                        onTap: () => setState(() => _category = 'accommodations'),
+                      ),
+                      const SizedBox(width: 8),
+                      _TabChip(
+                        label: 'Tours',
+                        icon: Icons.map_outlined,
+                        active: _category == 'tours',
+                        onTap: () => setState(() => _category = 'tours'),
+                      ),
+                      const SizedBox(width: 8),
+                      _TabChip(
+                        label: 'Transport',
+                        icon: Icons.directions_car_outlined,
+                        active: _category == 'transport',
+                        onTap: () => setState(() => _category = 'transport'),
+                      ),
+                    ],
+                  ),
+                ),
+                Positioned(
+                  right: 12,
+                  child: GestureDetector(
+                    onTap: () => Navigator.of(context).pop(),
                     child: Container(
                       width: 36, height: 36,
                       decoration: BoxDecoration(
+                        color: Colors.white,
                         border: Border.all(color: const Color(0xFFDDDDDD)),
                         shape: BoxShape.circle,
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 4)],
                       ),
                       child: const Icon(Icons.close, size: 18, color: Color(0xFF444444)),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            const Divider(height: 1, color: Color(0xFFEEEEEE)),
+          ),
+          const Divider(height: 1, color: Color(0xFFEEEEEE)),
 
-            // ── Scrollable body ──
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+          // ── Scrollable body ──
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
                 children: [
                   // ── Where? card ──
                   Container(
@@ -352,47 +392,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 ],
               ),
             ),
-
-            // ── Pinned bottom actions ──
-            SafeArea(
-              top: false,
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  border: Border(top: BorderSide(color: Color(0xFFEBEBEB), width: 0.5)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    GestureDetector(
-                      onTap: _clearAll,
-                      child: const Text(
-                        'Clear all',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFF555555),
-                          decoration: TextDecoration.underline,
-                          decorationColor: Color(0xFF555555),
-                        ),
-                      ),
-                    ),
-                    FilledButton.icon(
-                      onPressed: _doSearch,
-                      icon: const Icon(Icons.search, size: 18),
-                      label: const Text('Search', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.rausch,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
