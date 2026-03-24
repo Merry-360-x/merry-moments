@@ -123,9 +123,21 @@ class ExploreScreen extends StatelessWidget {
         children: [
           // ── Search bar (taps to SearchScreen) ──
           GestureDetector(
-            onTap: () => Navigator.push(context, MaterialPageRoute(
-              builder: (_) => SearchScreen(session: session),
-            )),
+            onTap: () => Navigator.push(
+              context,
+              PageRouteBuilder(
+                pageBuilder: (_, animation, __) => SearchScreen(session: session),
+                transitionDuration: const Duration(milliseconds: 380),
+                reverseTransitionDuration: const Duration(milliseconds: 300),
+                transitionsBuilder: (_, animation, __, child) {
+                  final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic, reverseCurve: Curves.easeInCubic);
+                  return SlideTransition(
+                    position: Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero).animate(curved),
+                    child: child,
+                  );
+                },
+              ),
+            ),
             child: Container(
               padding: EdgeInsets.symmetric(horizontal: isTablet ? 18 : 14, vertical: isTablet ? 16 : 12),
               decoration: BoxDecoration(
