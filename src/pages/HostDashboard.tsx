@@ -6788,57 +6788,6 @@ export default function HostDashboard() {
                       : "How much will you charge per night?"}
                   </p>
                 </div>
-
-                {isHotelType && (
-                  <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
-                    <div className="flex items-center justify-between gap-3 flex-wrap">
-                      <div>
-                        <h3 className="font-semibold text-foreground">Hotel rooms</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {editingHotel
-                            ? "Create and manage the rooms that belong to this hotel."
-                            : "Create this hotel first. After saving, you can add rooms directly under it."}
-                        </p>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={!editingHotel}
-                        onClick={() => openRoomWizard(editingHotel)}
-                      >
-                        <Plus className="w-4 h-4 mr-2" /> Create Room
-                      </Button>
-                    </div>
-
-                    {editingHotel ? (
-                      hotelLinkedRooms.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                          {hotelLinkedRooms.map((room) => (
-                            <div key={room.id} className="flex items-center gap-2 rounded-full border border-border px-2 py-1 bg-background">
-                              <Link to={`/properties/${room.id}`} className="text-xs text-primary hover:underline">
-                                {room.title}
-                              </Link>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                className="h-5 px-1 text-xs"
-                                onClick={() => openPropertyWizardForEdit(room)}
-                              >
-                                Edit
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-xs text-muted-foreground">No rooms linked yet.</p>
-                      )
-                    ) : (
-                      <p className="text-xs text-muted-foreground">Tip: save this hotel, then use Create Room to add room listings under it.</p>
-                    )}
-                  </div>
-                )}
-
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {propertyForm.listing_mode === "monthly_only" ? (
