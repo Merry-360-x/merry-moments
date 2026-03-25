@@ -65,9 +65,14 @@ class _AiScreenState extends State<AiScreen> {
           })
           .toList();
       final uri = Uri.parse('${AppConfig.apiBaseUrl.replaceAll('/api', '')}/api/ai-trip-advisor');
+      final headers = <String, String>{'Content-Type': 'application/json'};
+      final accessToken = widget.session.accessToken;
+      if (accessToken != null && accessToken.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $accessToken';
+      }
       final response = await http.post(
         uri,
-        headers: const {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode({
           'messages': history,
           'userId': widget.session.userId.isEmpty ? null : widget.session.userId,
@@ -103,9 +108,14 @@ class _AiScreenState extends State<AiScreen> {
     setState(() => _ratingBusy = true);
     try {
       final uri = Uri.parse('${AppConfig.apiBaseUrl.replaceAll('/api', '')}/api/ai-trip-advisor');
+      final headers = <String, String>{'Content-Type': 'application/json'};
+      final accessToken = widget.session.accessToken;
+      if (accessToken != null && accessToken.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $accessToken';
+      }
       final response = await http.post(
         uri,
-        headers: const {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode({
           'action': 'rate_conversation',
           'feedbackType': feedbackType,

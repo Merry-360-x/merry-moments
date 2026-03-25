@@ -26,10 +26,22 @@ type AiRecommendation = {
   property_type?: string;
 };
 
+type AiAction = {
+  type: string;
+  label: string;
+  referenceId?: string;
+  itemType?: string;
+  bookingId?: string;
+  orderId?: string;
+  url?: string;
+  variant?: string;
+};
+
 type ChatMsg = {
   role: "user" | "assistant";
   content: string;
   recommendations?: AiRecommendation[];
+  actions?: AiAction[];
 };
 
 type TicketRow = {
@@ -586,6 +598,49 @@ export default function SupportCenterLauncher() {
   };
 
   // AI chat send
+  const getAiRequestHeaders = async () => {
+    const { data } = await supabase.auth.getSession();
+    const accessToken = data.session?.access_token;
+    return {
+      "Content-Type": "application/json",
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    };
+  };
+
+  const parseAiResponse = (out: any) => {
+    const reply = typeof out?.reply === "string" ? out.reply : "Please try again.";
+    const recommendations: AiRecommendation[] = Array.isArray(out?.recommendations)
+      ? out.recommendations
+          .filter((x: unknown) => x && typeof x === "object" && typeof (x as { id?: unknown }).id === "string")
+          .map((x: any) => ({
+            id: String(x.id),
+            title: String(x.title || "Untitled"),
+            location: x.location ? String(x.location) : undefined,
+            currency: x.currency ? String(x.currency) : undefined,
+            price: Number(x.price || 0),
+            rating: Number(x.rating || 0),
+            review_count: Number(x.review_count || 0),
+            property_type: x.property_type ? String(x.property_type) : undefined,
+          }))
+          .slice(0, 3)
+      : [];
+    const actions: AiAction[] = Array.isArray(out?.actions)
+      ? out.actions
+          .filter((x: unknown) => x && typeof x === "object" && typeof (x as { type?: unknown }).type === "string")
+          .map((x: any) => ({
+            type: String(x.type),
+            label: String(x.label || "Action"),
+            referenceId: x.referenceId ? String(x.referenceId) : undefined,
+            itemType: x.itemType ? String(x.itemType) : undefined,
+            bookingId: x.bookingId ? String(x.bookingId) : undefined,
+            orderId: x.orderId ? String(x.orderId) : undefined,
+            url: x.url ? String(x.url) : undefined,
+            variant: x.variant ? String(x.variant) : undefined,
+          }))
+      : [];
+    return { reply, recommendations, actions };
+  };
+
   const sendAi = async () => {
     const text = aiDraft.trim();
     if (!text || aiSending) return;
@@ -597,30 +652,16 @@ export default function SupportCenterLauncher() {
     setAiMessages(next);
     setAiSending(true);
     try {
+      const headers = await getAiRequestHeaders();
       const r = await fetch("/api/ai-trip-advisor", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ messages: compactHistory, userId: user?.id ?? null, sessionId: aiSessionId, channel: "web" }),
       });
       const out = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error("AI request failed");
-      const reply = typeof out?.reply === "string" ? out.reply : "Please try again.";
-      const recommendations: AiRecommendation[] = Array.isArray(out?.recommendations)
-        ? out.recommendations
-            .filter((x: unknown) => x && typeof x === "object" && typeof (x as { id?: unknown }).id === "string")
-            .map((x: any) => ({
-              id: String(x.id),
-              title: String(x.title || "Untitled"),
-              location: x.location ? String(x.location) : undefined,
-              currency: x.currency ? String(x.currency) : undefined,
-              price: Number(x.price || 0),
-              rating: Number(x.rating || 0),
-              review_count: Number(x.review_count || 0),
-              property_type: x.property_type ? String(x.property_type) : undefined,
-            }))
-            .slice(0, 3)
-        : [];
-      setAiMessages((m) => [...m, { role: "assistant", content: reply, recommendations }]);
+      const { reply, recommendations, actions } = parseAiResponse(out);
+      setAiMessages((m) => [...m, { role: "assistant", content: reply, recommendations, actions }]);
       queueMicrotask(() => aiEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }));
     } catch (e) {
       logError("aiTripAdvisor", e);
@@ -629,6 +670,44 @@ export default function SupportCenterLauncher() {
         title: "Trip Advisor unavailable",
         description: "Please try again or use Customer Support.",
       });
+    } finally {
+      setAiSending(false);
+    }
+  };
+
+  const runAiAction = async (action: AiAction) => {
+    if (!action?.type || aiSending) return;
+    if (action.type === "open_url" && action.url) {
+      navigate(action.url);
+      setOpen(false);
+      return;
+    }
+
+    setAiSending(true);
+    try {
+      const headers = await getAiRequestHeaders();
+      const r = await fetch("/api/ai-trip-advisor", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          action: action.type,
+          userId: user?.id ?? null,
+          sessionId: aiSessionId,
+          channel: "web",
+          referenceId: action.referenceId,
+          itemType: action.itemType,
+          bookingId: action.bookingId,
+          orderId: action.orderId,
+        }),
+      });
+      const out = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error("AI action failed");
+      const { reply, recommendations, actions } = parseAiResponse(out);
+      setAiMessages((m) => [...m, { role: "assistant", content: reply, recommendations, actions }]);
+      queueMicrotask(() => aiEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }));
+    } catch (e) {
+      logError("aiTripAdvisor.action", e);
+      toast({ variant: "destructive", title: "Action unavailable", description: "Please try again in a moment." });
     } finally {
       setAiSending(false);
     }
@@ -794,14 +873,9 @@ export default function SupportCenterLauncher() {
                       {m.role === "assistant" && Array.isArray(m.recommendations) && m.recommendations.length > 0 ? (
                         <div className="mt-2 space-y-1.5">
                           {m.recommendations.map((rec) => (
-                            <button
+                            <div
                               key={`${idx}-${rec.id}`}
-                              type="button"
-                              onClick={() => {
-                                navigate(`/properties/${encodeURIComponent(rec.id)}`);
-                                setOpen(false);
-                              }}
-                              className="w-full text-left rounded-lg border border-border/70 bg-background/80 px-2.5 py-2 hover:bg-background transition-colors"
+                              className="w-full rounded-lg border border-border/70 bg-background/80 px-2.5 py-2"
                             >
                               <div className="text-[11px] font-semibold text-foreground line-clamp-1">{rec.title}</div>
                               <div className="text-[10px] text-muted-foreground line-clamp-1">
@@ -815,6 +889,44 @@ export default function SupportCenterLauncher() {
                                     : rec.property_type || "View"}
                                 </span>
                               </div>
+                              <div className="mt-2 flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigate(`/properties/${encodeURIComponent(rec.id)}`);
+                                    setOpen(false);
+                                  }}
+                                  className="rounded-md border border-border px-2 py-1 text-[10px] font-medium hover:bg-muted"
+                                >
+                                  View
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void runAiAction({
+                                    type: "add_to_trip_cart",
+                                    label: `Add ${rec.title} to Trip Cart`,
+                                    referenceId: rec.id,
+                                    itemType: "property",
+                                  })}
+                                  className="rounded-md bg-primary px-2 py-1 text-[10px] font-medium text-primary-foreground hover:bg-primary/90"
+                                >
+                                  Add to Trip Cart
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                      {m.role === "assistant" && Array.isArray(m.actions) && m.actions.length > 0 ? (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {m.actions.map((action) => (
+                            <button
+                              key={`${idx}-${action.type}-${action.referenceId || action.url || action.bookingId || action.orderId || action.label}`}
+                              type="button"
+                              onClick={() => void runAiAction(action)}
+                              className={`rounded-md px-2.5 py-1 text-[10px] font-medium transition-colors ${action.variant === "primary" ? "bg-primary text-primary-foreground hover:bg-primary/90" : "border border-border bg-background hover:bg-muted"}`}
+                            >
+                              {action.label}
                             </button>
                           ))}
                         </div>

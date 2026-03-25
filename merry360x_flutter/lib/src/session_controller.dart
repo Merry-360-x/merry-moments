@@ -27,6 +27,7 @@ class SessionController extends ChangeNotifier {
   bool get isStaff => payload?.roles.contains('staff') == true;
 
   String get userId => _userId;
+  String? get accessToken => _supabase?.auth.currentSession?.accessToken;
   bool get loading => _loading;
   String? get error => _error;
   MobileSyncPayload? get payload => _payload;

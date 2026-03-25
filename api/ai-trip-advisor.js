@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
+import { getProductKnowledge } from "../lib/ai-product-knowledge.js";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || process.env.OPENAI_KEY || "";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.4-nano";
@@ -10,6 +11,7 @@ const AI_CACHE_TTL_MS = Math.max(60_000, Number(process.env.AI_CACHE_TTL_MS || 1
 const AI_CACHE_VERSION = "v6";
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const openai = OPENAI_API_KEY ? new OpenAI({ apiKey: OPENAI_API_KEY }) : null;
 const supabaseAdmin = SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
@@ -30,6 +32,13 @@ const GENERIC_SEARCH_TERMS = new Set([
   "room", "rooms", "house", "houses", "villa", "villas", "transport", "transfer", "trip", "travel",
   "luxury", "premium", "romantic", "holiday", "vacation", "night", "nights", "guest", "guests",
 ]);
+
+const ACTION_INTENT_TERMS = {
+  cart: /(trip cart|my cart|what(?:'s| is) in (?:my )?cart|show (?:my )?cart)/i,
+  bookings: /(my bookings|show (?:my )?bookings|booking status|check (?:my )?booking|order status)/i,
+  refund: /(refund|cancel.*refund|request refund)/i,
+  checkout: /(checkout|proceed to payment|book now|pay now)/i,
+};
 
 const FAQ_RULES = [
   {
@@ -53,7 +62,7 @@ const FAQ_RULES = [
     reply: "Merry360X helps travelers book stays, tours, and transport in one place. The platform is designed to make planning simpler, with local options, transparent browsing, and host tools for managing services.",
   },
   {
-    keywords: ["what", "book"],
+    keywords: ["what can i book"],
     reply: "On Merry360X you can book accommodations, tours, transport, and other travel experiences. If you already know your destination, tell me where you are going and I can narrow it down.",
   },
   {
@@ -176,7 +185,7 @@ function sendJson(res, status, body) {
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.end(JSON.stringify(body));
 }
 
@@ -219,6 +228,442 @@ function cleanAssistantReply(value) {
     .replace(/\s{2,}/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+function getBearerToken(req) {
+  const authHeader = req.headers?.authorization || req.headers?.Authorization || "";
+  return String(authHeader).startsWith("Bearer ") ? String(authHeader).slice(7).trim() : "";
+}
+
+async function getAuthenticatedUser(req) {
+  const token = getBearerToken(req);
+  if (!token || !SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
+
+  const authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const { data, error } = await authClient.auth.getUser(token);
+  if (error || !data?.user?.id) return null;
+
+  return {
+    id: data.user.id,
+    email: data.user.email || "",
+    token,
+  };
+}
+
+function makeUiAction(action) {
+  return {
+    type: String(action?.type || ""),
+    label: String(action?.label || "Action"),
+    referenceId: action?.referenceId ? String(action.referenceId) : undefined,
+    itemType: action?.itemType ? String(action.itemType) : undefined,
+    bookingId: action?.bookingId ? String(action.bookingId) : undefined,
+    orderId: action?.orderId ? String(action.orderId) : undefined,
+    url: action?.url ? String(action.url) : undefined,
+    variant: action?.variant ? String(action.variant) : undefined,
+  };
+}
+
+function isActionRequest(userText, explicitAction = "") {
+  const text = String(userText || "");
+  return Boolean(
+    explicitAction && explicitAction !== "rate_conversation"
+      || ACTION_INTENT_TERMS.cart.test(text)
+      || ACTION_INTENT_TERMS.bookings.test(text)
+      || ACTION_INTENT_TERMS.refund.test(text)
+      || ACTION_INTENT_TERMS.checkout.test(text)
+  );
+}
+
+function extractReferenceId(userText, body = {}) {
+  const direct = compactText(body.bookingId || body.orderId || body.referenceId, 120);
+  if (direct) return direct;
+
+  const labeledMatch = String(userText || "").match(/(?:booking|order)\s*id\s*[:#-]?\s*([a-z0-9-]{6,})/i);
+  if (labeledMatch?.[1]) return String(labeledMatch[1]);
+
+  const uuidMatch = String(userText || "").match(/[a-f0-9]{8}-[a-f0-9-]{27,}/i);
+  return uuidMatch?.[0] ? String(uuidMatch[0]) : "";
+}
+
+function shouldBypassFaq(userText) {
+  return /\b(app|mobile|website|web app|android|ios)\b/i.test(String(userText || ""));
+}
+
+async function fetchCartItemsForUser(userId) {
+  if (!supabaseAdmin || !userId) return [];
+
+  const { data: cartRows, error: cartError } = await supabaseAdmin
+    .from("trip_cart_items")
+    .select("id, item_type, reference_id, quantity, created_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (cartError || !Array.isArray(cartRows) || cartRows.length === 0) return [];
+
+  const propertyIds = cartRows.filter((item) => item.item_type === "property").map((item) => String(item.reference_id));
+  const tourIds = cartRows.filter((item) => item.item_type === "tour").map((item) => String(item.reference_id));
+  const packageIds = cartRows.filter((item) => item.item_type === "tour_package").map((item) => String(item.reference_id));
+  const transportIds = cartRows.filter((item) => item.item_type === "transport_vehicle").map((item) => String(item.reference_id));
+
+  const [properties, tours, packages, vehicles] = await Promise.all([
+    propertyIds.length
+      ? supabaseAdmin.from("properties").select("id, title, location, currency, price_per_night").in("id", propertyIds)
+      : Promise.resolve({ data: [] }),
+    tourIds.length
+      ? supabaseAdmin.from("tours").select("id, title, currency, price_per_person").in("id", tourIds)
+      : Promise.resolve({ data: [] }),
+    packageIds.length
+      ? supabaseAdmin.from("tour_packages").select("id, title, currency, price_per_adult").in("id", packageIds)
+      : Promise.resolve({ data: [] }),
+    transportIds.length
+      ? supabaseAdmin.from("transport_vehicles").select("id, title, currency, price_per_day, location").in("id", transportIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const propertyMap = new Map((properties.data || []).map((item) => [String(item.id), item]));
+  const tourMap = new Map((tours.data || []).map((item) => [String(item.id), item]));
+  const packageMap = new Map((packages.data || []).map((item) => [String(item.id), item]));
+  const vehicleMap = new Map((vehicles.data || []).map((item) => [String(item.id), item]));
+
+  return cartRows.map((item) => {
+    const referenceId = String(item.reference_id);
+    const details = item.item_type === "property"
+      ? propertyMap.get(referenceId)
+      : item.item_type === "tour"
+        ? tourMap.get(referenceId)
+        : item.item_type === "tour_package"
+          ? packageMap.get(referenceId)
+          : vehicleMap.get(referenceId);
+
+    const unitPrice = item.item_type === "property"
+      ? Number(details?.price_per_night || 0)
+      : item.item_type === "tour"
+        ? Number(details?.price_per_person || 0)
+        : item.item_type === "tour_package"
+          ? Number(details?.price_per_adult || 0)
+          : Number(details?.price_per_day || 0);
+
+    return {
+      id: String(item.id),
+      item_type: String(item.item_type),
+      reference_id: referenceId,
+      quantity: Number(item.quantity || 1),
+      title: String(details?.title || "Listing"),
+      location: details?.location ? String(details.location) : undefined,
+      currency: String(details?.currency || "RWF"),
+      price: unitPrice,
+    };
+  });
+}
+
+async function fetchBookingsForUser(userId) {
+  if (!supabaseAdmin || !userId) return [];
+
+  const { data: bookings, error } = await supabaseAdmin
+    .from("bookings")
+    .select("id, order_id, booking_type, property_id, tour_id, transport_id, check_in, check_out, guests, total_price, currency, status, payment_status, guest_name, guest_email, special_requests, created_at")
+    .eq("guest_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(12);
+
+  if (error || !Array.isArray(bookings) || bookings.length === 0) return [];
+
+  const propertyIds = bookings.map((item) => String(item.property_id || "")).filter(Boolean);
+  const tourIds = bookings.map((item) => String(item.tour_id || "")).filter(Boolean);
+  const transportIds = bookings.map((item) => String(item.transport_id || "")).filter(Boolean);
+
+  const [properties, tours, vehicles] = await Promise.all([
+    propertyIds.length
+      ? supabaseAdmin.from("properties").select("id, title, location").in("id", propertyIds)
+      : Promise.resolve({ data: [] }),
+    tourIds.length
+      ? supabaseAdmin.from("tour_packages").select("id, title").in("id", tourIds)
+      : Promise.resolve({ data: [] }),
+    transportIds.length
+      ? supabaseAdmin.from("transport_vehicles").select("id, title, location").in("id", transportIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const propertyMap = new Map((properties.data || []).map((item) => [String(item.id), item]));
+  const tourMap = new Map((tours.data || []).map((item) => [String(item.id), item]));
+  const vehicleMap = new Map((vehicles.data || []).map((item) => [String(item.id), item]));
+
+  return bookings.map((item) => {
+    const details = item.booking_type === "property"
+      ? propertyMap.get(String(item.property_id || ""))
+      : item.booking_type === "tour"
+        ? tourMap.get(String(item.tour_id || ""))
+        : vehicleMap.get(String(item.transport_id || ""));
+
+    return {
+      id: String(item.id),
+      order_id: item.order_id ? String(item.order_id) : "",
+      booking_type: String(item.booking_type || "booking"),
+      title: String(details?.title || "Booking"),
+      location: details?.location ? String(details.location) : undefined,
+      check_in: item.check_in ? String(item.check_in) : undefined,
+      check_out: item.check_out ? String(item.check_out) : undefined,
+      guests: Number(item.guests || 1),
+      total_price: Number(item.total_price || 0),
+      currency: String(item.currency || "RWF"),
+      status: String(item.status || "pending"),
+      payment_status: String(item.payment_status || "pending"),
+    };
+  });
+}
+
+async function addItemToTripCart({ userId, itemType, referenceId, quantity = 1 }) {
+  if (!supabaseAdmin || !userId || !referenceId || !itemType) {
+    throw new Error("Missing cart action details");
+  }
+
+  const { data: existing } = await supabaseAdmin
+    .from("trip_cart_items")
+    .select("id, quantity")
+    .eq("user_id", userId)
+    .eq("item_type", itemType)
+    .eq("reference_id", referenceId)
+    .maybeSingle();
+
+  if (existing?.id) {
+    const nextQuantity = Number(existing.quantity || 0) + Math.max(1, Number(quantity || 1));
+    await supabaseAdmin.from("trip_cart_items").update({ quantity: nextQuantity }).eq("id", existing.id);
+    return { added: false, updated: true, quantity: nextQuantity };
+  }
+
+  await supabaseAdmin.from("trip_cart_items").insert({
+    user_id: userId,
+    item_type: itemType,
+    reference_id: referenceId,
+    quantity: Math.max(1, Number(quantity || 1)),
+  });
+
+  return { added: true, updated: false, quantity: Math.max(1, Number(quantity || 1)) };
+}
+
+async function createRefundSupportTicket({ authUser, referenceId, bookings }) {
+  if (!supabaseAdmin || !authUser?.id || !referenceId || !Array.isArray(bookings) || bookings.length === 0) {
+    throw new Error("Refund request is missing booking details");
+  }
+
+  const eligibleBookings = bookings.filter((booking) => {
+    const bookingRef = String(booking.id || "").toLowerCase();
+    const orderRef = String(booking.order_id || "").toLowerCase();
+    return bookingRef === referenceId.toLowerCase() || (orderRef && orderRef === referenceId.toLowerCase());
+  });
+
+  if (eligibleBookings.length === 0) {
+    throw new Error("No matching booking was found for that refund request");
+  }
+
+  const refundable = eligibleBookings.filter((booking) => booking.status === "cancelled" && booking.payment_status === "paid");
+  if (refundable.length === 0) {
+    throw new Error("Refunds can only be requested for cancelled paid bookings right now");
+  }
+
+  const subject = `Refund request for booking ${referenceId}`;
+  const message = [
+    "Guest requested a refund through AI assistant.",
+    `Reference: ${referenceId}`,
+    `User ID: ${authUser.id}`,
+    `User Email: ${authUser.email || "unknown"}`,
+    "",
+    ...refundable.map((booking) => {
+      const total = `${booking.currency || "RWF"} ${Math.round(Number(booking.total_price || 0)).toLocaleString()}`;
+      return `- Booking ${booking.id}: ${booking.title} | ${booking.status} | ${booking.payment_status} | ${total}`;
+    }),
+  ].join("\n");
+
+  const { error } = await supabaseAdmin.from("support_tickets").insert({
+    user_id: authUser.id,
+    category: "booking",
+    subject,
+    message,
+    status: "open",
+  });
+
+  if (error) throw error;
+
+  return { subject, count: refundable.length };
+}
+
+function formatCartReply(items) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return "Your trip cart is empty right now. I can help you find stays, tours, or transport and then add them to your cart.";
+  }
+
+  return [
+    `You currently have ${items.length} item${items.length === 1 ? "" : "s"} in your trip cart:`,
+    ...items.slice(0, 5).map((item, index) => {
+      const price = item.price > 0 ? `${Math.round(item.price)} ${item.currency}` : "price on request";
+      return `${index + 1}) ${item.title} | ${price}${item.location ? ` | ${item.location}` : ""}`;
+    }),
+    items.length > 5 ? `+${items.length - 5} more item(s)` : "",
+  ].filter(Boolean).join("\n");
+}
+
+function formatBookingsReply(bookings) {
+  if (!Array.isArray(bookings) || bookings.length === 0) {
+    return "You do not have any bookings yet. I can help you find stays, tours, transport, or guide you to checkout.";
+  }
+
+  return [
+    `Here are your latest booking records:`,
+    ...bookings.slice(0, 5).map((booking, index) => {
+      const amount = `${Math.round(booking.total_price || 0)} ${booking.currency || "RWF"}`;
+      return `${index + 1}) ${booking.title} | ${booking.status} | payment ${booking.payment_status} | ${amount}${booking.check_in ? ` | ${booking.check_in} to ${booking.check_out}` : ""}`;
+    }),
+    bookings.length > 5 ? `+${bookings.length - 5} more booking(s)` : "",
+  ].filter(Boolean).join("\n");
+}
+
+async function resolveDirectAction({ body, userText, authUser }) {
+  const explicitAction = compactText(body?.action, 40).toLowerCase();
+  const text = String(userText || "");
+  const bookingReference = extractReferenceId(userText, body);
+  const refundActionIntent = explicitAction === "request_refund"
+    || (ACTION_INTENT_TERMS.refund.test(text) && (/(my booking|my order|refund request|request refund|booking id|order id)/i.test(text) || Boolean(bookingReference)));
+  const checkoutActionIntent = explicitAction === "go_to_checkout"
+    || /(go to checkout|proceed to payment|pay now|open checkout)/i.test(text);
+
+  if (explicitAction === "add_to_trip_cart") {
+    if (!authUser?.id) {
+      return {
+        reply: "Please sign in first so I can add this item to your trip cart across your account.",
+        recommendations: [],
+        actions: [],
+        source: "action",
+        shouldCache: false,
+      };
+    }
+
+    const result = await addItemToTripCart({
+      userId: authUser.id,
+      itemType: compactText(body?.itemType, 40) || "property",
+      referenceId: compactText(body?.referenceId, 120),
+      quantity: Number(body?.quantity || 1),
+    });
+
+    return {
+      reply: result.added
+        ? "Added to your trip cart. You can keep shopping or continue to checkout when you are ready."
+        : "Your trip cart was updated with that item.",
+      recommendations: [],
+      actions: [
+        makeUiAction({ type: "open_url", label: "Open Trip Cart", url: "/trip-cart", variant: "secondary" }),
+        makeUiAction({ type: "open_url", label: "Go to Checkout", url: "/checkout?mode=cart", variant: "primary" }),
+      ],
+      source: "action",
+      shouldCache: false,
+    };
+  }
+
+  if (explicitAction === "get_trip_cart" || ACTION_INTENT_TERMS.cart.test(text)) {
+    if (!authUser?.id) {
+      return {
+        reply: "Please sign in first and I can show your live trip cart, sync it across devices, and help you move items to checkout.",
+        recommendations: [],
+        actions: [],
+        source: "action",
+        shouldCache: false,
+      };
+    }
+
+    const items = await fetchCartItemsForUser(authUser.id);
+    return {
+      reply: formatCartReply(items),
+      recommendations: [],
+      actions: items.length > 0
+        ? [
+            makeUiAction({ type: "open_url", label: "Open Trip Cart", url: "/trip-cart", variant: "secondary" }),
+            makeUiAction({ type: "open_url", label: "Go to Checkout", url: "/checkout?mode=cart", variant: "primary" }),
+          ]
+        : [],
+      source: "action",
+      shouldCache: false,
+    };
+  }
+
+  if (explicitAction === "get_bookings" || ACTION_INTENT_TERMS.bookings.test(text)) {
+    if (!authUser?.id) {
+      return {
+        reply: "Please sign in first and I can show your bookings, payment status, and refund-related options.",
+        recommendations: [],
+        actions: [],
+        source: "action",
+        shouldCache: false,
+      };
+    }
+
+    const bookings = await fetchBookingsForUser(authUser.id);
+    const refundActions = bookings
+      .filter((booking) => booking.status === "cancelled" && booking.payment_status === "paid")
+      .slice(0, 2)
+      .map((booking) => makeUiAction({
+        type: "request_refund",
+        label: `Request refund for ${booking.title}`,
+        bookingId: booking.id,
+        orderId: booking.order_id,
+        variant: "secondary",
+      }));
+
+    return {
+      reply: formatBookingsReply(bookings),
+      recommendations: [],
+      actions: refundActions,
+      source: "action",
+      shouldCache: false,
+    };
+  }
+
+  if (refundActionIntent) {
+    if (!authUser?.id) {
+      return {
+        reply: "Please sign in first so I can verify your booking and submit a refund request safely.",
+        recommendations: [],
+        actions: [],
+        source: "action",
+        shouldCache: false,
+      };
+    }
+
+    const bookings = await fetchBookingsForUser(authUser.id);
+    const referenceId = bookingReference;
+    if (!referenceId) {
+      return {
+        reply: "Send me the booking ID or order ID for the cancelled paid booking, and I can file the refund request for you.",
+        recommendations: [],
+        actions: [],
+        source: "action",
+        shouldCache: false,
+      };
+    }
+
+    const result = await createRefundSupportTicket({ authUser, referenceId, bookings });
+    return {
+      reply: `Refund request submitted. I opened a support ticket for reference ${referenceId}, and the team can now review ${result.count} eligible booking item${result.count === 1 ? "" : "s"}.`,
+      recommendations: [],
+      actions: [],
+      source: "action",
+      shouldCache: false,
+    };
+  }
+
+  if (checkoutActionIntent) {
+    if (!authUser?.id) return null;
+    const items = await fetchCartItemsForUser(authUser.id);
+    if (items.length === 0) return null;
+    return {
+      reply: "Your cart already has items, so the fastest next step is checkout.",
+      recommendations: [],
+      actions: [makeUiAction({ type: "open_url", label: "Go to Checkout", url: "/checkout?mode=cart", variant: "primary" })],
+      source: "action",
+      shouldCache: false,
+    };
+  }
+
+  return null;
 }
 
 function getCacheKey(userText) {
@@ -533,6 +978,14 @@ function formatRecommendationContext(recommendations) {
     .join("\n");
 }
 
+function formatKnowledgeContext(userText) {
+  const snippets = getProductKnowledge(userText, 6);
+  if (!Array.isArray(snippets) || snippets.length === 0) return "";
+  return snippets
+    .map((item) => `- ${item.content}`)
+    .join("\n");
+}
+
 function buildNoOpenAiFallback(recommendations = []) {
   if (!Array.isArray(recommendations) || recommendations.length === 0) {
     return "AI trip advisor is temporarily unavailable right now. Try asking about destination, timing, or budget and browse the matching stays, tours, or transport options below.";
@@ -594,7 +1047,7 @@ async function fetchRecommendations(userText) {
     }));
 }
 
-async function generateReply(messages, recommendations = []) {
+async function generateReply(messages, recommendations = [], extraContext = "") {
   if (!openai) {
     return {
       reply: buildNoOpenAiFallback(recommendations),
@@ -619,6 +1072,12 @@ async function generateReply(messages, recommendations = []) {
     .map((m) => `${m.role === "assistant" ? "Assistant" : "User"}: ${m.content}`)
     .join("\n");
   const recommendationContext = formatRecommendationContext(recommendations);
+  const knowledgeContext = formatKnowledgeContext(getLatestUserText(messages));
+  const combinedContext = [
+    knowledgeContext ? `Product knowledge:\n${knowledgeContext}` : "",
+    extraContext ? `Live product context:\n${extraContext}` : "",
+    recommendationContext ? `Relevant listings:\n${recommendationContext}` : "",
+  ].filter(Boolean).join("\n\n");
 
   const out = await openai.responses.create({
     model: OPENAI_MODEL,
@@ -630,7 +1089,7 @@ async function generateReply(messages, recommendations = []) {
         content: [
           {
             type: "input_text",
-            text: "You are Merry360X AI, a premium concierge for the Merry360X platform on web and mobile. Reply in plain text only. Do not use markdown, bold markers, headings, tables, emojis, or decorative formatting. Sound sharp, human, and commercially useful. For booking requests, first reflect exactly what the user asked for, then either recommend the best next option or ask up to 3 tightly targeted follow-up questions. Never ask long 5-item questionnaires. Never assume a destination, airport, budget, or traveler count unless the user stated it. Do not infer Kigali or Rwanda just because the user mentioned airport pickup, and do not invent budget anchors like $25 per night. If the user is early in the journey, ask only the missing details that are critical to proceed, such as destination, dates, guest count, or budget. If enough details exist, suggest the best 1 to 3 options and explain why they fit. Highlight value, convenience, location logic, and booking readiness. Never claim availability, reservations, payment completion, or airport transfer confirmation unless the system explicitly confirms it. Keep the answer concise, clear, premium, and action-driven.",
+            text: "You are Merry360X AI, a premium concierge and product operator for the Merry360X platform on web and mobile. Reply in plain text only. Do not use markdown, headings, tables, emojis, or decorative formatting. Use the provided product knowledge as source of truth for website and app capabilities. If live product context is provided, rely on it. Never claim an action completed unless the live product context explicitly says it succeeded. For booking requests, reflect exactly what the user asked for, then either recommend the best next option or ask up to 3 tightly targeted follow-up questions. Never ask long questionnaires. Never assume a destination, airport, budget, or traveler count unless the user stated it. If the user asks about their cart, bookings, refunds, or support and live context is provided, answer directly from that context. If the user is ready to act, guide them to the next real product step such as trip cart or checkout. Keep the answer concise, commercially useful, and action-driven.",
           },
         ],
       },
@@ -639,7 +1098,7 @@ async function generateReply(messages, recommendations = []) {
         content: [
           {
             type: "input_text",
-            text: `${conversation || "User: Help me find a trip in East Africa."}${recommendationContext ? `\n\nRelevant listings:\n${recommendationContext}` : ""}`,
+            text: `${conversation || "User: Help me find a trip in East Africa."}${combinedContext ? `\n\n${combinedContext}` : ""}`,
           },
         ],
       },
@@ -666,9 +1125,10 @@ export default async function handler(req, res) {
 
   try {
     const body = typeof req.body === "object" && req.body !== null ? req.body : {};
+    const authUser = await getAuthenticatedUser(req);
     const identity = getClientIdentity(req, body);
     const sessionId = resolveSessionId(body, identity);
-    const userId = compactText(body?.userId, 120) || null;
+    const userId = authUser?.id || compactText(body?.userId, 120) || null;
     const channel = resolveChannel(body);
     const action = compactText(body?.action, 40).toLowerCase();
 
@@ -709,8 +1169,29 @@ export default async function handler(req, res) {
       });
     }
 
+    const directAction = await resolveDirectAction({ body, userText, authUser });
+    if (directAction) {
+      await recordAiUsage({
+        sessionId,
+        userId,
+        channel,
+        source: directAction.source || "action",
+        status: "ok",
+        userMessage: userText,
+        normalizedKey,
+        recommendationsCount: Array.isArray(directAction.recommendations) ? directAction.recommendations.length : 0,
+      });
+      return sendJson(res, 200, {
+        reply: directAction.reply,
+        recommendations: directAction.recommendations || [],
+        actions: directAction.actions || [],
+        source: directAction.source || "action",
+        sessionId,
+      });
+    }
+
     const recommendations = await fetchRecommendations(userText);
-    const faqReply = findFaqReply(userText);
+    const faqReply = shouldBypassFaq(userText) ? null : findFaqReply(userText);
     if (faqReply) {
       await recordAiUsage({
         sessionId,
@@ -721,10 +1202,11 @@ export default async function handler(req, res) {
         normalizedKey,
         recommendationsCount: recommendations.length,
       });
-      return sendJson(res, 200, { reply: faqReply, recommendations, cached: true, source: "faq", sessionId });
+      return sendJson(res, 200, { reply: faqReply, recommendations, cached: true, actions: [], source: "faq", sessionId });
     }
 
-    const cachedReply = await getCachedReply(userText);
+    const allowCache = !authUser?.id && !isActionRequest(userText, action);
+    const cachedReply = allowCache ? await getCachedReply(userText) : null;
     if (cachedReply) {
       await recordAiUsage({
         sessionId,
@@ -735,15 +1217,35 @@ export default async function handler(req, res) {
         normalizedKey,
         recommendationsCount: recommendations.length,
       });
-      return sendJson(res, 200, { reply: cachedReply, recommendations, cached: true, source: "cache", sessionId });
+      return sendJson(res, 200, { reply: cachedReply, recommendations, cached: true, actions: [], source: "cache", sessionId });
+    }
+
+    const productContextLines = [];
+    if (authUser?.id) {
+      const [cartItems, bookings] = await Promise.all([
+        fetchCartItemsForUser(authUser.id),
+        fetchBookingsForUser(authUser.id),
+      ]);
+
+      if (cartItems.length > 0) {
+        productContextLines.push(`Authenticated user cart summary:\n${formatCartReply(cartItems)}`);
+      }
+      if (bookings.length > 0) {
+        productContextLines.push(`Authenticated user booking summary:\n${formatBookingsReply(bookings)}`);
+      }
     }
 
     const startedAt = Date.now();
-    const openAiResult = await generateReply(messages, recommendations);
+    const openAiResult = await generateReply(messages, recommendations, productContextLines.join("\n\n"));
     const latencyMs = Date.now() - startedAt;
-    if (openAiResult.shouldCache) {
+    if (openAiResult.shouldCache && allowCache) {
       await persistCachedReply(userText, openAiResult.reply);
     }
+
+    const uiActions = authUser?.id && recommendations.length > 0
+      ? [makeUiAction({ type: "open_url", label: "Open Trip Cart", url: "/trip-cart", variant: "secondary" })]
+      : [];
+
     await recordAiUsage({
       sessionId,
       userId,
@@ -762,6 +1264,7 @@ export default async function handler(req, res) {
     return sendJson(res, 200, {
       reply: openAiResult.reply,
       recommendations,
+      actions: authUser?.id ? uiActions : [],
       source: openAiResult.source || "error",
       sessionId,
     });
