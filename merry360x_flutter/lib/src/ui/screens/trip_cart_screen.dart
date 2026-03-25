@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../../app.dart';
 import '../utils/app_snackbar.dart';
 
-import '../../services/mobile_api.dart';
+import '../../services/app_database.dart';
 import '../../session_controller.dart';
 import 'checkout_screen.dart';
 import 'explore_screen.dart' show resolveListingImageUrl;
@@ -325,7 +325,7 @@ class _TotalBar extends StatefulWidget {
 }
 
 class _TotalBarState extends State<_TotalBar> {
-  final _api = MobileApi();
+  final _api = AppDatabase();
   final _promoCtrl = TextEditingController();
   bool _applying = false;
   double _discount = 0;

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app.dart';
 
-import '../../services/mobile_api.dart';
+import '../../services/app_database.dart';
 import '../../session_controller.dart';
 
 const _kRed = AppColors.rausch;
@@ -16,7 +16,7 @@ class BecomeHostScreen extends StatefulWidget {
 }
 
 class _BecomeHostScreenState extends State<BecomeHostScreen> {
-  final _api = MobileApi();
+  final _api = AppDatabase();
   int _step = 0; // 0 = form, 1 = success / already submitted
   bool _loading = true;
   bool _alreadySubmitted = false;

@@ -1,12 +1,14 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import '../../services/cloudinary_service.dart';
-import '../../services/mobile_api.dart';
+import '../../services/app_database.dart';
 import '../../session_controller.dart';
 import '../../app.dart';
 import 'explore_screen.dart' show resolveListingImageUrl;
@@ -63,15 +65,18 @@ class HostDashboardScreen extends StatefulWidget {
 }
 
 class _HostDashboardScreenState extends State<HostDashboardScreen>
-    with TickerProviderStateMixin {
-  final _api = MobileApi();
+    with TickerProviderStateMixin, WidgetsBindingObserver {
+  final _api = AppDatabase();
   late TabController _tabs;
+  final List<RealtimeChannel> _channels = [];
+  Timer? _realtimeReloadTimer;
 
   Map<String, dynamic>? _stats;
   List<Map<String, dynamic>> _properties = [];
   List<Map<String, dynamic>> _tours = [];
   List<Map<String, dynamic>> _transport = [];
   List<Map<String, dynamic>> _bookings = [];
+  List<Map<String, dynamic>> _manualReviewRequests = [];
   List<Map<String, dynamic>> _discounts = [];
   List<Map<String, dynamic>> _payoutMethods = [];
   List<Map<String, dynamic>> _payouts = [];
@@ -79,24 +84,81 @@ class _HostDashboardScreenState extends State<HostDashboardScreen>
 
   static const _tabLabels = [
     'Overview', 'Properties', 'Tours', 'Transport',
-    'Bookings', 'Calendar', 'Discounts', 'Financial', 'Payouts',
+    'Bookings', 'Manual Reviews', 'Discount Codes',
+    'Financial Reports', 'Payout Methods', 'Calendar & Availability',
   ];
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _tabs = TabController(length: _tabLabels.length, vsync: this);
     _load();
+    _setupRealtime();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _realtimeReloadTimer?.cancel();
+    for (final channel in _channels) {
+      Supabase.instance.client.removeChannel(channel);
+    }
     _tabs.dispose();
     super.dispose();
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _load(silent: true);
+    }
+  }
+
+  void _queueRealtimeRefresh() {
+    _realtimeReloadTimer?.cancel();
+    _realtimeReloadTimer = Timer(const Duration(milliseconds: 900), () {
+      if (mounted) {
+        _load(silent: true);
+      }
+    });
+  }
+
+  void _setupRealtime() {
+    final supabase = Supabase.instance.client;
+    final userId = widget.session.userId;
+
+    RealtimeChannel watchTable(String name, String table, {String? filterColumn}) {
+      final channel = supabase
+          .channel('host-dashboard-$name-$userId')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: table,
+            filter: filterColumn != null ? PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: filterColumn, value: userId) : null,
+            callback: (_) => _queueRealtimeRefresh(),
+          )
+          .subscribe();
+      _channels.add(channel);
+      return channel;
+    }
+
+    watchTable('bookings', 'bookings');
+    watchTable('properties', 'properties');
+    watchTable('tours', 'tours');
+    watchTable('tour-packages', 'tour_packages');
+    watchTable('transport', 'transport_vehicles');
+    watchTable('reviews', 'property_reviews');
+    watchTable('manual-reviews', 'manual_review_requests', filterColumn: 'host_id');
+    watchTable('discounts', 'discount_codes', filterColumn: 'host_id');
+    watchTable('payouts', 'host_payouts', filterColumn: 'host_id');
+    watchTable('payout-methods', 'host_payout_methods', filterColumn: 'host_id');
+  }
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() => _loading = true);
+    }
     final uid = widget.session.userId;
     final results = await Future.wait([
       _api.fetchHostStats(userId: uid),
@@ -104,6 +166,7 @@ class _HostDashboardScreenState extends State<HostDashboardScreen>
       _api.fetchHostTours(userId: uid),
       _api.fetchHostTransport(userId: uid),
       _api.fetchHostBookings(userId: uid),
+      _api.fetchManualReviewRequests(userId: uid),
       _api.fetchHostDiscounts(userId: uid),
       _api.fetchPayoutMethods(userId: uid),
       _api.fetchHostPayouts(userId: uid),
@@ -115,9 +178,10 @@ class _HostDashboardScreenState extends State<HostDashboardScreen>
         _tours = results[2] as List<Map<String, dynamic>>;
         _transport = results[3] as List<Map<String, dynamic>>;
         _bookings = results[4] as List<Map<String, dynamic>>;
-        _discounts = results[5] as List<Map<String, dynamic>>;
-        _payoutMethods = results[6] as List<Map<String, dynamic>>;
-        _payouts = results[7] as List<Map<String, dynamic>>;
+        _manualReviewRequests = results[5] as List<Map<String, dynamic>>;
+        _discounts = results[6] as List<Map<String, dynamic>>;
+        _payoutMethods = results[7] as List<Map<String, dynamic>>;
+        _payouts = results[8] as List<Map<String, dynamic>>;
         _loading = false;
       });
     }
@@ -160,11 +224,18 @@ class _HostDashboardScreenState extends State<HostDashboardScreen>
                 _PropertiesTab(api: _api, userId: _uid, items: _properties, onRefresh: _load),
                 _ToursTab(api: _api, userId: _uid, items: _tours, onRefresh: _load),
                 _TransportTab(api: _api, userId: _uid, items: _transport, onRefresh: _load),
-                _BookingsTab(api: _api, bookings: _bookings, onRefresh: _load),
-                _CalendarTab(api: _api, properties: _properties),
+                _BookingsTab(api: _api, userId: _uid, bookings: _bookings, onRefresh: _load),
+                _ManualReviewsTab(
+                  api: _api,
+                  userId: _uid,
+                  properties: _properties,
+                  requests: _manualReviewRequests,
+                  onRefresh: _load,
+                ),
                 _DiscountsTab(api: _api, userId: _uid, items: _discounts, onRefresh: _load),
                 _FinancialTab(stats: _stats, payouts: _payouts, payoutMethods: _payoutMethods, api: _api, userId: _uid, onRefresh: _load),
                 _PayoutMethodsTab(api: _api, userId: _uid, methods: _payoutMethods, onRefresh: _load),
+                _CalendarTab(api: _api, properties: _properties),
               ],
             ),
     );
@@ -179,9 +250,16 @@ class _OverviewTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final confirmed = bookings.where((b) => b['status'] == 'confirmed').length;
-    final pending = bookings.where((b) => b['status'] == 'pending').length;
-    final revenue = (stats?['total_revenue'] as num?) ?? 0;
+    final availableForPayout = (stats?['available_for_payout'] as num?) ?? 0;
+    final netEarnings = (stats?['net_earnings'] as num?) ?? (stats?['total_revenue'] as num?) ?? 0;
+    final pendingPayout = (stats?['pending_payout'] as num?) ?? 0;
+    final completedPayout = (stats?['completed_payout'] as num?) ?? 0;
+    final totalBookings = (stats?['total_bookings'] as num?)?.toInt() ?? bookings.length;
+    final pending = (stats?['pending_bookings'] as num?)?.toInt() ?? bookings.where((b) => b['status'] == 'pending').length;
+    final publishedProperties = (stats?['published_property_count'] as num?)?.toInt() ?? properties.where((item) => item['is_published'] == true).length;
+    final propertyCount = (stats?['property_count'] as num?)?.toInt() ?? properties.length;
+    final currency = (stats?['currency'] ?? 'RWF').toString();
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -191,12 +269,12 @@ class _OverviewTab extends StatelessWidget {
           crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
           mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: 1.7,
           children: [
-            _StatCard(title: 'Properties', value: '${properties.length}', icon: Icons.home_outlined, color: Colors.indigo),
+            _StatCard(title: 'Available for payout', value: _formatMoney(availableForPayout, currency), icon: Icons.account_balance_wallet_outlined, color: Colors.green),
+            _StatCard(title: 'Properties', value: '$publishedProperties / $propertyCount', icon: Icons.home_outlined, color: Colors.indigo),
+            _StatCard(title: 'Pending', value: '$pending', icon: Icons.hourglass_empty_outlined, color: Colors.amber),
+            _StatCard(title: 'Total bookings', value: '$totalBookings', icon: Icons.calendar_today_outlined, color: _kRed),
             _StatCard(title: 'Tours', value: '${tours.length}', icon: Icons.explore_outlined, color: Colors.teal),
             _StatCard(title: 'Transport', value: '${transport.length}', icon: Icons.directions_car_outlined, color: Colors.orange),
-            _StatCard(title: 'Bookings', value: '${bookings.length}', icon: Icons.calendar_today_outlined, color: _kRed),
-            _StatCard(title: 'Confirmed', value: '$confirmed', icon: Icons.check_circle_outline, color: Colors.green),
-            _StatCard(title: 'Pending', value: '$pending', icon: Icons.hourglass_empty_outlined, color: Colors.amber),
           ],
         ),
         const SizedBox(height: 16),
@@ -205,10 +283,15 @@ class _OverviewTab extends StatelessWidget {
           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
               boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6)]),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Total Earned', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+            Text('Net Earnings', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
             const SizedBox(height: 4),
-            Text('\$${revenue.toStringAsFixed(2)}',
+            Text(_formatMoney(netEarnings, currency),
                 style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: _kRed)),
+            const SizedBox(height: 8),
+            Text('Pending payouts: ${_formatMoney(pendingPayout, currency)}',
+              style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
+            Text('Completed payouts: ${_formatMoney(completedPayout, currency)}',
+              style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
           ]),
         ),
         if (bookings.isNotEmpty) ...[
@@ -225,7 +308,7 @@ class _OverviewTab extends StatelessWidget {
 // ===================== PROPERTIES =====================
 class _PropertiesTab extends StatelessWidget {
   const _PropertiesTab({required this.api, required this.userId, required this.items, required this.onRefresh});
-  final MobileApi api;
+  final AppDatabase api;
   final String userId;
   final List<Map<String, dynamic>> items;
   final VoidCallback onRefresh;
@@ -260,7 +343,7 @@ class _PropertiesTab extends StatelessWidget {
   }
 }
 
-void _showPropertySheet(BuildContext ctx, MobileApi api, String userId, VoidCallback onRefresh, {Map<String, dynamic>? existing}) {
+void _showPropertySheet(BuildContext ctx, AppDatabase api, String userId, VoidCallback onRefresh, {Map<String, dynamic>? existing}) {
   final titleCtrl = TextEditingController(text: existing?['title'] ?? '');
   final locCtrl = TextEditingController(text: existing?['location'] ?? '');
   final addressCtrl = TextEditingController(text: existing?['address'] ?? '');
@@ -521,7 +604,7 @@ void _showPropertySheet(BuildContext ctx, MobileApi api, String userId, VoidCall
 // ===================== TOURS =====================
 class _ToursTab extends StatelessWidget {
   const _ToursTab({required this.api, required this.userId, required this.items, required this.onRefresh});
-  final MobileApi api;
+  final AppDatabase api;
   final String userId;
   final List<Map<String, dynamic>> items;
   final VoidCallback onRefresh;
@@ -537,9 +620,24 @@ class _ToursTab extends StatelessWidget {
               itemCount: items.length,
               itemBuilder: (ctx, i) => _ListingCard(
                 item: items[i], priceLabel: 'per person', priceField: 'price_per_person',
-                onToggle: (pub) async { await api.updateTour(id: items[i]['id'], updates: {'is_published': pub}); onRefresh(); },
-                onEdit: () => _showTourSheet(ctx, api, userId, onRefresh, existing: items[i]),
-                onDelete: () async { await api.deleteTour(id: items[i]['id']); onRefresh(); },
+                onToggle: (pub) async {
+                  await api.updateHostTourListing(
+                    id: items[i]['id'],
+                    updates: {'is_published': pub},
+                    source: (items[i]['source'] ?? 'tours').toString(),
+                  );
+                  onRefresh();
+                },
+                onEdit: (items[i]['source'] ?? 'tours') == 'tour_packages'
+                    ? null
+                    : () => _showTourSheet(ctx, api, userId, onRefresh, existing: items[i]),
+                onDelete: () async {
+                  await api.deleteHostTourListing(
+                    id: items[i]['id'],
+                    source: (items[i]['source'] ?? 'tours').toString(),
+                  );
+                  onRefresh();
+                },
               ),
             ),
       floatingActionButton: FloatingActionButton.extended(
@@ -551,7 +649,7 @@ class _ToursTab extends StatelessWidget {
   }
 }
 
-void _showTourSheet(BuildContext ctx, MobileApi api, String userId, VoidCallback onRefresh, {Map<String, dynamic>? existing}) {
+void _showTourSheet(BuildContext ctx, AppDatabase api, String userId, VoidCallback onRefresh, {Map<String, dynamic>? existing}) {
   final titleCtrl = TextEditingController(text: existing?['title'] ?? '');
   final locCtrl = TextEditingController(text: existing?['location'] ?? '');
   final priceCtrl = TextEditingController(text: existing?['price_per_person'] != null ? existing!['price_per_person'].toString() : '');
@@ -722,7 +820,7 @@ void _showTourSheet(BuildContext ctx, MobileApi api, String userId, VoidCallback
 // ===================== TRANSPORT =====================
 class _TransportTab extends StatelessWidget {
   const _TransportTab({required this.api, required this.userId, required this.items, required this.onRefresh});
-  final MobileApi api;
+  final AppDatabase api;
   final String userId;
   final List<Map<String, dynamic>> items;
   final VoidCallback onRefresh;
@@ -737,7 +835,7 @@ class _TransportTab extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               itemCount: items.length,
               itemBuilder: (ctx, i) => _ListingCard(
-                item: items[i], priceLabel: 'per day', priceField: 'daily_price',
+                item: items[i], priceLabel: 'per day', priceField: 'price_per_day',
                 onToggle: (pub) async { await api.updateTransport(id: items[i]['id'], updates: {'is_published': pub}); onRefresh(); },
                 onEdit: () => _showTransportSheet(ctx, api, userId, onRefresh, existing: items[i]),
                 onDelete: () async { await api.deleteTransport(id: items[i]['id']); onRefresh(); },
@@ -752,7 +850,7 @@ class _TransportTab extends StatelessWidget {
   }
 }
 
-void _showTransportSheet(BuildContext ctx, MobileApi api, String userId, VoidCallback onRefresh, {Map<String, dynamic>? existing}) {
+void _showTransportSheet(BuildContext ctx, AppDatabase api, String userId, VoidCallback onRefresh, {Map<String, dynamic>? existing}) {
   final carModelCtrl = TextEditingController(text: existing?['car_model'] ?? '');
   final providerCtrl = TextEditingController(text: existing?['provider_name'] ?? '');
   final descCtrl = TextEditingController(text: existing?['description'] ?? '');
@@ -981,8 +1079,9 @@ void _showTransportSheet(BuildContext ctx, MobileApi api, String userId, VoidCal
 
 // ===================== BOOKINGS =====================
 class _BookingsTab extends StatefulWidget {
-  const _BookingsTab({required this.api, required this.bookings, required this.onRefresh});
-  final MobileApi api;
+  const _BookingsTab({required this.api, required this.userId, required this.bookings, required this.onRefresh});
+  final AppDatabase api;
+  final String userId;
   final List<Map<String, dynamic>> bookings;
   final VoidCallback onRefresh;
 
@@ -992,9 +1091,53 @@ class _BookingsTab extends StatefulWidget {
 
 class _BookingsTabState extends State<_BookingsTab> {
   String _filter = 'all';
+  final Set<String> _busyIds = <String>{};
 
   List<Map<String, dynamic>> get _filtered =>
       _filter == 'all' ? widget.bookings : widget.bookings.where((b) => b['status'] == _filter).toList();
+
+  Future<void> _runBookingAction(String key, Future<void> Function() action, String successMessage) async {
+    setState(() => _busyIds.add(key));
+    try {
+      await action();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(successMessage)));
+      widget.onRefresh();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
+    } finally {
+      if (mounted) {
+        setState(() => _busyIds.remove(key));
+      }
+    }
+  }
+
+  Future<String?> _askRejectReason() async {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Reject booking'),
+        content: TextField(
+          controller: controller,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            hintText: 'Reason for rejection',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.rausch),
+            onPressed: () => Navigator.pop(dialogContext, controller.text.trim()),
+            child: const Text('Reject'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1026,6 +1169,8 @@ class _BookingsTabState extends State<_BookingsTab> {
                 itemBuilder: (ctx, i) {
                   final b = _filtered[i];
                   final status = b['status'] as String? ?? 'pending';
+                  final actionKey = (b['order_id'] ?? b['id']).toString();
+                  final isBusy = _busyIds.contains(actionKey);
                   return Card(
                     margin: const EdgeInsets.only(bottom: 10),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -1040,26 +1185,85 @@ class _BookingsTabState extends State<_BookingsTab> {
                         const SizedBox(height: 6),
                         Text('Guest: ${b['guest_name'] ?? b['user_name'] ?? '—'}',
                             style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                        if ((b['guest_email'] ?? '').toString().isNotEmpty)
+                          Text((b['guest_email'] ?? '').toString(),
+                              style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
                         if (b['check_in'] != null)
                           Text('Check-in: ${b['check_in']}  ->  ${b['check_out'] ?? ''}',
                               style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
-                        Text('Total: \$${((b['total_amount'] ?? b['total_price']) as num?)?.toStringAsFixed(2) ?? '—'}',
+                        Text('Total: ${_formatMoney(((b['total_amount'] ?? b['total_price']) as num?) ?? 0, (b['currency'] ?? 'RWF').toString())}',
                             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                        if ((b['rejection_reason'] ?? '').toString().isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text('Reason: ${b['rejection_reason']}',
+                                style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12, color: AppColors.rausch)),
+                          ),
                         if (status == 'pending') ...[
                           const SizedBox(height: 10),
                           Row(children: [
                             Expanded(child: OutlinedButton(
                               style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-                              onPressed: () async { await widget.api.updateBookingStatus(bookingId: b['id'], status: 'cancelled'); widget.onRefresh(); },
+                              onPressed: isBusy ? null : () async {
+                                final reason = await _askRejectReason();
+                                if (reason == null || reason.isEmpty) {
+                                  return;
+                                }
+                                await _runBookingAction(
+                                  actionKey,
+                                  () => widget.api.rejectHostBookingRequest(actorUserId: widget.userId, booking: b, reason: reason),
+                                  'Booking rejected',
+                                );
+                              },
                               child: const Text('Decline'),
                             )),
                             const SizedBox(width: 8),
                             Expanded(child: ElevatedButton(
                               style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
-                              onPressed: () async { await widget.api.updateBookingStatus(bookingId: b['id'], status: 'confirmed'); widget.onRefresh(); },
+                              onPressed: isBusy ? null : () async {
+                                await _runBookingAction(
+                                  actionKey,
+                                  () => widget.api.confirmHostBookingRequest(actorUserId: widget.userId, booking: b),
+                                  'Booking confirmed',
+                                );
+                              },
                               child: const Text('Confirm'),
                             )),
                           ]),
+                        ],
+                        if (status == 'confirmed') ...[
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
+                              onPressed: isBusy ? null : () async {
+                                await _runBookingAction(
+                                  actionKey,
+                                  () => widget.api.markHostBookingComplete(booking: b),
+                                  'Booking marked complete',
+                                );
+                              },
+                              child: const Text('Mark Complete'),
+                            ),
+                          ),
+                        ],
+                        if ((status == 'confirmed' || status == 'completed') && (b['review_token'] ?? '').toString().isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              icon: const Icon(Icons.star_outline),
+                              label: Text(b['review_email_sent'] == true ? 'Review Request Sent' : 'Send Review Request'),
+                              onPressed: isBusy || b['review_email_sent'] == true ? null : () async {
+                                await _runBookingAction(
+                                  actionKey,
+                                  () => widget.api.sendBookingReviewEmail(booking: b),
+                                  'Review request sent',
+                                );
+                              },
+                            ),
+                          ),
                         ],
                       ]),
                     ),
@@ -1071,10 +1275,180 @@ class _BookingsTabState extends State<_BookingsTab> {
   }
 }
 
+// ===================== MANUAL REVIEWS =====================
+class _ManualReviewsTab extends StatelessWidget {
+  const _ManualReviewsTab({
+    required this.api,
+    required this.userId,
+    required this.properties,
+    required this.requests,
+    required this.onRefresh,
+  });
+
+  final AppDatabase api;
+  final String userId;
+  final List<Map<String, dynamic>> properties;
+  final List<Map<String, dynamic>> requests;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ManualReviewsContent(
+      api: api,
+      userId: userId,
+      properties: properties,
+      requests: requests,
+      onRefresh: onRefresh,
+    );
+  }
+}
+
+class _ManualReviewsContent extends StatefulWidget {
+  const _ManualReviewsContent({required this.api, required this.userId, required this.properties, required this.requests, required this.onRefresh});
+
+  final AppDatabase api;
+  final String userId;
+  final List<Map<String, dynamic>> properties;
+  final List<Map<String, dynamic>> requests;
+  final VoidCallback onRefresh;
+
+  @override
+  State<_ManualReviewsContent> createState() => _ManualReviewsContentState();
+}
+
+class _ManualReviewsContentState extends State<_ManualReviewsContent> {
+  String? _propertyId;
+  final _emailCtrl = TextEditingController();
+  final _nameCtrl = TextEditingController();
+  bool _sending = false;
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    _nameCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send() async {
+    final propertyId = (_propertyId ?? '').trim();
+    final reviewerEmail = _emailCtrl.text.trim();
+    final reviewerName = _nameCtrl.text.trim();
+    if (propertyId.isEmpty || reviewerEmail.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select a property and enter an email.')));
+      return;
+    }
+
+    setState(() => _sending = true);
+    try {
+      await widget.api.sendManualReviewRequest(
+        userId: widget.userId,
+        propertyId: propertyId,
+        reviewerEmail: reviewerEmail,
+        reviewerName: reviewerName.isEmpty ? null : reviewerName,
+      );
+      if (!mounted) return;
+      _emailCtrl.clear();
+      _nameCtrl.clear();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Review request sent to $reviewerEmail')));
+      widget.onRefresh();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Manual Reviews', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.black)),
+          const SizedBox(height: 6),
+          const Text('Send a direct review link for a selected property. No booking is required.', style: TextStyle(fontSize: 13, color: AppColors.foggy)),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFEBEBEB)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DropdownButtonFormField<String>(
+                  key: ValueKey(_propertyId),
+                  value: _propertyId,
+                  decoration: _inputDecoration('Property'),
+                  hint: const Text('Select property'),
+                  items: widget.properties.map((property) => DropdownMenuItem<String>(
+                    value: property['id']?.toString(),
+                    child: Text((property['title'] ?? 'Property').toString(), overflow: TextOverflow.ellipsis),
+                  )).toList(),
+                  onChanged: (value) => setState(() => _propertyId = value),
+                ),
+                const SizedBox(height: 12),
+                _Field(ctrl: _emailCtrl, label: 'Reviewer Email', inputType: TextInputType.emailAddress),
+                _Field(ctrl: _nameCtrl, label: 'Reviewer Name (optional)'),
+                const SizedBox(height: 8),
+                _SaveButton(label: _sending ? 'Sending…' : 'Send Review Request', onPressed: _sending ? null : _send),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          const Text('Recent Requests', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.black)),
+          const SizedBox(height: 10),
+          if (widget.requests.isEmpty)
+            const _EmptyState(label: 'No manual review requests yet', icon: Icons.mail_outline)
+          else
+            ...widget.requests.map((request) {
+              final status = (request['status'] ?? 'pending').toString();
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFEBEBEB)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            (request['propertyTitle'] ?? 'Property').toString(),
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.black),
+                          ),
+                        ),
+                        _StatusChip(status: status == 'collected' ? 'completed' : status == 'sent' ? 'confirmed' : 'pending'),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text((request['reviewerEmail'] ?? '').toString(), style: const TextStyle(fontSize: 13, color: AppColors.foggy)),
+                    if ((request['reviewerName'] ?? '').toString().isNotEmpty)
+                      Text((request['reviewerName'] ?? '').toString(), style: const TextStyle(fontSize: 13, color: AppColors.foggy)),
+                    if (request['createdAt'] != null)
+                      Text('Created ${request['createdAt'].toString().substring(0, 10)}', style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
+                  ],
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+}
+
 // ===================== CALENDAR =====================
 class _CalendarTab extends StatefulWidget {
   const _CalendarTab({required this.api, required this.properties});
-  final MobileApi api;
+  final AppDatabase api;
   final List<Map<String, dynamic>> properties;
 
   @override
@@ -1177,7 +1551,7 @@ class _CalendarTabState extends State<_CalendarTab> {
 // ===================== DISCOUNTS =====================
 class _DiscountsTab extends StatelessWidget {
   const _DiscountsTab({required this.api, required this.userId, required this.items, required this.onRefresh});
-  final MobileApi api;
+  final AppDatabase api;
   final String userId;
   final List<Map<String, dynamic>> items;
   final VoidCallback onRefresh;
@@ -1239,7 +1613,7 @@ class _DiscountsTab extends StatelessWidget {
   }
 }
 
-void _showDiscountSheet(BuildContext ctx, MobileApi api, String userId, VoidCallback onRefresh) {
+void _showDiscountSheet(BuildContext ctx, AppDatabase api, String userId, VoidCallback onRefresh) {
   final codeCtrl = TextEditingController();
   final descCtrl = TextEditingController();
   final valueCtrl = TextEditingController();
@@ -1351,22 +1725,31 @@ class _FinancialTab extends StatelessWidget {
   const _FinancialTab({required this.stats, required this.payouts, required this.payoutMethods, required this.api, required this.userId, required this.onRefresh});
   final Map<String, dynamic>? stats;
   final List<Map<String, dynamic>> payouts, payoutMethods;
-  final MobileApi api;
+  final AppDatabase api;
   final String userId;
   final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
-    final revenue = (stats?['total_revenue'] as num?) ?? 0;
+    final currency = (stats?['currency'] ?? 'RWF').toString();
+    final revenue = (stats?['net_earnings'] as num?) ?? (stats?['total_revenue'] as num?) ?? 0;
     final pending = (stats?['pending_payout'] as num?) ?? 0;
+    final completed = (stats?['completed_payout'] as num?) ?? 0;
+    final available = (stats?['available_for_payout'] as num?) ?? 0;
     final totalBookings = (stats?['total_bookings'] as num?)?.toInt() ?? 0;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Expanded(child: _StatCard(title: 'Total Earned', value: '\$${revenue.toStringAsFixed(2)}', icon: Icons.payments_outlined, color: Colors.green)),
+          Expanded(child: _StatCard(title: 'Net Earnings', value: _formatMoney(revenue, currency), icon: Icons.payments_outlined, color: Colors.green)),
           const SizedBox(width: 10),
-          Expanded(child: _StatCard(title: 'Available', value: '\$${pending.toStringAsFixed(2)}', icon: Icons.account_balance_wallet_outlined, color: Colors.amber)),
+          Expanded(child: _StatCard(title: 'Available for payout', value: _formatMoney(available, currency), icon: Icons.account_balance_wallet_outlined, color: Colors.amber)),
+        ]),
+        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(child: _StatCard(title: 'Pending payouts', value: _formatMoney(pending, currency), icon: Icons.schedule_outlined, color: Colors.orange)),
+          const SizedBox(width: 10),
+          Expanded(child: _StatCard(title: 'Completed payouts', value: _formatMoney(completed, currency), icon: Icons.check_circle_outline, color: Colors.blue)),
         ]),
         const SizedBox(height: 10),
         _StatCard(title: 'Total Bookings', value: '$totalBookings', icon: Icons.calendar_today_outlined, color: _kRed),
@@ -1379,7 +1762,7 @@ class _FinancialTab extends StatelessWidget {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
             icon: const Icon(Icons.send),
             label: const Text('Request Payout', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-            onPressed: () => _showRequestPayoutSheet(context, api, userId, payoutMethods, pending.toDouble(), onRefresh),
+            onPressed: () => _showRequestPayoutSheet(context, api, userId, payoutMethods, available.toDouble(), currency, onRefresh),
           ),
         ),
         const SizedBox(height: 24),
@@ -1394,8 +1777,8 @@ class _FinancialTab extends StatelessWidget {
   }
 }
 
-void _showRequestPayoutSheet(BuildContext ctx, MobileApi api, String userId,
-    List<Map<String, dynamic>> methods, double availBalance, VoidCallback onRefresh) {
+void _showRequestPayoutSheet(BuildContext ctx, AppDatabase api, String userId,
+  List<Map<String, dynamic>> methods, double availBalance, String currency, VoidCallback onRefresh) {
   final amountCtrl = TextEditingController(text: availBalance.toStringAsFixed(2));
   String? selectedMethodId;
   String? selectedMethodType;
@@ -1410,7 +1793,7 @@ void _showRequestPayoutSheet(BuildContext ctx, MobileApi api, String userId,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('Request Payout', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
           const SizedBox(height: 16),
-          _Field(ctrl: amountCtrl, label: 'Amount (USD)', inputType: TextInputType.number),
+          _Field(ctrl: amountCtrl, label: 'Amount ($currency)', inputType: TextInputType.number),
           if (methods.isNotEmpty)
             DropdownButtonFormField<String>(
               key: ValueKey(selectedMethodId),
@@ -1443,7 +1826,7 @@ void _showRequestPayoutSheet(BuildContext ctx, MobileApi api, String userId,
               await api.requestPayout(
                 userId: userId,
                 amount: double.tryParse(amountCtrl.text.trim()) ?? availBalance,
-                currency: 'USD',
+                currency: currency,
                 payoutMethodId: selectedMethodId,
                 payoutMethodType: selectedMethodType,
               );
@@ -1461,7 +1844,7 @@ void _showRequestPayoutSheet(BuildContext ctx, MobileApi api, String userId,
 // ===================== PAYOUT METHODS =====================
 class _PayoutMethodsTab extends StatelessWidget {
   const _PayoutMethodsTab({required this.api, required this.userId, required this.methods, required this.onRefresh});
-  final MobileApi api;
+  final AppDatabase api;
   final String userId;
   final List<Map<String, dynamic>> methods;
   final VoidCallback onRefresh;
@@ -1521,7 +1904,7 @@ class _PayoutMethodsTab extends StatelessWidget {
   }
 }
 
-void _showPayoutMethodSheet(BuildContext ctx, MobileApi api, String userId, VoidCallback onRefresh) {
+void _showPayoutMethodSheet(BuildContext ctx, AppDatabase api, String userId, VoidCallback onRefresh) {
   final nameCtrl = TextEditingController();
   final phoneCtrl = TextEditingController();
   final bankNameCtrl = TextEditingController();
@@ -1594,7 +1977,7 @@ class _ListingCard extends StatelessWidget {
   });
   final Map<String, dynamic> item;
   final void Function(bool) onToggle;
-  final VoidCallback onEdit;
+  final VoidCallback? onEdit;
   final VoidCallback onDelete;
   final String priceLabel;
   final String priceField;
@@ -1653,7 +2036,8 @@ class _ListingCard extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(left: 8, right: 8, bottom: 10),
           child: Row(children: [
-            TextButton.icon(icon: const Icon(Icons.edit_outlined, size: 16, color: AppColors.black), label: const Text('Edit', style: TextStyle(color: AppColors.black)), onPressed: onEdit),
+            if (onEdit != null)
+              TextButton.icon(icon: const Icon(Icons.edit_outlined, size: 16, color: AppColors.black), label: const Text('Edit', style: TextStyle(color: AppColors.black)), onPressed: onEdit),
             TextButton.icon(
               icon: const Icon(Icons.delete_outline, size: 16, color: AppColors.rausch),
               label: const Text('Delete', style: TextStyle(color: AppColors.rausch)),
@@ -1675,6 +2059,11 @@ class _ListingCard extends StatelessWidget {
       ]),
     );
   }
+}
+
+String _formatMoney(num amount, String currency) {
+  final needsDecimals = currency != 'RWF' && amount % 1 != 0;
+  return '$currency ${needsDecimals ? amount.toStringAsFixed(2) : amount.toStringAsFixed(0)}';
 }
 
 class _StatCard extends StatelessWidget {

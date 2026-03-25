@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
-import '../../services/mobile_api.dart';
+import '../../services/app_database.dart';
 import '../../session_controller.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -13,7 +13,7 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  final _api = MobileApi();
+  final _api = AppDatabase();
   List<Map<String, dynamic>> _notifs = [];
   bool _loading = true;
 

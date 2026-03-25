@@ -19,14 +19,19 @@ class AiScreen extends StatefulWidget {
 
 class _AiScreenState extends State<AiScreen> {
   final _controller = TextEditingController();
+  final _feedbackController = TextEditingController();
   final _scrollController = ScrollController();
   final List<_ChatMsg> _messages = [];
+  final String _sessionId = 'mobile_${DateTime.now().millisecondsSinceEpoch}';
   bool _busy = false;
   bool _consentedToAi = false;
+  bool _ratingBusy = false;
+  String? _conversationFeedback;
 
   @override
   void dispose() {
     _controller.dispose();
+    _feedbackController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -47,14 +52,28 @@ class _AiScreenState extends State<AiScreen> {
     _scrollToBottom();
 
     try {
-      final history = _messages
-          .map((m) => {'role': m.role, 'content': m.content})
+      final recentMessages = _messages.length <= 3
+          ? List<_ChatMsg>.from(_messages)
+          : _messages.sublist(_messages.length - 3);
+      final history = recentMessages
+          .map((m) {
+            final compact = m.content.trim();
+            return {
+              'role': m.role,
+              'content': compact.length > 160 ? compact.substring(0, 160) : compact,
+            };
+          })
           .toList();
       final uri = Uri.parse('${AppConfig.apiBaseUrl.replaceAll('/api', '')}/api/ai-trip-advisor');
       final response = await http.post(
         uri,
         headers: const {'Content-Type': 'application/json'},
-        body: jsonEncode({'messages': history}),
+        body: jsonEncode({
+          'messages': history,
+          'userId': widget.session.userId.isEmpty ? null : widget.session.userId,
+          'sessionId': _sessionId,
+          'channel': 'mobile',
+        }),
       );
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
@@ -77,6 +96,76 @@ class _AiScreenState extends State<AiScreen> {
       setState(() => _busy = false);
       _scrollToBottom();
     }
+  }
+
+  Future<void> _submitFeedback(String feedbackType, {String comment = ''}) async {
+    if (_ratingBusy || _conversationFeedback != null) return;
+    setState(() => _ratingBusy = true);
+    try {
+      final uri = Uri.parse('${AppConfig.apiBaseUrl.replaceAll('/api', '')}/api/ai-trip-advisor');
+      final response = await http.post(
+        uri,
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'action': 'rate_conversation',
+          'feedbackType': feedbackType,
+          'comment': comment,
+          'userId': widget.session.userId.isEmpty ? null : widget.session.userId,
+          'sessionId': _sessionId,
+          'channel': 'mobile',
+        }),
+      );
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        setState(() => _conversationFeedback = feedbackType);
+        _feedbackController.clear();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Thanks for sharing AI feedback.')),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not save rating right now.')),
+      );
+    } finally {
+      if (mounted) setState(() => _ratingBusy = false);
+    }
+  }
+
+  Future<void> _openFeedbackDialog(String feedbackType) async {
+    _feedbackController.clear();
+    final action = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(feedbackType == 'up' ? 'What worked well?' : 'What was missing?'),
+        content: TextField(
+          controller: _feedbackController,
+          maxLines: 4,
+          decoration: const InputDecoration(
+            hintText: 'Optional note',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'skip'),
+            child: const Text('Skip note'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, 'submit'),
+            child: const Text('Send feedback'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted || action == null) return;
+    if (action == 'skip') {
+      await _submitFeedback(feedbackType);
+      return;
+    }
+    await _submitFeedback(feedbackType, comment: _feedbackController.text);
   }
 
   Future<bool?> _askForConsent() async {
@@ -280,11 +369,66 @@ class _AiScreenState extends State<AiScreen> {
   }
 
   Widget _buildChat(double maxWidth, bool isWide) {
+    final shouldAskForRating = _conversationFeedback == null &&
+        _messages.any((msg) => msg.role == 'assistant');
+
     return ListView.builder(
       controller: _scrollController,
       padding: EdgeInsets.fromLTRB(isWide ? 24 : 16, 8, isWide ? 24 : 16, 8),
-      itemCount: _messages.length,
+      itemCount: _messages.length + (shouldAskForRating || _conversationFeedback != null ? 1 : 0),
       itemBuilder: (context, index) {
+        if (index >= _messages.length) {
+          return Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxWidth),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFEBEBEB)),
+                ),
+                child: _conversationFeedback != null
+                    ? Row(
+                        children: [
+                          const Icon(Icons.check_circle_outline, color: Colors.green, size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Feedback saved: ${_conversationFeedback == 'up' ? 'thumbs up' : 'thumbs down'}',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Was this response helpful?', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                          const SizedBox(height: 6),
+                          const Text('Choose thumbs up or down, then add an optional note.', style: TextStyle(fontSize: 12, color: AppColors.foggy)),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              OutlinedButton.icon(
+                                onPressed: _ratingBusy ? null : () => _openFeedbackDialog('up'),
+                                icon: const Text('👍'),
+                                label: const Text('Helpful'),
+                              ),
+                              const SizedBox(width: 8),
+                              OutlinedButton.icon(
+                                onPressed: _ratingBusy ? null : () => _openFeedbackDialog('down'),
+                                icon: const Text('👎'),
+                                label: const Text('Needs work'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+          );
+        }
+
         final msg = _messages[index];
         final isUser = msg.role == 'user';
         return Center(

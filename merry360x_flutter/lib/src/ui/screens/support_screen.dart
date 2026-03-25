@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app.dart';
 import '../utils/app_snackbar.dart';
 
-import '../../services/mobile_api.dart';
+import '../../services/app_database.dart';
 import '../../session_controller.dart';
 
 class SupportScreen extends StatefulWidget {
@@ -15,7 +15,7 @@ class SupportScreen extends StatefulWidget {
 }
 
 class _SupportScreenState extends State<SupportScreen> {
-  final _api = MobileApi();
+  final _api = AppDatabase();
   List<Map<String, dynamic>> _tickets = [];
   bool _loading = true;
 
@@ -162,7 +162,7 @@ class _TicketThreadScreen extends StatefulWidget {
 }
 
 class _TicketThreadScreenState extends State<_TicketThreadScreen> {
-  final _api = MobileApi();
+  final _api = AppDatabase();
   final _replyCtrl = TextEditingController();
   bool _sending = false;
   late List<Map<String, dynamic>> _messages;

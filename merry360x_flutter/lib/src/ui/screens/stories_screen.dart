@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app.dart';
 import '../utils/app_snackbar.dart';
 
-import '../../services/mobile_api.dart';
+import '../../services/app_database.dart';
 import '../../session_controller.dart';
 
 class StoriesScreen extends StatefulWidget {
@@ -15,7 +15,7 @@ class StoriesScreen extends StatefulWidget {
 }
 
 class _StoriesScreenState extends State<StoriesScreen> {
-  final _api = MobileApi();
+  final _api = AppDatabase();
   List<Map<String, dynamic>> _stories = [];
   bool _loading = true;
 
@@ -269,7 +269,7 @@ class _CreateStorySheet extends StatefulWidget {
 }
 
 class _CreateStorySheetState extends State<_CreateStorySheet> {
-  final _api = MobileApi();
+  final _api = AppDatabase();
   final _titleCtrl = TextEditingController();
   final _bodyCtrl = TextEditingController();
   final _locationCtrl = TextEditingController();

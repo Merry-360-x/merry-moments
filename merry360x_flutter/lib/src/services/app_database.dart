@@ -10,8 +10,50 @@ extension _MapExt on Map {
   dynamic get(String key) => this[key];
 }
 
-class MobileApi {
-  MobileApi({http.Client? client}) : _http = client ?? http.Client();
+Map<String, dynamic> _normalizeProperty(Map<String, dynamic> row) => {
+  ...row,
+  'item_type': 'property',
+  'images': row['images'] ?? [if (row['main_image'] != null) row['main_image']],
+  'main_image': row['main_image'] ?? ((row['images'] as List?)?.isNotEmpty == true ? (row['images'] as List).first : null),
+};
+
+Map<String, dynamic> _normalizeTour(Map<String, dynamic> row) => {
+  ...row,
+  'item_type': 'tour',
+  'source': row['source'] ?? 'tours',
+  'images': row['images'] ?? [if (row['main_image'] != null) row['main_image']],
+  'main_image': row['main_image'] ?? ((row['images'] as List?)?.isNotEmpty == true ? (row['images'] as List).first : null),
+};
+
+Map<String, dynamic> _normalizeTourPackage(Map<String, dynamic> row) => {
+  ...row,
+  'item_type': 'tour_package',
+  'source': 'tour_packages',
+  'location': [row['city'], row['country']].where((v) => (v ?? '').toString().isNotEmpty).join(', '),
+  'price_per_person': row['price_per_person'] ?? row['price_per_adult'],
+  'is_published': row['is_published'] ?? row['status'] == 'approved',
+  'images': [
+    if ((row['cover_image'] ?? '').toString().isNotEmpty) row['cover_image'],
+    ...((row['gallery_images'] as List?) ?? const []),
+  ],
+  'main_image': row['cover_image'],
+};
+
+Map<String, dynamic> _normalizeTransport(Map<String, dynamic> row) => {
+  ...row,
+  'item_type': 'transport',
+  'location': row['provider_name'] ?? row['vehicle_type'],
+  'price_per_day': row['price_per_day'] ?? row['daily_price'],
+  'daily_price': row['daily_price'] ?? row['price_per_day'],
+  'images': [
+    if ((row['image_url'] ?? '').toString().isNotEmpty) row['image_url'],
+    ...((row['media'] as List?) ?? const []),
+  ],
+  'main_image': row['image_url'],
+};
+
+class AppDatabase {
+  AppDatabase({http.Client? client}) : _http = client ?? http.Client();
 
   final http.Client _http;
 
@@ -35,7 +77,7 @@ class MobileApi {
       safeQuery(
         _sb
             .from('properties')
-            .select('id, title, location, price_per_night, currency, images')
+            .select('id, title, location, price_per_night, currency, property_type, rating, review_count, images, main_image, created_at')
             .eq('is_published', true)
             .order('created_at', ascending: false)
             .limit(20),
@@ -43,7 +85,7 @@ class MobileApi {
       safeQuery(
         _sb
             .from('tours')
-            .select('id, title, location, price_per_person, currency, images')
+            .select('id, title, location, price_per_person, currency, images, main_image, rating, review_count, category, duration_days, created_at')
             .eq('is_published', true)
             .order('created_at', ascending: false)
             .limit(10),
@@ -51,14 +93,15 @@ class MobileApi {
       safeQuery(
         _sb
             .from('tour_packages')
-            .select('id, title, city, price_per_adult, currency, cover_image, gallery_images')
+            .select('id, title, city, country, price_per_adult, price_per_person, currency, status, cover_image, gallery_images, created_at')
+            .eq('status', 'approved')
             .order('created_at', ascending: false)
             .limit(10),
       ),
       safeQuery(
         _sb
             .from('transport_vehicles')
-            .select('id, title, vehicle_type, price_per_day, currency, image_url')
+            .select('id, title, provider_name, vehicle_type, seats, price_per_day, currency, driver_included, image_url, media, created_at')
             .eq('is_published', true)
             .order('created_at', ascending: false)
             .limit(10),
@@ -71,25 +114,10 @@ class MobileApi {
     final transport = results[3];
 
     final listings = <Map<String, dynamic>>[
-      for (final p in properties) {...p, 'item_type': 'property'},
-      for (final t in tours) {...t, 'item_type': 'tour'},
-      for (final tp in tourPkgs)
-        {
-          ...tp,
-          'item_type': 'tour_package',
-          'location': tp['city'],
-          // Normalize package media for explore card resolver.
-          'images': tp['gallery_images'] ?? [tp['cover_image']],
-          'main_image': tp['cover_image'],
-        },
-      for (final tv in transport)
-        {
-          ...tv,
-          'item_type': 'transport',
-          // Normalize transport media for explore card resolver.
-          'images': [tv['image_url']],
-          'main_image': tv['image_url'],
-        },
+      for (final p in properties) _normalizeProperty(p),
+      for (final t in tours) _normalizeTour(t),
+      for (final tp in tourPkgs) _normalizeTourPackage(tp),
+      for (final tv in transport) _normalizeTransport(tv),
     ];
 
     // User-specific data
@@ -336,18 +364,19 @@ class MobileApi {
   }) async {
     final row = <String, dynamic>{
       'guest_id': userId,
-      'item_type': itemType,
-      'title': title,
+      'booking_type': itemType,
+      'guest_name': title,
       if (itemType == 'property') 'property_id': referenceId,
-      if (itemType == 'tour') 'tour_id': referenceId,
-      if (itemType == 'tour_package') 'tour_package_id': referenceId,
-      if (itemType == 'transport') 'transport_vehicle_id': referenceId,
+      if (itemType == 'tour' || itemType == 'tour_package') 'tour_id': referenceId,
+      if (itemType == 'transport') 'transport_id': referenceId,
       if (checkIn != null) 'check_in': checkIn,
       if (checkOut != null) 'check_out': checkOut,
       'guests': guests,
-      'total_amount': totalAmount,
+      'total_price': totalAmount,
       'currency': currency,
       'status': 'pending',
+      'payment_status': 'pending',
+      if (paymentPhone != null) 'guest_phone': paymentPhone,
       if (paymentPhone != null) 'payment_phone': paymentPhone,
       if (paymentProvider != null) 'payment_method': paymentProvider,
       if (specialRequests != null && specialRequests.isNotEmpty) 'special_requests': specialRequests,
@@ -384,36 +413,36 @@ class MobileApi {
       if (category == 'all' || category == 'stays') {
         var req = _sb
             .from('properties')
-            .select('id, title, location, price_per_night, currency, images')
+          .select('id, title, location, price_per_night, currency, property_type, rating, review_count, images, main_image')
             .eq('is_published', true);
         if (q.isNotEmpty) req = req.or('title.ilike.%$q%,location.ilike.%$q%');
         if (minPrice != null) req = req.gte('price_per_night', minPrice);
         if (maxPrice != null) req = req.lte('price_per_night', maxPrice);
         final data = await req.limit(30);
         for (final r in (data as List).cast<Map<String, dynamic>>()) {
-          results.add({...r, 'item_type': 'property'});
+          results.add(_normalizeProperty(r));
         }
       }
       if (category == 'all' || category == 'tours') {
         var req2 = _sb
             .from('tours')
-            .select('id, title, location, price_per_person, currency, images')
+            .select('id, title, location, price_per_person, currency, images, main_image, rating, review_count, category, duration_days')
             .eq('is_published', true);
         if (q.isNotEmpty) req2 = req2.or('title.ilike.%$q%,location.ilike.%$q%');
         final data = await req2.limit(30);
         for (final r in (data as List).cast<Map<String, dynamic>>()) {
-          results.add({...r, 'item_type': 'tour'});
+          results.add(_normalizeTour(r));
         }
       }
       if (category == 'all' || category == 'transport') {
         var req3 = _sb
             .from('transport_vehicles')
-            .select('id, title, vehicle_type, price_per_day, currency, image_url')
+            .select('id, title, provider_name, vehicle_type, seats, price_per_day, currency, driver_included, image_url, media')
             .eq('is_published', true);
         if (q.isNotEmpty) req3 = req3.ilike('title', '%$q%');
         final data = await req3.limit(30);
         for (final r in (data as List).cast<Map<String, dynamic>>()) {
-          results.add({...r, 'item_type': 'transport', 'images': [r['image_url']]});
+          results.add(_normalizeTransport(r));
         }
       }
     } catch (_) {}
@@ -426,11 +455,11 @@ class MobileApi {
     try {
       var req = _sb
           .from('tours')
-          .select('id, title, location, price_per_person, currency, images, category, duration_days, group_size')
+          .select('id, title, location, price_per_person, currency, images, main_image, rating, review_count, category, duration_days, max_group_size')
           .eq('is_published', true);
       if (category != null && category != 'all') req = req.eq('category', category);
       final data = await req.order('created_at', ascending: false).limit(50);
-      return (data as List).cast<Map<String, dynamic>>().map((t) => {...t, 'item_type': 'tour'}).toList();
+        return (data as List).cast<Map<String, dynamic>>().map(_normalizeTour).toList();
     } catch (_) {
       return [];
     }
@@ -442,13 +471,11 @@ class MobileApi {
     try {
       var req = _sb
           .from('transport_vehicles')
-          .select('id, title, vehicle_type, price_per_day, currency, image_url, passenger_capacity, description')
+          .select('id, title, provider_name, vehicle_type, seats, price_per_day, currency, driver_included, image_url, media')
           .eq('is_published', true);
       if (category != null && category != 'all') req = req.eq('vehicle_type', category);
       final data = await req.order('created_at', ascending: false).limit(50);
-      return (data as List).cast<Map<String, dynamic>>().map((t) => {
-        ...t, 'item_type': 'transport', 'images': [t['image_url']],
-      }).toList();
+      return (data as List).cast<Map<String, dynamic>>().map(_normalizeTransport).toList();
     } catch (_) {
       return [];
     }
@@ -545,39 +572,97 @@ class MobileApi {
 
   Future<Map<String, dynamic>> fetchHostStats({required String userId}) async {
     try {
-      final results = await Future.wait([
-        _sb.from('properties').select('id').eq('host_id', userId),
-        _sb.from('tours').select('id').eq('host_id', userId),
-        _sb.from('transport_vehicles').select('id').eq('host_id', userId),
-        _sb.from('bookings').select('total_amount, currency, status').eq('host_id', userId),
+      final results = await Future.wait<dynamic>([
+        fetchHostProperties(userId: userId),
+        fetchHostTours(userId: userId),
+        fetchHostTransport(userId: userId),
+        fetchHostBookings(userId: userId),
+        fetchHostPayouts(userId: userId),
       ]);
+
+      final properties = (results[0] as List).cast<Map<String, dynamic>>();
+      final tours = (results[1] as List).cast<Map<String, dynamic>>();
+      final transport = (results[2] as List).cast<Map<String, dynamic>>();
       final bookings = (results[3] as List).cast<Map<String, dynamic>>();
-      final totalRevenue = bookings
-          .where((b) => b['status'] == 'confirmed' || b['status'] == 'completed')
-          .fold<double>(0, (sum, b) => sum + ((b['total_amount'] as num?)?.toDouble() ?? 0));
+      final payouts = (results[4] as List).cast<Map<String, dynamic>>();
+
+      final confirmedBookings = bookings.where((booking) {
+        final status = (booking['status'] ?? '').toString().toLowerCase();
+        final paymentStatus = (booking['payment_status'] ?? '').toString().toLowerCase();
+        final isConfirmed = status == 'confirmed' || status == 'completed';
+        final isRefunded = paymentStatus.contains('refund');
+        final isUnpaid = paymentStatus == 'failed' || paymentStatus == 'pending' || paymentStatus == 'requested' || paymentStatus == 'unpaid' || paymentStatus == 'not_paid' || paymentStatus == 'expired';
+        return isConfirmed && !isRefunded && !isUnpaid;
+      }).toList();
+
+      final grossRevenue = confirmedBookings.fold<double>(
+        0,
+        (sum, booking) => sum + ((booking['total_price'] as num?)?.toDouble() ?? 0),
+      );
+      final netEarnings = grossRevenue * 0.97;
+      final pendingPayout = payouts
+          .where((payout) {
+            final status = (payout['status'] ?? '').toString().toLowerCase();
+            return status == 'pending' || status == 'processing';
+          })
+          .fold<double>(0, (sum, payout) => sum + ((payout['amount'] as num?)?.toDouble() ?? 0));
+      final completedPayout = payouts
+          .where((payout) => (payout['status'] ?? '').toString().toLowerCase() == 'completed')
+          .fold<double>(0, (sum, payout) => sum + ((payout['amount'] as num?)?.toDouble() ?? 0));
+      final availableForPayout = (netEarnings - pendingPayout - completedPayout).clamp(0, double.infinity).toDouble();
+      final publishedProperties = properties.where((property) => property['is_published'] == true).length;
+      final pendingBookings = bookings.where((booking) {
+        final status = (booking['status'] ?? '').toString().toLowerCase();
+        return status == 'pending' || status == 'pending_confirmation';
+      }).length;
+
       return {
-        'property_count': (results[0] as List).length,
-        'tour_count': (results[1] as List).length,
-        'transport_count': (results[2] as List).length,
+        'property_count': properties.length,
+        'published_property_count': publishedProperties,
+        'tour_count': tours.length,
+        'transport_count': transport.length,
         'total_bookings': bookings.length,
-        'total_revenue': totalRevenue,
+        'pending_bookings': pendingBookings,
+        'confirmed_bookings': confirmedBookings.length,
+        'gross_revenue': grossRevenue,
+        'net_earnings': netEarnings,
+        'total_revenue': netEarnings,
+        'pending_payout': pendingPayout,
+        'completed_payout': completedPayout,
+        'available_for_payout': availableForPayout,
+        'currency': bookings.isNotEmpty ? (bookings.first['currency'] ?? 'RWF') : 'RWF',
       };
     } catch (_) {
-      return {'property_count': 0, 'tour_count': 0, 'transport_count': 0, 'total_bookings': 0, 'total_revenue': 0.0};
+      return {
+        'property_count': 0,
+        'published_property_count': 0,
+        'tour_count': 0,
+        'transport_count': 0,
+        'total_bookings': 0,
+        'pending_bookings': 0,
+        'confirmed_bookings': 0,
+        'gross_revenue': 0.0,
+        'net_earnings': 0.0,
+        'total_revenue': 0.0,
+        'pending_payout': 0.0,
+        'completed_payout': 0.0,
+        'available_for_payout': 0.0,
+        'currency': 'RWF',
+      };
     }
   }
 
   Future<List<Map<String, dynamic>>> fetchHostListings({required String userId}) async {
     try {
       final results = await Future.wait([
-        _sb.from('properties').select('id, title, location, price_per_night, currency, images, is_published').eq('host_id', userId).order('created_at', ascending: false),
-        _sb.from('tours').select('id, title, location, price_per_person, currency, images, is_published').eq('host_id', userId).order('created_at', ascending: false),
-        _sb.from('transport_vehicles').select('id, title, vehicle_type, price_per_day, currency, image_url, is_published').eq('host_id', userId).order('created_at', ascending: false),
+        _sb.from('properties').select('id, title, location, price_per_night, currency, images, main_image, rating, review_count, is_published').eq('host_id', userId).order('created_at', ascending: false),
+        _sb.from('tours').select('id, title, location, price_per_person, currency, images, main_image, rating, review_count, is_published').eq('host_id', userId).order('created_at', ascending: false),
+        _sb.from('transport_vehicles').select('id, title, provider_name, vehicle_type, seats, price_per_day, currency, image_url, media, is_published').eq('host_id', userId).order('created_at', ascending: false),
       ]);
       return [
-        ...(results[0] as List).cast<Map<String, dynamic>>().map((r) => {...r, 'item_type': 'property'}),
-        ...(results[1] as List).cast<Map<String, dynamic>>().map((r) => {...r, 'item_type': 'tour'}),
-        ...(results[2] as List).cast<Map<String, dynamic>>().map((r) => {...r, 'item_type': 'transport', 'images': [r['image_url']]}),
+        ...(results[0] as List).cast<Map<String, dynamic>>().map(_normalizeProperty),
+        ...(results[1] as List).cast<Map<String, dynamic>>().map(_normalizeTour),
+        ...(results[2] as List).cast<Map<String, dynamic>>().map(_normalizeTransport),
       ];
     } catch (_) {
       return [];
@@ -586,13 +671,109 @@ class MobileApi {
 
   Future<List<Map<String, dynamic>>> fetchHostBookings({required String userId}) async {
     try {
-      final data = await _sb
-          .from('bookings')
-          .select('*')
-          .eq('host_id', userId)
-          .order('created_at', ascending: false)
-          .limit(100);
-      return (data as List).cast<Map<String, dynamic>>();
+      final inventoryResults = await Future.wait<dynamic>([
+        _sb.from('properties').select('id').or('host_id.eq.$userId,user_id.eq.$userId'),
+        _sb.from('tours').select('id').or('host_id.eq.$userId,user_id.eq.$userId,guide_id.eq.$userId,created_by.eq.$userId'),
+        _sb.from('tour_packages').select('id').eq('host_id', userId),
+        _sb.from('transport_vehicles').select('id').or('host_id.eq.$userId,user_id.eq.$userId,owner_id.eq.$userId,created_by.eq.$userId'),
+      ]);
+
+      final propertyIds = (inventoryResults[0] as List).map((row) => (row as Map)['id']?.toString()).whereType<String>().toList();
+      final tourIds = (inventoryResults[1] as List).map((row) => (row as Map)['id']?.toString()).whereType<String>().toList();
+      final tourPackageIds = (inventoryResults[2] as List).map((row) => (row as Map)['id']?.toString()).whereType<String>().toList();
+      final transportIds = (inventoryResults[3] as List).map((row) => (row as Map)['id']?.toString()).whereType<String>().toList();
+      final allTourIds = {...tourIds, ...tourPackageIds}.toList();
+
+      final bookingQueries = <Future<dynamic>>[];
+      if (propertyIds.isNotEmpty) {
+        bookingQueries.add(
+          _sb
+              .from('bookings')
+              .select('id, order_id, booking_type, property_id, guest_id, guest_name, guest_email, guest_phone, check_in, check_out, total_price, currency, status, payment_status, confirmation_status, rejection_reason, review_email_sent, has_review, review_token, created_at, properties(title, currency)')
+              .eq('booking_type', 'property')
+              .inFilter('property_id', propertyIds)
+              .order('created_at', ascending: false),
+        );
+      }
+      if (allTourIds.isNotEmpty) {
+        bookingQueries.add(
+          _sb
+              .from('bookings')
+              .select('id, order_id, booking_type, tour_id, guest_id, guest_name, guest_email, guest_phone, check_in, check_out, total_price, currency, status, payment_status, confirmation_status, rejection_reason, review_email_sent, has_review, review_token, created_at, tours(title, currency), tour_packages(title, currency)')
+              .eq('booking_type', 'tour')
+              .inFilter('tour_id', allTourIds)
+              .order('created_at', ascending: false),
+        );
+      }
+      if (transportIds.isNotEmpty) {
+        bookingQueries.add(
+          _sb
+              .from('bookings')
+              .select('id, order_id, booking_type, transport_id, guest_id, guest_name, guest_email, guest_phone, check_in, check_out, total_price, currency, status, payment_status, confirmation_status, rejection_reason, review_email_sent, has_review, review_token, created_at, transport_vehicles(title, currency)')
+              .eq('booking_type', 'transport')
+              .inFilter('transport_id', transportIds)
+              .order('created_at', ascending: false),
+        );
+      }
+
+      if (bookingQueries.isEmpty) {
+        return [];
+      }
+
+      final bookingResults = await Future.wait<dynamic>(bookingQueries);
+      final bookingRows = bookingResults.expand((rows) => (rows as List).cast<Map<String, dynamic>>()).toList();
+      final guestIds = bookingRows
+          .map((row) => row['guest_id']?.toString())
+          .whereType<String>()
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList();
+
+      final guestLookup = <String, Map<String, dynamic>>{};
+      if (guestIds.isNotEmpty) {
+        final guests = await _sb
+            .from('profiles')
+            .select('user_id, full_name, avatar_url, email, phone')
+            .inFilter('user_id', guestIds);
+        for (final guest in (guests as List).cast<Map<String, dynamic>>()) {
+          final userId = guest['user_id']?.toString();
+          if (userId != null && userId.isNotEmpty) {
+            guestLookup[userId] = guest;
+          }
+        }
+      }
+
+      final normalized = bookingRows.map((row) {
+        final bookingType = (row['booking_type'] ?? '').toString();
+        final property = row['properties'] as Map<String, dynamic>?;
+        final tour = row['tours'] as Map<String, dynamic>?;
+        final tourPackage = row['tour_packages'] as Map<String, dynamic>?;
+        final transport = row['transport_vehicles'] as Map<String, dynamic>?;
+        final guestProfile = guestLookup[row['guest_id']?.toString() ?? ''];
+
+        String listingTitle = 'Booking';
+        if (bookingType == 'property') {
+          listingTitle = (property?['title'] ?? 'Accommodation booking').toString();
+        } else if (bookingType == 'tour') {
+          listingTitle = (tourPackage?['title'] ?? tour?['title'] ?? 'Tour booking').toString();
+        } else if (bookingType == 'transport') {
+          listingTitle = (transport?['title'] ?? 'Transport booking').toString();
+        }
+
+        return {
+          ...row,
+          'listing_title': listingTitle,
+          'item_title': listingTitle,
+          'guest_name': row['guest_name'] ?? guestProfile?['full_name'],
+          'guest_email': row['guest_email'] ?? guestProfile?['email'],
+          'guest_phone': row['guest_phone'] ?? guestProfile?['phone'],
+          'guest_avatar_url': guestProfile?['avatar_url'],
+          'total_amount': row['total_price'],
+        };
+      }).toList()
+        ..sort((a, b) => ((b['created_at'] ?? '') as String).compareTo((a['created_at'] ?? '') as String));
+
+      return normalized;
     } catch (_) {
       return [];
     }
@@ -745,6 +926,301 @@ class MobileApi {
     await _sb.from('reviews').delete().eq('id', id);
   }
 
+  // ── Admin (extended) ──
+
+  Future<Map<String, dynamic>> fetchAdminEnhancedStats() async {
+    try {
+      final metricsRaw = await _sb.rpc('admin_dashboard_metrics');
+      final bookingsRaw = await _sb
+          .from('bookings')
+          .select('id, total_price, currency, status, payment_status, booking_type')
+          .limit(5000);
+      final hostAppsRaw = await _sb
+          .from('host_applications')
+          .select('id, status')
+          .limit(1000);
+      final payoutsRaw = await _sb
+          .from('host_payouts')
+          .select('id, amount, status, currency')
+          .limit(1000);
+
+      final metrics = ((metricsRaw as Map?) ?? const <String, dynamic>{}).cast<String, dynamic>();
+      final bookings = (bookingsRaw as List).cast<Map<String, dynamic>>();
+      final hostApps = (hostAppsRaw as List).cast<Map<String, dynamic>>();
+      final payouts = (payoutsRaw as List).cast<Map<String, dynamic>>();
+
+      final paid = bookings.where(
+          (b) => b['status'] == 'confirmed' || b['status'] == 'completed');
+      final pending =
+          bookings.where((b) => b['status'] == 'pending' || b['status'] == 'awaiting_confirmation');
+
+      const guestFeeMultiplier = 12.0 / 112.0;
+      const hostFeePct = 0.03;
+      const pawaPayPct = 0.031;
+
+      double totalRevenue = (metrics['revenue_gross'] as num?)?.toDouble() ?? 0;
+      double totalHostEarnings = 0;
+      double totalGuestFee = 0;
+      double totalHostFee = 0;
+      double totalPawaPay = 0;
+      final Map<String, double> revByCurrency = {};
+
+      final rawRevenueByCurrency = metrics['revenue_by_currency'];
+      if (rawRevenueByCurrency is List) {
+        for (final item in rawRevenueByCurrency) {
+          if (item is Map) {
+            final currency = (item['currency'] ?? 'RWF').toString();
+            final amount = (item['amount'] as num?)?.toDouble() ?? 0;
+            revByCurrency[currency] = (revByCurrency[currency] ?? 0) + amount;
+          }
+        }
+      }
+
+      for (final b in paid) {
+        final guestPaid = (b['total_price'] as num?)?.toDouble() ?? 0;
+        final currency = (b['currency'] as String?) ?? 'RWF';
+        final guestFee = guestPaid * guestFeeMultiplier;
+        final base = guestPaid - guestFee;
+        final hostFee = base * hostFeePct;
+        final pawaPay = guestPaid * pawaPayPct;
+        totalGuestFee += guestFee;
+        totalHostFee += hostFee;
+        totalHostEarnings += base - hostFee;
+        totalPawaPay += pawaPay;
+        if (revByCurrency.isEmpty) {
+          revByCurrency[currency] = (revByCurrency[currency] ?? 0) + guestPaid;
+        }
+      }
+
+      if (bookings.isEmpty && totalRevenue > 0) {
+        totalGuestFee = totalRevenue * guestFeeMultiplier;
+        final base = totalRevenue - totalGuestFee;
+        totalHostFee = base * hostFeePct;
+        totalHostEarnings = base - totalHostFee;
+        totalPawaPay = totalRevenue * pawaPayPct;
+      }
+
+      final pendingPayoutsTotal = payouts
+          .where((p) => p['status'] == 'pending')
+          .fold<double>(0, (s, p) => s + ((p['amount'] as num?)?.toDouble() ?? 0));
+
+      return {
+        'total_users': (metrics['users_total'] as num?)?.toInt() ?? 0,
+        'total_bookings': (metrics['bookings_total'] as num?)?.toInt() ?? bookings.length,
+        'pending_bookings': (metrics['bookings_pending'] as num?)?.toInt() ?? pending.length,
+        'paid_bookings': (metrics['bookings_paid'] as num?)?.toInt() ?? paid.length,
+        'total_properties': (metrics['properties_total'] as num?)?.toInt() ?? 0,
+        'published_properties': (metrics['properties_published'] as num?)?.toInt() ?? 0,
+        'total_tours': (metrics['tours_total'] as num?)?.toInt() ?? 0,
+        'total_transport': (metrics['transport_vehicles_total'] as num?)?.toInt() ?? 0,
+        'pending_applications': hostApps.where((h) => h['status'] == 'pending').length,
+        'total_revenue': totalRevenue,
+        'total_host_earnings': totalHostEarnings,
+        'total_guest_fee': totalGuestFee,
+        'total_host_fee': totalHostFee,
+        'total_platform_earnings': totalGuestFee + totalHostFee,
+        'total_pawapay_fees': totalPawaPay,
+        'net_revenue': totalRevenue - totalPawaPay,
+        'revenue_by_currency': revByCurrency,
+        'pending_payouts_total': pendingPayoutsTotal,
+      };
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchAdminAllUsers({String? search}) async {
+    try {
+      final params = <String, dynamic>{};
+      if (search != null && search.isNotEmpty) params['_search'] = search;
+      final data = await _sb.rpc('admin_list_users', params: params.isEmpty ? {} : params);
+      return (data as List).cast<Map<String, dynamic>>();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchAdminProperties({int limit = 150}) async {
+    try {
+      final data = await _sb
+          .from('properties')
+          .select('id, title, location, price_per_night, currency, is_published, host_id, rating, review_count, images, main_image, created_at')
+          .order('created_at', ascending: false)
+          .limit(limit);
+      return (data as List).cast<Map<String, dynamic>>();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchAdminAllTours({int limit = 150}) async {
+    try {
+      final results = await Future.wait([
+        _sb.from('tours').select('id, title, location, price_per_person, currency, is_published, created_by, rating, review_count, images, main_image, created_at').order('created_at', ascending: false).limit(limit),
+        _sb.from('tour_packages').select('id, title, city, country, price_per_adult, currency, status, host_id, price_per_person, cover_image, gallery_images, created_at').order('created_at', ascending: false).limit(limit),
+      ]);
+      final list = [
+        ...(results[0] as List).cast<Map<String, dynamic>>().map((t) => {...t, '_table': 'tours'}),
+        ...(results[1] as List).cast<Map<String, dynamic>>().map((t) => {
+          ...t,
+          'location': '${t['city'] ?? ''}, ${t['country'] ?? ''}'.trim(),
+          'price_per_person': t['price_per_person'] ?? t['price_per_adult'],
+          'is_published': t['status'] == 'approved',
+          'images': [
+            if ((t['cover_image'] ?? '').toString().isNotEmpty) t['cover_image'],
+            ...((t['gallery_images'] as List?) ?? const []),
+          ],
+          '_table': 'tour_packages',
+        }),
+      ];
+      list.sort((a, b) => (b['created_at'] ?? '').compareTo(a['created_at'] ?? ''));
+      return list;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchAdminTransportVehicles({int limit = 150}) async {
+    try {
+      final data = await _sb
+          .from('transport_vehicles')
+          .select('id, title, is_published, is_approved, vehicle_type, price_per_day, currency, provider_name, created_by, image_url, media, created_at')
+          .order('created_at', ascending: false)
+          .limit(limit);
+      return (data as List).cast<Map<String, dynamic>>();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchAdminPayouts({int limit = 100}) async {
+    try {
+      final data = await _sb
+          .from('host_payouts')
+          .select('*, profiles!host_payouts_host_id_profiles_fkey(full_name, phone)')
+          .order('created_at', ascending: false)
+          .limit(limit);
+      return (data as List).cast<Map<String, dynamic>>();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchAdminBanners() async {
+    try {
+      final data = await _sb
+          .from('ad_banners')
+          .select('*')
+          .order('sort_order', ascending: true);
+      return (data as List).cast<Map<String, dynamic>>();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> createAdBanner({
+    required String message,
+    String? ctaLabel,
+    String? ctaUrl,
+    String? bgColor,
+    String? textColor,
+  }) async {
+    await _sb.from('ad_banners').insert({
+      'message': message,
+      if (ctaLabel != null && ctaLabel.isNotEmpty) 'cta_label': ctaLabel,
+      if (ctaUrl != null && ctaUrl.isNotEmpty) 'cta_url': ctaUrl,
+      if (bgColor != null && bgColor.isNotEmpty) 'bg_color': bgColor,
+      if (textColor != null && textColor.isNotEmpty) 'text_color': textColor,
+      'is_active': true,
+    });
+  }
+
+  Future<void> updateAdBannerActive({required String id, required bool isActive}) async {
+    await _sb.from('ad_banners').update({'is_active': isActive}).eq('id', id);
+  }
+
+  Future<void> deleteAdBanner({required String id}) async {
+    await _sb.from('ad_banners').delete().eq('id', id);
+  }
+
+  Future<void> suspendUser({required String userId, required bool suspended}) async {
+    await _sb.from('profiles').update({'is_suspended': suspended}).eq('user_id', userId);
+  }
+
+  Future<void> toggleListingPublished({
+    required String table,
+    required String id,
+    required bool published,
+  }) async {
+    if (table == 'tour_packages') {
+      await _sb.from(table).update({'status': published ? 'approved' : 'pending'}).eq('id', id);
+      return;
+    }
+    await _sb.from(table).update({'is_published': published}).eq('id', id);
+  }
+
+  Future<void> deleteAdminListing({required String table, required String id}) async {
+    await _sb.from(table).delete().eq('id', id);
+  }
+
+  Future<void> updatePayoutStatus({required String id, required String status}) async {
+    await _sb.from('host_payouts').update({
+      'status': status,
+      if (status == 'paid' || status == 'completed') 'processed_at': DateTime.now().toIso8601String(),
+    }).eq('id', id);
+  }
+
+  Future<List<Map<String, dynamic>>> fetchAdminSupportTickets({int limit = 80}) async {
+    try {
+      final data = await _sb
+          .from('support_tickets')
+          .select('*')
+          .order('created_at', ascending: false)
+          .limit(limit);
+      return (data as List).cast<Map<String, dynamic>>();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> updateSupportTicketStatus({required String id, required String status}) async {
+    await _sb.from('support_tickets').update({'status': status, 'updated_at': DateTime.now().toIso8601String()}).eq('id', id);
+  }
+
+  Future<Map<String, dynamic>> fetchAdminAiAnalyticsSummary({int days = 30}) async {
+    try {
+      final data = await _sb.rpc('admin_ai_analytics_summary', params: {
+        'p_days': days,
+      });
+      if (data is List && data.isNotEmpty && data.first is Map) {
+        return Map<String, dynamic>.from(data.first as Map);
+      }
+      if (data is Map) {
+        return Map<String, dynamic>.from(data);
+      }
+      return {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchAdminAiAnalyticsSeries({int days = 30}) async {
+    try {
+      final data = await _sb.rpc('admin_ai_analytics_series', params: {
+        'p_days': days,
+      });
+      if (data is List) {
+        return data
+            .whereType<Map>()
+            .map((row) => Map<String, dynamic>.from(row))
+            .toList();
+      }
+      return const [];
+    } catch (_) {
+      return const [];
+    }
+  }
+
   // ── Promo code ──
 
   /// Validate a promo code with full checks: active, expiry, max uses, minimum amount, applies_to.
@@ -870,10 +1346,10 @@ class MobileApi {
     try {
       final data = await _sb
           .from('properties')
-          .select('id, title, location, city, price_per_night, currency, is_published, images, main_image, item_type, property_type, max_guests, bedrooms, bathrooms')
+          .select('id, title, location, price_per_night, currency, is_published, images, main_image, property_type, rating, review_count, max_guests, bedrooms, bathrooms')
           .or('host_id.eq.$userId,user_id.eq.$userId')
           .order('created_at', ascending: false);
-      return (data as List).cast<Map<String, dynamic>>();
+      return (data as List).cast<Map<String, dynamic>>().map(_normalizeProperty).toList();
     } catch (_) { return []; }
   }
 
@@ -906,12 +1382,24 @@ class MobileApi {
 
   Future<List<Map<String, dynamic>>> fetchHostTours({required String userId}) async {
     try {
-      final data = await _sb
-          .from('tours')
-          .select('id, title, location, price_per_person, currency, is_published, images, main_image, item_type, category, duration_hours, max_guests')
-          .or('host_id.eq.$userId,user_id.eq.$userId,guide_id.eq.$userId,created_by.eq.$userId')
-          .order('created_at', ascending: false);
-      return (data as List).cast<Map<String, dynamic>>();
+      final results = await Future.wait<dynamic>([
+        _sb
+            .from('tours')
+            .select('id, title, location, price_per_person, currency, is_published, images, main_image, category, duration_days, rating, review_count, max_guests, created_at')
+            .or('host_id.eq.$userId,user_id.eq.$userId,guide_id.eq.$userId,created_by.eq.$userId')
+            .order('created_at', ascending: false),
+        _sb
+            .from('tour_packages')
+            .select('id, title, city, country, price_per_person, price_per_adult, currency, status, cover_image, gallery_images, rating, review_count, max_guests, duration, created_at')
+            .eq('host_id', userId)
+            .order('created_at', ascending: false),
+      ]);
+
+      final tours = (results[0] as List).cast<Map<String, dynamic>>().map(_normalizeTour);
+      final packages = (results[1] as List).cast<Map<String, dynamic>>().map(_normalizeTourPackage);
+      final merged = [...tours, ...packages].toList()
+        ..sort((a, b) => ((b['created_at'] ?? '') as String).compareTo((a['created_at'] ?? '') as String));
+      return merged;
     } catch (_) { return []; }
   }
 
@@ -947,11 +1435,34 @@ class MobileApi {
     try {
       final data = await _sb
           .from('transport_vehicles')
-          .select('id, title, vehicle_type, capacity, price_per_day, currency, is_published, images, main_image, item_type, location')
-          .or('host_id.eq.$userId,user_id.eq.$userId,owner_id.eq.$userId')
+          .select('id, title, provider_name, vehicle_type, seats, price_per_day, daily_price, currency, is_published, image_url, media, created_at')
+          .or('host_id.eq.$userId,user_id.eq.$userId,owner_id.eq.$userId,created_by.eq.$userId')
           .order('created_at', ascending: false);
-      return (data as List).cast<Map<String, dynamic>>();
+      return (data as List).cast<Map<String, dynamic>>().map(_normalizeTransport).toList();
     } catch (_) { return []; }
+  }
+
+  Future<void> updateHostTourListing({
+    required String id,
+    required Map<String, dynamic> updates,
+    String source = 'tours',
+  }) async {
+    if (source == 'tour_packages') {
+      final payload = <String, dynamic>{...updates};
+      if (payload.containsKey('is_published')) {
+        final shouldPublish = payload.remove('is_published') == true;
+        payload['status'] = shouldPublish ? 'approved' : 'pending';
+      }
+      await _sb.from('tour_packages').update(payload).eq('id', id);
+      return;
+    }
+
+    await _sb.from('tours').update(updates).eq('id', id);
+  }
+
+  Future<void> deleteHostTourListing({required String id, String source = 'tours'}) async {
+    final table = source == 'tour_packages' ? 'tour_packages' : 'tours';
+    await _sb.from(table).delete().eq('id', id);
   }
 
   Future<String?> createTransport({
@@ -1140,6 +1651,161 @@ class MobileApi {
       if (payoutMethodId != null) 'payout_method_id': payoutMethodId,
       if (payoutMethodType != null) 'payout_method_type': payoutMethodType,
     });
+  }
+
+  Future<List<Map<String, dynamic>>> fetchManualReviewRequests({required String userId}) async {
+    try {
+      final uri = Uri.parse('${AppConfig.apiBaseUrl}/review').replace(queryParameters: {
+        'action': 'list-manual-requests',
+        'hostId': userId,
+        '_ts': DateTime.now().millisecondsSinceEpoch.toString(),
+      });
+      final response = await _http.get(uri, headers: {'Content-Type': 'application/json'});
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode < 200 || response.statusCode >= 300 || body['ok'] != true) {
+        return [];
+      }
+      final requests = (body['requests'] as List? ?? const []).cast<dynamic>();
+      return requests.map((row) => Map<String, dynamic>.from(row as Map)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> sendManualReviewRequest({
+    required String userId,
+    required String propertyId,
+    required String reviewerEmail,
+    String? reviewerName,
+  }) async {
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/review').replace(queryParameters: {
+      'action': 'send-manual-email',
+    });
+    final response = await _http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'hostId': userId,
+        'propertyId': propertyId,
+        'reviewerEmail': reviewerEmail,
+        if (reviewerName != null && reviewerName.trim().isNotEmpty) 'reviewerName': reviewerName.trim(),
+      }),
+    );
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode < 200 || response.statusCode >= 300 || body['ok'] != true) {
+      throw Exception((body['error'] ?? 'Failed to send manual review request').toString());
+    }
+  }
+
+  Future<void> sendBookingReviewEmail({required Map<String, dynamic> booking}) async {
+    final reviewToken = (booking['review_token'] ?? '').toString();
+    final guestEmail = (booking['guest_email'] ?? '').toString();
+    if (reviewToken.isEmpty || guestEmail.isEmpty) {
+      throw Exception('Missing review token or guest email');
+    }
+
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/review').replace(queryParameters: {
+      'action': 'send-email',
+    });
+    final response = await _http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'guestName': booking['guest_name'],
+        'guestEmail': guestEmail,
+        'propertyTitle': booking['listing_title'] ?? booking['item_title'],
+        'propertyImage': booking['main_image'],
+        'location': booking['location'],
+        'checkIn': booking['check_in'],
+        'checkOut': booking['check_out'],
+        'reviewToken': reviewToken,
+      }),
+    );
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode < 200 || response.statusCode >= 300 || body['ok'] != true) {
+      throw Exception((body['error'] ?? 'Failed to send review email').toString());
+    }
+
+    await _sb.from('bookings').update({'review_email_sent': true}).eq('id', booking['id']);
+  }
+
+  Future<void> _notifyGuestBookingDecision({
+    required String action,
+    required Map<String, dynamic> booking,
+    String? rejectionReason,
+  }) async {
+    final guestEmail = (booking['guest_email'] ?? '').toString();
+    if (guestEmail.isEmpty) {
+      return;
+    }
+
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/booking-confirmation-email');
+    await _http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'action': action,
+        'guestEmail': guestEmail,
+        'guestName': booking['guest_name'] ?? 'Guest',
+        'bookingId': booking['id'],
+        'orderId': booking['order_id'],
+        'itemName': booking['listing_title'] ?? booking['item_title'] ?? 'Booking',
+        'checkIn': booking['check_in'],
+        'checkOut': booking['check_out'],
+        if (rejectionReason != null && rejectionReason.trim().isNotEmpty) 'rejectionReason': rejectionReason.trim(),
+      }),
+    );
+  }
+
+  Future<void> confirmHostBookingRequest({
+    required String actorUserId,
+    required Map<String, dynamic> booking,
+  }) async {
+    final payload = {
+      'status': 'confirmed',
+      'confirmation_status': 'approved',
+      'confirmed_at': DateTime.now().toIso8601String(),
+      'confirmed_by': actorUserId,
+      'rejection_reason': null,
+      'rejected_at': null,
+    };
+    final orderId = booking['order_id']?.toString();
+    if (orderId != null && orderId.isNotEmpty) {
+      await _sb.from('bookings').update(payload).eq('order_id', orderId);
+    } else {
+      await _sb.from('bookings').update(payload).eq('id', booking['id']);
+    }
+    await _notifyGuestBookingDecision(action: 'approved', booking: booking);
+  }
+
+  Future<void> rejectHostBookingRequest({
+    required String actorUserId,
+    required Map<String, dynamic> booking,
+    required String reason,
+  }) async {
+    final payload = {
+      'status': 'cancelled',
+      'confirmation_status': 'rejected',
+      'rejection_reason': reason,
+      'rejected_at': DateTime.now().toIso8601String(),
+      'confirmed_by': actorUserId,
+    };
+    final orderId = booking['order_id']?.toString();
+    if (orderId != null && orderId.isNotEmpty) {
+      await _sb.from('bookings').update(payload).eq('order_id', orderId);
+    } else {
+      await _sb.from('bookings').update(payload).eq('id', booking['id']);
+    }
+    await _notifyGuestBookingDecision(action: 'rejected', booking: booking, rejectionReason: reason);
+  }
+
+  Future<void> markHostBookingComplete({required Map<String, dynamic> booking}) async {
+    final orderId = booking['order_id']?.toString();
+    if (orderId != null && orderId.isNotEmpty) {
+      await _sb.from('bookings').update({'status': 'completed'}).eq('order_id', orderId);
+    } else {
+      await _sb.from('bookings').update({'status': 'completed'}).eq('id', booking['id']);
+    }
   }
 
   // ════════════════════════════════════════════════

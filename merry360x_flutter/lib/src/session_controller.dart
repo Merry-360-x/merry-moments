@@ -7,14 +7,14 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'models/mobile_sync.dart';
-import 'services/mobile_api.dart';
+import 'services/app_database.dart';
 
 class SessionController extends ChangeNotifier {
-  SessionController({MobileApi? api}) : _api = api ?? MobileApi() {
+  SessionController({AppDatabase? api}) : _api = api ?? AppDatabase() {
     _initAuth();
   }
 
-  final MobileApi _api;
+  final AppDatabase _api;
 
   String _userId = '';
   bool _loading = false;

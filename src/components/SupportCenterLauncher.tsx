@@ -91,6 +91,10 @@ export default function SupportCenterLauncher() {
   ]);
   const [aiDraft, setAiDraft] = useState("");
   const [aiSending, setAiSending] = useState(false);
+  const [aiConversationFeedback, setAiConversationFeedback] = useState<"up" | "down" | null>(null);
+  const [aiFeedbackDraftType, setAiFeedbackDraftType] = useState<"up" | "down" | null>(null);
+  const [aiFeedbackComment, setAiFeedbackComment] = useState("");
+  const [aiRatingSending, setAiRatingSending] = useState(false);
   const aiEndRef = useRef<HTMLDivElement | null>(null);
 
   // Support chat (texting window)
@@ -596,7 +600,7 @@ export default function SupportCenterLauncher() {
       const r = await fetch("/api/ai-trip-advisor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: compactHistory, userId: user?.id ?? null, sessionId: aiSessionId }),
+        body: JSON.stringify({ messages: compactHistory, userId: user?.id ?? null, sessionId: aiSessionId, channel: "web" }),
       });
       const out = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error("AI request failed");
@@ -630,11 +634,45 @@ export default function SupportCenterLauncher() {
     }
   };
 
+  const submitAiFeedback = async (feedbackType: "up" | "down", comment = "") => {
+    if (aiRatingSending || aiConversationFeedback !== null) return;
+    setAiRatingSending(true);
+    try {
+      const r = await fetch("/api/ai-trip-advisor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "rate_conversation",
+          feedbackType,
+          comment,
+          userId: user?.id ?? null,
+          sessionId: aiSessionId,
+          channel: "web",
+        }),
+      });
+      if (!r.ok) throw new Error("Rating request failed");
+      setAiConversationFeedback(feedbackType);
+      setAiFeedbackDraftType(null);
+      setAiFeedbackComment("");
+      toast({ title: "Thanks", description: "Your AI chat feedback was saved." });
+    } catch (e) {
+      logError("aiConversationRating", e);
+      toast({
+        variant: "destructive",
+        title: "Rating unavailable",
+        description: "Please try rating again in a moment.",
+      });
+    } finally {
+      setAiRatingSending(false);
+    }
+  };
+
   // Dynamic sizing
   const popupWidth = expanded ? "w-[calc(100vw-1rem)] sm:w-96" : "w-[calc(100vw-1rem)] sm:w-80";
   const popupHeight = expanded ? "h-[min(80dvh,600px)] sm:h-[600px]" : "h-[min(75dvh,480px)] sm:h-[480px]";
 
   const autoCloseWarning = getAutoCloseWarning();
+  const shouldShowAiRating = aiMessages.some((m, idx) => idx > 0 && m.role === "assistant") && aiConversationFeedback === null;
 
   return (
     <>
@@ -788,6 +826,65 @@ export default function SupportCenterLauncher() {
                       Thinking…
                     </div>
                   )}
+                  {shouldShowAiRating ? (
+                    <div className="max-w-[90%] rounded-xl border border-border bg-background px-3 py-3 text-xs text-foreground">
+                      <div className="font-medium">Was this response helpful?</div>
+                      <div className="mt-1 text-muted-foreground">Choose thumbs up or down, then add an optional note.</div>
+                      <div className="mt-2 flex items-center gap-2">
+                        {([
+                          ["up", "Thumbs up", "👍"],
+                          ["down", "Thumbs down", "👎"],
+                        ] as const).map(([value, label, icon]) => (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() => setAiFeedbackDraftType(value)}
+                            disabled={aiRatingSending}
+                            className={`rounded-full border px-3 py-1.5 text-sm transition-colors disabled:opacity-50 ${aiFeedbackDraftType === value ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-muted"}`}
+                            aria-label={label}
+                          >
+                            {icon}
+                          </button>
+                        ))}
+                      </div>
+                      {aiFeedbackDraftType ? (
+                        <div className="mt-3 space-y-2">
+                          <Textarea
+                            value={aiFeedbackComment}
+                            onChange={(e) => setAiFeedbackComment(e.target.value)}
+                            placeholder="Optional: what worked well or what was missing?"
+                            className="min-h-[72px] text-xs"
+                            disabled={aiRatingSending}
+                          />
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              className="h-8 px-3 text-xs"
+                              disabled={aiRatingSending}
+                              onClick={() => void submitAiFeedback(aiFeedbackDraftType, aiFeedbackComment)}
+                            >
+                              Send feedback
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-2 text-xs"
+                              disabled={aiRatingSending}
+                              onClick={() => void submitAiFeedback(aiFeedbackDraftType)}
+                            >
+                              Skip note
+                            </Button>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {aiConversationFeedback !== null ? (
+                    <div className="max-w-[90%] rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                      Feedback saved: {aiConversationFeedback === "up" ? "thumbs up" : "thumbs down"}
+                    </div>
+                  ) : null}
                   <div ref={aiEndRef} />
                 </div>
               </ScrollArea>

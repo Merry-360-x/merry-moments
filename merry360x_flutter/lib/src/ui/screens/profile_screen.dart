@@ -4,7 +4,7 @@ import '../../app.dart';
 import '../utils/app_snackbar.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../services/mobile_api.dart';
+import '../../services/app_database.dart';
 import '../../session_controller.dart';
 import 'admin_dashboard_screen.dart';
 import 'affiliates_screen.dart';
@@ -24,7 +24,7 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final _api = MobileApi();
+  final _api = AppDatabase();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _bioController = TextEditingController();

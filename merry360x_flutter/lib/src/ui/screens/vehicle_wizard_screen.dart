@@ -6,7 +6,7 @@ import '../../app.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../services/cloudinary_service.dart';
-import '../../services/mobile_api.dart';
+import '../../services/app_database.dart';
 
 const _kRed = AppColors.rausch;
 
@@ -40,7 +40,7 @@ class VehicleWizardScreen extends StatefulWidget {
     this.existing,
   });
 
-  final MobileApi api;
+  final AppDatabase api;
   final String userId;
   final Map<String, dynamic>? existing;
 

@@ -817,6 +817,36 @@ export default function AdminDashboard() {
     failed_attempts: number;
   };
 
+  type AiAnalyticsSummaryRow = {
+    total_requests: number;
+    openai_requests: number;
+    cache_hits: number;
+    faq_hits: number;
+    rate_limited_requests: number;
+    error_requests: number;
+    conversations_total: number;
+    feedback_count: number;
+    positive_feedback: number;
+    negative_feedback: number;
+    win_rate: number;
+    estimated_cost_usd: number;
+    estimated_saved_usd: number;
+  };
+
+  type AiAnalyticsSeriesRow = {
+    bucket_date: string;
+    total_requests: number;
+    openai_requests: number;
+    cache_hits: number;
+    faq_hits: number;
+    rate_limited_requests: number;
+    error_requests: number;
+    positive_feedback: number;
+    negative_feedback: number;
+    estimated_cost_usd: number;
+    estimated_saved_usd: number;
+  };
+
   const {
     data: liveWebAnalytics,
     isLoading: isLiveWebAnalyticsLoading,
@@ -847,6 +877,44 @@ export default function AdminDashboard() {
       const { data, error } = await (supabase as any).rpc("admin_web_analytics_series", { p_range: trafficAnalyticsRange });
       if (error) throw error;
       return (data ?? []) as WebAnalyticsSeriesRow[];
+    },
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 10,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+    placeholderData: (previousData) => previousData,
+  });
+
+  const {
+    data: aiAnalyticsSummary,
+    isLoading: isAiAnalyticsLoading,
+    isError: isAiAnalyticsError,
+    error: aiAnalyticsError,
+  } = useQuery({
+    queryKey: ["admin_ai_analytics_summary"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("admin_ai_analytics_summary", { p_days: 30 });
+      if (error) throw error;
+      return (data?.[0] ?? null) as AiAnalyticsSummaryRow | null;
+    },
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 10,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+    placeholderData: (previousData) => previousData,
+  });
+
+  const {
+    data: aiAnalyticsSeries = [],
+    isLoading: isAiAnalyticsSeriesLoading,
+    isError: isAiAnalyticsSeriesError,
+    error: aiAnalyticsSeriesError,
+  } = useQuery({
+    queryKey: ["admin_ai_analytics_series"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("admin_ai_analytics_series", { p_days: 30 });
+      if (error) throw error;
+      return (data ?? []) as AiAnalyticsSeriesRow[];
     },
     staleTime: 1000 * 30,
     gcTime: 1000 * 60 * 10,
@@ -889,6 +957,16 @@ export default function AdminDashboard() {
   const revenueChartConfig = useMemo<ChartConfig>(
     () => ({
       revenue_rwf: { label: "Revenue (RWF)", color: "hsl(var(--primary))" },
+    }),
+    [],
+  );
+
+  const aiChartConfig = useMemo<ChartConfig>(
+    () => ({
+      total_requests: { label: "Requests", color: "#0f766e" },
+      openai_requests: { label: "OpenAI", color: "#f97316" },
+      positive_feedback: { label: "Thumbs up", color: "#16a34a" },
+      negative_feedback: { label: "Thumbs down", color: "#dc2626" },
     }),
     [],
   );
@@ -1650,6 +1728,14 @@ export default function AdminDashboard() {
 
   const analyticsConfig = analyticsChart === "revenue" ? revenueChartConfig : webAnalyticsChartConfig;
   const analyticsChartData = analyticsChart === "revenue" ? analyticsRevenueSeries : webAnalyticsSeries;
+  const aiAnalyticsChartData = useMemo(
+    () =>
+      aiAnalyticsSeries.map((row) => ({
+        ...row,
+        bucket: row.bucket_date,
+      })),
+    [aiAnalyticsSeries],
+  );
   const regionChartData = useMemo(
     () =>
       adminAdvancedAnalytics.regionBreakdown.slice(0, 6).map((row, index) => ({
@@ -4214,6 +4300,118 @@ For support, contact: support@merry360x.com
                   <span>Refreshing analytics…</span>
                 </div>
               )}
+            </Card>
+
+            <Card className="p-4 mb-6">
+              <div className="flex items-center justify-between mb-4 gap-3">
+                <div>
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <Activity className="w-4 h-4" /> AI Usage & Win Rate
+                  </h3>
+                  <p className="text-xs text-muted-foreground">Last 30 days from FAQ, cache, OpenAI, and conversation ratings</p>
+                </div>
+                {isAiAnalyticsLoading ? <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /> : null}
+              </div>
+
+              {isAiAnalyticsError || isAiAnalyticsSeriesError ? (
+                <Alert className="mb-4">
+                  <AlertDescription>
+                    AI analytics is not configured in the database yet. Apply the Supabase migration
+                    {' '}20260325160000_add_ai_analytics_and_feedback.sql{' '}
+                    and refresh. Error: {uiErrorMessage((aiAnalyticsError as any) || (aiAnalyticsSeriesError as any))}
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                <div className="rounded-lg border p-3">
+                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                    <MessageSquare className="w-4 h-4" />
+                    <span className="text-sm">AI Requests</span>
+                  </div>
+                  <p className="text-2xl font-bold text-foreground">{aiAnalyticsSummary?.total_requests ?? 0}</p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                    <Star className="w-4 h-4" />
+                    <span className="text-sm">Win Rate</span>
+                  </div>
+                  <p className="text-2xl font-bold text-primary">{Number(aiAnalyticsSummary?.win_rate ?? 0).toFixed(1)}%</p>
+                  <p className="text-xs text-muted-foreground">Based on thumbs up share</p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                    <DollarSign className="w-4 h-4" />
+                    <span className="text-sm">AI Spend</span>
+                  </div>
+                  <p className="text-2xl font-bold text-foreground">${Number(aiAnalyticsSummary?.estimated_cost_usd ?? 0).toFixed(2)}</p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                    <CheckCircle className="w-4 h-4" />
+                    <span className="text-sm">Cost Saved</span>
+                  </div>
+                  <p className="text-2xl font-bold text-primary">${Number(aiAnalyticsSummary?.estimated_saved_usd ?? 0).toFixed(2)}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="rounded-lg border p-3 bg-muted/20">
+                  <p className="text-xs text-muted-foreground">OpenAI replies</p>
+                  <p className="text-lg font-semibold text-foreground">{aiAnalyticsSummary?.openai_requests ?? 0}</p>
+                </div>
+                <div className="rounded-lg border p-3 bg-muted/20">
+                  <p className="text-xs text-muted-foreground">FAQ hits</p>
+                  <p className="text-lg font-semibold text-foreground">{aiAnalyticsSummary?.faq_hits ?? 0}</p>
+                </div>
+                <div className="rounded-lg border p-3 bg-muted/20">
+                  <p className="text-xs text-muted-foreground">Cache hits</p>
+                  <p className="text-lg font-semibold text-foreground">{aiAnalyticsSummary?.cache_hits ?? 0}</p>
+                </div>
+                <div className="rounded-lg border p-3 bg-muted/20">
+                  <p className="text-xs text-muted-foreground">Feedback</p>
+                  <p className="text-lg font-semibold text-foreground">
+                    {aiAnalyticsSummary?.feedback_count ?? 0}
+                    <span className="ml-2 text-sm text-muted-foreground">
+                      {aiAnalyticsSummary?.positive_feedback ?? 0} up / {aiAnalyticsSummary?.negative_feedback ?? 0} down
+                    </span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-xl border p-3">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">AI Daily Trend</p>
+                    <p className="text-xs text-muted-foreground">30-day request volume and sentiment</p>
+                  </div>
+                  {isAiAnalyticsSeriesLoading ? <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /> : null}
+                </div>
+
+                <ChartContainer config={aiChartConfig} className="w-full">
+                  <AreaChart data={aiAnalyticsChartData} margin={{ left: 12, right: 12, top: 8, bottom: 0 }}>
+                    <CartesianGrid vertical={false} />
+                    <XAxis
+                      dataKey="bucket"
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                      minTickGap={24}
+                      tickFormatter={(iso) => new Date(String(iso)).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                    />
+                    <YAxis tickLine={false} axisLine={false} tickMargin={8} allowDecimals={false} />
+                    <ChartTooltip
+                      cursor={false}
+                      content={<ChartTooltipContent formatter={(value) => <span className="font-mono">{Number(value ?? 0).toLocaleString()}</span>} />}
+                    />
+                    <Area dataKey="total_requests" type="monotone" stroke="var(--color-total_requests)" fill="var(--color-total_requests)" fillOpacity={0.12} strokeWidth={2} />
+                    <Area dataKey="openai_requests" type="monotone" stroke="var(--color-openai_requests)" fill="var(--color-openai_requests)" fillOpacity={0.08} strokeWidth={2} />
+                    <Area dataKey="positive_feedback" type="monotone" stroke="var(--color-positive_feedback)" fill="var(--color-positive_feedback)" fillOpacity={0.08} strokeWidth={2} />
+                    <Area dataKey="negative_feedback" type="monotone" stroke="var(--color-negative_feedback)" fill="var(--color-negative_feedback)" fillOpacity={0.05} strokeWidth={2} />
+                    <ChartLegend content={<ChartLegendContent />} />
+                  </AreaChart>
+                </ChartContainer>
+              </div>
             </Card>
 
             <Card className="p-4 mb-6">

@@ -4,7 +4,7 @@ import '../../app.dart';
 import '../utils/app_snackbar.dart';
 import 'package:flutter/services.dart';
 
-import '../../services/mobile_api.dart';
+import '../../services/app_database.dart';
 import '../../session_controller.dart';
 
 class AffiliatesScreen extends StatefulWidget {
@@ -16,7 +16,7 @@ class AffiliatesScreen extends StatefulWidget {
 }
 
 class _AffiliatesScreenState extends State<AffiliatesScreen> {
-  final _api = MobileApi();
+  final _api = AppDatabase();
   Map<String, dynamic>? _data;
   bool _loading = true;
 

@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import { useMemo } from "react";
 import { MapPin, Star, BadgeCheck } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,6 +32,7 @@ export type TourPromoCardProps = {
 };
 
 export default function TourPromoCard(props: TourPromoCardProps) {
+  const routerLocation = useLocation();
   const { addToCart } = useTripCart();
   const { currency: preferredCurrency } = usePreferences();
   const { usdRates } = useFxRates();
@@ -42,6 +44,17 @@ export default function TourPromoCard(props: TourPromoCardProps) {
   // Determine item type - use source if provided, default to 'tour'
   const itemType = props.source === 'tour_packages' ? 'tour_package' : 'tour';
   const itemLabel = props.source === 'tour_packages' ? 'Package' : 'Tour';
+
+  const forwardedQuery = useMemo(() => {
+    const params = new URLSearchParams(routerLocation.search);
+    const keepKeys = ["q", "location", "start", "end", "adults", "children", "infants", "pets", "stay", "monthly", "duration", "guests"];
+    const next = new URLSearchParams();
+    for (const key of keepKeys) {
+      const value = params.get(key);
+      if (value) next.set(key, value);
+    }
+    return next.toString();
+  }, [routerLocation.search]);
   
   // Check if host is verified (only when hostId is provided)
   const { data: hostVerified } = useQuery({
@@ -66,7 +79,7 @@ export default function TourPromoCard(props: TourPromoCardProps) {
   });
 
   return (
-    <Link to={`/tours/${props.id}`} className="block" aria-label={props.title}>
+    <Link to={`/tours/${props.id}${forwardedQuery ? `?${forwardedQuery}` : ""}`} className="block" aria-label={props.title}>
       <div className="group rounded-lg md:rounded-xl overflow-hidden bg-card shadow-card hover:shadow-lg transition-all duration-300">
         <div className="relative aspect-[4/3] overflow-hidden">
           {gallery.length ? (

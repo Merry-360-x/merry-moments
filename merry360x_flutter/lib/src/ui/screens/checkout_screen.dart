@@ -9,7 +9,7 @@ import '../utils/app_snackbar.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../services/mobile_api.dart';
+import '../../services/app_database.dart';
 import '../../session_controller.dart';
 import 'explore_screen.dart' show resolveListingImageUrl;
 
@@ -366,7 +366,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (code.isEmpty) return;
     setState(() { _applyingPromo = true; _promoMsg = null; _promoSuccess = false; });
     try {
-      final api = MobileApi();
+      final api = AppDatabase();
       final result = await api.validatePromoCode(
         code: code,
         subtotal: _subtotal,
@@ -448,13 +448,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           discountAmount: _discountAmount > 0 ? _discountAmount : null,
         );
         if (_appliedDiscount != null && _discountAmount > 0) {
-          MobileApi().incrementPromoCodeUsage(codeId: _appliedDiscount!['id'].toString());
+          AppDatabase().incrementPromoCodeUsage(codeId: _appliedDiscount!['id'].toString());
         }
         _paymentMethod = 'mobile_money';
         setState(() { _bookingId = id; _step = 2; });
       } else if (_payTab == 1) {
         // ── Card (PesaPal) ──
-        final api = MobileApi();
+        final api = AppDatabase();
         final checkoutId = await api.createCheckoutRequest(
           userId: widget.session.userId,
           name: _nameCtrl.text.trim(),
@@ -527,7 +527,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           discountAmount: _discountAmount > 0 ? _discountAmount : null,
         );
         if (_appliedDiscount != null && _discountAmount > 0) {
-          MobileApi().incrementPromoCodeUsage(codeId: _appliedDiscount!['id'].toString());
+          AppDatabase().incrementPromoCodeUsage(codeId: _appliedDiscount!['id'].toString());
         }
         _paymentMethod = 'bank_transfer';
         setState(() { _bookingId = id; _step = 2; });

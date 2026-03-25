@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app.dart';
 
-import '../../services/mobile_api.dart';
+import '../../services/app_database.dart';
 import '../../session_controller.dart';
 import 'property_details_screen.dart';
 
@@ -15,7 +15,7 @@ class TransportScreen extends StatefulWidget {
 }
 
 class _TransportScreenState extends State<TransportScreen> {
-  final _api = MobileApi();
+  final _api = AppDatabase();
   String _category = 'all';
   List<Map<String, dynamic>> _items = [];
   bool _loading = true;

@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
-import '../../services/mobile_api.dart';
 import '../../session_controller.dart';
-import 'explore_screen.dart' show resolveListingImageUrl;
-import 'property_details_screen.dart';
+import 'search_results_screen.dart';
 
 // ── Static destination list (mirrors HeroSearch.tsx) ──
 const _kNearbyLabel = "Find what's nearby";
@@ -35,15 +33,12 @@ class SearchScreen extends StatefulWidget {
 }
 
 class _SearchScreenState extends State<SearchScreen> {
-  final _api = MobileApi();
   final _whereCtrl = TextEditingController();
   String _category = 'accommodations'; // accommodations | tours | transport
   String _where = '';
   DateTimeRange? _dateRange;
   int _guests = 1;
-  List<Map<String, dynamic>> _results = [];
-  bool _loading = false;
-  bool _searched = false;
+
 
   @override
   void initState() {
@@ -72,12 +67,6 @@ class _SearchScreenState extends State<SearchScreen> {
     return [...exact, ...starts, ...contains].take(20).toList();
   }
 
-  String get _apiCategory => switch (_category) {
-    'tours' => 'tours',
-    'transport' => 'transport',
-    _ => 'stays',
-  };
-
   String get _dateLabel {
     if (_dateRange == null) return 'Add dates';
     final d = _dateRange!;
@@ -86,26 +75,27 @@ class _SearchScreenState extends State<SearchScreen> {
 
   String get _guestLabel => _guests == 1 ? '1 guest' : '$_guests guests';
 
-  Future<void> _doSearch() async {
-    setState(() { _loading = true; _searched = true; });
-    try {
-      final r = await _api.searchListings(
-        query: _where.trim(),
-        category: _apiCategory,
-        guests: _guests,
-      );
-      if (mounted) setState(() => _results = r);
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
+  void _doSearch() {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (_, animation, __) => SearchResultsScreen(
+          query: _where.trim(),
+          initialCategory: _category,
+          dateRange: _dateRange,
+          guests: _guests,
+          session: widget.session,
+        ),
+        transitionDuration: const Duration(milliseconds: 260),
+        transitionsBuilder: (_, animation, __, child) =>
+            FadeTransition(opacity: animation, child: child),
+      ),
+    );
   }
 
   void _clearAll() => setState(() {
     _whereCtrl.clear();
     _dateRange = null;
     _guests = 1;
-    _results = [];
-    _searched = false;
   });
 
   Future<void> _pickDates() async {
@@ -455,56 +445,7 @@ class _SearchScreenState extends State<SearchScreen> {
                         ),
                       ),
                     ),
-                    // Results
-                    if (_loading) ...[
-                      const SizedBox(height: 36),
-                      const Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.rausch,
-                        ),
-                      ),
-                    ] else if (_searched && _results.isEmpty) ...[
-                      const SizedBox(height: 36),
-                      Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.search_off,
-                              size: 44,
-                              color: Color(0xFFCCCCCC),
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              _where.isEmpty
-                                  ? 'No listings found'
-                                  : 'No results for "$_where"',
-                              style: const TextStyle(
-                                color: Color(0xFF999999),
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ] else if (_results.isNotEmpty) ...[
-                      const SizedBox(height: 20),
-                      Text(
-                        '${_results.length} result${_results.length == 1 ? '' : 's'}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF555555),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      ..._results.map(
-                        (item) => _ResultTile(
-                          item: item,
-                          session: widget.session,
-                        ),
-                      ),
-                    ],
+
                   ],
                 ),
               ),
@@ -695,97 +636,3 @@ class _CounterBtn extends StatelessWidget {
   }
 }
 
-// ── Result tile ──
-class _ResultTile extends StatelessWidget {
-  const _ResultTile({required this.item, required this.session});
-  final Map<String, dynamic> item;
-  final SessionController session;
-
-  @override
-  Widget build(BuildContext context) {
-    final type = (item['item_type'] ?? 'property').toString();
-    final title = (item['title'] ?? item['name'] ?? 'Listing').toString();
-    final location = (item['location'] ?? '').toString();
-    final imgUrl = resolveListingImageUrl(item);
-    final priceKey = type == 'property' ? 'price_per_night' : type == 'tour' ? 'price_per_person' : 'price_per_day';
-    final price = item[priceKey];
-    final currency = (item['currency'] ?? 'USD').toString();
-
-    return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(
-        builder: (_) => PropertyDetailsScreen(item: item, session: session),
-      )),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFEBEBEB)),
-        ),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.horizontal(left: Radius.circular(14)),
-              child: (imgUrl != null && imgUrl.isNotEmpty)
-                  ? Image.network(imgUrl, width: 90, height: 80, fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _placeholder())
-                  : _placeholder(),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _TypePill(type: type),
-                    const SizedBox(height: 4),
-                    Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.black)),
-                    if (location.isNotEmpty) ...[  
-                      const SizedBox(height: 2),
-                      Text(location, maxLines: 1, overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 11, color: AppColors.foggy)),
-                    ],
-                    if (price != null) ...[  
-                      const SizedBox(height: 4),
-                      Text('$currency ${price.toString()}',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.rausch)),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            const Padding(
-              padding: EdgeInsets.only(right: 12),
-              child: Icon(Icons.chevron_right, color: Color(0xFFD0D0D8), size: 20),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _placeholder() => Container(width: 90, height: 80, color: const Color(0xFFF0F0F5),
-      child: const Icon(Icons.image_not_supported_outlined, color: Color(0xFFD0D0D8)));
-}
-
-// ── Type pill ──
-class _TypePill extends StatelessWidget {
-  const _TypePill({required this.type});
-  final String type;
-
-  @override
-  Widget build(BuildContext context) {
-    final (label, color) = switch (type) {
-      'tour' => ('Tour', const Color(0xFF4CAF50)),
-      'tour_package' => ('Package', const Color(0xFF9C27B0)),
-      'transport' => ('Transport', const Color(0xFF2196F3)),
-      _ => ('Stay', AppColors.rausch),
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
-      child: Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
-    );
-  }
-}

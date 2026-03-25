@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import { useMemo } from "react";
 import { Car } from "lucide-react";
 import ListingImageCarousel from "@/components/ListingImageCarousel";
 import { formatMoney } from "@/lib/money";
@@ -20,6 +21,7 @@ export type TransportPromoCardProps = {
 };
 
 export default function TransportPromoCard(props: TransportPromoCardProps) {
+  const routerLocation = useLocation();
   const { addToCart } = useTripCart();
   const { currency: preferredCurrency } = usePreferences();
   const { usdRates } = useFxRates();
@@ -29,8 +31,18 @@ export default function TransportPromoCard(props: TransportPromoCardProps) {
   const baseAmount = Number(props.pricePerDay ?? 0);
   const converted = convertAmount(baseAmount, from, preferredCurrency, usdRates);
   const displayPrice = formatMoney(converted ?? baseAmount, converted !== null ? preferredCurrency : from);
+  const forwardedQuery = useMemo(() => {
+    const params = new URLSearchParams(routerLocation.search);
+    const keepKeys = ["q", "location", "start", "end", "adults", "children", "infants", "pets", "stay", "monthly", "duration", "guests"];
+    const next = new URLSearchParams();
+    for (const key of keepKeys) {
+      const value = params.get(key);
+      if (value) next.set(key, value);
+    }
+    return next.toString();
+  }, [routerLocation.search]);
   return (
-    <Link to="/transport" className="block" aria-label={props.title}>
+    <Link to={`/transport/${props.id}${forwardedQuery ? `?${forwardedQuery}` : ""}`} className="block" aria-label={props.title}>
       <div className="group rounded-lg md:rounded-xl overflow-hidden bg-card shadow-card hover:shadow-lg transition-all duration-300">
         <div className="relative aspect-[4/3] overflow-hidden">
           {imgs.length ? (

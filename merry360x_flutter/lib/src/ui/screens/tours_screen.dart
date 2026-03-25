@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app.dart';
 
-import '../../services/mobile_api.dart';
+import '../../services/app_database.dart';
 import '../../session_controller.dart';
 import 'explore_screen.dart' show resolveListingImageUrl;
 import 'property_details_screen.dart';
@@ -16,7 +16,7 @@ class ToursScreen extends StatefulWidget {
 }
 
 class _ToursScreenState extends State<ToursScreen> {
-  final _api = MobileApi();
+  final _api = AppDatabase();
   String _category = 'all';
   List<Map<String, dynamic>> _tours = [];
   bool _loading = true;

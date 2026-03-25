@@ -5,7 +5,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../app.dart';
 import '../utils/app_snackbar.dart';
-import '../../services/mobile_api.dart';
+import '../../services/app_database.dart';
 import '../../session_controller.dart';
 import 'checkout_screen.dart';
 import 'explore_screen.dart' show resolveListingImageUrl;
@@ -21,17 +21,23 @@ class PropertyDetailsScreen extends StatefulWidget {
     super.key,
     required this.item,
     required this.session,
+    this.initialCheckIn,
+    this.initialCheckOut,
+    this.initialGuests = 1,
   });
 
   final Map<String, dynamic> item;
   final SessionController session;
+  final DateTime? initialCheckIn;
+  final DateTime? initialCheckOut;
+  final int initialGuests;
 
   @override
   State<PropertyDetailsScreen> createState() => _PropertyDetailsScreenState();
 }
 
 class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
-  final MobileApi _api = MobileApi();
+  final AppDatabase _api = AppDatabase();
 
   Map<String, dynamic>? _full;
   bool _loading = true;
@@ -47,6 +53,9 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
   @override
   void initState() {
     super.initState();
+    _checkIn  = widget.initialCheckIn;
+    _checkOut = widget.initialCheckOut;
+    _guests   = widget.initialGuests;
     _loadFull();
   }
 
