@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useTripCart } from "@/hooks/useTripCart";
 
 type Step = "home" | "ai" | "chat";
 
@@ -24,6 +25,7 @@ type AiRecommendation = {
   rating?: number;
   review_count?: number;
   property_type?: string;
+  image_url?: string;
 };
 
 type AiAction = {
@@ -74,6 +76,7 @@ export default function SupportCenterLauncher() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { addToCart } = useTripCart();
   const aiSessionId = useMemo(() => {
     const key = "merry360x_ai_session_id";
     try {
@@ -95,11 +98,11 @@ export default function SupportCenterLauncher() {
 
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("home");
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
 
   // AI chat
   const [aiMessages, setAiMessages] = useState<ChatMsg[]>([
-    { role: "assistant", content: "Hi! I'm your Merry360X Trip Advisor. Tell me where you're going and your budget." },
+    { role: "assistant", content: "Hi, I’m Merry. Tell me what you want to book and I’ll help you move from planning to cart and checkout." },
   ]);
   const [aiDraft, setAiDraft] = useState("");
   const [aiSending, setAiSending] = useState(false);
@@ -621,6 +624,7 @@ export default function SupportCenterLauncher() {
             rating: Number(x.rating || 0),
             review_count: Number(x.review_count || 0),
             property_type: x.property_type ? String(x.property_type) : undefined,
+            image_url: x.image_url ? String(x.image_url) : undefined,
           }))
           .slice(0, 3)
       : [];
@@ -641,14 +645,43 @@ export default function SupportCenterLauncher() {
     return { reply, recommendations, actions };
   };
 
+  const pushAssistantMessage = (content: string, actions: AiAction[] = []) => {
+    setAiMessages((messages) => [...messages, { role: "assistant", content, actions }]);
+    queueMicrotask(() => aiEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }));
+  };
+
+  const addRecommendationToTripCart = async (recommendation: AiRecommendation, goToCheckout = false) => {
+    if (!recommendation?.id || aiSending) return;
+    setAiSending(true);
+    try {
+      const added = await addToCart("property", recommendation.id, 1);
+      if (!added) return;
+
+      pushAssistantMessage(
+        `${recommendation.title} is now in your Trip Cart. ${goToCheckout ? "I’m taking you to checkout next." : "You can keep browsing or open your cart when you’re ready."}`,
+        [
+          { type: "open_url", label: "Open Trip Cart", url: "/trip-cart", variant: "secondary" },
+          { type: "open_url", label: "Go to Checkout", url: "/checkout?mode=cart", variant: "primary" },
+        ],
+      );
+
+      if (goToCheckout) {
+        navigate("/checkout?mode=cart");
+        setOpen(false);
+      }
+    } finally {
+      setAiSending(false);
+    }
+  };
+
   const sendAi = async () => {
     const text = aiDraft.trim();
     if (!text || aiSending) return;
     setAiDraft("");
     const next: ChatMsg[] = [...aiMessages, { role: "user" as const, content: text }];
     const compactHistory = next
-      .slice(-3)
-      .map((m) => ({ role: m.role, content: String(m.content || "").slice(0, 160) }));
+      .slice(-6)
+      .map((m) => ({ role: m.role, content: String(m.content || "").slice(0, 260) }));
     setAiMessages(next);
     setAiSending(true);
     try {
@@ -677,6 +710,14 @@ export default function SupportCenterLauncher() {
 
   const runAiAction = async (action: AiAction) => {
     if (!action?.type || aiSending) return;
+    if (action.type === "add_to_trip_cart" && action.referenceId) {
+      await addRecommendationToTripCart({
+        id: action.referenceId,
+        title: action.label.replace(/^Add\s+/i, "").replace(/\s+to Trip Cart$/i, "") || "This stay",
+        property_type: action.itemType,
+      });
+      return;
+    }
     if (action.type === "open_url" && action.url) {
       navigate(action.url);
       setOpen(false);
@@ -747,8 +788,8 @@ export default function SupportCenterLauncher() {
   };
 
   // Dynamic sizing
-  const popupWidth = expanded ? "w-[calc(100vw-1rem)] sm:w-96" : "w-[calc(100vw-1rem)] sm:w-80";
-  const popupHeight = expanded ? "h-[min(80dvh,600px)] sm:h-[600px]" : "h-[min(75dvh,480px)] sm:h-[480px]";
+  const popupWidth = expanded ? "w-[calc(100vw-1rem)] sm:w-[34rem]" : "w-[calc(100vw-1rem)] sm:w-[28rem]";
+  const popupHeight = expanded ? "h-[min(88dvh,760px)] sm:h-[760px]" : "h-[min(82dvh,620px)] sm:h-[620px]";
 
   const autoCloseWarning = getAutoCloseWarning();
   const shouldShowAiRating = aiMessages.some((m, idx) => idx > 0 && m.role === "assistant") && aiConversationFeedback === null;
@@ -758,7 +799,7 @@ export default function SupportCenterLauncher() {
       {/* Floating button */}
       <button
         type="button"
-        className="fixed bottom-5 right-5 z-50 h-12 w-12 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:bg-primary/90 transition-transform hover:scale-105"
+        className="fixed bottom-5 right-5 z-50 h-14 w-14 rounded-full bg-gradient-to-br from-rose-500 via-orange-500 to-amber-400 text-white shadow-[0_18px_40px_rgba(244,63,94,0.35)] flex items-center justify-center transition-transform hover:scale-105"
         aria-label="Help"
         onClick={() => {
           setOpen(!open);
@@ -770,6 +811,7 @@ export default function SupportCenterLauncher() {
           }
         }}
       >
+        <span className="absolute inset-0 rounded-full border border-white/30 animate-ping" />
         {open ? <X className="h-5 w-5" /> : <MessageCircle className="h-5 w-5" />}
         {!open && unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
@@ -780,13 +822,16 @@ export default function SupportCenterLauncher() {
 
       {/* Popup */}
       {open && (
-        <div className={`fixed bottom-20 left-2 right-2 sm:left-auto sm:right-5 z-50 ${popupWidth} ${popupHeight} bg-card rounded-2xl shadow-2xl border border-border overflow-hidden animate-in slide-in-from-bottom-2 fade-in duration-200 flex flex-col transition-all`}>
+        <div className={`fixed bottom-20 left-2 right-2 sm:left-auto sm:right-5 z-50 ${popupWidth} ${popupHeight} overflow-hidden rounded-[28px] border border-white/40 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.95),_rgba(255,247,237,0.98)_40%,_rgba(255,255,255,1)_100%)] shadow-[0_28px_90px_rgba(15,23,42,0.24)] animate-in slide-in-from-bottom-2 fade-in duration-200 flex flex-col transition-all`}>
           
           {step === "home" ? (
             /* Home menu */
             <div className="p-4">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-semibold text-foreground">How can we help?</span>
+                <div>
+                  <div className="text-sm font-semibold text-foreground">Meet Merry</div>
+                  <div className="text-[11px] text-muted-foreground">AI concierge for booking, cart, and checkout</div>
+                </div>
                 <div className="flex items-center gap-1">
                   <button type="button" onClick={() => setExpanded(!expanded)} className="text-muted-foreground hover:text-foreground p-1">
                     {expanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
@@ -803,12 +848,13 @@ export default function SupportCenterLauncher() {
                   onClick={() => setStep("ai")}
                   className="w-full flex items-center gap-3 p-3 rounded-xl text-left hover:bg-muted transition-colors"
                 >
-                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center shrink-0">
+                    <div className="relative h-10 w-10 rounded-full bg-gradient-to-br from-rose-500 via-orange-500 to-amber-400 flex items-center justify-center shrink-0 shadow-lg">
+                      <span className="absolute inset-0 rounded-full border border-white/40 animate-pulse" />
                     <Bot className="h-4 w-4 text-white" />
                   </div>
                   <div>
-                    <div className="text-sm font-medium text-foreground">AI Trip Advisor</div>
-                    <div className="text-xs text-muted-foreground">Plan trips, get recommendations</div>
+                    <div className="text-sm font-medium text-foreground">Merry</div>
+                    <div className="text-xs text-muted-foreground">Plan, save to cart, and move to checkout</div>
                   </div>
                 </button>
 
@@ -845,11 +891,20 @@ export default function SupportCenterLauncher() {
           ) : step === "ai" ? (
             /* AI Trip Advisor */
             <div className="flex flex-col flex-1 min-h-0">
-              <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/30 shrink-0">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-white/50 bg-gradient-to-r from-rose-50 via-orange-50 to-amber-50 shrink-0">
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setStep("home")}>
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <div className="text-sm font-medium text-foreground">AI Trip Advisor</div>
+                <div className="flex items-center gap-2">
+                  <div className="relative flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 via-orange-500 to-amber-400 text-white shadow-md">
+                    <span className="absolute inset-0 rounded-full border border-white/40 animate-pulse" />
+                    <Bot className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-foreground">Merry</div>
+                    <div className="text-[11px] text-muted-foreground">AI trip advisor and operator</div>
+                  </div>
+                </div>
                 <div className="ml-auto flex items-center gap-1">
                   <button type="button" onClick={() => setExpanded(!expanded)} className="text-muted-foreground hover:text-foreground p-1">
                     {expanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
@@ -860,71 +915,85 @@ export default function SupportCenterLauncher() {
                 </div>
               </div>
 
-              <ScrollArea className="flex-1 px-3 py-2">
-                <div className="space-y-2">
+              <ScrollArea className="flex-1 px-4 py-3">
+                <div className="space-y-3">
                   {aiMessages.map((m, idx) => (
                     <div
                       key={idx}
-                      className={`max-w-[90%] rounded-xl px-3 py-2 text-xs leading-relaxed ${
-                        m.role === "user" ? "ml-auto bg-primary text-primary-foreground" : "bg-muted text-foreground"
+                      className={`max-w-[92%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
+                        m.role === "user"
+                          ? "ml-auto bg-slate-900 text-white"
+                          : "border border-white/60 bg-white/90 text-foreground"
                       }`}
                     >
                       <div className="whitespace-pre-wrap break-words">{m.content}</div>
                       {m.role === "assistant" && Array.isArray(m.recommendations) && m.recommendations.length > 0 ? (
-                        <div className="mt-2 space-y-1.5">
+                        <div className="mt-3 space-y-2">
                           {m.recommendations.map((rec) => (
                             <div
                               key={`${idx}-${rec.id}`}
-                              className="w-full rounded-lg border border-border/70 bg-background/80 px-2.5 py-2"
+                              className="w-full overflow-hidden rounded-2xl border border-border/70 bg-background/90"
                             >
-                              <div className="text-[11px] font-semibold text-foreground line-clamp-1">{rec.title}</div>
-                              <div className="text-[10px] text-muted-foreground line-clamp-1">
-                                {rec.location || "Location not specified"}
-                              </div>
-                              <div className="mt-1 flex items-center justify-between gap-2 text-[10px]">
-                                <span className="font-medium text-foreground">{formatRecommendationPrice(rec.price, rec.currency)}</span>
-                                <span className="text-muted-foreground">
-                                  {Number.isFinite(rec.rating as number) && (rec.rating || 0) > 0
-                                    ? `★ ${Number(rec.rating).toFixed(1)} (${rec.review_count || 0})`
-                                    : rec.property_type || "View"}
-                                </span>
-                              </div>
-                              <div className="mt-2 flex gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    navigate(`/properties/${encodeURIComponent(rec.id)}`);
-                                    setOpen(false);
-                                  }}
-                                  className="rounded-md border border-border px-2 py-1 text-[10px] font-medium hover:bg-muted"
-                                >
-                                  View
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => void runAiAction({
-                                    type: "add_to_trip_cart",
-                                    label: `Add ${rec.title} to Trip Cart`,
-                                    referenceId: rec.id,
-                                    itemType: "property",
-                                  })}
-                                  className="rounded-md bg-primary px-2 py-1 text-[10px] font-medium text-primary-foreground hover:bg-primary/90"
-                                >
-                                  Add to Trip Cart
-                                </button>
+                              {rec.image_url ? (
+                                <img
+                                  src={rec.image_url}
+                                  alt={rec.title}
+                                  className="h-24 w-full object-cover"
+                                  loading="lazy"
+                                />
+                              ) : null}
+                              <div className="px-3 py-3">
+                                <div className="text-xs font-semibold text-foreground line-clamp-1">{rec.title}</div>
+                                <div className="mt-1 text-[11px] text-muted-foreground line-clamp-1">
+                                  {rec.location || "Location not specified"}
+                                </div>
+                                <div className="mt-2 flex items-center justify-between gap-2 text-[11px]">
+                                  <span className="font-medium text-foreground">{formatRecommendationPrice(rec.price, rec.currency)}</span>
+                                  <span className="text-muted-foreground">
+                                    {Number.isFinite(rec.rating as number) && (rec.rating || 0) > 0
+                                      ? `★ ${Number(rec.rating).toFixed(1)} (${rec.review_count || 0})`
+                                      : rec.property_type || "Stay"}
+                                  </span>
+                                </div>
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      navigate(`/properties/${encodeURIComponent(rec.id)}`);
+                                      setOpen(false);
+                                    }}
+                                    className="rounded-full border border-border px-3 py-1.5 text-[11px] font-medium hover:bg-muted"
+                                  >
+                                    View
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => void addRecommendationToTripCart(rec)}
+                                    className="rounded-full bg-primary px-3 py-1.5 text-[11px] font-medium text-primary-foreground hover:bg-primary/90"
+                                  >
+                                    Add to Trip Cart
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => void addRecommendationToTripCart(rec, true)}
+                                    className="rounded-full bg-slate-900 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-slate-800"
+                                  >
+                                    Checkout
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           ))}
                         </div>
                       ) : null}
                       {m.role === "assistant" && Array.isArray(m.actions) && m.actions.length > 0 ? (
-                        <div className="mt-2 flex flex-wrap gap-2">
+                        <div className="mt-3 flex flex-wrap gap-2">
                           {m.actions.map((action) => (
                             <button
                               key={`${idx}-${action.type}-${action.referenceId || action.url || action.bookingId || action.orderId || action.label}`}
                               type="button"
                               onClick={() => void runAiAction(action)}
-                              className={`rounded-md px-2.5 py-1 text-[10px] font-medium transition-colors ${action.variant === "primary" ? "bg-primary text-primary-foreground hover:bg-primary/90" : "border border-border bg-background hover:bg-muted"}`}
+                              className={`rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors ${action.variant === "primary" ? "bg-primary text-primary-foreground hover:bg-primary/90" : "border border-border bg-background hover:bg-muted"}`}
                             >
                               {action.label}
                             </button>
@@ -934,12 +1003,25 @@ export default function SupportCenterLauncher() {
                     </div>
                   ))}
                   {aiSending && (
-                    <div className="max-w-[90%] rounded-xl px-3 py-2 text-xs bg-muted text-foreground">
-                      Thinking…
+                    <div className="max-w-[92%] rounded-2xl border border-white/60 bg-white/90 px-4 py-3 text-sm text-foreground shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 via-orange-500 to-amber-400 text-white">
+                          <span className="absolute inset-0 rounded-full border border-white/40 animate-pulse" />
+                          <Bot className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <div className="font-medium">Merry is thinking</div>
+                          <div className="mt-1 flex items-center gap-1">
+                            <span className="h-2 w-2 rounded-full bg-rose-400 animate-bounce" />
+                            <span className="h-2 w-2 rounded-full bg-orange-400 animate-bounce [animation-delay:120ms]" />
+                            <span className="h-2 w-2 rounded-full bg-amber-400 animate-bounce [animation-delay:240ms]" />
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                   {shouldShowAiRating ? (
-                    <div className="max-w-[90%] rounded-xl border border-border bg-background px-3 py-3 text-xs text-foreground">
+                    <div className="max-w-[92%] rounded-2xl border border-border bg-background px-4 py-4 text-xs text-foreground">
                       <div className="font-medium">Was this response helpful?</div>
                       <div className="mt-1 text-muted-foreground">Choose thumbs up or down, then add an optional note.</div>
                       <div className="mt-2 flex items-center gap-2">
@@ -1001,13 +1083,17 @@ export default function SupportCenterLauncher() {
                 </div>
               </ScrollArea>
 
-              <div className="p-2 border-t border-border shrink-0">
-                <div className="flex gap-1.5">
+              <div className="border-t border-white/50 bg-white/75 p-3 shrink-0 backdrop-blur">
+                <div className="mb-2 flex items-center gap-2 text-[11px] text-muted-foreground">
+                  <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  Merry can answer, save items, and route you to checkout.
+                </div>
+                <div className="flex gap-2">
                   <Input
-                    className="h-8 text-xs"
+                    className="h-10 rounded-full border-white/70 bg-white text-sm"
                     value={aiDraft}
                     onChange={(e) => setAiDraft(e.target.value)}
-                    placeholder="Ask about stays, tours…"
+                    placeholder="Ask Merry about stays, tours, airport pickup, or checkout..."
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
@@ -1015,7 +1101,7 @@ export default function SupportCenterLauncher() {
                       }
                     }}
                   />
-                  <Button size="sm" className="h-8 px-3 text-xs" onClick={() => void sendAi()} disabled={aiSending || !aiDraft.trim()}>
+                  <Button size="sm" className="h-10 rounded-full px-4 text-sm" onClick={() => void sendAi()} disabled={aiSending || !aiDraft.trim()}>
                     Send
                   </Button>
                 </div>

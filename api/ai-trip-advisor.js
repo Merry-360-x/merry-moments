@@ -4,11 +4,11 @@ import { getProductKnowledge } from "../lib/ai-product-knowledge.js";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || process.env.OPENAI_KEY || "";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.4-nano";
-const OPENAI_MAX_OUTPUT_TOKENS = Math.max(80, Number(process.env.OPENAI_MAX_OUTPUT_TOKENS || 220));
+const OPENAI_MAX_OUTPUT_TOKENS = Math.max(120, Number(process.env.OPENAI_MAX_OUTPUT_TOKENS || 320));
 const AI_RATE_WINDOW_MS = Math.max(60_000, Number(process.env.AI_RATE_WINDOW_MS || 5 * 60_000));
 const AI_RATE_MAX_REQUESTS = Math.max(3, Number(process.env.AI_RATE_MAX_REQUESTS || 10));
 const AI_CACHE_TTL_MS = Math.max(60_000, Number(process.env.AI_CACHE_TTL_MS || 10 * 60_000));
-const AI_CACHE_VERSION = "v6";
+const AI_CACHE_VERSION = "v7";
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
@@ -965,7 +965,7 @@ async function submitConversationRating({ sessionId, userId, channel, rating, fe
 function formatRecommendationContext(recommendations) {
   if (!Array.isArray(recommendations) || recommendations.length === 0) return "";
   return recommendations
-    .slice(0, 2)
+    .slice(0, 3)
     .map((item, index) => {
       const bits = [
         `${index + 1}. ${item.title}`,
@@ -1024,7 +1024,7 @@ async function fetchRecommendations(userText) {
 
   const { data, error } = await supabaseAdmin
     .from("properties")
-    .select("id, title, location, currency, price_per_night, rating, review_count, property_type, is_published")
+    .select("id, title, location, currency, price_per_night, rating, review_count, property_type, images, is_published")
     .eq("is_published", true)
     .limit(80);
 
@@ -1044,6 +1044,7 @@ async function fetchRecommendations(userText) {
       rating: Number(p.rating || 0),
       review_count: Number(p.review_count || 0),
       property_type: p.property_type ? String(p.property_type) : undefined,
+      image_url: Array.isArray(p.images) && p.images[0] ? String(p.images[0]) : undefined,
     }));
 }
 
@@ -1063,9 +1064,9 @@ async function generateReply(messages, recommendations = [], extraContext = "") 
         .filter((m) => m && typeof m === "object")
         .map((m) => ({
           role: m.role === "assistant" ? "assistant" : "user",
-          content: String(m.content || "").slice(0, 180),
+          content: String(m.content || "").slice(0, 260),
         }))
-        .slice(-4)
+        .slice(-6)
     : [];
 
   const conversation = safeMessages
@@ -1089,7 +1090,7 @@ async function generateReply(messages, recommendations = [], extraContext = "") 
         content: [
           {
             type: "input_text",
-            text: "You are Merry360X AI, a premium concierge and product operator for the Merry360X platform on web and mobile. Reply in plain text only. Do not use markdown, headings, tables, emojis, or decorative formatting. Use the provided product knowledge as source of truth for website and app capabilities. If live product context is provided, rely on it. Never claim an action completed unless the live product context explicitly says it succeeded. For booking requests, reflect exactly what the user asked for, then either recommend the best next option or ask up to 3 tightly targeted follow-up questions. Never ask long questionnaires. Never assume a destination, airport, budget, or traveler count unless the user stated it. If the user asks about their cart, bookings, refunds, or support and live context is provided, answer directly from that context. If the user is ready to act, guide them to the next real product step such as trip cart or checkout. Keep the answer concise, commercially useful, and action-driven.",
+            text: "You are Merry, the Merry360X AI concierge and product operator for the Merry360X platform on web and mobile. Reply in plain text only. Do not use markdown, headings, tables, emojis, or decorative formatting. Use the provided product knowledge as source of truth for website and app capabilities. If live product context is provided, rely on it. Never claim an action completed unless the live product context explicitly says it succeeded. Treat prior conversation turns as active memory. Do not ask again for dates, airport, destination, group size, budget, or trip intent if the user already supplied them anywhere in the conversation. If some details are still missing, ask only the smallest next question set needed to move forward, usually 1 or 2 short questions, never more than 3. If the user already gave enough detail, stop interviewing and recommend the next booking-ready option immediately. If recommendations are available, use them. If the user asks about their cart, bookings, refunds, or support and live context is provided, answer directly from that context. If the user is ready to act, guide them to the next real product step such as trip cart or checkout. Keep the answer concise, commercially useful, and action-driven.",
           },
         ],
       },
@@ -1205,7 +1206,7 @@ export default async function handler(req, res) {
       return sendJson(res, 200, { reply: faqReply, recommendations, cached: true, actions: [], source: "faq", sessionId });
     }
 
-    const allowCache = !authUser?.id && !isActionRequest(userText, action);
+    const allowCache = !authUser?.id && !isActionRequest(userText, action) && messages.length <= 2;
     const cachedReply = allowCache ? await getCachedReply(userText) : null;
     if (cachedReply) {
       await recordAiUsage({

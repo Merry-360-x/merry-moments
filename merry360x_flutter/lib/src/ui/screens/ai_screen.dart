@@ -1,12 +1,13 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-
-import '../../app.dart';
 import 'package:http/http.dart' as http;
 
+import '../../app.dart';
 import '../../config.dart';
 import '../../session_controller.dart';
+import 'checkout_screen.dart';
+import 'trip_cart_screen.dart';
 
 class AiScreen extends StatefulWidget {
   const AiScreen({super.key, required this.session});
@@ -44,6 +45,7 @@ class _AiScreenState extends State<AiScreen> {
       if (accepted != true) return;
       setState(() => _consentedToAi = true);
     }
+
     _controller.clear();
     setState(() {
       _messages.add(_ChatMsg(role: 'user', content: trimmed));
@@ -52,15 +54,15 @@ class _AiScreenState extends State<AiScreen> {
     _scrollToBottom();
 
     try {
-      final recentMessages = _messages.length <= 3
+      final recentMessages = _messages.length <= 6
           ? List<_ChatMsg>.from(_messages)
-          : _messages.sublist(_messages.length - 3);
+          : _messages.sublist(_messages.length - 6);
       final history = recentMessages
-          .map((m) {
-            final compact = m.content.trim();
+          .map((message) {
+            final compact = message.content.trim();
             return {
-              'role': m.role,
-              'content': compact.length > 160 ? compact.substring(0, 160) : compact,
+              'role': message.role,
+              'content': compact.length > 260 ? compact.substring(0, 260) : compact,
             };
           })
           .toList();
@@ -70,6 +72,7 @@ class _AiScreenState extends State<AiScreen> {
       if (accessToken != null && accessToken.isNotEmpty) {
         headers['Authorization'] = 'Bearer $accessToken';
       }
+
       final response = await http.post(
         uri,
         headers: headers,
@@ -80,26 +83,163 @@ class _AiScreenState extends State<AiScreen> {
           'channel': 'mobile',
         }),
       );
+
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        final json = jsonDecode(response.body) as Map<String, dynamic>;
-        final reply = (json['reply'] ?? json['message'] ?? '').toString();
-        if (reply.isNotEmpty) {
-          setState(() => _messages.add(_ChatMsg(role: 'assistant', content: reply)));
+        final parsed = _parseAiResponse(jsonDecode(response.body) as Map<String, dynamic>);
+        if (parsed.reply.isNotEmpty) {
+          setState(() {
+            _messages.add(_ChatMsg(
+              role: 'assistant',
+              content: parsed.reply,
+              recommendations: parsed.recommendations,
+              actions: parsed.actions,
+            ));
+          });
         }
       } else {
-        setState(() => _messages.add(_ChatMsg(
-          role: 'assistant',
-          content: 'Sorry, I could not process that request right now. Please try again.',
-        )));
+        setState(() {
+          _messages.add(const _ChatMsg(
+            role: 'assistant',
+            content: 'Sorry, I could not process that request right now. Please try again.',
+          ));
+        });
       }
     } catch (_) {
-      setState(() => _messages.add(_ChatMsg(
-        role: 'assistant',
-        content: 'Network error. Please check your connection and try again.',
-      )));
+      setState(() {
+        _messages.add(const _ChatMsg(
+          role: 'assistant',
+          content: 'Network error. Please check your connection and try again.',
+        ));
+      });
     } finally {
-      setState(() => _busy = false);
+      if (mounted) setState(() => _busy = false);
       _scrollToBottom();
+    }
+  }
+
+  _ParsedAiResponse _parseAiResponse(Map<String, dynamic> json) {
+    final recommendations = ((json['recommendations'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((item) => _AiRecommendation(
+              id: (item['id'] ?? '').toString(),
+              title: (item['title'] ?? 'Untitled').toString(),
+              location: item['location']?.toString(),
+              currency: item['currency']?.toString(),
+              price: (item['price'] as num?)?.toDouble(),
+              rating: (item['rating'] as num?)?.toDouble(),
+              reviewCount: (item['review_count'] as num?)?.toInt(),
+              imageUrl: item['image_url']?.toString(),
+            ))
+        .where((item) => item.id.isNotEmpty)
+        .take(3)
+        .toList();
+
+    final actions = ((json['actions'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((item) => _AiAction(
+              type: (item['type'] ?? '').toString(),
+              label: (item['label'] ?? 'Action').toString(),
+              referenceId: item['referenceId']?.toString(),
+              itemType: item['itemType']?.toString(),
+              bookingId: item['bookingId']?.toString(),
+              orderId: item['orderId']?.toString(),
+              url: item['url']?.toString(),
+              variant: item['variant']?.toString(),
+            ))
+        .where((item) => item.type.isNotEmpty)
+        .toList();
+
+    return _ParsedAiResponse(
+      reply: (json['reply'] ?? json['message'] ?? '').toString(),
+      recommendations: recommendations,
+      actions: actions,
+    );
+  }
+
+  Future<void> _addRecommendationToTripCart(_AiRecommendation recommendation, {bool goToCheckout = false}) async {
+    if (_busy || recommendation.id.isEmpty) return;
+    if (!widget.session.isAuthenticated) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign in first to save items to your trip cart.')),
+      );
+      return;
+    }
+
+    setState(() => _busy = true);
+    try {
+      await widget.session.addListingToTripCart({
+        'id': recommendation.id,
+        'title': recommendation.title,
+        'item_type': 'property',
+        'images': recommendation.imageUrl != null ? [recommendation.imageUrl] : const [],
+        'location': recommendation.location,
+      });
+
+      setState(() {
+        _messages.add(const _ChatMsg(
+          role: 'assistant',
+          content: 'Saved to your Trip Cart. You can review it now or continue into checkout.',
+          actions: [
+            _AiAction(type: 'open_url', label: 'Open Trip Cart', url: '/trip-cart', variant: 'secondary'),
+            _AiAction(type: 'open_url', label: 'Go to Checkout', url: '/checkout?mode=cart', variant: 'primary'),
+          ],
+        ));
+      });
+      _scrollToBottom();
+
+      if (goToCheckout) {
+        await _runAction(const _AiAction(type: 'open_url', label: 'Go to Checkout', url: '/checkout?mode=cart', variant: 'primary'));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Map<String, dynamic>? _resolveCheckoutItem() {
+    final cartItems = widget.session.payload?.tripCart ?? const <Map<String, dynamic>>[];
+    if (cartItems.isEmpty) return null;
+    final first = cartItems.first;
+    final listings = widget.session.payload?.homeListings ?? const <Map<String, dynamic>>[];
+    final ref = (first['property_id'] ?? first['tour_id'] ?? first['transport_id'] ?? first['reference_id'] ?? '').toString();
+    final type = (first['item_type'] ?? 'property').toString();
+    final matched = listings.cast<Map<String, dynamic>>().firstWhere(
+      (listing) => listing['id']?.toString() == ref && listing['item_type']?.toString() == type,
+      orElse: () => <String, dynamic>{},
+    );
+    return <String, dynamic>{...matched, ...first};
+  }
+
+  Future<void> _runAction(_AiAction action) async {
+    if (action.type == 'open_url' && action.url == '/trip-cart') {
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => TripCartScreen(session: widget.session)),
+      );
+      return;
+    }
+
+    if (action.type == 'open_url' && (action.url?.startsWith('/checkout') ?? false)) {
+      final checkoutItem = _resolveCheckoutItem();
+      if (checkoutItem == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Add an item to your trip cart before checkout.')),
+        );
+        return;
+      }
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CheckoutScreen(
+            item: checkoutItem,
+            guests: int.tryParse('${checkoutItem['quantity'] ?? 1}') ?? 1,
+            session: widget.session,
+          ),
+        ),
+      );
     }
   }
 
@@ -216,44 +356,62 @@ class _AiScreenState extends State<AiScreen> {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final isWide = screenWidth > 600; // iPad-class
-    final maxContentWidth = isWide ? 640.0 : double.infinity;
+    final isWide = screenWidth > 600;
+    final maxContentWidth = isWide ? 720.0 : double.infinity;
 
-    return Column(
-      children: [
-        // Header
-        Padding(
-          padding: EdgeInsets.fromLTRB(isWide ? 24 : 16, 16, isWide ? 24 : 16, 0),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: maxContentWidth),
-              child: Row(
-                children: [
-                  const Text('Merry AI', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.black)),
-                  const Spacer(),
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppColors.rausch.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(20),
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFFFFF5F2), Color(0xFFFFFFFF)],
+        ),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(isWide ? 24 : 16, 16, isWide ? 24 : 16, 0),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxContentWidth),
+                child: Row(
+                  children: [
+                    const Text('Merry', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: AppColors.black)),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'AI concierge for planning, trip cart, and checkout',
+                        style: TextStyle(fontSize: 12, color: AppColors.foggy),
+                      ),
                     ),
-                    child: const Icon(Icons.auto_awesome, color: AppColors.rausch, size: 18),
-                  ),
-                ],
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0.94, end: 1),
+                      duration: const Duration(milliseconds: 1800),
+                      curve: Curves.easeInOut,
+                      builder: (context, value, child) => Transform.scale(scale: value, child: child),
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(colors: [Color(0xFFFF5A5F), Color(0xFFFF9F43)]),
+                          borderRadius: BorderRadius.circular(22),
+                          boxShadow: const [
+                            BoxShadow(color: Color(0x30FF5A5F), blurRadius: 16, offset: Offset(0, 8)),
+                          ],
+                        ),
+                        child: const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 4),
-
-        // Messages area
-        Expanded(
-          child: _messages.isEmpty ? _buildWelcome(maxContentWidth, isWide) : _buildChat(maxContentWidth, isWide),
-        ),
-
-        // Input bar
-        Padding(
+          const SizedBox(height: 6),
+          Expanded(
+            child: _messages.isEmpty ? _buildWelcome(maxContentWidth, isWide) : _buildChat(maxContentWidth, isWide),
+          ),
+          Padding(
             padding: EdgeInsets.fromLTRB(isWide ? 24 : 12, 8, isWide ? 24 : 12, 8),
             child: Center(
               child: ConstrainedBox(
@@ -265,7 +423,7 @@ class _AiScreenState extends State<AiScreen> {
                       padding: const EdgeInsets.only(left: 4, bottom: 6),
                       child: Text(
                         _consentedToAi
-                            ? 'AI consent granted. You can ask travel questions.'
+                            ? 'AI consent granted. Merry can help with planning, cart, and checkout.'
                             : 'Before first use, you will be asked to consent to AI processing.',
                         style: const TextStyle(fontSize: 11, color: AppColors.foggy),
                       ),
@@ -286,7 +444,7 @@ class _AiScreenState extends State<AiScreen> {
                             child: TextField(
                               controller: _controller,
                               decoration: const InputDecoration(
-                                hintText: 'Ask about places, tours, packages...',
+                                hintText: 'Ask Merry about apartments, tours, airport pickup...',
                                 hintStyle: TextStyle(color: AppColors.foggy, fontSize: 14),
                                 border: InputBorder.none,
                                 contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
@@ -314,8 +472,9 @@ class _AiScreenState extends State<AiScreen> {
                 ),
               ),
             ),
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -329,7 +488,7 @@ class _AiScreenState extends State<AiScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Travel assistant for stays, tours and transport',
+                'Merry can help you plan, save items to Trip Cart, and guide you into checkout.',
                 style: TextStyle(color: AppColors.foggy, fontSize: 13),
               ),
               const SizedBox(height: 14),
@@ -342,12 +501,12 @@ class _AiScreenState extends State<AiScreen> {
                   _PromptChip(label: 'Cheapest stay in Kigali', onTap: () => _send('Cheapest stay in Kigali')),
                   _PromptChip(label: 'Family-friendly stays', onTap: () => _send('Family-friendly stays')),
                   _PromptChip(label: '2-day Rwanda tour plan', onTap: () => _send('2-day Rwanda tour plan')),
-                  _PromptChip(label: 'Airport transport options', onTap: () => _send('Airport transport options')),
+                  _PromptChip(label: 'Apartment with airport pickup', onTap: () => _send('I need an apartment with airport pickup')),
                 ],
               ),
               const SizedBox(height: 14),
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(18),
@@ -360,12 +519,12 @@ class _AiScreenState extends State<AiScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Hi! I am Merry AI, your personal travel assistant.',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                      'Hi! I am Merry, your travel assistant.',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                     ),
                     SizedBox(height: 8),
                     Text(
-                      'I can help you find stays, compare prices, and plan your itinerary.',
+                      'I help you move faster from discovery to booking. Ask for a stay, tour, airport pickup, trip cart status, or checkout help.',
                       style: TextStyle(color: Color(0xFF71717A)),
                     ),
                   ],
@@ -379,15 +538,18 @@ class _AiScreenState extends State<AiScreen> {
   }
 
   Widget _buildChat(double maxWidth, bool isWide) {
-    final shouldAskForRating = _conversationFeedback == null &&
-        _messages.any((msg) => msg.role == 'assistant');
+    final shouldAskForRating = _conversationFeedback == null && _messages.any((message) => message.role == 'assistant');
 
     return ListView.builder(
       controller: _scrollController,
       padding: EdgeInsets.fromLTRB(isWide ? 24 : 16, 8, isWide ? 24 : 16, 8),
-      itemCount: _messages.length + (shouldAskForRating || _conversationFeedback != null ? 1 : 0),
+      itemCount: _messages.length + (_busy ? 1 : 0) + (shouldAskForRating || _conversationFeedback != null ? 1 : 0),
       itemBuilder: (context, index) {
-        if (index >= _messages.length) {
+        if (_busy && index == _messages.length) {
+          return _ThinkingCard(maxWidth: maxWidth);
+        }
+
+        if (index >= _messages.length + (_busy ? 1 : 0)) {
           return Center(
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: maxWidth),
@@ -439,8 +601,8 @@ class _AiScreenState extends State<AiScreen> {
           );
         }
 
-        final msg = _messages[index];
-        final isUser = msg.role == 'user';
+        final message = _messages[index];
+        final isUser = message.role == 'user';
         return Center(
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: maxWidth),
@@ -448,19 +610,40 @@ class _AiScreenState extends State<AiScreen> {
               alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
               child: Container(
                 margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                constraints: BoxConstraints(maxWidth: maxWidth * 0.8),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                constraints: BoxConstraints(maxWidth: maxWidth * 0.84),
                 decoration: BoxDecoration(
-                  color: isUser ? AppColors.rausch : Colors.white,
-                  borderRadius: BorderRadius.circular(16),
+                  color: isUser ? AppColors.black : Colors.white,
+                  borderRadius: BorderRadius.circular(18),
                   border: isUser ? null : Border.all(color: const Color(0xFFEBEBEB)),
+                  boxShadow: const [BoxShadow(color: Color(0x0E000000), blurRadius: 12, offset: Offset(0, 4))],
                 ),
-                child: Text(
-                  msg.content,
-                  style: TextStyle(
-                        color: isUser ? Colors.white : AppColors.black,
-                    fontSize: 14,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      message.content,
+                      style: TextStyle(color: isUser ? Colors.white : AppColors.black, fontSize: 14),
+                    ),
+                    if (!isUser && message.recommendations.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      ...message.recommendations.map((recommendation) => _RecommendationCard(
+                            recommendation: recommendation,
+                            onAdd: () => _addRecommendationToTripCart(recommendation),
+                            onCheckout: () => _addRecommendationToTripCart(recommendation, goToCheckout: true),
+                          )),
+                    ],
+                    if (!isUser && message.actions.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: message.actions
+                            .map((action) => _ActionChip(action: action, onTap: () => _runAction(action)))
+                            .toList(),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ),
@@ -472,9 +655,194 @@ class _AiScreenState extends State<AiScreen> {
 }
 
 class _ChatMsg {
-  _ChatMsg({required this.role, required this.content});
+  const _ChatMsg({required this.role, required this.content, this.recommendations = const [], this.actions = const []});
+
   final String role;
   final String content;
+  final List<_AiRecommendation> recommendations;
+  final List<_AiAction> actions;
+}
+
+class _AiRecommendation {
+  const _AiRecommendation({
+    required this.id,
+    required this.title,
+    this.location,
+    this.currency,
+    this.price,
+    this.rating,
+    this.reviewCount,
+    this.imageUrl,
+  });
+
+  final String id;
+  final String title;
+  final String? location;
+  final String? currency;
+  final double? price;
+  final double? rating;
+  final int? reviewCount;
+  final String? imageUrl;
+}
+
+class _AiAction {
+  const _AiAction({
+    required this.type,
+    required this.label,
+    this.referenceId,
+    this.itemType,
+    this.bookingId,
+    this.orderId,
+    this.url,
+    this.variant,
+  });
+
+  final String type;
+  final String label;
+  final String? referenceId;
+  final String? itemType;
+  final String? bookingId;
+  final String? orderId;
+  final String? url;
+  final String? variant;
+}
+
+class _ParsedAiResponse {
+  const _ParsedAiResponse({required this.reply, required this.recommendations, required this.actions});
+
+  final String reply;
+  final List<_AiRecommendation> recommendations;
+  final List<_AiAction> actions;
+}
+
+class _ThinkingCard extends StatelessWidget {
+  const _ThinkingCard({required this.maxWidth});
+
+  final double maxWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFEBEBEB)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [Color(0xFFFF5A5F), Color(0xFFFF9F43)]),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: const Icon(Icons.auto_awesome, color: Colors.white, size: 18),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text('Merry is thinking...', style: TextStyle(fontWeight: FontWeight.w600)),
+              ),
+              const SizedBox(width: 8),
+              const SizedBox(width: 8, height: 8, child: CircularProgressIndicator(strokeWidth: 2)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecommendationCard extends StatelessWidget {
+  const _RecommendationCard({required this.recommendation, required this.onAdd, required this.onCheckout});
+
+  final _AiRecommendation recommendation;
+  final VoidCallback onAdd;
+  final VoidCallback onCheckout;
+
+  @override
+  Widget build(BuildContext context) {
+    final price = recommendation.price != null && recommendation.price! > 0
+        ? '${recommendation.price!.round()} ${recommendation.currency ?? 'RWF'}'
+        : 'Price on request';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBFA),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF0E1DD)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (recommendation.imageUrl != null && recommendation.imageUrl!.isNotEmpty)
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              child: Image.network(
+                recommendation.imageUrl!,
+                height: 92,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => Container(
+                  height: 92,
+                  color: const Color(0xFFF2F2F5),
+                  alignment: Alignment.center,
+                  child: const Icon(Icons.image_outlined, color: AppColors.foggy),
+                ),
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(recommendation.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                const SizedBox(height: 4),
+                Text(recommendation.location ?? 'Location not specified', style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Expanded(child: Text(price, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
+                    if (recommendation.rating != null && recommendation.rating! > 0)
+                      Text('★ ${recommendation.rating!.toStringAsFixed(1)}', style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton(onPressed: onAdd, child: const Text('Add to Trip Cart')),
+                    FilledButton(onPressed: onCheckout, child: const Text('Checkout')),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionChip extends StatelessWidget {
+  const _ActionChip({required this.action, required this.onTap});
+
+  final _AiAction action;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return action.variant == 'primary'
+        ? FilledButton(onPressed: onTap, child: Text(action.label))
+        : OutlinedButton(onPressed: onTap, child: Text(action.label));
+  }
 }
 
 class _PromptChip extends StatelessWidget {
