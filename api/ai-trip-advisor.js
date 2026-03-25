@@ -25,6 +25,12 @@ const STOP_WORDS = new Set([
   "does", "did", "want", "need", "looking", "like", "just", "also", "really", "very", "some", "any",
 ]);
 
+const GENERIC_SEARCH_TERMS = new Set([
+  "apartment", "apartments", "airport", "pickup", "book", "booking", "stay", "stays", "hotel", "hotels",
+  "room", "rooms", "house", "houses", "villa", "villas", "transport", "transfer", "trip", "travel",
+  "luxury", "premium", "romantic", "holiday", "vacation", "night", "nights", "guest", "guests",
+]);
+
 const FAQ_RULES = [
   {
     keywords: ["hello"],
@@ -559,6 +565,8 @@ async function fetchRecommendations(userText) {
   if (!supabaseAdmin) return [];
   const terms = extractQueryTerms(userText);
   if (terms.length === 0) return [];
+  const specificTerms = terms.filter((term) => !GENERIC_SEARCH_TERMS.has(term));
+  if (specificTerms.length === 0) return [];
 
   const { data, error } = await supabaseAdmin
     .from("properties")
@@ -569,7 +577,7 @@ async function fetchRecommendations(userText) {
   if (error || !Array.isArray(data)) return [];
 
   return data
-    .map((p) => ({ ...p, _score: scoreProperty(p, terms) }))
+    .map((p) => ({ ...p, _score: scoreProperty(p, specificTerms) }))
     .filter((p) => p._score > 0)
     .sort((a, b) => b._score - a._score)
     .slice(0, 3)
