@@ -447,7 +447,7 @@ const normalizeHostId = (value: unknown) => String(value || "").trim().toLowerCa
 const resolveListingSubtotalForBooking = (
   booking: { booking_type?: string | null; property_id?: string | null; tour_id?: string | null; transport_id?: string | null; total_price?: number | null; checkout_requests?: { total_amount?: number | null; currency?: string | null; metadata?: { items?: any[]; discount_amount?: number } | null } | null; currency?: string | null },
   serviceType: 'accommodation' | 'tour' | 'transport'
-): { listingSubtotal: number; paidCurrency: string } => {
+): { listingSubtotal: number; subtotalCurrency: string; paidCurrency: string } => {
   const paidAmount = Number(booking.checkout_requests?.total_amount || booking.total_price || 0);
   const paidCurrency = String(booking.checkout_requests?.currency || booking.currency || 'RWF').toUpperCase();
   const guestFeePercent = getGuestFeePercent(serviceType);
@@ -481,7 +481,11 @@ const resolveListingSubtotalForBooking = (
         const discount = Number(matched.discount_applied || 0);
         const subtotal = Math.max(0, (price * qty) - discount);
         if (Number.isFinite(subtotal) && subtotal > 0) {
-          return { listingSubtotal: subtotal, paidCurrency };
+          return {
+            listingSubtotal: subtotal,
+            subtotalCurrency: String(matched.calculated_price_currency || booking.currency || booking.checkout_requests?.currency || 'RWF').toUpperCase(),
+            paidCurrency,
+          };
         }
       }
     }
@@ -490,6 +494,7 @@ const resolveListingSubtotalForBooking = (
   // Fallback: derive listing subtotal from paid amount via guest fee
   return {
     listingSubtotal: Math.max(0, paidAmount / (1 + guestFeePercent / 100)),
+    subtotalCurrency: paidCurrency,
     paidCurrency,
   };
 };
@@ -3542,7 +3547,10 @@ For support, contact: support@merry360x.com
         const paidCurrency = String(booking.checkout_requests?.currency || booking.currency || "RWF").toUpperCase();
         if (!(paidAmount > 0)) return totals;
 
-        const { listingSubtotal: listingSubtotalAfterDiscount } = resolveListingSubtotalForBooking(booking as any, serviceType);
+        const {
+          listingSubtotal: listingSubtotalAfterDiscount,
+          subtotalCurrency,
+        } = resolveListingSubtotalForBooking(booking as any, serviceType);
         const financials = calculateBookingFinancialsFromDiscountedListing(listingSubtotalAfterDiscount, serviceType);
         const pawapay = calculatePawaPayProcessing(paidAmount);
 
@@ -3551,10 +3559,10 @@ For support, contact: support@merry360x.com
         totals.totalAmountBooked += toRwfAmount(paidAmount, paidCurrency);
         totals.totalDiscountApplied += toRwfAmount(discountRaw, paidCurrency);
         totals.totalAmountAfterPlatformFees += toRwfAmount(paidAmount + discountRaw, paidCurrency);
-        totals.totalAmountAfterServiceFees += toRwfAmount(financials.hostNetEarnings, paidCurrency);
-        totals.platformGuestFees += toRwfAmount(financials.guestFee, paidCurrency);
-        totals.hostFees += toRwfAmount(financials.hostFee, paidCurrency);
-        totals.earnedFromCharges += toRwfAmount(financials.platformTotalEarnings, paidCurrency);
+        totals.totalAmountAfterServiceFees += toRwfAmount(financials.hostNetEarnings, subtotalCurrency);
+        totals.platformGuestFees += toRwfAmount(financials.guestFee, subtotalCurrency);
+        totals.hostFees += toRwfAmount(financials.hostFee, subtotalCurrency);
+        totals.earnedFromCharges += toRwfAmount(financials.platformTotalEarnings, subtotalCurrency);
         totals.totalPawapayFees += toRwfAmount(pawapay.processingFee, paidCurrency);
         totals.totalAmountAfterPawapay += toRwfAmount(pawapay.netAmount, paidCurrency);
         return totals;
@@ -3636,9 +3644,12 @@ For support, contact: support@merry360x.com
       const paidCurrency = String(booking.checkout_requests?.currency || booking.currency || "RWF").toUpperCase();
       if (!(paidAmount > 0)) return;
 
-      const { listingSubtotal: discountedBase } = resolveListingSubtotalForBooking(booking as any, serviceType);
+      const {
+        listingSubtotal: discountedBase,
+        subtotalCurrency,
+      } = resolveListingSubtotalForBooking(booking as any, serviceType);
       const financials = calculateBookingFinancialsFromDiscountedListing(discountedBase, serviceType);
-      const hostEarningsRwf = toRwfAmount(financials.hostNetEarnings, paidCurrency);
+      const hostEarningsRwf = toRwfAmount(financials.hostNetEarnings, subtotalCurrency);
 
       const hostId = resolvedHostId;
       const current = totals.get(hostId) || {
