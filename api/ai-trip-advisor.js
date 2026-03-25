@@ -556,6 +556,7 @@ function scoreProperty(property, terms) {
   for (const t of terms) {
     if (haystack.includes(t)) score += 2;
   }
+  if (score === 0) return 0;
   score += Number(property.rating || 0) * 0.2;
   score += Math.min(Number(property.review_count || 0), 40) * 0.02;
   return score;
