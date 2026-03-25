@@ -7,7 +7,7 @@ const OPENAI_MAX_OUTPUT_TOKENS = Math.max(80, Number(process.env.OPENAI_MAX_OUTP
 const AI_RATE_WINDOW_MS = Math.max(60_000, Number(process.env.AI_RATE_WINDOW_MS || 5 * 60_000));
 const AI_RATE_MAX_REQUESTS = Math.max(3, Number(process.env.AI_RATE_MAX_REQUESTS || 10));
 const AI_CACHE_TTL_MS = Math.max(60_000, Number(process.env.AI_CACHE_TTL_MS || 10 * 60_000));
-const AI_CACHE_VERSION = "v4";
+const AI_CACHE_VERSION = "v5";
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
