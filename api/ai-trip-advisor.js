@@ -3,11 +3,11 @@ import { createClient } from "@supabase/supabase-js";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || process.env.OPENAI_KEY || "";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.4-nano";
-const OPENAI_MAX_OUTPUT_TOKENS = Math.max(40, Number(process.env.OPENAI_MAX_OUTPUT_TOKENS || 140));
+const OPENAI_MAX_OUTPUT_TOKENS = Math.max(80, Number(process.env.OPENAI_MAX_OUTPUT_TOKENS || 220));
 const AI_RATE_WINDOW_MS = Math.max(60_000, Number(process.env.AI_RATE_WINDOW_MS || 5 * 60_000));
 const AI_RATE_MAX_REQUESTS = Math.max(3, Number(process.env.AI_RATE_MAX_REQUESTS || 10));
 const AI_CACHE_TTL_MS = Math.max(60_000, Number(process.env.AI_CACHE_TTL_MS || 10 * 60_000));
-const AI_CACHE_VERSION = "v3";
+const AI_CACHE_VERSION = "v4";
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
@@ -201,6 +201,18 @@ function getLatestUserText(messages) {
 
 function compactText(value, max = 180) {
   return String(value || "").trim().replace(/\s+/g, " ").slice(0, max);
+}
+
+function cleanAssistantReply(value) {
+  return String(value || "")
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/^#{1,6}\s*/gm, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function getCacheKey(userText) {
@@ -609,7 +621,7 @@ async function generateReply(messages, recommendations = []) {
         content: [
           {
             type: "input_text",
-            text: "You are Merry360X AI, a premium concierge for the Merry360X platform on web and mobile. Start by understanding the user's travel intent: destination, dates, group size, budget, and preferences such as luxury, adventure, culture, nightlife, or convenience. Be friendly, proactive, persuasive, and clear. Recommend destinations, stays, tours, experiences, local guides, and transport using structured short paragraphs or bullets. Highlight benefits, value, savings, convenience, and unique selling points. Compare options honestly when useful. Suggest top 3 options and identify a best choice when the user is unsure. Guide the user from idea to decision to booking, but never claim an action was completed unless the system explicitly confirms it. Never invent availability, payments, reservations, or bookings. Before any booking-style next step, confirm dates, traveler count, budget, and payment readiness. Keep replies concise, premium, and action-driven.",
+            text: "You are Merry360X AI, a premium concierge for the Merry360X platform on web and mobile. Reply in plain text only. Do not use markdown, bold markers, headings, tables, emojis, or decorative formatting. Sound sharp, human, and commercially useful. For booking requests, first reflect exactly what the user asked for, then either recommend the best next option or ask up to 3 tightly targeted follow-up questions. Never ask long 5-item questionnaires. Never assume a destination, airport, budget, or traveler count unless the user stated it. Do not infer Kigali or Rwanda just because the user mentioned airport pickup, and do not invent budget anchors like $25 per night. If the user is early in the journey, ask only the missing details that are critical to proceed, such as destination, dates, guest count, or budget. If enough details exist, suggest the best 1 to 3 options and explain why they fit. Highlight value, convenience, location logic, and booking readiness. Never claim availability, reservations, payment completion, or airport transfer confirmation unless the system explicitly confirms it. Keep the answer concise, clear, premium, and action-driven.",
           },
         ],
       },
@@ -625,7 +637,7 @@ async function generateReply(messages, recommendations = []) {
     ],
   });
 
-  const text = typeof out.output_text === "string" ? out.output_text.trim() : "";
+  const text = cleanAssistantReply(typeof out.output_text === "string" ? out.output_text : "");
   return {
     reply: text || "I can help with East Africa travel plans. What destination are you considering?",
     source: "openai",
