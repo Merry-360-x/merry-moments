@@ -178,6 +178,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 ),
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.rausch,
+                  minimumSize: const Size(0, 48),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
                     vertical: 14,
