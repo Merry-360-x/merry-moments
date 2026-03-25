@@ -7,6 +7,7 @@ const OPENAI_MAX_OUTPUT_TOKENS = Math.max(40, Number(process.env.OPENAI_MAX_OUTP
 const AI_RATE_WINDOW_MS = Math.max(60_000, Number(process.env.AI_RATE_WINDOW_MS || 5 * 60_000));
 const AI_RATE_MAX_REQUESTS = Math.max(3, Number(process.env.AI_RATE_MAX_REQUESTS || 10));
 const AI_CACHE_TTL_MS = Math.max(60_000, Number(process.env.AI_CACHE_TTL_MS || 10 * 60_000));
+const AI_CACHE_VERSION = "v2";
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
@@ -91,7 +92,9 @@ function compactText(value, max = 180) {
 }
 
 function getCacheKey(userText) {
-  return normalizeText(userText).slice(0, 220);
+  const normalized = normalizeText(userText);
+  if (!normalized) return "";
+  return `${AI_CACHE_VERSION}:${normalized}`.slice(0, 220);
 }
 
 function cleanupMap(map, isExpired) {
@@ -462,6 +465,9 @@ async function generateReply(messages, recommendations = []) {
   if (!openai) {
     return {
       reply: buildNoOpenAiFallback(recommendations),
+      source: "error",
+      status: "failed",
+      shouldCache: false,
       usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
     };
   }
@@ -510,6 +516,9 @@ async function generateReply(messages, recommendations = []) {
   const text = typeof out.output_text === "string" ? out.output_text.trim() : "";
   return {
     reply: text || "I can help with East Africa travel plans. What destination are you considering?",
+    source: "openai",
+    status: "ok",
+    shouldCache: true,
     usage: {
       inputTokens: Number(out?.usage?.input_tokens || 0),
       outputTokens: Number(out?.usage?.output_tokens || 0),
@@ -599,13 +608,16 @@ export default async function handler(req, res) {
     const startedAt = Date.now();
     const openAiResult = await generateReply(messages, recommendations);
     const latencyMs = Date.now() - startedAt;
-    await persistCachedReply(userText, openAiResult.reply);
+    if (openAiResult.shouldCache) {
+      await persistCachedReply(userText, openAiResult.reply);
+    }
     await recordAiUsage({
       sessionId,
       userId,
       channel,
-      source: "openai",
-      model: OPENAI_MODEL,
+      source: openAiResult.source || "error",
+      status: openAiResult.status || "failed",
+      model: openAiResult.source === "openai" ? OPENAI_MODEL : null,
       inputTokens: openAiResult.usage.inputTokens,
       outputTokens: openAiResult.usage.outputTokens,
       latencyMs,
@@ -617,7 +629,7 @@ export default async function handler(req, res) {
     return sendJson(res, 200, {
       reply: openAiResult.reply,
       recommendations,
-      source: "openai",
+      source: openAiResult.source || "error",
       sessionId,
     });
   } catch (error) {
