@@ -27,6 +27,50 @@ const STOP_WORDS = new Set([
 
 const FAQ_RULES = [
   {
+    keywords: ["hello"],
+    reply: "Hi. I am your Merry360X Trip Advisor. I can help you find stays, tours, transport, booking guidance, or explain how Merry360X works.",
+  },
+  {
+    keywords: ["hi"],
+    reply: "Hi. I can help with stays, tours, transport, booking guidance, or questions about Merry360X.",
+  },
+  {
+    keywords: ["hey"],
+    reply: "Hey. Tell me your destination, dates, or budget and I will help you plan with Merry360X listings and travel tips.",
+  },
+  {
+    keywords: ["what", "merry360x"],
+    reply: "Merry360X is a travel marketplace where you can book accommodations, tours, transport, and travel experiences in one place. You can also browse stories, manage trips, and contact support at support@merry360x.com.",
+  },
+  {
+    keywords: ["about", "merry360x"],
+    reply: "Merry360X helps travelers book stays, tours, and transport in one place. The platform is designed to make planning simpler, with local options, transparent browsing, and host tools for managing services.",
+  },
+  {
+    keywords: ["what", "book"],
+    reply: "On Merry360X you can book accommodations, tours, transport, and other travel experiences. If you already know your destination, tell me where you are going and I can narrow it down.",
+  },
+  {
+    keywords: ["how", "book"],
+    reply: "To book on Merry360X, open a stay, tour, or transport listing, choose your dates or trip details, add it to your trip cart or continue to checkout, then complete payment using the available checkout options.",
+  },
+  {
+    keywords: ["payment"],
+    reply: "Merry360X accepts approved digital and local payment methods shown at checkout. Available payment options can vary by service and location, so the final choices are displayed during checkout.",
+  },
+  {
+    keywords: ["support"],
+    reply: "For booking or account help, contact Merry360X support at support@merry360x.com. You can also use the Help Center on the site for common questions.",
+  },
+  {
+    keywords: ["host"],
+    reply: "If you want to list your service on Merry360X, you can apply as a host and then manage properties, tours, or transport from the Host Dashboard after approval.",
+  },
+  {
+    keywords: ["story"],
+    reply: "Merry360X also includes Stories, where travelers can discover content shared by the community while planning their trips.",
+  },
+  {
     keywords: ["best time", "visit", "rwanda"],
     reply: "Best time for Rwanda is June to September for dry weather and easier road trips. March to May is greener and cheaper, but wetter. If you want gorilla trekking first, start with Volcanoes National Park.",
   },
@@ -127,7 +171,7 @@ function findFaqReply(userText) {
   if (!normalized) return null;
 
   for (const rule of FAQ_RULES) {
-    if (rule.keywords.every((keyword) => normalized.includes(keyword))) {
+    if (rule.keywords.every((keyword) => normalized.includes(normalizeText(keyword)))) {
       return rule.reply;
     }
   }
