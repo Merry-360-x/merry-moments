@@ -78,6 +78,10 @@ const Navbar = () => {
     if (typeof window === "undefined" || !user?.id) return;
     setDecisionSeenAt(localStorage.getItem(bookingDecisionSeenKey(user.id)) || "");
   }, [user?.id]);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
   const { t } = useTranslation();
   const { language, setLanguage, currency, setCurrency, resolvedTheme, setTheme } = usePreferences();
 
@@ -558,9 +562,9 @@ const Navbar = () => {
         {/* Mobile Menu (clean + minimal) */}
         {mobileMenuOpen && (
           <div className="lg:hidden border-t border-border">
-            <div className="py-4 space-y-4">
+            <div className="space-y-4 px-1 py-4 sm:px-0">
               {/* Quick actions */}
-              <div className="flex items-center justify-between gap-2 px-1">
+              <div className="flex flex-wrap items-center justify-between gap-2 px-1">
                 <button
                   className="h-10 w-10 rounded-full border border-border bg-background flex items-center justify-center"
                   onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
@@ -573,12 +577,12 @@ const Navbar = () => {
                     <Moon className="w-5 h-5 text-muted-foreground" />
                   )}
                 </button>
-                <div className="flex items-center gap-2">
+                <div className="flex max-w-full flex-1 items-center justify-end gap-2">
                   {/* Currency Selector - Mobile */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button
-                        className="h-10 px-3 rounded-full border border-border bg-background flex items-center gap-1 text-sm font-medium"
+                        className="flex h-10 shrink-0 items-center gap-1 rounded-full border border-border bg-background px-3 text-sm font-medium"
                         aria-label="Currency"
                       >
                         {getCurrencySymbol(currency)}
@@ -609,7 +613,7 @@ const Navbar = () => {
                     </button>
                   </Link>
                   <Link to="/trip-cart" onClick={() => setMobileMenuOpen(false)}>
-                    <Button variant="outline" size="sm" className="relative">
+                    <Button variant="outline" size="sm" className="relative max-w-full shrink min-w-0">
                       {t("actions.tripCart")}
                       {tripCartCount > 0 ? (
                         <span className="ml-2 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold">
@@ -640,13 +644,13 @@ const Navbar = () => {
                       key={item.to}
                       to={item.to}
                       onClick={() => setMobileMenuOpen(false)}
-                      className={`flex items-center gap-2 rounded-xl border px-3 py-3 text-sm font-medium transition-colors ${
+                      className={`flex min-w-0 items-center gap-2 rounded-xl border px-3 py-3 text-sm font-medium transition-colors ${
                         isActive
                           ? "bg-primary/10 text-primary border-primary"
                           : "bg-background text-foreground border-border hover:border-primary"
                       }`}
                     >
-                      <Icon className="w-4 h-4" />
+                      <Icon className="h-4 w-4 shrink-0" />
                       <span className="truncate">{item.label}</span>
                     </Link>
                   );

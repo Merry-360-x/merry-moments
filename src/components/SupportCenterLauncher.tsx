@@ -131,6 +131,35 @@ export default function SupportCenterLauncher() {
   const lastSeenMessageIdRef = useRef<string | null>(null);
   const messagesChannelRef = useRef<any>(null);
   const presenceChannelRef = useRef<any>(null);
+  const [headerHeight, setHeaderHeight] = useState(88);
+
+  useEffect(() => {
+    const header = document.querySelector("header.sticky") as HTMLElement | null;
+    if (!header) return;
+
+    const updateHeaderHeight = () => {
+      const nextHeight = Math.ceil(header.getBoundingClientRect().height);
+      if (nextHeight > 0) {
+        setHeaderHeight(nextHeight);
+      }
+    };
+
+    updateHeaderHeight();
+
+    const resizeObserver = typeof ResizeObserver !== "undefined"
+      ? new ResizeObserver(updateHeaderHeight)
+      : null;
+    resizeObserver?.observe(header);
+
+    window.addEventListener("resize", updateHeaderHeight);
+    window.visualViewport?.addEventListener("resize", updateHeaderHeight);
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", updateHeaderHeight);
+      window.visualViewport?.removeEventListener("resize", updateHeaderHeight);
+    };
+  }, []);
 
   // Get user's display name
   useEffect(() => {
@@ -789,7 +818,11 @@ export default function SupportCenterLauncher() {
 
   // Dynamic sizing
   const popupWidth = expanded ? "w-[calc(100vw-1rem)] sm:w-[34rem]" : "w-[calc(100vw-1rem)] sm:w-[28rem]";
-  const popupHeight = expanded ? "h-[min(88dvh,760px)] sm:h-[760px]" : "h-[min(82dvh,620px)] sm:h-[620px]";
+  const popupBottomOffset = 80;
+  const popupTopGap = Math.max(headerHeight + 12, 16);
+  const popupAvailableHeight = `calc(100dvh - ${popupTopGap + popupBottomOffset}px - env(safe-area-inset-bottom, 0px))`;
+  const popupDefaultHeight = expanded ? 760 : 620;
+  const popupHeight = `min(${popupDefaultHeight}px, ${popupAvailableHeight})`;
 
   const autoCloseWarning = getAutoCloseWarning();
   const shouldShowAiRating = aiMessages.some((m, idx) => idx > 0 && m.role === "assistant") && aiConversationFeedback === null;
@@ -822,7 +855,14 @@ export default function SupportCenterLauncher() {
 
       {/* Popup */}
       {open && (
-        <div className={`fixed bottom-20 left-2 right-2 sm:left-auto sm:right-5 z-50 ${popupWidth} ${popupHeight} overflow-hidden rounded-[28px] border border-white/40 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.95),_rgba(255,247,237,0.98)_40%,_rgba(255,255,255,1)_100%)] shadow-[0_28px_90px_rgba(15,23,42,0.24)] animate-in slide-in-from-bottom-2 fade-in duration-200 flex flex-col transition-all`}>
+        <div
+          className={`fixed bottom-20 left-2 right-2 sm:left-auto sm:right-5 z-50 ${popupWidth} overflow-hidden rounded-[28px] border border-white/40 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.95),_rgba(255,247,237,0.98)_40%,_rgba(255,255,255,1)_100%)] shadow-[0_28px_90px_rgba(15,23,42,0.24)] animate-in slide-in-from-bottom-2 fade-in duration-200 flex flex-col transition-all`}
+          style={{
+            top: `${popupTopGap}px`,
+            height: popupHeight,
+            maxHeight: popupAvailableHeight,
+          }}
+        >
           
           {step === "home" ? (
             /* Home menu */

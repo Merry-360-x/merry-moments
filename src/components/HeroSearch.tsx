@@ -405,13 +405,13 @@ const HeroSearch = ({ onWhereChange }: HeroSearchProps) => {
         </button>
 
         <Dialog open={mobileOpen} onOpenChange={setMobileOpen}>
-          <DialogContent className="p-0 w-[100vw] max-w-[100vw] h-[100vh] max-h-[100vh] rounded-none">
+          <DialogContent className="inset-0 h-dvh max-h-dvh w-screen max-w-none translate-x-0 translate-y-0 rounded-none border-0 p-0 [&>button]:hidden">
             <div className="h-full bg-background flex flex-col">
               {/* Top tabs + close */}
-              <div className="px-4 pt-4 pb-3 border-b border-border relative">
+              <div className="border-b border-border px-3 pt-3 pb-3">
                 <button
                   type="button"
-                  className="absolute right-4 top-4 h-10 w-10 rounded-full border border-border bg-background shadow-sm flex items-center justify-center"
+                  className="ml-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background shadow-sm"
                   onClick={() => setMobileOpen(false)}
                   aria-label={t("common.close")}
                 >
@@ -419,15 +419,15 @@ const HeroSearch = ({ onWhereChange }: HeroSearchProps) => {
                 </button>
 
                 <Tabs value={mobileTab} onValueChange={(v) => setMobileTab(v as typeof mobileTab)}>
-                  <TabsList className="w-full justify-center">
-                    <TabsTrigger value="accommodations" className="gap-2">
-                      <Building2 className="w-4 h-4" /> {t("nav.accommodations")}
+                  <TabsList className="grid h-auto w-full grid-cols-3 gap-1 rounded-2xl bg-muted/70 p-1">
+                    <TabsTrigger value="accommodations" className="min-w-0 gap-2 rounded-xl px-2 py-3 text-[13px]">
+                      <Building2 className="h-4 w-4 shrink-0" /> <span className="truncate">{t("nav.accommodations")}</span>
                     </TabsTrigger>
-                    <TabsTrigger value="tours" className="gap-2">
-                      <Map className="w-4 h-4" /> {t("nav.tours")}
+                    <TabsTrigger value="tours" className="min-w-0 gap-2 rounded-xl px-2 py-3 text-[13px]">
+                      <Map className="h-4 w-4 shrink-0" /> <span className="truncate">{t("nav.tours")}</span>
                     </TabsTrigger>
-                    <TabsTrigger value="transport" className="gap-2">
-                      <Car className="w-4 h-4" /> {t("nav.transport")}
+                    <TabsTrigger value="transport" className="min-w-0 gap-2 rounded-xl px-2 py-3 text-[13px]">
+                      <Car className="h-4 w-4 shrink-0" /> <span className="truncate">{t("nav.transport")}</span>
                     </TabsTrigger>
                   </TabsList>
                 </Tabs>
@@ -536,7 +536,7 @@ const HeroSearch = ({ onWhereChange }: HeroSearchProps) => {
 
               {/* Mobile date picker */}
               <Dialog open={mobileDateOpen} onOpenChange={setMobileDateOpen}>
-                <DialogContent className="p-0 w-[100vw] max-w-[100vw] h-[100vh] max-h-[100vh] rounded-none">
+                <DialogContent className="inset-0 h-dvh max-h-dvh w-screen max-w-none translate-x-0 translate-y-0 rounded-none border-0 p-0 [&>button]:hidden">
                   <div className="h-full bg-background flex flex-col">
                     <div className="px-4 pt-4 pb-3 border-b border-border flex items-center justify-between">
                       <div className="font-semibold text-foreground">{t("heroSearch.when")}</div>
@@ -580,7 +580,7 @@ const HeroSearch = ({ onWhereChange }: HeroSearchProps) => {
 
               {/* Mobile guests picker */}
               <Dialog open={mobileGuestsOpen} onOpenChange={setMobileGuestsOpen}>
-                <DialogContent className="p-0 w-[100vw] max-w-[100vw] h-[100vh] max-h-[100vh] rounded-none">
+                <DialogContent className="inset-0 h-dvh max-h-dvh w-screen max-w-none translate-x-0 translate-y-0 rounded-none border-0 p-0 [&>button]:hidden">
                   <div className="h-full bg-background flex flex-col">
                     <div className="px-4 pt-4 pb-3 border-b border-border flex items-center justify-between">
                       <div className="font-semibold text-foreground">{t("heroSearch.who")}</div>
