@@ -400,6 +400,23 @@ function formatRecommendationContext(recommendations) {
     .join("\n");
 }
 
+function buildNoOpenAiFallback(recommendations = []) {
+  if (!Array.isArray(recommendations) || recommendations.length === 0) {
+    return "AI trip advisor is temporarily unavailable right now. Try asking about destination, timing, or budget and browse the matching stays, tours, or transport options below.";
+  }
+
+  const topMatches = recommendations
+    .slice(0, 3)
+    .map((item) => item.title)
+    .filter(Boolean);
+
+  if (topMatches.length === 0) {
+    return "AI trip advisor is temporarily unavailable right now, but I found some matching listings below that may fit your trip.";
+  }
+
+  return `AI trip advisor is temporarily unavailable right now, but I found ${topMatches.join(", ")} in the results below.`;
+}
+
 function scoreProperty(property, terms) {
   const haystack = normalizeText(`${property.title || ""} ${property.location || ""} ${property.property_type || ""}`);
   let score = 0;
@@ -444,7 +461,7 @@ async function fetchRecommendations(userText) {
 async function generateReply(messages, recommendations = []) {
   if (!openai) {
     return {
-      reply: "OPENAI_API_KEY is missing. Please set it to use AI Trip Advisor.",
+      reply: buildNoOpenAiFallback(recommendations),
       usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
     };
   }
