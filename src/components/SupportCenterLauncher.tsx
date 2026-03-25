@@ -131,36 +131,6 @@ export default function SupportCenterLauncher() {
   const lastSeenMessageIdRef = useRef<string | null>(null);
   const messagesChannelRef = useRef<any>(null);
   const presenceChannelRef = useRef<any>(null);
-  const [headerHeight, setHeaderHeight] = useState(88);
-
-  useEffect(() => {
-    const header = document.querySelector("header.sticky") as HTMLElement | null;
-    if (!header) return;
-
-    const updateHeaderHeight = () => {
-      const nextHeight = Math.ceil(header.getBoundingClientRect().height);
-      if (nextHeight > 0) {
-        setHeaderHeight(nextHeight);
-      }
-    };
-
-    updateHeaderHeight();
-
-    const resizeObserver = typeof ResizeObserver !== "undefined"
-      ? new ResizeObserver(updateHeaderHeight)
-      : null;
-    resizeObserver?.observe(header);
-
-    window.addEventListener("resize", updateHeaderHeight);
-    window.visualViewport?.addEventListener("resize", updateHeaderHeight);
-
-    return () => {
-      resizeObserver?.disconnect();
-      window.removeEventListener("resize", updateHeaderHeight);
-      window.visualViewport?.removeEventListener("resize", updateHeaderHeight);
-    };
-  }, []);
-
   // Get user's display name
   useEffect(() => {
     const fetchName = async () => {
@@ -817,11 +787,12 @@ export default function SupportCenterLauncher() {
   };
 
   // Dynamic sizing
-  const popupWidth = expanded ? "w-[calc(100vw-1rem)] sm:w-[34rem]" : "w-[calc(100vw-1rem)] sm:w-[28rem]";
-  const popupBottomOffset = 80;
-  const popupTopGap = Math.max(headerHeight + 12, 16);
-  const popupAvailableHeight = `calc(100dvh - ${popupTopGap + popupBottomOffset}px - env(safe-area-inset-bottom, 0px))`;
-  const popupDefaultHeight = expanded ? 760 : 620;
+  const isHomeStep = step === "home";
+  const popupWidth = expanded ? "w-[calc(100vw-1.25rem)] sm:w-[30rem]" : "w-[calc(100vw-1.25rem)] sm:w-[24rem]";
+  const popupBottomOffset = 72;
+  const popupTopOffset = "calc(env(safe-area-inset-top, 0px) + 0.75rem)";
+  const popupAvailableHeight = `calc(100dvh - env(safe-area-inset-top, 0px) - ${popupBottomOffset + 12}px - env(safe-area-inset-bottom, 0px))`;
+  const popupDefaultHeight = isHomeStep ? (expanded ? 368 : 332) : expanded ? 680 : 540;
   const popupHeight = `min(${popupDefaultHeight}px, ${popupAvailableHeight})`;
 
   const autoCloseWarning = getAutoCloseWarning();
@@ -832,7 +803,7 @@ export default function SupportCenterLauncher() {
       {/* Floating button */}
       <button
         type="button"
-        className="fixed bottom-5 right-5 z-50 h-14 w-14 rounded-full bg-gradient-to-br from-rose-500 via-orange-500 to-amber-400 text-white shadow-[0_18px_40px_rgba(244,63,94,0.35)] flex items-center justify-center transition-transform hover:scale-105"
+        className="fixed bottom-5 right-5 z-[110] h-14 w-14 rounded-full bg-gradient-to-br from-rose-500 via-orange-500 to-amber-400 text-white shadow-[0_18px_40px_rgba(244,63,94,0.35)] flex items-center justify-center transition-transform hover:scale-105"
         aria-label="Help"
         onClick={() => {
           setOpen(!open);
@@ -855,18 +826,25 @@ export default function SupportCenterLauncher() {
 
       {/* Popup */}
       {open && (
-        <div
-          className={`fixed bottom-20 left-2 right-2 sm:left-auto sm:right-5 z-50 ${popupWidth} overflow-hidden rounded-[28px] border border-white/40 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.95),_rgba(255,247,237,0.98)_40%,_rgba(255,255,255,1)_100%)] shadow-[0_28px_90px_rgba(15,23,42,0.24)] animate-in slide-in-from-bottom-2 fade-in duration-200 flex flex-col transition-all`}
-          style={{
-            top: `${popupTopGap}px`,
-            height: popupHeight,
-            maxHeight: popupAvailableHeight,
-          }}
-        >
+        <>
+          <button
+            type="button"
+            aria-label="Close support launcher"
+            className="fixed inset-0 z-[98] bg-slate-950/34 backdrop-blur-[2px]"
+            onClick={() => setOpen(false)}
+          />
+          <div
+            className={`fixed bottom-[4.5rem] left-2.5 right-2.5 sm:left-auto sm:right-5 z-[100] ${popupWidth} overflow-hidden rounded-[24px] border border-amber-200/80 bg-[linear-gradient(180deg,_rgba(255,250,246,0.995)_0%,_rgba(255,246,239,0.995)_52%,_rgba(252,244,236,0.998)_100%)] shadow-[0_30px_80px_rgba(15,23,42,0.38)] animate-in slide-in-from-bottom-2 fade-in duration-200 flex flex-col transition-all`}
+            style={{
+              top: popupTopOffset,
+              height: popupHeight,
+              maxHeight: popupAvailableHeight,
+            }}
+          >
           
           {step === "home" ? (
             /* Home menu */
-            <div className="p-4">
+            <div className="flex flex-1 flex-col p-4">
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <div className="text-sm font-semibold text-foreground">Meet Merry</div>
@@ -886,7 +864,7 @@ export default function SupportCenterLauncher() {
                 <button
                   type="button"
                   onClick={() => setStep("ai")}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl text-left hover:bg-muted transition-colors"
+                  className="w-full flex items-center gap-3 rounded-2xl border border-amber-100/80 bg-white/78 px-3 py-3 text-left shadow-[0_12px_28px_rgba(15,23,42,0.06)] transition-colors hover:bg-white"
                 >
                     <div className="relative h-10 w-10 rounded-full bg-gradient-to-br from-rose-500 via-orange-500 to-amber-400 flex items-center justify-center shrink-0 shadow-lg">
                       <span className="absolute inset-0 rounded-full border border-white/40 animate-pulse" />
@@ -901,7 +879,7 @@ export default function SupportCenterLauncher() {
                 <button
                   type="button"
                   onClick={() => setStep("chat")}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl text-left hover:bg-muted transition-colors"
+                  className="w-full flex items-center gap-3 rounded-2xl border border-amber-100/80 bg-white/78 px-3 py-3 text-left shadow-[0_12px_28px_rgba(15,23,42,0.06)] transition-colors hover:bg-white"
                 >
                   <div className="h-9 w-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
                     <Headset className="h-4 w-4 text-white" />
@@ -915,7 +893,7 @@ export default function SupportCenterLauncher() {
                 <button
                   type="button"
                   onClick={() => window.open("https://wa.me/250796214719", "_blank", "noopener,noreferrer")}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl text-left hover:bg-muted transition-colors"
+                  className="w-full flex items-center gap-3 rounded-2xl border border-amber-100/80 bg-white/78 px-3 py-3 text-left shadow-[0_12px_28px_rgba(15,23,42,0.06)] transition-colors hover:bg-white"
                 >
                   <div className="h-9 w-9 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shrink-0">
                     <MessageCircle className="h-4 w-4 text-white" />
@@ -963,7 +941,7 @@ export default function SupportCenterLauncher() {
                       className={`max-w-[92%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
                         m.role === "user"
                           ? "ml-auto bg-slate-900 text-white"
-                          : "border border-white/60 bg-white/90 text-foreground"
+                          : "border border-amber-100/70 bg-[rgba(255,250,246,0.9)] text-foreground"
                       }`}
                     >
                       <div className="whitespace-pre-wrap break-words">{m.content}</div>
@@ -972,7 +950,7 @@ export default function SupportCenterLauncher() {
                           {m.recommendations.map((rec) => (
                             <div
                               key={`${idx}-${rec.id}`}
-                              className="w-full overflow-hidden rounded-2xl border border-border/70 bg-background/90"
+                              className="w-full overflow-hidden rounded-2xl border border-amber-100/70 bg-[rgba(255,248,242,0.9)]"
                             >
                               {rec.image_url ? (
                                 <img
@@ -1033,7 +1011,7 @@ export default function SupportCenterLauncher() {
                               key={`${idx}-${action.type}-${action.referenceId || action.url || action.bookingId || action.orderId || action.label}`}
                               type="button"
                               onClick={() => void runAiAction(action)}
-                              className={`rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors ${action.variant === "primary" ? "bg-primary text-primary-foreground hover:bg-primary/90" : "border border-border bg-background hover:bg-muted"}`}
+                              className={`rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors ${action.variant === "primary" ? "bg-primary text-primary-foreground hover:bg-primary/90" : "border border-amber-100/80 bg-[rgba(255,249,245,0.92)] hover:bg-[rgba(255,243,235,0.96)]"}`}
                             >
                               {action.label}
                             </button>
@@ -1043,7 +1021,7 @@ export default function SupportCenterLauncher() {
                     </div>
                   ))}
                   {aiSending && (
-                    <div className="max-w-[92%] rounded-2xl border border-white/60 bg-white/90 px-4 py-3 text-sm text-foreground shadow-sm">
+                    <div className="max-w-[92%] rounded-2xl border border-amber-100/70 bg-[rgba(255,250,246,0.92)] px-4 py-3 text-sm text-foreground shadow-sm">
                       <div className="flex items-center gap-3">
                         <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 via-orange-500 to-amber-400 text-white">
                           <span className="absolute inset-0 rounded-full border border-white/40 animate-pulse" />
@@ -1061,7 +1039,7 @@ export default function SupportCenterLauncher() {
                     </div>
                   )}
                   {shouldShowAiRating ? (
-                    <div className="max-w-[92%] rounded-2xl border border-border bg-background px-4 py-4 text-xs text-foreground">
+                    <div className="max-w-[92%] rounded-2xl border border-amber-100/80 bg-[rgba(255,247,240,0.95)] px-4 py-4 text-xs text-foreground">
                       <div className="font-medium">Was this response helpful?</div>
                       <div className="mt-1 text-muted-foreground">Choose thumbs up or down, then add an optional note.</div>
                       <div className="mt-2 flex items-center gap-2">
@@ -1123,14 +1101,14 @@ export default function SupportCenterLauncher() {
                 </div>
               </ScrollArea>
 
-              <div className="border-t border-white/50 bg-white/75 p-3 shrink-0 backdrop-blur">
+              <div className="border-t border-amber-100/60 bg-[rgba(255,245,237,0.88)] p-3 shrink-0 backdrop-blur">
                 <div className="mb-2 flex items-center gap-2 text-[11px] text-muted-foreground">
                   <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                   Merry can answer, save items, and route you to checkout.
                 </div>
                 <div className="flex gap-2">
                   <Input
-                    className="h-10 rounded-full border-white/70 bg-white text-sm"
+                    className="h-10 rounded-full border-amber-100/70 bg-[rgba(255,250,246,0.94)] text-sm"
                     value={aiDraft}
                     onChange={(e) => setAiDraft(e.target.value)}
                     placeholder="Ask Merry about stays, tours, airport pickup, or checkout..."
@@ -1431,7 +1409,8 @@ export default function SupportCenterLauncher() {
               </div>
             </div>
           )}
-        </div>
+          </div>
+        </>
       )}
     </>
   );
