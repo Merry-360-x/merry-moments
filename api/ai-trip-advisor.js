@@ -7,7 +7,7 @@ const OPENAI_MAX_OUTPUT_TOKENS = Math.max(40, Number(process.env.OPENAI_MAX_OUTP
 const AI_RATE_WINDOW_MS = Math.max(60_000, Number(process.env.AI_RATE_WINDOW_MS || 5 * 60_000));
 const AI_RATE_MAX_REQUESTS = Math.max(3, Number(process.env.AI_RATE_MAX_REQUESTS || 10));
 const AI_CACHE_TTL_MS = Math.max(60_000, Number(process.env.AI_CACHE_TTL_MS || 10 * 60_000));
-const AI_CACHE_VERSION = "v2";
+const AI_CACHE_VERSION = "v3";
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
@@ -69,6 +69,74 @@ const FAQ_RULES = [
   {
     keywords: ["story"],
     reply: "Merry360X also includes Stories, where travelers can discover content shared by the community while planning their trips.",
+  },
+  {
+    keywords: ["create", "account"],
+    reply: "To create an account, click Sign Up on Merry360x.com and register with your email or another supported login method. Keep your details accurate so bookings, confirmations, and support work smoothly.",
+  },
+  {
+    keywords: ["sign up"],
+    reply: "To sign up, open Merry360x.com, choose Sign Up, and register with your email or another supported login method. An account is required to manage bookings, receive confirmations, and access support.",
+  },
+  {
+    keywords: ["signup"],
+    reply: "To sign up, open Merry360x.com, choose Sign Up, and register with your email or another supported login method. An account is required to manage bookings, receive confirmations, and access support.",
+  },
+  {
+    keywords: ["login"],
+    reply: "To log in, use the Auth page on Merry360X with the email or login method linked to your account. If you cannot access your account, use the reset password flow or contact support@merry360x.com.",
+  },
+  {
+    keywords: ["password"],
+    reply: "If you forgot your password, use the reset password option on the login page. After updating your password, you can sign back in and continue managing your bookings and account.",
+  },
+  {
+    keywords: ["cancel", "booking"],
+    reply: "You can cancel a booking from My Bookings or from your confirmation email, depending on the listing rules. Refund eligibility depends on the host's cancellation policy, so always review the policy shown on the listing before booking.",
+  },
+  {
+    keywords: ["refund"],
+    reply: "Refund policies vary by listing and host. In general, go to My Bookings, open the booking, review the refund amount based on the cancellation policy, confirm cancellation, and refunds are usually processed to the original payment method within 5 to 10 business days.",
+  },
+  {
+    keywords: ["refund", "processing"],
+    reply: "Refunds are typically processed within 5 to 10 business days back to the original payment method. If there is a dispute or delay, contact support@merry360x.com or call +250 796 214 719.",
+  },
+  {
+    keywords: ["safe"],
+    reply: "For safety, use verified listings and official transport options, stay aware of your surroundings, and contact Merry360X support immediately if anything feels unsafe. If you need urgent help in Rwanda, Police is 112, Ambulance is 912, Fire Brigade is 111.",
+  },
+  {
+    keywords: ["emergency"],
+    reply: "Emergency contacts in Rwanda are Police 112, Ambulance 912, and Fire Brigade 111. Merry360X support is also available at +250 796 214 719 or support@merry360x.com.",
+  },
+  {
+    keywords: ["unsafe"],
+    reply: "If you face unsafe behavior or suspect fraud, use the report option on the platform or contact support immediately at support@merry360x.com. For urgent situations in Rwanda, Police is 112, Ambulance is 912, and Fire Brigade is 111.",
+  },
+  {
+    keywords: ["fraud"],
+    reply: "If you suspect fraud, report it through the platform or contact Merry360X support immediately at support@merry360x.com. Do not send payments or accept booking changes outside the platform.",
+  },
+  {
+    keywords: ["verify", "service providers"],
+    reply: "Merry360X conducts basic verification checks and monitors reviews, but users should still review listings carefully before booking. For hosts, approval is required before you can manage and publish services from the Host Dashboard.",
+  },
+  {
+    keywords: ["host", "verification"],
+    reply: "Host approval happens after you submit your details through the Become a Host flow. Once approved, you can manage and publish properties, tours, or transport from the Host Dashboard.",
+  },
+  {
+    keywords: ["list", "service"],
+    reply: "To list a service on Merry360X, go to the Become a Host page and submit your details for review. After approval, you can manage and publish properties, tours, or transport from the Host Dashboard.",
+  },
+  {
+    keywords: ["become host"],
+    reply: "To become a host, use the Become a Host page and submit your details for review. After approval, you can manage and publish your property, tours, or transport services from the Host Dashboard.",
+  },
+  {
+    keywords: ["listing", "rules"],
+    reply: "Hosts must submit their details for review before publishing services. Listings should be accurate, pricing should match what is shown on the platform, and cancellation terms should be clearly set so guests can review them before booking.",
   },
   {
     keywords: ["best time", "visit", "rwanda"],
@@ -541,7 +609,7 @@ async function generateReply(messages, recommendations = []) {
         content: [
           {
             type: "input_text",
-            text: "You are Merry360X Trip Advisor for East Africa travel. Keep replies under 3 short sentences or 3 short bullets. Lead with the best option first. Focus on concrete destinations, routing, timing, and booking advice. Ask one clarifying question only if the request is missing a critical detail. Avoid filler, apologies, and long explanations. When possible, sound commerce-ready: specific, confident, and brief.",
+            text: "You are Merry360X AI, a premium concierge for the Merry360X platform on web and mobile. Start by understanding the user's travel intent: destination, dates, group size, budget, and preferences such as luxury, adventure, culture, nightlife, or convenience. Be friendly, proactive, persuasive, and clear. Recommend destinations, stays, tours, experiences, local guides, and transport using structured short paragraphs or bullets. Highlight benefits, value, savings, convenience, and unique selling points. Compare options honestly when useful. Suggest top 3 options and identify a best choice when the user is unsure. Guide the user from idea to decision to booking, but never claim an action was completed unless the system explicitly confirms it. Never invent availability, payments, reservations, or bookings. Before any booking-style next step, confirm dates, traveler count, budget, and payment readiness. Keep replies concise, premium, and action-driven.",
           },
         ],
       },
