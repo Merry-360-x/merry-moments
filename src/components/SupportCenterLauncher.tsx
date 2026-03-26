@@ -790,7 +790,9 @@ export default function SupportCenterLauncher() {
   const isHomeStep = step === "home";
   const popupWidth = expanded ? "w-[calc(100vw-1.25rem)] sm:w-[30rem]" : "w-[calc(100vw-1.25rem)] sm:w-[24rem]";
   const popupBottomOffset = 72;
-  const popupTopOffset = "calc(env(safe-area-inset-top, 0px) + 0.75rem)";
+  const popupTopOffset = isHomeStep
+    ? "calc(env(safe-area-inset-top, 0px) + 5.5rem)"
+    : "calc(env(safe-area-inset-top, 0px) + 1rem)";
   const popupAvailableHeight = `calc(100dvh - env(safe-area-inset-top, 0px) - ${popupBottomOffset + 12}px - env(safe-area-inset-bottom, 0px))`;
   const popupDefaultHeight = isHomeStep ? (expanded ? 368 : 332) : expanded ? 680 : 540;
   const popupHeight = `min(${popupDefaultHeight}px, ${popupAvailableHeight})`;
@@ -834,7 +836,7 @@ export default function SupportCenterLauncher() {
             onClick={() => setOpen(false)}
           />
           <div
-            className={`fixed bottom-[4.5rem] left-2.5 right-2.5 sm:left-auto sm:right-5 z-[100] ${popupWidth} overflow-hidden rounded-[24px] border border-amber-200/80 bg-[linear-gradient(180deg,_rgba(255,250,246,0.995)_0%,_rgba(255,246,239,0.995)_52%,_rgba(252,244,236,0.998)_100%)] shadow-[0_30px_80px_rgba(15,23,42,0.38)] animate-in slide-in-from-bottom-2 fade-in duration-200 flex flex-col transition-all`}
+            className={`fixed bottom-[4.5rem] left-2.5 right-2.5 sm:left-auto sm:right-5 z-[100] ${popupWidth} overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_30px_80px_rgba(15,23,42,0.38)] animate-in slide-in-from-bottom-2 fade-in duration-200 flex flex-col transition-all`}
             style={{
               top: popupTopOffset,
               height: popupHeight,
