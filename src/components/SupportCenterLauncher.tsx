@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck - support_ticket_messages table not in generated types yet
 import { useMemo, useRef, useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { MessageCircle, ChevronLeft, ChevronDown, ChevronUp, Headset, Sparkles, X, Maximize2, Minimize2, Send, Paperclip, Smile, Reply, User, Image as ImageIcon, FileText, Clock, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -157,6 +157,7 @@ const MONTH_INDEX: Record<string, number> = {
 };
 
 export default function SupportCenterLauncher() {
+  const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -271,6 +272,7 @@ export default function SupportCenterLauncher() {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("home");
   const [expanded, setExpanded] = useState(true);
+  const [homePromptVisible, setHomePromptVisible] = useState(false);
 
   // AI chat
   const [aiMessages, setAiMessages] = useState<ChatMsg[]>([
@@ -321,6 +323,20 @@ export default function SupportCenterLauncher() {
     };
     void fetchName();
   }, [user]);
+
+  useEffect(() => {
+    if (location.pathname !== "/" || open) {
+      setHomePromptVisible(false);
+      return;
+    }
+
+    setHomePromptVisible(true);
+    const timeout = window.setTimeout(() => {
+      setHomePromptVisible(false);
+    }, 3000);
+
+    return () => window.clearTimeout(timeout);
+  }, [location.pathname, open]);
 
   // Find or create active ticket when opening chat
   const initializeChat = async () => {
@@ -1224,6 +1240,14 @@ export default function SupportCenterLauncher() {
 
   return (
     <>
+      <div
+        className={`pointer-events-none fixed bottom-[calc(env(safe-area-inset-bottom,0px)+7.2rem)] right-4 z-[109] max-w-[220px] rounded-full bg-slate-950 px-3 py-2 text-[11px] font-medium text-white shadow-[0_18px_38px_rgba(15,23,42,0.18)] transition-all duration-300 sm:bottom-[5.8rem] sm:right-5 ${
+          homePromptVisible ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
+        }`}
+      >
+        Ask your AI concierge anything
+      </div>
+
       {/* Floating button */}
       <button
         type="button"
@@ -1245,9 +1269,7 @@ export default function SupportCenterLauncher() {
           </span>
         ) : (
           <>
-            <span className="absolute h-14 w-14 rounded-full bg-[radial-gradient(circle,rgba(255,149,0,0.28),rgba(255,149,0,0))] blur-[8px]" />
-            <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-white ring-1 ring-orange-200 shadow-[0_18px_36px_rgba(255,122,0,0.18)]">
-              <span className="absolute inset-[5px] rounded-full border border-orange-300/80" />
+            <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-[0_18px_36px_rgba(15,23,42,0.16)]">
               <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-white">
                 <img src="/brand/logo.png" alt="Merry AI" className="h-6 w-6 object-contain" loading="eager" />
               </div>
