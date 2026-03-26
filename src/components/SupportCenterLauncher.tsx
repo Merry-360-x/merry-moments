@@ -2,7 +2,7 @@
 // @ts-nocheck - support_ticket_messages table not in generated types yet
 import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { MessageCircle, ChevronLeft, Bot, Headset, X, Maximize2, Minimize2, Send, Paperclip, Smile, Reply, User, Image as ImageIcon, FileText, Clock, CheckCircle } from "lucide-react";
+import { MessageCircle, ChevronLeft, Headset, X, Maximize2, Minimize2, Send, Paperclip, Smile, Reply, User, Image as ImageIcon, FileText, Clock, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -865,7 +865,7 @@ export default function SupportCenterLauncher() {
                 >
                     <div className="relative h-10 w-10 rounded-full bg-gradient-to-br from-rose-500 via-orange-500 to-amber-400 flex items-center justify-center shrink-0 shadow-lg">
                       <span className="absolute inset-0 rounded-full border border-white/40 animate-pulse" />
-                    <Bot className="h-4 w-4 text-white" />
+                    <img src="/brand/logo.png" alt="Merry360x" className="relative h-5 w-5 object-contain" loading="eager" />
                   </div>
                   <div>
                     <div className="text-sm font-medium text-foreground">Merry</div>
@@ -913,7 +913,7 @@ export default function SupportCenterLauncher() {
                 <div className="flex items-center gap-2">
                   <div className="relative flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 via-orange-500 to-amber-400 text-white shadow-md">
                     <span className="absolute inset-0 rounded-full border border-white/40 animate-pulse" />
-                    <Bot className="h-4 w-4" />
+                    <img src="/brand/logo.png" alt="Merry360x" className="relative h-5 w-5 object-contain" loading="eager" />
                   </div>
                   <div>
                     <div className="text-sm font-semibold text-foreground">Merry</div>
@@ -1025,7 +1025,7 @@ export default function SupportCenterLauncher() {
                           <span className="absolute inset-[-3px] rounded-full bg-[conic-gradient(from_180deg,rgba(244,63,94,0)_0deg,rgba(244,63,94,0.95)_72deg,rgba(249,115,22,0.95)_170deg,rgba(251,191,36,0.98)_235deg,rgba(244,63,94,0)_320deg)] blur-[2px] animate-spin" />
                           <span className="absolute inset-[1px] rounded-full border border-white/80 bg-white" />
                           <div className="relative flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 via-orange-500 to-amber-400 text-white shadow-[0_0_18px_rgba(249,115,22,0.45)]">
-                            <Bot className="h-4 w-4" />
+                            <img src="/brand/logo.png" alt="Merry360x" className="h-4 w-4 object-contain" loading="eager" />
                           </div>
                         </div>
                         <div>
