@@ -1243,7 +1243,7 @@ export default function SupportCenterLauncher() {
   return (
     <>
       <div
-        className={`pointer-events-none fixed bottom-[calc(env(safe-area-inset-bottom,0px)+6.85rem)] right-[5.5rem] z-[109] max-w-[220px] rounded-full border border-orange-200/80 bg-white/96 px-3 py-2 text-[11px] font-medium text-slate-700 shadow-[0_18px_38px_rgba(15,23,42,0.14)] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:bottom-[4.8rem] sm:right-[5.75rem] ${
+        className={`pointer-events-none fixed bottom-[calc(env(safe-area-inset-bottom,0px)+6.85rem)] right-[5.5rem] z-[109] max-w-[220px] rounded-full border border-primary/20 bg-white/96 px-3 py-2 text-[11px] font-medium text-slate-700 shadow-[0_18px_38px_rgba(15,23,42,0.14)] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:bottom-[4.8rem] sm:right-[5.75rem] ${
           homePromptVisible ? "translate-x-0 scale-100 opacity-100" : "translate-x-5 scale-95 opacity-0"
         }`}
       >
@@ -1266,11 +1266,11 @@ export default function SupportCenterLauncher() {
         }}
       >
         {open ? (
-          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-950 text-white shadow-[0_18px_36px_rgba(15,23,42,0.28)]">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_18px_36px_rgba(15,23,42,0.22)]">
             <X className="h-5 w-5" />
           </span>
         ) : (
-          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-orange-500 shadow-[0_18px_36px_rgba(15,23,42,0.16)]">
+          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_18px_36px_rgba(15,23,42,0.22)]">
             <HugeiconsIcon icon={ChatSparkIcon} className="h-8 w-8" strokeWidth={1.7} />
           </span>
         )}
@@ -1320,9 +1320,9 @@ export default function SupportCenterLauncher() {
                 <button
                   type="button"
                   onClick={() => setStep("ai")}
-                  className="w-full flex items-center gap-3 rounded-2xl border border-orange-200 bg-[linear-gradient(135deg,rgba(255,247,237,1),rgba(255,255,255,1)_55%,rgba(255,241,228,1))] px-3 py-3 text-left shadow-[0_12px_28px_rgba(15,23,42,0.06)] transition-colors hover:border-orange-300"
+                  className="w-full flex items-center gap-3 rounded-2xl border border-primary/20 bg-primary/5 px-3 py-3 text-left shadow-[0_12px_28px_rgba(15,23,42,0.06)] transition-colors hover:border-primary/30"
                 >
-                    <div className="relative h-11 w-11 rounded-full border border-orange-100 bg-white flex items-center justify-center shrink-0 shadow-[0_10px_24px_rgba(15,23,42,0.08)]">
+                    <div className="relative h-11 w-11 rounded-full border border-primary/10 bg-white flex items-center justify-center shrink-0 shadow-[0_10px_24px_rgba(15,23,42,0.08)]">
                       <span className="absolute inset-0 rounded-full border border-white/70" />
                     <img src="/brand/logo.png" alt="Merry AI" className="relative h-6 w-6 object-contain" loading="eager" />
                   </div>
@@ -1383,7 +1383,7 @@ export default function SupportCenterLauncher() {
                   <div>
                     <div className="flex items-center gap-2">
                       <div className="text-sm font-semibold text-slate-900">Merry AI</div>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-orange-700">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">
                         <Sparkles className="h-2.5 w-2.5" />
                         AI powered
                       </span>
