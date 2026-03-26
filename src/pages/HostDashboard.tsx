@@ -2810,22 +2810,40 @@ export default function HostDashboard() {
     });
   }, [bookings, bookingIdSearch, bookingQuickFilter, normalizePaymentStatus]);
 
+  const isEarningsEligibleBooking = useCallback((booking: Booking) => {
+    const status = String(booking.status || "").toLowerCase();
+    const payment = normalizePaymentStatus(booking);
+
+    // Some historical bookings remain in non-final booking statuses even when payment succeeded.
+    // Treat successful payment as eligible unless there is a refund signal.
+    const hasSuccessfulPayment = ["paid", "completed", "success", "successful", "captured"].includes(payment);
+    const isConfirmed = status === "confirmed" || status === "completed";
+    const isUnpaidFlow = ["failed", "pending", "requested", "unpaid", "not_paid", "expired"].includes(payment);
+    const isRefundFlow = payment === "requested" || payment === "refunded" || payment.includes("refund");
+
+    return (isConfirmed || hasSuccessfulPayment) && !isRefundFlow && !isUnpaidFlow;
+  }, [normalizePaymentStatus]);
+
+  const earningsEligibleBookings = useMemo(() => {
+    return (bookings || []).filter((booking) => isEarningsEligibleBooking(booking));
+  }, [bookings, isEarningsEligibleBooking]);
+
   const filteredReportBookings = useMemo(() => {
     const start = new Date(reportStartDate);
     const end = new Date(reportEndDate);
 
     if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) {
-      return bookings || [];
+      return earningsEligibleBookings;
     }
 
     start.setHours(0, 0, 0, 0);
     end.setHours(23, 59, 59, 999);
 
-    return (bookings || []).filter((booking) => {
+    return earningsEligibleBookings.filter((booking) => {
       const bookingDate = new Date(booking.created_at);
       return Number.isFinite(bookingDate.getTime()) && bookingDate >= start && bookingDate <= end;
     });
-  }, [bookings, reportStartDate, reportEndDate]);
+  }, [earningsEligibleBookings, reportStartDate, reportEndDate]);
 
   const downloadBlob = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);
@@ -3249,19 +3267,7 @@ export default function HostDashboard() {
     };
   }, [getBookingServiceType, getCanonicalGuestFeePercent, getCanonicalHostFeePercent, getResolvedBookingAmountForHost]);
 
-  const confirmedBookings = (bookings || []).filter((b) => {
-    const status = String(b.status || "").toLowerCase();
-    const payment = normalizePaymentStatus(b);
-
-    // Some historical bookings remain in non-final booking statuses even when payment succeeded.
-    // Treat successful payment as eligible unless there is a refund signal.
-    const hasSuccessfulPayment = ["paid", "completed", "success", "successful", "captured"].includes(payment);
-    const isConfirmed = status === "confirmed" || status === "completed";
-    const isUnpaidFlow = ["failed", "pending", "requested", "unpaid", "not_paid", "expired"].includes(payment);
-    const isRefundFlow = payment === "requested" || payment === "refunded" || payment.includes("refund");
-
-    return (isConfirmed || hasSuccessfulPayment) && !isRefundFlow && !isUnpaidFlow;
-  });
+  const confirmedBookings = earningsEligibleBookings;
   
   // Gross earnings (what guests paid)
   const totalGrossEarnings = confirmedBookings.reduce((sum, b) => {
