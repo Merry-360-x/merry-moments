@@ -1245,15 +1245,15 @@ export default function SupportCenterLauncher() {
           <X className="relative h-5 w-5" />
         ) : (
           <>
-            <span className="absolute -right-1.5 -top-1.5 inline-flex items-center gap-1 rounded-full border border-white bg-slate-950 px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-white shadow-[0_8px_18px_rgba(15,23,42,0.18)]">
-              <Sparkles className="h-2.5 w-2.5 text-orange-300" />
-              AI
-            </span>
             <div className="relative flex h-11 w-11 items-center justify-center rounded-[15px] bg-[linear-gradient(160deg,#ff6a00,#ff9f1c)] p-[1px] shadow-[0_10px_24px_rgba(255,122,0,0.28)]">
               <div className="flex h-full w-full items-center justify-center rounded-[14px] bg-white">
                 <img src="/brand/logo.png" alt="Merry AI" className="h-6 w-6 object-contain" loading="eager" />
               </div>
             </div>
+            <span className="absolute bottom-1.5 left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-full bg-slate-950 px-2 py-[3px] text-[8px] font-semibold uppercase tracking-[0.14em] text-white shadow-[0_8px_18px_rgba(15,23,42,0.14)]">
+              <Sparkles className="h-2 w-2 text-orange-300" />
+              AI
+            </span>
           </>
         )}
         {!open && unreadCount > 0 && (
