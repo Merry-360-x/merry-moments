@@ -436,6 +436,7 @@ const HeroSearch = ({ onWhereChange }: HeroSearchProps) => {
               {/* Body */}
               <div className="flex-1 overflow-y-auto px-4 py-4">
                 <div className="rounded-3xl border border-border bg-card shadow-card p-4">
+                  <div className="mb-1 text-xs font-semibold uppercase tracking-[0.18em] text-primary">AI Search by Merry</div>
                   <div className="text-3xl font-bold text-foreground mb-3">{t("heroSearch.whereQuestion")}</div>
 
                   <div className="rounded-2xl border border-border bg-background px-4 py-3 flex items-center gap-3">
@@ -443,7 +444,7 @@ const HeroSearch = ({ onWhereChange }: HeroSearchProps) => {
                     <input
                       value={where}
                       onChange={(e) => setWhereValue(e.target.value)}
-                      placeholder={t("heroSearch.wherePlaceholder")}
+                      placeholder="Ask Merry AI where to stay, tour, or ride"
                       className="w-full bg-transparent outline-none text-foreground placeholder:text-muted-foreground"
                     />
                   </div>
@@ -711,12 +712,15 @@ const HeroSearch = ({ onWhereChange }: HeroSearchProps) => {
               className="w-[360px] p-0 rounded-2xl overflow-hidden"
             >
               <div className="p-4">
+                <div className="text-xs font-semibold text-primary mb-1">
+                  AI Search by Merry
+                </div>
                 <div className="text-xs font-semibold text-muted-foreground mb-2">
                   {t("heroSearch.suggestedDestinations")}
                 </div>
                 <Command>
                   <CommandInput
-                    placeholder={t("heroSearch.wherePlaceholder")}
+                    placeholder="Ask Merry AI where to stay, tour, or ride"
                     value={where}
                     onValueChange={(v) => setWhereValue(v)}
                   />

@@ -865,11 +865,11 @@ export default function SupportCenterLauncher() {
                 >
                     <div className="relative h-10 w-10 rounded-full border border-slate-200 bg-white flex items-center justify-center shrink-0 shadow-[0_10px_24px_rgba(15,23,42,0.08)]">
                       <span className="absolute inset-0 rounded-full border border-white/70" />
-                    <img src="/brand/logo_dark.png" alt="Merry360x" className="relative h-5 w-5 object-contain" loading="eager" />
+                    <img src="/brand/logo.png" alt="Merry AI" className="relative h-6 w-6 object-contain" loading="eager" />
                   </div>
                   <div>
-                    <div className="text-sm font-medium text-slate-900">Merry</div>
-                    <div className="text-xs text-slate-500">Plan, save to cart, and move to checkout</div>
+                    <div className="text-sm font-medium text-slate-900">Merry AI</div>
+                    <div className="text-xs text-slate-500">AI planner for stays, tours, cart, and checkout</div>
                   </div>
                 </button>
 
@@ -913,11 +913,11 @@ export default function SupportCenterLauncher() {
                 <div className="flex items-center gap-2">
                   <div className="relative flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white shadow-[0_8px_20px_rgba(15,23,42,0.08)]">
                     <span className="absolute inset-0 rounded-full border border-white/70" />
-                    <img src="/brand/logo_dark.png" alt="Merry360x" className="relative h-5 w-5 object-contain" loading="eager" />
+                    <img src="/brand/logo.png" alt="Merry AI" className="relative h-6 w-6 object-contain" loading="eager" />
                   </div>
                   <div>
-                    <div className="text-sm font-semibold text-slate-900">Merry</div>
-                    <div className="text-[11px] text-slate-500">AI trip advisor and operator</div>
+                    <div className="text-sm font-semibold text-slate-900">Merry AI</div>
+                    <div className="text-[11px] text-slate-500">AI trip advisor and booking operator</div>
                   </div>
                 </div>
                 <div className="ml-auto flex items-center gap-1">
