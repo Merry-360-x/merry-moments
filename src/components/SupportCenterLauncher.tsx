@@ -789,11 +789,7 @@ export default function SupportCenterLauncher() {
   // Dynamic sizing
   const isHomeStep = step === "home";
   const popupWidth = expanded ? "w-[calc(100vw-1.25rem)] sm:w-[30rem]" : "w-[calc(100vw-1.25rem)] sm:w-[24rem]";
-  const popupBottomOffset = 72;
-  const popupTopOffset = isHomeStep
-    ? "calc(env(safe-area-inset-top, 0px) + 5.5rem)"
-    : "calc(env(safe-area-inset-top, 0px) + 1rem)";
-  const popupAvailableHeight = `calc(100dvh - env(safe-area-inset-top, 0px) - ${popupBottomOffset + 12}px - env(safe-area-inset-bottom, 0px))`;
+  const popupAvailableHeight = "calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 1.5rem)";
   const popupDefaultHeight = isHomeStep ? (expanded ? 368 : 332) : expanded ? 680 : 540;
   const popupHeight = `min(${popupDefaultHeight}px, ${popupAvailableHeight})`;
 
@@ -836,9 +832,8 @@ export default function SupportCenterLauncher() {
             onClick={() => setOpen(false)}
           />
           <div
-            className={`fixed bottom-[4.5rem] left-2.5 right-2.5 sm:left-auto sm:right-5 z-[100] ${popupWidth} overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_30px_80px_rgba(15,23,42,0.38)] animate-in slide-in-from-bottom-2 fade-in duration-200 flex flex-col transition-all`}
+            className={`fixed left-1/2 top-1/2 z-[100] ${popupWidth} -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_30px_80px_rgba(15,23,42,0.38)] animate-in slide-in-from-bottom-2 fade-in duration-200 flex flex-col transition-all`}
             style={{
-              top: popupTopOffset,
               height: popupHeight,
               maxHeight: popupAvailableHeight,
             }}
@@ -1025,16 +1020,18 @@ export default function SupportCenterLauncher() {
                   {aiSending && (
                     <div className="max-w-[92%] rounded-2xl border border-amber-100/70 bg-[rgba(255,250,246,0.92)] px-4 py-3 text-sm text-foreground shadow-sm">
                       <div className="flex items-center gap-3">
-                        <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 via-orange-500 to-amber-400 text-white">
-                          <span className="absolute inset-0 rounded-full border border-white/40 animate-pulse" />
-                          <Bot className="h-4 w-4" />
+                        <div className="relative flex h-9 w-9 items-center justify-center">
+                          <span className="absolute inset-0 rounded-full border border-rose-200/70 bg-white/70" />
+                          <span className="absolute inset-[-3px] rounded-full bg-[conic-gradient(from_180deg,rgba(244,63,94,0)_0deg,rgba(244,63,94,0.95)_72deg,rgba(249,115,22,0.95)_170deg,rgba(251,191,36,0.98)_235deg,rgba(244,63,94,0)_320deg)] blur-[2px] animate-spin" />
+                          <span className="absolute inset-[1px] rounded-full border border-white/80 bg-white" />
+                          <div className="relative flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 via-orange-500 to-amber-400 text-white shadow-[0_0_18px_rgba(249,115,22,0.45)]">
+                            <Bot className="h-4 w-4" />
+                          </div>
                         </div>
                         <div>
                           <div className="font-medium">Merry is thinking</div>
-                          <div className="mt-1 flex items-center gap-1">
-                            <span className="h-2 w-2 rounded-full bg-rose-400 animate-bounce" />
-                            <span className="h-2 w-2 rounded-full bg-orange-400 animate-bounce [animation-delay:120ms]" />
-                            <span className="h-2 w-2 rounded-full bg-amber-400 animate-bounce [animation-delay:240ms]" />
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            Building your next step with Merry's live trip assistant.
                           </div>
                         </div>
                       </div>
