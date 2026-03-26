@@ -801,7 +801,7 @@ export default function SupportCenterLauncher() {
       {/* Floating button */}
       <button
         type="button"
-        className="fixed bottom-5 right-5 z-[110] h-14 w-14 rounded-full bg-gradient-to-br from-rose-500 via-orange-500 to-amber-400 text-white shadow-[0_18px_40px_rgba(244,63,94,0.35)] flex items-center justify-center transition-transform hover:scale-105"
+        className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+6.25rem)] right-4 z-[110] h-14 w-14 rounded-full bg-gradient-to-br from-rose-500 via-orange-500 to-amber-400 text-white shadow-[0_18px_40px_rgba(244,63,94,0.35)] flex items-center justify-center transition-transform hover:scale-105 sm:bottom-5 sm:right-5"
         aria-label="Help"
         onClick={() => {
           setOpen(!open);
