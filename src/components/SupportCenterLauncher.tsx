@@ -2,7 +2,7 @@
 // @ts-nocheck - support_ticket_messages table not in generated types yet
 import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { MessageCircle, ChevronLeft, ChevronDown, ChevronUp, Headset, X, Maximize2, Minimize2, Send, Paperclip, Smile, Reply, User, Image as ImageIcon, FileText, Clock, CheckCircle } from "lucide-react";
+import { MessageCircle, ChevronLeft, ChevronDown, ChevronUp, Headset, Sparkles, X, Maximize2, Minimize2, Send, Paperclip, Smile, Reply, User, Image as ImageIcon, FileText, Clock, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -1227,7 +1227,7 @@ export default function SupportCenterLauncher() {
       {/* Floating button */}
       <button
         type="button"
-        className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+6.25rem)] right-4 z-[110] h-14 w-14 rounded-full bg-gradient-to-br from-rose-500 via-orange-500 to-amber-400 text-white shadow-[0_18px_40px_rgba(244,63,94,0.35)] flex items-center justify-center transition-transform hover:scale-105 sm:bottom-5 sm:right-5"
+        className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+6.25rem)] right-4 z-[110] h-16 w-16 rounded-[22px] bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.34),_transparent_36%),linear-gradient(145deg,_#ff5a3d,_#ff8a00_58%,_#ffb11a)] text-white shadow-[0_22px_48px_rgba(244,102,38,0.38)] flex items-center justify-center transition-transform hover:scale-105 sm:bottom-5 sm:right-5"
         aria-label="Help"
         onClick={() => {
           setOpen(!open);
@@ -1239,8 +1239,24 @@ export default function SupportCenterLauncher() {
           }
         }}
       >
-        <span className="absolute inset-0 rounded-full border border-white/30 animate-ping" />
-        {open ? <X className="h-5 w-5" /> : <MessageCircle className="h-5 w-5" />}
+        <span className="absolute inset-0 rounded-[22px] border border-white/25" />
+        <span className="absolute inset-[5px] rounded-[18px] border border-white/20 bg-white/8 backdrop-blur-[1px]" />
+        {open ? (
+          <X className="relative h-5 w-5" />
+        ) : (
+          <>
+            <span className="absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-slate-950/20 px-1.5 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-white/90">
+              <Sparkles className="h-2.5 w-2.5" />
+              AI
+            </span>
+            <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-[0_10px_24px_rgba(15,23,42,0.16)]">
+              <img src="/brand/logo.png" alt="Merry AI" className="h-6 w-6 object-contain" loading="eager" />
+            </div>
+            <span className="absolute bottom-1.5 right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-slate-950 text-white shadow-sm">
+              <MessageCircle className="h-3 w-3" />
+            </span>
+          </>
+        )}
         {!open && unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
             {unreadCount > 9 ? '9+' : unreadCount}
@@ -1287,15 +1303,21 @@ export default function SupportCenterLauncher() {
                 <button
                   type="button"
                   onClick={() => setStep("ai")}
-                  className="w-full flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left shadow-[0_12px_28px_rgba(15,23,42,0.06)] transition-colors hover:bg-slate-50"
+                  className="w-full flex items-center gap-3 rounded-2xl border border-orange-200 bg-[linear-gradient(135deg,rgba(255,247,237,1),rgba(255,255,255,1)_55%,rgba(255,241,228,1))] px-3 py-3 text-left shadow-[0_12px_28px_rgba(15,23,42,0.06)] transition-colors hover:border-orange-300"
                 >
-                    <div className="relative h-10 w-10 rounded-full border border-slate-200 bg-white flex items-center justify-center shrink-0 shadow-[0_10px_24px_rgba(15,23,42,0.08)]">
+                    <div className="relative h-11 w-11 rounded-full border border-orange-100 bg-white flex items-center justify-center shrink-0 shadow-[0_10px_24px_rgba(15,23,42,0.08)]">
                       <span className="absolute inset-0 rounded-full border border-white/70" />
                     <img src="/brand/logo.png" alt="Merry AI" className="relative h-6 w-6 object-contain" loading="eager" />
                   </div>
-                  <div>
-                    <div className="text-sm font-medium text-slate-900">Merry AI</div>
-                    <div className="text-xs text-slate-500">AI planner for stays, tours, cart, and checkout</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm font-medium text-slate-900">Merry AI</div>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-900 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white">
+                        <Sparkles className="h-2.5 w-2.5" />
+                        AI
+                      </span>
+                    </div>
+                    <div className="mt-1 text-xs text-slate-600">AI planner for stays, tours, transport, cart, and checkout</div>
                   </div>
                 </button>
 
@@ -1342,7 +1364,13 @@ export default function SupportCenterLauncher() {
                     <img src="/brand/logo.png" alt="Merry AI" className="relative h-6 w-6 object-contain" loading="eager" />
                   </div>
                   <div>
-                    <div className="text-sm font-semibold text-slate-900">Merry AI</div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm font-semibold text-slate-900">Merry AI</div>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-orange-700">
+                        <Sparkles className="h-2.5 w-2.5" />
+                        AI powered
+                      </span>
+                    </div>
                     <div className="text-[11px] text-slate-500">AI trip advisor and booking operator</div>
                   </div>
                 </div>
