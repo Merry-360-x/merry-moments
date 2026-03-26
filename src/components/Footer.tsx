@@ -45,7 +45,7 @@ const updatesLinks = [
   {
     label: "Announcements",
     description: "See product updates and new launches.",
-    to: "/stories",
+    to: "/announcements",
     Icon: Bell,
   },
 ];

@@ -57,6 +57,7 @@ const TermsAndConditions = lazy(() => import("./pages/TermsAndConditions"));
 const SafetyGuidelines = lazy(() => import("./pages/SafetyGuidelines"));
 const RefundPolicy = lazy(() => import("./pages/RefundPolicy"));
 const HelpCenter = lazy(() => import("./pages/HelpCenter"));
+const Announcements = lazy(() => import("./pages/Announcements"));
 const Stories = lazy(() => import("./pages/Stories"));
 const CreateStory = lazy(() => import("./pages/CreateStory"));
 const AffiliateSignup = lazy(() => import("./pages/AffiliateSignup"));
@@ -475,6 +476,7 @@ const App = () => (
               <Route path="/search" element={<SearchResults />} />
               <Route path="/transport" element={<Transport />} />
               <Route path="/services" element={<Navigate to="/" replace />} />
+              <Route path="/announcements" element={<Announcements />} />
               <Route path="/stories" element={<Stories />} />
               <Route
                 path="/create-story"

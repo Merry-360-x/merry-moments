@@ -505,47 +505,34 @@ const Index = () => {
       <Footer />
 
       <Dialog open={showUpdatesPopup} onOpenChange={(open) => !open && closeUpdatesPopup()}>
-        <DialogContent className="max-w-md border-primary/20 bg-background/85 backdrop-blur-xl p-0 overflow-hidden shadow-2xl">
-          <div className="relative bg-gradient-to-br from-primary/20 via-background/95 to-background/90 p-6">
-            <div
-              className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-primary/20 blur-2xl animate-pulse"
-              style={{ animationDuration: "5.5s" }}
-            />
-            <div
-              className="pointer-events-none absolute -left-10 bottom-0 h-24 w-24 rounded-full bg-emerald-300/25 blur-2xl animate-pulse"
-              style={{ animationDuration: "7s" }}
-            />
-            <div
-              className="pointer-events-none absolute left-1/2 top-1/2 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-3xl animate-pulse"
-              style={{ animationDuration: "8.5s" }}
-            />
-
-            <div className="mb-5 flex items-start justify-between gap-3">
+        <DialogContent className="max-w-md overflow-hidden border border-slate-200 bg-white p-0 shadow-[0_30px_90px_rgba(15,23,42,0.18)]">
+          <div className="relative bg-white p-6">
+            <div className="mb-5 flex items-start justify-between gap-3 border-b border-slate-200 pb-4">
               <div className="flex items-start gap-3">
-                <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                <div className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-500 shadow-sm">
                   <Sparkles className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-foreground">Travel Insider Updates</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">Exclusive offers, fresh stories, and release notes in one digest.</p>
+                  <h3 className="text-lg font-semibold text-slate-900">Travel Insider Updates</h3>
+                  <p className="mt-1 text-sm text-slate-600">Exclusive offers, fresh stories, and release notes in one digest.</p>
                 </div>
               </div>
-              <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+              <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-500">
                 Weekly
               </span>
             </div>
 
             <div className="grid grid-cols-2 gap-2 mb-4">
-              <div className="rounded-md border border-border/70 bg-background/90 px-2.5 py-2 text-[11px] text-muted-foreground">Deals before public launch</div>
-              <div className="rounded-md border border-border/70 bg-background/90 px-2.5 py-2 text-[11px] text-muted-foreground">Stories from local hosts</div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-[11px] text-slate-600">Deals before public launch</div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-[11px] text-slate-600">Stories from local hosts</div>
             </div>
 
-            <div className="rounded-xl border border-primary/15 bg-background/90 p-4 shadow-sm backdrop-blur-sm">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="mb-3 flex items-start gap-2">
-                <Mail className="mt-0.5 h-4 w-4 text-primary" />
+                <Mail className="mt-0.5 h-4 w-4 text-rose-500" />
                 <div>
-                  <p className="text-sm font-medium text-foreground">Newsletter</p>
-                  <p className="text-xs text-muted-foreground">Receive curated deals and destination highlights.</p>
+                  <p className="text-sm font-medium text-slate-900">Newsletter</p>
+                  <p className="text-xs text-slate-600">Receive curated deals and destination highlights.</p>
                 </div>
               </div>
 
@@ -566,12 +553,12 @@ const Index = () => {
                       if (newsletterError) setNewsletterError(null);
                     }}
                     placeholder="you@example.com"
-                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+                    className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-rose-400"
                     autoComplete="email"
                     required
                   />
                   {newsletterError && <p className="text-xs text-destructive">{newsletterError}</p>}
-                  <Button type="submit" className="h-10 w-full justify-between rounded-lg px-4">
+                  <Button type="submit" className="h-10 w-full justify-between rounded-xl bg-rose-500 px-4 text-white hover:bg-rose-600">
                     <span>Join newsletter</span>
                     <ArrowRight className="h-4 w-4" />
                   </Button>
@@ -583,18 +570,18 @@ const Index = () => {
               type="button"
               onClick={() => {
                 closeUpdatesPopup();
-                navigate("/stories");
+                navigate("/announcements");
               }}
-              className="mt-4 flex w-full items-center justify-between rounded-xl border border-primary/15 bg-background/90 p-3 text-left transition-colors hover:bg-muted/70"
+              className="mt-4 flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition-colors hover:bg-slate-100"
             >
               <span className="flex items-start gap-3">
-                <Bell className="mt-0.5 h-4 w-4 text-primary" />
+                <Bell className="mt-0.5 h-4 w-4 text-rose-500" />
                 <span>
-                  <span className="block text-sm font-medium text-foreground">Announcements</span>
-                  <span className="block text-xs text-muted-foreground">Open latest product and community updates.</span>
+                  <span className="block text-sm font-medium text-slate-900">Announcements</span>
+                  <span className="block text-xs text-slate-600">Open the latest product and community updates.</span>
                 </span>
               </span>
-              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              <ArrowRight className="h-4 w-4 text-slate-500" />
             </button>
           </div>
         </DialogContent>
