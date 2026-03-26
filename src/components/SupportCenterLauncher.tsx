@@ -906,7 +906,7 @@ export default function SupportCenterLauncher() {
           ) : step === "ai" ? (
             /* AI Trip Advisor */
             <div className="flex flex-col flex-1 min-h-0">
-              <div className="flex items-center gap-2 px-4 py-3 border-b border-white/50 bg-gradient-to-r from-rose-50 via-orange-50 to-amber-50 shrink-0">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 bg-white shrink-0">
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setStep("home")}>
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
@@ -1018,7 +1018,7 @@ export default function SupportCenterLauncher() {
                     </div>
                   ))}
                   {aiSending && (
-                    <div className="max-w-[92%] rounded-2xl border border-amber-100/70 bg-[rgba(255,250,246,0.92)] px-4 py-3 text-sm text-foreground shadow-sm">
+                    <div className="max-w-[92%] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-foreground shadow-sm">
                       <div className="flex items-center gap-3">
                         <div className="relative flex h-9 w-9 items-center justify-center">
                           <span className="absolute inset-0 rounded-full border border-rose-200/70 bg-white/70" />
@@ -1038,7 +1038,7 @@ export default function SupportCenterLauncher() {
                     </div>
                   )}
                   {shouldShowAiRating ? (
-                    <div className="max-w-[92%] rounded-2xl border border-amber-100/80 bg-[rgba(255,247,240,0.95)] px-4 py-4 text-xs text-foreground">
+                    <div className="max-w-[92%] rounded-2xl border border-slate-200 bg-white px-4 py-4 text-xs text-foreground shadow-sm">
                       <div className="font-medium">Was this response helpful?</div>
                       <div className="mt-1 text-muted-foreground">Choose thumbs up or down, then add an optional note.</div>
                       <div className="mt-2 flex items-center gap-2">
@@ -1100,14 +1100,14 @@ export default function SupportCenterLauncher() {
                 </div>
               </ScrollArea>
 
-              <div className="border-t border-amber-100/60 bg-[rgba(255,245,237,0.88)] p-3 shrink-0 backdrop-blur">
+              <div className="border-t border-slate-200 bg-white p-3 shrink-0">
                 <div className="mb-2 flex items-center gap-2 text-[11px] text-muted-foreground">
                   <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                   Merry can answer, save items, and route you to checkout.
                 </div>
                 <div className="flex gap-2">
                   <Input
-                    className="h-10 rounded-full border-amber-100/70 bg-[rgba(255,250,246,0.94)] text-sm"
+                    className="h-10 rounded-full border-slate-200 bg-white text-sm"
                     value={aiDraft}
                     onChange={(e) => setAiDraft(e.target.value)}
                     placeholder="Ask Merry about stays, tours, airport pickup, or checkout..."
