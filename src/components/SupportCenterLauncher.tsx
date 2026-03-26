@@ -1227,8 +1227,8 @@ export default function SupportCenterLauncher() {
       {/* Floating button */}
       <button
         type="button"
-        className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+6.25rem)] right-4 z-[110] h-16 w-16 rounded-[22px] bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.34),_transparent_36%),linear-gradient(145deg,_#ff5a3d,_#ff8a00_58%,_#ffb11a)] text-white shadow-[0_22px_48px_rgba(244,102,38,0.38)] flex items-center justify-center transition-transform hover:scale-105 sm:bottom-5 sm:right-5"
-        aria-label="Help"
+        className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+6.25rem)] right-4 z-[110] h-[62px] w-[62px] rounded-[20px] border border-orange-200/90 bg-white/95 text-slate-900 shadow-[0_18px_42px_rgba(15,23,42,0.16)] backdrop-blur-sm flex items-center justify-center transition-transform hover:scale-[1.03] sm:bottom-5 sm:right-5"
+        aria-label="Open Merry AI and support"
         onClick={() => {
           setOpen(!open);
           if (!open) {
@@ -1239,22 +1239,21 @@ export default function SupportCenterLauncher() {
           }
         }}
       >
-        <span className="absolute inset-0 rounded-[22px] border border-white/25" />
-        <span className="absolute inset-[5px] rounded-[18px] border border-white/20 bg-white/8 backdrop-blur-[1px]" />
+        <span className="absolute inset-0 rounded-[20px] border border-white/80" />
+        <span className="absolute inset-[7px] rounded-[15px] bg-[linear-gradient(160deg,rgba(255,115,0,0.14),rgba(255,184,77,0.18))]" />
         {open ? (
           <X className="relative h-5 w-5" />
         ) : (
           <>
-            <span className="absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-slate-950/20 px-1.5 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-white/90">
-              <Sparkles className="h-2.5 w-2.5" />
+            <span className="absolute -right-1.5 -top-1.5 inline-flex items-center gap-1 rounded-full border border-white bg-slate-950 px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-white shadow-[0_8px_18px_rgba(15,23,42,0.18)]">
+              <Sparkles className="h-2.5 w-2.5 text-orange-300" />
               AI
             </span>
-            <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-[0_10px_24px_rgba(15,23,42,0.16)]">
-              <img src="/brand/logo.png" alt="Merry AI" className="h-6 w-6 object-contain" loading="eager" />
+            <div className="relative flex h-11 w-11 items-center justify-center rounded-[15px] bg-[linear-gradient(160deg,#ff6a00,#ff9f1c)] p-[1px] shadow-[0_10px_24px_rgba(255,122,0,0.28)]">
+              <div className="flex h-full w-full items-center justify-center rounded-[14px] bg-white">
+                <img src="/brand/logo.png" alt="Merry AI" className="h-6 w-6 object-contain" loading="eager" />
+              </div>
             </div>
-            <span className="absolute bottom-1.5 right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-slate-950 text-white shadow-sm">
-              <MessageCircle className="h-3 w-3" />
-            </span>
           </>
         )}
         {!open && unreadCount > 0 && (
