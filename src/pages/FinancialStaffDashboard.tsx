@@ -727,6 +727,11 @@ export default function FinancialStaffDashboard() {
     return String(checkoutStatus || booking.payment_status || '').trim().toLowerCase();
   }, []);
 
+  const isPendingPaymentBooking = useCallback((booking: BookingRow) => {
+    const payment = normalizePaymentStatus(booking);
+    return ['pending', 'requested', 'unpaid', 'not_paid', 'expired'].includes(payment);
+  }, [normalizePaymentStatus]);
+
   const isConfirmedPaidBooking = useCallback((booking: BookingRow) => {
     const status = String(booking.status || '').toLowerCase();
     const payment = normalizePaymentStatus(booking);
@@ -795,12 +800,28 @@ export default function FinancialStaffDashboard() {
     }).length;
   }, [bookings, refundRequestRefs]);
 
-  const completedBookings = filteredBookings.filter(b => b.status === 'completed' || b.status === 'confirmed');
-  const pendingBookings = filteredBookings.filter(b => isPendingBookingStatus(b.status));
+  const paidBookings = useMemo(
+    () => filteredBookings.filter((booking) => isConfirmedPaidBooking(booking)),
+    [filteredBookings, isConfirmedPaidBooking]
+  );
+
+  const pendingPaymentBookings = useMemo(
+    () => filteredBookings.filter((booking) => isPendingPaymentBooking(booking)),
+    [filteredBookings, isPendingPaymentBooking]
+  );
+
+  const bookingSummaryCounts = useMemo(
+    () => ({
+      total: filteredBookings.length,
+      paid: paidBookings.length,
+      pending: pendingPaymentBookings.length,
+    }),
+    [filteredBookings.length, paidBookings.length, pendingPaymentBookings.length]
+  );
 
   const filteredRevenue = useMemo(() => {
-    return completedBookings.reduce((sum, b) => sum + getBookingDisplayAmount(b), 0);
-  }, [completedBookings, getBookingDisplayAmount]);
+    return paidBookings.reduce((sum, b) => sum + getBookingDisplayAmount(b), 0);
+  }, [paidBookings, getBookingDisplayAmount]);
 
   const realEarningsTotals = useMemo(() => {
     return bookings.reduce(
@@ -983,8 +1004,8 @@ export default function FinancialStaffDashboard() {
               <CreditCard className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{metrics?.bookings_total ?? 0}</div>
-              <p className="text-xs text-muted-foreground mt-1">All time</p>
+              <div className="text-2xl font-bold">{bookingSummaryCounts.total}</div>
+              <p className="text-xs text-muted-foreground mt-1">{startDate || endDate ? 'Selected range' : 'All time'}</p>
             </CardContent>
           </Card>
 
@@ -994,8 +1015,8 @@ export default function FinancialStaffDashboard() {
               <Wallet className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{metrics?.bookings_paid ?? 0}</div>
-              <p className="text-xs text-muted-foreground mt-1">Successfully paid</p>
+              <div className="text-2xl font-bold">{bookingSummaryCounts.paid}</div>
+              <p className="text-xs text-muted-foreground mt-1">Confirmed/completed and paid</p>
             </CardContent>
           </Card>
 
@@ -1005,7 +1026,7 @@ export default function FinancialStaffDashboard() {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{metrics?.bookings_pending ?? 0}</div>
+              <div className="text-2xl font-bold">{bookingSummaryCounts.pending}</div>
               <p className="text-xs text-muted-foreground mt-1">Awaiting payment</p>
             </CardContent>
           </Card>
@@ -1053,7 +1074,7 @@ export default function FinancialStaffDashboard() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {completedBookings.slice(0, 5).map((booking) => (
+                      {paidBookings.slice(0, 5).map((booking) => (
                         <TableRow key={booking.id}>
                           <TableCell className="text-sm">
                             {new Date(booking.created_at).toLocaleDateString()}
@@ -1062,11 +1083,11 @@ export default function FinancialStaffDashboard() {
                             {formatMoney(getBookingDisplayAmount(booking), dashboardCurrency)}
                           </TableCell>
                           <TableCell>
-                            <Badge variant="default">{booking.status === 'completed' ? 'Completed' : 'Confirmed'}</Badge>
+                            <Badge variant="default">Paid</Badge>
                           </TableCell>
                         </TableRow>
                       ))}
-                      {completedBookings.length === 0 && (
+                      {paidBookings.length === 0 && (
                         <TableRow>
                           <TableCell colSpan={3} className="text-center text-muted-foreground">
                             No completed bookings yet
@@ -1094,7 +1115,7 @@ export default function FinancialStaffDashboard() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {pendingBookings.slice(0, 5).map((booking) => (
+                      {pendingPaymentBookings.slice(0, 5).map((booking) => (
                         <TableRow key={booking.id}>
                           <TableCell className="text-sm">
                             {new Date(booking.created_at).toLocaleDateString()}
@@ -1107,7 +1128,7 @@ export default function FinancialStaffDashboard() {
                           </TableCell>
                         </TableRow>
                       ))}
-                      {pendingBookings.length === 0 && (
+                      {pendingPaymentBookings.length === 0 && (
                         <TableRow>
                           <TableCell colSpan={3} className="text-center text-muted-foreground">
                             No pending payments
