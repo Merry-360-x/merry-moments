@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
 
 import '../../services/app_database.dart';
+import '../../services/local_draft_store.dart';
 import '../../session_controller.dart';
 
 const _kRed = AppColors.rausch;
@@ -17,17 +20,20 @@ class BecomeHostScreen extends StatefulWidget {
 
 class _BecomeHostScreenState extends State<BecomeHostScreen> {
   final _api = AppDatabase();
+  static const _draftScope = 'host_application';
   int _step = 0; // 0 = form, 1 = success / already submitted
   bool _loading = true;
   bool _alreadySubmitted = false;
   bool _submitting = false;
+  bool _draftRestored = false;
+  Timer? _draftSaveTimer;
 
   // Step 1 — Personal Info
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _aboutCtrl = TextEditingController();
   // Step 2 — Service Types
-  List<String> _serviceTypes = [];
+  final List<String> _serviceTypes = [];
   // Step 3 — Verification
   final _nationalIdCtrl = TextEditingController();
 
@@ -43,11 +49,13 @@ class _BecomeHostScreenState extends State<BecomeHostScreen> {
   @override
   void initState() {
     super.initState();
+    _attachDraftListeners();
     _checkExisting();
   }
 
   @override
   void dispose() {
+    _draftSaveTimer?.cancel();
     _nameCtrl.dispose();
     _phoneCtrl.dispose();
     _aboutCtrl.dispose();
@@ -55,8 +63,69 @@ class _BecomeHostScreenState extends State<BecomeHostScreen> {
     super.dispose();
   }
 
+  String get _draftKey => LocalDraftStore.key(_draftScope, widget.session.userId);
+
+  void _attachDraftListeners() {
+    for (final controller in [_nameCtrl, _phoneCtrl, _aboutCtrl, _nationalIdCtrl]) {
+      controller.addListener(_scheduleDraftSave);
+    }
+  }
+
+  Map<String, dynamic> _collectDraft() => {
+    'step': _step,
+    'fullName': _nameCtrl.text,
+    'phone': _phoneCtrl.text,
+    'about': _aboutCtrl.text,
+    'serviceTypes': List<String>.from(_serviceTypes),
+    'nationalId': _nationalIdCtrl.text,
+  };
+
+  void _scheduleDraftSave() {
+    if (_alreadySubmitted) return;
+    _draftSaveTimer?.cancel();
+    _draftSaveTimer = Timer(const Duration(milliseconds: 400), () {
+      LocalDraftStore.write(_draftKey, _collectDraft());
+    });
+  }
+
+  Future<void> _restoreDraftIfNeeded() async {
+    final draft = await LocalDraftStore.read(_draftKey);
+    if (draft == null || !mounted) return;
+
+    setState(() {
+      _step = ((draft['step'] as num?)?.toInt() ?? 0).clamp(0, 2);
+      _nameCtrl.text = (draft['fullName'] ?? '').toString();
+      _phoneCtrl.text = (draft['phone'] ?? '').toString();
+      _aboutCtrl.text = (draft['about'] ?? '').toString();
+      _serviceTypes
+        ..clear()
+        ..addAll(((draft['serviceTypes'] as List?) ?? const []).map((item) => item.toString()).where((item) => item.isNotEmpty));
+      _nationalIdCtrl.text = (draft['nationalId'] ?? '').toString();
+      _draftRestored = true;
+    });
+  }
+
+  Future<void> _discardDraft() async {
+    await LocalDraftStore.clear(_draftKey);
+    if (!mounted) return;
+    setState(() {
+      _step = 0;
+      _nameCtrl.clear();
+      _phoneCtrl.clear();
+      _aboutCtrl.clear();
+      _serviceTypes.clear();
+      _nationalIdCtrl.clear();
+      _draftRestored = false;
+    });
+  }
+
   Future<void> _checkExisting() async {
     final app = await _api.fetchMyHostApplication(userId: widget.session.userId);
+    if (app == null) {
+      await _restoreDraftIfNeeded();
+    } else {
+      await LocalDraftStore.clear(_draftKey);
+    }
     setState(() {
       _alreadySubmitted = app != null;
       _loading = false;
@@ -75,6 +144,7 @@ class _BecomeHostScreenState extends State<BecomeHostScreen> {
       about: _aboutCtrl.text.trim().isNotEmpty ? _aboutCtrl.text.trim() : null,
       nationalIdNumber: _nationalIdCtrl.text.trim().isNotEmpty ? _nationalIdCtrl.text.trim() : null,
     );
+    await LocalDraftStore.clear(_draftKey);
     setState(() { _submitting = false; _step = 1; });
   }
 
@@ -113,6 +183,29 @@ class _BecomeHostScreenState extends State<BecomeHostScreen> {
               Text('Step ${_step + 1} of 3',
                   style: const TextStyle(color: Colors.black38, fontSize: 13)),
               const SizedBox(height: 6),
+              if (_draftRestored) ...[
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF4EFE7),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE6D6BF)),
+                  ),
+                  child: Row(children: [
+                    const Icon(Icons.save_outlined, size: 18, color: _kRed),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'Saved host application draft restored on this device.',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    TextButton(onPressed: _discardDraft, child: const Text('Discard')),
+                  ]),
+                ),
+              ],
 
               // Step 1 — Personal Info
               if (_step == 0) ...[
@@ -146,6 +239,7 @@ class _BecomeHostScreenState extends State<BecomeHostScreen> {
                     onTap: () => setState(() {
                       if (selected) { _serviceTypes.remove(value); }
                       else { _serviceTypes.add(value); }
+                      _scheduleDraftSave();
                     }),
                     child: Container(
                       margin: const EdgeInsets.only(bottom: 12),
@@ -212,7 +306,10 @@ class _BecomeHostScreenState extends State<BecomeHostScreen> {
             if (_step > 0)
               Expanded(child: OutlinedButton(
                 style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
-                onPressed: () => setState(() => _step -= 1),
+                onPressed: () => setState(() {
+                  _step -= 1;
+                  _scheduleDraftSave();
+                }),
                 child: const Text('Back'),
               )),
             if (_step > 0) const SizedBox(width: 12),
@@ -225,7 +322,12 @@ class _BecomeHostScreenState extends State<BecomeHostScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
                 onPressed: _submitting ? null : () {
                   if (_step == 1 && _serviceTypes.isEmpty) return; // guard: must pick at least one
-                  if (_step < 2) { setState(() => _step += 1); }
+                  if (_step < 2) {
+                    setState(() {
+                      _step += 1;
+                      _scheduleDraftSave();
+                    });
+                  }
                   else { _submit(); }
                 },
                 child: _submitting

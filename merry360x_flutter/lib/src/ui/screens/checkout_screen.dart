@@ -157,7 +157,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _emailCtrl.text = widget.session.userEmail ?? '';
     // Auto-select first method
     _selectedMethod = _kPayMethods.first;
-    _phoneCtrl.text = _selectedMethod!.countryCode + ' ';
+    _phoneCtrl.text = '${_selectedMethod!.countryCode} ';
     // Detect user region
     _detectRegion();
     // Load discount passed from trip cart
@@ -680,7 +680,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     children: [
                       if (imageUrl != null)
                         Image.network(imageUrl, fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(color: const Color(0xFFE8E8E8)))
+                            errorBuilder: (_, _, _) => Container(color: const Color(0xFFE8E8E8)))
                       else
                         Container(color: const Color(0xFFE8E8E8), child: const Icon(Icons.image_outlined, size: 32, color: AppColors.foggy)),
                       // Gradient overlay
@@ -1126,7 +1126,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ]),
         const SizedBox(height: 10),
         DropdownButtonFormField<String>(
-          value: _billingCountry,
+          initialValue: _billingCountry,
           decoration: InputDecoration(
             labelText: 'Country',
             prefixIcon: const Icon(Icons.flag_outlined, size: 20),
@@ -1670,7 +1670,7 @@ class _MethodChip extends StatelessWidget {
                 width: 30,
                 height: 30,
                 fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => Container(
+                errorBuilder: (_, _, _) => Container(
                   width: 30, height: 30,
                   decoration: BoxDecoration(color: method.color, borderRadius: BorderRadius.circular(6)),
                   child: Center(child: Text(method.id.split('_').first, style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: method.textLight ? Colors.white : Colors.black))),

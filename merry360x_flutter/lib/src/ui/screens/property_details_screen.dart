@@ -40,7 +40,11 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
   final AppDatabase _api = AppDatabase();
 
   Map<String, dynamic>? _full;
+  List<Map<String, dynamic>> _recommendedTours = [];
+  List<Map<String, dynamic>> _recommendedTourPackages = [];
+  List<Map<String, dynamic>> _recommendedTransport = [];
   bool _loading = true;
+  bool _loadingRecommendations = false;
   String? _error;
 
   // Booking state
@@ -67,20 +71,60 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
         _full = widget.item;
         _loading = false;
       });
+      unawaited(_loadRecommendations(widget.item));
       return;
     }
     try {
       final result = await _api.fetchListingById(id: id, type: type);
+      final resolved = result ?? widget.item;
       setState(() {
-        _full = result ?? widget.item;
+        _full = resolved;
         _loading = false;
       });
+      unawaited(_loadRecommendations(resolved));
     } catch (e) {
       setState(() {
         _full = widget.item;
         _loading = false;
         _error = e.toString();
       });
+      unawaited(_loadRecommendations(widget.item));
+    }
+  }
+
+  Future<void> _loadRecommendations(Map<String, dynamic> baseItem) async {
+    final query = _recommendationQuery(baseItem);
+    final currentId = (baseItem['id'] ?? '').toString();
+    final currentType = (baseItem['item_type'] ?? 'property').toString();
+
+    setState(() => _loadingRecommendations = true);
+
+    try {
+      final results = await Future.wait([
+        _api.fetchTours(query: query, limit: 8),
+        _api.fetchTourPackages(query: query, limit: 8),
+        _api.fetchTransportListings(query: query, limit: 8),
+      ]);
+
+      List<Map<String, dynamic>> sanitize(List<Map<String, dynamic>> items) {
+        return items.where((candidate) {
+          final candidateId = (candidate['id'] ?? '').toString();
+          final candidateType = (candidate['item_type'] ?? '').toString();
+          if (candidateId.isEmpty) return true;
+          return candidateId != currentId || candidateType != currentType;
+        }).take(6).toList();
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _recommendedTours = sanitize(results[0]);
+        _recommendedTourPackages = sanitize(results[1]);
+        _recommendedTransport = sanitize(results[2]);
+        _loadingRecommendations = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingRecommendations = false);
     }
   }
 
@@ -147,6 +191,19 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
     if (raw is List) return raw.map((e) => e.toString()).toList();
     return [];
   }
+
+  String _recommendationQuery(Map<String, dynamic> source) {
+    final location = (source['location'] ?? source['city'] ?? source['provider_name'] ?? '').toString().trim();
+    if (location.isNotEmpty) {
+      final firstSegment = location.split(',').first.trim();
+      if (firstSegment.isNotEmpty) return firstSegment;
+    }
+
+    return (source['title'] ?? source['name'] ?? '').toString().trim();
+  }
+
+  bool get _hasRecommendations =>
+      _recommendedTours.isNotEmpty || _recommendedTourPackages.isNotEmpty || _recommendedTransport.isNotEmpty;
 
   Future<void> _pickDates() async {
     final now = DateTime.now();
@@ -449,6 +506,48 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                   const SizedBox(height: 16),
                 ],
 
+                if (_loadingRecommendations || _hasRecommendations) ...[
+                  const Text('Recommended for your trip', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 12),
+                  if (_loadingRecommendations)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 18),
+                      child: Center(child: CircularProgressIndicator(color: AppColors.rausch)),
+                    )
+                  else ...[
+                    if (_recommendedTours.isNotEmpty)
+                      _RecommendationRail(
+                        title: 'Tours',
+                        items: _recommendedTours,
+                        session: widget.session,
+                        initialCheckIn: _checkIn,
+                        initialCheckOut: _checkOut,
+                        initialGuests: _guests,
+                      ),
+                    if (_recommendedTourPackages.isNotEmpty)
+                      _RecommendationRail(
+                        title: 'Tour packages',
+                        items: _recommendedTourPackages,
+                        session: widget.session,
+                        initialCheckIn: _checkIn,
+                        initialCheckOut: _checkOut,
+                        initialGuests: _guests,
+                      ),
+                    if (_recommendedTransport.isNotEmpty)
+                      _RecommendationRail(
+                        title: 'Transport',
+                        items: _recommendedTransport,
+                        session: widget.session,
+                        initialCheckIn: _checkIn,
+                        initialCheckOut: _checkOut,
+                        initialGuests: _guests,
+                      ),
+                  ],
+                  const SizedBox(height: 16),
+                  const Divider(height: 1),
+                  const SizedBox(height: 16),
+                ],
+
                 // ── Your Trip ──
                 const Text('Your trip', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 12),
@@ -584,7 +683,7 @@ class _GalleryView extends StatelessWidget {
         return Image.network(
           images[index],
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => Container(
+          errorBuilder: (_, _, _) => Container(
             color: const Color(0xFFF0F0F3),
             child: const Icon(Icons.broken_image_outlined, size: 48, color: Color(0xFF8E8E98)),
           ),
@@ -616,6 +715,186 @@ class _DotIndicator extends StatelessWidget {
         );
       }),
     );
+  }
+}
+
+class _RecommendationRail extends StatelessWidget {
+  const _RecommendationRail({
+    required this.title,
+    required this.items,
+    required this.session,
+    required this.initialCheckIn,
+    required this.initialCheckOut,
+    required this.initialGuests,
+  });
+
+  final String title;
+  final List<Map<String, dynamic>> items;
+  final SessionController session;
+  final DateTime? initialCheckIn;
+  final DateTime? initialCheckOut;
+  final int initialGuests;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.black)),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 224,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: items.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              return _RecommendationCard(
+                item: items[index],
+                session: session,
+                initialCheckIn: initialCheckIn,
+                initialCheckOut: initialCheckOut,
+                initialGuests: initialGuests,
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+}
+
+class _RecommendationCard extends StatelessWidget {
+  const _RecommendationCard({
+    required this.item,
+    required this.session,
+    required this.initialCheckIn,
+    required this.initialCheckOut,
+    required this.initialGuests,
+  });
+
+  final Map<String, dynamic> item;
+  final SessionController session;
+  final DateTime? initialCheckIn;
+  final DateTime? initialCheckOut;
+  final int initialGuests;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = (item['title'] ?? item['name'] ?? 'Listing').toString();
+    final subtitle = _subtitle(item);
+    final imageUrl = resolveListingImageUrl(item) ?? '';
+    final rating = (item['rating'] ?? item['average_rating'])?.toString();
+
+    return GestureDetector(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => PropertyDetailsScreen(
+            item: item,
+            session: session,
+            initialCheckIn: initialCheckIn,
+            initialCheckOut: initialCheckOut,
+            initialGuests: initialGuests,
+          ),
+        ),
+      ),
+      child: SizedBox(
+        width: 220,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: SizedBox(
+                height: 138,
+                width: double.infinity,
+                child: imageUrl.isNotEmpty
+                    ? Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => Container(
+                          color: const Color(0xFFF0F0F3),
+                          child: const Icon(Icons.broken_image_outlined, color: Color(0xFF8E8E98)),
+                        ),
+                      )
+                    : Container(
+                        color: const Color(0xFFF0F0F3),
+                        child: const Icon(Icons.image_outlined, color: Color(0xFF8E8E98)),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _TypeBadge(type: (item['item_type'] ?? 'property').toString()),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.black),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 13, color: AppColors.foggy),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _priceLabel(item),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.black),
+                  ),
+                ),
+                if (rating != null && rating != 'null') ...[
+                  const SizedBox(width: 8),
+                  const Icon(Icons.star, size: 14, color: AppColors.black),
+                  const SizedBox(width: 3),
+                  Text(rating, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _subtitle(Map<String, dynamic> item) {
+    final type = (item['item_type'] ?? 'property').toString();
+    switch (type) {
+      case 'tour':
+        return (item['location'] ?? item['category'] ?? 'Tour experience').toString();
+      case 'tour_package':
+        return (item['location'] ?? item['city'] ?? 'Tour package').toString();
+      case 'transport':
+        return (item['vehicle_type'] ?? item['provider_name'] ?? 'Transport').toString();
+      default:
+        return (item['location'] ?? item['property_type'] ?? 'Stay').toString();
+    }
+  }
+
+  static String _priceLabel(Map<String, dynamic> item) {
+    final currency = (item['currency'] ?? 'USD').toString();
+    final type = (item['item_type'] ?? 'property').toString();
+    final amount = switch (type) {
+      'tour' => item['price_per_person'] ?? 0,
+      'tour_package' => item['price_per_person'] ?? item['price_per_adult'] ?? 0,
+      'transport' => item['price_per_day'] ?? 0,
+      _ => item['price_per_night'] ?? 0,
+    };
+    final unit = switch (type) {
+      'tour' || 'tour_package' => '/ person',
+      'transport' => '/ day',
+      _ => '/ night',
+    };
+    final parsed = double.tryParse('$amount') ?? 0;
+    return '$currency ${parsed.toStringAsFixed(0)} $unit';
   }
 }
 

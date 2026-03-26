@@ -96,7 +96,7 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
 
   // ── Step 3: Photos ──
   List<String> _existingUrls = [];
-  List<XFile> _newFiles = [];
+  final List<XFile> _newFiles = [];
   final _picker = ImagePicker();
 
   // ── Step 4: Amenities ──
@@ -155,8 +155,11 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
   }
 
   void _goBack() {
-    if (_step > 1) setState(() => _step--);
-    else Navigator.pop(context);
+    if (_step > 1) {
+      setState(() => _step--);
+    } else {
+      Navigator.pop(context);
+    }
   }
 
   void _goNext() {
@@ -361,7 +364,7 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
     SwitchListTile(
       dense: true, contentPadding: EdgeInsets.zero,
       title: const Text('Available for Monthly Rental', style: TextStyle(fontSize: 14)),
-      value: _monthlyRental, activeColor: _kRed,
+      value: _monthlyRental, activeThumbColor: _kRed,
       onChanged: (v) => setState(() => _monthlyRental = v),
     ),
     if (_monthlyRental && _listingMode != 'monthly_only')
@@ -403,13 +406,13 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
     const Text('House Rules', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
     SwitchListTile(dense: true, contentPadding: EdgeInsets.zero,
       title: const Text('Pets Allowed', style: TextStyle(fontSize: 14)),
-      value: _petsAllowed, activeColor: _kRed, onChanged: (v) => setState(() => _petsAllowed = v)),
+      value: _petsAllowed, activeThumbColor: _kRed, onChanged: (v) => setState(() => _petsAllowed = v)),
     SwitchListTile(dense: true, contentPadding: EdgeInsets.zero,
       title: const Text('Events Allowed', style: TextStyle(fontSize: 14)),
-      value: _eventsAllowed, activeColor: _kRed, onChanged: (v) => setState(() => _eventsAllowed = v)),
+      value: _eventsAllowed, activeThumbColor: _kRed, onChanged: (v) => setState(() => _eventsAllowed = v)),
     SwitchListTile(dense: true, contentPadding: EdgeInsets.zero,
       title: const Text('Smoking Allowed', style: TextStyle(fontSize: 14)),
-      value: _smokingAllowed, activeColor: _kRed, onChanged: (v) => setState(() => _smokingAllowed = v)),
+      value: _smokingAllowed, activeThumbColor: _kRed, onChanged: (v) => setState(() => _smokingAllowed = v)),
 
     const Divider(height: 28),
     const Text('Long Stay Discounts', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
@@ -423,7 +426,7 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
     const Divider(height: 28),
     SwitchListTile(dense: true, contentPadding: EdgeInsets.zero,
       title: const Text('Breakfast Available', style: TextStyle(fontSize: 14)),
-      value: _breakfastAvailable, activeColor: _kRed, onChanged: (v) => setState(() => _breakfastAvailable = v)),
+      value: _breakfastAvailable, activeThumbColor: _kRed, onChanged: (v) => setState(() => _breakfastAvailable = v)),
     if (_breakfastAvailable)
       _WizField(ctrl: _bfPriceCtrl, label: 'Breakfast Price per Night', hint: '0', inputType: TextInputType.number),
   ]);
@@ -493,7 +496,7 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: isExisting
-                  ? Image.network(_existingUrls[i], fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: Colors.grey.shade200))
+                  ? Image.network(_existingUrls[i], fit: BoxFit.cover, errorBuilder: (_, _, _) => Container(color: Colors.grey.shade200))
                   : Image.file(File(_newFiles[i - _existingUrls.length].path), fit: BoxFit.cover),
             ),
             if (!isExisting)
@@ -509,8 +512,11 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
               top: 4, right: 4,
               child: GestureDetector(
                 onTap: () => setState(() {
-                  if (isExisting) _existingUrls.removeAt(i);
-                  else _newFiles.removeAt(i - _existingUrls.length);
+                  if (isExisting) {
+                    _existingUrls.removeAt(i);
+                  } else {
+                    _newFiles.removeAt(i - _existingUrls.length);
+                  }
                 }),
                 child: Container(
                   width: 22, height: 22,
@@ -544,7 +550,11 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
         selectedColor: _kRed.withValues(alpha: 0.15),
         checkmarkColor: _kRed,
         onSelected: (sel) => setState(() {
-          if (sel) _amenities.add(e.key); else _amenities.remove(e.key);
+          if (sel) {
+            _amenities.add(e.key);
+          } else {
+            _amenities.remove(e.key);
+          }
         }),
       )).toList(),
     ),
@@ -563,7 +573,7 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
     ]),
     const SizedBox(height: 12),
     _ReviewCard(children: [
-      _ReviewRow(label: 'Price per Night', value: '${_currency} ${_priceCtrl.text.trim()}'),
+      _ReviewRow(label: 'Price per Night', value: '$_currency ${_priceCtrl.text.trim()}'),
       _ReviewRow(label: 'Max Guests', value: '$_maxGuests'),
       _ReviewRow(label: 'Bedrooms', value: '$_bedrooms'),
       _ReviewRow(label: 'Beds', value: '$_beds'),
@@ -692,7 +702,7 @@ class _WizDropdown<T> extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(bottom: 14),
     child: DropdownButtonFormField<T>(
-      value: value,
+      initialValue: value,
       decoration: InputDecoration(
         labelText: label,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),

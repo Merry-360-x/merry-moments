@@ -9,6 +9,7 @@ import 'package:table_calendar/table_calendar.dart';
 
 import '../../services/cloudinary_service.dart';
 import '../../services/app_database.dart';
+import '../../services/local_draft_store.dart';
 import '../../session_controller.dart';
 import '../../app.dart';
 import 'explore_screen.dart' show resolveListingImageUrl;
@@ -55,6 +56,20 @@ const _kAmenityOptions = {
   'family_friendly': 'Family Friendly', 'crib': 'Crib/Baby Bed',
   'fireplace': 'Fireplace', 'air_purifier': 'Air Purifier',
 };
+
+String _hostDraftKey(String formType, String userId) => LocalDraftStore.key('host_$formType', userId);
+
+List<String> _draftStringList(dynamic value) {
+  if (value is! List) return const [];
+  return value.map((item) => item.toString()).where((item) => item.isNotEmpty).toList();
+}
+
+List<XFile> _draftImageFiles(dynamic value) {
+  return _draftStringList(value)
+      .where((path) => File(path).existsSync())
+      .map((path) => XFile(path))
+      .toList();
+}
 
 class HostDashboardScreen extends StatefulWidget {
   const HostDashboardScreen({super.key, required this.session});
@@ -375,21 +390,171 @@ void _showPropertySheet(BuildContext ctx, AppDatabase api, String userId, VoidCa
   List<String> amenities = List<String>.from(existing?['amenities'] as List? ?? []);
 
   // Image state
-  final _picker = ImagePicker();
+  final picker = ImagePicker();
   List<String> existingImageUrls = List<String>.from(existing?['images'] as List? ?? []);
   List<XFile> newPickedImages = [];
-  bool _uploading = false;
+  bool uploading = false;
+  final draftKey = _hostDraftKey('property', userId);
+  Timer? draftSaveTimer;
+  bool draftHydrated = existing != null;
+  bool restoringDraft = false;
+  bool draftRestored = false;
+
+  Map<String, dynamic> collectDraft() => {
+    'title': titleCtrl.text,
+    'location': locCtrl.text,
+    'address': addressCtrl.text,
+    'pricePerNight': priceCtrl.text,
+    'pricePerMonth': priceMonthCtrl.text,
+    'description': descCtrl.text,
+    'checkInTime': checkInCtrl.text,
+    'checkOutTime': checkOutCtrl.text,
+    'breakfastPrice': bfPriceCtrl.text,
+    'weeklyDiscount': weeklyDiscCtrl.text,
+    'monthlyDiscount': monthlyDiscCtrl.text,
+    'propertyType': propertyType,
+    'currency': currency,
+    'cancellationPolicy': cancellationPolicy,
+    'listingMode': listingMode,
+    'maxGuests': maxGuests,
+    'bedrooms': bedrooms,
+    'bathrooms': bathrooms,
+    'beds': beds,
+    'smokingAllowed': smokingAllowed,
+    'eventsAllowed': eventsAllowed,
+    'petsAllowed': petsAllowed,
+    'monthlyRental': monthlyRental,
+    'breakfastAvailable': breakfastAvailable,
+    'amenities': amenities,
+    'existingImageUrls': existingImageUrls,
+    'newImagePaths': newPickedImages.map((file) => file.path).toList(),
+  };
+
+  void resetDraftState() {
+    titleCtrl.text = '';
+    locCtrl.text = '';
+    addressCtrl.text = '';
+    priceCtrl.text = '';
+    priceMonthCtrl.text = '';
+    descCtrl.text = '';
+    checkInCtrl.text = '14:00';
+    checkOutCtrl.text = '11:00';
+    bfPriceCtrl.text = '';
+    weeklyDiscCtrl.text = '0';
+    monthlyDiscCtrl.text = '0';
+    propertyType = 'House';
+    currency = 'RWF';
+    cancellationPolicy = 'fair';
+    listingMode = 'standard';
+    maxGuests = 2;
+    bedrooms = 1;
+    bathrooms = 1;
+    beds = 1;
+    smokingAllowed = false;
+    eventsAllowed = false;
+    petsAllowed = false;
+    monthlyRental = false;
+    breakfastAvailable = false;
+    amenities = [];
+    existingImageUrls = [];
+    newPickedImages = [];
+  }
+
+  void applyDraft(Map<String, dynamic> draft) {
+    restoringDraft = true;
+    titleCtrl.text = (draft['title'] ?? '').toString();
+    locCtrl.text = (draft['location'] ?? '').toString();
+    addressCtrl.text = (draft['address'] ?? '').toString();
+    priceCtrl.text = (draft['pricePerNight'] ?? '').toString();
+    priceMonthCtrl.text = (draft['pricePerMonth'] ?? '').toString();
+    descCtrl.text = (draft['description'] ?? '').toString();
+    checkInCtrl.text = (draft['checkInTime'] ?? '14:00').toString();
+    checkOutCtrl.text = (draft['checkOutTime'] ?? '11:00').toString();
+    bfPriceCtrl.text = (draft['breakfastPrice'] ?? '').toString();
+    weeklyDiscCtrl.text = (draft['weeklyDiscount'] ?? '0').toString();
+    monthlyDiscCtrl.text = (draft['monthlyDiscount'] ?? '0').toString();
+    propertyType = _kPropertyTypes.contains(draft['propertyType']) ? draft['propertyType'].toString() : 'House';
+    currency = _kCurrencies.contains(draft['currency']) ? draft['currency'].toString() : 'RWF';
+    cancellationPolicy = _kCancellationPolicies.contains(draft['cancellationPolicy'])
+        ? draft['cancellationPolicy'].toString()
+        : 'fair';
+    listingMode = draft['listingMode'] == 'monthly_only' ? 'monthly_only' : 'standard';
+    maxGuests = (draft['maxGuests'] as num?)?.toInt() ?? 2;
+    bedrooms = (draft['bedrooms'] as num?)?.toInt() ?? 1;
+    bathrooms = (draft['bathrooms'] as num?)?.toInt() ?? 1;
+    beds = (draft['beds'] as num?)?.toInt() ?? 1;
+    smokingAllowed = draft['smokingAllowed'] == true;
+    eventsAllowed = draft['eventsAllowed'] == true;
+    petsAllowed = draft['petsAllowed'] == true;
+    monthlyRental = draft['monthlyRental'] == true;
+    breakfastAvailable = draft['breakfastAvailable'] == true;
+    amenities = _draftStringList(draft['amenities']);
+    existingImageUrls = _draftStringList(draft['existingImageUrls']);
+    newPickedImages = _draftImageFiles(draft['newImagePaths']);
+    restoringDraft = false;
+  }
+
+  void scheduleDraftSave() {
+    if (existing != null || restoringDraft) return;
+    draftSaveTimer?.cancel();
+    draftSaveTimer = Timer(const Duration(milliseconds: 400), () {
+      LocalDraftStore.write(draftKey, collectDraft());
+    });
+  }
+
+  for (final controller in [
+    titleCtrl,
+    locCtrl,
+    addressCtrl,
+    priceCtrl,
+    priceMonthCtrl,
+    descCtrl,
+    checkInCtrl,
+    checkOutCtrl,
+    bfPriceCtrl,
+    weeklyDiscCtrl,
+    monthlyDiscCtrl,
+  ]) {
+    controller.addListener(scheduleDraftSave);
+  }
 
   showModalBottomSheet(
     context: ctx, isScrollControlled: true,
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
     builder: (sheetCtx) => StatefulBuilder(builder: (sCtx, setSt) => Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(sheetCtx).viewInsets.bottom),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      child: Builder(builder: (context) {
+        if (!draftHydrated) {
+          draftHydrated = true;
+          Future<void>(() async {
+            final draft = await LocalDraftStore.read(draftKey);
+            if (draft == null || !sheetCtx.mounted) return;
+            setSt(() {
+              applyDraft(draft);
+              draftRestored = true;
+            });
+          });
+        }
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(existing == null ? 'Add Property' : 'Edit Property',
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
+          if (draftRestored && existing == null) ...[
+            const SizedBox(height: 12),
+            _DraftNotice(
+              message: 'Saved property draft restored on this device.',
+              onClear: () async {
+                await LocalDraftStore.clear(draftKey);
+                setSt(() {
+                  restoringDraft = true;
+                  resetDraftState();
+                  draftRestored = false;
+                  restoringDraft = false;
+                });
+              },
+            ),
+          ],
           const SizedBox(height: 16),
 
           // ── Photos ──
@@ -399,15 +564,27 @@ void _showPropertySheet(BuildContext ctx, AppDatabase api, String userId, VoidCa
             existingUrls: existingImageUrls,
             newFiles: newPickedImages,
             onAddFromGallery: () async {
-              final imgs = await _picker.pickMultiImage(imageQuality: 85);
-              if (imgs.isNotEmpty) setSt(() => newPickedImages.addAll(imgs));
+              final imgs = await picker.pickMultiImage(imageQuality: 85);
+              if (imgs.isNotEmpty) {
+                setSt(() => newPickedImages.addAll(imgs));
+                scheduleDraftSave();
+              }
             },
             onAddFromCamera: () async {
-              final img = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85);
-              if (img != null) setSt(() => newPickedImages.add(img));
+              final img = await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+              if (img != null) {
+                setSt(() => newPickedImages.add(img));
+                scheduleDraftSave();
+              }
             },
-            onRemoveExisting: (i) => setSt(() => existingImageUrls.removeAt(i)),
-            onRemoveNew: (i) => setSt(() => newPickedImages.removeAt(i)),
+            onRemoveExisting: (i) {
+              setSt(() => existingImageUrls.removeAt(i));
+              scheduleDraftSave();
+            },
+            onRemoveNew: (i) {
+              setSt(() => newPickedImages.removeAt(i));
+              scheduleDraftSave();
+            },
           ),
           const SizedBox(height: 16),
 
@@ -421,18 +598,24 @@ void _showPropertySheet(BuildContext ctx, AppDatabase api, String userId, VoidCa
           Row(children: [
             Expanded(child: DropdownButtonFormField<String>(
               key: ValueKey('pt_$propertyType'),
-              value: propertyType,
+              initialValue: propertyType,
               decoration: _inputDecoration('Property Type'),
               items: _kPropertyTypes.map((t) => DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 13)))).toList(),
-              onChanged: (v) => setSt(() => propertyType = v ?? propertyType),
+              onChanged: (v) {
+                setSt(() => propertyType = v ?? propertyType);
+                scheduleDraftSave();
+              },
             )),
             const SizedBox(width: 8),
             SizedBox(width: 100, child: DropdownButtonFormField<String>(
               key: ValueKey('curr_$currency'),
-              value: currency,
+              initialValue: currency,
               decoration: _inputDecoration('Currency'),
               items: _kCurrencies.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-              onChanged: (v) => setSt(() => currency = v ?? currency),
+              onChanged: (v) {
+                setSt(() => currency = v ?? currency);
+                scheduleDraftSave();
+              },
             )),
           ]),
           const SizedBox(height: 12),
@@ -441,20 +624,26 @@ void _showPropertySheet(BuildContext ctx, AppDatabase api, String userId, VoidCa
           _Field(ctrl: priceCtrl, label: 'Price per Night', inputType: TextInputType.number),
           DropdownButtonFormField<String>(
             key: ValueKey('lm_$listingMode'),
-            value: listingMode,
+            initialValue: listingMode,
             decoration: _inputDecoration('Listing Mode'),
             items: const [
               DropdownMenuItem(value: 'standard', child: Text('Standard (per night)')),
               DropdownMenuItem(value: 'monthly_only', child: Text('Monthly Only')),
             ],
-            onChanged: (v) => setSt(() => listingMode = v ?? listingMode),
+            onChanged: (v) {
+              setSt(() => listingMode = v ?? listingMode);
+              scheduleDraftSave();
+            },
           ),
           const SizedBox(height: 8),
           SwitchListTile(
             dense: true, contentPadding: EdgeInsets.zero,
             title: const Text('Available for Monthly Rental', style: TextStyle(fontSize: 14)),
-            value: monthlyRental, activeColor: _kRed,
-            onChanged: (v) => setSt(() => monthlyRental = v),
+            value: monthlyRental, activeThumbColor: _kRed,
+            onChanged: (v) {
+              setSt(() => monthlyRental = v);
+              scheduleDraftSave();
+            },
           ),
           if (monthlyRental || listingMode == 'monthly_only')
             _Field(ctrl: priceMonthCtrl, label: 'Price per Month', inputType: TextInputType.number),
@@ -463,17 +652,41 @@ void _showPropertySheet(BuildContext ctx, AppDatabase api, String userId, VoidCa
           const Divider(height: 24),
           const Text('Room Details', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
           _countRow('Max Guests', maxGuests,
-            () => setSt(() => maxGuests = (maxGuests - 1).clamp(1, 50)),
-            () => setSt(() => maxGuests = (maxGuests + 1).clamp(1, 50))),
+            () {
+              setSt(() => maxGuests = (maxGuests - 1).clamp(1, 50));
+              scheduleDraftSave();
+            },
+            () {
+              setSt(() => maxGuests = (maxGuests + 1).clamp(1, 50));
+              scheduleDraftSave();
+            }),
           _countRow('Bedrooms', bedrooms,
-            () => setSt(() => bedrooms = (bedrooms - 1).clamp(0, 20)),
-            () => setSt(() => bedrooms = (bedrooms + 1).clamp(0, 20))),
+            () {
+              setSt(() => bedrooms = (bedrooms - 1).clamp(0, 20));
+              scheduleDraftSave();
+            },
+            () {
+              setSt(() => bedrooms = (bedrooms + 1).clamp(0, 20));
+              scheduleDraftSave();
+            }),
           _countRow('Bathrooms', bathrooms,
-            () => setSt(() => bathrooms = (bathrooms - 1).clamp(0, 20)),
-            () => setSt(() => bathrooms = (bathrooms + 1).clamp(0, 20))),
+            () {
+              setSt(() => bathrooms = (bathrooms - 1).clamp(0, 20));
+              scheduleDraftSave();
+            },
+            () {
+              setSt(() => bathrooms = (bathrooms + 1).clamp(0, 20));
+              scheduleDraftSave();
+            }),
           _countRow('Beds', beds,
-            () => setSt(() => beds = (beds - 1).clamp(0, 20)),
-            () => setSt(() => beds = (beds + 1).clamp(0, 20))),
+            () {
+              setSt(() => beds = (beds - 1).clamp(0, 20));
+              scheduleDraftSave();
+            },
+            () {
+              setSt(() => beds = (beds + 1).clamp(0, 20));
+              scheduleDraftSave();
+            }),
 
           // Check-in / Check-out
           const Divider(height: 24),
@@ -484,10 +697,13 @@ void _showPropertySheet(BuildContext ctx, AppDatabase api, String userId, VoidCa
           ]),
           DropdownButtonFormField<String>(
             key: ValueKey('cp_$cancellationPolicy'),
-            value: cancellationPolicy,
+            initialValue: cancellationPolicy,
             decoration: _inputDecoration('Cancellation Policy'),
             items: _kCancellationPolicies.map((p) => DropdownMenuItem(value: p, child: Text(p[0].toUpperCase() + p.substring(1)))).toList(),
-            onChanged: (v) => setSt(() => cancellationPolicy = v ?? cancellationPolicy),
+            onChanged: (v) {
+              setSt(() => cancellationPolicy = v ?? cancellationPolicy);
+              scheduleDraftSave();
+            },
           ),
           const SizedBox(height: 12),
 
@@ -496,13 +712,22 @@ void _showPropertySheet(BuildContext ctx, AppDatabase api, String userId, VoidCa
           const Text('House Rules', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
           SwitchListTile(dense: true, contentPadding: EdgeInsets.zero,
             title: const Text('Pets Allowed', style: TextStyle(fontSize: 14)),
-            value: petsAllowed, activeColor: _kRed, onChanged: (v) => setSt(() => petsAllowed = v)),
+            value: petsAllowed, activeThumbColor: _kRed, onChanged: (v) {
+              setSt(() => petsAllowed = v);
+              scheduleDraftSave();
+            }),
           SwitchListTile(dense: true, contentPadding: EdgeInsets.zero,
             title: const Text('Events Allowed', style: TextStyle(fontSize: 14)),
-            value: eventsAllowed, activeColor: _kRed, onChanged: (v) => setSt(() => eventsAllowed = v)),
+            value: eventsAllowed, activeThumbColor: _kRed, onChanged: (v) {
+              setSt(() => eventsAllowed = v);
+              scheduleDraftSave();
+            }),
           SwitchListTile(dense: true, contentPadding: EdgeInsets.zero,
             title: const Text('Smoking Allowed', style: TextStyle(fontSize: 14)),
-            value: smokingAllowed, activeColor: _kRed, onChanged: (v) => setSt(() => smokingAllowed = v)),
+            value: smokingAllowed, activeThumbColor: _kRed, onChanged: (v) {
+              setSt(() => smokingAllowed = v);
+              scheduleDraftSave();
+            }),
 
           // Long-stay Discounts
           const Divider(height: 24),
@@ -517,7 +742,10 @@ void _showPropertySheet(BuildContext ctx, AppDatabase api, String userId, VoidCa
           const Divider(height: 24),
           SwitchListTile(dense: true, contentPadding: EdgeInsets.zero,
             title: const Text('Breakfast Available', style: TextStyle(fontSize: 14)),
-            value: breakfastAvailable, activeColor: _kRed, onChanged: (v) => setSt(() => breakfastAvailable = v)),
+            value: breakfastAvailable, activeThumbColor: _kRed, onChanged: (v) {
+              setSt(() => breakfastAvailable = v);
+              scheduleDraftSave();
+            }),
           if (breakfastAvailable)
             _Field(ctrl: bfPriceCtrl, label: 'Breakfast Price per Night', inputType: TextInputType.number),
 
@@ -533,12 +761,18 @@ void _showPropertySheet(BuildContext ctx, AppDatabase api, String userId, VoidCa
               selectedColor: _kRed.withValues(alpha: 0.15),
               checkmarkColor: _kRed,
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              onSelected: (sel) => setSt(() { if (sel) amenities.add(e.key); else amenities.remove(e.key); }),
+              onSelected: (sel) => setSt(() { if (sel) {
+                amenities.add(e.key);
+              } else {
+                amenities.remove(e.key);
+              }
+              scheduleDraftSave();
+              }),
             )).toList(),
           ),
           const SizedBox(height: 16),
 
-          if (_uploading)
+          if (uploading)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -548,15 +782,15 @@ void _showPropertySheet(BuildContext ctx, AppDatabase api, String userId, VoidCa
               ]),
             ),
 
-          _SaveButton(label: existing == null ? 'Create Property' : 'Save Changes', onPressed: _uploading ? null : () async {
-            setSt(() => _uploading = true);
+          _SaveButton(label: existing == null ? 'Create Property' : 'Save Changes', onPressed: uploading ? null : () async {
+            setSt(() => uploading = true);
             // Upload new images to Cloudinary
             final newUrls = await CloudinaryService.uploadImages(
               newPickedImages.map((f) => f.path).toList(),
               folder: 'properties',
             );
             final allImages = [...existingImageUrls, ...newUrls];
-            setSt(() => _uploading = false);
+            setSt(() => uploading = false);
 
             final fields = {
               'title': titleCtrl.text.trim(),
@@ -591,14 +825,29 @@ void _showPropertySheet(BuildContext ctx, AppDatabase api, String userId, VoidCa
             };
             if (existing != null) { await api.updateProperty(id: existing['id'], updates: fields); }
             else { await api.createProperty(userId: userId, fields: fields); }
+            await LocalDraftStore.clear(draftKey);
             if (sheetCtx.mounted) Navigator.pop(sheetCtx);
             onRefresh();
           }),
           const SizedBox(height: 8),
-        ]),
-      ),
+          ]),
+        );
+      }),
     )),
-  );
+  ).whenComplete(() {
+    draftSaveTimer?.cancel();
+    titleCtrl.dispose();
+    locCtrl.dispose();
+    addressCtrl.dispose();
+    priceCtrl.dispose();
+    priceMonthCtrl.dispose();
+    descCtrl.dispose();
+    checkInCtrl.dispose();
+    checkOutCtrl.dispose();
+    bfPriceCtrl.dispose();
+    weeklyDiscCtrl.dispose();
+    monthlyDiscCtrl.dispose();
+  });
 }
 
 // ===================== TOURS =====================
@@ -667,21 +916,135 @@ void _showTourSheet(BuildContext ctx, AppDatabase api, String userId, VoidCallba
   List<String> categories = List<String>.from(existing?['categories'] as List? ?? []);
 
   // Image state
-  final _picker = ImagePicker();
+  final picker = ImagePicker();
   List<String> existingImageUrls = List<String>.from(existing?['images'] as List? ?? []);
   List<XFile> newPickedImages = [];
-  bool _uploading = false;
+  bool uploading = false;
+  final draftKey = _hostDraftKey('tour', userId);
+  Timer? draftSaveTimer;
+  bool draftHydrated = existing != null;
+  bool restoringDraft = false;
+  bool draftRestored = false;
+
+  Map<String, dynamic> collectDraft() => {
+    'title': titleCtrl.text,
+    'location': locCtrl.text,
+    'pricePerPerson': priceCtrl.text,
+    'description': descCtrl.text,
+    'durationDays': durationCtrl.text,
+    'maxParticipants': maxPaxCtrl.text,
+    'optionalActivities': optActCtrl.text,
+    'citizenPrice': citizenCtrl.text,
+    'eastAfricanPrice': eaCtrl.text,
+    'foreignerPrice': foreignerCtrl.text,
+    'currency': currency,
+    'pricingModel': pricingModel,
+    'hasDifferentialPricing': hasDiffPricing,
+    'categories': categories,
+    'existingImageUrls': existingImageUrls,
+    'newImagePaths': newPickedImages.map((file) => file.path).toList(),
+  };
+
+  void resetDraftState() {
+    titleCtrl.text = '';
+    locCtrl.text = '';
+    priceCtrl.text = '';
+    descCtrl.text = '';
+    durationCtrl.text = '';
+    maxPaxCtrl.text = '10';
+    optActCtrl.text = '';
+    citizenCtrl.text = '';
+    eaCtrl.text = '';
+    foreignerCtrl.text = '';
+    currency = 'RWF';
+    pricingModel = 'per_person';
+    hasDiffPricing = false;
+    categories = [];
+    existingImageUrls = [];
+    newPickedImages = [];
+  }
+
+  void applyDraft(Map<String, dynamic> draft) {
+    restoringDraft = true;
+    titleCtrl.text = (draft['title'] ?? '').toString();
+    locCtrl.text = (draft['location'] ?? '').toString();
+    priceCtrl.text = (draft['pricePerPerson'] ?? '').toString();
+    descCtrl.text = (draft['description'] ?? '').toString();
+    durationCtrl.text = (draft['durationDays'] ?? '').toString();
+    maxPaxCtrl.text = (draft['maxParticipants'] ?? '10').toString();
+    optActCtrl.text = (draft['optionalActivities'] ?? '').toString();
+    citizenCtrl.text = (draft['citizenPrice'] ?? '').toString();
+    eaCtrl.text = (draft['eastAfricanPrice'] ?? '').toString();
+    foreignerCtrl.text = (draft['foreignerPrice'] ?? '').toString();
+    currency = _kCurrencies.contains(draft['currency']) ? draft['currency'].toString() : 'RWF';
+    pricingModel = _kPricingModels.contains(draft['pricingModel']) ? draft['pricingModel'].toString() : 'per_person';
+    hasDiffPricing = draft['hasDifferentialPricing'] == true;
+    categories = _draftStringList(draft['categories']);
+    existingImageUrls = _draftStringList(draft['existingImageUrls']);
+    newPickedImages = _draftImageFiles(draft['newImagePaths']);
+    restoringDraft = false;
+  }
+
+  void scheduleDraftSave() {
+    if (existing != null || restoringDraft) return;
+    draftSaveTimer?.cancel();
+    draftSaveTimer = Timer(const Duration(milliseconds: 400), () {
+      LocalDraftStore.write(draftKey, collectDraft());
+    });
+  }
+
+  for (final controller in [
+    titleCtrl,
+    locCtrl,
+    priceCtrl,
+    descCtrl,
+    durationCtrl,
+    maxPaxCtrl,
+    optActCtrl,
+    citizenCtrl,
+    eaCtrl,
+    foreignerCtrl,
+  ]) {
+    controller.addListener(scheduleDraftSave);
+  }
 
   showModalBottomSheet(
     context: ctx, isScrollControlled: true,
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
     builder: (sheetCtx) => StatefulBuilder(builder: (sCtx, setSt) => Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(sheetCtx).viewInsets.bottom),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      child: Builder(builder: (context) {
+        if (!draftHydrated) {
+          draftHydrated = true;
+          Future<void>(() async {
+            final draft = await LocalDraftStore.read(draftKey);
+            if (draft == null || !sheetCtx.mounted) return;
+            setSt(() {
+              applyDraft(draft);
+              draftRestored = true;
+            });
+          });
+        }
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(existing == null ? 'Add Tour' : 'Edit Tour',
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
+          if (draftRestored && existing == null) ...[
+            const SizedBox(height: 12),
+            _DraftNotice(
+              message: 'Saved tour draft restored on this device.',
+              onClear: () async {
+                await LocalDraftStore.clear(draftKey);
+                setSt(() {
+                  restoringDraft = true;
+                  resetDraftState();
+                  draftRestored = false;
+                  restoringDraft = false;
+                });
+              },
+            ),
+          ],
           const SizedBox(height: 16),
 
           // ── Photos ──
@@ -691,15 +1054,27 @@ void _showTourSheet(BuildContext ctx, AppDatabase api, String userId, VoidCallba
             existingUrls: existingImageUrls,
             newFiles: newPickedImages,
             onAddFromGallery: () async {
-              final imgs = await _picker.pickMultiImage(imageQuality: 85);
-              if (imgs.isNotEmpty) setSt(() => newPickedImages.addAll(imgs));
+              final imgs = await picker.pickMultiImage(imageQuality: 85);
+              if (imgs.isNotEmpty) {
+                setSt(() => newPickedImages.addAll(imgs));
+                scheduleDraftSave();
+              }
             },
             onAddFromCamera: () async {
-              final img = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85);
-              if (img != null) setSt(() => newPickedImages.add(img));
+              final img = await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+              if (img != null) {
+                setSt(() => newPickedImages.add(img));
+                scheduleDraftSave();
+              }
             },
-            onRemoveExisting: (i) => setSt(() => existingImageUrls.removeAt(i)),
-            onRemoveNew: (i) => setSt(() => newPickedImages.removeAt(i)),
+            onRemoveExisting: (i) {
+              setSt(() => existingImageUrls.removeAt(i));
+              scheduleDraftSave();
+            },
+            onRemoveNew: (i) {
+              setSt(() => newPickedImages.removeAt(i));
+              scheduleDraftSave();
+            },
           ),
           const SizedBox(height: 16),
 
@@ -718,18 +1093,24 @@ void _showTourSheet(BuildContext ctx, AppDatabase api, String userId, VoidCallba
           Row(children: [
             Expanded(child: DropdownButtonFormField<String>(
               key: ValueKey('pm_$pricingModel'),
-              value: pricingModel,
+              initialValue: pricingModel,
               decoration: _inputDecoration('Pricing Model'),
               items: _kPricingModels.map((m) => DropdownMenuItem(value: m, child: Text(m.replaceAll('_', ' '), style: const TextStyle(fontSize: 13)))).toList(),
-              onChanged: (v) => setSt(() => pricingModel = v ?? pricingModel),
+              onChanged: (v) {
+                setSt(() => pricingModel = v ?? pricingModel);
+                scheduleDraftSave();
+              },
             )),
             const SizedBox(width: 8),
             SizedBox(width: 100, child: DropdownButtonFormField<String>(
               key: ValueKey('tc_$currency'),
-              value: currency,
+              initialValue: currency,
               decoration: _inputDecoration('Currency'),
               items: _kCurrencies.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-              onChanged: (v) => setSt(() => currency = v ?? currency),
+              onChanged: (v) {
+                setSt(() => currency = v ?? currency);
+                scheduleDraftSave();
+              },
             )),
           ]),
           const SizedBox(height: 12),
@@ -747,7 +1128,13 @@ void _showTourSheet(BuildContext ctx, AppDatabase api, String userId, VoidCallba
               selectedColor: _kRed.withValues(alpha: 0.15),
               checkmarkColor: _kRed,
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              onSelected: (sel) => setSt(() { if (sel) categories.add(cat); else categories.remove(cat); }),
+              onSelected: (sel) => setSt(() { if (sel) {
+                categories.add(cat);
+              } else {
+                categories.remove(cat);
+              }
+              scheduleDraftSave();
+              }),
             )).toList(),
           ),
 
@@ -756,8 +1143,11 @@ void _showTourSheet(BuildContext ctx, AppDatabase api, String userId, VoidCallba
           SwitchListTile(
             dense: true, contentPadding: EdgeInsets.zero,
             title: const Text('Differential Pricing (Citizen / EA / Foreign)', style: TextStyle(fontSize: 14)),
-            value: hasDiffPricing, activeColor: _kRed,
-            onChanged: (v) => setSt(() => hasDiffPricing = v),
+            value: hasDiffPricing, activeThumbColor: _kRed,
+            onChanged: (v) {
+              setSt(() => hasDiffPricing = v);
+              scheduleDraftSave();
+            },
           ),
           if (hasDiffPricing) ...[
             _Field(ctrl: citizenCtrl, label: 'Price for Citizens', inputType: TextInputType.number),
@@ -766,7 +1156,7 @@ void _showTourSheet(BuildContext ctx, AppDatabase api, String userId, VoidCallba
           ],
           const SizedBox(height: 16),
 
-          if (_uploading)
+          if (uploading)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -776,14 +1166,14 @@ void _showTourSheet(BuildContext ctx, AppDatabase api, String userId, VoidCallba
               ]),
             ),
 
-          _SaveButton(label: existing == null ? 'Create Tour' : 'Save Changes', onPressed: _uploading ? null : () async {
-            setSt(() => _uploading = true);
+          _SaveButton(label: existing == null ? 'Create Tour' : 'Save Changes', onPressed: uploading ? null : () async {
+            setSt(() => uploading = true);
             final newUrls = await CloudinaryService.uploadImages(
               newPickedImages.map((f) => f.path).toList(),
               folder: 'tours',
             );
             final allImages = [...existingImageUrls, ...newUrls];
-            setSt(() => _uploading = false);
+            setSt(() => uploading = false);
 
             final fields = <String, dynamic>{
               'title': titleCtrl.text.trim(),
@@ -807,14 +1197,28 @@ void _showTourSheet(BuildContext ctx, AppDatabase api, String userId, VoidCallba
             };
             if (existing != null) { await api.updateTour(id: existing['id'], updates: fields); }
             else { await api.createTour(userId: userId, fields: fields); }
+            await LocalDraftStore.clear(draftKey);
             if (sheetCtx.mounted) Navigator.pop(sheetCtx);
             onRefresh();
           }),
           const SizedBox(height: 8),
-        ]),
-      ),
+          ]),
+        );
+      }),
     )),
-  );
+  ).whenComplete(() {
+    draftSaveTimer?.cancel();
+    titleCtrl.dispose();
+    locCtrl.dispose();
+    priceCtrl.dispose();
+    descCtrl.dispose();
+    durationCtrl.dispose();
+    maxPaxCtrl.dispose();
+    optActCtrl.dispose();
+    citizenCtrl.dispose();
+    eaCtrl.dispose();
+    foreignerCtrl.dispose();
+  });
 }
 
 // ===================== TRANSPORT =====================
@@ -873,21 +1277,137 @@ void _showTransportSheet(BuildContext ctx, AppDatabase api, String userId, VoidC
   List<String> keyFeatures = List<String>.from(existing?['key_features'] as List? ?? []);
 
   // Image state
-  final _picker = ImagePicker();
+  final picker = ImagePicker();
   List<String> existingImageUrls = List<String>.from(existing?['images'] as List? ?? []);
   List<XFile> newPickedImages = [];
-  bool _uploading = false;
+  bool uploading = false;
+  final draftKey = _hostDraftKey('transport', userId);
+  Timer? draftSaveTimer;
+  bool draftHydrated = existing != null;
+  bool restoringDraft = false;
+  bool draftRestored = false;
+
+  Map<String, dynamic> collectDraft() => {
+    'carModel': carModelCtrl.text,
+    'providerName': providerCtrl.text,
+    'description': descCtrl.text,
+    'dailyPrice': dailyCtrl.text,
+    'weeklyPrice': weeklyCtrl.text,
+    'monthlyPrice': monthlyCtrl.text,
+    'carBrand': carBrand,
+    'carType': carType,
+    'transmission': transmission,
+    'fuelType': fuelType,
+    'driveTrain': driveTrain,
+    'currency': currency,
+    'carYear': carYear,
+    'seats': seats,
+    'driverIncluded': driverIncluded,
+    'keyFeatures': keyFeatures,
+    'existingImageUrls': existingImageUrls,
+    'newImagePaths': newPickedImages.map((file) => file.path).toList(),
+  };
+
+  void resetDraftState() {
+    carModelCtrl.text = '';
+    providerCtrl.text = '';
+    descCtrl.text = '';
+    dailyCtrl.text = '';
+    weeklyCtrl.text = '';
+    monthlyCtrl.text = '';
+    carBrand = 'Toyota';
+    carType = 'SUV';
+    transmission = 'Automatic';
+    fuelType = 'Petrol';
+    driveTrain = 'AWD';
+    currency = 'RWF';
+    carYear = currentYear;
+    seats = 5;
+    driverIncluded = false;
+    keyFeatures = [];
+    existingImageUrls = [];
+    newPickedImages = [];
+  }
+
+  void applyDraft(Map<String, dynamic> draft) {
+    restoringDraft = true;
+    carModelCtrl.text = (draft['carModel'] ?? '').toString();
+    providerCtrl.text = (draft['providerName'] ?? '').toString();
+    descCtrl.text = (draft['description'] ?? '').toString();
+    dailyCtrl.text = (draft['dailyPrice'] ?? '').toString();
+    weeklyCtrl.text = (draft['weeklyPrice'] ?? '').toString();
+    monthlyCtrl.text = (draft['monthlyPrice'] ?? '').toString();
+    carBrand = _kCarBrands.contains(draft['carBrand']) ? draft['carBrand'].toString() : 'Toyota';
+    carType = _kCarTypes.contains(draft['carType']) ? draft['carType'].toString() : 'SUV';
+    transmission = _kTransmissions.contains(draft['transmission']) ? draft['transmission'].toString() : 'Automatic';
+    fuelType = _kFuelTypes.contains(draft['fuelType']) ? draft['fuelType'].toString() : 'Petrol';
+    driveTrain = _kDrivetrains.contains(draft['driveTrain']) ? draft['driveTrain'].toString() : 'AWD';
+    currency = _kCurrencies.contains(draft['currency']) ? draft['currency'].toString() : 'RWF';
+    carYear = (draft['carYear'] as num?)?.toInt() ?? currentYear;
+    seats = (draft['seats'] as num?)?.toInt() ?? 5;
+    driverIncluded = draft['driverIncluded'] == true;
+    keyFeatures = _draftStringList(draft['keyFeatures']);
+    existingImageUrls = _draftStringList(draft['existingImageUrls']);
+    newPickedImages = _draftImageFiles(draft['newImagePaths']);
+    restoringDraft = false;
+  }
+
+  void scheduleDraftSave() {
+    if (existing != null || restoringDraft) return;
+    draftSaveTimer?.cancel();
+    draftSaveTimer = Timer(const Duration(milliseconds: 400), () {
+      LocalDraftStore.write(draftKey, collectDraft());
+    });
+  }
+
+  for (final controller in [
+    carModelCtrl,
+    providerCtrl,
+    descCtrl,
+    dailyCtrl,
+    weeklyCtrl,
+    monthlyCtrl,
+  ]) {
+    controller.addListener(scheduleDraftSave);
+  }
 
   showModalBottomSheet(
     context: ctx, isScrollControlled: true,
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
     builder: (sheetCtx) => StatefulBuilder(builder: (sCtx, setSt) => Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(sheetCtx).viewInsets.bottom),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      child: Builder(builder: (context) {
+        if (!draftHydrated) {
+          draftHydrated = true;
+          Future<void>(() async {
+            final draft = await LocalDraftStore.read(draftKey);
+            if (draft == null || !sheetCtx.mounted) return;
+            setSt(() {
+              applyDraft(draft);
+              draftRestored = true;
+            });
+          });
+        }
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(existing == null ? 'Add Vehicle' : 'Edit Vehicle',
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
+          if (draftRestored && existing == null) ...[
+            const SizedBox(height: 12),
+            _DraftNotice(
+              message: 'Saved vehicle draft restored on this device.',
+              onClear: () async {
+                await LocalDraftStore.clear(draftKey);
+                setSt(() {
+                  restoringDraft = true;
+                  resetDraftState();
+                  draftRestored = false;
+                  restoringDraft = false;
+                });
+              },
+            ),
+          ],
           const SizedBox(height: 16),
 
           // ── Photos ──
@@ -897,15 +1417,27 @@ void _showTransportSheet(BuildContext ctx, AppDatabase api, String userId, VoidC
             existingUrls: existingImageUrls,
             newFiles: newPickedImages,
             onAddFromGallery: () async {
-              final imgs = await _picker.pickMultiImage(imageQuality: 85);
-              if (imgs.isNotEmpty) setSt(() => newPickedImages.addAll(imgs));
+              final imgs = await picker.pickMultiImage(imageQuality: 85);
+              if (imgs.isNotEmpty) {
+                setSt(() => newPickedImages.addAll(imgs));
+                scheduleDraftSave();
+              }
             },
             onAddFromCamera: () async {
-              final img = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85);
-              if (img != null) setSt(() => newPickedImages.add(img));
+              final img = await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+              if (img != null) {
+                setSt(() => newPickedImages.add(img));
+                scheduleDraftSave();
+              }
             },
-            onRemoveExisting: (i) => setSt(() => existingImageUrls.removeAt(i)),
-            onRemoveNew: (i) => setSt(() => newPickedImages.removeAt(i)),
+            onRemoveExisting: (i) {
+              setSt(() => existingImageUrls.removeAt(i));
+              scheduleDraftSave();
+            },
+            onRemoveNew: (i) {
+              setSt(() => newPickedImages.removeAt(i));
+              scheduleDraftSave();
+            },
           ),
           const SizedBox(height: 16),
 
@@ -913,18 +1445,24 @@ void _showTransportSheet(BuildContext ctx, AppDatabase api, String userId, VoidC
           Row(children: [
             Expanded(child: DropdownButtonFormField<String>(
               key: ValueKey('brand_$carBrand'),
-              value: carBrand,
+              initialValue: carBrand,
               decoration: _inputDecoration('Brand'),
               items: _kCarBrands.map((b) => DropdownMenuItem(value: b, child: Text(b, style: const TextStyle(fontSize: 13)))).toList(),
-              onChanged: (v) => setSt(() => carBrand = v ?? carBrand),
+              onChanged: (v) {
+                setSt(() => carBrand = v ?? carBrand);
+                scheduleDraftSave();
+              },
             )),
             const SizedBox(width: 8),
             SizedBox(width: 90, child: DropdownButtonFormField<int>(
               key: ValueKey('year_$carYear'),
-              value: years.contains(carYear) ? carYear : currentYear,
+              initialValue: years.contains(carYear) ? carYear : currentYear,
               decoration: _inputDecoration('Year'),
               items: years.reversed.toList().map((y) => DropdownMenuItem(value: y, child: Text('$y'))).toList(),
-              onChanged: (v) => setSt(() => carYear = v ?? carYear),
+              onChanged: (v) {
+                setSt(() => carYear = v ?? carYear);
+                scheduleDraftSave();
+              },
             )),
           ]),
           const SizedBox(height: 12),
@@ -934,18 +1472,24 @@ void _showTransportSheet(BuildContext ctx, AppDatabase api, String userId, VoidC
           Row(children: [
             Expanded(child: DropdownButtonFormField<String>(
               key: ValueKey('ct_$carType'),
-              value: carType,
+              initialValue: carType,
               decoration: _inputDecoration('Car Type'),
               items: _kCarTypes.map((t) => DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 13)))).toList(),
-              onChanged: (v) => setSt(() => carType = v ?? carType),
+              onChanged: (v) {
+                setSt(() => carType = v ?? carType);
+                scheduleDraftSave();
+              },
             )),
             const SizedBox(width: 8),
             Expanded(child: DropdownButtonFormField<String>(
               key: ValueKey('tr_$transmission'),
-              value: transmission,
+              initialValue: transmission,
               decoration: _inputDecoration('Transmission'),
               items: _kTransmissions.map((t) => DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 12)))).toList(),
-              onChanged: (v) => setSt(() => transmission = v ?? transmission),
+              onChanged: (v) {
+                setSt(() => transmission = v ?? transmission);
+                scheduleDraftSave();
+              },
             )),
           ]),
           const SizedBox(height: 12),
@@ -954,26 +1498,38 @@ void _showTransportSheet(BuildContext ctx, AppDatabase api, String userId, VoidC
           Row(children: [
             Expanded(child: DropdownButtonFormField<String>(
               key: ValueKey('ft_$fuelType'),
-              value: fuelType,
+              initialValue: fuelType,
               decoration: _inputDecoration('Fuel Type'),
               items: _kFuelTypes.map((f) => DropdownMenuItem(value: f, child: Text(f))).toList(),
-              onChanged: (v) => setSt(() => fuelType = v ?? fuelType),
+              onChanged: (v) {
+                setSt(() => fuelType = v ?? fuelType);
+                scheduleDraftSave();
+              },
             )),
             const SizedBox(width: 8),
             Expanded(child: DropdownButtonFormField<String>(
               key: ValueKey('dt_$driveTrain'),
-              value: driveTrain,
+              initialValue: driveTrain,
               decoration: _inputDecoration('Drive Train'),
               items: _kDrivetrains.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
-              onChanged: (v) => setSt(() => driveTrain = v ?? driveTrain),
+              onChanged: (v) {
+                setSt(() => driveTrain = v ?? driveTrain);
+                scheduleDraftSave();
+              },
             )),
           ]),
           const SizedBox(height: 12),
 
           // Seats
           _countRow('Seats', seats,
-            () => setSt(() => seats = (seats - 1).clamp(1, 60)),
-            () => setSt(() => seats = (seats + 1).clamp(1, 60))),
+            () {
+              setSt(() => seats = (seats - 1).clamp(1, 60));
+              scheduleDraftSave();
+            },
+            () {
+              setSt(() => seats = (seats + 1).clamp(1, 60));
+              scheduleDraftSave();
+            }),
 
           // Pricing
           const Divider(height: 24),
@@ -983,10 +1539,13 @@ void _showTransportSheet(BuildContext ctx, AppDatabase api, String userId, VoidC
             const SizedBox(width: 8),
             SizedBox(width: 100, child: DropdownButtonFormField<String>(
               key: ValueKey('vc_$currency'),
-              value: currency,
+              initialValue: currency,
               decoration: _inputDecoration('Currency'),
               items: _kCurrencies.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-              onChanged: (v) => setSt(() => currency = v ?? currency),
+              onChanged: (v) {
+                setSt(() => currency = v ?? currency);
+                scheduleDraftSave();
+              },
             )),
           ]),
           Row(children: [
@@ -1000,8 +1559,11 @@ void _showTransportSheet(BuildContext ctx, AppDatabase api, String userId, VoidC
           SwitchListTile(
             dense: true, contentPadding: EdgeInsets.zero,
             title: const Text('Driver Included', style: TextStyle(fontSize: 14)),
-            value: driverIncluded, activeColor: _kRed,
-            onChanged: (v) => setSt(() => driverIncluded = v),
+            value: driverIncluded, activeThumbColor: _kRed,
+            onChanged: (v) {
+              setSt(() => driverIncluded = v);
+              scheduleDraftSave();
+            },
           ),
           _Field(ctrl: providerCtrl, label: 'Provider / Company Name'),
           _Field(ctrl: descCtrl, label: 'Description', maxLines: 2),
@@ -1018,12 +1580,18 @@ void _showTransportSheet(BuildContext ctx, AppDatabase api, String userId, VoidC
               selectedColor: _kRed.withValues(alpha: 0.15),
               checkmarkColor: _kRed,
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              onSelected: (sel) => setSt(() { if (sel) keyFeatures.add(feat); else keyFeatures.remove(feat); }),
+              onSelected: (sel) => setSt(() { if (sel) {
+                keyFeatures.add(feat);
+              } else {
+                keyFeatures.remove(feat);
+              }
+              scheduleDraftSave();
+              }),
             )).toList(),
           ),
           const SizedBox(height: 16),
 
-          if (_uploading)
+          if (uploading)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -1033,14 +1601,14 @@ void _showTransportSheet(BuildContext ctx, AppDatabase api, String userId, VoidC
               ]),
             ),
 
-          _SaveButton(label: existing == null ? 'Create Vehicle' : 'Save Changes', onPressed: _uploading ? null : () async {
-            setSt(() => _uploading = true);
+          _SaveButton(label: existing == null ? 'Create Vehicle' : 'Save Changes', onPressed: uploading ? null : () async {
+            setSt(() => uploading = true);
             final newUrls = await CloudinaryService.uploadImages(
               newPickedImages.map((f) => f.path).toList(),
               folder: 'transport',
             );
             final allImages = [...existingImageUrls, ...newUrls];
-            setSt(() => _uploading = false);
+            setSt(() => uploading = false);
 
             final model = carModelCtrl.text.trim();
             final fields = {
@@ -1067,14 +1635,24 @@ void _showTransportSheet(BuildContext ctx, AppDatabase api, String userId, VoidC
             };
             if (existing != null) { await api.updateTransport(id: existing['id'], updates: fields); }
             else { await api.createTransport(userId: userId, fields: fields); }
+            await LocalDraftStore.clear(draftKey);
             if (sheetCtx.mounted) Navigator.pop(sheetCtx);
             onRefresh();
           }),
           const SizedBox(height: 8),
-        ]),
-      ),
+          ]),
+        );
+      }),
     )),
-  );
+  ).whenComplete(() {
+    draftSaveTimer?.cancel();
+    carModelCtrl.dispose();
+    providerCtrl.dispose();
+    descCtrl.dispose();
+    dailyCtrl.dispose();
+    weeklyCtrl.dispose();
+    monthlyCtrl.dispose();
+  });
 }
 
 // ===================== BOOKINGS =====================
@@ -1382,7 +1960,7 @@ class _ManualReviewsContentState extends State<_ManualReviewsContent> {
               children: [
                 DropdownButtonFormField<String>(
                   key: ValueKey(_propertyId),
-                  value: _propertyId,
+                  initialValue: _propertyId,
                   decoration: _inputDecoration('Property'),
                   hint: const Text('Select property'),
                   items: widget.properties.map((property) => DropdownMenuItem<String>(
@@ -1593,7 +2171,7 @@ class _DiscountsTab extends StatelessWidget {
                     subtitle: Text('Used $uses${maxUses != null ? " / $maxUses" : ""} times',
                         style: const TextStyle(color: AppColors.foggy)),
                     trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Switch(value: isActive, activeColor: const Color(0xFF008489), onChanged: (v) async {
+                      Switch(value: isActive, activeThumbColor: const Color(0xFF008489), onChanged: (v) async {
                         await api.toggleDiscount(id: d['id'], active: v); onRefresh();
                       }),
                       IconButton(icon: const Icon(Icons.delete_outline, color: AppColors.rausch), onPressed: () async {
@@ -1639,7 +2217,7 @@ void _showDiscountSheet(BuildContext ctx, AppDatabase api, String userId, VoidCa
           Row(children: [
             Expanded(child: DropdownButtonFormField<String>(
               key: ValueKey('dt_$discountType'),
-              value: discountType,
+              initialValue: discountType,
               decoration: _inputDecoration('Discount Type'),
               items: const [
                 DropdownMenuItem(value: 'percentage', child: Text('Percentage (%)')),
@@ -1650,7 +2228,7 @@ void _showDiscountSheet(BuildContext ctx, AppDatabase api, String userId, VoidCa
             const SizedBox(width: 8),
             SizedBox(width: 100, child: DropdownButtonFormField<String>(
               key: ValueKey('dc_$currency'),
-              value: currency,
+              initialValue: currency,
               decoration: _inputDecoration('Currency'),
               items: _kCurrencies.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
               onChanged: (v) => setSt(() => currency = v ?? currency),
@@ -1662,7 +2240,7 @@ void _showDiscountSheet(BuildContext ctx, AppDatabase api, String userId, VoidCa
           _Field(ctrl: minAmountCtrl, label: 'Minimum Booking Amount', inputType: TextInputType.number),
           DropdownButtonFormField<String>(
             key: ValueKey('at_$appliesTo'),
-            value: appliesTo,
+            initialValue: appliesTo,
             decoration: _inputDecoration('Applies To'),
             items: _kDiscountAppliesTo.map((a) => DropdownMenuItem(value: a, child: Text(a[0].toUpperCase() + a.substring(1)))).toList(),
             onChanged: (v) => setSt(() => appliesTo = v ?? appliesTo),
@@ -1924,7 +2502,7 @@ void _showPayoutMethodSheet(BuildContext ctx, AppDatabase api, String userId, Vo
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
             key: ValueKey('mt_$methodType'),
-            value: methodType,
+            initialValue: methodType,
             decoration: _inputDecoration('Method Type'),
             items: const [
               DropdownMenuItem(value: 'mobile_money', child: Text('Mobile Money')),
@@ -1937,7 +2515,7 @@ void _showPayoutMethodSheet(BuildContext ctx, AppDatabase api, String userId, Vo
           if (methodType == 'mobile_money') ...[
             DropdownButtonFormField<String>(
               key: ValueKey('mp_$mobileProvider'),
-              value: mobileProvider,
+              initialValue: mobileProvider,
               decoration: _inputDecoration('Mobile Provider'),
               items: _kMobileProviders.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
               onChanged: (v) => setSt(() => mobileProvider = v ?? mobileProvider),
@@ -2029,7 +2607,7 @@ class _ListingCard extends StatelessWidget {
                         fontWeight: FontWeight.w600)),
               ),
               const SizedBox(width: 4),
-              Switch(value: published, activeColor: const Color(0xFF008489), onChanged: onToggle),
+              Switch(value: published, activeThumbColor: const Color(0xFF008489), onChanged: onToggle),
             ]),
           ]),
         ),
@@ -2257,6 +2835,36 @@ class _Field extends StatelessWidget {
   );
 }
 
+class _DraftNotice extends StatelessWidget {
+  const _DraftNotice({required this.message, required this.onClear});
+
+  final String message;
+  final Future<void> Function() onClear;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    margin: const EdgeInsets.only(bottom: 4),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF4EFE7),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: const Color(0xFFE6D6BF)),
+    ),
+    child: Row(children: [
+      const Icon(Icons.save_outlined, size: 18, color: AppColors.rausch),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Text(
+          message,
+          style: const TextStyle(fontSize: 12, color: AppColors.black, fontWeight: FontWeight.w600),
+        ),
+      ),
+      TextButton(onPressed: onClear, child: const Text('Discard')),
+    ]),
+  );
+}
+
 // ── Image Picker Row ──
 class _ImagePickerRow extends StatelessWidget {
   const _ImagePickerRow({
@@ -2288,15 +2896,15 @@ class _ImagePickerRow extends StatelessWidget {
             children: [
               // Existing (already-uploaded) thumbnails
               ...existingUrls.asMap().entries.map((e) => _Thumb(
-                child: Image.network(e.value, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined)),
+                child: Image.network(e.value, fit: BoxFit.cover, errorBuilder: (_, _, _) => const Icon(Icons.broken_image_outlined)),
                 onRemove: () => onRemoveExisting(e.key),
               )),
               // Newly picked (not yet uploaded) thumbnails
               ...newFiles.asMap().entries.map((e) => _Thumb(
-                child: Image.file(File(e.value.path), fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(color: Colors.grey.shade200, child: const Icon(Icons.image_outlined, color: Colors.grey))),
                 onRemove: () => onRemoveNew(e.key),
                 badge: const Icon(Icons.upload_outlined, size: 12, color: Colors.white),
+                child: Image.file(File(e.value.path), fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(color: Colors.grey.shade200, child: const Icon(Icons.image_outlined, color: Colors.grey))),
               )),
             ],
           ),

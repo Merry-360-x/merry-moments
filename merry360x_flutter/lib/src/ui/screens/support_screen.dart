@@ -59,7 +59,8 @@ class _SupportScreenState extends State<SupportScreen> {
 
   Widget _body() {
     if (_loading) return const Center(child: CircularProgressIndicator(color: AppColors.rausch));
-    if (_tickets.isEmpty) return Center(
+    if (_tickets.isEmpty) {
+      return Center(
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         const Icon(Icons.support_agent_outlined, size: 52, color: Color(0xFFD0D0D8)),
         const SizedBox(height: 12),
@@ -68,6 +69,7 @@ class _SupportScreenState extends State<SupportScreen> {
         const Text('Tap + New Ticket to contact us', style: TextStyle(color: AppColors.hackberry, fontSize: 12)),
       ]),
     );
+    }
 
     return RefreshIndicator(
       color: AppColors.rausch,

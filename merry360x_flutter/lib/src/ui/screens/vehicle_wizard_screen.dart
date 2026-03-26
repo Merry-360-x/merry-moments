@@ -72,7 +72,7 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
 
   // ── Step 2: Media ──
   List<String> _existingUrls = [];
-  List<XFile> _newFiles = [];
+  final List<XFile> _newFiles = [];
   final _picker = ImagePicker();
 
   // ── Step 3: Pricing ──
@@ -128,8 +128,11 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
   }
 
   void _goBack() {
-    if (_step > 1) setState(() => _step--);
-    else Navigator.pop(context);
+    if (_step > 1) {
+      setState(() => _step--);
+    } else {
+      Navigator.pop(context);
+    }
   }
 
   void _goNext() {
@@ -299,7 +302,7 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
     SwitchListTile(
       dense: true, contentPadding: EdgeInsets.zero,
       title: const Text('Driver Included', style: TextStyle(fontSize: 14)),
-      value: _driverIncluded, activeColor: _kRed,
+      value: _driverIncluded, activeThumbColor: _kRed,
       onChanged: (v) => setState(() => _driverIncluded = v),
     ),
 
@@ -317,7 +320,11 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
         selectedColor: _kRed.withValues(alpha: 0.15),
         checkmarkColor: _kRed,
         onSelected: (sel) => setState(() {
-          if (sel) _keyFeatures.add(f); else _keyFeatures.remove(f);
+          if (sel) {
+            _keyFeatures.add(f);
+          } else {
+            _keyFeatures.remove(f);
+          }
         }),
       )).toList(),
     ),
@@ -386,15 +393,18 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
               borderRadius: BorderRadius.circular(10),
               child: isExisting
                   ? Image.network(_existingUrls[i], fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(color: Colors.grey.shade200))
+                      errorBuilder: (_, _, _) => Container(color: Colors.grey.shade200))
                   : Image.file(File(_newFiles[i - _existingUrls.length].path), fit: BoxFit.cover),
             ),
             Positioned(
               top: 4, right: 4,
               child: GestureDetector(
                 onTap: () => setState(() {
-                  if (isExisting) _existingUrls.removeAt(i);
-                  else _newFiles.removeAt(i - _existingUrls.length);
+                  if (isExisting) {
+                    _existingUrls.removeAt(i);
+                  } else {
+                    _newFiles.removeAt(i - _existingUrls.length);
+                  }
                 }),
                 child: Container(
                   width: 22, height: 22,
@@ -571,7 +581,7 @@ class _VWizDropdown<T> extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(bottom: 14),
     child: DropdownButtonFormField<T>(
-      value: value,
+      initialValue: value,
       isExpanded: true,
       decoration: InputDecoration(
         labelText: label,

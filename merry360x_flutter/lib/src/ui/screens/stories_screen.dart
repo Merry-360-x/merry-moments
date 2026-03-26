@@ -60,13 +60,15 @@ class _StoriesScreenState extends State<StoriesScreen> {
 
   Widget _body() {
     if (_loading) return const Center(child: CircularProgressIndicator(color: AppColors.rausch));
-    if (_stories.isEmpty) return Center(
+    if (_stories.isEmpty) {
+      return Center(
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         const Icon(Icons.auto_stories_outlined, size: 48, color: Color(0xFFD0D0D8)),
         const SizedBox(height: 12),
         const Text('No stories yet', style: TextStyle(color: AppColors.foggy, fontSize: 14)),
       ]),
     );
+    }
     return GridView.builder(
       padding: const EdgeInsets.all(12),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -152,7 +154,7 @@ class _StoryViewerScreenState extends State<_StoryViewerScreen> {
             children: [
               if (imgUrl.isNotEmpty)
                 Image.network(imgUrl, fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(color: AppColors.black))
+                    errorBuilder: (_, _, _) => Container(color: AppColors.black))
               else
                 Container(color: AppColors.black),
               Container(
@@ -225,7 +227,7 @@ class _StoryCard extends StatelessWidget {
           children: [
             imgUrl.isNotEmpty
                 ? Image.network(imgUrl, fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(color: const Color(0xFF2A2A3A)))
+                    errorBuilder: (_, _, _) => Container(color: const Color(0xFF2A2A3A)))
                 : Container(color: const Color(0xFF2A2A3A)),
             Container(
               decoration: const BoxDecoration(

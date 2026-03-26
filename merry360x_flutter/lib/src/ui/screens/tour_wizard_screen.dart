@@ -61,7 +61,7 @@ class _TourWizardScreenState extends State<TourWizardScreen> {
 
   // ── Step 3: Media ──
   List<String> _existingUrls = [];
-  List<XFile> _newFiles = [];
+  final List<XFile> _newFiles = [];
   final _picker = ImagePicker();
 
   @override
@@ -104,8 +104,11 @@ class _TourWizardScreenState extends State<TourWizardScreen> {
   }
 
   void _goBack() {
-    if (_step > 1) setState(() => _step--);
-    else Navigator.pop(context);
+    if (_step > 1) {
+      setState(() => _step--);
+    } else {
+      Navigator.pop(context);
+    }
   }
 
   void _goNext() {
@@ -245,7 +248,11 @@ class _TourWizardScreenState extends State<TourWizardScreen> {
         selectedColor: _kRed.withValues(alpha: 0.15),
         checkmarkColor: _kRed,
         onSelected: (sel) => setState(() {
-          if (sel) _categories.add(c); else _categories.remove(c);
+          if (sel) {
+            _categories.add(c);
+          } else {
+            _categories.remove(c);
+          }
         }),
       )).toList(),
     ),
@@ -284,7 +291,7 @@ class _TourWizardScreenState extends State<TourWizardScreen> {
       dense: true, contentPadding: EdgeInsets.zero,
       title: const Text('Differential Pricing', style: TextStyle(fontSize: 14)),
       subtitle: const Text('Different rates for citizens, East Africans, foreigners', style: TextStyle(fontSize: 11)),
-      value: _hasDifferentialPricing, activeColor: _kRed,
+      value: _hasDifferentialPricing, activeThumbColor: _kRed,
       onChanged: (v) => setState(() => _hasDifferentialPricing = v),
     ),
 
@@ -359,15 +366,18 @@ class _TourWizardScreenState extends State<TourWizardScreen> {
               borderRadius: BorderRadius.circular(10),
               child: isExisting
                   ? Image.network(_existingUrls[i], fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(color: Colors.grey.shade200))
+                      errorBuilder: (_, _, _) => Container(color: Colors.grey.shade200))
                   : Image.file(File(_newFiles[i - _existingUrls.length].path), fit: BoxFit.cover),
             ),
             Positioned(
               top: 4, right: 4,
               child: GestureDetector(
                 onTap: () => setState(() {
-                  if (isExisting) _existingUrls.removeAt(i);
-                  else _newFiles.removeAt(i - _existingUrls.length);
+                  if (isExisting) {
+                    _existingUrls.removeAt(i);
+                  } else {
+                    _newFiles.removeAt(i - _existingUrls.length);
+                  }
                 }),
                 child: Container(
                   width: 22, height: 22,
@@ -512,7 +522,7 @@ class _TWizDropdown<T> extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(bottom: 14),
     child: DropdownButtonFormField<T>(
-      value: value,
+      initialValue: value,
       decoration: InputDecoration(
         labelText: label,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),

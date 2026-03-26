@@ -446,7 +446,7 @@ class _AdminListingCard extends StatelessWidget {
                   : Image.network(
                       imageUrl,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, _) => const Icon(Icons.broken_image_outlined, color: AppColors.foggy),
+                      errorBuilder: (_, _, _) => const Icon(Icons.broken_image_outlined, color: AppColors.foggy),
                     ),
             ),
           ),

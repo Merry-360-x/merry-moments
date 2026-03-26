@@ -261,7 +261,7 @@ class _CartItemTile extends StatelessWidget {
                 height: 90,
                 child: imageUrl != null
                     ? Image.network(imageUrl, fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
+                        errorBuilder: (_, _, _) => Container(
                           color: AppColors.linnen,
                           child: const Icon(Icons.image_outlined, color: AppColors.hackberry),
                         ))

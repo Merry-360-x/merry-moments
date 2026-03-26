@@ -68,9 +68,11 @@ class _ToursScreenState extends State<ToursScreen> {
 
   Widget _body() {
     if (_loading) return const Center(child: CircularProgressIndicator(color: AppColors.rausch));
-    if (_tours.isEmpty) return const Center(
+    if (_tours.isEmpty) {
+      return const Center(
       child: Text('No tours available', style: TextStyle(color: AppColors.foggy)),
     );
+    }
     return GridView.builder(
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -155,7 +157,7 @@ class _TourCard extends StatelessWidget {
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
                 child: (imgUrl != null && imgUrl.isNotEmpty)
                     ? Image.network(imgUrl, fit: BoxFit.cover, width: double.infinity,
-                        errorBuilder: (_, __, ___) => _imgPlaceholder())
+                        errorBuilder: (_, _, _) => _imgPlaceholder())
                     : _imgPlaceholder(),
               ),
             ),

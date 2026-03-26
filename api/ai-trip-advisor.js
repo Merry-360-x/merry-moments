@@ -1,6 +1,8 @@
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 import { getProductKnowledge } from "../lib/ai-product-knowledge.js";
+import { answerTripAdvisorQuestion } from "../lib/trip-advisor-brain.js";
+import { searchTripAdvisorKnowledge } from "../lib/trip-advisor-knowledge-search.js";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || process.env.OPENAI_KEY || "";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.4-nano";
@@ -1003,16 +1005,120 @@ function buildNoOpenAiFallback(recommendations = []) {
   return `AI trip advisor is temporarily unavailable right now, but I found ${topMatches.join(", ")} in the results below.`;
 }
 
-function scoreProperty(property, terms) {
-  const haystack = normalizeText(`${property.title || ""} ${property.location || ""} ${property.property_type || ""}`);
+function scoreListing(fields, terms) {
+  const haystack = normalizeText(fields.join(" "));
   let score = 0;
   for (const t of terms) {
     if (haystack.includes(t)) score += 2;
   }
   if (score === 0) return 0;
-  score += Number(property.rating || 0) * 0.2;
-  score += Math.min(Number(property.review_count || 0), 40) * 0.02;
   return score;
+}
+
+function capRecommendationsByType(items, total = 6, perType = 2) {
+  const picked = [];
+  const typeCounts = new Map();
+
+  for (const item of items) {
+    if (picked.length >= total) break;
+    const itemType = String(item.item_type || "property");
+    const currentCount = Number(typeCounts.get(itemType) || 0);
+    if (currentCount >= perType) continue;
+    picked.push(item);
+    typeCounts.set(itemType, currentCount + 1);
+  }
+
+  if (picked.length >= total) return picked;
+
+  for (const item of items) {
+    if (picked.length >= total) break;
+    if (picked.some((existing) => existing.item_type === item.item_type && existing.id === item.id)) continue;
+    picked.push(item);
+  }
+
+  return picked;
+}
+
+function formatRecommendationType(itemType) {
+  switch (String(itemType || "property")) {
+    case "tour":
+      return "Tour";
+    case "tour_package":
+      return "Tour package";
+    case "transport_vehicle":
+      return "Transport";
+    default:
+      return "Stay";
+  }
+}
+
+function formatRecommendationSummary(recommendations = []) {
+  if (!Array.isArray(recommendations) || recommendations.length === 0) return "";
+  return recommendations
+    .slice(0, 3)
+    .map((item) => {
+      const typeLabel = formatRecommendationType(item.item_type);
+      const price = Number(item.price || 0) > 0 ? `${item.currency || "RWF"} ${Math.round(Number(item.price || 0))}` : "price on request";
+      return `${item.title} (${typeLabel}${item.location ? `, ${item.location}` : ""}, ${price})`;
+    })
+    .join("; ");
+}
+
+function formatBrainContext(planner, docs = []) {
+  const lines = [];
+  if (planner?.intent) lines.push(`Predicted travel intent: ${planner.intent}`);
+
+  const entities = planner?.extractedEntities || {};
+  const entityParts = [
+    Array.isArray(entities.countries) && entities.countries.length > 0 ? `countries=${entities.countries.join(", ")}` : "",
+    Array.isArray(entities.destinations) && entities.destinations.length > 0 ? `destinations=${entities.destinations.join(", ")}` : "",
+    Array.isArray(entities.activities) && entities.activities.length > 0 ? `activities=${entities.activities.join(", ")}` : "",
+    entities.month ? `month=${entities.month}` : "",
+    entities.duration ? `duration=${entities.duration}${entities.durationUnit === "weeks" ? " weeks" : " days"}` : "",
+    entities.groupSize ? `groupSize=${entities.groupSize}` : "",
+    entities.budget ? `budget=${entities.budget}` : "",
+  ].filter(Boolean);
+
+  if (entityParts.length > 0) {
+    lines.push(`Extracted trip details: ${entityParts.join(" | ")}`);
+  }
+
+  if (planner?.reply) {
+    lines.push(`Rule-based itinerary guidance:\n${cleanAssistantReply(planner.reply)}`);
+  }
+
+  if (Array.isArray(docs) && docs.length > 0) {
+    lines.push(
+      `Relevant documentation:\n${docs
+        .map((doc) => `- ${doc.title}: ${compactText(doc.snippet, 260)}`)
+        .join("\n")}`
+    );
+  }
+
+  return lines.join("\n\n");
+}
+
+async function getPlannerInsights(messages) {
+  const planner = answerTripAdvisorQuestion(Array.isArray(messages) ? messages : []);
+  const docs = await searchTripAdvisorKnowledge(getLatestUserText(messages), { limit: 3, minScore: 0.18 });
+  return { planner, docs };
+}
+
+function buildPlannerFallback({ planner, recommendations = [] }) {
+  const plannerReply = cleanAssistantReply(planner?.reply || "");
+  const recommendationSummary = formatRecommendationSummary(recommendations);
+  const reply = [
+    plannerReply || buildNoOpenAiFallback(recommendations),
+    recommendationSummary ? `Booking-ready options I found now: ${recommendationSummary}.` : "",
+  ].filter(Boolean).join("\n\n");
+
+  return {
+    reply,
+    source: "brain",
+    status: "ok",
+    shouldCache: true,
+    usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+  };
 }
 
 async function fetchRecommendations(userText) {
@@ -1020,43 +1126,105 @@ async function fetchRecommendations(userText) {
   const terms = extractQueryTerms(userText);
   if (terms.length === 0) return [];
   const specificTerms = terms.filter((term) => !GENERIC_SEARCH_TERMS.has(term));
-  if (specificTerms.length === 0) return [];
+  const queryTerms = specificTerms.length > 0 ? specificTerms : terms;
 
-  const { data, error } = await supabaseAdmin
-    .from("properties")
-    .select("id, title, location, currency, price_per_night, rating, review_count, property_type, images, is_published")
-    .eq("is_published", true)
-    .limit(80);
+  const [propertiesResult, toursResult, packagesResult, vehiclesResult] = await Promise.all([
+    supabaseAdmin
+      .from("properties")
+      .select("id, title, location, currency, price_per_night, rating, review_count, property_type, images, is_published")
+      .eq("is_published", true)
+      .limit(80),
+    supabaseAdmin
+      .from("tours")
+      .select("id, title, location, category, currency, price_per_person, rating, review_count, images, main_image, is_published")
+      .eq("is_published", true)
+      .limit(60),
+    supabaseAdmin
+      .from("tour_packages")
+      .select("id, title, city, country, currency, price_per_adult, price_per_person, cover_image, gallery_images, status")
+      .eq("status", "approved")
+      .limit(60),
+    supabaseAdmin
+      .from("transport_vehicles")
+      .select("id, title, location, provider_name, vehicle_type, currency, price_per_day, image_url, media, is_published")
+      .eq("is_published", true)
+      .limit(60),
+  ]);
 
-  if (error || !Array.isArray(data)) return [];
+  const properties = Array.isArray(propertiesResult.data) ? propertiesResult.data : [];
+  const tours = Array.isArray(toursResult.data) ? toursResult.data : [];
+  const packages = Array.isArray(packagesResult.data) ? packagesResult.data : [];
+  const vehicles = Array.isArray(vehiclesResult.data) ? vehiclesResult.data : [];
 
-  return data
-    .map((p) => ({ ...p, _score: scoreProperty(p, specificTerms) }))
-    .filter((p) => p._score > 0)
-    .sort((a, b) => b._score - a._score)
-    .slice(0, 3)
-    .map((p) => ({
-      id: String(p.id),
-      title: String(p.title || "Untitled"),
-      location: p.location ? String(p.location) : undefined,
-      currency: p.currency ? String(p.currency) : "USD",
-      price: Number(p.price_per_night || 0),
-      rating: Number(p.rating || 0),
-      review_count: Number(p.review_count || 0),
-      property_type: p.property_type ? String(p.property_type) : undefined,
-      image_url: Array.isArray(p.images) && p.images[0] ? String(p.images[0]) : undefined,
-    }));
+  const scored = [
+    ...properties.map((item) => ({
+      id: String(item.id),
+      item_type: "property",
+      title: String(item.title || "Untitled stay"),
+      location: item.location ? String(item.location) : undefined,
+      currency: item.currency ? String(item.currency) : "RWF",
+      price: Number(item.price_per_night || 0),
+      rating: Number(item.rating || 0),
+      review_count: Number(item.review_count || 0),
+      property_type: item.property_type ? String(item.property_type) : formatRecommendationType("property"),
+      image_url: Array.isArray(item.images) && item.images[0] ? String(item.images[0]) : undefined,
+      view_url: `/properties/${encodeURIComponent(String(item.id))}`,
+      _score: scoreListing([item.title, item.location, item.property_type], queryTerms) + Number(item.rating || 0) * 0.2 + Math.min(Number(item.review_count || 0), 40) * 0.02,
+    })),
+    ...tours.map((item) => ({
+      id: String(item.id),
+      item_type: "tour",
+      title: String(item.title || "Untitled tour"),
+      location: item.location ? String(item.location) : undefined,
+      currency: item.currency ? String(item.currency) : "RWF",
+      price: Number(item.price_per_person || 0),
+      rating: Number(item.rating || 0),
+      review_count: Number(item.review_count || 0),
+      property_type: formatRecommendationType("tour"),
+      image_url: item.main_image ? String(item.main_image) : Array.isArray(item.images) && item.images[0] ? String(item.images[0]) : undefined,
+      view_url: `/tours/${encodeURIComponent(String(item.id))}`,
+      _score: scoreListing([item.title, item.location, item.category], queryTerms) + Number(item.rating || 0) * 0.2 + Math.min(Number(item.review_count || 0), 40) * 0.02,
+    })),
+    ...packages.map((item) => ({
+      id: String(item.id),
+      item_type: "tour_package",
+      title: String(item.title || "Untitled package"),
+      location: [item.city, item.country].filter(Boolean).join(", ") || undefined,
+      currency: item.currency ? String(item.currency) : "RWF",
+      price: Number(item.price_per_person || item.price_per_adult || 0),
+      rating: 0,
+      review_count: 0,
+      property_type: formatRecommendationType("tour_package"),
+      image_url: item.cover_image ? String(item.cover_image) : Array.isArray(item.gallery_images) && item.gallery_images[0] ? String(item.gallery_images[0]) : undefined,
+      view_url: `/tours/${encodeURIComponent(String(item.id))}`,
+      _score: scoreListing([item.title, item.city, item.country], queryTerms),
+    })),
+    ...vehicles.map((item) => ({
+      id: String(item.id),
+      item_type: "transport_vehicle",
+      title: String(item.title || "Transport option"),
+      location: item.location ? String(item.location) : undefined,
+      currency: item.currency ? String(item.currency) : "RWF",
+      price: Number(item.price_per_day || 0),
+      rating: 0,
+      review_count: 0,
+      property_type: formatRecommendationType("transport_vehicle"),
+      image_url: item.image_url ? String(item.image_url) : Array.isArray(item.media) && item.media[0] ? String(item.media[0]) : undefined,
+      view_url: "/transport",
+      _score: scoreListing([item.title, item.location, item.provider_name, item.vehicle_type], queryTerms),
+    })),
+  ]
+    .filter((item) => item._score > 0)
+    .sort((a, b) => b._score - a._score);
+
+  return capRecommendationsByType(scored, 6, 2).map(({ _score, ...item }) => item);
 }
 
 async function generateReply(messages, recommendations = [], extraContext = "") {
+  const plannerInsights = await getPlannerInsights(messages);
+
   if (!openai) {
-    return {
-      reply: buildNoOpenAiFallback(recommendations),
-      source: "error",
-      status: "failed",
-      shouldCache: false,
-      usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
-    };
+    return buildPlannerFallback({ planner: plannerInsights.planner, recommendations });
   }
 
   const safeMessages = Array.isArray(messages)
@@ -1074,8 +1242,10 @@ async function generateReply(messages, recommendations = [], extraContext = "") 
     .join("\n");
   const recommendationContext = formatRecommendationContext(recommendations);
   const knowledgeContext = formatKnowledgeContext(getLatestUserText(messages));
+  const brainContext = formatBrainContext(plannerInsights.planner, plannerInsights.docs);
   const combinedContext = [
     knowledgeContext ? `Product knowledge:\n${knowledgeContext}` : "",
+    brainContext ? `Travel-planning guidance:\n${brainContext}` : "",
     extraContext ? `Live product context:\n${extraContext}` : "",
     recommendationContext ? `Relevant listings:\n${recommendationContext}` : "",
   ].filter(Boolean).join("\n\n");
@@ -1107,6 +1277,10 @@ async function generateReply(messages, recommendations = [], extraContext = "") 
   });
 
   const text = cleanAssistantReply(typeof out.output_text === "string" ? out.output_text : "");
+  if (!text) {
+    return buildPlannerFallback({ planner: plannerInsights.planner, recommendations });
+  }
+
   return {
     reply: text || "I can help with East Africa travel plans. What destination are you considering?",
     source: "openai",

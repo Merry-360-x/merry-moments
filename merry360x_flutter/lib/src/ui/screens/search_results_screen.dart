@@ -128,7 +128,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen>
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(100),
+        preferredSize: const Size.fromHeight(112),
         child: SafeArea(
           bottom: false,
           child: Column(
@@ -182,6 +182,8 @@ class _SearchResultsScreenState extends State<SearchResultsScreen>
                 indicatorWeight: 2.5,
                 labelColor: AppColors.rausch,
                 unselectedLabelColor: const Color(0xFF888888),
+                labelPadding: const EdgeInsets.symmetric(horizontal: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 2),
                 labelStyle: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -363,7 +365,7 @@ class _ResultCard extends StatelessWidget {
                       height: 190,
                       width: double.infinity,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const _PlaceholderImage(height: 190),
+                      errorBuilder: (_, _, _) => const _PlaceholderImage(height: 190),
                     )
                   : const _PlaceholderImage(height: 190),
             ),

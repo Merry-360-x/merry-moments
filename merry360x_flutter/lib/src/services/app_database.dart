@@ -187,9 +187,9 @@ class AppDatabase {
       'user_id': userId,
       'title': title,
       'item_type': itemType,
-      if (propertyId != null) 'property_id': propertyId,
-      if (tourId != null) 'tour_id': tourId,
-      if (transportId != null) 'transport_id': transportId,
+      'property_id': ?propertyId,
+      'tour_id': ?tourId,
+      'transport_id': ?transportId,
     });
   }
 
@@ -211,7 +211,7 @@ class AppDatabase {
       'item_type': itemType,
       'reference_id': referenceId,
       'quantity': quantity,
-      if (metadata != null) 'metadata': metadata,
+      'metadata': ?metadata,
     });
   }
 
@@ -245,18 +245,18 @@ class AppDatabase {
       'user_id': userId,
       'name': name,
       'email': email,
-      if (phone != null) 'phone': phone,
+      'phone': ?phone,
       'total_amount': totalAmount,
       'base_price_amount': basePriceAmount,
       'service_fee_amount': serviceFeeAmount,
       'currency': currency,
       'payment_method': paymentMethod,
-      if (paymentProvider != null) 'dpo_token': paymentProvider,
+      'dpo_token': ?paymentProvider,
       'payment_status': 'pending',
       'status': 'pending',
       'items': items,
-      if (specialRequests != null) 'message': specialRequests,
-      if (metadata != null) 'metadata': metadata,
+      'message': ?specialRequests,
+      'metadata': ?metadata,
     };
     final result = await _sb.from('checkout_requests').insert(row).select('id').single();
     return (result as Map)['id'].toString();
@@ -281,8 +281,8 @@ class AppDatabase {
       'currency': currency,
       'payerName': payerName,
       'payerEmail': payerEmail,
-      if (phoneNumber != null) 'phoneNumber': phoneNumber,
-      if (billingAddress != null) 'billingAddress': billingAddress,
+      'phoneNumber': ?phoneNumber,
+      'billingAddress': ?billingAddress,
       'description': description ?? 'Merry360x Mobile Booking',
       'redirectUrl': 'https://merry360x.com/payment-pending?checkoutId=$checkoutId&provider=pesapal',
     };
@@ -369,16 +369,16 @@ class AppDatabase {
       if (itemType == 'property') 'property_id': referenceId,
       if (itemType == 'tour' || itemType == 'tour_package') 'tour_id': referenceId,
       if (itemType == 'transport') 'transport_id': referenceId,
-      if (checkIn != null) 'check_in': checkIn,
-      if (checkOut != null) 'check_out': checkOut,
+      'check_in': ?checkIn,
+      'check_out': ?checkOut,
       'guests': guests,
       'total_price': totalAmount,
       'currency': currency,
       'status': 'pending',
       'payment_status': 'pending',
-      if (paymentPhone != null) 'guest_phone': paymentPhone,
-      if (paymentPhone != null) 'payment_phone': paymentPhone,
-      if (paymentProvider != null) 'payment_method': paymentProvider,
+      'guest_phone': ?paymentPhone,
+      'payment_phone': ?paymentPhone,
+      'payment_method': ?paymentProvider,
       if (specialRequests != null && specialRequests.isNotEmpty) 'special_requests': specialRequests,
     };
     // Note: discount is already reflected in totalAmount; discount_code tracked via usage increment
@@ -451,15 +451,32 @@ class AppDatabase {
 
   // ── Tours ──
 
-  Future<List<Map<String, dynamic>>> fetchTours({String? category}) async {
+  Future<List<Map<String, dynamic>>> fetchTours({String? category, String? query, int limit = 50}) async {
     try {
       var req = _sb
           .from('tours')
           .select('id, title, location, price_per_person, currency, images, main_image, rating, review_count, category, duration_days, max_group_size')
           .eq('is_published', true);
       if (category != null && category != 'all') req = req.eq('category', category);
-      final data = await req.order('created_at', ascending: false).limit(50);
-        return (data as List).cast<Map<String, dynamic>>().map(_normalizeTour).toList();
+      final q = query?.trim().toLowerCase();
+      if (q != null && q.isNotEmpty) req = req.or('title.ilike.%$q%,location.ilike.%$q%,category.ilike.%$q%');
+      final data = await req.order('created_at', ascending: false).limit(limit);
+      return (data as List).cast<Map<String, dynamic>>().map(_normalizeTour).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchTourPackages({String? query, int limit = 50}) async {
+    try {
+      var req = _sb
+          .from('tour_packages')
+          .select('id, title, city, country, price_per_adult, price_per_person, currency, status, cover_image, gallery_images, created_at')
+          .eq('status', 'approved');
+      final q = query?.trim().toLowerCase();
+      if (q != null && q.isNotEmpty) req = req.or('title.ilike.%$q%,city.ilike.%$q%,country.ilike.%$q%');
+      final data = await req.order('created_at', ascending: false).limit(limit);
+      return (data as List).cast<Map<String, dynamic>>().map(_normalizeTourPackage).toList();
     } catch (_) {
       return [];
     }
@@ -467,14 +484,16 @@ class AppDatabase {
 
   // ── Transport ──
 
-  Future<List<Map<String, dynamic>>> fetchTransportListings({String? category}) async {
+  Future<List<Map<String, dynamic>>> fetchTransportListings({String? category, String? query, int limit = 50}) async {
     try {
       var req = _sb
           .from('transport_vehicles')
-          .select('id, title, provider_name, vehicle_type, seats, price_per_day, currency, driver_included, image_url, media')
+          .select('id, title, provider_name, vehicle_type, seats, price_per_day, currency, driver_included, image_url, media, created_at')
           .eq('is_published', true);
       if (category != null && category != 'all') req = req.eq('vehicle_type', category);
-      final data = await req.order('created_at', ascending: false).limit(50);
+      final q = query?.trim().toLowerCase();
+      if (q != null && q.isNotEmpty) req = req.or('title.ilike.%$q%,provider_name.ilike.%$q%,vehicle_type.ilike.%$q%');
+      final data = await req.order('created_at', ascending: false).limit(limit);
       return (data as List).cast<Map<String, dynamic>>().map(_normalizeTransport).toList();
     } catch (_) {
       return [];
@@ -507,10 +526,10 @@ class AppDatabase {
     final result = await _sb.from('stories').insert({
       'author_id': userId,
       'title': title,
-      if (body != null) 'body': body,
-      if (imageUrl != null) 'image_url': imageUrl,
-      if (videoUrl != null) 'video_url': videoUrl,
-      if (location != null) 'location': location,
+      'body': ?body,
+      'image_url': ?imageUrl,
+      'video_url': ?videoUrl,
+      'location': ?location,
     }).select('id').single();
     return result['id']?.toString();
   }
@@ -1514,7 +1533,7 @@ class AppDatabase {
       'property_id': propertyId,
       'date': date,
       'available': available,
-      if (note != null) 'note': note,
+      'note': ?note,
     });
   }
 
@@ -1602,10 +1621,10 @@ class AppDatabase {
       'host_id': userId,
       'method_type': methodType,
       'account_name': accountName,
-      if (phoneNumber != null) 'phone_number': phoneNumber,
-      if (mobileProvider != null) 'mobile_provider': mobileProvider,
-      if (bankName != null) 'bank_name': bankName,
-      if (bankAccountNumber != null) 'bank_account_number': bankAccountNumber,
+      'phone_number': ?phoneNumber,
+      'mobile_provider': ?mobileProvider,
+      'bank_name': ?bankName,
+      'bank_account_number': ?bankAccountNumber,
       'is_primary': isPrimary,
     });
   }
@@ -1648,8 +1667,8 @@ class AppDatabase {
       'amount': amount,
       'currency': currency,
       'status': 'pending',
-      if (payoutMethodId != null) 'payout_method_id': payoutMethodId,
-      if (payoutMethodType != null) 'payout_method_type': payoutMethodType,
+      'payout_method_id': ?payoutMethodId,
+      'payout_method_type': ?payoutMethodType,
     });
   }
 

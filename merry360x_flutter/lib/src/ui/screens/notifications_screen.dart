@@ -70,7 +70,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Widget _body() {
     if (_loading) return const Center(child: CircularProgressIndicator(color: AppColors.rausch));
-    if (_notifs.isEmpty) return Center(
+    if (_notifs.isEmpty) {
+      return Center(
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         const Icon(Icons.notifications_none_outlined, size: 56, color: AppColors.hackberry),
         const SizedBox(height: 16),
@@ -79,6 +80,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         const Text('No notifications yet', style: TextStyle(color: AppColors.foggy, fontSize: 14)),
       ]),
     );
+    }
 
     return RefreshIndicator(
       color: AppColors.rausch,

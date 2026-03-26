@@ -2,7 +2,7 @@
 // @ts-nocheck - support_ticket_messages table not in generated types yet
 import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { MessageCircle, ChevronLeft, Headset, X, Maximize2, Minimize2, Send, Paperclip, Smile, Reply, User, Image as ImageIcon, FileText, Clock, CheckCircle } from "lucide-react";
+import { MessageCircle, ChevronLeft, ChevronDown, ChevronUp, Headset, X, Maximize2, Minimize2, Send, Paperclip, Smile, Reply, User, Image as ImageIcon, FileText, Clock, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,6 +16,8 @@ import { useTripCart } from "@/hooks/useTripCart";
 
 type Step = "home" | "ai" | "chat";
 
+type AiMode = "starter" | "freeform" | "trip-form";
+
 type AiRecommendation = {
   id: string;
   title: string;
@@ -24,8 +26,10 @@ type AiRecommendation = {
   price?: number;
   rating?: number;
   review_count?: number;
+  item_type?: string;
   property_type?: string;
   image_url?: string;
+  view_url?: string;
 };
 
 type AiAction = {
@@ -44,6 +48,22 @@ type ChatMsg = {
   content: string;
   recommendations?: AiRecommendation[];
   actions?: AiAction[];
+};
+
+type TripPlanningForm = {
+  leavingFrom: string;
+  destination: string;
+  checkIn: string;
+  checkOut: string;
+  nights: string;
+  travelers: string;
+  budget: string;
+  tripType: string;
+  notes: string;
+};
+
+type TripSummary = TripPlanningForm & {
+  submittedAt: string;
 };
 
 type TicketRow = {
@@ -72,6 +92,70 @@ type Message = {
 
 const EMOJI_LIST = ["�", "🤣", "😆", "😄", "😁", "😊", "🥰", "😍", "🤩", "😎", "🥳", "🤪", "😜", "😝", "🤗", "🤭", "👍", "👎", "❤️", "💖", "💯", "🎉", "🎊", "🙌", "👏", "🙏", "✅", "❌", "⚠️", "📎", "💡", "🔥", "✨", "⭐", "💪", "👀", "🤔", "😮", "😢", "🥺"];
 
+const AI_STARTER_OPTIONS = [
+  {
+    id: "plan_trip",
+    label: "Plan a trip",
+    description: "Answer a few questions and get a trip plan",
+  },
+  {
+    id: "ask_platform",
+    label: "What is Merry360X?",
+    description: "Learn what Merry can help you book",
+    prompt: "What is Merry360X and what can you help me book?",
+  },
+  {
+    id: "find_cheapest",
+    label: "Find the cheapest",
+    description: "Start with lower-budget options",
+    prompt: "Find the cheapest trip options you can recommend for me.",
+  },
+  {
+    id: "ask_freely",
+    label: "Ask about Merry360X",
+    description: "Ask anything related to Merry360X freely",
+  },
+];
+
+const EMPTY_TRIP_FORM: TripPlanningForm = {
+  leavingFrom: "",
+  destination: "",
+  checkIn: "",
+  checkOut: "",
+  nights: "",
+  travelers: "2",
+  budget: "",
+  tripType: "",
+  notes: "",
+};
+
+const MONTH_INDEX: Record<string, number> = {
+  january: 0,
+  jan: 0,
+  february: 1,
+  feb: 1,
+  march: 2,
+  mar: 2,
+  april: 3,
+  apr: 3,
+  may: 4,
+  june: 5,
+  jun: 5,
+  july: 6,
+  jul: 6,
+  august: 7,
+  aug: 7,
+  september: 8,
+  sep: 8,
+  sept: 8,
+  october: 9,
+  oct: 9,
+  november: 10,
+  nov: 10,
+  december: 11,
+  dec: 11,
+};
+
 export default function SupportCenterLauncher() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -96,6 +180,37 @@ export default function SupportCenterLauncher() {
     return `${Math.round(price).toLocaleString()} ${safeCurrency}`;
   };
 
+  const getRecommendationItemType = (recommendation: AiRecommendation) => {
+    const itemType = String(recommendation?.item_type || "").toLowerCase();
+    if (itemType === "tour" || itemType === "tour_package" || itemType === "transport_vehicle") {
+      return itemType;
+    }
+    return "property";
+  };
+
+  const getRecommendationViewUrl = (recommendation: AiRecommendation) => {
+    if (recommendation?.view_url) return recommendation.view_url;
+
+    switch (getRecommendationItemType(recommendation)) {
+      case "tour":
+      case "tour_package":
+        return `/tours/${encodeURIComponent(recommendation.id)}`;
+      case "transport_vehicle":
+        return "/transport";
+      default:
+        return `/properties/${encodeURIComponent(recommendation.id)}`;
+    }
+  };
+
+  const getRecommendationTypeLabel = (recommendation: AiRecommendation) => {
+    const itemType = getRecommendationItemType(recommendation);
+    if (recommendation?.property_type) return recommendation.property_type;
+    if (itemType === "tour") return "Tour";
+    if (itemType === "tour_package") return "Tour package";
+    if (itemType === "transport_vehicle") return "Transport";
+    return "Stay";
+  };
+
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("home");
   const [expanded, setExpanded] = useState(true);
@@ -104,7 +219,12 @@ export default function SupportCenterLauncher() {
   const [aiMessages, setAiMessages] = useState<ChatMsg[]>([
     { role: "assistant", content: "Hi, I’m Merry. Tell me what you want to book and I’ll help you move from planning to cart and checkout." },
   ]);
+  const [aiMode, setAiMode] = useState<AiMode>("starter");
   const [aiDraft, setAiDraft] = useState("");
+  const [tripForm, setTripForm] = useState<TripPlanningForm>(EMPTY_TRIP_FORM);
+  const [tripSummary, setTripSummary] = useState<TripSummary | null>(null);
+  const [tripSummaryExpanded, setTripSummaryExpanded] = useState(false);
+  const [pendingTripPromptText, setPendingTripPromptText] = useState("");
   const [aiSending, setAiSending] = useState(false);
   const [aiConversationFeedback, setAiConversationFeedback] = useState<"up" | "down" | null>(null);
   const [aiFeedbackDraftType, setAiFeedbackDraftType] = useState<"up" | "down" | null>(null);
@@ -182,6 +302,140 @@ export default function SupportCenterLauncher() {
     } finally {
       setLoadingChat(false);
     }
+  };
+
+  const formatTripDate = (value: string) => {
+    if (!value) return "Flexible";
+    const date = new Date(`${value}T00:00:00`);
+    return Number.isNaN(date.getTime())
+      ? value
+      : date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  };
+
+  const sanitizeLocationValue = (value: string) => value
+    .replace(/\b(for|with|on|starting|start|arriving|arrive|check|budget|nights?|days?|people|guests|travelers|travellers|adults|airport|pickup)\b.*$/i, "")
+    .replace(/[,.]+$/g, "")
+    .trim();
+
+  const formatIsoDate = (date: Date) => {
+    if (Number.isNaN(date.getTime())) return "";
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  };
+
+  const parseNaturalDateToken = (monthToken: string, dayToken: string, yearToken?: string) => {
+    const monthIndex = MONTH_INDEX[monthToken.toLowerCase()];
+    if (monthIndex == null) return "";
+
+    const currentYear = new Date().getFullYear();
+    const explicitYear = yearToken ? Number(yearToken) : currentYear;
+    const parsed = new Date(explicitYear, monthIndex, Number(dayToken));
+    if (Number.isNaN(parsed.getTime())) return "";
+
+    if (!yearToken) {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      if (parsed < today) {
+        parsed.setFullYear(parsed.getFullYear() + 1);
+      }
+    }
+
+    return formatIsoDate(parsed);
+  };
+
+  const extractMentionedDates = (text: string) => {
+    const found = new Set<string>();
+    const isoMatches = text.match(/\b\d{4}-\d{2}-\d{2}\b/g) || [];
+    isoMatches.forEach((match) => found.add(match));
+
+    const slashMatches = text.match(/\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/g) || [];
+    slashMatches.forEach((match) => {
+      const [month, day, year] = match.split("/");
+      const numericYear = year ? Number(year.length === 2 ? `20${year}` : year) : new Date().getFullYear();
+      const parsed = new Date(numericYear, Number(month) - 1, Number(day));
+      const iso = formatIsoDate(parsed);
+      if (iso) found.add(iso);
+    });
+
+    const naturalDateRegex = /\b(january|jan|february|feb|march|mar|april|apr|may|june|jun|july|jul|august|aug|september|sep|sept|october|oct|november|nov|december|dec)\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s*(\d{4}))?/gi;
+    let match: RegExpExecArray | null;
+    while ((match = naturalDateRegex.exec(text)) !== null) {
+      const iso = parseNaturalDateToken(match[1], match[2], match[3]);
+      if (iso) found.add(iso);
+    }
+
+    return Array.from(found).sort();
+  };
+
+  const mergeTripFormDetails = (current: TripPlanningForm, incoming: Partial<TripPlanningForm>) => {
+    const next = { ...current };
+    (Object.keys(incoming) as Array<keyof TripPlanningForm>).forEach((key) => {
+      const value = incoming[key];
+      if (typeof value !== "string") return;
+      const trimmed = value.trim();
+      if (trimmed) {
+        next[key] = trimmed;
+      }
+    });
+    return next;
+  };
+
+  const inferTripFormFromText = (text: string): Partial<TripPlanningForm> => {
+    const safeText = String(text || "").trim();
+    if (!safeText) return {};
+
+    const destinationMatch = safeText.match(/(?:to|towards|heading to|going to|visit|visiting|travel to|stay in|book in)\s+([a-zA-Z][a-zA-Z\s,-]{2,40})/i);
+    const leavingFromMatch = safeText.match(/(?:from|leaving from|departing from|flying from)\s+([a-zA-Z][a-zA-Z\s,-]{2,40})/i);
+    const nightsMatch = safeText.match(/(\d{1,2})\s*nights?/i);
+    const travelersMatch = safeText.match(/(\d{1,2})\s*(?:people|persons|guests|travelers|travellers|adults|pax)/i);
+    const budgetMatch = safeText.match(/(budget|cheap|cheapest|mid-range|midrange|luxury|premium|\$\s?\d+[\d,]*|under\s+\$?\s?\d+[\d,]*|within\s+\$?\s?\d+[\d,]*)/i);
+    const dateMatches = extractMentionedDates(safeText);
+
+    let tripType = "";
+    if (/cheap|cheapest|budget/i.test(safeText)) tripType = "Budget";
+    if (/luxury|premium/i.test(safeText)) tripType = "Luxury";
+    if (/family|kids|children/i.test(safeText)) tripType = tripType || "Family";
+    if (/romantic|honeymoon|couple/i.test(safeText)) tripType = tripType || "Romantic";
+    if (/business|work|conference/i.test(safeText)) tripType = tripType || "Business";
+
+    const checkIn = dateMatches[0] || "";
+    const checkOut = dateMatches[1] || "";
+    let inferredNights = nightsMatch?.[1] || "";
+    if (!inferredNights && checkIn && checkOut) {
+      const start = new Date(`${checkIn}T00:00:00`);
+      const end = new Date(`${checkOut}T00:00:00`);
+      const diffNights = Math.round((end.getTime() - start.getTime()) / 86400000);
+      if (diffNights > 0) inferredNights = String(diffNights);
+    }
+
+    return {
+      leavingFrom: sanitizeLocationValue(leavingFromMatch?.[1] || ""),
+      destination: sanitizeLocationValue(destinationMatch?.[1] || ""),
+      checkIn,
+      checkOut,
+      nights: inferredNights,
+      travelers: travelersMatch?.[1] || "",
+      budget: budgetMatch?.[1]?.trim() || "",
+      tripType,
+      notes: safeText,
+    };
+  };
+
+  const looksLikeComplexTripQuestion = (text: string) => {
+    const safeText = String(text || "").toLowerCase().trim();
+    if (!safeText) return false;
+
+    const hasTripIntent = /plan|trip|itinerary|travel|vacation|holiday|book.*trip|organize.*trip/.test(safeText);
+    const detailHits = [
+      /to\s+[a-z]/.test(safeText) || /destination|city|heading|visit|stay in/.test(safeText),
+      /from\s+[a-z]/.test(safeText) || /leaving from|departing from|flying from/.test(safeText),
+      /date|dates|check in|check out|arrive|arrival|departure|depart|january|jan|february|feb|march|mar|april|apr|may|june|jun|july|jul|august|aug|september|sep|sept|october|oct|november|nov|december|dec|\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}/.test(safeText),
+      /night|nights|days|day/.test(safeText),
+      /budget|cheap|cheapest|luxury|premium|\$\s?\d|under\s+\$?\s?\d|within\s+\$?\s?\d/.test(safeText),
+      /people|persons|guests|travelers|travellers|adults|pax/.test(safeText),
+      /stay|hotel|tour|transport|airport|pickup|driver|car rental/.test(safeText),
+    ].filter(Boolean).length;
+
+    return detailHits >= 4 || (hasTripIntent && detailHits >= 3);
   };
 
   // Fetch messages for a ticket
@@ -622,10 +876,12 @@ export default function SupportCenterLauncher() {
             price: Number(x.price || 0),
             rating: Number(x.rating || 0),
             review_count: Number(x.review_count || 0),
+            item_type: x.item_type ? String(x.item_type) : undefined,
             property_type: x.property_type ? String(x.property_type) : undefined,
             image_url: x.image_url ? String(x.image_url) : undefined,
+            view_url: x.view_url ? String(x.view_url) : undefined,
           }))
-          .slice(0, 3)
+          .slice(0, 6)
       : [];
     const actions: AiAction[] = Array.isArray(out?.actions)
       ? out.actions
@@ -649,11 +905,60 @@ export default function SupportCenterLauncher() {
     queueMicrotask(() => aiEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }));
   };
 
+  const updateTripForm = (field: keyof TripPlanningForm, value: string) => {
+    setTripForm((current) => ({ ...current, [field]: value }));
+  };
+
+  useEffect(() => {
+    if (!tripForm.checkIn) return;
+
+    const start = new Date(`${tripForm.checkIn}T00:00:00`);
+    if (Number.isNaN(start.getTime())) return;
+
+    if (!tripForm.checkOut) {
+      const nextDay = new Date(start);
+      nextDay.setDate(nextDay.getDate() + 1);
+      const suggestedCheckOut = nextDay.toISOString().slice(0, 10);
+      setTripForm((current) => (current.checkOut ? current : { ...current, checkOut: suggestedCheckOut, nights: "1" }));
+      return;
+    }
+
+    const end = new Date(`${tripForm.checkOut}T00:00:00`);
+    if (Number.isNaN(end.getTime())) return;
+
+    const diffNights = Math.round((end.getTime() - start.getTime()) / 86400000);
+    setTripForm((current) => {
+      if (diffNights <= 0) return current;
+      const nextNights = String(diffNights);
+      return current.nights === nextNights ? current : { ...current, nights: nextNights };
+    });
+  }, [tripForm.checkIn, tripForm.checkOut]);
+
+  const buildTripPlanningPrompt = () => {
+    const lines = [
+      "Plan a trip for me using this form.",
+      tripForm.leavingFrom.trim() ? `Leaving from: ${tripForm.leavingFrom.trim()}` : "",
+      tripForm.destination.trim() ? `Heading to: ${tripForm.destination.trim()}` : "",
+      tripForm.checkIn ? `Start date: ${tripForm.checkIn}` : "",
+      tripForm.checkOut ? `End date: ${tripForm.checkOut}` : "",
+      tripForm.nights.trim() ? `Nights: ${tripForm.nights.trim()}` : "",
+      tripForm.travelers.trim() ? `Travelers: ${tripForm.travelers.trim()}` : "",
+      tripForm.budget.trim() ? `Budget: ${tripForm.budget.trim()}` : "",
+      tripForm.tripType.trim() ? `Trip style: ${tripForm.tripType.trim()}` : "",
+      tripForm.notes.trim() ? `Extra notes: ${tripForm.notes.trim()}` : "",
+      "Please recommend the best plan, the route, and booking-ready options for stays, tours, or transport.",
+    ].filter(Boolean);
+
+    return lines.join("\n");
+  };
+
+  const hasTripFormMinimum = tripForm.destination.trim().length > 0;
+
   const addRecommendationToTripCart = async (recommendation: AiRecommendation, goToCheckout = false) => {
     if (!recommendation?.id || aiSending) return;
     setAiSending(true);
     try {
-      const added = await addToCart("property", recommendation.id, 1);
+      const added = await addToCart(getRecommendationItemType(recommendation), recommendation.id, 1);
       if (!added) return;
 
       pushAssistantMessage(
@@ -673,10 +978,26 @@ export default function SupportCenterLauncher() {
     }
   };
 
-  const sendAi = async () => {
-    const text = aiDraft.trim();
+  const sendAi = async (overrideText?: string, options?: { skipTripPrompt?: boolean }) => {
+    const text = String(overrideText ?? aiDraft).trim();
     if (!text || aiSending) return;
-    setAiDraft("");
+
+    if (!options?.skipTripPrompt && aiMode !== "trip-form" && looksLikeComplexTripQuestion(text)) {
+      setAiMode("freeform");
+      setPendingTripPromptText(text);
+      setTripForm((current) => mergeTripFormDetails(current, inferTripFormFromText(text)));
+      pushAssistantMessage(
+        "This question has several trip details. Do you want to switch to the trip planner form so I can organize the dates, city, nights, budget, and route properly?",
+        [
+          { type: "open_trip_form", label: "Yes" , variant: "primary" },
+          { type: "continue_freeform", label: "No", variant: "secondary" },
+        ],
+      );
+      return;
+    }
+
+    if (overrideText == null) setAiDraft("");
+    setAiMode("freeform");
     const next: ChatMsg[] = [...aiMessages, { role: "user" as const, content: text }];
     const compactHistory = next
       .slice(-6)
@@ -707,8 +1028,47 @@ export default function SupportCenterLauncher() {
     }
   };
 
+  const submitTripPlanForm = async () => {
+    if (!hasTripFormMinimum || aiSending) return;
+    setTripSummary({ ...tripForm, submittedAt: new Date().toISOString() });
+    setTripSummaryExpanded(false);
+    setPendingTripPromptText("");
+    await sendAi(buildTripPlanningPrompt(), { skipTripPrompt: true });
+  };
+
+  const handleAiStarter = async (optionId: string) => {
+    const selected = AI_STARTER_OPTIONS.find((option) => option.id === optionId);
+    if (!selected) return;
+
+    if (optionId === "plan_trip") {
+      setAiMode("trip-form");
+      return;
+    }
+
+    if (optionId === "ask_freely") {
+      setAiMode("freeform");
+      return;
+    }
+
+    if (selected.prompt) {
+      await sendAi(selected.prompt);
+    }
+  };
+
   const runAiAction = async (action: AiAction) => {
     if (!action?.type || aiSending) return;
+    if (action.type === "open_trip_form") {
+      setAiMode("trip-form");
+      return;
+    }
+    if (action.type === "continue_freeform") {
+      const deferredText = pendingTripPromptText.trim();
+      setPendingTripPromptText("");
+      if (deferredText) {
+        await sendAi(deferredText, { skipTripPrompt: true });
+      }
+      return;
+    }
     if (action.type === "add_to_trip_cart" && action.referenceId) {
       await addRecommendationToTripCart({
         id: action.referenceId,
@@ -795,6 +1155,13 @@ export default function SupportCenterLauncher() {
 
   const autoCloseWarning = getAutoCloseWarning();
   const shouldShowAiRating = aiMessages.some((m, idx) => idx > 0 && m.role === "assistant") && aiConversationFeedback === null;
+  const showAiStarter = aiMode === "starter" && aiMessages.length <= 1;
+  const showTripForm = aiMode === "trip-form";
+  const aiInputPlaceholder = aiMode === "freeform"
+    ? "Ask anything related to Merry360X, trips, stays, tours, transport, or checkout..."
+    : aiMode === "trip-form"
+      ? "Use the trip form above or type a question here..."
+      : "Choose one of the guided options below or ask anything related to Merry360X...";
 
   return (
     <>
@@ -967,14 +1334,14 @@ export default function SupportCenterLauncher() {
                                   <span className="text-slate-500">
                                     {Number.isFinite(rec.rating as number) && (rec.rating || 0) > 0
                                       ? `★ ${Number(rec.rating).toFixed(1)} (${rec.review_count || 0})`
-                                      : rec.property_type || "Stay"}
+                                      : getRecommendationTypeLabel(rec)}
                                   </span>
                                 </div>
                                 <div className="mt-3 flex flex-wrap gap-2">
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      navigate(`/properties/${encodeURIComponent(rec.id)}`);
+                                      navigate(getRecommendationViewUrl(rec));
                                       setOpen(false);
                                     }}
                                     className="rounded-full border border-border px-3 py-1.5 text-[11px] font-medium hover:bg-muted"
@@ -1017,6 +1384,177 @@ export default function SupportCenterLauncher() {
                       ) : null}
                     </div>
                   ))}
+                  {showAiStarter ? (
+                    <div className="max-w-[92%] rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm text-slate-900 shadow-sm">
+                      <div className="text-sm font-semibold text-slate-900">What can I help with?</div>
+                      <div className="mt-1 text-xs text-slate-500">Start fast with one of these options.</div>
+                      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {AI_STARTER_OPTIONS.map((option) => (
+                          <button
+                            key={option.id}
+                            type="button"
+                            onClick={() => void handleAiStarter(option.id)}
+                            className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-left transition-colors hover:border-slate-300 hover:bg-white"
+                          >
+                            <div className="text-sm font-medium text-slate-900">{option.label}</div>
+                            <div className="mt-1 text-[11px] text-slate-500">{option.description}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                  {showTripForm ? (
+                    <div className="max-w-[92%] rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm text-slate-900 shadow-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-semibold text-slate-900">Plan a trip</div>
+                          <div className="mt-1 text-xs text-slate-500">Fill this once and Merry will build the trip from your details.</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setAiMode("starter")}
+                          className="rounded-full border border-slate-200 px-3 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                        >
+                          Back
+                        </button>
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="sm:col-span-2">
+                          <label className="mb-1 block text-[11px] font-medium text-slate-600">Where are you heading?</label>
+                          <Input value={tripForm.destination} onChange={(e) => updateTripForm("destination", e.target.value)} placeholder="Kigali, Musanze, Zanzibar, Nairobi..." className="h-10 text-sm" />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[11px] font-medium text-slate-600">Leaving from</label>
+                          <Input value={tripForm.leavingFrom} onChange={(e) => updateTripForm("leavingFrom", e.target.value)} placeholder="London, Kigali, Kampala..." className="h-10 text-sm" />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[11px] font-medium text-slate-600">Trip style</label>
+                          <Input value={tripForm.tripType} onChange={(e) => updateTripForm("tripType", e.target.value)} placeholder="Budget, family, luxury, romantic..." className="h-10 text-sm" />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[11px] font-medium text-slate-600">Start date</label>
+                          <Input type="date" value={tripForm.checkIn} onChange={(e) => updateTripForm("checkIn", e.target.value)} className="h-10 text-sm" />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[11px] font-medium text-slate-600">End date</label>
+                          <Input type="date" value={tripForm.checkOut} onChange={(e) => updateTripForm("checkOut", e.target.value)} className="h-10 text-sm" />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[11px] font-medium text-slate-600">Nights</label>
+                          <Input value={tripForm.nights} onChange={(e) => updateTripForm("nights", e.target.value)} inputMode="numeric" placeholder="3, 5, 7..." className="h-10 text-sm" />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[11px] font-medium text-slate-600">Travelers</label>
+                          <Input value={tripForm.travelers} onChange={(e) => updateTripForm("travelers", e.target.value)} inputMode="numeric" placeholder="2" className="h-10 text-sm" />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="mb-1 block text-[11px] font-medium text-slate-600">Budget</label>
+                          <Input value={tripForm.budget} onChange={(e) => updateTripForm("budget", e.target.value)} placeholder="Budget, mid-range, luxury, or a number" className="h-10 text-sm" />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="mb-1 block text-[11px] font-medium text-slate-600">Anything else?</label>
+                          <Textarea value={tripForm.notes} onChange={(e) => updateTripForm("notes", e.target.value)} placeholder="Airport pickup, gorilla trekking, cheapest route, family needs..." className="min-h-[84px] text-sm" />
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <Button size="sm" className="h-9 rounded-full px-4 text-xs" onClick={() => void submitTripPlanForm()} disabled={aiSending || !hasTripFormMinimum}>
+                          Plan my trip
+                        </Button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTripForm(EMPTY_TRIP_FORM);
+                            setAiMode("freeform");
+                          }}
+                          className="rounded-full border border-slate-200 px-3 py-2 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                        >
+                          Skip form and type instead
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                  {tripSummary ? (
+                    <div className="max-w-[92%] rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-semibold text-slate-900">Current trip plan</div>
+                          <div className="mt-1 text-[11px] text-slate-500">Edit the details or re-plan with the latest form.</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="text-[11px] text-slate-500">{formatTripDate(tripSummary.submittedAt.slice(0, 10))}</div>
+                          <button
+                            type="button"
+                            onClick={() => setTripSummaryExpanded((current) => !current)}
+                            className="rounded-full border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-white"
+                          >
+                            <span className="inline-flex items-center gap-1">
+                              {tripSummaryExpanded ? "Hide" : "Details"}
+                              {tripSummaryExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-slate-700">
+                        <span className="rounded-full bg-white px-2.5 py-1 font-medium text-slate-900">{tripSummary.destination || "Destination pending"}</span>
+                        <span className="rounded-full bg-white px-2.5 py-1">{tripSummary.nights || "Flexible"} nights</span>
+                        <span className="rounded-full bg-white px-2.5 py-1">{tripSummary.travelers || "Flexible"} travelers</span>
+                        <span className="rounded-full bg-white px-2.5 py-1">{formatTripDate(tripSummary.checkIn)} to {formatTripDate(tripSummary.checkOut)}</span>
+                      </div>
+                      {tripSummaryExpanded ? (
+                        <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-[11px] text-slate-600 sm:grid-cols-4">
+                          <div>
+                            <div className="font-medium text-slate-900">Destination</div>
+                            <div>{tripSummary.destination || "Not set"}</div>
+                          </div>
+                          <div>
+                            <div className="font-medium text-slate-900">Dates</div>
+                            <div>{formatTripDate(tripSummary.checkIn)} to {formatTripDate(tripSummary.checkOut)}</div>
+                          </div>
+                          <div>
+                            <div className="font-medium text-slate-900">Nights</div>
+                            <div>{tripSummary.nights || "Flexible"}</div>
+                          </div>
+                          <div>
+                            <div className="font-medium text-slate-900">Travelers</div>
+                            <div>{tripSummary.travelers || "Flexible"}</div>
+                          </div>
+                          <div>
+                            <div className="font-medium text-slate-900">From</div>
+                            <div>{tripSummary.leavingFrom || "Not set"}</div>
+                          </div>
+                          <div>
+                            <div className="font-medium text-slate-900">Budget</div>
+                            <div>{tripSummary.budget || "Flexible"}</div>
+                          </div>
+                          <div className="col-span-2 sm:col-span-2">
+                            <div className="font-medium text-slate-900">Style</div>
+                            <div>{tripSummary.tripType || tripSummary.notes || "General trip planning"}</div>
+                          </div>
+                        </div>
+                      ) : null}
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTripSummaryExpanded(true);
+                            setAiMode("trip-form");
+                          }}
+                          className="rounded-full border border-slate-200 px-3 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-white"
+                        >
+                          Edit trip
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void submitTripPlanForm()}
+                          className="rounded-full bg-slate-900 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-slate-800"
+                        >
+                          Re-plan
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
                   {aiSending && (
                     <div className="max-w-[92%] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm">
                       <div className="flex items-center gap-3">
@@ -1109,8 +1647,11 @@ export default function SupportCenterLauncher() {
                   <Input
                     className="h-10 rounded-full border-slate-200 bg-white text-sm"
                     value={aiDraft}
-                    onChange={(e) => setAiDraft(e.target.value)}
-                    placeholder="Ask Merry about stays, tours, airport pickup, or checkout..."
+                    onChange={(e) => {
+                      setAiDraft(e.target.value);
+                      if (aiMode === "starter") setAiMode("freeform");
+                    }}
+                    placeholder={aiInputPlaceholder}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();

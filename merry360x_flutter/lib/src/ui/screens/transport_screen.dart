@@ -123,9 +123,11 @@ class _TransportScreenState extends State<TransportScreen> {
   Widget _body() {
     if (_loading) return const Center(child: CircularProgressIndicator(color: AppColors.rausch));
     final items = _filtered;
-    if (items.isEmpty) return const Center(
+    if (items.isEmpty) {
+      return const Center(
       child: Text('No vehicles found', style: TextStyle(color: AppColors.foggy)),
     );
+    }
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: items.length,
@@ -163,7 +165,7 @@ class _TransportTile extends StatelessWidget {
             borderRadius: const BorderRadius.horizontal(left: Radius.circular(16)),
             child: imgUrl.isNotEmpty
                 ? Image.network(imgUrl, width: 110, height: 100, fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _ph())
+                    errorBuilder: (_, _, _) => _ph())
                 : _ph(),
           ),
           Expanded(

@@ -60,8 +60,9 @@ class _SearchScreenState extends State<SearchScreen> {
     final contains = <String>[];
     for (final d in _kDestinations) {
       final dl = d.toLowerCase();
-      if (dl == q) exact.add(d);
-      else if (dl.startsWith(q)) starts.add(d);
+      if (dl == q) {
+        exact.add(d);
+      } else if (dl.startsWith(q)) starts.add(d);
       else if (dl.contains(q)) contains.add(d);
     }
     return [...exact, ...starts, ...contains].take(20).toList();
@@ -78,7 +79,7 @@ class _SearchScreenState extends State<SearchScreen> {
   void _doSearch() {
     Navigator.of(context).push(
       PageRouteBuilder(
-        pageBuilder: (_, animation, __) => SearchResultsScreen(
+        pageBuilder: (_, animation, _) => SearchResultsScreen(
           query: _where.trim(),
           initialCategory: _category,
           dateRange: _dateRange,
@@ -86,7 +87,7 @@ class _SearchScreenState extends State<SearchScreen> {
           session: widget.session,
         ),
         transitionDuration: const Duration(milliseconds: 260),
-        transitionsBuilder: (_, animation, __, child) =>
+        transitionsBuilder: (_, animation, _, child) =>
             FadeTransition(opacity: animation, child: child),
       ),
     );
