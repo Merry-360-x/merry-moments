@@ -3,6 +3,8 @@
 import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { MessageCircle, ChevronLeft, ChevronDown, ChevronUp, Headset, Sparkles, X, Maximize2, Minimize2, Send, Paperclip, Smile, Reply, User, Image as ImageIcon, FileText, Clock, CheckCircle } from "lucide-react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { ChatSparkIcon } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -1271,7 +1273,7 @@ export default function SupportCenterLauncher() {
           <>
             <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-[0_18px_36px_rgba(15,23,42,0.16)]">
               <span className="absolute bottom-[7px] right-[9px] h-3.5 w-3.5 rotate-45 rounded-[4px] bg-white" />
-              <MessageCircle className="absolute h-9 w-9 text-orange-100" strokeWidth={1.6} />
+              <HugeiconsIcon icon={ChatSparkIcon} className="absolute h-9 w-9 text-orange-100" strokeWidth={1.5} />
               <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-white">
                 <img src="/brand/logo.png" alt="Merry AI" className="h-6 w-6 object-contain" loading="eager" />
               </div>
