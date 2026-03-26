@@ -1251,7 +1251,7 @@ export default function SupportCenterLauncher() {
       {/* Floating button */}
       <button
         type="button"
-        className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+6.25rem)] right-4 z-[110] h-[68px] w-[68px] bg-transparent text-slate-900 flex items-center justify-center transition-transform hover:scale-[1.03] sm:bottom-5 sm:right-5"
+        className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+6.25rem)] right-4 z-[110] h-[72px] w-[72px] bg-transparent text-slate-900 flex items-center justify-center transition-transform hover:scale-[1.03] sm:bottom-5 sm:right-5"
         aria-label="Open Merry AI and support"
         onClick={() => {
           setOpen(!open);
@@ -1269,15 +1269,17 @@ export default function SupportCenterLauncher() {
           </span>
         ) : (
           <>
-            <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-[0_18px_36px_rgba(15,23,42,0.16)]">
+            <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-[0_18px_36px_rgba(15,23,42,0.16)]">
+              <span className="absolute bottom-[7px] right-[9px] h-3.5 w-3.5 rotate-45 rounded-[4px] bg-white" />
+              <MessageCircle className="absolute h-9 w-9 text-orange-100" strokeWidth={1.6} />
               <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-white">
                 <img src="/brand/logo.png" alt="Merry AI" className="h-6 w-6 object-contain" loading="eager" />
               </div>
+              <span className="absolute bottom-1.5 left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-full border border-orange-100 bg-orange-50/95 px-1.5 py-0.5 text-[7px] font-semibold uppercase tracking-[0.16em] text-orange-700">
+                <Sparkles className="h-2 w-2 text-orange-500" />
+                AI
+              </span>
             </div>
-            <span className="absolute bottom-[7px] left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-full bg-slate-950/96 px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.14em] text-white shadow-[0_10px_18px_rgba(15,23,42,0.16)]">
-              <Sparkles className="h-2 w-2 text-orange-300" />
-              AI
-            </span>
           </>
         )}
         {!open && unreadCount > 0 && (
