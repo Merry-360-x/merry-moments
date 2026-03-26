@@ -213,7 +213,7 @@ export default function BecomeHost() {
               {/* What you can host */}
               <div className="pt-4 border-t">
                 <p className="text-sm font-medium mb-3">As a host, you can list:</p>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                   <div className="flex flex-col items-center gap-2 p-3 rounded-lg bg-muted/50">
                     <Home className="w-6 h-6 text-primary" />
                     <span className="text-xs text-center">Accommodations</span>

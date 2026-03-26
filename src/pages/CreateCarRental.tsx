@@ -395,7 +395,7 @@ export default function CreateCarRental() {
 
             <div className="space-y-4">
               <h2 className="text-xl font-semibold border-b pb-2">Vehicle Details</h2>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div>
                   <Label>Brand *</Label>
                   <Input
@@ -426,7 +426,7 @@ export default function CreateCarRental() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <Label>Car Type *</Label>
                   <Select value={formData.car_type} onValueChange={(v) => setFormData({ ...formData, car_type: v })}>
@@ -452,7 +452,7 @@ export default function CreateCarRental() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <Label>Transmission *</Label>
                   <Select value={formData.transmission} onValueChange={(v) => setFormData({ ...formData, transmission: v })}>
@@ -501,7 +501,7 @@ export default function CreateCarRental() {
           <>
             <div className="space-y-4">
               <h2 className="text-xl font-semibold border-b pb-2">Pricing</h2>
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <div>
                   <Label>Currency *</Label>
                   <Select value={formData.currency} onValueChange={(v) => setFormData({ ...formData, currency: v })}>
@@ -531,7 +531,7 @@ export default function CreateCarRental() {
             </div>
             <div className="space-y-4">
               <h2 className="text-xl font-semibold border-b pb-2">Key Features</h2>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {keyFeaturesList.map((feature) => (
                   <label key={feature} className="flex items-center gap-2 cursor-pointer">
                     <Checkbox
@@ -556,7 +556,7 @@ export default function CreateCarRental() {
               <Label>Exterior Media * (at least 1 photo or video)</Label>
               <div className="mt-2">
                 {exteriorImages.length > 0 && (
-                  <div className="grid grid-cols-4 gap-2 mb-2">
+                  <div className="mb-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {exteriorImages.map((url, idx) => (
                       <div key={idx} className="relative group">
                         {isVideoUrl(url) ? (
@@ -580,7 +580,7 @@ export default function CreateCarRental() {
               <Label>Interior Media</Label>
               <div className="mt-2">
                 {interiorImages.length > 0 && (
-                  <div className="grid grid-cols-4 gap-2 mb-2">
+                  <div className="mb-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {interiorImages.map((url, idx) => (
                       <div key={idx} className="relative group">
                         {isVideoUrl(url) ? (
@@ -606,7 +606,7 @@ export default function CreateCarRental() {
         {wizardStep === 4 && (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold border-b pb-2">Legal & Safety Documents *</h2>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div><Label>Insurance Document *</Label><div className="mt-2">{insuranceDoc && <p className="text-sm text-green-600 mb-2">✓ Document uploaded</p>}<Button type="button" variant="outline" onClick={() => setInsuranceDialogOpen(true)}><Upload className="w-4 h-4 mr-2" /> Upload Insurance</Button></div></div>
               <div><Label>Registration Document *</Label><div className="mt-2">{registrationDoc && <p className="text-sm text-green-600 mb-2">✓ Document uploaded</p>}<Button type="button" variant="outline" onClick={() => setRegistrationDialogOpen(true)}><Upload className="w-4 h-4 mr-2" /> Upload Registration</Button></div></div>
               <div><Label>Roadworthiness Certificate *</Label><div className="mt-2">{roadworthinessDoc && <p className="text-sm text-green-600 mb-2">✓ Document uploaded</p>}<Button type="button" variant="outline" onClick={() => setRoadworthinessDialogOpen(true)}><Upload className="w-4 h-4 mr-2" /> Upload Certificate</Button></div></div>
