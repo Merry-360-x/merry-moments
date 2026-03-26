@@ -76,7 +76,6 @@ const Transport = () => {
   const [vehicle, setVehicle] = useState(ALL_VEHICLES_VALUE);
   const [expandedAirportVehicleId, setExpandedAirportVehicleId] = useState<string | null>(null);
   const [airportDirectionFilter, setAirportDirectionFilter] = useState<"from" | "to">("from");
-  const [autoLocationRequested, setAutoLocationRequested] = useState(false);
   const { addToCart: addCartItem } = useTripCart();
   const { currency: preferredCurrency } = usePreferences();
   const { usdRates } = useFxRates();
@@ -107,28 +106,30 @@ const Transport = () => {
     navigate(qs ? `/transport?${qs}` : "/transport");
   };
 
-  const requestNearbyRecommendations = async (options?: { silent?: boolean }) => {
+  const requestNearbyRecommendations = useCallback(async (options?: { silent?: boolean; position?: GeolocationPosition }) => {
     const silent = Boolean(options?.silent);
 
-    if (!("geolocation" in navigator)) {
-      if (!silent) {
-        toast({ variant: "destructive", title: "Location not available", description: "Your browser does not support geolocation." });
-      }
-      return;
-    }
+    const applyPosition = async (pos: GeolocationPosition) => {
+      const params = new URLSearchParams(searchParams);
+      const latitude = pos.coords.latitude;
+      const longitude = pos.coords.longitude;
+      const currentLat = Number(searchParams.get("lat"));
+      const currentLng = Number(searchParams.get("lng"));
+      const currentRegion = (searchParams.get("region") ?? "").trim();
+      const coordsChanged =
+        !Number.isFinite(currentLat) ||
+        !Number.isFinite(currentLng) ||
+        Math.abs(currentLat - latitude) > 0.0005 ||
+        Math.abs(currentLng - longitude) > 0.0005;
 
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const params = new URLSearchParams();
-        params.set("nearby", "1");
-        params.set("lat", String(pos.coords.latitude));
-        params.set("lng", String(pos.coords.longitude));
-        if (query.trim()) params.set("q", query.trim());
-        if (vehicle && vehicle !== ALL_VEHICLES_VALUE) params.set("vehicle", vehicle);
+      params.set("nearby", "1");
+      params.set("lat", String(latitude));
+      params.set("lng", String(longitude));
 
+      if (coordsChanged || !currentRegion) {
         try {
           const reverse = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`,
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`,
             { headers: { Accept: "application/json" } }
           );
           const info = await reverse.json().catch(() => null);
@@ -140,8 +141,29 @@ const Transport = () => {
         } catch {
           // Keep nearby coords even if reverse geocoding fails
         }
+      }
 
-        navigate(`/transport?${params.toString()}`);
+      const nextQuery = params.toString();
+      if (nextQuery !== searchParams.toString()) {
+        navigate(`/transport?${nextQuery}`, { replace: true });
+      }
+    };
+
+    if (options?.position) {
+      await applyPosition(options.position);
+      return;
+    }
+
+    if (!("geolocation" in navigator)) {
+      if (!silent) {
+        toast({ variant: "destructive", title: "Location not available", description: "Your browser does not support geolocation." });
+      }
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        void applyPosition(pos);
       },
       () => {
         if (!silent) {
@@ -150,13 +172,73 @@ const Transport = () => {
       },
       { enableHighAccuracy: false, timeout: 8000 }
     );
-  };
+  }, [navigate, searchParams, toast]);
 
   useEffect(() => {
-    if (autoLocationRequested || nearby) return;
-    setAutoLocationRequested(true);
-    requestNearbyRecommendations({ silent: true });
-  }, [autoLocationRequested, nearby]);
+    let watchId: number | null = null;
+    let permissionStatus: PermissionStatus | null = null;
+    let cancelled = false;
+
+    const stopWatching = () => {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+    };
+
+    const startWatching = () => {
+      if (!("geolocation" in navigator) || watchId !== null) return;
+
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          void requestNearbyRecommendations({ silent: true, position: pos });
+        },
+        () => {
+          stopWatching();
+        },
+        { enableHighAccuracy: false, maximumAge: 60000, timeout: 10000 }
+      );
+    };
+
+    const syncNearbyRecommendations = async () => {
+      if (!("permissions" in navigator) || typeof navigator.permissions?.query !== "function") {
+        await requestNearbyRecommendations({ silent: true });
+        startWatching();
+        return;
+      }
+
+      try {
+        permissionStatus = await navigator.permissions.query({ name: "geolocation" });
+        if (cancelled) return;
+
+        const handlePermissionChange = () => {
+          if (permissionStatus?.state === "granted") {
+            void requestNearbyRecommendations({ silent: true });
+            startWatching();
+          } else {
+            stopWatching();
+          }
+        };
+
+        permissionStatus.onchange = handlePermissionChange;
+        if (permissionStatus.state === "granted") {
+          await requestNearbyRecommendations({ silent: true });
+          startWatching();
+        }
+      } catch {
+        await requestNearbyRecommendations({ silent: true });
+        startWatching();
+      }
+    };
+
+    void syncNearbyRecommendations();
+
+    return () => {
+      cancelled = true;
+      stopWatching();
+      if (permissionStatus) permissionStatus.onchange = null;
+    };
+  }, [requestNearbyRecommendations]);
 
   const { data: services = [] } = useQuery({
     queryKey: ["transport_services"],
