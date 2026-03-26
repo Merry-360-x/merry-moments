@@ -30,7 +30,6 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const AccessDenied = lazy(() => import("./pages/AccessDenied"));
 const BecomeHost = lazy(() => import("./pages/BecomeHost"));
 const BookingsPage = lazy(() => import("./pages/BookingsPage"));
-const AdminRoles = lazy(() => import("./pages/AdminRoles"));
 const PropertyDetails = lazy(() => import("./pages/PropertyDetails"));
 const TripCart = lazy(() => import("./pages/TripCart"));
 const Checkout = lazy(() => import("./pages/Checkout"));
@@ -561,14 +560,6 @@ const App = () => (
                 }
               />
               <Route path="/admin-dashboard" element={<Navigate to="/admin" replace />} />
-              <Route
-                path="/admin/roles"
-                element={
-                  <RequireRole allowed={["admin"]}>
-                    <AdminRoles />
-                  </RequireRole>
-                }
-              />
               <Route
                 path="/admin/integrations"
                 element={

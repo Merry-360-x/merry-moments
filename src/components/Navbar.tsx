@@ -37,7 +37,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTripCart } from "@/hooks/useTripCart";
 import { useQuery } from "@tanstack/react-query";
 import { normalizeAdminMetrics } from "@/lib/admin-metrics";
-import { getPreferredDashboardPath } from "@/lib/role-dashboard";
 
 const navLinks = [
   { key: "nav.home", path: "/" },
@@ -79,7 +78,7 @@ const getLatestBookingDecisionTimestamp = (
 const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, signOut, roles, isHost, isAdmin, isStaff, isFinancialStaff, isOperationsStaff, isCustomerSupport } = useAuth();
+  const { user, signOut, isHost, isAdmin, isStaff, isFinancialStaff, isOperationsStaff, isCustomerSupport } = useAuth();
   const { guestCart } = useTripCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [decisionSeenAt, setDecisionSeenAt] = useState<string>("");
@@ -266,8 +265,6 @@ const Navbar = () => {
     setDecisionSeenAt(nextSeenAt);
     window.dispatchEvent(new CustomEvent(BOOKING_DECISION_SEEN_EVENT, { detail: { seenAt: nextSeenAt } }));
   }, [bookingDecisions, user?.id]);
-
-  const primaryDashboardPath = useMemo(() => getPreferredDashboardPath(roles), [roles]);
 
   return (
     <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
@@ -496,10 +493,6 @@ const Navbar = () => {
                     {user.email}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate(primaryDashboardPath ?? "/dashboard")}>
-                    <User className="w-4 h-4 mr-2" />
-                    {primaryDashboardPath ? "My Dashboard" : "My Profile"}
-                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => {
                     markBookingDecisionsSeen();
                     navigate("/my-bookings");
@@ -525,11 +518,6 @@ const Navbar = () => {
                           {openTicketsCount > 99 ? "99+" : openTicketsCount}
                         </span>
                       )}
-                    </DropdownMenuItem>
-                  )}
-                  {isAdmin && (
-                    <DropdownMenuItem onClick={() => navigate("/admin/roles")}> 
-                      {t("actions.manageRoles")}
                     </DropdownMenuItem>
                   )}
                   {isFinancialStaff && (
@@ -709,17 +697,6 @@ const Navbar = () => {
                       <div className="text-xs text-muted-foreground">{user.email}</div>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="justify-start gap-2"
-                        onClick={() => {
-                          setMobileMenuOpen(false);
-                          navigate(primaryDashboardPath ?? "/dashboard");
-                        }}
-                      >
-                        <User className="w-4 h-4" /> {primaryDashboardPath ? "Dashboard" : "Profile"}
-                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
