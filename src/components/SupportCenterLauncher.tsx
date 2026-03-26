@@ -1206,10 +1206,10 @@ export default function SupportCenterLauncher() {
   // Dynamic sizing
   const isHomeStep = step === "home";
   const popupWidth = expanded
-    ? "w-[calc(100vw-1.25rem)] sm:w-[min(66vw,72rem)]"
+    ? "w-[calc(100vw-1.25rem)] sm:w-[min(66.666vw,72rem)]"
     : "w-[calc(100vw-1.25rem)] sm:w-[28rem]";
   const popupAvailableHeight = "calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 1.5rem)";
-  const popupDefaultHeight = isHomeStep ? (expanded ? 520 : 360) : expanded ? 760 : 600;
+  const popupDefaultHeight = isHomeStep ? (expanded ? Math.round(window.innerHeight * 0.66666) : 360) : expanded ? Math.round(window.innerHeight * 0.66666) : 600;
   const popupHeight = `min(${popupDefaultHeight}px, ${popupAvailableHeight})`;
 
   const autoCloseWarning = getAutoCloseWarning();
