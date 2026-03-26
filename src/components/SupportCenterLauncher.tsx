@@ -1241,8 +1241,8 @@ export default function SupportCenterLauncher() {
   return (
     <>
       <div
-        className={`pointer-events-none fixed bottom-[calc(env(safe-area-inset-bottom,0px)+7.2rem)] right-4 z-[109] max-w-[220px] rounded-full bg-slate-950 px-3 py-2 text-[11px] font-medium text-white shadow-[0_18px_38px_rgba(15,23,42,0.18)] transition-all duration-300 sm:bottom-[5.8rem] sm:right-5 ${
-          homePromptVisible ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
+        className={`pointer-events-none fixed bottom-[calc(env(safe-area-inset-bottom,0px)+6.85rem)] right-[5.5rem] z-[109] max-w-[220px] rounded-full bg-slate-950 px-3 py-2 text-[11px] font-medium text-white shadow-[0_18px_38px_rgba(15,23,42,0.18)] transition-all duration-300 sm:bottom-[4.8rem] sm:right-[5.75rem] ${
+          homePromptVisible ? "translate-x-0 opacity-100" : "translate-x-3 opacity-0"
         }`}
       >
         Ask your AI concierge anything
